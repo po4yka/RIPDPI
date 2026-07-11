@@ -14,17 +14,18 @@ use ripdpi_proxy_runtime_adapter::model::decision::{ExtractedHost, HostSource, T
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
 
-use super::flow::{UdpFlowActivationState, udp_flow_at_capacity};
+use super::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, udp_flow_at_capacity};
 use super::session::UdpFlowSession;
-use super::upstream_pump::pump_udp_upstream_responses;
 #[cfg(unix)]
 use super::upstream_pump::ready_udp_poll_keys;
+use super::upstream_pump::{UdpUpstreamPollScratch, pump_udp_upstream_responses};
 use super::{
     RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, build_udp_relay_sockets,
     encode_socks5_udp_packet, parse_socks5_udp_packet, sockets,
 };
 use crate::runtime::routing::preferred_targets_for_transport;
 use crate::runtime::state::RuntimeState;
+use crate::runtime::state::UDP_FLOW_IDLE_TIMEOUT;
 use crate::runtime::types::RuntimeConnectionRoute;
 
 fn test_runtime_state(config: RuntimeConfig) -> RuntimeState {
@@ -254,6 +255,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
 
     let mut upstream_buffer = [0u8; 1500];
     let mut encode_buffer = Vec::new();
+    let mut poll_scratch = UdpUpstreamPollScratch::default();
     let deadline = Instant::now() + Duration::from_secs(1);
     let made_progress = loop {
         let made_progress = pump_udp_upstream_responses(
@@ -262,6 +264,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
             &mut upstream_buffer,
             &mut encode_buffer,
             &mut flow_state,
+            &mut poll_scratch,
             None,
         )
         .expect("pump upstream response");
@@ -372,6 +375,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
 
     let mut upstream_buffer = [0u8; 1500];
     let mut encode_buffer = Vec::new();
+    let mut poll_scratch = UdpUpstreamPollScratch::default();
     let deadline = Instant::now() + Duration::from_secs(2);
     loop {
         let made_progress = pump_udp_upstream_responses(
@@ -380,6 +384,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
             &mut upstream_buffer,
             &mut encode_buffer,
             &mut flow_state,
+            &mut poll_scratch,
             None,
         )
         .expect("pump upstream response");
@@ -429,34 +434,86 @@ fn udp_flow_capacity_rejects_only_new_flows_once_limit_is_reached() {
     assert!(udp_flow_at_capacity(&flow_state, (client, third_target), 2));
 }
 
+#[test]
+fn udp_flow_expiry_schedule_tracks_empty_and_earliest_deadline() {
+    let base = Instant::now();
+    let mut schedule = UdpFlowExpirySchedule::default();
+
+    schedule.refresh(std::iter::empty());
+    assert_eq!(schedule.next_deadline(), None);
+
+    schedule.refresh([base + Duration::from_secs(5), base, base + Duration::from_secs(2)].into_iter());
+    assert_eq!(schedule.next_deadline(), Some(base + UDP_FLOW_IDLE_TIMEOUT));
+}
+
+#[test]
+fn udp_flow_expiry_schedule_refresh_moves_earliest_deadline_later() {
+    let base = Instant::now();
+    let mut schedule = UdpFlowExpirySchedule::default();
+
+    schedule.refresh([base, base + Duration::from_secs(2)].into_iter());
+    assert_eq!(schedule.next_deadline(), Some(base + UDP_FLOW_IDLE_TIMEOUT));
+
+    schedule.refresh([base + Duration::from_secs(5), base + Duration::from_secs(2)].into_iter());
+    assert_eq!(schedule.next_deadline(), Some(base + Duration::from_secs(2) + UDP_FLOW_IDLE_TIMEOUT));
+}
+
+#[test]
+fn udp_flow_expiry_schedule_is_due_at_or_after_deadline() {
+    let base = Instant::now();
+    let deadline = base + UDP_FLOW_IDLE_TIMEOUT;
+    let mut schedule = UdpFlowExpirySchedule::default();
+    schedule.refresh([base].into_iter());
+
+    assert!(!schedule.is_due(deadline - Duration::from_nanos(1)));
+    assert!(schedule.is_due(deadline));
+    assert!(schedule.is_due(deadline + Duration::from_nanos(1)));
+}
+
 #[cfg(unix)]
 #[test]
 fn udp_upstream_poll_returns_only_ready_flow_keys() {
     let ready_receiver =
         std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("ready receiver");
-    ready_receiver.set_nonblocking(true).expect("ready receiver nonblocking");
+    ready_receiver.set_read_timeout(Some(Duration::from_secs(1))).expect("ready receiver timeout");
     let idle_receiver =
         std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("idle receiver");
     idle_receiver.set_nonblocking(true).expect("idle receiver nonblocking");
     let sender = std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("sender");
 
-    sender.send_to(b"ready", ready_receiver.local_addr().expect("ready receiver addr")).expect("send ready datagram");
-
     let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 10_800);
     let ready_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 30)), 443);
     let idle_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 31)), 443);
     let poll_entries =
-        [((client, ready_target), ready_receiver.as_raw_fd()), ((client, idle_target), idle_receiver.as_raw_fd())];
-    let deadline = Instant::now() + Duration::from_secs(1);
-    let ready = loop {
-        let ready = ready_udp_poll_keys(&poll_entries).expect("poll ready udp sockets");
-        if !ready.is_empty() || Instant::now() >= deadline {
-            break ready;
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    };
+        vec![((client, ready_target), ready_receiver.as_raw_fd()), ((client, idle_target), idle_receiver.as_raw_fd())];
+    let mut pollfds = Vec::new();
+    let mut ready = Vec::new();
+
+    sender.send_to(b"first", ready_receiver.local_addr().expect("ready receiver addr")).expect("send first datagram");
+    let mut received = [0u8; 16];
+    ready_receiver.peek(&mut received).expect("observe first datagram without draining it");
+    ready_udp_poll_keys(&poll_entries, &mut pollfds, &mut ready).expect("poll first ready udp socket");
+    assert_eq!(ready, vec![(client, ready_target)]);
+    let entry_ptr = poll_entries.as_ptr();
+    let entry_capacity = poll_entries.capacity();
+    let pollfd_ptr = pollfds.as_ptr();
+    let pollfd_capacity = pollfds.capacity();
+    let ready_ptr = ready.as_ptr();
+    let ready_capacity = ready.capacity();
+
+    ready_receiver.recv(&mut received).expect("drain first datagram");
+    sender.send_to(b"second", ready_receiver.local_addr().expect("ready receiver addr")).expect("send second datagram");
+    ready_receiver.peek(&mut received).expect("observe second datagram without draining it");
+    ready_udp_poll_keys(&poll_entries, &mut pollfds, &mut ready).expect("poll second ready udp socket");
 
     assert_eq!(ready, vec![(client, ready_target)]);
+    assert_eq!(poll_entries.len(), 2);
+    assert_eq!(poll_entries.as_ptr(), entry_ptr);
+    assert_eq!(poll_entries.capacity(), entry_capacity);
+    assert_eq!(pollfds.as_ptr(), pollfd_ptr);
+    assert_eq!(pollfds.capacity(), pollfd_capacity);
+    assert_eq!(ready.as_ptr(), ready_ptr);
+    assert_eq!(ready.capacity(), ready_capacity);
 }
 
 // -------------------------------------------------------------------------

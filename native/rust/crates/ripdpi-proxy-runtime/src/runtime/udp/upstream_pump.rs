@@ -15,16 +15,26 @@ use crate::runtime::state::RuntimeState;
 
 type UdpFlowKey = (SocketAddr, SocketAddr);
 
+#[derive(Default)]
+pub(super) struct UdpUpstreamPollScratch {
+    #[cfg(unix)]
+    entries: Vec<(UdpFlowKey, RawFd)>,
+    #[cfg(unix)]
+    pollfds: Vec<libc::pollfd>,
+    ready_keys: Vec<UdpFlowKey>,
+}
+
 pub(super) fn pump_udp_upstream_responses(
     state: &RuntimeState,
     client_relay: &UdpSocket,
     upstream_buffer: &mut [u8],
     encode_buffer: &mut Vec<u8>,
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
+    poll_scratch: &mut UdpUpstreamPollScratch,
     protect_path: Option<&str>,
 ) -> io::Result<bool> {
     let mut made_progress = false;
-    for (client_addr, logical_target) in ready_udp_flow_keys(flow_state)? {
+    for &(client_addr, logical_target) in ready_udp_flow_keys(flow_state, poll_scratch)? {
         let Some(entry) = flow_state.get_mut(&(client_addr, logical_target)) else {
             continue;
         };
@@ -79,24 +89,39 @@ fn strip_socks5_udp_header(packet: &[u8]) -> Option<&[u8]> {
 }
 
 #[cfg(unix)]
-fn ready_udp_flow_keys(flow_state: &HashMap<UdpFlowKey, UdpFlowActivationState>) -> io::Result<Vec<UdpFlowKey>> {
-    let entries = flow_state.iter().map(|(&key, entry)| (key, entry.upstream.as_raw_fd())).collect::<Vec<_>>();
-    ready_udp_poll_keys(&entries)
+fn ready_udp_flow_keys<'a>(
+    flow_state: &HashMap<UdpFlowKey, UdpFlowActivationState>,
+    scratch: &'a mut UdpUpstreamPollScratch,
+) -> io::Result<&'a [UdpFlowKey]> {
+    scratch.entries.clear();
+    scratch.entries.extend(flow_state.iter().map(|(&key, entry)| (key, entry.upstream.as_raw_fd())));
+    ready_udp_poll_keys(&scratch.entries, &mut scratch.pollfds, &mut scratch.ready_keys)?;
+    Ok(&scratch.ready_keys)
 }
 
 #[cfg(not(unix))]
-fn ready_udp_flow_keys(flow_state: &HashMap<UdpFlowKey, UdpFlowActivationState>) -> io::Result<Vec<UdpFlowKey>> {
-    Ok(flow_state.keys().copied().collect())
+fn ready_udp_flow_keys<'a>(
+    flow_state: &HashMap<UdpFlowKey, UdpFlowActivationState>,
+    scratch: &'a mut UdpUpstreamPollScratch,
+) -> io::Result<&'a [UdpFlowKey]> {
+    scratch.ready_keys.clear();
+    scratch.ready_keys.extend(flow_state.keys().copied());
+    Ok(&scratch.ready_keys)
 }
 
 #[cfg(unix)]
-pub(super) fn ready_udp_poll_keys(entries: &[(UdpFlowKey, RawFd)]) -> io::Result<Vec<UdpFlowKey>> {
+pub(super) fn ready_udp_poll_keys(
+    entries: &[(UdpFlowKey, RawFd)],
+    pollfds: &mut Vec<libc::pollfd>,
+    ready_keys: &mut Vec<UdpFlowKey>,
+) -> io::Result<()> {
+    pollfds.clear();
+    ready_keys.clear();
     if entries.is_empty() {
-        return Ok(Vec::new());
+        return Ok(());
     }
 
-    let mut pollfds =
-        entries.iter().map(|&(_, fd)| libc::pollfd { fd, events: libc::POLLIN, revents: 0 }).collect::<Vec<_>>();
+    pollfds.extend(entries.iter().map(|&(_, fd)| libc::pollfd { fd, events: libc::POLLIN, revents: 0 }));
     // SAFETY: `pollfds` is a live mutable buffer for the full call, and
     // `libc::poll` only reads/writes within the pointer plus exact length.
     let result = unsafe { libc::poll(pollfds.as_mut_ptr(), pollfds.len() as libc::nfds_t, 0) };
@@ -104,15 +129,17 @@ pub(super) fn ready_udp_poll_keys(entries: &[(UdpFlowKey, RawFd)]) -> io::Result
         return Err(io::Error::last_os_error());
     }
     if result == 0 {
-        return Ok(Vec::new());
+        return Ok(());
     }
 
     const READY_EVENTS: libc::c_short = libc::POLLIN | libc::POLLERR | libc::POLLHUP | libc::POLLNVAL;
-    Ok(entries
-        .iter()
-        .zip(pollfds.iter())
-        .filter_map(|(&(key, _), pollfd)| (pollfd.revents & READY_EVENTS != 0).then_some(key))
-        .collect())
+    ready_keys.extend(
+        entries
+            .iter()
+            .zip(pollfds.iter())
+            .filter_map(|(&(key, _), pollfd)| (pollfd.revents & READY_EVENTS != 0).then_some(key)),
+    );
+    Ok(())
 }
 
 pub(super) fn send_udp_flow_payload(

@@ -21,13 +21,13 @@ use std::time::{Duration, Instant};
 use crate::sync::{Arc, AtomicBool, Ordering};
 
 use self::client_receive::receive_and_forward_udp_client_packet;
-use self::flow::{UdpFlowActivationState, expire_udp_flows};
+use self::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, expire_udp_flows};
 pub(in crate::runtime) use self::settings::{
     RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
     runtime_udp_packet_settings,
 };
 pub(crate) use self::sockets::build_udp_relay_sockets;
-use self::upstream_pump::pump_udp_upstream_responses;
+use self::upstream_pump::{UdpUpstreamPollScratch, pump_udp_upstream_responses};
 use super::adaptive::emit_due_direct_path_learning_timeouts;
 use super::state::RuntimeState;
 
@@ -55,11 +55,18 @@ pub(super) fn udp_associate_loop(
     let mut upstream_buffer = [0u8; 65_535];
     let mut encode_buffer: Vec<u8> = Vec::with_capacity(65_535 + 24);
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
+    let mut expiry_schedule = UdpFlowExpirySchedule::default();
+    let mut expired_flow_keys = Vec::new();
+    let mut upstream_poll_scratch = UdpUpstreamPollScratch::default();
     let flow_limit = state.udp_flow_limit();
 
     while running.load(Ordering::Relaxed) {
         emit_due_direct_path_learning_timeouts(&state)?;
-        expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now())?;
+        let now = Instant::now();
+        if expiry_schedule.is_due(now) {
+            expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), now, &mut expired_flow_keys)?;
+            expiry_schedule.refresh(flow_state.values().map(|entry| entry.last_used));
+        }
         let mut made_progress = receive_and_forward_udp_client_packet(
             &client_relay,
             &mut client_buffer,
@@ -70,12 +77,22 @@ pub(super) fn udp_associate_loop(
             protect_path.as_deref(),
         )?;
 
+        if expiry_schedule.next_deadline().is_none() && !flow_state.is_empty() {
+            // A new flow starts at the current time, so while a deadline is
+            // cached it cannot expire earlier than that deadline. The only
+            // transition that needs scheduling is empty to non-empty. Refreshes
+            // can make a cached deadline stale-early, never stale-late; the due
+            // scan then corrects it.
+            expiry_schedule.refresh(flow_state.values().map(|entry| entry.last_used));
+        }
+
         made_progress |= pump_udp_upstream_responses(
             &state,
             &client_relay,
             &mut upstream_buffer,
             &mut encode_buffer,
             &mut flow_state,
+            &mut upstream_poll_scratch,
             protect_path.as_deref(),
         )?;
 
@@ -84,6 +101,6 @@ pub(super) fn udp_associate_loop(
         }
     }
 
-    expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now())?;
+    expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now(), &mut expired_flow_keys)?;
     Ok(())
 }

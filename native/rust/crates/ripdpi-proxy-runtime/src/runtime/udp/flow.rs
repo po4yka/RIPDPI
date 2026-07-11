@@ -42,6 +42,25 @@ impl UdpFlowActivationState {
     }
 }
 
+#[derive(Debug, Default)]
+pub(super) struct UdpFlowExpirySchedule {
+    next_deadline: Option<Instant>,
+}
+
+impl UdpFlowExpirySchedule {
+    pub(super) fn refresh(&mut self, last_used: impl Iterator<Item = Instant>) {
+        self.next_deadline = last_used.map(|last_used| last_used + UDP_FLOW_IDLE_TIMEOUT).min();
+    }
+
+    pub(super) fn next_deadline(&self) -> Option<Instant> {
+        self.next_deadline
+    }
+
+    pub(super) fn is_due(&self, now: Instant) -> bool {
+        self.next_deadline.is_some_and(|deadline| now >= deadline)
+    }
+}
+
 pub(super) fn udp_flow_at_capacity<T>(
     flow_state: &HashMap<(SocketAddr, SocketAddr), T>,
     flow_key: (SocketAddr, SocketAddr),
@@ -55,14 +74,17 @@ pub(super) fn expire_udp_flows(
     flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
     protect_path: Option<&str>,
     now: Instant,
+    expired: &mut Vec<(SocketAddr, SocketAddr)>,
 ) -> io::Result<()> {
-    let expired = flow_state
-        .iter()
-        .filter(|(_, value)| now.duration_since(value.last_used) >= UDP_FLOW_IDLE_TIMEOUT)
-        .map(|(key, _)| *key)
-        .collect::<Vec<_>>();
+    expired.clear();
+    expired.extend(
+        flow_state
+            .iter()
+            .filter(|(_, value)| now.duration_since(value.last_used) >= UDP_FLOW_IDLE_TIMEOUT)
+            .map(|(key, _)| *key),
+    );
 
-    for (client_addr, target) in expired {
+    for (client_addr, target) in expired.iter().copied() {
         let Some(mut entry) = flow_state.remove(&(client_addr, target)) else {
             continue;
         };
