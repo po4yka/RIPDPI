@@ -1,6 +1,7 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -13,23 +14,56 @@ use crate::socks::target::RelayTargetAddr;
 use crate::socks::telemetry::{SocksSessionConfig, SocksTelemetry};
 use crate::socks::udp::handle_udp_associate;
 
+const SOCKS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+const SOCKS_HANDSHAKE_TIMEOUT_MESSAGE: &str = "relay SOCKS handshake timed out";
+
+#[derive(Debug)]
+enum PreReplyNegotiation {
+    Cancelled,
+    Request { command: u8, target: RelayTargetAddr },
+}
+
+/// NOT cancel-safe: the deadline and cancellation arms may drop `read_exact` or `write_all` after partial progress. This is valid only before a SOCKS command success reply exists: the caller returns immediately and drops the client socket, so no established relay or UDP association is abandoned.
+async fn negotiate_request<S>(
+    client: &mut S,
+    deadline: Duration,
+    cancel: &CancellationToken,
+) -> io::Result<PreReplyNegotiation>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let negotiation = async {
+        negotiate_no_auth(client).await?;
+
+        let mut request_header = [0u8; 4];
+        client.read_exact(&mut request_header).await?;
+        if request_header[0] != 0x05 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 request"));
+        }
+
+        let command = request_header[1];
+        let target = read_target(client, request_header[3]).await?;
+        Ok::<_, io::Error>(PreReplyNegotiation::Request { command, target })
+    };
+
+    tokio::select! {
+        biased;
+        () = cancel.cancelled() => Ok(PreReplyNegotiation::Cancelled),
+        result = negotiation => result,
+        () = tokio::time::sleep(deadline) => {
+            Err(io::Error::new(io::ErrorKind::TimedOut, SOCKS_HANDSHAKE_TIMEOUT_MESSAGE))
+        }
+    }
+}
+
 /// Negotiate the SOCKS5 method, parse the request, and dispatch the command.
 ///
 /// # Cancel safety
 ///
-/// Cancel-safe. `cancel` is the session's shutdown token (a child of the runtime
-/// shutdown token), and this function owns every cancellation point — the caller
-/// (`runtime/session.rs`) no longer wraps the call in a drop-on-cancel `select!`.
+/// NOT cancel-safe if externally dropped after a command success reply. `runtime/session.rs` therefore awaits it directly and this function owns every cancellation point through the session shutdown token.
 ///
-/// - The **pre-reply** phase (method negotiation, request header, target parse)
-///   is raced against `cancel` and abandoned by drop on shutdown. `negotiate_no_auth`
-///   is itself NOT cancel-safe in isolation (read greeting → write method choice),
-///   but it runs only inside this `select!`: a cancel drops it before *or* after the
-///   method reply with no protocol reply for the command yet on the wire, so the
-///   client merely sees the connection close — never a torn command exchange.
-/// - The **post-reply** phase is delegated to [`handle_connect`] /
-///   [`handle_udp_associate`], each of which threads `cancel` through and keeps its
-///   own success-reply→relay window atomic.
+/// - The **pre-reply** phase (method negotiation, request header, target parse) is raced against `cancel` and a fixed deadline. Those arms may drop non-cancel-safe `read_exact`/`write_all` operations after partial progress, which is valid only because no command success reply exists and this function immediately returns so the client socket is dropped.
+/// - The timeout scope ends before command dispatch. The **post-reply** phase is delegated to [`handle_connect`] / [`handle_udp_associate`], each of which threads `cancel` through and keeps its own success-reply-to-relay window atomic.
 pub(crate) async fn handle_client<T>(
     mut client: TcpStream,
     backend: Arc<RelayBackend>,
@@ -40,26 +74,15 @@ pub(crate) async fn handle_client<T>(
 where
     T: SocksTelemetry + ?Sized,
 {
-    // Pre-reply negotiation, raced against shutdown. Abandoning it by drop is
-    // safe: no SOCKS5 command reply has been written, so the client just sees
-    // the connection close — no false success, no torn command state.
-    let negotiation = async {
-        negotiate_no_auth(&mut client).await?;
-
-        let mut request_header = [0u8; 4];
-        client.read_exact(&mut request_header).await?;
-        if request_header[0] != 0x05 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 request"));
+    let (command, target) = match negotiate_request(&mut client, SOCKS_HANDSHAKE_TIMEOUT, &cancel).await {
+        Ok(PreReplyNegotiation::Cancelled) => return Ok(()),
+        Ok(PreReplyNegotiation::Request { command, target }) => (command, target),
+        Err(error) => {
+            if error.kind() == io::ErrorKind::TimedOut {
+                telemetry.record_handshake_error(error.to_string());
+            }
+            return Err(error);
         }
-
-        let command = request_header[1];
-        let target = read_target(&mut client, request_header[3]).await?;
-        Ok::<_, io::Error>((command, target))
-    };
-    let (command, target) = tokio::select! {
-        biased;
-        () = cancel.cancelled() => return Ok(()),
-        result = negotiation => result?,
     };
     telemetry.record_target(target.to_string());
 
@@ -80,13 +103,7 @@ where
 ///
 /// # Cancel safety
 ///
-/// NOT cancel-safe in isolation: it reads the greeting then writes the server's
-/// method choice; a cancel between the read and the write leaves the client
-/// without a method reply. The sole caller, [`handle_client`], drives it inside
-/// a `select!` whose other arm is shutdown — abandoning it by drop is then safe
-/// because no SOCKS5 *command* reply has been written, so the client simply sees
-/// the connection close. Do not call it under a cancellation scope that expects
-/// a clean handshake after a partial run.
+/// NOT cancel-safe in isolation: it reads the greeting then writes the server's method choice; a cancel between the read and the write leaves the client without a method reply. The production caller, [`negotiate_request`], drives it inside a pre-reply `select!`; abandoning it there is valid because no SOCKS5 command reply has been written and the client socket is immediately dropped. Do not call it under a cancellation scope that expects a clean handshake after a partial run.
 async fn negotiate_no_auth<S>(stream: &mut S) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -117,10 +134,7 @@ where
 ///
 /// # Cancel safety
 ///
-/// Cancel-safe. Every `.await` is a pure `read_exact` into a local buffer; the
-/// function writes nothing to the stream, so a cancel at any point only abandons
-/// a partial read of bytes that are discarded with the dropped future. No
-/// observable protocol state is left behind.
+/// NOT cancel-safe in isolation: `read_exact` may consume a partial target before cancellation. Its production caller only abandons it during pre-reply negotiation and immediately drops the client socket, so those consumed bytes are never reused.
 pub(crate) async fn read_target<S>(stream: &mut S, address_type: u8) -> io::Result<RelayTargetAddr>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -162,9 +176,64 @@ where
 
 #[cfg(test)]
 mod tests {
-    use tokio::io::duplex;
+    use std::io;
+    use std::net::{Ipv4Addr, SocketAddr};
+    use std::time::Duration;
 
-    use super::negotiate_no_auth;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
+    use tokio_util::sync::CancellationToken;
+
+    use super::{PreReplyNegotiation, negotiate_no_auth, negotiate_request};
+    use crate::socks::target::RelayTargetAddr;
+
+    #[tokio::test]
+    async fn stalled_pre_reply_negotiation_times_out() {
+        let (_client_end, mut server_end) = duplex(64);
+        let cancel = CancellationToken::new();
+
+        let error = negotiate_request(&mut server_end, Duration::from_millis(10), &cancel)
+            .await
+            .expect_err("stalled negotiation must time out");
+
+        assert_eq!(io::ErrorKind::TimedOut, error.kind());
+    }
+
+    #[tokio::test]
+    async fn pre_cancelled_negotiation_wins_over_deadline() {
+        let (_client_end, mut server_end) = duplex(64);
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+
+        let outcome =
+            negotiate_request(&mut server_end, Duration::ZERO, &cancel).await.expect("cancellation must be clean");
+
+        assert!(matches!(outcome, PreReplyNegotiation::Cancelled));
+    }
+
+    #[tokio::test]
+    async fn complete_no_auth_connect_request_parses_before_deadline() {
+        let (mut client_end, mut server_end) = duplex(64);
+        let cancel = CancellationToken::new();
+        client_end
+            .write_all(&[0x05, 0x01, 0x00, 0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0x1f, 0x90])
+            .await
+            .expect("write complete greeting and request");
+
+        let outcome = negotiate_request(&mut server_end, Duration::from_millis(100), &cancel)
+            .await
+            .expect("complete negotiation must parse");
+
+        assert!(matches!(
+            outcome,
+            PreReplyNegotiation::Request {
+                command: 0x01,
+                target: RelayTargetAddr::Ip(address),
+            } if address == SocketAddr::from((Ipv4Addr::LOCALHOST, 8080))
+        ));
+        let mut method_reply = [0_u8; 2];
+        client_end.read_exact(&mut method_reply).await.expect("read NO AUTH reply");
+        assert_eq!([0x05, 0x00], method_reply);
+    }
 
     #[tokio::test]
     async fn socks5_accepts_noauth_offer() {

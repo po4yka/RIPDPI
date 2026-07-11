@@ -24,6 +24,9 @@ use crate::telemetry::{RelayTelemetry, TcpConnectObservation};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
+/// Bounds accepted client sockets and tracked tasks for the full SOCKS session lifetime.
+const MAX_CONCURRENT_SOCKS_SESSIONS: usize = 256;
+
 /// Bounded grace window for draining in-flight SOCKS5 sessions on shutdown.
 /// Matches the 5 s used by `ripdpi-tunnel-core`'s UDP-association shutdown so
 /// the relay's stop path has the same deterministic upper bound. After the
@@ -118,7 +121,8 @@ impl RelayRuntime {
         // the Kotlin wrapper need not poll. No-op when no observer is set.
         self.state.notify_ready();
 
-        run_accept_loop(Arc::clone(&self), backend, listener, ACCEPT_POLL_INTERVAL).await;
+        run_accept_loop(Arc::clone(&self), backend, listener, MAX_CONCURRENT_SOCKS_SESSIONS, ACCEPT_POLL_INTERVAL)
+            .await;
 
         // The accept loop exited because `stop()` set `stop_requested` and
         // cancelled the shutdown token. Drain in-flight sessions within a
