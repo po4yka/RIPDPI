@@ -14,7 +14,7 @@ mod handlers;
 use std::ffi::CString;
 use std::fs;
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -146,8 +146,9 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
 
     // `dispatch_command` takes sole, total ownership of `received_fd`: it
     // either closes the inbound fd on every rejection / decode-error / handler
-    // path, or returns it in `reply_fd` to be sent back to the caller. So
-    // `handle_connection` must NOT close `received_fd` here — doing so would
+    // path, or returns it in `reply_fd`. A returned reply descriptor is
+    // immediately adopted here and borrowed only for the SCM_RIGHTS transfer.
+    // So `handle_connection` must NOT close `received_fd` here — doing so would
     // double-close a descriptor dispatch already released (the previous
     // dead/inverted accounting block, audit F17).
     let dispatch = dispatch::dispatch_command(&request, received_fd);
@@ -155,14 +156,19 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
         RUNNING.store(false, Ordering::SeqCst);
     }
     let response = dispatch.response;
-    let reply_fd = dispatch.reply_fd;
+    let reply_fd = dispatch.reply_fd.map(|fd| {
+        // SAFETY: dispatch transfers unique ownership of every returned reply
+        // descriptor to this call; no other path retains it, it remains live,
+        // and this `OwnedFd` adopts it exactly once.
+        unsafe { OwnedFd::from_raw_fd(fd) }
+    });
 
     send_response(stream, response, reply_fd)?;
 
     Ok(())
 }
 
-fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option<RawFd>) -> io::Result<()> {
+fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option<OwnedFd>) -> io::Result<()> {
     // Stamp every outbound response with the current protocol / capability
     // version so clients can gate features on a known-recent helper. Pre-
     // versioned clients tolerate the new fields (HelperResponse derives
@@ -170,7 +176,7 @@ fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option
     let response = response.with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
     let json =
         serde_json::to_vec(&response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
-    protocol::send_message(stream, &json, reply_fd)
+    protocol::send_message(stream, &json, reply_fd.as_ref().map(AsRawFd::as_raw_fd))
 }
 
 fn close_received_fd(fd: Option<RawFd>) {
@@ -282,6 +288,7 @@ extern "C" fn signal_handler(_sig: libc::c_int) {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::os::unix::net::UnixStream;
     use std::sync::Mutex;
@@ -289,7 +296,10 @@ mod tests {
 
     use ripdpi_root_helper_protocol::{CMD_SHUTDOWN, HelperRequest, HelperResponse, recv_message, send_message};
 
-    use super::{RUNNING, handle_connection, prepare_socket_for_app, read_session_nonce_file, session_nonce_matches};
+    use super::{
+        RUNNING, handle_connection, prepare_socket_for_app, read_session_nonce_file, send_response,
+        session_nonce_matches,
+    };
 
     const TEST_NONCE: &str = "abcdefghijklmnopqrstuvwxyzABCDEF";
     static RUNNING_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -343,6 +353,41 @@ mod tests {
         assert!(response.ok);
         server.join().expect("server thread");
         assert!(!RUNNING.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn send_response_closes_local_reply_fd_after_successful_transfer() {
+        let (sender, receiver) = UnixStream::pair().expect("socket pair");
+        let (read_end, write_end) = nix::unistd::pipe().expect("pipe");
+        let local_reply_fd = read_end.as_raw_fd();
+
+        send_response(&sender, HelperResponse::success(serde_json::Value::Null), Some(read_end))
+            .expect("send response");
+
+        assert!(crate::dispatch::test_support::fd_is_closed(local_reply_fd));
+        let (_payload, received_fd) = recv_message(&receiver, "sender closed").expect("receive response");
+        let received_fd = received_fd.expect("received reply fd");
+        // SAFETY: `recv_message` transferred a fresh unique descriptor to this
+        // test, and this `OwnedFd` consumes it exactly once.
+        let received_fd = unsafe { OwnedFd::from_raw_fd(received_fd) };
+        nix::unistd::write(&write_end, b"x").expect("write pipe byte");
+        let mut byte = [0_u8; 1];
+        assert_eq!(nix::unistd::read(&received_fd, &mut byte).expect("read pipe byte"), 1);
+        assert_eq!(byte, [b'x']);
+    }
+
+    #[test]
+    fn send_response_closes_local_reply_fd_when_send_fails() {
+        let (sender, _receiver) = UnixStream::pair().expect("socket pair");
+        let (read_end, _write_end) = nix::unistd::pipe().expect("pipe");
+        let local_reply_fd = read_end.as_raw_fd();
+        let oversized_response = HelperResponse::success(serde_json::Value::String("x".repeat(8192)));
+
+        let error =
+            send_response(&sender, oversized_response, Some(read_end)).expect_err("oversized response must fail");
+
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(crate::dispatch::test_support::fd_is_closed(local_reply_fd));
     }
 
     #[test]
