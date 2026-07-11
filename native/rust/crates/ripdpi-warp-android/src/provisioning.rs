@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
+use std::time::Duration;
 
 use android_support::authority_header_value;
 use boring::ssl::SslVersion;
@@ -23,6 +25,8 @@ use url::Url;
 const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
 const CHROME_STABLE_PROFILE: &str = "chrome_stable";
 const MAX_PROVISIONING_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
+const WARP_PROVISIONING_TIMEOUT: Duration = Duration::from_secs(60);
+const WARP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Deserialize)]
 pub struct NativeWarpProvisioningHttpRequest {
@@ -73,7 +77,8 @@ fn execute(request_json: &str) -> io::Result<String> {
     let request: NativeWarpProvisioningHttpRequest =
         serde_json::from_str(request_json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(io::Error::other)?;
-    let response = runtime.block_on(execute_async(request));
+    let response = runtime.block_on(run_with_provisioning_timeout(execute_async(request), WARP_PROVISIONING_TIMEOUT));
+    runtime.shutdown_background();
     let payload = match response {
         Ok(response) => response,
         Err(error) => {
@@ -83,6 +88,16 @@ fn execute(request_json: &str) -> io::Result<String> {
     serde_json::to_string(&payload).map_err(io::Error::other)
 }
 
+async fn run_with_provisioning_timeout<F, T>(future: F, timeout_duration: Duration) -> io::Result<T>
+where
+    F: Future<Output = io::Result<T>>,
+{
+    tokio::time::timeout(timeout_duration, future)
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "WARP provisioning request timed out"))?
+}
+
+/// NOT cancel-safe: the remote registration or refresh may already be applied when a deadline drops the local exchange, so a timeout is an indeterminate remote outcome and does not prove server-side rollback.
 async fn execute_async(request: NativeWarpProvisioningHttpRequest) -> io::Result<NativeWarpProvisioningHttpResponse> {
     let parsed = Url::parse(&request.url)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid URL: {error}")))?;
@@ -226,7 +241,9 @@ async fn connect_protected_addr(addr: SocketAddr) -> io::Result<TcpStream> {
     // then hand the connected fd to tokio. Keeping the connect blocking avoids
     // the nonblocking `EINPROGRESS` dance (which is not portably distinguishable
     // from a fatal error without a `libc` dependency) while preserving the
-    // create-protect-connect ordering the invariant requires.
+    // create-protect-connect ordering the invariant requires. The socket deadline
+    // bounds blocking work that Tokio cannot cancel after the outer request
+    // deadline fires.
     let std_stream = tokio::task::spawn_blocking(move || -> io::Result<std::net::TcpStream> {
         let socket = Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?;
         // Protect BEFORE connect: bind the fd to the underlying network so its
@@ -237,7 +254,7 @@ async fn connect_protected_addr(addr: SocketAddr) -> io::Result<TcpStream> {
             Err(error) if error.kind() == io::ErrorKind::NotConnected => {}
             Err(error) => return Err(error),
         }
-        socket.connect(&SockAddr::from(addr))?;
+        socket.connect_timeout(&SockAddr::from(addr), WARP_CONNECT_TIMEOUT)?;
         Ok(socket.into())
     })
     .await
@@ -393,5 +410,43 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("response body was not UTF-8"));
+    }
+
+    #[tokio::test]
+    async fn provisioning_timeout_returns_ready_value() {
+        let result = run_with_provisioning_timeout(
+            std::future::ready(Ok::<_, io::Error>(42)),
+            std::time::Duration::from_millis(10),
+        )
+        .await
+        .expect("ready provisioning result must be returned");
+
+        assert_eq!(result, 42);
+    }
+
+    #[tokio::test]
+    async fn provisioning_timeout_preserves_source_error() {
+        let error = run_with_provisioning_timeout(
+            std::future::ready(Err::<(), _>(io::Error::new(io::ErrorKind::InvalidData, "source error"))),
+            std::time::Duration::from_millis(10),
+        )
+        .await
+        .expect_err("source error must be preserved");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert_eq!(error.to_string(), "source error");
+    }
+
+    #[tokio::test]
+    async fn provisioning_timeout_rejects_pending_work() {
+        let error = run_with_provisioning_timeout(
+            std::future::pending::<io::Result<()>>(),
+            std::time::Duration::from_millis(1),
+        )
+        .await
+        .expect_err("pending provisioning work must time out");
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert!(error.to_string().contains("WARP provisioning request timed out"));
     }
 }
