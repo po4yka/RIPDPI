@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.assets
 
 import android.content.Context
+import android.net.Uri
 import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.assets.AssetProvider
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.data.assets.GeoAssetRepo
+import com.poyka.ripdpi.data.assets.MinGeoAssetBytes
 import com.poyka.ripdpi.data.assets.assetProviderById
 import com.poyka.ripdpi.data.assets.customAssetDownloadUrl
 import com.poyka.ripdpi.data.assets.githubLatestReleaseApiUrl
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -52,12 +55,17 @@ interface GeoAssetRepository {
      */
     suspend fun checkAndUpdate(): GeoAssetUpdateResult
 
-    /** Copies a user-picked local `.db` ([bytes]) into the asset dir for [kind], validating first. */
+    /**
+     * Opens and closes a user-picked local `.db` ([uri]), enforces the local import size limit, and
+     * atomically installs it for [kind] only after validation succeeds.
+     */
     suspend fun importLocalAsset(
         kind: GeoAssetKind,
-        bytes: ByteArray,
+        uri: Uri,
     )
 }
+
+internal const val GeoAssetMaxLocalImportBytes: Long = 64L * 1024L * 1024L
 
 @Singleton
 class DefaultGeoAssetRepository
@@ -102,13 +110,14 @@ class DefaultGeoAssetRepository
 
         override suspend fun importLocalAsset(
             kind: GeoAssetKind,
-            bytes: ByteArray,
+            uri: Uri,
         ) {
             withContext(Dispatchers.IO) {
-                if (!isPlausibleGeoAssetPayload(bytes)) {
-                    throw GeoAssetIntegrityException("Imported geo asset failed the validity gate.")
-                }
-                atomicWrite(targetFile(kind), bytes)
+                streamGeoAssetUriToTarget(
+                    uri = uri,
+                    target = targetFile(kind),
+                    openInput = context.contentResolver::openInputStream,
+                )
                 settingsRepository.update {
                     geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
                 }
@@ -190,10 +199,7 @@ class DefaultGeoAssetRepository
             val temp = File.createTempFile("geo-asset-", ".tmp", target.parentFile)
             try {
                 temp.outputStream().use { it.write(bytes) }
-                if (!temp.renameTo(target)) {
-                    // Cross-filesystem fallback: copy then drop the temp.
-                    temp.copyTo(target, overwrite = true)
-                }
+                replaceGeoAssetTempFile(temp, target)
             } finally {
                 temp.delete()
             }
@@ -217,4 +223,99 @@ abstract class GeoAssetRepositoryModule {
     @Binds
     @Singleton
     abstract fun bindGeoAssetRepository(repository: DefaultGeoAssetRepository): GeoAssetRepository
+}
+
+internal fun streamGeoAssetUriToTarget(
+    uri: Uri,
+    target: File,
+    maxBytes: Long = GeoAssetMaxLocalImportBytes,
+    openInput: (Uri) -> InputStream?,
+) {
+    val input =
+        try {
+            openInput(uri)
+        } catch (_: IOException) {
+            null
+        } catch (_: SecurityException) {
+            null
+        } ?: throw GeoAssetIntegrityException("Unable to open imported geo asset.")
+    input.use { streamGeoAssetToTarget(it, target, maxBytes) }
+}
+
+internal fun streamGeoAssetToTarget(
+    input: InputStream,
+    target: File,
+    maxBytes: Long = GeoAssetMaxLocalImportBytes,
+) {
+    require(maxBytes >= MinGeoAssetBytes) { "Local geo asset limit must allow the validation prefix." }
+    val targetDirectory = requireNotNull(target.absoluteFile.parentFile)
+    targetDirectory.mkdirs()
+    val temp = File.createTempFile("geo-asset-", ".tmp", targetDirectory)
+    try {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        val validationPrefix = ByteArray(MinGeoAssetBytes)
+        var validationPrefixSize = 0
+        var totalBytes = 0L
+
+        temp.outputStream().buffered().use { output ->
+            fun writeChunk(
+                bytes: ByteArray,
+                count: Int,
+            ) {
+                if (totalBytes > maxBytes - count.toLong()) {
+                    throw GeoAssetIntegrityException("Imported geo asset exceeds the local size limit.")
+                }
+                if (validationPrefixSize < validationPrefix.size) {
+                    val prefixCount = minOf(count, validationPrefix.size - validationPrefixSize)
+                    bytes.copyInto(
+                        destination = validationPrefix,
+                        destinationOffset = validationPrefixSize,
+                        startIndex = 0,
+                        endIndex = prefixCount,
+                    )
+                    validationPrefixSize += prefixCount
+                }
+                output.write(bytes, 0, count)
+                totalBytes += count
+            }
+
+            while (true) {
+                when (val readCount = input.read(buffer)) {
+                    -1 -> {
+                        break
+                    }
+
+                    0 -> {
+                        val nextByte = input.read()
+                        if (nextByte == -1) break
+                        buffer[0] = nextByte.toByte()
+                        writeChunk(buffer, 1)
+                    }
+
+                    else -> {
+                        writeChunk(buffer, readCount)
+                    }
+                }
+            }
+        }
+
+        // This prefix is equivalent to the complete-payload decision while the validator checks
+        // only minimum length and the first 16 bytes. Update both contracts together if it deepens.
+        if (!isPlausibleGeoAssetPayload(validationPrefix.copyOf(validationPrefixSize))) {
+            throw GeoAssetIntegrityException("Imported geo asset failed the validity gate.")
+        }
+        replaceGeoAssetTempFile(temp, target)
+    } finally {
+        temp.delete()
+    }
+}
+
+private fun replaceGeoAssetTempFile(
+    temp: File,
+    target: File,
+) {
+    if (!temp.renameTo(target)) {
+        // Cross-filesystem fallback: copy then drop the temp.
+        temp.copyTo(target, overwrite = true)
+    }
 }

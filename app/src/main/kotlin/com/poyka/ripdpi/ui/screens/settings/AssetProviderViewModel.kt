@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.assets.GeoAssetRepository
@@ -106,12 +107,12 @@ class AssetProviderViewModel
 
         fun importLocalAsset(
             kind: GeoAssetKind,
-            bytes: ByteArray,
+            uri: Uri,
         ) {
             transient.update { it.copy(lastResult = null) }
             viewModelScope.launch {
                 val outcome =
-                    runCatching { geoAssetRepository.importLocalAsset(kind, bytes) }
+                    runCatching { geoAssetRepository.importLocalAsset(kind, uri) }
                         .fold(
                             onSuccess = { AssetProviderCheckOutcome.Imported },
                             onFailure = { error ->

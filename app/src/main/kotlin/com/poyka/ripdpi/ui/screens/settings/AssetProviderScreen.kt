@@ -64,24 +64,15 @@ fun AssetProviderRoute(
     modifier: Modifier = Modifier,
     viewModel: AssetProviderViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val geoipImportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            uri?.let { selected ->
-                context.contentResolver.openInputStream(selected)?.use { stream ->
-                    viewModel.importLocalAsset(GeoAssetKind.Geoip, stream.readBytes())
-                }
-            }
+            uri?.let { viewModel.importLocalAsset(GeoAssetKind.Geoip, it) }
         }
     val geositeImportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            uri?.let { selected ->
-                context.contentResolver.openInputStream(selected)?.use { stream ->
-                    viewModel.importLocalAsset(GeoAssetKind.Geosite, stream.readBytes())
-                }
-            }
+            uri?.let { viewModel.importLocalAsset(GeoAssetKind.Geosite, it) }
         }
 
     AssetProviderScreen(
