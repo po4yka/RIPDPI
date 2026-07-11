@@ -4,12 +4,18 @@ import com.poyka.ripdpi.data.backup.BackupPreviewResult
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.RestoreResult
 import com.poyka.ripdpi.data.backup.RestoreSelection
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+
+internal const val BackupMaxImportBytes: Int = 8 * 1024 * 1024
 
 /**
  * Owns the import-preview, selection editing, and confirmed-restore workflows.
@@ -29,7 +35,12 @@ internal class BackupImportCoordinator(
     private val emitRestoreEffect: (BackupRestoreEffect) -> Unit,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val maxImportBytes: Int = BackupMaxImportBytes,
 ) {
+    init {
+        require(maxImportBytes > 0) { "maxImportBytes must be positive" }
+    }
+
     /**
      * Reads the picked backup file via [openInput] and computes a preview WITHOUT
      * touching any live store. On success the preview sheet is shown; a newer schema
@@ -42,46 +53,69 @@ internal class BackupImportCoordinator(
         if (currentState().importing || currentState().restoring) return
         updateState { it.copy(importing = true) }
         scope.launch {
-            val json =
-                withContext(ioDispatcher) {
-                    runCatching { openInput()?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+            val outcome =
+                try {
+                    val json =
+                        withContext(ioDispatcher) {
+                            openInput()?.use { readBoundedUtf8Text(it, maxImportBytes) }
+                        }
+                    if (json == null) {
+                        OpenImportOutcome.Cancelled
+                    } else {
+                        when (val result = withContext(defaultDispatcher) { restoreUseCase.preview(json) }) {
+                            is BackupPreviewResult.Ready -> {
+                                OpenImportOutcome.Ready(json, result)
+                            }
+
+                            is BackupPreviewResult.UnsupportedVersion -> {
+                                OpenImportOutcome.UnsupportedVersion(result.found, result.supported)
+                            }
+
+                            is BackupPreviewResult.Malformed -> {
+                                OpenImportOutcome.Malformed
+                            }
+                        }
+                    }
+                } catch (cancelled: CancellationException) {
+                    updateState { it.copy(importing = false) }
+                    throw cancelled
+                } catch (_: Exception) {
+                    OpenImportOutcome.Malformed
                 }
-            if (json == null) {
-                // Cancelled picker or unreadable stream: no preview, no effect noise.
-                updateState { it.copy(importing = false) }
-                return@launch
-            }
-            when (val result = withContext(defaultDispatcher) { restoreUseCase.preview(json) }) {
-                is BackupPreviewResult.Ready -> {
+            when (outcome) {
+                OpenImportOutcome.Cancelled -> {
+                    updateState { it.copy(importing = false) }
+                }
+
+                is OpenImportOutcome.Ready -> {
+                    val preview = outcome.result.preview
                     updateState {
                         it.copy(
                             importing = false,
                             importPreview =
                                 BackupImportPreview(
-                                    json = json,
-                                    preview = result.preview,
+                                    json = outcome.json,
+                                    preview = preview,
                                     // Default: restore only the categories that
                                     // actually carry content; never silently flip
                                     // an empty category on.
                                     selection =
                                         RestoreSelection(
-                                            profilesAndGroups = result.preview.canRestoreProfilesAndGroups,
-                                            routes = result.preview.ruleCount > 0,
-                                            settings = result.preview.settingCount > 0,
+                                            profilesAndGroups = preview.canRestoreProfilesAndGroups,
+                                            routes = preview.ruleCount > 0,
+                                            settings = preview.settingCount > 0,
                                         ),
                                 ),
                         )
                     }
                 }
 
-                is BackupPreviewResult.UnsupportedVersion -> {
+                is OpenImportOutcome.UnsupportedVersion -> {
                     updateState { it.copy(importing = false) }
-                    emitRestoreEffect(
-                        BackupRestoreEffect.UnsupportedVersion(result.found, result.supported),
-                    )
+                    emitRestoreEffect(BackupRestoreEffect.UnsupportedVersion(outcome.found, outcome.supported))
                 }
 
-                is BackupPreviewResult.Malformed -> {
+                OpenImportOutcome.Malformed -> {
                     updateState { it.copy(importing = false) }
                     emitRestoreEffect(BackupRestoreEffect.Malformed)
                 }
@@ -128,32 +162,72 @@ internal class BackupImportCoordinator(
             else -> {
                 updateState { it.copy(restoring = true) }
                 scope.launch {
-                    val result =
-                        withContext(defaultDispatcher) {
-                            restoreUseCase.restore(preview.json, preview.selection)
+                    val effect =
+                        try {
+                            withContext(defaultDispatcher) {
+                                restoreUseCase.restore(preview.json, preview.selection)
+                            }.toEffect()
+                        } catch (cancelled: CancellationException) {
+                            updateState { it.copy(restoring = false) }
+                            throw cancelled
+                        } catch (_: Exception) {
+                            BackupRestoreEffect.Malformed
                         }
                     updateState { it.copy(restoring = false, importPreview = null) }
-                    emitRestoreEffect(
-                        when (result) {
-                            is RestoreResult.Success -> {
-                                BackupRestoreEffect.Restored
-                            }
-
-                            is RestoreResult.UnsupportedVersion -> {
-                                BackupRestoreEffect.UnsupportedVersion(result.found, result.supported)
-                            }
-
-                            is RestoreResult.Aborted -> {
-                                BackupRestoreEffect.Malformed
-                            }
-
-                            RestoreResult.NothingSelected -> {
-                                BackupRestoreEffect.NothingSelected
-                            }
-                        },
-                    )
+                    emitRestoreEffect(effect)
                 }
             }
         }
     }
 }
+
+private sealed interface OpenImportOutcome {
+    data object Cancelled : OpenImportOutcome
+
+    data class Ready(
+        val json: String,
+        val result: BackupPreviewResult.Ready,
+    ) : OpenImportOutcome
+
+    data class UnsupportedVersion(
+        val found: Int,
+        val supported: Int,
+    ) : OpenImportOutcome
+
+    data object Malformed : OpenImportOutcome
+}
+
+private fun RestoreResult.toEffect(): BackupRestoreEffect =
+    when (this) {
+        is RestoreResult.Success -> BackupRestoreEffect.Restored
+        is RestoreResult.UnsupportedVersion -> BackupRestoreEffect.UnsupportedVersion(found, supported)
+        is RestoreResult.Aborted -> BackupRestoreEffect.Malformed
+        RestoreResult.NothingSelected -> BackupRestoreEffect.NothingSelected
+    }
+
+private fun readBoundedUtf8Text(
+    input: InputStream,
+    maxBytes: Int,
+): String {
+    require(maxBytes > 0) { "maxBytes must be positive" }
+    val output = ByteArrayOutputStream(minOf(DEFAULT_BUFFER_SIZE, maxBytes))
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var total = 0
+
+    while (true) {
+        val read = input.read(buffer)
+        if (read == -1) break
+        if (read > maxBytes - total) throw BackupImportTooLargeException()
+        output.write(buffer, 0, read)
+        total += read
+    }
+
+    return Charsets.UTF_8
+        .newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(output.toByteArray()))
+        .toString()
+}
+
+private class BackupImportTooLargeException : Exception()

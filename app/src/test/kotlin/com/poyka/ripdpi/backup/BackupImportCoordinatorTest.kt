@@ -14,7 +14,9 @@ import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,10 +30,13 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BackupImportCoordinatorTest {
@@ -96,7 +101,7 @@ class BackupImportCoordinatorTest {
         }
 
     @Test
-    fun `openImport with throwing input clears importing with no preview and no effect`() =
+    fun `openImport with throwing input clears importing and emits Malformed`() =
         runTest(StandardTestDispatcher()) {
             val h = harness()
 
@@ -105,7 +110,80 @@ class BackupImportCoordinatorTest {
 
             assertFalse(h.state.value.importing)
             assertNull(h.state.value.importPreview)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+        }
+
+    @Test
+    fun `openImport rejects input above the byte cap closes it and clears importing`() =
+        runTest(StandardTestDispatcher()) {
+            val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
+            val bytes = json.toByteArray(Charsets.UTF_8)
+            val input = CloseTrackingInputStream(bytes)
+            val h = harness(maxImportBytes = bytes.size - 1)
+
+            h.coordinator.openImport { input }
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.importing)
+            assertNull(h.state.value.importPreview)
+            assertTrue(input.closed)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+        }
+
+    @Test
+    fun `openImport accepts valid backup exactly at the byte cap`() =
+        runTest(StandardTestDispatcher()) {
+            val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
+            val bytes = json.toByteArray(Charsets.UTF_8)
+            val h = harness(maxImportBytes = bytes.size)
+
+            h.coordinator.openImport { bytes.inputStream() }
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.importing)
+            assertEquals(
+                json,
+                h.state.value.importPreview
+                    ?.json,
+            )
             assertTrue(h.restoreEffects.isEmpty())
+        }
+
+    @Test
+    fun `openImport rejects invalid UTF-8 closes input and emits Malformed`() =
+        runTest(StandardTestDispatcher()) {
+            val input = CloseTrackingInputStream(byteArrayOf(0xc3.toByte(), 0x28))
+            val h = harness()
+
+            h.coordinator.openImport { input }
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.importing)
+            assertNull(h.state.value.importPreview)
+            assertTrue(input.closed)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+        }
+
+    @Test
+    fun `openImport cancellation clears importing and rethrows`() =
+        runTest(StandardTestDispatcher()) {
+            val cancellation = CancellationException("cancelled")
+            val input = CancellationInputStream(cancellation)
+            val h = harness()
+
+            h.coordinator.openImport { input }
+            val importJob = coroutineContext[Job]!!.children.single()
+            var completionCause: Throwable? = null
+            importJob.invokeOnCompletion { completionCause = it }
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.importing)
+            assertNull(h.state.value.importPreview)
+            assertTrue(input.closed)
+            assertTrue(h.restoreEffects.isEmpty())
+            assertTrue(importJob.isCancelled)
+            assertTrue(completionCause is CancellationException)
+            assertEquals(cancellation.message, completionCause?.message)
         }
 
     @Test
@@ -317,6 +395,95 @@ class BackupImportCoordinatorTest {
             assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Restored), h.restoreEffects)
         }
 
+    @Test
+    fun `confirmRestore exception clears restoring and emits Malformed`() =
+        runTest(StandardTestDispatcher()) {
+            val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
+            val repository =
+                object : ProxyGroupRepository by MutableGroupRepository() {
+                    override suspend fun replaceAll(groups: List<ProxyGroup>): Unit = throw IOException("boom")
+                }
+            val h = harness(groupRepository = repository)
+            h.coordinator.openImport { json.byteInputStream() }
+            testScheduler.advanceUntilIdle()
+
+            h.coordinator.confirmRestore()
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.restoring)
+            assertNull(h.state.value.importPreview)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+        }
+
+    @Test
+    fun `confirmRestore maps typed Aborted to Malformed`() =
+        runTest(StandardTestDispatcher()) {
+            val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
+            val h = harness()
+            h.coordinator.openImport { json.byteInputStream() }
+            testScheduler.advanceUntilIdle()
+            h.state.update { state ->
+                state.copy(importPreview = state.importPreview!!.copy(json = "not json"))
+            }
+
+            h.coordinator.confirmRestore()
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.restoring)
+            assertNull(h.state.value.importPreview)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+        }
+
+    @Test
+    fun `confirmRestore maps typed UnsupportedVersion to effect`() =
+        runTest(StandardTestDispatcher()) {
+            val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
+            val futureJson =
+                """{"schemaVersion":9999,"createdAtEpochMillis":0,"appVersion":"x",""" +
+                    """"profiles":[],"groups":[],"rules":[],"settings":{}}"""
+            val h = harness()
+            h.coordinator.openImport { json.byteInputStream() }
+            testScheduler.advanceUntilIdle()
+            h.state.update { state ->
+                state.copy(importPreview = state.importPreview!!.copy(json = futureJson))
+            }
+
+            h.coordinator.confirmRestore()
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.restoring)
+            assertNull(h.state.value.importPreview)
+            assertTrue(h.restoreEffects.single() is BackupRestoreEffect.UnsupportedVersion)
+        }
+
+    @Test
+    fun `confirmRestore cancellation clears restoring preserves preview and rethrows`() =
+        runTest(StandardTestDispatcher()) {
+            val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
+            val cancellation = CancellationException("cancelled")
+            val repository =
+                object : ProxyGroupRepository by MutableGroupRepository() {
+                    override suspend fun replaceAll(groups: List<ProxyGroup>): Unit = throw cancellation
+                }
+            val h = harness(groupRepository = repository)
+            h.coordinator.openImport { json.byteInputStream() }
+            testScheduler.advanceUntilIdle()
+            val preview = h.state.value.importPreview
+
+            h.coordinator.confirmRestore()
+            val restoreJob = coroutineContext[Job]!!.children.single()
+            var completionCause: Throwable? = null
+            restoreJob.invokeOnCompletion { completionCause = it }
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.restoring)
+            assertSame(preview, h.state.value.importPreview)
+            assertTrue(h.restoreEffects.isEmpty())
+            assertTrue(restoreJob.isCancelled)
+            assertTrue(completionCause is CancellationException)
+            assertEquals(cancellation.message, completionCause?.message)
+        }
+
     // -- Harness --------------------------------------------------------------
 
     private class Harness(
@@ -325,7 +492,10 @@ class BackupImportCoordinatorTest {
         val restoreEffects: MutableList<BackupRestoreEffect>,
     )
 
-    private fun TestScope.harness(): Harness {
+    private fun TestScope.harness(
+        maxImportBytes: Int = BackupMaxImportBytes,
+        groupRepository: ProxyGroupRepository = MutableGroupRepository(),
+    ): Harness {
         val state = MutableStateFlow(BackupRestoreUiState())
         val effects = mutableListOf<BackupRestoreEffect>()
         // The real use case (final class) is constructed with hand-rolled fakes; no
@@ -333,7 +503,7 @@ class BackupImportCoordinatorTest {
         // unitTests.isReturnDefaultValues = true.
         val restoreUseCase =
             BackupRestoreUseCase(
-                groupRepository = MutableGroupRepository(),
+                groupRepository = groupRepository,
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
             )
@@ -347,6 +517,7 @@ class BackupImportCoordinatorTest {
                 emitRestoreEffect = { effects.add(it) },
                 ioDispatcher = dispatcher,
                 defaultDispatcher = dispatcher,
+                maxImportBytes = maxImportBytes,
             )
         return Harness(coordinator, state, effects)
     }
@@ -405,6 +576,32 @@ class BackupImportCoordinatorTest {
         }
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
+    }
+
+    private class CloseTrackingInputStream(
+        bytes: ByteArray,
+    ) : ByteArrayInputStream(bytes) {
+        var closed = false
+            private set
+
+        override fun close() {
+            closed = true
+            super.close()
+        }
+    }
+
+    private class CancellationInputStream(
+        private val cancellation: CancellationException,
+    ) : InputStream() {
+        var closed = false
+            private set
+
+        override fun read(): Int = throw cancellation
+
+        override fun close() {
+            closed = true
+            super.close()
+        }
     }
 
     private class FakeAppSettingsRepository : AppSettingsRepository {
