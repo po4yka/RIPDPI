@@ -5,7 +5,6 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.backup.BackupProfileRestoreSink
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
@@ -23,12 +22,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ResetAllSettingsUseCaseTest {
+    private val sampleProfile =
+        ProxyProfile.Shadowsocks(
+            id = "ss-1",
+            displayName = "SS",
+            groupId = "g-1",
+            server = "ss.example.com",
+            serverPort = 8388,
+            method = "aes-256-gcm",
+            password = "secret",
+        )
     private val sampleGroup =
-        ProxyGroup(id = "g-1", name = "Group", type = ProxyGroupType.BASIC, order = 0, isSelector = false)
+        ProxyGroup(
+            id = "g-1",
+            name = "Group",
+            type = ProxyGroupType.BASIC,
+            order = 0,
+            isSelector = false,
+            members = listOf(sampleProfile),
+        )
 
     private fun useCase(
         recorder: ResetEventRecorder,
-        sink: BackupProfileRestoreSink,
         groups: ProxyGroupRepository,
         rules: RuleDao,
         settings: AppSettingsRepository,
@@ -36,7 +51,6 @@ class ResetAllSettingsUseCaseTest {
         caches: CacheDirectoryCleaner,
     ) = ResetAllSettingsUseCase(
         resetEventRecorder = recorder,
-        profileSink = sink,
         groupRepository = groups,
         ruleDao = rules,
         settingsRepository = settings,
@@ -50,7 +64,6 @@ class ResetAllSettingsUseCaseTest {
             val rules = FakeRuleDao(initialRowCount = 2)
 
             val recorder = FakeResetEventRecorder()
-            val sink = FakeProfileSink()
             val groups = FakeGroupRepository(mutableListOf(sampleGroup))
             val settings =
                 FakeAppSettingsRepository(
@@ -63,10 +76,9 @@ class ResetAllSettingsUseCaseTest {
             val diagnostics = FakeDiagnosticsHistoryResetStore()
             val caches = FakeCacheDirectoryCleaner()
 
-            useCase(recorder, sink, groups, rules, settings, diagnostics, caches).reset()
+            useCase(recorder, groups, rules, settings, diagnostics, caches).reset()
 
-            // Profiles + groups emptied.
-            assertEquals(emptyList<ProxyProfile>(), sink.stored)
+            // Groups and their embedded profiles are emptied.
             assertTrue(groups.list().isEmpty())
             // Routing rules deleted.
             assertEquals(0, rules.rowCount)
@@ -83,14 +95,13 @@ class ResetAllSettingsUseCaseTest {
     fun `reset records the user_initiated_reset event before any wipe`() =
         runTest {
             val recorder = FakeResetEventRecorder()
-            // A sink that snapshots whether the event was already recorded when the
-            // first store wipe runs — proving the telemetry write precedes the wipe.
-            val sink = FakeProfileSink(onReplace = { recorder.recordCalls })
+            // The group repository snapshots whether the event was already recorded
+            // when the first store wipe runs, proving telemetry precedes the wipe.
+            val groups = FakeGroupRepository(mutableListOf(sampleGroup), onReplace = { recorder.recordCalls })
 
             useCase(
                 recorder = recorder,
-                sink = sink,
-                groups = FakeGroupRepository(mutableListOf(sampleGroup)),
+                groups = groups,
                 rules = FakeRuleDao(initialRowCount = 1),
                 settings = FakeAppSettingsRepository(),
                 diagnostics = FakeDiagnosticsHistoryResetStore(),
@@ -99,7 +110,7 @@ class ResetAllSettingsUseCaseTest {
 
             assertEquals(1, recorder.recordCalls)
             // The recorder had already been called once by the time the first wipe ran.
-            assertEquals(1, sink.recordCallsAtFirstWrite)
+            assertEquals(1, groups.recordCallsAtFirstWrite)
         }
 
     @Test
@@ -108,7 +119,6 @@ class ResetAllSettingsUseCaseTest {
             val recorder = FakeResetEventRecorder()
             useCase(
                 recorder = recorder,
-                sink = FakeProfileSink(),
                 groups = FakeGroupRepository(mutableListOf(sampleGroup)),
                 rules = FakeRuleDao(initialRowCount = 1),
                 settings = FakeAppSettingsRepository(),
@@ -144,26 +154,16 @@ class ResetAllSettingsUseCaseTest {
         }
     }
 
-    private class FakeProfileSink(
+    private class FakeGroupRepository(
+        private val groups: MutableList<ProxyGroup>,
         private val onReplace: (() -> Int)? = null,
-    ) : BackupProfileRestoreSink {
-        var stored: List<ProxyProfile>? = null
-            private set
+    ) : ProxyGroupRepository {
+        private val state = MutableStateFlow(groups.toList())
+        private var replaceAllCalls = 0
 
         /** [FakeResetEventRecorder.recordCalls] captured at the first wipe. */
         var recordCallsAtFirstWrite = 0
             private set
-
-        override suspend fun replaceAll(profiles: List<ProxyProfile>) {
-            if (stored == null) recordCallsAtFirstWrite = onReplace?.invoke() ?: 0
-            stored = profiles
-        }
-    }
-
-    private class FakeGroupRepository(
-        private val groups: MutableList<ProxyGroup>,
-    ) : ProxyGroupRepository {
-        private val state = MutableStateFlow(groups.toList())
 
         override suspend fun add(group: ProxyGroup) {
             groups.removeAll { it.id == group.id }
@@ -185,6 +185,7 @@ class ResetAllSettingsUseCaseTest {
         override suspend fun list(): List<ProxyGroup> = groups.toList()
 
         override suspend fun replaceAll(groups: List<ProxyGroup>) {
+            if (replaceAllCalls++ == 0) recordCallsAtFirstWrite = onReplace?.invoke() ?: 0
             this.groups.clear()
             this.groups.addAll(groups)
             state.value = this.groups.toList()

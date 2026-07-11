@@ -129,7 +129,6 @@ sealed interface RestoreResult {
  * required by the task: if staging throws, the live data is never modified.
  */
 private data class StagedRestore(
-    val profiles: List<ProxyProfile>,
     val groups: List<ProxyGroup>,
     val rules: List<RuleEntity>,
     val settings: AppSettings,
@@ -151,16 +150,11 @@ private data class StagedRestore(
  *   groups swap in one persisted write ([ProxyGroupRepository.replaceAll]).
  * - **SHARE backups** — profiles whose redacted credentials were stripped cannot be
  *   decoded; they are reported in the preview and excluded from the staged write.
- *
- * Profile persistence (encrypted, in `:core:service`) is fronted by the
- * [BackupProfileRestoreSink] abstraction so `:core:data` keeps no upward dependency;
- * the app binds the concrete sink.
  */
 class BackupRestoreUseCase
     @Inject
     constructor(
         private val groupRepository: ProxyGroupRepository,
-        private val profileSink: BackupProfileRestoreSink,
         private val ruleDao: RuleDao,
         private val settingsRepository: AppSettingsRepository,
     ) {
@@ -184,6 +178,11 @@ class BackupRestoreUseCase
             val decoded = BackupRestoreDecoder.decodeProfiles(this)
             val restorable = decoded.filterIsInstance<ProfileDecodeResult.Decoded>()
             val failed = decoded.filterIsInstance<ProfileDecodeResult.Failed>()
+            val restorableProfileIds =
+                buildSet {
+                    groups.forEach { group -> group.members.forEach { add(it.id) } }
+                    restorable.forEach { add(it.profile.id) }
+                }
 
             return BackupPreviewResult.Ready(
                 BackupPreview(
@@ -191,7 +190,7 @@ class BackupRestoreUseCase
                     appVersion = appVersion,
                     createdAtEpochMillis = createdAtEpochMillis,
                     containsCredentials = containsCredentials,
-                    restorableProfileCount = restorable.size,
+                    restorableProfileCount = restorableProfileIds.size,
                     groupCount = groups.size,
                     ruleCount = rules.size,
                     settingCount = settings.size,
@@ -248,7 +247,6 @@ class BackupRestoreUseCase
         ): RestoreResult {
             // -- Commit: each store swaps atomically; ordering is independent. --
             if (selection.profilesAndGroups) {
-                profileSink.replaceAll(staged.profiles)
                 groupRepository.replaceAll(staged.groups)
             }
             if (selection.routes) {
@@ -303,18 +301,19 @@ class BackupRestoreUseCase
             document: BackupV1,
             selection: RestoreSelection,
         ): StagedRestore {
-            val profiles =
+            val groups =
                 if (selection.profilesAndGroups) {
                     // Only profiles that decode cleanly are staged; SHARE-stripped
                     // profiles are excluded (already surfaced in the preview).
-                    BackupRestoreDecoder
-                        .decodeProfiles(document)
-                        .filterIsInstance<ProfileDecodeResult.Decoded>()
-                        .map { it.profile }
+                    val profiles =
+                        BackupRestoreDecoder
+                            .decodeProfiles(document)
+                            .filterIsInstance<ProfileDecodeResult.Decoded>()
+                            .map { it.profile }
+                    reconcileProfilesWithGroups(document.groups, profiles)
                 } else {
                     emptyList()
                 }
-            val groups = if (selection.profilesAndGroups) document.groups else emptyList()
             val rules =
                 if (selection.routes) {
                     document.rules.map(BackupRestoreDecoder::ruleExportToEntity)
@@ -328,6 +327,28 @@ class BackupRestoreUseCase
                     // Preserve current settings for an unchecked category.
                     settingsRepository.settings.first()
                 }
-            return StagedRestore(profiles = profiles, groups = groups, rules = rules, settings = settings)
+            return StagedRestore(groups = groups, rules = rules, settings = settings)
+        }
+
+        private fun reconcileProfilesWithGroups(
+            groups: List<ProxyGroup>,
+            profiles: List<ProxyProfile>,
+        ): List<ProxyGroup> {
+            val reconciled = groups.toMutableList()
+            val groupIndexes = groups.withIndex().associate { it.value.id to it.index }
+            val persistedProfileIds = groups.flatMap { it.members }.mapTo(mutableSetOf()) { it.id }
+
+            profiles.forEach { profile ->
+                val groupIndex =
+                    requireNotNull(groupIndexes[profile.groupId]) {
+                        "Backup profile ${profile.id} references missing group ${profile.groupId}"
+                    }
+                if (persistedProfileIds.add(profile.id)) {
+                    val group = reconciled[groupIndex]
+                    reconciled[groupIndex] = group.copy(members = group.members + profile)
+                }
+            }
+
+            return reconciled
         }
     }

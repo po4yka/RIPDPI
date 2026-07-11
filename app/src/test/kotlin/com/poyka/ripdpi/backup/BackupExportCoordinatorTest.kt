@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
-import com.poyka.ripdpi.data.backup.BackupProfileProvider
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
@@ -223,7 +222,6 @@ class BackupExportCoordinatorTest {
         val useCase =
             BackupExportUseCase(
                 groupRepository = FakeGroupRepository(),
-                profileProvider = BackupProfileProvider { emptyList() },
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
             )

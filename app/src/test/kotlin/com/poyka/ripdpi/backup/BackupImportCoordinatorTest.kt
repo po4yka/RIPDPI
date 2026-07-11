@@ -6,9 +6,9 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
-import com.poyka.ripdpi.data.backup.BackupProfileProvider
-import com.poyka.ripdpi.data.backup.BackupProfileRestoreSink
+import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
+import com.poyka.ripdpi.data.backup.BackupSerializer
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
@@ -334,7 +334,6 @@ class BackupImportCoordinatorTest {
         val restoreUseCase =
             BackupRestoreUseCase(
                 groupRepository = MutableGroupRepository(),
-                profileSink = CapturingProfileSink(),
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
             )
@@ -357,20 +356,32 @@ class BackupImportCoordinatorTest {
         profiles: List<ProxyProfile> = emptyList(),
         groups: List<ProxyGroup> = emptyList(),
     ): String {
+        if (profiles.isNotEmpty() && groups.isEmpty()) {
+            return BackupSerializer.encodeToString(
+                BackupExporter.export(
+                    variant = variant,
+                    profiles = profiles,
+                    groups = emptyList(),
+                    rules = emptyList(),
+                    settings = emptyMap(),
+                    createdAtEpochMillis = 0L,
+                    appVersion = "1.0.0",
+                ),
+            )
+        }
+        val groupsWithProfiles =
+            groups.map { group ->
+                group.copy(members = group.members + profiles.filter { it.groupId == group.id })
+            }
         val out = ByteArrayOutputStream()
         runBlocking {
             BackupExportUseCase(
-                groupRepository = MutableGroupRepository(groups),
-                profileProvider = BackupProfileProvider { profiles },
+                groupRepository = MutableGroupRepository(groupsWithProfiles),
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
             ).export(variant = variant, output = out, appVersion = "1.0.0")
         }
         return out.toString("UTF-8")
-    }
-
-    private class CapturingProfileSink : BackupProfileRestoreSink {
-        override suspend fun replaceAll(profiles: List<ProxyProfile>) = Unit
     }
 
     private class MutableGroupRepository(

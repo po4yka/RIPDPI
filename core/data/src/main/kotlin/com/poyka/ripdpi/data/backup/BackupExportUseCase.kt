@@ -46,7 +46,6 @@ class BackupExportUseCase
     @Inject
     constructor(
         private val groupRepository: ProxyGroupRepository,
-        private val profileProvider: BackupProfileProvider,
         private val ruleDao: RuleDao,
         private val settingsRepository: AppSettingsRepository,
     ) {
@@ -86,8 +85,8 @@ class BackupExportUseCase
             appVersion: String,
             createdAtEpochMillis: Long = System.currentTimeMillis(),
         ): BackupV1 {
-            val profiles = profileProvider.profiles()
             val groups = groupRepository.list()
+            val profiles = groups.flatMap { it.members }
             val rules = ruleDao.allRules().first()
             val settings = BackupSettingsConverter.toMap(settingsRepository.snapshot(), variant)
             return BackupExporter.export(

@@ -3,8 +3,6 @@ package com.poyka.ripdpi.backup
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.backup.BackupProfileRestoreSink
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
@@ -173,7 +171,6 @@ class BackupResetCoordinatorTest {
         val useCase =
             ResetAllSettingsUseCase(
                 resetEventRecorder = FakeResetEventRecorder(),
-                profileSink = FakeProfileSink(),
                 groupRepository = FakeGroupRepository(),
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
@@ -206,10 +203,6 @@ class BackupResetCoordinatorTest {
             pending = false
             return true
         }
-    }
-
-    private class FakeProfileSink : BackupProfileRestoreSink {
-        override suspend fun replaceAll(profiles: List<ProxyProfile>) = Unit
     }
 
     private class FakeGroupRepository : ProxyGroupRepository {

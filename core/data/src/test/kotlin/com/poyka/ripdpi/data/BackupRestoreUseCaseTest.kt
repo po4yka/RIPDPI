@@ -4,9 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
+import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupPreviewResult
-import com.poyka.ripdpi.data.backup.BackupProfileProvider
-import com.poyka.ripdpi.data.backup.BackupProfileRestoreSink
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupSchemaVersion
 import com.poyka.ripdpi.data.backup.BackupSerializer
@@ -83,10 +82,8 @@ class BackupRestoreUseCaseTest {
     private fun exportUseCase(
         groups: FakeGroupRepository,
         settings: FakeAppSettingsRepository,
-        profiles: List<ProxyProfile>,
     ) = BackupExportUseCase(
         groupRepository = groups,
-        profileProvider = BackupProfileProvider { profiles },
         ruleDao = ruleDao,
         settingsRepository = settings,
     )
@@ -94,10 +91,8 @@ class BackupRestoreUseCaseTest {
     private fun restoreUseCase(
         groups: FakeGroupRepository,
         settings: FakeAppSettingsRepository,
-        sink: FakeProfileSink,
     ) = BackupRestoreUseCase(
         groupRepository = groups,
-        profileSink = sink,
         ruleDao = ruleDao,
         settingsRepository = settings,
     )
@@ -106,7 +101,8 @@ class BackupRestoreUseCaseTest {
     fun `FULL export then wipe then FULL import deep-equals original state`() =
         runTest {
             // -- Seed live state and export a FULL backup. --
-            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup))
+            val groupWithProfile = sampleGroup.copy(members = listOf(sampleProfile))
+            val exportGroups = FakeGroupRepository(mutableListOf(groupWithProfile))
             val exportSettings =
                 FakeAppSettingsRepository(
                     AppSettings
@@ -117,7 +113,7 @@ class BackupRestoreUseCaseTest {
                 )
             ruleDao.insert(sampleRule)
             val doc =
-                exportUseCase(exportGroups, exportSettings, listOf(sampleProfile))
+                exportUseCase(exportGroups, exportSettings)
                     .gather(BackupVariant.FULL, "1.0.0", 0L)
             val json = BackupSerializer.encodeToString(doc)
 
@@ -125,20 +121,18 @@ class BackupRestoreUseCaseTest {
             ruleDao.deleteAll()
             val liveGroups = FakeGroupRepository(mutableListOf())
             val liveSettings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
-            val sink = FakeProfileSink()
             assertEquals(0, ruleDao.allRules().first().size)
 
             // -- Full import. --
             val result =
-                restoreUseCase(liveGroups, liveSettings, sink).restore(
+                restoreUseCase(liveGroups, liveSettings).restore(
                     json,
                     RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
                 )
             assertTrue(result is RestoreResult.Success)
 
             // -- Deep-equals across every category. --
-            assertEquals(listOf(sampleProfile), sink.stored)
-            assertEquals(listOf(sampleGroup), liveGroups.list())
+            assertEquals(listOf(groupWithProfile), liveGroups.list())
             val restoredRule = ruleDao.allRules().first().single()
             assertEquals(sampleRule.name, restoredRule.name)
             assertEquals(sampleRule.userOrder, restoredRule.userOrder)
@@ -148,6 +142,69 @@ class BackupRestoreUseCaseTest {
             assertEquals(sampleRule.network, restoredRule.network)
             assertEquals(sampleRule.packages, restoredRule.packages)
             assertEquals(OutboundTag.Profile(7), restoredRule.outboundTag)
+            assertEquals(4242, liveSettings.snapshot().proxyPort)
+        }
+
+    @Test
+    fun `legacy top-level profile is restored into its matching group`() =
+        runTest {
+            val document =
+                BackupExporter.export(
+                    variant = BackupVariant.FULL,
+                    profiles = listOf(sampleProfile),
+                    groups = listOf(sampleGroup),
+                    rules = emptyList(),
+                    settings = emptyMap(),
+                    createdAtEpochMillis = 0L,
+                    appVersion = "1.0.0",
+                )
+            val liveGroups = FakeGroupRepository(mutableListOf())
+
+            val result =
+                restoreUseCase(liveGroups, FakeAppSettingsRepository()).restore(
+                    BackupSerializer.encodeToString(document),
+                    RestoreSelection(profilesAndGroups = true, routes = false, settings = false),
+                )
+
+            assertTrue(result is RestoreResult.Success)
+            assertEquals(listOf(sampleGroup.copy(members = listOf(sampleProfile))), liveGroups.list())
+        }
+
+    @Test
+    fun `profile referencing a missing group aborts before any write`() =
+        runTest {
+            val document =
+                BackupExporter.export(
+                    variant = BackupVariant.FULL,
+                    profiles = listOf(sampleProfile),
+                    groups = emptyList(),
+                    rules = emptyList(),
+                    settings = emptyMap(),
+                    createdAtEpochMillis = 0L,
+                    appVersion = "1.0.0",
+                )
+            val existingGroup = sampleGroup.copy(id = "existing")
+            val liveGroups = FakeGroupRepository(mutableListOf(existingGroup))
+            val liveSettings =
+                FakeAppSettingsRepository(
+                    AppSettings
+                        .getDefaultInstance()
+                        .toBuilder()
+                        .setProxyPort(4242)
+                        .build(),
+                )
+            ruleDao.insert(sampleRule)
+            val existingRules = ruleDao.allRules().first()
+
+            val result =
+                restoreUseCase(liveGroups, liveSettings).restore(
+                    BackupSerializer.encodeToString(document),
+                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
+                )
+
+            assertTrue(result is RestoreResult.Aborted)
+            assertEquals(listOf(existingGroup), liveGroups.list())
+            assertEquals(existingRules, ruleDao.allRules().first())
             assertEquals(4242, liveSettings.snapshot().proxyPort)
         }
 
@@ -164,10 +221,9 @@ class BackupRestoreUseCaseTest {
             ruleDao.insert(sampleRule)
             val liveGroups = FakeGroupRepository(mutableListOf(sampleGroup))
             val liveSettings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
-            val sink = FakeProfileSink()
 
             val result =
-                restoreUseCase(liveGroups, liveSettings, sink).restore(
+                restoreUseCase(liveGroups, liveSettings).restore(
                     json,
                     RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
                 )
@@ -177,7 +233,6 @@ class BackupRestoreUseCaseTest {
             // Live data is untouched: the seeded rule and group survive.
             assertEquals(1, ruleDao.allRules().first().size)
             assertEquals(listOf(sampleGroup), liveGroups.list())
-            assertTrue(sink.stored == null)
         }
 
     @Test
@@ -186,10 +241,9 @@ class BackupRestoreUseCaseTest {
             ruleDao.insert(sampleRule)
             val liveGroups = FakeGroupRepository(mutableListOf(sampleGroup))
             val liveSettings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
-            val sink = FakeProfileSink()
 
             val result =
-                restoreUseCase(liveGroups, liveSettings, sink).restore(
+                restoreUseCase(liveGroups, liveSettings).restore(
                     "{ this is not json",
                     RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
                 )
@@ -197,13 +251,13 @@ class BackupRestoreUseCaseTest {
             assertTrue(result is RestoreResult.Aborted)
             assertEquals(1, ruleDao.allRules().first().size)
             assertEquals(listOf(sampleGroup), liveGroups.list())
-            assertTrue(sink.stored == null)
         }
 
     @Test
     fun `selective restore preserves unchecked categories`() =
         runTest {
-            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup))
+            val groupWithProfile = sampleGroup.copy(members = listOf(sampleProfile))
+            val exportGroups = FakeGroupRepository(mutableListOf(groupWithProfile))
             val exportSettings =
                 FakeAppSettingsRepository(
                     AppSettings
@@ -215,7 +269,7 @@ class BackupRestoreUseCaseTest {
             ruleDao.insert(sampleRule)
             val json =
                 BackupSerializer.encodeToString(
-                    exportUseCase(exportGroups, exportSettings, listOf(sampleProfile))
+                    exportUseCase(exportGroups, exportSettings)
                         .gather(BackupVariant.FULL, "1.0.0", 0L),
                 )
 
@@ -232,19 +286,16 @@ class BackupRestoreUseCaseTest {
                         .setProxyPort(1111)
                         .build(),
                 )
-            val sink = FakeProfileSink()
-
             // Restore ONLY profiles+groups; routes and settings must be preserved.
             val result =
-                restoreUseCase(liveGroups, liveSettings, sink).restore(
+                restoreUseCase(liveGroups, liveSettings).restore(
                     json,
                     RestoreSelection(profilesAndGroups = true, routes = false, settings = false),
                 )
             assertTrue(result is RestoreResult.Success)
 
             // profiles+groups were restored ...
-            assertEquals(listOf(sampleProfile), sink.stored)
-            assertEquals(listOf(sampleGroup), liveGroups.list())
+            assertEquals(listOf(groupWithProfile), liveGroups.list())
             // ... but the unchecked rule + settings categories were left intact.
             assertEquals(
                 "live-rule",
@@ -262,7 +313,7 @@ class BackupRestoreUseCaseTest {
         runTest {
             ruleDao.insert(sampleRule)
             val result =
-                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository(), FakeProfileSink())
+                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
                     .restore("{}", RestoreSelection(false, false, false))
             assertTrue(result is RestoreResult.NothingSelected)
             assertEquals(1, ruleDao.allRules().first().size)
@@ -271,18 +322,18 @@ class BackupRestoreUseCaseTest {
     @Test
     fun `SHARE backup preview reports profiles that cannot be decoded`() =
         runTest {
-            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup))
+            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup.copy(members = listOf(sampleProfile))))
             val exportSettings = FakeAppSettingsRepository()
             val json =
                 BackupSerializer.encodeToString(
                     // SHARE strips the Shadowsocks password (REDACTED), so the
                     // profile can no longer be decoded into a complete ProxyProfile.
-                    exportUseCase(exportGroups, exportSettings, listOf(sampleProfile))
+                    exportUseCase(exportGroups, exportSettings)
                         .gather(BackupVariant.SHARE, "1.0.0", 0L),
                 )
 
             val preview =
-                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository(), FakeProfileSink())
+                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
                     .preview(json)
 
             assertTrue(preview is BackupPreviewResult.Ready)
@@ -299,16 +350,16 @@ class BackupRestoreUseCaseTest {
     fun `FULL backup preview reports counts and is fully restorable`() =
         runTest {
             ruleDao.insert(sampleRule)
-            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup))
+            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup.copy(members = listOf(sampleProfile))))
             val exportSettings = FakeAppSettingsRepository()
             val json =
                 BackupSerializer.encodeToString(
-                    exportUseCase(exportGroups, exportSettings, listOf(sampleProfile))
+                    exportUseCase(exportGroups, exportSettings)
                         .gather(BackupVariant.FULL, "2.0.0", 0L),
                 )
 
             val preview =
-                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository(), FakeProfileSink())
+                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
                     .preview(json)
 
             assertTrue(preview is BackupPreviewResult.Ready)
@@ -332,7 +383,7 @@ class BackupRestoreUseCaseTest {
             "profiles":[],"groups":[],"rules":[],"settings":{}}
             """.trimIndent()
         val preview =
-            restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository(), FakeProfileSink())
+            restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
                 .preview(json)
         assertTrue(preview is BackupPreviewResult.UnsupportedVersion)
         assertEquals(future, (preview as BackupPreviewResult.UnsupportedVersion).found)
@@ -371,15 +422,6 @@ class BackupRestoreUseCaseTest {
         }
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
-    private class FakeProfileSink : BackupProfileRestoreSink {
-        var stored: List<ProxyProfile>? = null
-            private set
-
-        override suspend fun replaceAll(profiles: List<ProxyProfile>) {
-            stored = profiles
-        }
     }
 
     private class FakeAppSettingsRepository(

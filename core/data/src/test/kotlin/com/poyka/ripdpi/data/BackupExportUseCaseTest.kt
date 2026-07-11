@@ -6,7 +6,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupImporter
-import com.poyka.ripdpi.data.backup.BackupProfileProvider
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.rules.OutboundTag
@@ -19,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,13 +55,11 @@ class BackupExportUseCaseTest {
     }
 
     private fun useCase(
-        profiles: List<ProxyProfile> = emptyList(),
         groups: List<ProxyGroup> = emptyList(),
         settings: AppSettings = AppSettings.getDefaultInstance(),
     ): BackupExportUseCase =
         BackupExportUseCase(
             groupRepository = FakeGroupRepository(groups),
-            profileProvider = BackupProfileProvider { profiles },
             ruleDao = ruleDao,
             settingsRepository = FakeAppSettingsRepository(settings),
         )
@@ -84,7 +82,7 @@ class BackupExportUseCaseTest {
                 )
 
             val doc =
-                useCase(profiles = listOf(profile), groups = listOf(group))
+                useCase(groups = listOf(group.copy(members = listOf(profile))))
                     .gather(
                         variant = BackupVariant.FULL,
                         appVersion = "9.9.9",
@@ -94,7 +92,15 @@ class BackupExportUseCaseTest {
             assertEquals("9.9.9", doc.appVersion)
             assertEquals(42L, doc.createdAtEpochMillis)
             assertEquals(1, doc.profiles.size)
+            assertEquals(
+                "ss-1",
+                doc.profiles
+                    .single()
+                    .getValue("id")
+                    .jsonPrimitive.content,
+            )
             assertEquals(1, doc.groups.size)
+            assertEquals(listOf(profile), doc.groups.single().members)
             assertEquals(1, doc.rules.size)
             assertEquals("rule-a", doc.rules.single().name)
             assertTrue("FULL must mark credentials", doc.containsCredentials)
@@ -114,11 +120,35 @@ class BackupExportUseCaseTest {
                     password = "secret",
                 )
 
-            val full = useCase(profiles = listOf(profile)).gather(BackupVariant.FULL, "1.0.0", 0L)
-            val share = useCase(profiles = listOf(profile)).gather(BackupVariant.SHARE, "1.0.0", 0L)
+            val group =
+                ProxyGroup(
+                    id = "g-1",
+                    name = "Group",
+                    type = ProxyGroupType.BASIC,
+                    order = 0,
+                    isSelector = false,
+                    members = listOf(profile),
+                )
+            val full = useCase(groups = listOf(group)).gather(BackupVariant.FULL, "1.0.0", 0L)
+            val share = useCase(groups = listOf(group)).gather(BackupVariant.SHARE, "1.0.0", 0L)
 
             assertTrue("password" in full.profiles.single())
+            assertEquals(
+                "secret",
+                (
+                    full.groups
+                        .single()
+                        .members
+                        .single() as ProxyProfile.Shadowsocks
+                ).password,
+            )
             assertTrue("password must be stripped in SHARE", "password" !in share.profiles.single())
+            assertTrue(
+                share.groups
+                    .single()
+                    .members
+                    .isEmpty(),
+            )
         }
 
     @Test
