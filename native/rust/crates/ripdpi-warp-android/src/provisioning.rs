@@ -22,6 +22,7 @@ use url::Url;
 
 const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
 const CHROME_STABLE_PROFILE: &str = "chrome_stable";
+const MAX_PROVISIONING_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 pub struct NativeWarpProvisioningHttpRequest {
@@ -142,13 +143,41 @@ async fn execute_async(request: NativeWarpProvisioningHttpRequest) -> io::Result
         .await
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionAborted, format!("request failed: {error}")))?;
     let status_code = response.status().as_u16();
-    let body =
-        response.into_body().collect().await.map_err(|error| {
+    let body = collect_response_body(response.into_body(), MAX_PROVISIONING_RESPONSE_BODY_BYTES).await?;
+    Ok(NativeWarpProvisioningHttpResponse { status_code: Some(status_code), body: Some(body), error: None })
+}
+
+async fn collect_response_body<B>(mut body: B, max_bytes: usize) -> io::Result<String>
+where
+    B: hyper::body::Body<Data = Bytes> + Unpin,
+    B::Error: std::fmt::Display,
+{
+    if body.size_hint().upper().is_some_and(|upper| usize::try_from(upper).map_or(true, |upper| upper > max_bytes)) {
+        return Err(provisioning_response_body_too_large(max_bytes));
+    }
+
+    let mut bytes = Vec::new();
+    while let Some(frame) = body.frame().await {
+        let frame = frame.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionAborted, format!("response body failed: {error}"))
         })?;
-    let body = String::from_utf8(body.to_bytes().to_vec())
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("response body was not UTF-8: {error}")))?;
-    Ok(NativeWarpProvisioningHttpResponse { status_code: Some(status_code), body: Some(body), error: None })
+        let Ok(data) = frame.into_data() else {
+            continue;
+        };
+        let new_len =
+            bytes.len().checked_add(data.len()).ok_or_else(|| provisioning_response_body_too_large(max_bytes))?;
+        if new_len > max_bytes {
+            return Err(provisioning_response_body_too_large(max_bytes));
+        }
+        bytes.extend_from_slice(&data);
+    }
+
+    String::from_utf8(bytes)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("response body was not UTF-8: {error}")))
+}
+
+fn provisioning_response_body_too_large(max_bytes: usize) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, format!("WARP provisioning response body exceeds {max_bytes} bytes"))
 }
 
 async fn connect_transport(
@@ -270,4 +299,99 @@ async fn socks5_connect_domain(stream: &mut TcpStream, host: &str, port: u16) ->
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::task::{Context, Poll};
+
+    use hyper::body::{Body, Frame, SizeHint};
+
+    use super::*;
+
+    struct TestBody {
+        frames: VecDeque<Bytes>,
+        upper: Option<u64>,
+        poll_count: Arc<AtomicUsize>,
+    }
+
+    impl TestBody {
+        fn new(frames: impl IntoIterator<Item = Bytes>, upper: Option<u64>, poll_count: Arc<AtomicUsize>) -> Self {
+            Self { frames: frames.into_iter().collect(), upper, poll_count }
+        }
+    }
+
+    impl Body for TestBody {
+        type Data = Bytes;
+        type Error = io::Error;
+
+        fn poll_frame(
+            mut self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+            // Ordering: the counter only observes poll frequency; it does not publish or guard data.
+            self.poll_count.fetch_add(1, Ordering::Relaxed);
+            Poll::Ready(self.frames.pop_front().map(|bytes| Ok(Frame::data(bytes))))
+        }
+
+        fn size_hint(&self) -> SizeHint {
+            let mut hint = SizeHint::new();
+            if let Some(upper) = self.upper {
+                hint.set_upper(upper);
+            }
+            hint
+        }
+    }
+
+    #[tokio::test]
+    async fn known_oversize_body_is_rejected_without_polling() {
+        let poll_count = Arc::new(AtomicUsize::new(0));
+        let body = TestBody::new([Bytes::from_static(b"oversize")], Some(9), Arc::clone(&poll_count));
+
+        let error = collect_response_body(body, 8).await.expect_err("known oversize body must be rejected");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("WARP provisioning response body exceeds"));
+        // Ordering: the counter is read after the body future completes and is only test instrumentation.
+        assert_eq!(poll_count.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn unknown_oversize_body_is_rejected_when_crossing_frame_arrives() {
+        let poll_count = Arc::new(AtomicUsize::new(0));
+        let body =
+            TestBody::new([Bytes::from_static(b"12345"), Bytes::from_static(b"6789")], None, Arc::clone(&poll_count));
+
+        let error = collect_response_body(body, 8).await.expect_err("cumulative oversize body must be rejected");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("WARP provisioning response body exceeds"));
+        // Ordering: the counter is read after the body future completes and is only test instrumentation.
+        assert_eq!(poll_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[tokio::test]
+    async fn exact_limit_across_frames_returns_identical_utf8() {
+        let poll_count = Arc::new(AtomicUsize::new(0));
+        let body = TestBody::new([Bytes::from_static(b"123"), Bytes::from_static(b"45678")], None, poll_count);
+
+        let result = collect_response_body(body, 8).await.expect("exact-limit body must be accepted");
+
+        assert_eq!(result, "12345678");
+    }
+
+    #[tokio::test]
+    async fn below_limit_invalid_utf8_preserves_invalid_data_error() {
+        let poll_count = Arc::new(AtomicUsize::new(0));
+        let body = TestBody::new([Bytes::from_static(&[0xff])], None, poll_count);
+
+        let error = collect_response_body(body, 8).await.expect_err("invalid UTF-8 must be rejected");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("response body was not UTF-8"));
+    }
 }
