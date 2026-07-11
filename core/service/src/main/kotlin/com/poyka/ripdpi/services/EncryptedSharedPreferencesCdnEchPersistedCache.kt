@@ -19,8 +19,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 internal const val CDN_ECH_CACHE_PREFS_NAME = "ripdpi_cdn_ech_cache"
+internal const val CDN_ECH_CACHE_CURRENT_PREFS_NAME = "ripdpi_cdn_ech_cache_v2"
 internal const val CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY = "config_bytes_b64"
 internal const val CDN_ECH_CACHE_FETCHED_AT_KEY = "fetched_at_unix_ms"
+internal const val CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY = "legacy_migration_complete_v1"
 
 internal class CdnEchPreferencesCodec(
     private val prefs: SharedPreferences,
@@ -57,21 +59,78 @@ internal class CdnEchPreferencesCodec(
     }
 }
 
-// EncryptedSharedPreferences-backed cache for the most-recent ECH config
-// bytes. The bytes themselves are public CDN data, so the encryption is
-// primarily about tampering protection, not
-// confidentiality — a malicious app on the same device cannot rewrite the
-// cache to point at a stale or attacker-supplied config.
-//
-// Reads and writes hop to Dispatchers.IO because EncryptedSharedPreferences
-// performs disk + Keystore work under the hood.
+internal class CdnEchCurrentPreferencesCodec(
+    private val prefs: SharedPreferences,
+) {
+    fun load(): PersistedEchEntry? = CdnEchPreferencesCodec(prefs).load()
+
+    fun isLegacyMigrationComplete(): Boolean = prefs.getBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, false)
+
+    fun save(entry: PersistedEchEntry) {
+        editEntry(entry)
+            .putBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .apply()
+    }
+
+    fun saveMigrated(entry: PersistedEchEntry): Boolean =
+        editEntry(entry)
+            .putBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .commit()
+
+    fun clear() {
+        prefs
+            .edit()
+            .remove(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY)
+            .remove(CDN_ECH_CACHE_FETCHED_AT_KEY)
+            .putBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .apply()
+    }
+
+    private fun editEntry(entry: PersistedEchEntry): SharedPreferences.Editor {
+        val configB64 = android.util.Base64.encodeToString(entry.configBytes, android.util.Base64.NO_WRAP)
+        return prefs
+            .edit()
+            .putString(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY, configB64)
+            .putLong(CDN_ECH_CACHE_FETCHED_AT_KEY, entry.fetchedAtUnixMs)
+    }
+}
+
+internal class CdnEchPreferencesMigrationCoordinator(
+    private val currentCodec: CdnEchCurrentPreferencesCodec,
+    private val loadLegacy: () -> PersistedEchEntry?,
+) {
+    fun load(): PersistedEchEntry? {
+        val current = currentCodec.load()
+        if (current != null || currentCodec.isLegacyMigrationComplete()) return current
+
+        val legacy = runCatching { loadLegacy() }.getOrNull() ?: return null
+        val migrated = runCatching { currentCodec.saveMigrated(legacy) }.getOrDefault(false)
+        return legacy.takeIf { migrated }
+    }
+
+    fun save(entry: PersistedEchEntry) {
+        currentCodec.save(entry)
+    }
+
+    fun clear() {
+        currentCodec.clear()
+    }
+}
+
+// App-private cache for public CDN ECH config bytes, with a lazy encrypted-preferences reader retained for one transitional release.
 @Singleton
 class EncryptedSharedPreferencesCdnEchPersistedCache
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : CdnEchPersistedCache {
-        private val prefs: SharedPreferences by lazy {
+        private val currentPrefs: SharedPreferences by lazy {
+            context.getSharedPreferences(CDN_ECH_CACHE_CURRENT_PREFS_NAME, Context.MODE_PRIVATE)
+        }
+        private val currentCodec: CdnEchCurrentPreferencesCodec by lazy {
+            CdnEchCurrentPreferencesCodec(currentPrefs)
+        }
+        private val legacyPrefs: SharedPreferences by lazy {
             val masterKey =
                 MasterKey
                     .Builder(context)
@@ -85,24 +144,27 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
         }
-        private val codec: CdnEchPreferencesCodec by lazy {
-            CdnEchPreferencesCodec(prefs)
+        private val legacyCodec: CdnEchPreferencesCodec by lazy {
+            CdnEchPreferencesCodec(legacyPrefs)
+        }
+        private val migrationCoordinator: CdnEchPreferencesMigrationCoordinator by lazy {
+            CdnEchPreferencesMigrationCoordinator(currentCodec) { legacyCodec.load() }
         }
 
         override suspend fun load(): PersistedEchEntry? =
             withContext(Dispatchers.IO) {
-                codec.load()
+                migrationCoordinator.load()
             }
 
         override suspend fun save(entry: PersistedEchEntry) {
             withContext(Dispatchers.IO) {
-                codec.save(entry)
+                migrationCoordinator.save(entry)
             }
         }
 
         override suspend fun clear() {
             withContext(Dispatchers.IO) {
-                codec.clear()
+                migrationCoordinator.clear()
             }
         }
     }
