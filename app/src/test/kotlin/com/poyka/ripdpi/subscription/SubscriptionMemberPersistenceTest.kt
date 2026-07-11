@@ -40,6 +40,19 @@ class SubscriptionMemberPersistenceTest {
             password = "pw-$id",
         )
 
+    private fun sharedEndpointTrojan(
+        id: String,
+        displayName: String,
+        password: String,
+    ) = ProxyProfile.Trojan(
+        id = id,
+        displayName = displayName,
+        groupId = "g1",
+        server = "shared.example.com",
+        serverPort = 443,
+        password = password,
+    )
+
     private fun rawConfig(id: String) = ProxyProfile.RawConfig(id = id, displayName = id, groupId = "g1", config = "{}")
 
     @Test
@@ -125,6 +138,35 @@ class SubscriptionMemberPersistenceTest {
         val updated = SubscriptionMemberPersistence.apply(original, refreshed)
 
         assertEquals("kept-id", updated.members.single().id)
+    }
+
+    @Test
+    fun `duplicate endpoints consume distinct prior ids and preserve refreshed fields`() {
+        val original =
+            group(
+                members =
+                    listOf(
+                        sharedEndpointTrojan("prior-first", "Old first", "old-first-password"),
+                        sharedEndpointTrojan("prior-second", "Old second", "old-second-password"),
+                    ),
+            )
+        val refreshed =
+            listOf(
+                sharedEndpointTrojan("fresh-first", "Refreshed first", "refreshed-first-password"),
+                sharedEndpointTrojan("fresh-second", "Refreshed second", "refreshed-second-password"),
+                sharedEndpointTrojan("fresh-excess", "Refreshed excess", "refreshed-excess-password"),
+            )
+
+        val updated = SubscriptionMemberPersistence.apply(original, refreshed)
+        val updatedIds = updated.members.map { it.id }
+
+        assertEquals(listOf("prior-first", "prior-second", "fresh-excess"), updatedIds)
+        assertEquals(3, updatedIds.distinct().size)
+        assertEquals(refreshed.map { it.displayName }, updated.members.map { it.displayName })
+        assertEquals(
+            refreshed.map { it.password },
+            updated.members.map { (it as ProxyProfile.Trojan).password },
+        )
     }
 
     @Test

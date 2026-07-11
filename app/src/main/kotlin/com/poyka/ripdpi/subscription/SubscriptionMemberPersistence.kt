@@ -43,10 +43,13 @@ object SubscriptionMemberPersistence {
         // any persisted selector selection (keyed by member id) on every refresh
         // (audit P1-14). Carry each prior member's id onto its structurally-equal
         // refreshed counterpart so the user's selection survives.
-        val priorIdByEndpoint = group.members.associate { it.endpointKey() to it.id }
+        val priorIdsByEndpoint = mutableMapOf<String, ArrayDeque<String>>()
+        group.members.forEach { member ->
+            priorIdsByEndpoint.getOrPut(member.endpointKey(), ::ArrayDeque).addLast(member.id)
+        }
         val remapped =
             activatable.map { member ->
-                priorIdByEndpoint[member.endpointKey()]?.let(member::withId) ?: member
+                priorIdsByEndpoint[member.endpointKey()]?.removeFirstOrNull()?.let(member::withId) ?: member
             }
         return group.copy(
             members = remapped,
