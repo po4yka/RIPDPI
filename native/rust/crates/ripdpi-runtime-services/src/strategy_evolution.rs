@@ -239,7 +239,8 @@ fn reachability_set_context(host: Option<&str>) -> LearningReachabilitySet {
 mod tests {
     use super::*;
     use ripdpi_runtime_strategy::strategy_evolver::{
-        ProbeResult, apply_global_probe_results, clear_global_probe_results_for_tests,
+        PROBE_OBSERVATION_WEIGHT, ProbeResult, apply_global_probe_results, clear_global_probe_results_for_tests,
+        probe_combo_for_strategy_id,
     };
 
     #[test]
@@ -279,6 +280,33 @@ mod tests {
             .expect("strategy hints");
 
         assert_eq!(hints.tls_record_offset_base, Some(ripdpi_config::OffsetBase::AutoHost));
+
+        let tls_record_combo = probe_combo_for_strategy_id("tls_rec_split").expect("TLS record strategy combo");
+        assert_eq!(
+            resolver.evolver.combo_stats_for(&tls_record_combo).expect("TLS record strategy stats").attempts,
+            PROBE_OBSERVATION_WEIGHT
+        );
+
+        apply_global_probe_results(&[ProbeResult::success("split", "youtube.com", 25)]);
+        resolver
+            .tcp_hints(
+                &config,
+                None,
+                "203.0.113.10:443".parse().expect("target socket"),
+                Some("youtube.com"),
+                &minimal_tls_client_hello(),
+            )
+            .expect("strategy hints after replacement probe batch");
+
+        let split_combo = probe_combo_for_strategy_id("split").expect("split strategy combo");
+        assert_eq!(
+            resolver.evolver.combo_stats_for(&tls_record_combo).expect("TLS record strategy stats").attempts,
+            PROBE_OBSERVATION_WEIGHT
+        );
+        assert_eq!(
+            resolver.evolver.combo_stats_for(&split_combo).expect("split strategy stats").attempts,
+            PROBE_OBSERVATION_WEIGHT
+        );
         clear_global_probe_results_for_tests();
     }
 

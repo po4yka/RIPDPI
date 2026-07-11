@@ -196,7 +196,7 @@ pub fn apply_global_probe_results(results: &[ProbeResult]) -> usize {
     }
     let mut global = global_probe_results().write().expect("probe result registry poisoned");
     global.generation = global.generation.saturating_add(1);
-    global.results.extend_from_slice(results);
+    global.results = results.to_vec();
     results.len()
 }
 
@@ -285,4 +285,25 @@ fn strategy_id_for_probe_combo(combo: &StrategyCombo) -> Option<&'static str> {
 
 fn normalize_strategy_id(strategy_id: &str) -> String {
     strategy_id.trim().trim_start_matches("lua:").replace('-', "_").to_ascii_lowercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn global_probe_results_replace_previous_batch() {
+        clear_global_probe_results_for_tests();
+        let first_batch = [ProbeResult::success("tls_rec_split", "first.example", 40)];
+        let second_batch = [ProbeResult::success("split", "second.example", 25)];
+
+        assert_eq!(apply_global_probe_results(&first_batch), first_batch.len());
+        assert_eq!(apply_global_probe_results(&second_batch), second_batch.len());
+        assert_eq!(apply_global_probe_results(&[]), 0);
+
+        let (generation, results) = latest_global_probe_results();
+        assert_eq!(generation, 2);
+        assert_eq!(results, second_batch);
+        clear_global_probe_results_for_tests();
+    }
 }
