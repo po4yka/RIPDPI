@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::net::SocketAddr;
 
 use ripdpi_config::RuntimeConfig;
@@ -14,7 +14,8 @@ use ripdpi_runtime_strategy::strategy_evolver::{
 
 pub(crate) struct StrategyEvolutionResolver {
     evolver: StrategyEvolver,
-    applied_probe_generations: HashMap<LearningTargetBucket, u64>,
+    current_probe_generation: u64,
+    consumed_probe_domains: HashSet<(LearningTargetBucket, String)>,
 }
 
 impl StrategyEvolutionResolver {
@@ -28,7 +29,8 @@ impl StrategyEvolutionResolver {
                 config.adaptive.evolution_cooldown_after_failures,
                 config.adaptive.evolution_cooldown_ms,
             ),
-            applied_probe_generations: HashMap::new(),
+            current_probe_generation: 0,
+            consumed_probe_domains: HashSet::new(),
         }
     }
 
@@ -46,7 +48,7 @@ impl StrategyEvolutionResolver {
         let context = tcp_learning_context(config, runtime_context, target, host, payload);
         let bucket = context.target_bucket;
         self.evolver.set_learning_context(context);
-        self.apply_latest_probe_results(bucket);
+        self.apply_latest_probe_results(bucket, host);
         self.evolver.peek_hints().or_else(|| self.evolver.suggest_hints())
     }
 
@@ -64,7 +66,7 @@ impl StrategyEvolutionResolver {
         let context = udp_learning_context(config, runtime_context, target, host, payload);
         let bucket = context.target_bucket;
         self.evolver.set_learning_context(context);
-        self.apply_latest_probe_results(bucket);
+        self.apply_latest_probe_results(bucket, host);
         self.evolver.peek_hints().or_else(|| self.evolver.suggest_hints())
     }
 
@@ -78,20 +80,44 @@ impl StrategyEvolutionResolver {
 
     pub(crate) fn reset(&mut self) {
         self.evolver = StrategyEvolver::new(self.evolver.is_enabled(), self.evolver.epsilon());
-        self.applied_probe_generations.clear();
+        self.current_probe_generation = 0;
+        self.consumed_probe_domains.clear();
     }
 
-    fn apply_latest_probe_results(&mut self, bucket: LearningTargetBucket) {
+    fn apply_latest_probe_results(&mut self, bucket: LearningTargetBucket, host: Option<&str>) {
         let (generation, results) = latest_global_probe_results();
-        if generation == 0 || results.is_empty() {
+        if generation == 0 {
             return;
         }
-        if self.applied_probe_generations.get(&bucket).copied() == Some(generation) {
+        if generation != self.current_probe_generation {
+            self.current_probe_generation = generation;
+            self.consumed_probe_domains.clear();
+        }
+        let Some(domain) = host.and_then(normalize_probe_domain).map(str::to_ascii_lowercase) else {
+            return;
+        };
+        let key = (bucket, domain);
+        if self.consumed_probe_domains.contains(&key) {
             return;
         }
-        self.evolver.inject_probe_results(&results);
-        self.applied_probe_generations.insert(bucket, generation);
+        let matching_results = results
+            .into_iter()
+            .filter(|result| {
+                normalize_probe_domain(&result.domain)
+                    .is_some_and(|result_domain| result_domain.eq_ignore_ascii_case(&key.1))
+            })
+            .collect::<Vec<_>>();
+        if matching_results.is_empty() {
+            return;
+        }
+        self.evolver.inject_probe_results(&matching_results);
+        self.consumed_probe_domains.insert(key);
     }
+}
+
+fn normalize_probe_domain(domain: &str) -> Option<&str> {
+    let domain = domain.trim().trim_end_matches('.');
+    (!domain.is_empty()).then_some(domain)
 }
 
 fn network_scope_key(config: &RuntimeConfig) -> Option<&str> {
@@ -263,42 +289,59 @@ mod tests {
     #[test]
     fn tcp_hints_apply_injected_probe_results() {
         clear_global_probe_results_for_tests();
-        apply_global_probe_results(&[ProbeResult::success("tls_rec_split", "youtube.com", 40)]);
+        apply_global_probe_results(&[
+            ProbeResult::success("tls_rec_split", "YouTube.COM.", 40),
+            ProbeResult::success("split", "discord.com", 25),
+        ]);
         let mut config = RuntimeConfig::default();
         config.adaptive.strategy_evolution = true;
         config.adaptive.evolution_epsilon_permil = 0;
         let mut resolver = StrategyEvolutionResolver::from_config(&config);
-
-        let hints = resolver
-            .tcp_hints(
-                &config,
-                None,
-                "203.0.113.10:443".parse().expect("target socket"),
-                Some("youtube.com"),
-                &minimal_tls_client_hello(),
-            )
-            .expect("strategy hints");
-
-        assert_eq!(hints.tls_record_offset_base, Some(ripdpi_config::OffsetBase::AutoHost));
-
+        let target = "203.0.113.10:443".parse().expect("target socket");
         let tls_record_combo = probe_combo_for_strategy_id("tls_rec_split").expect("TLS record strategy combo");
+        let split_combo = probe_combo_for_strategy_id("split").expect("split strategy combo");
+        let oob_combo = probe_combo_for_strategy_id("oob").expect("OOB strategy combo");
+
+        resolver
+            .tcp_hints(&config, None, target, Some("unprobed.example"), &minimal_tls_client_hello())
+            .expect("strategy hints for unprobed host");
+
+        assert!(resolver.evolver.combo_stats_for(&tls_record_combo).is_none());
+        assert!(resolver.evolver.combo_stats_for(&split_combo).is_none());
+
+        resolver
+            .tcp_hints(&config, None, target, Some("youtube.com"), &minimal_tls_client_hello())
+            .expect("strategy hints for YouTube");
+        assert_eq!(
+            resolver.evolver.combo_stats_for(&tls_record_combo).expect("TLS record strategy stats").attempts,
+            PROBE_OBSERVATION_WEIGHT
+        );
+        assert!(resolver.evolver.combo_stats_for(&split_combo).is_none());
+
+        resolver
+            .tcp_hints(&config, None, target, Some("YOUTUBE.COM."), &minimal_tls_client_hello())
+            .expect("strategy hints for repeated YouTube host");
         assert_eq!(
             resolver.evolver.combo_stats_for(&tls_record_combo).expect("TLS record strategy stats").attempts,
             PROBE_OBSERVATION_WEIGHT
         );
 
-        apply_global_probe_results(&[ProbeResult::success("split", "youtube.com", 25)]);
         resolver
-            .tcp_hints(
-                &config,
-                None,
-                "203.0.113.10:443".parse().expect("target socket"),
-                Some("youtube.com"),
-                &minimal_tls_client_hello(),
-            )
-            .expect("strategy hints after replacement probe batch");
+            .tcp_hints(&config, None, target, Some("Discord.COM."), &minimal_tls_client_hello())
+            .expect("strategy hints for Discord");
+        assert_eq!(
+            resolver.evolver.combo_stats_for(&split_combo).expect("split strategy stats").attempts,
+            PROBE_OBSERVATION_WEIGHT
+        );
 
-        let split_combo = probe_combo_for_strategy_id("split").expect("split strategy combo");
+        apply_global_probe_results(&[ProbeResult::success("oob", "youtube.com", 20)]);
+        resolver
+            .tcp_hints(&config, None, target, Some("YouTube.COM."), &minimal_tls_client_hello())
+            .expect("strategy hints for new YouTube generation");
+        assert_eq!(
+            resolver.evolver.combo_stats_for(&oob_combo).expect("OOB strategy stats").attempts,
+            PROBE_OBSERVATION_WEIGHT
+        );
         assert_eq!(
             resolver.evolver.combo_stats_for(&tls_record_combo).expect("TLS record strategy stats").attempts,
             PROBE_OBSERVATION_WEIGHT
