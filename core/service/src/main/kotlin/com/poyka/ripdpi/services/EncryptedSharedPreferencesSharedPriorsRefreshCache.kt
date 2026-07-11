@@ -18,9 +18,30 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val prefsName = "ripdpi_shared_priors_refresh"
-private const val keyLastRefresh = "last_refresh_unix_ms"
-private const val keyLastModified = "last_modified_header"
+internal const val SHARED_PRIORS_REFRESH_PREFS_NAME = "ripdpi_shared_priors_refresh"
+internal const val SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY = "last_refresh_unix_ms"
+internal const val SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY = "last_modified_header"
+
+internal class SharedPriorsRefreshPreferencesCodec(
+    private val prefs: SharedPreferences,
+) {
+    fun load(): SharedPriorsRefreshState? {
+        val lastRefresh = prefs.getLong(SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY, -1L)
+        if (lastRefresh < 0L) return null
+        val lastModified = prefs.getString(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY, null)
+        return SharedPriorsRefreshState(lastRefreshUnixMs = lastRefresh, lastModifiedHeader = lastModified)
+    }
+
+    fun save(state: SharedPriorsRefreshState) {
+        val editor = prefs.edit().putLong(SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY, state.lastRefreshUnixMs)
+        if (state.lastModifiedHeader != null) {
+            editor.putString(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY, state.lastModifiedHeader)
+        } else {
+            editor.remove(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY)
+        }
+        editor.apply()
+    }
+}
 
 @Singleton
 class EncryptedSharedPreferencesSharedPriorsRefreshCache
@@ -36,30 +57,24 @@ class EncryptedSharedPreferencesSharedPriorsRefreshCache
                     .build()
             EncryptedSharedPreferences.create(
                 context,
-                prefsName,
+                SHARED_PRIORS_REFRESH_PREFS_NAME,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
         }
+        private val codec: SharedPriorsRefreshPreferencesCodec by lazy {
+            SharedPriorsRefreshPreferencesCodec(prefs)
+        }
 
         override suspend fun load(): SharedPriorsRefreshState? =
             withContext(Dispatchers.IO) {
-                val lastRefresh = prefs.getLong(keyLastRefresh, -1L)
-                if (lastRefresh < 0L) return@withContext null
-                val lastModified = prefs.getString(keyLastModified, null)
-                SharedPriorsRefreshState(lastRefreshUnixMs = lastRefresh, lastModifiedHeader = lastModified)
+                codec.load()
             }
 
         override suspend fun save(state: SharedPriorsRefreshState) {
             withContext(Dispatchers.IO) {
-                val editor = prefs.edit().putLong(keyLastRefresh, state.lastRefreshUnixMs)
-                if (state.lastModifiedHeader != null) {
-                    editor.putString(keyLastModified, state.lastModifiedHeader)
-                } else {
-                    editor.remove(keyLastModified)
-                }
-                editor.apply()
+                codec.save(state)
             }
         }
     }

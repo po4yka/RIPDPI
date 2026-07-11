@@ -18,9 +18,44 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val prefsName = "ripdpi_cdn_ech_cache"
-private const val keyConfigB64 = "config_bytes_b64"
-private const val keyFetchedAt = "fetched_at_unix_ms"
+internal const val CDN_ECH_CACHE_PREFS_NAME = "ripdpi_cdn_ech_cache"
+internal const val CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY = "config_bytes_b64"
+internal const val CDN_ECH_CACHE_FETCHED_AT_KEY = "fetched_at_unix_ms"
+
+internal class CdnEchPreferencesCodec(
+    private val prefs: SharedPreferences,
+) {
+    fun load(): PersistedEchEntry? {
+        val configB64 = prefs.getString(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY, null) ?: return null
+        val fetchedAt = prefs.getLong(CDN_ECH_CACHE_FETCHED_AT_KEY, -1L)
+        if (fetchedAt < 0L) return null
+        val bytes =
+            runCatching {
+                android.util.Base64.decode(
+                    configB64,
+                    android.util.Base64.NO_WRAP,
+                )
+            }.getOrNull()
+        return bytes?.let { PersistedEchEntry(configBytes = it, fetchedAtUnixMs = fetchedAt) }
+    }
+
+    fun save(entry: PersistedEchEntry) {
+        val configB64 = android.util.Base64.encodeToString(entry.configBytes, android.util.Base64.NO_WRAP)
+        prefs
+            .edit()
+            .putString(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY, configB64)
+            .putLong(CDN_ECH_CACHE_FETCHED_AT_KEY, entry.fetchedAtUnixMs)
+            .apply()
+    }
+
+    fun clear() {
+        prefs
+            .edit()
+            .remove(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY)
+            .remove(CDN_ECH_CACHE_FETCHED_AT_KEY)
+            .apply()
+    }
+}
 
 // EncryptedSharedPreferences-backed cache for the most-recent ECH config
 // bytes. The bytes themselves are public CDN data, so the encryption is
@@ -44,46 +79,30 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
                     .build()
             EncryptedSharedPreferences.create(
                 context,
-                prefsName,
+                CDN_ECH_CACHE_PREFS_NAME,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
         }
+        private val codec: CdnEchPreferencesCodec by lazy {
+            CdnEchPreferencesCodec(prefs)
+        }
 
         override suspend fun load(): PersistedEchEntry? =
             withContext(Dispatchers.IO) {
-                val configB64 = prefs.getString(keyConfigB64, null) ?: return@withContext null
-                val fetchedAt = prefs.getLong(keyFetchedAt, -1L)
-                if (fetchedAt < 0L) return@withContext null
-                val bytes =
-                    runCatching {
-                        android.util.Base64.decode(
-                            configB64,
-                            android.util.Base64.NO_WRAP,
-                        )
-                    }.getOrNull()
-                bytes?.let { PersistedEchEntry(configBytes = it, fetchedAtUnixMs = fetchedAt) }
+                codec.load()
             }
 
         override suspend fun save(entry: PersistedEchEntry) {
             withContext(Dispatchers.IO) {
-                val configB64 = android.util.Base64.encodeToString(entry.configBytes, android.util.Base64.NO_WRAP)
-                prefs
-                    .edit()
-                    .putString(keyConfigB64, configB64)
-                    .putLong(keyFetchedAt, entry.fetchedAtUnixMs)
-                    .apply()
+                codec.save(entry)
             }
         }
 
         override suspend fun clear() {
             withContext(Dispatchers.IO) {
-                prefs
-                    .edit()
-                    .remove(keyConfigB64)
-                    .remove(keyFetchedAt)
-                    .apply()
+                codec.clear()
             }
         }
     }
