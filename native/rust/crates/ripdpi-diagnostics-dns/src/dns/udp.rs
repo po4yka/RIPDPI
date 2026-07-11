@@ -12,6 +12,8 @@ const UDP_DNS_ATTEMPTS: usize = 3;
 const UDP_DNS_RETRY_JITTER_MIN_MS: u64 = 20;
 const UDP_DNS_RETRY_JITTER_MAX_MS: u64 = 60;
 const UDP_DNS_CACHE_TTL: Duration = Duration::from_secs(30);
+const UDP_DNS_CACHE_MAX_ENTRIES: usize = 128;
+const UDP_DNS_CACHE_MAX_OWNED_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UdpDnsResolution {
@@ -36,9 +38,104 @@ struct UdpDnsCacheKey {
 struct UdpDnsCacheEntry {
     captured_at: Instant,
     resolution: UdpDnsResolution,
+    owned_bytes: usize,
+    last_access: u64,
 }
 
-static UDP_DNS_CACHE: OnceLock<Mutex<BTreeMap<UdpDnsCacheKey, UdpDnsCacheEntry>>> = OnceLock::new();
+struct UdpDnsCache {
+    entries: BTreeMap<UdpDnsCacheKey, UdpDnsCacheEntry>,
+    ttl: Duration,
+    max_entries: usize,
+    max_owned_bytes: usize,
+    total_owned_bytes: usize,
+    access_sequence: u64,
+}
+
+impl UdpDnsCache {
+    fn new(ttl: Duration, max_entries: usize, max_owned_bytes: usize) -> Self {
+        Self { entries: BTreeMap::new(), ttl, max_entries, max_owned_bytes, total_owned_bytes: 0, access_sequence: 0 }
+    }
+
+    fn get(&mut self, cache_key: &UdpDnsCacheKey, now: Instant) -> Option<UdpDnsResolution> {
+        self.prune_expired(now);
+        if !self.entries.contains_key(cache_key) {
+            return None;
+        }
+        let last_access = self.next_access_sequence();
+        let entry = self.entries.get_mut(cache_key)?;
+        entry.last_access = last_access;
+        let mut resolution = entry.resolution.clone();
+        resolution.cache_hit = true;
+        Some(resolution)
+    }
+
+    fn insert(&mut self, cache_key: UdpDnsCacheKey, resolution: UdpDnsResolution, now: Instant) {
+        self.prune_expired(now);
+        if let Some(previous) = self.entries.remove(&cache_key) {
+            self.total_owned_bytes = self.total_owned_bytes.saturating_sub(previous.owned_bytes);
+        }
+
+        let owned_bytes = Self::owned_bytes(&cache_key, &resolution);
+        if self.max_entries == 0 || self.max_owned_bytes == 0 || owned_bytes > self.max_owned_bytes {
+            return;
+        }
+
+        let last_access = self.next_access_sequence();
+        self.entries.insert(cache_key, UdpDnsCacheEntry { captured_at: now, resolution, owned_bytes, last_access });
+        self.total_owned_bytes = self.total_owned_bytes.saturating_add(owned_bytes);
+        self.evict_lru_to_limits();
+    }
+
+    fn prune_expired(&mut self, now: Instant) {
+        let ttl = self.ttl;
+        let total_owned_bytes = &mut self.total_owned_bytes;
+        self.entries.retain(|_, entry| {
+            let retain = now.saturating_duration_since(entry.captured_at) <= ttl;
+            if !retain {
+                *total_owned_bytes = total_owned_bytes.saturating_sub(entry.owned_bytes);
+            }
+            retain
+        });
+    }
+
+    fn evict_lru_to_limits(&mut self) {
+        while self.entries.len() > self.max_entries || self.total_owned_bytes > self.max_owned_bytes {
+            let Some(cache_key) = self
+                .entries
+                .iter()
+                .min_by(|(left_key, left), (right_key, right)| {
+                    left.last_access.cmp(&right.last_access).then_with(|| left_key.cmp(right_key))
+                })
+                .map(|(cache_key, _)| cache_key.clone())
+            else {
+                break;
+            };
+            if let Some(entry) = self.entries.remove(&cache_key) {
+                self.total_owned_bytes = self.total_owned_bytes.saturating_sub(entry.owned_bytes);
+            }
+        }
+    }
+
+    fn next_access_sequence(&mut self) -> u64 {
+        self.access_sequence = self.access_sequence.saturating_add(1);
+        self.access_sequence
+    }
+
+    /// Counts variable data owned by an entry; the entry limit separately bounds fixed map/node overhead.
+    fn owned_bytes(cache_key: &UdpDnsCacheKey, resolution: &UdpDnsResolution) -> usize {
+        let key_bytes =
+            cache_key.domain.len().saturating_add(cache_key.server.len()).saturating_add(cache_key.transport.len());
+        let result_bytes = match &resolution.result {
+            Ok(addresses) => addresses.iter().fold(0usize, |total, address| total.saturating_add(address.len())),
+            Err(error) => error.len(),
+        };
+        let raw_response_bytes = resolution.raw_response.as_ref().map_or(0, Vec::len);
+        let error_kind_bytes = resolution.error_kind.as_ref().map_or(0, String::len);
+        key_bytes.saturating_add(result_bytes).saturating_add(raw_response_bytes).saturating_add(error_kind_bytes)
+    }
+}
+
+static UDP_DNS_CACHE: OnceLock<Mutex<UdpDnsCache>> = OnceLock::new();
 
 /// Resolve a domain via plain UDP DNS, returning both the parsed IP addresses
 /// and the raw response bytes for protocol-level tampering analysis.
@@ -191,24 +288,24 @@ fn udp_retry_jitter(domain: &str, server: &str, attempt: usize) -> Duration {
 }
 
 fn cached_udp_dns_resolution(cache_key: &UdpDnsCacheKey) -> Option<UdpDnsResolution> {
-    let cache = UDP_DNS_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
+    let now = Instant::now();
+    let cache = UDP_DNS_CACHE.get_or_init(|| {
+        Mutex::new(UdpDnsCache::new(UDP_DNS_CACHE_TTL, UDP_DNS_CACHE_MAX_ENTRIES, UDP_DNS_CACHE_MAX_OWNED_BYTES))
+    });
     let mut guard = cache.lock().ok()?;
-    let entry = guard.get(cache_key)?;
-    if entry.captured_at.elapsed() <= UDP_DNS_CACHE_TTL {
-        let mut resolution = entry.resolution.clone();
-        resolution.cache_hit = true;
-        return Some(resolution);
-    }
-    guard.remove(cache_key);
-    None
+    guard.get(cache_key, now)
 }
 
 fn cache_udp_dns_resolution(cache_key: UdpDnsCacheKey, resolution: &UdpDnsResolution) {
-    let cache = UDP_DNS_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
+    let cached_resolution = resolution.clone();
+    let now = Instant::now();
+    let cache = UDP_DNS_CACHE.get_or_init(|| {
+        Mutex::new(UdpDnsCache::new(UDP_DNS_CACHE_TTL, UDP_DNS_CACHE_MAX_ENTRIES, UDP_DNS_CACHE_MAX_OWNED_BYTES))
+    });
     let Ok(mut guard) = cache.lock() else {
         return;
     };
-    guard.insert(cache_key, UdpDnsCacheEntry { captured_at: Instant::now(), resolution: resolution.clone() });
+    guard.insert(cache_key, cached_resolution, now);
 }
 
 fn transport_cache_key(transport: &TransportConfig) -> String {
@@ -220,7 +317,26 @@ fn transport_cache_key(transport: &TransportConfig) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_udp_dns_error, is_retryable_udp_dns_error};
+    use std::time::{Duration, Instant};
+
+    use super::{UdpDnsCache, UdpDnsCacheKey, UdpDnsResolution, classify_udp_dns_error, is_retryable_udp_dns_error};
+
+    fn udp_dns_cache_key(domain: &str) -> UdpDnsCacheKey {
+        UdpDnsCacheKey { domain: domain.to_string(), server: "1.1.1.1:53".to_string(), transport: "direct".to_string() }
+    }
+
+    fn udp_dns_cache_resolution(address: &str, raw_response_bytes: usize) -> UdpDnsResolution {
+        UdpDnsResolution {
+            result: Ok(vec![address.to_string()]),
+            raw_response: Some(vec![0; raw_response_bytes]),
+            latency_ms: 5,
+            attempt_count: 1,
+            success_count: 1,
+            error_kind: None,
+            retry_recovered: false,
+            cache_hit: false,
+        }
+    }
 
     #[test]
     fn udp_dns_error_classifier_distinguishes_timeout_and_would_block() {
@@ -235,5 +351,113 @@ mod tests {
         assert!(is_retryable_udp_dns_error("would_block"));
         assert!(!is_retryable_udp_dns_error("unreachable"));
         assert!(!is_retryable_udp_dns_error("refused"));
+    }
+
+    #[test]
+    fn udp_dns_cache_fresh_hit_marks_only_returned_clone() {
+        let now = Instant::now();
+        let key = udp_dns_cache_key("fresh.example");
+        let mut cache = UdpDnsCache::new(Duration::from_secs(30), 2, 1024);
+        cache.insert(key.clone(), udp_dns_cache_resolution("192.0.2.1", 8), now);
+
+        let hit = cache.get(&key, now + Duration::from_secs(30)).expect("fresh cache entry");
+
+        assert!(hit.cache_hit);
+        assert!(!cache.entries.get(&key).expect("stored cache entry").resolution.cache_hit);
+    }
+
+    #[test]
+    fn udp_dns_cache_operation_globally_prunes_expired_entries() {
+        let now = Instant::now();
+        let expired = udp_dns_cache_key("expired.example");
+        let fresh = udp_dns_cache_key("fresh.example");
+        let fresh_resolution = udp_dns_cache_resolution("192.0.2.2", 8);
+        let fresh_owned_bytes = UdpDnsCache::owned_bytes(&fresh, &fresh_resolution);
+        let mut cache = UdpDnsCache::new(Duration::from_secs(30), 4, 4096);
+        cache.insert(expired.clone(), udp_dns_cache_resolution("192.0.2.1", 8), now);
+        cache.insert(fresh.clone(), fresh_resolution, now + Duration::from_secs(10));
+
+        assert!(cache.get(&fresh, now + Duration::from_secs(31)).is_some());
+        assert!(!cache.entries.contains_key(&expired));
+        assert!(cache.entries.contains_key(&fresh));
+        assert_eq!(cache.total_owned_bytes, fresh_owned_bytes);
+    }
+
+    #[test]
+    fn udp_dns_cache_hit_refreshes_lru_without_extending_ttl() {
+        let now = Instant::now();
+        let first = udp_dns_cache_key("first.example");
+        let second = udp_dns_cache_key("second.example");
+        let third = udp_dns_cache_key("third.example");
+        let mut cache = UdpDnsCache::new(Duration::from_secs(30), 2, 4096);
+        cache.insert(first.clone(), udp_dns_cache_resolution("192.0.2.1", 8), now);
+        cache.insert(second.clone(), udp_dns_cache_resolution("192.0.2.2", 8), now);
+        assert!(cache.get(&first, now + Duration::from_secs(5)).is_some());
+
+        cache.insert(third.clone(), udp_dns_cache_resolution("192.0.2.3", 8), now + Duration::from_secs(5));
+
+        assert!(cache.entries.contains_key(&first));
+        assert!(!cache.entries.contains_key(&second));
+        assert!(cache.entries.contains_key(&third));
+        assert!(cache.get(&first, now + Duration::from_secs(31)).is_none());
+    }
+
+    #[test]
+    fn udp_dns_cache_enforces_entry_limit() {
+        let now = Instant::now();
+        let mut cache = UdpDnsCache::new(Duration::from_secs(30), 1, 4096);
+        cache.insert(udp_dns_cache_key("first.example"), udp_dns_cache_resolution("192.0.2.1", 8), now);
+        cache.insert(udp_dns_cache_key("second.example"), udp_dns_cache_resolution("192.0.2.2", 8), now);
+
+        assert_eq!(cache.entries.len(), 1);
+    }
+
+    #[test]
+    fn udp_dns_cache_enforces_owned_byte_limit_with_lru_eviction() {
+        let now = Instant::now();
+        let first = udp_dns_cache_key("a.example");
+        let second = udp_dns_cache_key("b.example");
+        let first_resolution = udp_dns_cache_resolution("192.0.2.1", 8);
+        let second_resolution = udp_dns_cache_resolution("192.0.2.2", 8);
+        let byte_limit = UdpDnsCache::owned_bytes(&first, &first_resolution)
+            + UdpDnsCache::owned_bytes(&second, &second_resolution)
+            - 1;
+        let mut cache = UdpDnsCache::new(Duration::from_secs(30), 4, byte_limit);
+        cache.insert(first.clone(), first_resolution, now);
+        cache.insert(second.clone(), second_resolution, now);
+
+        assert!(!cache.entries.contains_key(&first));
+        assert!(cache.entries.contains_key(&second));
+        assert!(cache.total_owned_bytes <= byte_limit);
+    }
+
+    #[test]
+    fn udp_dns_cache_rejects_oversize_replacement_and_removes_old_value() {
+        let now = Instant::now();
+        let key = udp_dns_cache_key("replacement.example");
+        let small = udp_dns_cache_resolution("192.0.2.1", 8);
+        let byte_limit = UdpDnsCache::owned_bytes(&key, &small);
+        let mut cache = UdpDnsCache::new(Duration::from_secs(30), 2, byte_limit);
+        cache.insert(key.clone(), small, now);
+        cache.insert(key.clone(), udp_dns_cache_resolution("192.0.2.2", byte_limit), now);
+
+        assert!(!cache.entries.contains_key(&key));
+        assert_eq!(cache.total_owned_bytes, 0);
+    }
+
+    #[test]
+    fn udp_dns_cache_replacement_keeps_count_and_bytes_exact() {
+        let now = Instant::now();
+        let key = udp_dns_cache_key("replacement.example");
+        let original = udp_dns_cache_resolution("192.0.2.1", 64);
+        let replacement = udp_dns_cache_resolution("192.0.2.100", 4);
+        let replacement_bytes = UdpDnsCache::owned_bytes(&key, &replacement);
+        let mut cache = UdpDnsCache::new(Duration::from_secs(30), 2, 4096);
+        cache.insert(key.clone(), original, now);
+        cache.insert(key.clone(), replacement, now);
+
+        assert_eq!(cache.entries.len(), 1);
+        assert_eq!(cache.total_owned_bytes, replacement_bytes);
+        assert_eq!(cache.entries.get(&key).expect("replacement").owned_bytes, replacement_bytes);
     }
 }
