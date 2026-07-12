@@ -494,5 +494,5 @@ fn proxy_snapshot_json_carries_schema_version() {
     assert_eq!(snapshot.schema_version, SNAPSHOT_SCHEMA_VERSION);
 
     let json = serde_json::to_value(&snapshot).expect("serialize proxy snapshot");
-    assert_eq!(json["schemaVersion"], serde_json::json!(2));
+    assert_eq!(json["schemaVersion"], serde_json::json!(SNAPSHOT_SCHEMA_VERSION));
 }

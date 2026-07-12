@@ -410,6 +410,7 @@ mod tests {
 
     fn minimal_request_json() -> String {
         serde_json::json!({
+            "schemaVersion": ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
             "profileId": "jni-test-profile",
             "displayName": "JNI diagnostics",
             "pathMode": "RAW_PATH",
@@ -425,6 +426,7 @@ mod tests {
 
     fn slow_request_json(http_port: u16) -> String {
         serde_json::json!({
+            "schemaVersion": ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
             "profileId": "jni-test-profile",
             "displayName": "JNI diagnostics",
             "pathMode": "RAW_PATH",
