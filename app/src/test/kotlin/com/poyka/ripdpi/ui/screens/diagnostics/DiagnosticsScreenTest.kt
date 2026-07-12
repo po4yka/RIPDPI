@@ -7,8 +7,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -16,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.poyka.ripdpi.activities.CompletedProbeUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
@@ -1285,6 +1288,33 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanProgressCard).assertIsDisplayed()
         composeRule.onNodeWithText("DNS probe example.org").assertIsDisplayed()
         composeRule.onNodeWithText("3/7").assertDoesNotExist()
+    }
+
+    @Test
+    fun duplicateCompletedProbeLabelsRenderWithoutLazyListKeyCollision() {
+        val duplicateProbe = CompletedProbeUiModel("example.org", "ok", DiagnosticsTone.Positive)
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    activeProgress =
+                        strategyProbeProgressUiModel(
+                            scanKind = ScanKind.CONNECTIVITY,
+                            strategyProbeProgress = null,
+                        ).copy(
+                            completedProbes =
+                                listOf(
+                                    duplicateProbe,
+                                    CompletedProbeUiModel("other.example", "failed", DiagnosticsTone.Negative),
+                                    duplicateProbe,
+                                ),
+                        ),
+                ),
+        )
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.diagnosticsLiveProbe("example.org-ok"))
+            .assertCountEquals(2)
     }
 
     @Test
