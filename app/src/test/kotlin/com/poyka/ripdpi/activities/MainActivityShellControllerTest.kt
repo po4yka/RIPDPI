@@ -128,6 +128,37 @@ class MainActivityShellControllerTest {
         }
 
     @Test
+    fun `handled host command is not replayed after lifecycle collector restarts`() =
+        runTest {
+            val controller = MainActivityShellController()
+
+            controller.hostCommands.test {
+                controller.requestSaveLogs()
+                assertEquals(MainActivityHostCommand.SaveLogs, awaitItem())
+            }
+
+            controller.hostCommands.test {
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `host commands wait for lifecycle collector without collapsing`() =
+        runTest {
+            val controller = MainActivityShellController()
+
+            controller.requestSaveLogs()
+            controller.requestShareDebugBundle()
+
+            controller.hostCommands.test {
+                assertEquals(MainActivityHostCommand.SaveLogs, awaitItem())
+                assertEquals(MainActivityHostCommand.ShareDebugBundle, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `show vpn dialog effect updates shell state`() {
         val controller = MainActivityShellController()
 
