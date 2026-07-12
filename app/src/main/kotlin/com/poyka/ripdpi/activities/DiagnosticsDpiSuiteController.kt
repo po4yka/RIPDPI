@@ -75,7 +75,7 @@ internal class DiagnosticsDpiSuiteController(
     private val echTlsHandshake: EchTlsHandshake,
     private val stringResolver: StringResolver,
 ) {
-    private val _tool = MutableStateFlow(DiagnosticsDpiSuiteToolUiModel())
+    private val _tool = MutableStateFlow(initialDiagnosticsDpiSuiteUiModel(stringResolver))
     val tool: StateFlow<DiagnosticsDpiSuiteToolUiModel> = _tool.asStateFlow()
 
     private var suiteJob: Job? = null

@@ -24,7 +24,7 @@ data class DiagnosticsIpv4WhitelistSubnetUiModel(
 @Stable
 data class DiagnosticsIpv4WhitelistToolUiModel(
     val state: DiagnosticsIpv4WhitelistState = DiagnosticsIpv4WhitelistState.Idle,
-    val summary: String = "Fetch provider subnets and sample cached /24 ranges for whitelist behavior.",
+    val summary: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsIpv4WhitelistSubnetUiModel> = persistentListOf(),
     val csv: String = "",

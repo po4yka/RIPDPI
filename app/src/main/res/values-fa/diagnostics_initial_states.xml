@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">پاسخ‌های مستقیم UDP/53 را با کنترل‌های DoH برای دامنه‌های DPI همراه مقایسه کنید.</string>
+    <string name="diagnostics_dns_availability_idle_summary">دسترسی‌پذیری و تأخیر حل‌کننده‌های عمومی UDP و DoH را بررسی کنید.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">دسترسی TLS 1.3، TLS 1.2 و HTTP به دامنه‌های DPI همراه را بررسی کنید.</string>
+    <string name="diagnostics_rkn_idle_headline">تشخیص مسدودسازی RKN</string>
+    <string name="diagnostics_rkn_idle_confidence_note">پیش از اعلام مسدودسازی، گروه‌های هدف کنترل و آزمایش را مقایسه کنید.</string>
+    <string name="diagnostics_rkn_idle_summary">آزمون‌های کنترل و فهرست سیاه همراه را با محافظت از نتیجه کلی اجرا کنید.</string>
+    <string name="diagnostics_compression_idle_summary">پشتیبانی HTTP gzip، deflate، Brotli و Zstd اختیاری را برای یک هدف همراه بررسی کنید.</string>
+    <string name="diagnostics_tcp16_idle_summary">رفتار سرآیند بزرگ TCP16 را در هدف‌های شبکه همراه بررسی کنید.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">سازگاری SNI را برای ASNهای علامت‌گذاری‌شده با TCP16 بررسی کنید.</string>
+    <string name="diagnostics_byoh_idle_summary">پیشرفته — به یک سرور HTTPS تحت کنترل کاربر نیاز دارد.</string>
+    <string name="diagnostics_byoh_requirements_summary">میزبانی را که کنترل می‌کنید برای پاسخ HTTPS روی IP مقصد و ارائه دست‌کم ۱۲۸ کیبی‌بایت تنظیم کنید.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">گروه‌های URL مجاز و عادی را برای محدودیت‌های کلی مسیریابی مقایسه کنید.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">زیرشبکه‌های ارائه‌دهنده را دریافت و محدوده‌های /24 ذخیره‌شده را برای رفتار فهرست سفید آزمایش کنید.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">آزمون‌های DPI انتخاب‌شده را به‌صورت یک مجموعه اجرا کنید.</string>
+</resources>

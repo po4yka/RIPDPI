@@ -25,7 +25,7 @@ data class DiagnosticsCidrWhitelistTraceUiModel(
 @Stable
 data class DiagnosticsCidrWhitelistToolUiModel(
     val state: DiagnosticsCidrWhitelistState = DiagnosticsCidrWhitelistState.Idle,
-    val summary: String = "Compare whitelisted and regular URL groups for coarse routing restrictions.",
+    val summary: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsCidrWhitelistTraceUiModel> = persistentListOf(),
     val errorMessage: String? = null,

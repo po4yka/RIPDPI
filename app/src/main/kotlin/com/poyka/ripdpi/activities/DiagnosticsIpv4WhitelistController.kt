@@ -19,7 +19,7 @@ internal class DiagnosticsIpv4WhitelistController(
     private val shareCsv: (String) -> Unit,
     private val stringResolver: StringResolver,
 ) {
-    private val _tool = MutableStateFlow(DiagnosticsIpv4WhitelistToolUiModel())
+    private val _tool = MutableStateFlow(initialDiagnosticsIpv4WhitelistUiModel(stringResolver))
     val tool: StateFlow<DiagnosticsIpv4WhitelistToolUiModel> = _tool.asStateFlow()
 
     fun cacheSubnets() {

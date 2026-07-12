@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">قارن ردود UDP/53 المباشرة بعناصر تحكم DoH لنطاقات DPI المضمّنة.</string>
+    <string name="diagnostics_dns_availability_idle_summary">تحقق من إمكانية الوصول وزمن الاستجابة لمحللات UDP وDoH العامة.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">تحقق من الوصول عبر TLS 1.3 وTLS 1.2 وHTTP إلى نطاقات DPI المضمّنة.</string>
+    <string name="diagnostics_rkn_idle_headline">تشخيص حظر RKN</string>
+    <string name="diagnostics_rkn_idle_confidence_note">قارن مجموعات أهداف التحكم والاختبار قبل تأكيد وجود حظر.</string>
+    <string name="diagnostics_rkn_idle_summary">شغّل اختبارات التحكم والقائمة السوداء المضمّنة مع وسائل حماية للحكم الإجمالي.</string>
+    <string name="diagnostics_compression_idle_summary">تحقق من دعم HTTP gzip وdeflate وBrotli وZstd الاختياري لهدف مضمّن.</string>
+    <string name="diagnostics_tcp16_idle_summary">تحقق من سلوك الترويسة الكبيرة TCP16 عبر أهداف الشبكة المضمّنة.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">شغّل اختبارات توافق SNI لأرقام ASN التي علّمها TCP16.</string>
+    <string name="diagnostics_byoh_idle_summary">متقدم — يتطلب خادم HTTPS يتحكم به المستخدم.</string>
+    <string name="diagnostics_byoh_requirements_summary">اضبط مضيفًا تتحكم به للرد عبر HTTPS على عنوان IP الوجهة وتقديم 128 كيلوبايت ثنائي على الأقل.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">قارن مجموعات عناوين URL المسموح بها والعادية لاكتشاف قيود التوجيه العامة.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">اجلب شبكات المزوّد الفرعية واختبر نطاقات /24 المخزنة مؤقتًا لاكتشاف سلوك القائمة البيضاء.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">شغّل اختبارات DPI المحددة كمجموعة واحدة.</string>
+</resources>

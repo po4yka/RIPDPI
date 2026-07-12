@@ -34,7 +34,7 @@ data class DiagnosticsDpiSuiteProbeDetailUiModel(
 @Stable
 data class DiagnosticsDpiSuiteToolUiModel(
     val state: DiagnosticsDpiSuiteState = DiagnosticsDpiSuiteState.Idle,
-    val summary: String = "Run selected DPI probes as one aggregate suite.",
+    val summary: String = "",
     val selectedKinds: ImmutableSet<DpiProbeKind> =
         DpiProbeKind.entries
             .filterNot { kind -> kind == DpiProbeKind.ECH_READINESS }

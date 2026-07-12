@@ -41,30 +41,30 @@ internal class DiagnosticsDpiToolsController(
     private val assetLoader: DpiAssetLoader,
     private val stringResolver: StringResolver,
 ) {
-    private val _dnsIntegrityTool = MutableStateFlow(DiagnosticsDnsIntegrityToolUiModel())
+    private val _dnsIntegrityTool = MutableStateFlow(initialDiagnosticsDnsIntegrityUiModel(stringResolver))
     val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = _dnsIntegrityTool.asStateFlow()
 
-    private val _dnsAvailabilityTool = MutableStateFlow(DiagnosticsDnsAvailabilityToolUiModel())
+    private val _dnsAvailabilityTool = MutableStateFlow(initialDiagnosticsDnsAvailabilityUiModel(stringResolver))
     val dnsAvailabilityTool: StateFlow<DiagnosticsDnsAvailabilityToolUiModel> =
         _dnsAvailabilityTool.asStateFlow()
 
-    private val _domainReachabilityTool = MutableStateFlow(DiagnosticsDomainReachabilityToolUiModel())
+    private val _domainReachabilityTool = MutableStateFlow(initialDiagnosticsDomainReachabilityUiModel(stringResolver))
     val domainReachabilityTool: StateFlow<DiagnosticsDomainReachabilityToolUiModel> =
         _domainReachabilityTool.asStateFlow()
 
-    private val _rknBlockDiagnosisTool = MutableStateFlow(DiagnosticsRknBlockDiagnosisToolUiModel())
+    private val _rknBlockDiagnosisTool = MutableStateFlow(initialDiagnosticsRknBlockDiagnosisUiModel(stringResolver))
     val rknBlockDiagnosisTool: StateFlow<DiagnosticsRknBlockDiagnosisToolUiModel> =
         _rknBlockDiagnosisTool.asStateFlow()
 
-    private val _compressionProbeTool = MutableStateFlow(DiagnosticsCompressionProbeToolUiModel())
+    private val _compressionProbeTool = MutableStateFlow(initialDiagnosticsCompressionProbeUiModel(stringResolver))
     val compressionProbeTool: StateFlow<DiagnosticsCompressionProbeToolUiModel> =
         _compressionProbeTool.asStateFlow()
 
-    private val _tcp16FatHeaderTool = MutableStateFlow(DiagnosticsTcp16FatHeaderToolUiModel())
+    private val _tcp16FatHeaderTool = MutableStateFlow(initialDiagnosticsTcp16FatHeaderUiModel(stringResolver))
     val tcp16FatHeaderTool: StateFlow<DiagnosticsTcp16FatHeaderToolUiModel> =
         _tcp16FatHeaderTool.asStateFlow()
 
-    private val _allowlistSniTool = MutableStateFlow(DiagnosticsAllowlistSniToolUiModel())
+    private val _allowlistSniTool = MutableStateFlow(initialDiagnosticsAllowlistSniUiModel(stringResolver))
     val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
         _allowlistSniTool.asStateFlow()
 
@@ -329,6 +329,8 @@ internal class DiagnosticsDpiToolsController(
         _rknBlockDiagnosisTool.value =
             DiagnosticsRknBlockDiagnosisToolUiModel(
                 state = DiagnosticsRknBlockDiagnosisState.Running,
+                headline = current.headline,
+                confidenceNote = current.confidenceNote,
                 summary = stringResolver.getString(R.string.diagnostics_rkn_running),
                 fetchSelfInfoEnabled = current.fetchSelfInfoEnabled,
                 selfInfoPrivacyOverridden = current.selfInfoPrivacyOverridden,
@@ -362,6 +364,8 @@ internal class DiagnosticsDpiToolsController(
                 _rknBlockDiagnosisTool.value =
                     DiagnosticsRknBlockDiagnosisToolUiModel(
                         state = DiagnosticsRknBlockDiagnosisState.Failed,
+                        headline = latest.headline,
+                        confidenceNote = latest.confidenceNote,
                         summary = stringResolver.getString(R.string.diagnostics_rkn_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                         fetchSelfInfoEnabled = latest.fetchSelfInfoEnabled,
