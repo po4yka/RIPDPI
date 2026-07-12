@@ -33,6 +33,7 @@ import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.collections.immutable.toImmutableList
 
 internal data class ChainAnalysisResult(
     val tcpChainSteps: List<TcpChainStepModel>,
@@ -103,8 +104,8 @@ internal fun AppSettings.analyzeChainFlags(): ChainAnalysisResult {
 internal fun AppSettings.buildDesyncUiState(chain: ChainAnalysisResult): DesyncCoreUiState =
     DesyncCoreUiState(
         desyncMethod = chain.normalizedDesyncMethod,
-        tcpChainSteps = chain.tcpChainSteps,
-        udpChainSteps = chain.udpChainSteps,
+        tcpChainSteps = chain.tcpChainSteps.toImmutableList(),
+        udpChainSteps = chain.udpChainSteps.toImmutableList(),
         groupActivationFilter = effectiveGroupActivationFilter(),
         chainSummary = formatChainSummary(chain.tcpChainSteps, chain.udpChainSteps),
         chainDsl = formatStrategyChainDsl(chain.tcpChainSteps, chain.udpChainSteps),

@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
+import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 
 internal interface DiagnosticsSessionDetailUiMapper {
@@ -38,7 +39,7 @@ internal class DiagnosticsSessionDetailUiFactory
                     .map { (title, items) ->
                         DiagnosticsProbeGroupUiModel(
                             title = title,
-                            items = items,
+                            items = items.toImmutableList(),
                         )
                     }
             val diagnoses = report?.diagnoses?.map(support::toDiagnosisUiModel).orEmpty()
@@ -111,26 +112,29 @@ internal class DiagnosticsSessionDetailUiFactory
                 }
             return DiagnosticsSessionDetailUiModel(
                 session = support.toSessionRowUiModel(detail.session),
-                diagnoses = diagnoses,
-                reportMetadata = reportMetadata,
+                diagnoses = diagnoses.toImmutableList(),
+                reportMetadata = reportMetadata.toImmutableList(),
                 capabilityEvidence =
-                    detail.capabilityEvidence.map { evidence ->
-                        evidence.toUiModel()
-                    },
-                probeGroups = probeGroups,
+                    detail.capabilityEvidence
+                        .map { evidence ->
+                            evidence.toUiModel()
+                        }.toImmutableList(),
+                probeGroups = probeGroups.toImmutableList(),
                 snapshots =
-                    detail.snapshots.mapNotNull { snapshot ->
-                        support.toNetworkSnapshotUiModel(
-                            snapshot,
-                            showSensitiveDetails,
-                        )
-                    },
-                events = detail.events.map(support::toEventUiModel),
+                    detail.snapshots
+                        .mapNotNull { snapshot ->
+                            support.toNetworkSnapshotUiModel(
+                                snapshot,
+                                showSensitiveDetails,
+                            )
+                        }.toImmutableList(),
+                events = detail.events.map(support::toEventUiModel).toImmutableList(),
                 contextGroups =
                     detail.context
                         ?.context
                         ?.let { context -> support.toContextUiGroups(context, showSensitiveDetails) }
-                        .orEmpty(),
+                        .orEmpty()
+                        .toImmutableList(),
                 strategyProbeReport =
                     report?.strategyProbeReport?.let { strategyReport ->
                         support.toStrategyProbeReportUiModel(
@@ -157,6 +161,6 @@ internal class DiagnosticsSessionDetailUiFactory
                         if (updatedAt > 0L) {
                             add(DiagnosticsFieldUiModel("Recorded", support.formatTimestamp(updatedAt)))
                         }
-                    },
+                    }.toImmutableList(),
             )
     }

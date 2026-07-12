@@ -146,7 +146,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         outcome = result.outcome,
         probeRetryCount = result.probeRetryCount ?: deriveProbeRetryCount(result.details),
         tone = toneForProbeResult(pathMode, result, reportResults),
-        details = result.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
+        details = result.details.map { DiagnosticsFieldUiModel(it.key, it.value) }.toImmutableList(),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

@@ -196,22 +196,27 @@ internal fun buildHomeDiagnosticsUiState(
                         confidenceSummary = outcome.confidenceSummary,
                         coverageSummary = outcome.coverageSummary,
                         recommendationSummary = outcome.recommendationSummary,
-                        appliedSettings = outcome.appliedSettings,
-                        capabilityEvidence = outcome.capabilityEvidence.map(::toCapabilityEvidenceUiModel),
+                        appliedSettings = outcome.appliedSettings.toImmutableList(),
+                        capabilityEvidence =
+                            outcome.capabilityEvidence
+                                .map(
+                                    ::toCapabilityEvidenceUiModel,
+                                ).toImmutableList(),
                         stageSummaries =
-                            outcome.stageSummaries.map { stage ->
-                                HomeDiagnosticsStageUiState(
-                                    label = stage.stageLabel,
-                                    headline = stage.headline,
-                                    summary = stage.summary,
-                                    failed =
-                                        stage.status == DiagnosticsHomeCompositeStageStatus.FAILED,
-                                    skipped =
-                                        stage.status == DiagnosticsHomeCompositeStageStatus.SKIPPED ||
-                                            stage.status == DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
-                                    recommendationContributor = stage.recommendationContributor,
-                                )
-                            },
+                            outcome.stageSummaries
+                                .map { stage ->
+                                    HomeDiagnosticsStageUiState(
+                                        label = stage.stageLabel,
+                                        headline = stage.headline,
+                                        summary = stage.summary,
+                                        failed =
+                                            stage.status == DiagnosticsHomeCompositeStageStatus.FAILED,
+                                        skipped =
+                                            stage.status == DiagnosticsHomeCompositeStageStatus.SKIPPED ||
+                                                stage.status == DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+                                        recommendationContributor = stage.recommendationContributor,
+                                    )
+                                }.toImmutableList(),
                         completedStageCount = outcome.completedStageCount,
                         failedStageCount = outcome.failedStageCount,
                         shareBusy = runtime.shareBusy,
@@ -233,27 +238,33 @@ internal fun buildHomeDiagnosticsUiState(
                                     },
                                 )
                             },
-                        detectionFindings = outcome.detectionFindings,
+                        detectionFindings = outcome.detectionFindings.toImmutableList(),
                         installedVpnDetectorCount = outcome.installedVpnDetectorCount,
-                        installedVpnDetectorTopApps = outcome.installedVpnDetectorTopApps,
+                        installedVpnDetectorTopApps = outcome.installedVpnDetectorTopApps.toImmutableList(),
                         pcapRecordingRequested = outcome.pcapRecordingRequested,
                         remediationLadder = remediationLadder,
                         actionableHeadline = outcome.actionableHeadline,
-                        actionableNextSteps = outcome.actionableNextSteps,
-                        networkCharacterRows = buildNetworkCharacterRows(outcome.networkCharacter, stringResolver),
-                        networkCharacterNotes = outcome.networkCharacter?.notes.orEmpty(),
+                        actionableNextSteps = outcome.actionableNextSteps.toImmutableList(),
+                        networkCharacterRows =
+                            buildNetworkCharacterRows(outcome.networkCharacter, stringResolver).toImmutableList(),
+                        networkCharacterNotes =
+                            outcome.networkCharacter
+                                ?.notes
+                                .orEmpty()
+                                .toImmutableList(),
                         strategyEffectivenessRows =
-                            outcome.strategyEffectiveness.map { entry ->
-                                HomeAnalysisLabeledRow(
-                                    label = entry.label,
-                                    value =
-                                        stringResolver.getString(
-                                            R.string.home_diagnostics_effectiveness_row_value,
-                                            entry.successCount,
-                                            entry.failureCount,
-                                        ),
-                                )
-                            },
+                            outcome.strategyEffectiveness
+                                .map { entry ->
+                                    HomeAnalysisLabeledRow(
+                                        label = entry.label,
+                                        value =
+                                            stringResolver.getString(
+                                                R.string.home_diagnostics_effectiveness_row_value,
+                                                entry.successCount,
+                                                entry.failureCount,
+                                            ),
+                                    )
+                                }.toImmutableList(),
                         routingSanitySummary =
                             outcome.routingSanity?.let { sanity ->
                                 stringResolver.getString(
@@ -270,7 +281,8 @@ internal fun buildHomeDiagnosticsUiState(
                                         label = finding.packageName,
                                         value = "${finding.severity}: ${finding.description}",
                                     )
-                                }.orEmpty(),
+                                }.orEmpty()
+                                .toImmutableList(),
                         regressionDeltaSummary =
                             outcome.regressionDelta?.let { delta ->
                                 stringResolver.getString(
@@ -280,8 +292,16 @@ internal fun buildHomeDiagnosticsUiState(
                                     delta.unchangedStageCount,
                                 )
                             },
-                        regressionDeltaFailures = outcome.regressionDelta?.newlyFailedStageKeys.orEmpty(),
-                        regressionDeltaRecoveries = outcome.regressionDelta?.newlyRecoveredStageKeys.orEmpty(),
+                        regressionDeltaFailures =
+                            outcome.regressionDelta
+                                ?.newlyFailedStageKeys
+                                .orEmpty()
+                                .toImmutableList(),
+                        regressionDeltaRecoveries =
+                            outcome.regressionDelta
+                                ?.newlyRecoveredStageKeys
+                                .orEmpty()
+                                .toImmutableList(),
                         bufferbloatSummary =
                             outcome.bufferbloat?.let { result ->
                                 val gradeLabel = result.grade.name
@@ -333,7 +353,8 @@ internal fun buildHomeDiagnosticsUiState(
                                             add("Poisoned hosts: ${dns.poisonedHosts.joinToString(", ")}")
                                         }
                                     }
-                                }.orEmpty(),
+                                }.orEmpty()
+                                .toImmutableList(),
                     )
                 },
         verificationSheet =
@@ -388,7 +409,7 @@ private fun toCapabilityEvidenceUiModel(
                 if (evidence.source.isNotBlank()) {
                     add(DiagnosticsFieldUiModel("Source", evidence.source))
                 }
-            },
+            }.toImmutableList(),
     )
 
 private fun buildNetworkCharacterRows(

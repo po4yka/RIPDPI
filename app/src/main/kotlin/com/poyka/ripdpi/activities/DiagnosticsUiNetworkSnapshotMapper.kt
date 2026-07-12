@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import kotlinx.collections.immutable.toImmutableList
 
 internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
     entity: DiagnosticNetworkSnapshot,
@@ -14,7 +15,7 @@ internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
     return DiagnosticsNetworkSnapshotUiModel(
         title = entity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
         subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
-        fieldGroups = networkSnapshotGroups(snapshot, showSensitiveDetails),
+        fieldGroups = networkSnapshotGroups(snapshot, showSensitiveDetails).toImmutableList(),
     )
 }
 
@@ -26,12 +27,17 @@ private fun DiagnosticsUiFactorySupport.networkSnapshotGroups(
         add(
             DiagnosticsFieldGroupUiModel(
                 header = context.getString(R.string.diagnostics_section_network),
-                fields = networkFields(snapshot, showSensitiveDetails),
+                fields = networkFields(snapshot, showSensitiveDetails).toImmutableList(),
             ),
         )
         val transportFields = transportSpecificFields(snapshot, showSensitiveDetails)
         if (transportFields.isNotEmpty()) {
-            add(DiagnosticsFieldGroupUiModel(header = transportSectionHeader(snapshot), fields = transportFields))
+            add(
+                DiagnosticsFieldGroupUiModel(
+                    header = transportSectionHeader(snapshot),
+                    fields = transportFields.toImmutableList(),
+                ),
+            )
         }
     }
 

@@ -223,7 +223,7 @@ class DiagnosticsScreenTest {
                                         DiagnosticsResolverRecommendationUiModel(
                                             headline = "Switch DNS to Cloudflare",
                                             rationale = "UDP DNS showed substitution while DoH matched.",
-                                            fields = emptyList(),
+                                            fields = persistentListOf(),
                                             appliedTemporarily = true,
                                             persistable = true,
                                         ),
@@ -1564,7 +1564,7 @@ class DiagnosticsScreenTest {
                         "Best combined recovery across TCP and QUIC."
                     },
                 fields =
-                    listOf(
+                    persistentListOf(
                         DiagnosticsFieldUiModel(
                             if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
                                 "TCP fallback"
@@ -1710,12 +1710,12 @@ class DiagnosticsScreenTest {
         etaLabel = "~1m 30s remaining",
         phaseSteps =
             if (scanKind == ScanKind.STRATEGY_PROBE) {
-                listOf(
+                persistentListOf(
                     PhaseStepUiModel(label = "TCP", state = PhaseState.Active, tone = DiagnosticsTone.Warning),
                     PhaseStepUiModel(label = "QUIC", state = PhaseState.Pending, tone = DiagnosticsTone.Neutral),
                 )
             } else {
-                listOf(
+                persistentListOf(
                     PhaseStepUiModel(label = "DNS", state = PhaseState.Active, tone = DiagnosticsTone.Warning),
                     PhaseStepUiModel(label = "Reach", state = PhaseState.Pending, tone = DiagnosticsTone.Neutral),
                 )
@@ -2127,10 +2127,10 @@ class DiagnosticsScreenTest {
                                             metrics = persistentListOf(),
                                             tone = DiagnosticsTone.Neutral,
                                         ),
-                                    probeGroups = emptyList(),
-                                    snapshots = emptyList(),
-                                    events = emptyList(),
-                                    contextGroups = emptyList(),
+                                    probeGroups = persistentListOf(),
+                                    snapshots = persistentListOf(),
+                                    events = persistentListOf(),
+                                    contextGroups = persistentListOf(),
                                     hasSensitiveDetails = false,
                                     sensitiveDetailsVisible = false,
                                 ),
@@ -2194,7 +2194,7 @@ class DiagnosticsScreenTest {
                                     outcome = "substituted",
                                     tone = DiagnosticsTone.Warning,
                                     details =
-                                        listOf(
+                                        persistentListOf(
                                             DiagnosticsFieldUiModel("resolver", "cloudflare"),
                                         ),
                                 ),
@@ -2273,7 +2273,7 @@ class DiagnosticsScreenTest {
                     DiagnosticsProbeGroupUiModel(
                         title = "HTTPS results",
                         items =
-                            listOf(
+                            persistentListOf(
                                 DiagnosticsProbeResultUiModel(
                                     id = "probe-https",
                                     probeType = "https",
@@ -2281,7 +2281,7 @@ class DiagnosticsScreenTest {
                                     outcome = "ok",
                                     tone = DiagnosticsTone.Positive,
                                     details =
-                                        listOf(
+                                        persistentListOf(
                                             DiagnosticsFieldUiModel("protocol", "https"),
                                             DiagnosticsFieldUiModel("latencyMs", "180"),
                                         ),
@@ -2326,7 +2326,7 @@ class DiagnosticsScreenTest {
                     DiagnosticsProbeGroupUiModel(
                         title = "QUIC results",
                         items =
-                            listOf(
+                            persistentListOf(
                                 DiagnosticsProbeResultUiModel(
                                     id = "probe-quic",
                                     probeType = "quic",
@@ -2334,7 +2334,7 @@ class DiagnosticsScreenTest {
                                     outcome = "ok",
                                     tone = DiagnosticsTone.Positive,
                                     details =
-                                        listOf(
+                                        persistentListOf(
                                             DiagnosticsFieldUiModel("protocol", "quic"),
                                             DiagnosticsFieldUiModel("latencyMs", "95"),
                                         ),

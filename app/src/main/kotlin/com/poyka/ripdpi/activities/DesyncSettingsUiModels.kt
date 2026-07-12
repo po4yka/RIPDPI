@@ -33,6 +33,9 @@ import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.supportsAdaptiveMarker
 import com.poyka.ripdpi.data.supportsFakeOrdering
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 internal const val AdaptiveSplitPresetManual = "manual"
 internal const val AdaptiveSplitPresetCustom = "custom"
@@ -131,8 +134,8 @@ data class FakeTransportUiState(
 @Stable
 data class DesyncCoreUiState(
     val desyncMethod: String = "split",
-    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
-    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
+    val tcpChainSteps: ImmutableList<TcpChainStepModel> = persistentListOf(),
+    val udpChainSteps: ImmutableList<UdpChainStepModel> = persistentListOf(),
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
     val chainSummary: String = "tcp: none",
     val chainDsl: String = "",
@@ -140,13 +143,17 @@ data class DesyncCoreUiState(
     val udpFakeCount: Int = 0,
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
-    val hostFakeSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake },
-    val fakeOrderingSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind.supportsFakeOrdering },
-    val fakeApproximationSteps: List<TcpChainStepModel> =
-        tcpChainSteps.filter {
-            it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
-        },
-    val seqOverlapSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind == TcpChainStepKind.SeqOverlap },
+    val hostFakeSteps: ImmutableList<TcpChainStepModel> =
+        tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake }.toImmutableList(),
+    val fakeOrderingSteps: ImmutableList<TcpChainStepModel> =
+        tcpChainSteps.filter { it.kind.supportsFakeOrdering }.toImmutableList(),
+    val fakeApproximationSteps: ImmutableList<TcpChainStepModel> =
+        tcpChainSteps
+            .filter {
+                it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
+            }.toImmutableList(),
+    val seqOverlapSteps: ImmutableList<TcpChainStepModel> =
+        tcpChainSteps.filter { it.kind == TcpChainStepKind.SeqOverlap }.toImmutableList(),
     val hasUdpFakeBurst: Boolean = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 },
 ) {
     val primaryTcpFlagStep: TcpChainStepModel?

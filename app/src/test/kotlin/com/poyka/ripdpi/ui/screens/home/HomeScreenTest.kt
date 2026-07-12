@@ -258,7 +258,7 @@ class HomeScreenTest {
                                             headline = "Analysis complete",
                                             summary = "Settings were applied.",
                                             appliedSettings =
-                                                listOf(
+                                                persistentListOf(
                                                     DiagnosticsAppliedSetting("WARP routing", "Rules"),
                                                     DiagnosticsAppliedSetting("WARP hostlist", "2 hosts"),
                                                 ),

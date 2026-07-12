@@ -70,9 +70,9 @@ internal class HistoryConnectionDetailUiFactory
             return HistoryConnectionDetailUiModel(
                 session = row,
                 highlights = buildConnectionHighlights(detail.session, latestTelemetry),
-                contextGroups = buildConnectionContextGroups(detail, latestTelemetry),
-                snapshots = detail.snapshots.mapNotNull(::toSnapshotUiModel),
-                events = detail.events.map(coreSupport::toEventUiModel),
+                contextGroups = buildConnectionContextGroups(detail, latestTelemetry).toImmutableList(),
+                snapshots = detail.snapshots.mapNotNull(::toSnapshotUiModel).toImmutableList(),
+                events = detail.events.map(coreSupport::toEventUiModel).toImmutableList(),
             )
         }
 
@@ -152,9 +152,9 @@ internal class HistoryConnectionDetailUiFactory
                                         "Captive portal",
                                         snapshot.captivePortalDetected.toString(),
                                     ),
-                                ),
+                                ).toImmutableList(),
                         ),
-                    ),
+                    ).toImmutableList(),
             )
         }
 
@@ -171,7 +171,7 @@ internal class HistoryConnectionDetailUiFactory
                             DiagnosticsFieldUiModel("Proxy", service.proxyEndpoint),
                             DiagnosticsFieldUiModel("Chain", service.chainSummary),
                             DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),
-                        ),
+                        ).toImmutableList(),
                 ),
                 DiagnosticsContextGroupUiModel(
                     title = context.getString(R.string.history_detail_section_environment),
@@ -184,7 +184,7 @@ internal class HistoryConnectionDetailUiFactory
                             DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
                             DiagnosticsFieldUiModel("Metered", environment.networkMeteredState),
                             DiagnosticsFieldUiModel("Roaming", environment.roamingState),
-                        ),
+                        ).toImmutableList(),
                 ),
                 DiagnosticsContextGroupUiModel(
                     title = context.getString(R.string.history_detail_section_device),
@@ -194,7 +194,7 @@ internal class HistoryConnectionDetailUiFactory
                             DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
                             DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
                             DiagnosticsFieldUiModel("Locale", device.locale),
-                        ),
+                        ).toImmutableList(),
                 ),
             )
 
@@ -233,7 +233,7 @@ internal class HistoryConnectionDetailUiFactory
             return fields.takeIf { it.isNotEmpty() }?.let {
                 DiagnosticsContextGroupUiModel(
                     title = context.getString(R.string.history_detail_section_field_telemetry),
-                    fields = it,
+                    fields = it.toImmutableList(),
                 )
             }
         }
@@ -287,7 +287,7 @@ internal class HistoryConnectionDetailUiFactory
                 }
             return DiagnosticsContextGroupUiModel(
                 title = context.getString(R.string.history_connection_remembered_policy_section),
-                fields = fields,
+                fields = fields.toImmutableList(),
             )
         }
 

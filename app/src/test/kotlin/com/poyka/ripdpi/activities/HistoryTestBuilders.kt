@@ -327,9 +327,9 @@ internal fun historyConnectionDetailUi(id: String = "connection-1"): HistoryConn
                 tone = DiagnosticsTone.Positive,
             ),
         highlights = persistentListOf(DiagnosticsMetricUiModel("Health", "Healthy")),
-        contextGroups = emptyList(),
-        snapshots = emptyList(),
-        events = emptyList(),
+        contextGroups = persistentListOf(),
+        snapshots = persistentListOf(),
+        events = persistentListOf(),
     )
 
 internal fun historyDiagnosticsDetailUi(id: String = "scan-1"): DiagnosticsSessionDetailUiModel =
@@ -350,11 +350,11 @@ internal fun historyDiagnosticsDetailUi(id: String = "scan-1"): DiagnosticsSessi
                 launchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
                 triggerClassification = null,
             ),
-        reportMetadata = emptyList(),
-        probeGroups = emptyList(),
-        snapshots = emptyList(),
-        events = emptyList(),
-        contextGroups = emptyList(),
+        reportMetadata = persistentListOf(),
+        probeGroups = persistentListOf(),
+        snapshots = persistentListOf(),
+        events = persistentListOf(),
+        contextGroups = persistentListOf(),
         hasSensitiveDetails = false,
         sensitiveDetailsVisible = false,
     )

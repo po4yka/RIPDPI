@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,7 +41,7 @@ class DesyncSeqOverlapSectionTest {
                     desync =
                         DesyncCoreUiState(
                             tcpChainSteps =
-                                listOf(
+                                persistentListOf(
                                     TcpChainStepModel(
                                         kind = TcpChainStepKind.SeqOverlap,
                                         marker = "midsld",
@@ -68,7 +69,7 @@ class DesyncSeqOverlapSectionTest {
                     desync =
                         DesyncCoreUiState(
                             tcpChainSteps =
-                                listOf(
+                                persistentListOf(
                                     TcpChainStepModel(
                                         kind = TcpChainStepKind.SeqOverlap,
                                         marker = "host+1",
@@ -94,7 +95,7 @@ class DesyncSeqOverlapSectionTest {
                     desync =
                         DesyncCoreUiState(
                             tcpChainSteps =
-                                listOf(
+                                persistentListOf(
                                     TcpChainStepModel(
                                         kind = TcpChainStepKind.SeqOverlap,
                                         marker = "host+1",

@@ -6,13 +6,14 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
+import kotlinx.collections.immutable.toImmutableList
 
 internal fun DiagnosticsUiFactorySupport.toOverviewContextGroup(
     context: DiagnosticContextModel,
 ): DiagnosticsContextGroupUiModel =
     DiagnosticsContextGroupUiModel(
         title = this.context.getString(R.string.diagnostics_section_device),
-        fields = overviewContextFields(context),
+        fields = overviewContextFields(context).toImmutableList(),
     )
 
 internal fun DiagnosticsUiFactorySupport.toLiveContextGroups(
@@ -73,7 +74,7 @@ private fun DiagnosticsUiFactorySupport.liveServiceGroup(
                     service.sessionUptimeMs?.let(::formatDurationMs)
                         ?: context.getString(R.string.diagnostics_field_unknown),
                 ),
-            ),
+            ).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.liveEnvironmentGroup(
@@ -88,7 +89,7 @@ private fun DiagnosticsUiFactorySupport.liveEnvironmentGroup(
                 field(R.string.diagnostics_field_power_save, environment.powerSaveModeState),
                 field(R.string.diagnostics_field_metered, environment.networkMeteredState),
                 field(R.string.diagnostics_field_roaming, environment.roamingState),
-            ),
+            ).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.liveHostLearningGroup(
@@ -107,7 +108,7 @@ private fun DiagnosticsUiFactorySupport.liveHostLearningGroup(
                 field(R.string.diagnostics_field_last_action, formatAutolearnAction(service.lastAutolearnAction)),
                 field(R.string.diagnostics_field_last_block_signal, formatBlockSignal(service.lastBlockSignal)),
                 field(R.string.diagnostics_field_last_block_provider, formatBlockProvider(service.lastBlockProvider)),
-            ),
+            ).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.serviceContextGroup(
@@ -116,7 +117,7 @@ private fun DiagnosticsUiFactorySupport.serviceContextGroup(
 ): DiagnosticsContextGroupUiModel =
     DiagnosticsContextGroupUiModel(
         title = context.getString(R.string.diagnostics_field_service),
-        fields = serviceContextFields(service, showSensitiveDetails),
+        fields = serviceContextFields(service, showSensitiveDetails).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.serviceContextFields(
@@ -164,7 +165,7 @@ private fun DiagnosticsUiFactorySupport.permissionContextGroup(
                 field(R.string.diagnostics_field_notification_permission, permissions.notificationPermissionState),
                 field(R.string.diagnostics_field_battery_optimization, permissions.batteryOptimizationState),
                 field(R.string.diagnostics_field_data_saver, permissions.dataSaverState),
-            ),
+            ).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.deviceContextGroup(
@@ -195,7 +196,7 @@ private fun DiagnosticsUiFactorySupport.deviceContextGroup(
                 field(R.string.diagnostics_field_abi, device.primaryAbi),
                 field(R.string.diagnostics_field_locale, device.locale),
                 field(R.string.diagnostics_field_timezone, device.timezone),
-            ),
+            ).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.environmentContextGroup(
@@ -209,7 +210,7 @@ private fun DiagnosticsUiFactorySupport.environmentContextGroup(
                 field(R.string.diagnostics_field_power_save, environment.powerSaveModeState),
                 field(R.string.diagnostics_field_network_metered, environment.networkMeteredState),
                 field(R.string.diagnostics_field_roaming, environment.roamingState),
-            ),
+            ).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.field(
