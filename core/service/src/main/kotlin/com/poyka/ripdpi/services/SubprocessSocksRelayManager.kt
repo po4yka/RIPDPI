@@ -139,7 +139,9 @@ class SubprocessSocksRelayManager
                     onFailure = ::markFailed,
                 )
                 runtimeStateOverride = null
-            } catch (error: Exception) {
+            } catch (
+                @Suppress("TooGenericExceptionCaught") error: Exception,
+            ) {
                 withContext(Dispatchers.IO) {
                     stopInternal()
                 }

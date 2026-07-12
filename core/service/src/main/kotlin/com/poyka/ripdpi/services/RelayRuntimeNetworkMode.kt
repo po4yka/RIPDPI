@@ -66,7 +66,8 @@ internal fun validateRelaySocketProtectionPolicy(config: ResolvedRipDpiRelayConf
     if (unsupportedComponent != null) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayConfigRejected(
-                "${config.kind} cannot run in VPN mode because the $unsupportedComponent does not support Android socket protection",
+                "${config.kind} cannot run in VPN mode because the $unsupportedComponent " +
+                    "does not support Android socket protection",
             ),
         )
     }

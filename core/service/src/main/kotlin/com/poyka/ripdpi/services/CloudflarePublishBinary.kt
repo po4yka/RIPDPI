@@ -102,6 +102,10 @@ internal open class CloudflarePublishBinaryExtractor
 internal open class CloudflarePublishVersionProbe internal constructor(
     private val timeoutMillis: Long,
 ) {
+    private companion object {
+        const val ReadBufferSize = 512
+    }
+
     @Inject
     constructor() : this(CloudflareVersionProbeTimeoutMs)
 
@@ -132,6 +136,8 @@ internal open class CloudflarePublishVersionProbe internal constructor(
             } else {
                 outputCapture.await(deadlineNanos, active.inputStream)
             }
+        } catch (error: CloudflareProbeCleanupException) {
+            throw error
         } catch (
             @Suppress("TooGenericExceptionCaught") error: Exception,
         ) {
@@ -142,7 +148,6 @@ internal open class CloudflarePublishVersionProbe internal constructor(
                 cleanupError.addSuppressed(error)
                 throw cleanupError
             }
-            if (error is CloudflareProbeCleanupException) throw error
             null
         } finally {
             process?.let(::closeProbeStreams)
@@ -155,7 +160,7 @@ internal open class CloudflarePublishVersionProbe internal constructor(
     private fun readBoundedVersionOutput(input: InputStream): String =
         input.bufferedReader().use { reader ->
             val output = StringBuilder()
-            val buffer = CharArray(512)
+            val buffer = CharArray(ReadBufferSize)
             while (output.length < CloudflareVersionProbeMaxChars) {
                 val read = reader.read(buffer, 0, minOf(buffer.size, CloudflareVersionProbeMaxChars - output.length))
                 if (read < 0) break

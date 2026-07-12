@@ -252,62 +252,67 @@ internal fun streamGeoAssetToTarget(
     targetDirectory.mkdirs()
     val temp = File.createTempFile("geo-asset-", ".tmp", targetDirectory)
     try {
-        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-        val validationPrefix = ByteArray(MinGeoAssetBytes)
-        var validationPrefixSize = 0
-        var totalBytes = 0L
+        val copyState = GeoAssetCopyState(maxBytes)
 
         temp.outputStream().buffered().use { output ->
-            fun writeChunk(
-                bytes: ByteArray,
-                count: Int,
-            ) {
-                if (totalBytes > maxBytes - count.toLong()) {
-                    throw GeoAssetIntegrityException("Imported geo asset exceeds the local size limit.")
-                }
-                if (validationPrefixSize < validationPrefix.size) {
-                    val prefixCount = minOf(count, validationPrefix.size - validationPrefixSize)
-                    bytes.copyInto(
-                        destination = validationPrefix,
-                        destinationOffset = validationPrefixSize,
-                        startIndex = 0,
-                        endIndex = prefixCount,
-                    )
-                    validationPrefixSize += prefixCount
-                }
-                output.write(bytes, 0, count)
-                totalBytes += count
-            }
-
-            while (true) {
-                when (val readCount = input.read(buffer)) {
-                    -1 -> {
-                        break
-                    }
-
-                    0 -> {
-                        val nextByte = input.read()
-                        if (nextByte == -1) break
-                        buffer[0] = nextByte.toByte()
-                        writeChunk(buffer, 1)
-                    }
-
-                    else -> {
-                        writeChunk(buffer, readCount)
-                    }
-                }
-            }
+            copyGeoAssetInput(input, output, copyState)
         }
 
         // This prefix is equivalent to the complete-payload decision while the validator checks
         // only minimum length and the first 16 bytes. Update both contracts together if it deepens.
-        if (!isPlausibleGeoAssetPayload(validationPrefix.copyOf(validationPrefixSize))) {
+        if (!isPlausibleGeoAssetPayload(copyState.validationPrefix())) {
             throw GeoAssetIntegrityException("Imported geo asset failed the validity gate.")
         }
         replaceGeoAssetTempFile(temp, target)
     } finally {
         temp.delete()
     }
+}
+
+private fun copyGeoAssetInput(
+    input: InputStream,
+    output: java.io.OutputStream,
+    state: GeoAssetCopyState,
+) {
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var readCount = input.read(buffer)
+    while (readCount >= 0) {
+        if (readCount == 0) {
+            readCount = input.read()
+            if (readCount >= 0) {
+                buffer[0] = readCount.toByte()
+                state.write(buffer, 1, output)
+            }
+        } else {
+            state.write(buffer, readCount, output)
+        }
+        readCount = input.read(buffer)
+    }
+}
+
+private class GeoAssetCopyState(
+    private val maxBytes: Long,
+) {
+    private val prefix = ByteArray(MinGeoAssetBytes)
+    private var prefixSize = 0
+    private var totalBytes = 0L
+
+    fun write(
+        bytes: ByteArray,
+        count: Int,
+        output: java.io.OutputStream,
+    ) {
+        if (totalBytes > maxBytes - count.toLong()) {
+            throw GeoAssetIntegrityException("Imported geo asset exceeds the local size limit.")
+        }
+        val prefixCount = minOf(count, prefix.size - prefixSize).coerceAtLeast(0)
+        if (prefixCount > 0) bytes.copyInto(prefix, prefixSize, 0, prefixCount)
+        prefixSize += prefixCount
+        output.write(bytes, 0, count)
+        totalBytes += count
+    }
+
+    fun validationPrefix(): ByteArray = prefix.copyOf(prefixSize)
 }
 
 private fun replaceGeoAssetTempFile(

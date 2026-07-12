@@ -16,19 +16,18 @@ impl TunnelTelemetryState {
         resolver_protocol: Option<String>,
     ) -> NativeRuntimeSnapshot {
         let running = self.running.load(Ordering::Relaxed);
-        let total_errors = self.total_errors.load(Ordering::Relaxed);
         NativeRuntimeSnapshot {
             source: "tunnel".to_string(),
             schema_version: SNAPSHOT_SCHEMA_VERSION,
             state: if running { "running".to_string() } else { "idle".to_string() },
-            health: match (running, total_errors) {
+            health: match (running, self.total_errors.load(Ordering::Relaxed)) {
                 (false, _) => "idle".to_string(),
                 (true, 0) => "healthy".to_string(),
                 (true, _) => "degraded".to_string(),
             },
             active_sessions: u64::from(running),
             total_sessions: self.total_sessions.load(Ordering::Relaxed),
-            total_errors,
+            total_errors: self.total_errors.load(Ordering::Relaxed),
             route_changes: 0,
             last_route_group: None,
             listener_address: None,

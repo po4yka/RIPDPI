@@ -18,28 +18,48 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-internal const val SHARED_PRIORS_REFRESH_PREFS_NAME = "ripdpi_shared_priors_refresh"
-internal const val SHARED_PRIORS_REFRESH_CURRENT_PREFS_NAME = "ripdpi_shared_priors_refresh_v2"
-internal const val SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY = "last_refresh_unix_ms"
-internal const val SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY = "last_modified_header"
-internal const val SHARED_PRIORS_REFRESH_LEGACY_MIGRATION_COMPLETE_KEY = "legacy_migration_complete_v1"
+internal const val SharedPriorsRefreshPrefsName = "ripdpi_shared_priors_refresh"
+internal const val SharedPriorsRefreshCurrentPrefsName = "ripdpi_shared_priors_refresh_v2"
+internal const val SharedPriorsRefreshLastRefreshKey = "last_refresh_unix_ms"
+internal const val SharedPriorsRefreshLastModifiedKey = "last_modified_header"
+internal const val SharedPriorsRefreshLegacyMigrationCompleteKey = "legacy_migration_complete_v1"
+
+@Suppress("TopLevelPropertyNaming")
+internal const val SHARED_PRIORS_REFRESH_PREFS_NAME = SharedPriorsRefreshPrefsName
+
+@Suppress("TopLevelPropertyNaming")
+internal const val SHARED_PRIORS_REFRESH_CURRENT_PREFS_NAME = SharedPriorsRefreshCurrentPrefsName
+
+@Suppress("TopLevelPropertyNaming")
+internal const val SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY = SharedPriorsRefreshLastRefreshKey
+
+@Suppress("TopLevelPropertyNaming")
+internal const val SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY = SharedPriorsRefreshLastModifiedKey
+
+@Suppress("TopLevelPropertyNaming")
+internal const val SHARED_PRIORS_REFRESH_LEGACY_MIGRATION_COMPLETE_KEY = SharedPriorsRefreshLegacyMigrationCompleteKey
 
 internal class SharedPriorsRefreshPreferencesCodec(
     private val prefs: SharedPreferences,
 ) {
     fun load(): SharedPriorsRefreshState? {
-        val lastRefresh = prefs.getLong(SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY, -1L)
-        if (lastRefresh < 0L) return null
-        val lastModified = prefs.getString(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY, null)
-        return SharedPriorsRefreshState(lastRefreshUnixMs = lastRefresh, lastModifiedHeader = lastModified)
+        val lastRefresh = prefs.getLong(SharedPriorsRefreshLastRefreshKey, -1L)
+        return lastRefresh
+            .takeIf { it >= 0L }
+            ?.let {
+                SharedPriorsRefreshState(
+                    lastRefreshUnixMs = it,
+                    lastModifiedHeader = prefs.getString(SharedPriorsRefreshLastModifiedKey, null),
+                )
+            }
     }
 
     fun save(state: SharedPriorsRefreshState) {
-        val editor = prefs.edit().putLong(SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY, state.lastRefreshUnixMs)
+        val editor = prefs.edit().putLong(SharedPriorsRefreshLastRefreshKey, state.lastRefreshUnixMs)
         if (state.lastModifiedHeader != null) {
-            editor.putString(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY, state.lastModifiedHeader)
+            editor.putString(SharedPriorsRefreshLastModifiedKey, state.lastModifiedHeader)
         } else {
-            editor.remove(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY)
+            editor.remove(SharedPriorsRefreshLastModifiedKey)
         }
         editor.apply()
     }
@@ -50,26 +70,25 @@ internal class SharedPriorsRefreshCurrentPreferencesCodec(
 ) {
     fun load(): SharedPriorsRefreshState? = SharedPriorsRefreshPreferencesCodec(prefs).load()
 
-    fun isLegacyMigrationComplete(): Boolean =
-        prefs.getBoolean(SHARED_PRIORS_REFRESH_LEGACY_MIGRATION_COMPLETE_KEY, false)
+    fun isLegacyMigrationComplete(): Boolean = prefs.getBoolean(SharedPriorsRefreshLegacyMigrationCompleteKey, false)
 
     fun save(state: SharedPriorsRefreshState) {
         editState(state)
-            .putBoolean(SHARED_PRIORS_REFRESH_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .putBoolean(SharedPriorsRefreshLegacyMigrationCompleteKey, true)
             .apply()
     }
 
     fun saveMigrated(state: SharedPriorsRefreshState): Boolean =
         editState(state)
-            .putBoolean(SHARED_PRIORS_REFRESH_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .putBoolean(SharedPriorsRefreshLegacyMigrationCompleteKey, true)
             .commit()
 
     private fun editState(state: SharedPriorsRefreshState): SharedPreferences.Editor {
-        val editor = prefs.edit().putLong(SHARED_PRIORS_REFRESH_LAST_REFRESH_KEY, state.lastRefreshUnixMs)
+        val editor = prefs.edit().putLong(SharedPriorsRefreshLastRefreshKey, state.lastRefreshUnixMs)
         return if (state.lastModifiedHeader != null) {
-            editor.putString(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY, state.lastModifiedHeader)
+            editor.putString(SharedPriorsRefreshLastModifiedKey, state.lastModifiedHeader)
         } else {
-            editor.remove(SHARED_PRIORS_REFRESH_LAST_MODIFIED_KEY)
+            editor.remove(SharedPriorsRefreshLastModifiedKey)
         }
     }
 }
@@ -80,11 +99,17 @@ internal class SharedPriorsRefreshPreferencesMigrationCoordinator(
 ) {
     fun load(): SharedPriorsRefreshState? {
         val current = currentCodec.load()
-        if (current != null || currentCodec.isLegacyMigrationComplete()) return current
+        return current ?: when {
+            currentCodec.isLegacyMigrationComplete() -> {
+                null
+            }
 
-        val legacy = runCatching { loadLegacy() }.getOrNull() ?: return null
-        val migrated = runCatching { currentCodec.saveMigrated(legacy) }.getOrDefault(false)
-        return legacy.takeIf { migrated }
+            else -> {
+                runCatching { loadLegacy() }.getOrNull()?.let { legacy ->
+                    legacy.takeIf { runCatching { currentCodec.saveMigrated(legacy) }.getOrDefault(false) }
+                }
+            }
+        }
     }
 
     fun save(state: SharedPriorsRefreshState) {
@@ -99,7 +124,7 @@ class EncryptedSharedPreferencesSharedPriorsRefreshCache
         @param:ApplicationContext private val context: Context,
     ) : SharedPriorsRefreshCache {
         private val currentPrefs: SharedPreferences by lazy {
-            context.getSharedPreferences(SHARED_PRIORS_REFRESH_CURRENT_PREFS_NAME, Context.MODE_PRIVATE)
+            context.getSharedPreferences(SharedPriorsRefreshCurrentPrefsName, Context.MODE_PRIVATE)
         }
         private val currentCodec: SharedPriorsRefreshCurrentPreferencesCodec by lazy {
             SharedPriorsRefreshCurrentPreferencesCodec(currentPrefs)
@@ -112,7 +137,7 @@ class EncryptedSharedPreferencesSharedPriorsRefreshCache
                     .build()
             EncryptedSharedPreferences.create(
                 context,
-                SHARED_PRIORS_REFRESH_PREFS_NAME,
+                SharedPriorsRefreshPrefsName,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,

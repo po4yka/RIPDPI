@@ -3,7 +3,9 @@ mod batch_execution;
 mod candidate_ordering;
 mod capability_gating;
 mod pilot_qualification;
+mod quic_pivot;
 mod result_recording;
+mod runner;
 
 use std::sync::Arc;
 use std::thread;
@@ -11,35 +13,25 @@ use std::time::Duration;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::candidates::{
-    candidate_pause_ms, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability,
-};
-use crate::execution::{CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, skipped_candidate_summary};
+use crate::candidates::candidate_pause_ms;
 use crate::types::StrategyProbeProgressLane;
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
 };
-use super::support::{FamilyFailureTracker, select_promotable_candidate_index};
+use super::support::FamilyFailureTracker;
 
 use self::baseline::run_baseline_candidate;
 use self::batch_execution::{ROUND2_PARALLELISM, execute_candidate_batch, select_next_candidate_batch};
 use self::candidate_ordering::ordered_pending_tcp_candidates;
 use self::capability_gating::{candidate_not_applicable, probe_tcp_capabilities};
 use self::pilot_qualification::qualify_pilot_candidates;
+use self::quic_pivot::skip_for_confirmed_quic;
 use self::result_recording::{
     record_executed_candidate, record_hostfake_short_circuit, record_not_applicable_candidate,
 };
 
-pub(in crate::engine::runners) struct StrategyTcpRunner {
-    lane_executor: DefaultStrategyLaneExecutor,
-}
-
-impl StrategyTcpRunner {
-    pub(in crate::engine::runners) fn new(candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
-        Self { lane_executor: DefaultStrategyLaneExecutor::new(candidate_runtime_launcher) }
-    }
-}
+pub(in crate::engine::runners) use self::runner::StrategyTcpRunner;
 
 impl ExecutionStageRunner for StrategyTcpRunner {
     fn id(&self) -> ExecutionStageId {
@@ -67,31 +59,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         if tcp_specs.is_empty() {
             return RunnerOutcome::Completed;
         }
-        let quic_pivot_candidate = select_promotable_candidate_index(
-            &runtime.strategy.quic_candidates,
-            &strategy_plan.suite.quic_candidates,
-            probe_fake_ttl_capability(),
-            probe_tcp_fast_open_capability(),
-            probe_ip_fragmentation_capabilities(),
-        );
-        if plan.request.confirm_good_dpi_evidence.is_some() && quic_pivot_candidate.is_some() {
-            let rationale =
-                "Post-handshake Reality stalls were corroborated by QUIC; fingerprint tuning is not applicable";
-            for (index, spec) in tcp_specs.iter().enumerate() {
-                let summary = skipped_candidate_summary(spec, plan.request.domain_targets.len(), 2, rationale);
-                runtime.strategy.tcp_candidates.push(summary.clone());
-                runtime.record_skipped_strategy_probe_candidate(
-                    plan,
-                    self.phase(),
-                    StrategyProbeProgressLane::Tcp,
-                    index + 1,
-                    tcp_specs.len(),
-                    &summary.id,
-                    &summary.label,
-                    Some(summary.outcome.clone()),
-                    format!("Skipped {}", summary.label),
-                );
-            }
+        if skip_for_confirmed_quic(plan, runtime, tcp_specs) {
             return RunnerOutcome::Completed;
         }
         // Use encrypted-DNS-resolved targets when DNS tampering was detected.

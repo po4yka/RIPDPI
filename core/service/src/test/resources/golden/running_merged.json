@@ -26,7 +26,7 @@
         ],
         "penalizedHostCount": 1,
         "routeChanges": 2,
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "source": "proxy",
         "state": "running",
         "totalErrors": 1,
@@ -61,7 +61,7 @@
                 "source": "tunnel"
             }
         ],
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "source": "tunnel",
         "state": "running",
         "tunnelStats": {

@@ -51,6 +51,17 @@ import dagger.hilt.InstallIn
 import java.io.File
 import java.util.Optional
 
+internal data class VpnCoordinatorServices(
+    val upstreamRelaySupervisor: UpstreamRelaySupervisor,
+    val warpRuntimeSupervisor: WarpRuntimeSupervisor,
+    val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
+    val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+    val statusReporter: ServiceStatusReporter,
+    val directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
+    val rootHelperManager: RootHelperManager,
+    val xrayProviderSessionController: XrayProviderSessionController,
+)
+
 @Module
 @InstallIn(VpnServiceSessionComponent::class)
 @Suppress("TooManyFunctions")
@@ -234,13 +245,7 @@ internal object VpnServiceSessionModule {
 
     @Provides
     @ServiceSessionScope
-    fun provideVpnCoordinator(
-        host: VpnCoordinatorHost,
-        runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
-        permissionWatchdog: PermissionWatchdog,
-        vpnProtectFailureMonitor: VpnProtectFailureMonitor,
-        vpnTunnelRuntime: VpnTunnelRuntime,
-        encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
+    fun provideVpnCoordinatorServices(
         upstreamRelaySupervisor: UpstreamRelaySupervisor,
         warpRuntimeSupervisor: WarpRuntimeSupervisor,
         amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
@@ -249,6 +254,28 @@ internal object VpnServiceSessionModule {
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
         rootHelperManager: RootHelperManager,
         xrayProviderSessionController: XrayProviderSessionController,
+    ): VpnCoordinatorServices =
+        VpnCoordinatorServices(
+            upstreamRelaySupervisor,
+            warpRuntimeSupervisor,
+            amneziaWgRuntimeSupervisor,
+            proxyRuntimeSupervisor,
+            statusReporter,
+            directPathPolicyTelemetryConsumer,
+            rootHelperManager,
+            xrayProviderSessionController,
+        )
+
+    @Provides
+    @ServiceSessionScope
+    fun provideVpnCoordinator(
+        host: VpnCoordinatorHost,
+        runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
+        permissionWatchdog: PermissionWatchdog,
+        vpnProtectFailureMonitor: VpnProtectFailureMonitor,
+        vpnTunnelRuntime: VpnTunnelRuntime,
+        encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
+        services: VpnCoordinatorServices,
         initialRelayRacePolicy: Optional<InitialRelayRacePolicy> = Optional.empty(),
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
@@ -265,15 +292,15 @@ internal object VpnServiceSessionModule {
             vpnTunnelRuntime = vpnTunnelRuntime,
             resolverRefreshPlanner = runtimeDependencies.dnsDependencies.resolverRefreshPlanner,
             encryptedDnsFailoverController = encryptedDnsFailoverController,
-            upstreamRelaySupervisor = upstreamRelaySupervisor,
-            warpRuntimeSupervisor = warpRuntimeSupervisor,
-            amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
-            proxyRuntimeSupervisor = proxyRuntimeSupervisor,
-            statusReporter = statusReporter,
+            upstreamRelaySupervisor = services.upstreamRelaySupervisor,
+            warpRuntimeSupervisor = services.warpRuntimeSupervisor,
+            amneziaWgRuntimeSupervisor = services.amneziaWgRuntimeSupervisor,
+            proxyRuntimeSupervisor = services.proxyRuntimeSupervisor,
+            statusReporter = services.statusReporter,
             screenStateObserver = runtimeDependencies.screenStateObserver,
-            directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
-            rootHelperManager = rootHelperManager,
-            xrayProviderSessionController = xrayProviderSessionController,
+            directPathPolicyTelemetryConsumer = services.directPathPolicyTelemetryConsumer,
+            rootHelperManager = services.rootHelperManager,
+            xrayProviderSessionController = services.xrayProviderSessionController,
             initialRelayRacePolicy = initialRelayRacePolicy.orElse(null),
         )
 }

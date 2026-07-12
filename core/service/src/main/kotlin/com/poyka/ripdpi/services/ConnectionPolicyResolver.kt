@@ -309,7 +309,9 @@ class DefaultConnectionPolicyResolver
                 )
             } catch (error: CancellationException) {
                 throw error
-            } catch (error: Exception) {
+            } catch (
+                @Suppress("TooGenericExceptionCaught") error: Exception,
+            ) {
                 Logger.w(error) { "Rejected invalid remembered connection policy; using baseline" }
                 rememberedNetworkPolicyStore.recordFailure(matchedPolicy)
                 null

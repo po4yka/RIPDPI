@@ -18,43 +18,56 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-internal const val CDN_ECH_CACHE_PREFS_NAME = "ripdpi_cdn_ech_cache"
-internal const val CDN_ECH_CACHE_CURRENT_PREFS_NAME = "ripdpi_cdn_ech_cache_v2"
-internal const val CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY = "config_bytes_b64"
-internal const val CDN_ECH_CACHE_FETCHED_AT_KEY = "fetched_at_unix_ms"
-internal const val CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY = "legacy_migration_complete_v1"
+internal const val CdnEchCachePrefsName = "ripdpi_cdn_ech_cache"
+internal const val CdnEchCacheCurrentPrefsName = "ripdpi_cdn_ech_cache_v2"
+internal const val CdnEchCacheConfigBytesB64Key = "config_bytes_b64"
+internal const val CdnEchCacheFetchedAtKey = "fetched_at_unix_ms"
+internal const val CdnEchCacheLegacyMigrationCompleteKey = "legacy_migration_complete_v1"
+
+@Suppress("TopLevelPropertyNaming")
+internal const val CDN_ECH_CACHE_PREFS_NAME = CdnEchCachePrefsName
+
+@Suppress("TopLevelPropertyNaming")
+internal const val CDN_ECH_CACHE_CURRENT_PREFS_NAME = CdnEchCacheCurrentPrefsName
+
+@Suppress("TopLevelPropertyNaming")
+internal const val CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY = CdnEchCacheConfigBytesB64Key
+
+@Suppress("TopLevelPropertyNaming")
+internal const val CDN_ECH_CACHE_FETCHED_AT_KEY = CdnEchCacheFetchedAtKey
+
+@Suppress("TopLevelPropertyNaming")
+internal const val CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY = CdnEchCacheLegacyMigrationCompleteKey
 
 internal class CdnEchPreferencesCodec(
     private val prefs: SharedPreferences,
 ) {
     fun load(): PersistedEchEntry? {
-        val configB64 = prefs.getString(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY, null) ?: return null
-        val fetchedAt = prefs.getLong(CDN_ECH_CACHE_FETCHED_AT_KEY, -1L)
-        if (fetchedAt < 0L) return null
-        val bytes =
-            runCatching {
-                android.util.Base64.decode(
-                    configB64,
-                    android.util.Base64.NO_WRAP,
-                )
-            }.getOrNull()
-        return bytes?.let { PersistedEchEntry(configBytes = it, fetchedAtUnixMs = fetchedAt) }
+        val configB64 = prefs.getString(CdnEchCacheConfigBytesB64Key, null)
+        val fetchedAt = prefs.getLong(CdnEchCacheFetchedAtKey, -1L)
+        return configB64
+            ?.takeIf { fetchedAt >= 0L }
+            ?.let { encoded ->
+                runCatching {
+                    android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
+                }.getOrNull()
+            }?.let { PersistedEchEntry(configBytes = it, fetchedAtUnixMs = fetchedAt) }
     }
 
     fun save(entry: PersistedEchEntry) {
         val configB64 = android.util.Base64.encodeToString(entry.configBytes, android.util.Base64.NO_WRAP)
         prefs
             .edit()
-            .putString(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY, configB64)
-            .putLong(CDN_ECH_CACHE_FETCHED_AT_KEY, entry.fetchedAtUnixMs)
+            .putString(CdnEchCacheConfigBytesB64Key, configB64)
+            .putLong(CdnEchCacheFetchedAtKey, entry.fetchedAtUnixMs)
             .apply()
     }
 
     fun clear() {
         prefs
             .edit()
-            .remove(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY)
-            .remove(CDN_ECH_CACHE_FETCHED_AT_KEY)
+            .remove(CdnEchCacheConfigBytesB64Key)
+            .remove(CdnEchCacheFetchedAtKey)
             .apply()
     }
 }
@@ -64,25 +77,25 @@ internal class CdnEchCurrentPreferencesCodec(
 ) {
     fun load(): PersistedEchEntry? = CdnEchPreferencesCodec(prefs).load()
 
-    fun isLegacyMigrationComplete(): Boolean = prefs.getBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, false)
+    fun isLegacyMigrationComplete(): Boolean = prefs.getBoolean(CdnEchCacheLegacyMigrationCompleteKey, false)
 
     fun save(entry: PersistedEchEntry) {
         editEntry(entry)
-            .putBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .putBoolean(CdnEchCacheLegacyMigrationCompleteKey, true)
             .apply()
     }
 
     fun saveMigrated(entry: PersistedEchEntry): Boolean =
         editEntry(entry)
-            .putBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .putBoolean(CdnEchCacheLegacyMigrationCompleteKey, true)
             .commit()
 
     fun clear() {
         prefs
             .edit()
-            .remove(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY)
-            .remove(CDN_ECH_CACHE_FETCHED_AT_KEY)
-            .putBoolean(CDN_ECH_CACHE_LEGACY_MIGRATION_COMPLETE_KEY, true)
+            .remove(CdnEchCacheConfigBytesB64Key)
+            .remove(CdnEchCacheFetchedAtKey)
+            .putBoolean(CdnEchCacheLegacyMigrationCompleteKey, true)
             .apply()
     }
 
@@ -90,8 +103,8 @@ internal class CdnEchCurrentPreferencesCodec(
         val configB64 = android.util.Base64.encodeToString(entry.configBytes, android.util.Base64.NO_WRAP)
         return prefs
             .edit()
-            .putString(CDN_ECH_CACHE_CONFIG_BYTES_B64_KEY, configB64)
-            .putLong(CDN_ECH_CACHE_FETCHED_AT_KEY, entry.fetchedAtUnixMs)
+            .putString(CdnEchCacheConfigBytesB64Key, configB64)
+            .putLong(CdnEchCacheFetchedAtKey, entry.fetchedAtUnixMs)
     }
 }
 
@@ -101,11 +114,17 @@ internal class CdnEchPreferencesMigrationCoordinator(
 ) {
     fun load(): PersistedEchEntry? {
         val current = currentCodec.load()
-        if (current != null || currentCodec.isLegacyMigrationComplete()) return current
+        return current ?: when {
+            currentCodec.isLegacyMigrationComplete() -> {
+                null
+            }
 
-        val legacy = runCatching { loadLegacy() }.getOrNull() ?: return null
-        val migrated = runCatching { currentCodec.saveMigrated(legacy) }.getOrDefault(false)
-        return legacy.takeIf { migrated }
+            else -> {
+                runCatching { loadLegacy() }.getOrNull()?.let { legacy ->
+                    legacy.takeIf { runCatching { currentCodec.saveMigrated(legacy) }.getOrDefault(false) }
+                }
+            }
+        }
     }
 
     fun save(entry: PersistedEchEntry) {
@@ -117,7 +136,8 @@ internal class CdnEchPreferencesMigrationCoordinator(
     }
 }
 
-// App-private cache for public CDN ECH config bytes, with a lazy encrypted-preferences reader retained for one transitional release.
+// App-private cache for public CDN ECH config bytes.
+// A lazy encrypted-preferences reader is retained for one transitional release.
 @Singleton
 class EncryptedSharedPreferencesCdnEchPersistedCache
     @Inject
@@ -125,7 +145,7 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
         @param:ApplicationContext private val context: Context,
     ) : CdnEchPersistedCache {
         private val currentPrefs: SharedPreferences by lazy {
-            context.getSharedPreferences(CDN_ECH_CACHE_CURRENT_PREFS_NAME, Context.MODE_PRIVATE)
+            context.getSharedPreferences(CdnEchCacheCurrentPrefsName, Context.MODE_PRIVATE)
         }
         private val currentCodec: CdnEchCurrentPreferencesCodec by lazy {
             CdnEchCurrentPreferencesCodec(currentPrefs)
@@ -138,7 +158,7 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
                     .build()
             EncryptedSharedPreferences.create(
                 context,
-                CDN_ECH_CACHE_PREFS_NAME,
+                CdnEchCachePrefsName,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,

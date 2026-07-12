@@ -16,7 +16,7 @@ object RipDpiSharedPriorsNativeBindings {
     }
 
     // Apply a verified shared-priors bundle to the global registry.
-    // Returns the native status JSON: `{"ok": true, "count": N, "threatCount": M}` on success, `{"ok": false, "error": "..."}` on any rejection.
+    // Returns native status JSON with either applied counts or a rejection error.
     fun applySharedPriors(
         manifestJson: String,
         priorsBytes: ByteArray,

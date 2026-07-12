@@ -296,6 +296,8 @@ private fun bucketStrategyQuic(outcome: String): DiagnosticsOutcomeBucket =
 
 private fun bucketStrategyFailureClassification(outcome: String): DiagnosticsOutcomeBucket =
     when (outcome) {
+        "confirm_good_dpi_suspected" -> DiagnosticsOutcomeBucket.Attention
+
         "unknown",
         "dns_tampering",
         "tcp_reset",

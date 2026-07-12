@@ -341,11 +341,15 @@ class CloudflarePublishProcessTest {
             object : InputStream() {
                 override fun read(): Int {
                     if (stdoutIndex < stdoutBytes.size) return stdoutBytes[stdoutIndex++].toInt() and 0xff
+                    return waitForStdoutClose()
+                }
+
+                private fun waitForStdoutClose(): Int {
                     while (holdStdoutOpen && !stdoutClosed) {
                         try {
                             Thread.sleep(10)
                         } catch (_: InterruptedException) {
-                            return -1
+                            break
                         }
                     }
                     return -1
@@ -372,11 +376,11 @@ class CloudflarePublishProcessTest {
             unit: TimeUnit,
         ): Boolean {
             waitCalls += 1
-            return waitForExit || (!ignoreTermination && (forciblyDestroyed || destroyed))
+            return hasExited()
         }
 
         override fun exitValue(): Int =
-            if (waitForExit || (!ignoreTermination && (forciblyDestroyed || destroyed))) {
+            if (hasExited()) {
                 0
             } else {
                 throw IllegalThreadStateException("running")
@@ -395,5 +399,7 @@ class CloudflarePublishProcessTest {
         fun allowTermination() {
             ignoreTermination = false
         }
+
+        private fun hasExited(): Boolean = waitForExit || (!ignoreTermination && (forciblyDestroyed || destroyed))
     }
 }

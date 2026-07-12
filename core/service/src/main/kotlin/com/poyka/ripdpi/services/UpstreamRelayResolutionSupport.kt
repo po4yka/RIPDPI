@@ -350,7 +350,8 @@ private fun rejectUnsupportedChainRelayHopKind(
     val isSupportedInOtherRole = profile.isSupportedChainEntryHop() || profile.isSupportedChainExitHop()
     val message =
         if (profile.isSupportedChainEntryHop() && !profile.isSupportedChainNonEntryHop()) {
-            "chain relay $hopName profile kind ${profile.kind} is entry-only because it requires an independent QUIC carrier"
+            "chain relay $hopName profile kind ${profile.kind} is entry-only because it requires " +
+                "an independent QUIC carrier"
         } else if (isSupportedInOtherRole) {
             "chain relay $hopName profile kind ${profile.kind} is not supported by chain relay as $hopName hop"
         } else {

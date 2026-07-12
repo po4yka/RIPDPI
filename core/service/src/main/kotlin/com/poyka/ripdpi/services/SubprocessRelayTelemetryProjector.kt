@@ -16,6 +16,11 @@ internal data class SubprocessRelayTelemetryInputs(
 )
 
 internal class SubprocessRelayTelemetryProjector {
+    private companion object {
+        const val DefaultHttpsPort = 443
+        const val DefaultHttpPort = 80
+    }
+
     fun project(inputs: SubprocessRelayTelemetryInputs): NativeRuntimeSnapshot =
         NativeRuntimeSnapshot(
             source = "relay",
@@ -47,16 +52,17 @@ internal class SubprocessRelayTelemetryProjector {
             lastFailureClass = inputs.lastFailureClass,
         )
 
-    private fun redactUpstreamAddress(value: String): String {
-        val uri = runCatching { URI(value) }.getOrNull() ?: return "redacted"
-        val host = uri.host ?: return value.takeUnless { it.contains('/') || it.contains('@') } ?: "redacted"
-        val port =
-            when {
-                uri.port > 0 -> uri.port
-                uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("wss", ignoreCase = true) -> 443
-                uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("ws", ignoreCase = true) -> 80
-                else -> return host
-            }
-        return "$host:$port"
-    }
+    private fun redactUpstreamAddress(value: String): String =
+        runCatching { URI(value) }.getOrNull()?.let { uri ->
+            uri.host?.let { host -> uri.portOrDefault()?.let { "$host:$it" } ?: host }
+                ?: value.takeUnless { it.contains('/') || it.contains('@') }
+        } ?: "redacted"
+
+    private fun URI.portOrDefault(): Int? =
+        when {
+            port > 0 -> port
+            scheme.equals("https", ignoreCase = true) || scheme.equals("wss", ignoreCase = true) -> DefaultHttpsPort
+            scheme.equals("http", ignoreCase = true) || scheme.equals("ws", ignoreCase = true) -> DefaultHttpPort
+            else -> null
+        }
 }

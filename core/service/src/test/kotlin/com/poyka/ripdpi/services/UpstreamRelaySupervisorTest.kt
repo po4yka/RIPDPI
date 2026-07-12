@@ -697,18 +697,24 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
-                    runtimeExperimentSelectionProvider =
-                        object : RuntimeExperimentSelectionProvider {
-                            override fun current(): RuntimeExperimentSelection =
-                                RuntimeExperimentSelection(
-                                    featureFlags =
-                                        mapOf(com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect to true),
-                                )
-                        },
-                    cloudflareMasqueGeohashResolver =
-                        object : CloudflareMasqueGeohashResolver {
-                            override suspend fun resolveHeaderValue(): String? = "u4p-GB"
-                        },
+                    resolverDependencies =
+                        UpstreamRelayResolverDependencies(
+                            runtimeExperimentSelectionProvider =
+                                object : RuntimeExperimentSelectionProvider {
+                                    override fun current(): RuntimeExperimentSelection =
+                                        RuntimeExperimentSelection(
+                                            featureFlags =
+                                                mapOf(
+                                                    com.poyka.ripdpi.data
+                                                        .StrategyFeatureMasqueCloudflareDirect to true,
+                                                ),
+                                        )
+                                },
+                            cloudflareMasqueGeohashResolver =
+                                object : CloudflareMasqueGeohashResolver {
+                                    override suspend fun resolveHeaderValue(): String? = "u4p-GB"
+                                },
+                        ),
                 )
 
             supervisor.start(
@@ -998,7 +1004,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
-                    masquePrivacyPassProvider = provider,
+                    resolverDependencies = UpstreamRelayResolverDependencies(masquePrivacyPassProvider = provider),
                 )
 
             supervisor.start(
@@ -1214,13 +1220,16 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
-                    runtimeExperimentSelectionProvider =
-                        object : RuntimeExperimentSelectionProvider {
-                            override fun current(): RuntimeExperimentSelection =
-                                RuntimeExperimentSelection(
-                                    featureFlags = mapOf(StrategyFeatureCloudflarePublish to true),
-                                )
-                        },
+                    resolverDependencies =
+                        UpstreamRelayResolverDependencies(
+                            runtimeExperimentSelectionProvider =
+                                object : RuntimeExperimentSelectionProvider {
+                                    override fun current(): RuntimeExperimentSelection =
+                                        RuntimeExperimentSelection(
+                                            featureFlags = mapOf(StrategyFeatureCloudflarePublish to true),
+                                        )
+                                },
+                        ),
                 )
 
             supervisor.start(
@@ -1273,13 +1282,16 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
-                    runtimeExperimentSelectionProvider =
-                        object : RuntimeExperimentSelectionProvider {
-                            override fun current(): RuntimeExperimentSelection =
-                                RuntimeExperimentSelection(
-                                    featureFlags = mapOf(StrategyFeatureFinalmask to true),
-                                )
-                        },
+                    resolverDependencies =
+                        UpstreamRelayResolverDependencies(
+                            runtimeExperimentSelectionProvider =
+                                object : RuntimeExperimentSelectionProvider {
+                                    override fun current(): RuntimeExperimentSelection =
+                                        RuntimeExperimentSelection(
+                                            featureFlags = mapOf(StrategyFeatureFinalmask to true),
+                                        )
+                                },
+                        ),
                 )
 
             supervisor.start(
@@ -1384,10 +1396,13 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
-                    tlsFingerprintProfileProvider =
-                        object : OwnedTlsFingerprintProfileProvider {
-                            override fun currentProfile(): String = TlsFingerprintProfileFirefoxStable
-                        },
+                    resolverDependencies =
+                        UpstreamRelayResolverDependencies(
+                            tlsFingerprintProfileProvider =
+                                object : OwnedTlsFingerprintProfileProvider {
+                                    override fun currentProfile(): String = TlsFingerprintProfileFirefoxStable
+                                },
+                        ),
                 )
 
             supervisor.start(

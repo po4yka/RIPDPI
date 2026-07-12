@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.codec.WarpSectionCodec
 import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
 import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
 import com.poyka.ripdpi.serialization.RipDpiNativeProxyJson
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -168,10 +169,11 @@ internal object RipDpiProxyJsonCodec {
                     patchObject(
                         original,
                         mapOf(
-                            "runtimeContext" to encodeNullable(nextRuntimeContext),
-                            "logContext" to encodeNullable(nextLogContext),
+                            "runtimeContext" to encodeNullable(json, nextRuntimeContext),
+                            "logContext" to encodeNullable(json, nextLogContext),
                             "sessionOverrides" to
                                 encodeNullable(
+                                    json,
                                     SessionOverrideCodec.merge(
                                         existing = payload.sessionOverrides,
                                         listenPortOverride = localListenPortOverride,
@@ -208,10 +210,11 @@ internal object RipDpiProxyJsonCodec {
                             "geositeDbPath" to
                                 jsonPrimitiveOrNull(geositeDbPath ?: payload.geositeDbPath),
                             "environmentKind" to JsonPrimitive(environmentKind.name),
-                            "runtimeContext" to encodeNullable(nextRuntimeContext),
-                            "logContext" to encodeNullable(nextLogContext),
+                            "runtimeContext" to encodeNullable(json, nextRuntimeContext),
+                            "logContext" to encodeNullable(json, nextLogContext),
                             "sessionOverrides" to
                                 encodeNullable(
+                                    json,
                                     SessionOverrideCodec.merge(
                                         existing = payload.sessionOverrides,
                                         listenPortOverride = localListenPortOverride,
@@ -239,14 +242,16 @@ internal object RipDpiProxyJsonCodec {
         payload
             .also(NativeProxyConfigValidation::validateSupportedPayload)
             .let(json::encodeToString)
-
-    private inline fun <reified T> encodeNullable(value: T?): JsonElement =
-        value?.let(json::encodeToJsonElement) ?: JsonNull
-
-    private fun jsonPrimitiveOrNull(value: String?): JsonElement = value?.let(::JsonPrimitive) ?: JsonNull
-
-    private fun patchObject(
-        source: JsonObject,
-        updates: Map<String, JsonElement>,
-    ): JsonObject = JsonObject(source.toMutableMap().apply { putAll(updates) })
 }
+
+private inline fun <reified T> encodeNullable(
+    json: Json,
+    value: T?,
+): JsonElement = value?.let(json::encodeToJsonElement) ?: JsonNull
+
+private fun jsonPrimitiveOrNull(value: String?): JsonElement = value?.let(::JsonPrimitive) ?: JsonNull
+
+private fun patchObject(
+    source: JsonObject,
+    updates: Map<String, JsonElement>,
+): JsonObject = JsonObject(source.toMutableMap().apply { putAll(updates) })

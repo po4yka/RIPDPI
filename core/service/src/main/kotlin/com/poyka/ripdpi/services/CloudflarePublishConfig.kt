@@ -226,7 +226,7 @@ internal fun cloudflarePublishRedactedValues(
         config.cloudflarePublishLocalOriginUrl.takeIf { it.isNotBlank() }?.let(::add)
         add(stateDir.absolutePath)
     }.map(String::trim)
-        .filter { it.length >= 4 }
+        .filter { it.length >= MinimumRedactedValueLength }
         .distinct()
 
 internal fun parseCloudflareLocalOriginSpec(rawUrl: String): CloudflareLocalOriginSpec =
@@ -259,8 +259,11 @@ internal fun buildCloudflaredConfigYaml(
         """.trimMargin()
 }
 
+private const val MinimumRedactedValueLength = 4
+private const val MaximumHostnameLength = 253
+
 private fun isCloudflareHostname(hostname: String): Boolean =
-    hostname.length in 1..253 &&
+    hostname.length in 1..MaximumHostnameLength &&
         !hostname.contains('\n') &&
         !hostname.contains('\r') &&
         hostname.trimEnd('.').split('.').all(CloudflareHostnameLabelPattern::matches)

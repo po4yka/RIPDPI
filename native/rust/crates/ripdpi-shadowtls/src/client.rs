@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
 
 use rustls::ClientConnection;
@@ -49,7 +49,7 @@ impl ShadowTlsClient {
         let port = u16::try_from(server_port).map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ShadowTLS port {server_port}"))
         })?;
-        let address = (server, port).to_socket_addrs()?.next().ok_or_else(|| {
+        let address = tokio::net::lookup_host((server, port)).await?.next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
         })?;
         // PROTECT INVARIANT: the carrier socket is protected before connect via the

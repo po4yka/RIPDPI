@@ -16,6 +16,7 @@ import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
 import com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule
+import com.poyka.ripdpi.service.session.vpn.VpnCoordinatorServices
 import com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -202,19 +203,22 @@ class ServiceSessionModuleTest {
                     vpnProtectFailureMonitor = vpnProtectFailureMonitor,
                     vpnTunnelRuntime = vpnTunnelRuntime,
                     encryptedDnsFailoverController = encryptedDnsFailoverController,
-                    upstreamRelaySupervisor = upstreamRelaySupervisor,
-                    warpRuntimeSupervisor = warpRuntimeSupervisor,
-                    amneziaWgRuntimeSupervisor =
-                        VpnServiceSessionModule.provideVpnAmneziaWgRuntimeSupervisor(
-                            host = host,
-                            factory = NoOpAmneziaWgRuntimeSupervisorFactory(),
-                            dispatchers = dispatchers,
+                    services =
+                        VpnCoordinatorServices(
+                            upstreamRelaySupervisor = upstreamRelaySupervisor,
+                            warpRuntimeSupervisor = warpRuntimeSupervisor,
+                            amneziaWgRuntimeSupervisor =
+                                VpnServiceSessionModule.provideVpnAmneziaWgRuntimeSupervisor(
+                                    host,
+                                    NoOpAmneziaWgRuntimeSupervisorFactory(),
+                                    dispatchers,
+                                ),
+                            proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                            statusReporter = statusReporter,
+                            directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
+                            rootHelperManager = RootHelperManager(),
+                            xrayProviderSessionController = buildTestXrayProviderSessionController(vpnTunnelRuntime),
                         ),
-                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
-                    statusReporter = statusReporter,
-                    directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
-                    rootHelperManager = RootHelperManager(),
-                    xrayProviderSessionController = buildTestXrayProviderSessionController(vpnTunnelRuntime),
                 )
 
             assertVpnFactoriesInvoked(proxyFactory, relayFactory, warpFactory, statusFactory, dispatchers)

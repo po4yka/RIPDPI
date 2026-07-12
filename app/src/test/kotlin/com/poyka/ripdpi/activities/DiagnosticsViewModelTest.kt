@@ -115,7 +115,8 @@ private const val HostfakeProxyConfigJson =
       },
       "quic": {
         "fakeProfile": "realistic_initial"
-      }
+      },
+      "schemaVersion": 2
     }
     """
 

@@ -74,7 +74,10 @@ class RelayNativeConfigTest {
     @Test
     fun `shadowtls inner fingerprint is required and round-trips explicitly`() {
         val sparse =
-            """{"kind":"vless_reality","profileId":"inner","server":"inner.example","serverPort":443,"serverName":"inner.example"}"""
+            """
+            {"kind":"vless_reality","profileId":"inner","server":"inner.example","serverPort":443,
+            "serverName":"inner.example"}
+            """.trimIndent()
         assertThrows(SerializationException::class.java) {
             json.decodeFromString(ResolvedShadowTlsInnerRelayConfig.serializer(), sparse)
         }

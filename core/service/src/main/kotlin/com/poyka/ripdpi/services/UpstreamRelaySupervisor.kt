@@ -30,6 +30,23 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
+internal data class UpstreamRelayResolverDependencies(
+    val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver =
+        object : CloudflareMasqueGeohashResolver {
+            override suspend fun resolveHeaderValue(): String? = null
+        },
+    val masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
+    val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
+        object : OwnedTlsFingerprintProfileProvider {
+            override fun currentProfile(): String = TlsFingerprintProfileChromeStable
+        },
+    val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider =
+        object : RuntimeExperimentSelectionProvider {
+            override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+        },
+    val torRuntimeProviders: TorRelayRuntimeProviders = TorRelayRuntimeProviders(),
+)
+
 internal class UpstreamRelaySupervisor(
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher,
@@ -75,20 +92,7 @@ internal class UpstreamRelaySupervisor(
             },
         relayProfileStore: RelayProfileStore,
         relayCredentialStore: RelayCredentialStore,
-        cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver =
-            object : CloudflareMasqueGeohashResolver {
-                override suspend fun resolveHeaderValue(): String? = null
-            },
-        masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
-        tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
-            object : OwnedTlsFingerprintProfileProvider {
-                override fun currentProfile(): String = TlsFingerprintProfileChromeStable
-            },
-        runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider =
-            object : RuntimeExperimentSelectionProvider {
-                override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-            },
-        torRuntimeProviders: TorRelayRuntimeProviders = TorRelayRuntimeProviders(),
+        resolverDependencies: UpstreamRelayResolverDependencies = UpstreamRelayResolverDependencies(),
         networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Proxy,
     ) : this(
         scope = scope,
@@ -102,12 +106,12 @@ internal class UpstreamRelaySupervisor(
             createDefaultUpstreamRelayRuntimeConfigResolver(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
-                cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
-                masquePrivacyPassProvider = masquePrivacyPassProvider,
-                tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
-                runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
-                torRuntimePathProvider = torRuntimeProviders.pathProvider,
-                torPluggableTransportProvider = torRuntimeProviders.pluggableTransportProvider,
+                cloudflareMasqueGeohashResolver = resolverDependencies.cloudflareMasqueGeohashResolver,
+                masquePrivacyPassProvider = resolverDependencies.masquePrivacyPassProvider,
+                tlsFingerprintProfileProvider = resolverDependencies.tlsFingerprintProfileProvider,
+                runtimeExperimentSelectionProvider = resolverDependencies.runtimeExperimentSelectionProvider,
+                torRuntimePathProvider = resolverDependencies.torRuntimeProviders.pathProvider,
+                torPluggableTransportProvider = resolverDependencies.torRuntimeProviders.pluggableTransportProvider,
             ),
         networkMode = networkMode,
     )
@@ -217,7 +221,15 @@ internal class UpstreamRelaySupervisor(
                 slot.endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
             }
             return slot
-        } catch (readinessError: Exception) {
+        } catch (readinessError: CancellationException) {
+            shouldReportExit.set(false)
+            stopRequested.set(true)
+            runCatching { runtime.stop() }
+            job.join()
+            throw readinessError
+        } catch (
+            @Suppress("TooGenericExceptionCaught") readinessError: Exception,
+        ) {
             shouldReportExit.set(false)
             stopRequested.set(true)
             runCatching { runtime.stop() }
@@ -225,9 +237,6 @@ internal class UpstreamRelaySupervisor(
             val startupCause =
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
                     ?: SupervisorExitCause.StartupFailure(readinessError)
-            if (readinessError is CancellationException) {
-                throw readinessError
-            }
             throw SupervisorStartupFailureException(startupCause)
         }
     }

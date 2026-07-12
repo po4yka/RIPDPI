@@ -26,7 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
-class ChainRelayTrustDomainResolverTest {
+internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolverTestSupport() {
     @Test
     fun `resolve chain relay family resolves referenced hop profiles`() =
         runTest {
@@ -611,7 +611,9 @@ class ChainRelayTrustDomainResolverTest {
             assertTrue(error is ServiceStartupRejectedException)
             assertTrue((error as? ServiceStartupRejectedException)?.reason is FailureReason.RelayConfigRejected)
         }
+}
 
+internal abstract class ChainRelayTrustDomainResolverTestSupport {
     @Test
     fun `detect chain trust warning scans every hop pair across an N-hop chain`() {
         val warning =
@@ -622,51 +624,13 @@ class ChainRelayTrustDomainResolverTest {
                     RelayTrustDomain(jurisdiction = "us", operatorName = "Final Exit"),
                 ),
             )
-
-        // hops[0] and hops[2] share the US jurisdiction even though they are not
-        // adjacent, so the per-pair scan must surface it.
         assertNotNull(warning)
         assertEquals("US", warning?.sharedJurisdiction)
         assertEquals(null, warning?.sharedOperatorName)
-        // Cumulative latency caveat is the hop count: three sequential hops.
         assertEquals(3, warning?.cumulativeLatencyHops)
     }
 
-    @Test
-    fun `detect chain trust warning is silent for a clean four-hop chain`() {
-        val warning =
-            detectRelayChainTrustWarning(
-                listOf(
-                    RelayTrustDomain(jurisdiction = "US", operatorName = "Op A"),
-                    RelayTrustDomain(jurisdiction = "NL", operatorName = "Op B"),
-                    RelayTrustDomain(jurisdiction = "DE", operatorName = "Op C"),
-                    RelayTrustDomain(jurisdiction = "JP", operatorName = "Op D"),
-                ),
-            )
-
-        assertEquals(null, warning)
-    }
-
-    @Test
-    fun `detect chain trust warning flags a missing middle hop trust domain and carries hop count`() {
-        val warning =
-            detectRelayChainTrustWarning(
-                listOf(
-                    RelayTrustDomain(jurisdiction = "US", operatorName = "Op A"),
-                    RelayTrustDomain(jurisdiction = "", operatorName = ""),
-                    RelayTrustDomain(jurisdiction = "JP", operatorName = "Op C"),
-                ),
-            )
-
-        assertNotNull(warning)
-        // Entry (first) and exit (last) carry complete trust domains; only the
-        // middle hop is incomplete, which still raises a warning with the caveat.
-        assertEquals(false, warning?.missingEntryTrustDomain)
-        assertEquals(false, warning?.missingExitTrustDomain)
-        assertEquals(3, warning?.cumulativeLatencyHops)
-    }
-
-    private suspend fun entryCredentialStore(): TestRelayCredentialStore =
+    protected suspend fun entryCredentialStore(): TestRelayCredentialStore =
         TestRelayCredentialStore().apply {
             save(
                 RelayCredentialRecord(
@@ -676,21 +640,21 @@ class ChainRelayTrustDomainResolverTest {
             )
         }
 
-    private fun credentialFixture(label: String): String = "relay-test-credential-$label"
+    protected fun credentialFixture(label: String): String = "relay-test-credential-$label"
 
-    private suspend fun resolveThreeHopChain(): ResolvedRipDpiRelayConfig =
+    protected suspend fun resolveThreeHopChain(): ResolvedRipDpiRelayConfig =
         threeHopChainResolver().resolve(
             config = chainRelayConfig(),
             quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
         )
 
-    private suspend fun threeHopChainResolver(): DefaultUpstreamRelayRuntimeConfigResolver =
+    protected suspend fun threeHopChainResolver(): DefaultUpstreamRelayRuntimeConfigResolver =
         resolver(
             relayProfileStore = threeHopChainProfileStore(),
             relayCredentialStore = threeHopChainCredentialStore(),
         )
 
-    private suspend fun threeHopChainProfileStore(): TestRelayProfileStore =
+    protected suspend fun threeHopChainProfileStore(): TestRelayProfileStore =
         TestRelayProfileStore().apply {
             save(threeHopChainRecord())
             save(vlessRealityHopRecord(id = "entry-hop", server = "entry.example", port = 443, sni = "entry-sni"))
@@ -698,7 +662,7 @@ class ChainRelayTrustDomainResolverTest {
             save(vlessRealityHopRecord(id = "exit-hop", server = "exit.example", port = 9443, sni = "exit-sni"))
         }
 
-    private fun threeHopChainRecord(): RelayProfileRecord =
+    protected fun threeHopChainRecord(): RelayProfileRecord =
         RelayProfileRecord(
             id = "chain",
             kind = RelayKindChainRelay,
@@ -707,7 +671,7 @@ class ChainRelayTrustDomainResolverTest {
             chainExitProfileId = "exit-hop",
         )
 
-    private fun vlessRealityHopRecord(
+    protected fun vlessRealityHopRecord(
         id: String,
         server: String,
         port: Int,
@@ -723,14 +687,14 @@ class ChainRelayTrustDomainResolverTest {
             realityShortId = TestVlessRealityShortId,
         )
 
-    private suspend fun threeHopChainCredentialStore(): TestRelayCredentialStore =
+    protected suspend fun threeHopChainCredentialStore(): TestRelayCredentialStore =
         TestRelayCredentialStore().apply {
             save(vlessCredential(profileId = "entry-hop", uuid = "11111111-1111-1111-1111-111111111111"))
             save(vlessCredential(profileId = "middle-hop", uuid = "44444444-4444-4444-4444-444444444444"))
             save(vlessCredential(profileId = "exit-hop", uuid = "22222222-2222-2222-2222-222222222222"))
         }
 
-    private fun vlessCredential(
+    protected fun vlessCredential(
         profileId: String,
         uuid: String,
     ): RelayCredentialRecord =
@@ -739,14 +703,14 @@ class ChainRelayTrustDomainResolverTest {
             vlessUuid = uuid,
         )
 
-    private fun chainRelayConfig(): RipDpiRelayConfig =
+    protected fun chainRelayConfig(): RipDpiRelayConfig =
         RipDpiRelayConfig(
             enabled = true,
             kind = RelayKindChainRelay,
             profileId = "chain",
         )
 
-    private fun assertThreeHopChainHops(resolved: ResolvedRipDpiRelayConfig) {
+    protected fun assertThreeHopChainHops(resolved: ResolvedRipDpiRelayConfig) {
         assertEquals(3, resolved.chainHops.size)
         assertEquals("entry-hop", resolved.chainHops[0].profileId)
         assertEquals("middle-hop", resolved.chainHops[1].profileId)
@@ -759,7 +723,7 @@ class ChainRelayTrustDomainResolverTest {
         assertEquals("exit.example", resolved.chainExitServer)
     }
 
-    private fun resolver(
+    protected fun resolver(
         relayProfileStore: TestRelayProfileStore,
         relayCredentialStore: TestRelayCredentialStore,
         tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,

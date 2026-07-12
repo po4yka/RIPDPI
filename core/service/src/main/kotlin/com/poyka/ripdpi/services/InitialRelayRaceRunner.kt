@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.InitialTransportRaceCandidateSnapshot
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
@@ -129,6 +130,7 @@ internal class InitialRelayRaceRunner(
         } catch (
             @Suppress("TooGenericExceptionCaught") error: Exception,
         ) {
+            Logger.w(error) { "Initial relay race candidate failed" }
             outcomes[candidate.profileId] = candidate.toSnapshot(RaceOutcomeRuntimeFailed)
             attempts.send(RelayRaceAttempt(candidate, slots[candidate.profileId], probeResult = null))
         }
@@ -153,11 +155,10 @@ internal class InitialRelayRaceRunner(
     private fun cachedFallback(
         plan: InitialRelayRacePlan,
         slots: Map<String, RelayRuntimeSlot>,
-    ): Pair<InitialRelayCandidate, RelayRuntimeSlot>? {
-        val candidate = plan.candidates.firstOrNull { it.profileId == plan.cachedFallbackProfileId } ?: return null
-        val slot = slots[candidate.profileId]?.takeIf { it.job.isActive } ?: return null
-        return candidate to slot
-    }
+    ): Pair<InitialRelayCandidate, RelayRuntimeSlot>? =
+        plan.candidates
+            .firstOrNull { it.profileId == plan.cachedFallbackProfileId }
+            ?.let { candidate -> slots[candidate.profileId]?.takeIf { it.job.isActive }?.let { candidate to it } }
 
     private fun validatePlan(plan: InitialRelayRacePlan) {
         require(plan.candidates.size == RequiredRaceCandidateCount) {
