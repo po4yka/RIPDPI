@@ -8,7 +8,7 @@
             android:name=".debug.DebugNetworkProbeReceiver"
             android:enabled="true"
             android:exported="true"
-            tools:ignore="ExportedReceiver">
+            android:permission="android.permission.DUMP">
             <intent-filter>
                 <action android:name="com.poyka.ripdpi.DEBUG_PROBE" />
                 <action android:name="com.poyka.ripdpi.debug.PROBE_TCP" />
