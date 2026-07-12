@@ -19,10 +19,10 @@ import javax.inject.Singleton
  *
  * Intentionally carries NO secret material — only a stable profile id and the
  * coarse service mode — so it is safe to persist in device-protected
- * (direct-boot) storage where it can be read at `LOCKED_BOOT_COMPLETED`, before
- * the user unlocks. The secret-bearing profile bean stays in credential-encrypted
- * storage and is re-materialized after unlock via the existing supervisor reload
- * path. See `.claude/rules/network-fingerprint-privacy.md` and the
+ * storage so it survives reboot independently of credential-encrypted app state.
+ * The secret-bearing profile bean stays in credential-encrypted storage, so actual
+ * resume waits for `BOOT_COMPLETED` after unlock. See
+ * `.claude/rules/network-fingerprint-privacy.md` and the
  * "Boot autostart and session persistence" epic.
  */
 data class BootSessionPointer(
@@ -31,15 +31,15 @@ data class BootSessionPointer(
 )
 
 /**
- * Persists the [BootSessionPointer] in direct-boot-aware (device-protected)
- * storage so a boot receiver can resume the previously-active service before the
- * user unlocks the device.
+ * Persists the [BootSessionPointer] in device-protected storage so it survives
+ * reboot and remains independent from the credential-encrypted profile database.
  *
  * The backing store is PLAIN (not [androidx.security.crypto.EncryptedSharedPreferences]):
  * the Android keystore master key is itself credential-encrypted and unavailable
  * during direct boot, so an encrypted store would fail to open at
  * `LOCKED_BOOT_COMPLETED`. The pointer holds no secrets, so plaintext on the
- * device-protected partition is the correct trade-off.
+ * device-protected partition is the correct trade-off. Service resume still waits
+ * for credential unlock because the complete profile configuration remains protected.
  */
 interface BootSessionStateStore {
     /** The last recorded active-session pointer, or `null` when none was recorded. */

@@ -16,8 +16,8 @@ import javax.inject.Singleton
  * [com.poyka.ripdpi.data.Mode]) into device-protected storage every time a
  * RIPDPI session reaches [AppStatus.Running].
  *
- * The pointer is what the boot receiver reads at `BOOT_COMPLETED` /
- * `LOCKED_BOOT_COMPLETED` to decide which service mode to resume. The active
+ * The pointer is what the boot receiver reads at `BOOT_COMPLETED` to decide
+ * which service mode to resume after credential storage becomes available. The active
  * profile id is sourced from `AppSettings.diagnosticsActiveProfileId`, the app's
  * canonical "active profile" notion; the secret-bearing profile bean is never
  * touched here.

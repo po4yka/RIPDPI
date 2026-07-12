@@ -73,10 +73,9 @@ class BootSessionStateStoreTest {
     }
 
     @Test
-    fun `a pointer written before unlock is readable by a fresh store instance`() {
-        // The same device-protected prefs file backs both instances, modelling the
-        // direct-boot read path: a pointer persisted during a prior (post-unlock)
-        // session is visible to a fresh process at LOCKED_BOOT_COMPLETED.
+    fun `a pointer written before reboot is readable by a fresh store instance`() {
+        // The same device-protected prefs file backs both instances, modelling a
+        // pointer persisted during a prior session and read by a fresh post-boot process.
         store.recordSession(profileId = "survivor", mode = Mode.VPN)
 
         val afterReboot = SharedPreferencesBootSessionStateStore(prefs)
