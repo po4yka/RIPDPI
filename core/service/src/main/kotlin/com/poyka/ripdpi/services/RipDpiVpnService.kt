@@ -118,7 +118,6 @@ class RipDpiVpnService :
 
     override fun onRevoke() {
         refreshHardKillSwitchState()
-        sessionLifecycle.revoke()
         shellDelegate.onRevoke()
     }
 

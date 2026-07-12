@@ -39,22 +39,20 @@ internal class VpnServiceSessionLifecycle(
                     sender = Sender.VPN,
                     reason = FailureReason.PermissionLost("VPN"),
                 )
-                try {
-                    runtimeCoordinator.stop()
-                } finally {
-                    cleanup.destroyCoordinator(runtimeCoordinator::onDestroy)
-                }
+                cleanup.revokeSession(
+                    stopRuntime = runtimeCoordinator::stop,
+                    destroyCoordinator = runtimeCoordinator::onDestroy,
+                    cleanupSocketProtection = ::cleanupNativeProtect,
+                )
             },
         )
     }
 
-    fun revoke() {
-        cleanupNativeProtect()
-    }
-
     fun destroy() {
-        cleanupNativeProtect()
-        coordinator?.let { cleanup.destroyCoordinator(it::onDestroy) }
+        cleanup.destroySession(
+            destroyCoordinator = { coordinator?.onDestroy() },
+            cleanupSocketProtection = ::cleanupNativeProtect,
+        )
         protectSocketServer = null
         coordinator = null
         sessionComponent = null

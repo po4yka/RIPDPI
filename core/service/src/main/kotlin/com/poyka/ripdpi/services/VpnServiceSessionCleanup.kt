@@ -19,4 +19,27 @@ internal class VpnServiceSessionCleanup {
         if (!coordinatorDestroyed.compareAndSet(false, true)) return
         destroy()
     }
+
+    fun destroySession(
+        destroyCoordinator: () -> Unit,
+        cleanupSocketProtection: () -> Unit,
+    ) {
+        try {
+            destroyCoordinator(destroyCoordinator)
+        } finally {
+            cleanupSocketProtection()
+        }
+    }
+
+    suspend fun revokeSession(
+        stopRuntime: suspend () -> Unit,
+        destroyCoordinator: () -> Unit,
+        cleanupSocketProtection: () -> Unit,
+    ) {
+        try {
+            stopRuntime()
+        } finally {
+            destroySession(destroyCoordinator, cleanupSocketProtection)
+        }
+    }
 }
