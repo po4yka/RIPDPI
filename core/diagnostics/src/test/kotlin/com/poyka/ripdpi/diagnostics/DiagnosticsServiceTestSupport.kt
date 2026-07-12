@@ -144,6 +144,7 @@ internal class FakeDiagnosticsHistoryStores :
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
     val usageSessionsCollectorCount = AtomicInteger(0)
+    var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
@@ -315,6 +316,7 @@ internal class FakeDiagnosticsHistoryStores :
     }
 
     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
+        beforeInsertNativeSessionEvent(event)
         nativeEventsState.value = nativeEventsState.value + event
     }
 
