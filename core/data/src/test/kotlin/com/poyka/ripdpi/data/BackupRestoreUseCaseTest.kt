@@ -6,9 +6,12 @@ import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupPreviewResult
+import com.poyka.ripdpi.data.backup.BackupPrivateDataStore
+import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupSchemaVersion
 import com.poyka.ripdpi.data.backup.BackupSerializer
+import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.backup.RestoreResult
 import com.poyka.ripdpi.data.backup.RestoreSelection
@@ -82,20 +85,144 @@ class BackupRestoreUseCaseTest {
     private fun exportUseCase(
         groups: FakeGroupRepository,
         settings: FakeAppSettingsRepository,
+        privateDataStore: BackupPrivateDataStore = BackupPrivateDataStore.Empty,
     ) = BackupExportUseCase(
         groupRepository = groups,
         ruleDao = ruleDao,
         settingsRepository = settings,
+        privateDataStore = privateDataStore,
     )
 
     private fun restoreUseCase(
         groups: FakeGroupRepository,
         settings: FakeAppSettingsRepository,
+        privateDataStore: BackupPrivateDataStore = BackupPrivateDataStore.Empty,
     ) = BackupRestoreUseCase(
         groupRepository = groups,
         ruleDao = ruleDao,
         settingsRepository = settings,
+        privateDataStore = privateDataStore,
     )
+
+    @Test
+    fun `absent settings snapshot leaves live settings unchanged`() =
+        runTest {
+            val document =
+                BackupExporter.export(
+                    variant = BackupVariant.SHARE,
+                    profiles = emptyList(),
+                    groups = emptyList(),
+                    rules = emptyList(),
+                    settings = emptyMap(),
+                    createdAtEpochMillis = 0L,
+                    appVersion = "1.0.0",
+                )
+            val liveSettings =
+                FakeAppSettingsRepository(
+                    AppSettings
+                        .getDefaultInstance()
+                        .toBuilder()
+                        .setProxyPort(4321)
+                        .build(),
+                )
+
+            val result =
+                restoreUseCase(FakeGroupRepository(mutableListOf()), liveSettings).restore(
+                    BackupSerializer.encodeToString(document),
+                    RestoreSelection(profilesAndGroups = false, routes = false, settings = true),
+                )
+
+            assertTrue(result is RestoreResult.Success)
+            assertEquals(4321, liveSettings.snapshot().proxyPort)
+            assertEquals(0, liveSettings.replaceCalls)
+        }
+
+    @Test
+    fun `settings write failure rolls back groups and rules`() =
+        runTest {
+            val targetGroup = sampleGroup.copy(id = "target")
+            val targetRule = sampleRule.copy(name = "target-rule")
+            val targetSettings =
+                AppSettings
+                    .getDefaultInstance()
+                    .toBuilder()
+                    .setProxyPort(9999)
+                    .build()
+            val document =
+                BackupExporter.export(
+                    variant = BackupVariant.FULL,
+                    profiles = emptyList(),
+                    groups = listOf(targetGroup),
+                    rules = listOf(targetRule),
+                    settings = BackupSettingsConverter.toMap(targetSettings, BackupVariant.FULL),
+                    createdAtEpochMillis = 0L,
+                    appVersion = "1.0.0",
+                )
+            val liveGroup = sampleGroup.copy(id = "live")
+            val liveGroups = FakeGroupRepository(mutableListOf(liveGroup))
+            val liveRule = sampleRule.copy(name = "live-rule")
+            ruleDao.insert(liveRule)
+            val liveSettings =
+                FakeAppSettingsRepository(
+                    current =
+                        AppSettings
+                            .getDefaultInstance()
+                            .toBuilder()
+                            .setProxyPort(1111)
+                            .build(),
+                    failOnReplace = true,
+                )
+
+            val result =
+                restoreUseCase(liveGroups, liveSettings).restore(
+                    BackupSerializer.encodeToString(document),
+                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
+                )
+
+            assertTrue(result is RestoreResult.Aborted)
+            assertEquals(listOf(liveGroup), liveGroups.list())
+            assertEquals(
+                "live-rule",
+                ruleDao
+                    .allRules()
+                    .first()
+                    .single()
+                    .name,
+            )
+            assertEquals(1111, liveSettings.snapshot().proxyPort)
+        }
+
+    @Test
+    fun `group write failure rolls back separate private profile stores`() =
+        runTest {
+            val livePrivateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "live")))
+            val targetPrivateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "target")))
+            val privateStore = FakePrivateDataStore(livePrivateData)
+            val document =
+                BackupExporter.export(
+                    variant = BackupVariant.FULL,
+                    profiles = emptyList(),
+                    groups = listOf(sampleGroup),
+                    rules = emptyList(),
+                    settings = emptyMap(),
+                    createdAtEpochMillis = 0L,
+                    appVersion = "1.0.0",
+                    privateData = targetPrivateData,
+                )
+
+            val result =
+                restoreUseCase(
+                    groups = FakeGroupRepository(mutableListOf(), failOnReplace = true),
+                    settings = FakeAppSettingsRepository(),
+                    privateDataStore = privateStore,
+                ).restore(
+                    BackupSerializer.encodeToString(document),
+                    RestoreSelection(profilesAndGroups = true, routes = false, settings = false),
+                )
+
+            assertTrue(result is RestoreResult.Aborted)
+            assertEquals(livePrivateData, privateStore.data)
+        }
 
     @Test
     fun `FULL export then wipe then FULL import deep-equals original state`() =
@@ -393,6 +520,7 @@ class BackupRestoreUseCaseTest {
 
     private class FakeGroupRepository(
         private val groups: MutableList<ProxyGroup>,
+        private val failOnReplace: Boolean = false,
     ) : ProxyGroupRepository {
         private val state = MutableStateFlow(groups.toList())
 
@@ -416,6 +544,7 @@ class BackupRestoreUseCaseTest {
         override suspend fun list(): List<ProxyGroup> = groups.toList()
 
         override suspend fun replaceAll(groups: List<ProxyGroup>) {
+            check(!failOnReplace) { "group replace failed" }
             this.groups.clear()
             this.groups.addAll(groups)
             state.value = this.groups.toList()
@@ -426,8 +555,11 @@ class BackupRestoreUseCaseTest {
 
     private class FakeAppSettingsRepository(
         current: AppSettings = AppSettings.getDefaultInstance(),
+        private val failOnReplace: Boolean = false,
     ) : AppSettingsRepository {
         private val state = MutableStateFlow(current)
+        var replaceCalls: Int = 0
+            private set
 
         override val settings: Flow<AppSettings> = state.asStateFlow()
 
@@ -442,7 +574,19 @@ class BackupRestoreUseCaseTest {
         }
 
         override suspend fun replace(settings: AppSettings) {
+            replaceCalls += 1
+            check(!failOnReplace) { "settings replace failed" }
             state.value = settings
+        }
+    }
+
+    private class FakePrivateDataStore(
+        var data: BackupPrivateDataV1,
+    ) : BackupPrivateDataStore {
+        override suspend fun snapshot(): BackupPrivateDataV1 = data
+
+        override suspend fun replaceAll(data: BackupPrivateDataV1) {
+            this.data = data
         }
     }
 }

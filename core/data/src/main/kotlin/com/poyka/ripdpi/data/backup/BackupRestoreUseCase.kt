@@ -8,7 +8,10 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import javax.inject.Inject
 
@@ -117,7 +120,7 @@ sealed interface RestoreResult {
         val supported: Int,
     ) : RestoreResult
 
-    /** Parsing or staging failed; live data was NOT touched. */
+    /** Parsing/staging failed, or a commit failed and completed writes were compensated. */
     data class Aborted(
         val reason: String,
     ) : RestoreResult
@@ -129,9 +132,25 @@ sealed interface RestoreResult {
  * required by the task: if staging throws, the live data is never modified.
  */
 private data class StagedRestore(
-    val groups: List<ProxyGroup>,
-    val rules: List<RuleEntity>,
-    val settings: AppSettings,
+    val groups: List<ProxyGroup>?,
+    val privateData: BackupPrivateDataV1?,
+    val rules: List<RuleEntity>?,
+    val settings: AppSettings?,
+)
+
+/** Preimages captured before the first live write and used for reverse-order compensation. */
+private data class RestorePreimage(
+    val groups: List<ProxyGroup>?,
+    val privateData: BackupPrivateDataV1?,
+    val rules: List<RuleEntity>?,
+    val settings: AppSettings?,
+)
+
+private data class RestoreCommitProgress(
+    var privateData: Boolean = false,
+    var groups: Boolean = false,
+    var rules: Boolean = false,
+    var settings: Boolean = false,
 )
 
 /**
@@ -146,8 +165,9 @@ private data class StagedRestore(
  * - **Staging + integrity** — [restore] decodes and validates the whole selected
  *   payload into [StagedRestore] first; only then does it commit. Malformed JSON or
  *   a decode failure aborts without touching live data.
- * - **Atomic swap** — rules swap in one Room transaction ([RuleDao.replaceAll]);
- *   groups swap in one persisted write ([ProxyGroupRepository.replaceAll]).
+ * - **Cross-store compensation** — preimages are captured before the first write;
+ *   a later failure restores completed categories in reverse order. Each individual
+ *   category still uses its own atomic replace boundary.
  * - **SHARE backups** — profiles whose redacted credentials were stripped cannot be
  *   decoded; they are reported in the preview and excluded from the staged write.
  */
@@ -157,7 +177,14 @@ class BackupRestoreUseCase
         private val groupRepository: ProxyGroupRepository,
         private val ruleDao: RuleDao,
         private val settingsRepository: AppSettingsRepository,
+        private val privateDataStore: BackupPrivateDataStore,
     ) {
+        constructor(
+            groupRepository: ProxyGroupRepository,
+            ruleDao: RuleDao,
+            settingsRepository: AppSettingsRepository,
+        ) : this(groupRepository, ruleDao, settingsRepository, BackupPrivateDataStore.Empty)
+
         /** Parses [json] into a [BackupPreview] without touching any store. */
         fun preview(json: String): BackupPreviewResult =
             when (val imported = importBackup(json, "Backup preview parse failed")) {
@@ -183,6 +210,10 @@ class BackupRestoreUseCase
                     groups.forEach { group -> group.members.forEach { add(it.id) } }
                     restorable.forEach { add(it.profile.id) }
                 }
+            val separateProfileCount =
+                privateData?.let {
+                    it.relayProfiles.size + it.warpProfiles.size + it.awgProfiles.size + it.xrayMetadata.size
+                } ?: 0
 
             return BackupPreviewResult.Ready(
                 BackupPreview(
@@ -190,7 +221,7 @@ class BackupRestoreUseCase
                     appVersion = appVersion,
                     createdAtEpochMillis = createdAtEpochMillis,
                     containsCredentials = containsCredentials,
-                    restorableProfileCount = restorableProfileIds.size,
+                    restorableProfileCount = restorableProfileIds.size + separateProfileCount,
                     groupCount = groups.size,
                     ruleCount = rules.size,
                     settingCount = settings.size,
@@ -241,27 +272,81 @@ class BackupRestoreUseCase
                 is StagedRestoreOutcome.Aborted -> RestoreResult.Aborted(reason = outcome.reason)
             }
 
+        @Suppress("TooGenericExceptionCaught")
         private suspend fun commit(
             staged: StagedRestore,
             selection: RestoreSelection,
         ): RestoreResult {
-            // -- Commit: each store swaps atomically; ordering is independent. --
-            if (selection.profilesAndGroups) {
-                groupRepository.replaceAll(staged.groups)
+            val preimage =
+                try {
+                    capturePreimage(staged)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    Log.w(LogTag, "Backup restore preimage failed; live data untouched: ${failure::class.simpleName}")
+                    return RestoreResult.Aborted(reason = failure::class.simpleName.orEmpty())
+                }
+            val progress = RestoreCommitProgress()
+            return try {
+                staged.privateData?.let {
+                    privateDataStore.replaceAll(it)
+                    progress.privateData = true
+                }
+                staged.groups?.let {
+                    groupRepository.replaceAll(it)
+                    progress.groups = true
+                }
+                staged.rules?.let {
+                    ruleDao.replaceAll(it)
+                    progress.rules = true
+                }
+                staged.settings?.let {
+                    settingsRepository.replace(it)
+                    progress.settings = true
+                }
+
+                Log.i(
+                    LogTag,
+                    "Backup restore committed: profiles+groups=${selection.profilesAndGroups} " +
+                        "routes=${selection.routes} settings=${staged.settings != null}",
+                )
+                RestoreResult.Success(restartRequired = true)
+            } catch (cancelled: CancellationException) {
+                withContext(NonCancellable) { rollback(preimage, progress, cancelled) }
+                throw cancelled
+            } catch (failure: Exception) {
+                rollback(preimage, progress, failure)
+                Log.w(LogTag, "Backup restore commit failed and was compensated: ${failure::class.simpleName}")
+                RestoreResult.Aborted(reason = failure::class.simpleName.orEmpty())
             }
-            if (selection.routes) {
-                ruleDao.replaceAll(staged.rules)
-            }
-            if (selection.settings) {
-                settingsRepository.replace(staged.settings)
+        }
+
+        private suspend fun capturePreimage(staged: StagedRestore): RestorePreimage =
+            RestorePreimage(
+                groups = staged.groups?.let { groupRepository.list() },
+                privateData = staged.privateData?.let { privateDataStore.snapshot() },
+                rules = staged.rules?.let { ruleDao.allRules().first() },
+                settings = staged.settings?.let { settingsRepository.snapshot() },
+            )
+
+        @Suppress("TooGenericExceptionCaught")
+        private suspend fun rollback(
+            preimage: RestorePreimage,
+            progress: RestoreCommitProgress,
+            originalFailure: Exception,
+        ) {
+            suspend fun compensate(block: suspend () -> Unit) {
+                try {
+                    block()
+                } catch (rollbackFailure: Exception) {
+                    originalFailure.addSuppressed(rollbackFailure)
+                }
             }
 
-            Log.i(
-                LogTag,
-                "Backup restore committed: profiles+groups=${selection.profilesAndGroups} " +
-                    "routes=${selection.routes} settings=${selection.settings}",
-            )
-            return RestoreResult.Success(restartRequired = true)
+            if (progress.settings) compensate { settingsRepository.replace(requireNotNull(preimage.settings)) }
+            if (progress.rules) compensate { ruleDao.replaceAll(requireNotNull(preimage.rules)) }
+            if (progress.groups) compensate { groupRepository.replaceAll(requireNotNull(preimage.groups)) }
+            if (progress.privateData) compensate { privateDataStore.replaceAll(requireNotNull(preimage.privateData)) }
         }
 
         private suspend fun stageSafely(
@@ -312,22 +397,22 @@ class BackupRestoreUseCase
                             .map { it.profile }
                     reconcileProfilesWithGroups(document.groups, profiles)
                 } else {
-                    emptyList()
+                    null
                 }
+            val privateData = document.privateData.takeIf { selection.profilesAndGroups }
             val rules =
                 if (selection.routes) {
                     document.rules.map(BackupRestoreDecoder::ruleExportToEntity)
                 } else {
-                    emptyList()
+                    null
                 }
             val settings =
                 if (selection.settings) {
                     BackupSettingsConverter.fromMap(document.settings)
                 } else {
-                    // Preserve current settings for an unchecked category.
-                    settingsRepository.settings.first()
+                    null
                 }
-            return StagedRestore(groups = groups, rules = rules, settings = settings)
+            return StagedRestore(groups = groups, privateData = privateData, rules = rules, settings = settings)
         }
 
         private fun reconcileProfilesWithGroups(

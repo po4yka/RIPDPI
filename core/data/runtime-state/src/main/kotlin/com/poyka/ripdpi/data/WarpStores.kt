@@ -178,7 +178,7 @@ class SharedPreferencesWarpProfileStore
         }
 
         override suspend fun clearAll() {
-            preferences.edit().clear().apply()
+            preferences.edit().clear().commit()
         }
 
         private fun prefKey(profileId: String): String = "$ProfileKeyPrefix$profileId"
@@ -251,10 +251,7 @@ class KeystoreWarpCredentialStore
         }
 
         override suspend fun clearAll() {
-            blobStore
-                .keys()
-                .filter { it == LegacyCredentialsEntryKey || it.startsWith(CredentialsEntryPrefix) }
-                .forEach(blobStore::remove)
+            blobStore.clear()
         }
 
         private fun loadLegacy(profileId: String): WarpCredentials? {
@@ -337,7 +334,7 @@ class SharedPreferencesWarpEndpointStore
         }
 
         override suspend fun clearAll() {
-            preferences.edit().clear().apply()
+            preferences.edit().clear().commit()
         }
 
         private fun loadLegacy(
@@ -385,6 +382,10 @@ internal class KeystoreEncryptedPreferences(
 
     fun remove(key: String) {
         preferences.edit().remove(key).apply()
+    }
+
+    fun clear() {
+        preferences.edit().clear().commit()
     }
 
     fun keys(): Set<String> = preferences.all.keys

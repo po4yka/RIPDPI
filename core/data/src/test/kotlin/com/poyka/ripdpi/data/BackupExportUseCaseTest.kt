@@ -3,15 +3,21 @@ package com.poyka.ripdpi.data
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.backup.AwgBackupProfile
 import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupImporter
+import com.poyka.ripdpi.data.backup.BackupPrivateDataStore
+import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
+import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
+import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,12 +63,62 @@ class BackupExportUseCaseTest {
     private fun useCase(
         groups: List<ProxyGroup> = emptyList(),
         settings: AppSettings = AppSettings.getDefaultInstance(),
+        privateDataStore: BackupPrivateDataStore = BackupPrivateDataStore.Empty,
     ): BackupExportUseCase =
         BackupExportUseCase(
             groupRepository = FakeGroupRepository(groups),
             ruleDao = ruleDao,
             settingsRepository = FakeAppSettingsRepository(settings),
+            privateDataStore = privateDataStore,
         )
+
+    @Test
+    fun `FULL gathers separate profile credentials while SHARE never reads them`() =
+        runTest {
+            val privateData =
+                BackupPrivateDataV1(
+                    relayProfiles = listOf(RelayProfileRecord(id = "relay-1")),
+                    relayCredentials = listOf(RelayCredentialRecord(profileId = "relay-1", vlessUuid = "secret")),
+                    warpProfiles = listOf(WarpProfile(id = "warp-1")),
+                    warpCredentials =
+                        listOf(
+                            WarpCredentials(
+                                profileId = "warp-1",
+                                deviceId = "device",
+                                accessToken = "token",
+                            ),
+                        ),
+                    awgProfiles =
+                        listOf(
+                            AwgBackupProfile(
+                                id = "awg-1",
+                                name = "AWG",
+                                requestJson = "{}",
+                                updatedAt = 1L,
+                                secrets = AwgSecrets(privateKey = "private", presharedKey = "psk"),
+                            ),
+                        ),
+                    xrayMetadata = listOf(XrayProfileMetadataRecord(profileId = "xray-1")),
+                    xraySecrets = listOf(XrayProfileSecretRecord(profileId = "xray-1", uuid = "uuid")),
+                )
+            var snapshots = 0
+            val store =
+                object : BackupPrivateDataStore {
+                    override suspend fun snapshot(): BackupPrivateDataV1 {
+                        snapshots += 1
+                        return privateData
+                    }
+
+                    override suspend fun replaceAll(data: BackupPrivateDataV1) = error("unused")
+                }
+
+            val full = useCase(privateDataStore = store).gather(BackupVariant.FULL, "1.0.0", 0L)
+            val share = useCase(privateDataStore = store).gather(BackupVariant.SHARE, "1.0.0", 0L)
+
+            assertEquals(privateData, full.privateData)
+            assertEquals(null, share.privateData)
+            assertEquals(1, snapshots)
+        }
 
     @Test
     fun `gather assembles profiles groups rules and settings`() =
@@ -184,7 +240,7 @@ class BackupExportUseCaseTest {
             val doc = useCase(settings = settings).gather(BackupVariant.FULL, "1.0.0", 0L)
 
             val restored = BackupSettingsConverter.fromMap(doc.settings)
-            assertEquals(1234, restored.proxyPort)
+            assertEquals(1234, requireNotNull(restored).proxyPort)
         }
 
     @Test

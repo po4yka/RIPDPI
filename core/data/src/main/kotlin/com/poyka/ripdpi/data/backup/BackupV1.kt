@@ -2,11 +2,20 @@ package com.poyka.ripdpi.data.backup
 
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.Subscription
+import com.poyka.ripdpi.data.WarpCredentials
+import com.poyka.ripdpi.data.WarpProfile
+import com.poyka.ripdpi.data.awg.AwgProfileEntity
+import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleTypeConverters
+import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
+import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -16,8 +25,8 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** Current schema version for the backup/v1 format. */
-const val BackupSchemaVersion: Int = 1
+/** Current schema version for the [BackupV1] document. */
+const val BackupSchemaVersion: Int = 2
 
 /**
  * Oldest schema version this app knows how to migrate forward. Versions below this
@@ -70,7 +79,41 @@ data class BackupV1(
     val rules: List<RuleExport>,
     val settings: Map<String, String>,
     val containsCredentials: Boolean = false,
+    /** FULL-only snapshot of profile families stored outside [ProxyGroup]. Absent in v1 and SHARE backups. */
+    val privateData: BackupPrivateDataV1? = null,
 )
+
+/** FULL-backup section for user profiles and credentials held outside the group repository. */
+@Serializable
+data class BackupPrivateDataV1(
+    val relayProfiles: List<RelayProfileRecord> = emptyList(),
+    val relayCredentials: List<RelayCredentialRecord> = emptyList(),
+    val warpProfiles: List<WarpProfile> = emptyList(),
+    val warpCredentials: List<WarpCredentials> = emptyList(),
+    val warpActiveProfileId: String? = null,
+    val awgProfiles: List<AwgBackupProfile> = emptyList(),
+    val xrayMetadata: List<XrayProfileMetadataRecord> = emptyList(),
+    val xraySecrets: List<XrayProfileSecretRecord> = emptyList(),
+    val xraySelection: XrayProviderSelectionRecord = XrayProviderSelectionRecord(),
+)
+
+/** Room metadata and its optional Keystore secret half for one standalone AWG profile. */
+@Serializable
+data class AwgBackupProfile(
+    val id: String,
+    val name: String,
+    val requestJson: String,
+    val updatedAt: Long,
+    val secrets: AwgSecrets? = null,
+) {
+    fun toEntity(): AwgProfileEntity =
+        AwgProfileEntity(
+            id = id,
+            name = name,
+            requestJson = requestJson,
+            updatedAt = updatedAt,
+        )
+}
 
 /**
  * Portable, Room-independent representation of a [RuleEntity] for backup.
@@ -378,6 +421,7 @@ object BackupExporter {
         settings: Map<String, String>,
         createdAtEpochMillis: Long,
         appVersion: String,
+        privateData: BackupPrivateDataV1? = null,
     ): BackupV1 {
         val profileObjects =
             profiles.map { profile ->
@@ -437,6 +481,7 @@ object BackupExporter {
             rules = ruleExports,
             settings = settings,
             containsCredentials = variant == BackupVariant.FULL,
+            privateData = privateData.takeIf { variant == BackupVariant.FULL },
         )
     }
 }

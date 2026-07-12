@@ -48,6 +48,11 @@ interface AwgCredentialStore {
 
     /** Removes the secrets for [profileId]; a no-op when none exist. */
     suspend fun clear(profileId: String)
+
+    /** Removes every standalone-AWG secret, including orphaned entries. */
+    suspend fun clearAll() {
+        error("Bulk clear is not implemented")
+    }
 }
 
 /**
@@ -85,6 +90,10 @@ class KeystoreAwgCredentialStore
 
         override suspend fun clear(profileId: String) {
             blobStore.remove(prefKey(profileId))
+        }
+
+        override suspend fun clearAll() {
+            blobStore.clear()
         }
 
         private fun prefKey(profileId: String): String = "$CredentialsEntryPrefix$profileId"

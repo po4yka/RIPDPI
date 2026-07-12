@@ -211,6 +211,10 @@ interface RelayProfileStore {
     suspend fun save(profile: RelayProfileRecord)
 
     suspend fun clear(profileId: String)
+
+    suspend fun clearAll() {
+        error("Bulk clear is not implemented")
+    }
 }
 
 interface RelayCredentialRepository {
@@ -221,7 +225,11 @@ interface RelayCredentialRepository {
     suspend fun clear(profileId: String)
 }
 
-interface RelayCredentialStore : RelayCredentialRepository
+interface RelayCredentialStore : RelayCredentialRepository {
+    suspend fun clearAll() {
+        error("Bulk clear is not implemented")
+    }
+}
 
 @Singleton
 class SharedPreferencesRelayProfileStore
@@ -271,6 +279,10 @@ class SharedPreferencesRelayProfileStore
             preferences.edit().remove(prefKey(profileId)).apply()
         }
 
+        override suspend fun clearAll() {
+            preferences.edit().clear().commit()
+        }
+
         private fun persist(profile: RelayProfileRecord) {
             preferences
                 .edit()
@@ -315,6 +327,10 @@ class KeystoreRelayCredentialStore
 
         override suspend fun clear(profileId: String) {
             blobStore.remove(prefKey(profileId))
+        }
+
+        override suspend fun clearAll() {
+            blobStore.clear()
         }
 
         private fun prefKey(profileId: String): String = "relay-credentials:$profileId"

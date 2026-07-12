@@ -48,7 +48,14 @@ class BackupExportUseCase
         private val groupRepository: ProxyGroupRepository,
         private val ruleDao: RuleDao,
         private val settingsRepository: AppSettingsRepository,
+        private val privateDataStore: BackupPrivateDataStore,
     ) {
+        constructor(
+            groupRepository: ProxyGroupRepository,
+            ruleDao: RuleDao,
+            settingsRepository: AppSettingsRepository,
+        ) : this(groupRepository, ruleDao, settingsRepository, BackupPrivateDataStore.Empty)
+
         /**
          * Builds and writes a backup of [variant] to [output].
          *
@@ -89,6 +96,11 @@ class BackupExportUseCase
             val profiles = groups.flatMap { it.members }
             val rules = ruleDao.allRules().first()
             val settings = BackupSettingsConverter.toMap(settingsRepository.snapshot(), variant)
+            val privateData =
+                when (variant) {
+                    BackupVariant.FULL -> privateDataStore.snapshot()
+                    BackupVariant.SHARE -> null
+                }
             return BackupExporter.export(
                 variant = variant,
                 profiles = profiles,
@@ -97,6 +109,7 @@ class BackupExportUseCase
                 settings = settings,
                 createdAtEpochMillis = createdAtEpochMillis,
                 appVersion = appVersion,
+                privateData = privateData,
             )
         }
     }

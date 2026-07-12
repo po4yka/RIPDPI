@@ -384,11 +384,15 @@ private class FakeBlobStore : ProxyGroupBlobStore {
 private class FakeAwgDao : AwgProfileDao {
     override fun observeProfiles(): Flow<List<AwgProfileEntity>> = flowOf(emptyList())
 
+    override suspend fun allProfiles(): List<AwgProfileEntity> = emptyList()
+
     override suspend fun getProfile(id: String): AwgProfileEntity? = null
 
     override suspend fun upsertProfile(profile: AwgProfileEntity) = Unit
 
     override suspend fun deleteProfile(profile: AwgProfileEntity) = Unit
+
+    override suspend fun deleteAll() = Unit
 }
 
 private class FakeAwgCredentialStore : AwgCredentialStore {
