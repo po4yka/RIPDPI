@@ -1871,4 +1871,6 @@ fakeddisorder endhost</string>
     <string name="subscription_home_expired_body">%1$s अब रीफ़्रेश नहीं हो सकती। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
     <string name="subscription_home_invalidated_title">सदस्यता उपलब्ध नहीं है</string>
     <string name="subscription_home_invalidated_body">%1$s समाप्त या निरस्त हो गई। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
+    <string name="xray_skip_unsupported_transport">%1$s ट्रांसपोर्ट मूल रूप से समर्थित नहीं है।</string>
+    <string name="xray_skip_unsupported_fingerprint">%1$s TLS फिंगरप्रिंट मूल रूप से समर्थित नहीं है।</string>
 </resources>

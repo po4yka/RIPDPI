@@ -1,14 +1,13 @@
 package com.poyka.ripdpi.ui.screens.subscription
 
-import android.app.Activity
 import android.view.WindowManager
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -202,7 +201,7 @@ private fun formatInstant(epochMillis: Long?): String =
 
 @Composable
 private fun SecureSubscriptionWindowEffect() {
-    val window = (LocalContext.current as? Activity)?.window
+    val window = LocalActivity.current?.window
     DisposableEffect(window) {
         window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
