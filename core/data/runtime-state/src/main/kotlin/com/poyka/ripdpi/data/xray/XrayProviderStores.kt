@@ -478,6 +478,10 @@ class SharedPreferencesXrayProviderSelectionStore
                 .apply()
         }
 
+        suspend fun clear() {
+            preferences.edit().clear().commit()
+        }
+
         private companion object {
             const val SelectionPrefsName = "xray_provider_selection"
             const val SelectionKey = "selection"

@@ -62,6 +62,17 @@ class BootSessionStateStoreTest {
     }
 
     @Test
+    fun `clearAll removes the pointer and update auto-resume marker`() {
+        store.recordSession(profileId = "p", mode = Mode.VPN)
+        store.setWasRunningAtUpdate(true)
+
+        store.clearAll()
+
+        assertNull(store.lastSession())
+        assertFalse(store.wasRunningAtUpdate())
+    }
+
+    @Test
     fun `a pointer written before unlock is readable by a fresh store instance`() {
         // The same device-protected prefs file backs both instances, modelling the
         // direct-boot read path: a pointer persisted during a prior (post-unlock)

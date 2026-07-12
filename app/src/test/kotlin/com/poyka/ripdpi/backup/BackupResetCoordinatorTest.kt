@@ -174,6 +174,7 @@ class BackupResetCoordinatorTest {
                 groupRepository = FakeGroupRepository(),
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
+                userProfileResetStore = UserProfileResetStore { },
                 diagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
                 cacheDirectoryCleaner = FakeCacheDirectoryCleaner(probe),
             )

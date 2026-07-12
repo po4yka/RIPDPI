@@ -333,10 +333,11 @@ class KeystoreRelayCredentialStore
             blobStore.clear()
         }
 
-        private fun prefKey(profileId: String): String = "relay-credentials:$profileId"
+        private fun prefKey(profileId: String): String = "$CredentialsEntryPrefix$profileId"
 
         private companion object {
             const val CredentialsPrefsName = "relay_credentials_secure"
+            const val CredentialsEntryPrefix = "relay-credentials:"
             const val CredentialsKeyAlias = "ripdpi_relay_credentials"
         }
     }

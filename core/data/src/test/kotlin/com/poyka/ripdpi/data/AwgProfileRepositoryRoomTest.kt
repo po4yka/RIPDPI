@@ -167,6 +167,17 @@ class AwgProfileRepositoryRoomTest {
         }
 
     @Test
+    fun `deleteAll removes every persisted profile row`() =
+        runTest {
+            repository.save(name = "home", request = sampleRequest())
+            repository.save(name = "work", request = sampleRequest().copy(endpointPort = 443))
+
+            dao.deleteAll()
+
+            assertTrue(repository.observeProfiles().first().isEmpty())
+        }
+
+    @Test
     fun `a stored blob with an unknown extra key decodes without throwing`() =
         runTest {
             val id = repository.save(name = "home", request = sampleRequest())

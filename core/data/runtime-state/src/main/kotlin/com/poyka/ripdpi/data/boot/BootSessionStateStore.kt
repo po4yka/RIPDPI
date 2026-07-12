@@ -64,6 +64,12 @@ interface BootSessionStateStore {
 
     /** Sets the [wasRunningAtUpdate] flag. */
     fun setWasRunningAtUpdate(value: Boolean)
+
+    /** Clears both the session pointer and every auto-resume marker. */
+    fun clearAll() {
+        clear()
+        setWasRunningAtUpdate(false)
+    }
 }
 
 /**
@@ -130,6 +136,10 @@ class SharedPreferencesBootSessionStateStore
             preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).also { editor ->
                 if (value) editor.commit() else editor.apply()
             }
+        }
+
+        override fun clearAll() {
+            preferences.edit().clear().commit()
         }
 
         private companion object {

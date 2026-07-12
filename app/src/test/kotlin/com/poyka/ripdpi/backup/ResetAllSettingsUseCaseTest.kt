@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.backup
 
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -47,6 +48,7 @@ class ResetAllSettingsUseCaseTest {
         groups: ProxyGroupRepository,
         rules: RuleDao,
         settings: AppSettingsRepository,
+        profileData: UserProfileResetStore,
         diagnostics: DiagnosticsHistoryResetStore,
         caches: CacheDirectoryCleaner,
     ) = ResetAllSettingsUseCase(
@@ -54,6 +56,7 @@ class ResetAllSettingsUseCaseTest {
         groupRepository = groups,
         ruleDao = rules,
         settingsRepository = settings,
+        userProfileResetStore = profileData,
         diagnosticsHistoryResetStore = diagnostics,
         cacheDirectoryCleaner = caches,
     )
@@ -75,16 +78,19 @@ class ResetAllSettingsUseCaseTest {
                 )
             val diagnostics = FakeDiagnosticsHistoryResetStore()
             val caches = FakeCacheDirectoryCleaner()
+            val profileData = FakeUserProfileResetStore()
 
-            useCase(recorder, groups, rules, settings, diagnostics, caches).reset()
+            useCase(recorder, groups, rules, settings, profileData, diagnostics, caches).reset()
 
             // Groups and their embedded profiles are emptied.
             assertTrue(groups.list().isEmpty())
             // Routing rules deleted.
             assertEquals(0, rules.rowCount)
             assertEquals(1, rules.deleteAllCalls)
-            // Settings back to the proto default (custom proxyPort gone).
-            assertEquals(AppSettings.getDefaultInstance().proxyPort, settings.snapshot().proxyPort)
+            // Settings match a clean install, not protobuf's zero instance.
+            assertEquals(AppSettingsSerializer.defaultValue, settings.snapshot())
+            // Separate profile, credential, selection, and boot-session stores are wiped.
+            assertEquals(1, profileData.clearCalls)
             // Diagnostics user-history cleared.
             assertEquals(1, diagnostics.clearCalls)
             // Caches cleared.
@@ -104,6 +110,7 @@ class ResetAllSettingsUseCaseTest {
                 groups = groups,
                 rules = FakeRuleDao(initialRowCount = 1),
                 settings = FakeAppSettingsRepository(),
+                profileData = FakeUserProfileResetStore(),
                 diagnostics = FakeDiagnosticsHistoryResetStore(),
                 caches = FakeCacheDirectoryCleaner(),
             ).reset()
@@ -122,6 +129,7 @@ class ResetAllSettingsUseCaseTest {
                 groups = FakeGroupRepository(mutableListOf(sampleGroup)),
                 rules = FakeRuleDao(initialRowCount = 1),
                 settings = FakeAppSettingsRepository(),
+                profileData = FakeUserProfileResetStore(),
                 diagnostics = FakeDiagnosticsHistoryResetStore(),
                 caches = FakeCacheDirectoryCleaner(),
             ).reset()
@@ -221,6 +229,15 @@ class ResetAllSettingsUseCaseTest {
             private set
 
         override suspend fun clearRuntimeHistory() {
+            clearCalls++
+        }
+    }
+
+    private class FakeUserProfileResetStore : UserProfileResetStore {
+        var clearCalls = 0
+            private set
+
+        override suspend fun clearAll() {
             clearCalls++
         }
     }
