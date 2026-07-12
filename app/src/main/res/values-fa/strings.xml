@@ -4119,4 +4119,10 @@ fakeddisorder endhost</string>
     <string name="subscription_home_expired_body">%1$s دیگر به‌روزرسانی نمی‌شود. نمایه‌های موجود همچنان در دسترس‌اند.</string>
     <string name="subscription_home_invalidated_title">اشتراک در دسترس نیست</string>
     <string name="subscription_home_invalidated_body">%1$s منقضی یا لغو شده است. نمایه‌های موجود همچنان در دسترس‌اند.</string>
+    <string name="diagnostics_sparkline_chart_description">روند %1$s، %2$d نمونه</string>
+    <string name="diagnostics_sparkline_selected_state">نمونه %1$d از %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">آخرین مقدار: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">نمونه قبلی</string>
+    <string name="diagnostics_sparkline_next_sample">نمونه بعدی</string>
+    <string name="diagnostics_sparkline_clear_selection">پاک کردن انتخاب</string>
 </resources>

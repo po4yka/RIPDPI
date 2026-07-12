@@ -4114,4 +4114,10 @@ Origen: %2$s</string>
     <string name="subscription_home_expired_body">%1$s ya no puede actualizarse. Los perfiles existentes siguen disponibles.</string>
     <string name="subscription_home_invalidated_title">Suscripción no disponible</string>
     <string name="subscription_home_invalidated_body">%1$s caducó o fue revocada. Los perfiles existentes siguen disponibles.</string>
+    <string name="diagnostics_sparkline_chart_description">Tendencia de %1$s, %2$d muestras</string>
+    <string name="diagnostics_sparkline_selected_state">Muestra %1$d de %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">Último valor: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">Muestra anterior</string>
+    <string name="diagnostics_sparkline_next_sample">Muestra siguiente</string>
+    <string name="diagnostics_sparkline_clear_selection">Borrar selección</string>
 </resources>

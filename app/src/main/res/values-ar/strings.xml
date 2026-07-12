@@ -4146,4 +4146,10 @@ fakeddisorder endhost</string>
     <string name="subscription_home_expired_body">لم يعد بالإمكان تحديث %1$s. تبقى الملفات الحالية متاحة.</string>
     <string name="subscription_home_invalidated_title">الاشتراك غير متاح</string>
     <string name="subscription_home_invalidated_body">انتهى %1$s أو أُلغي. تبقى الملفات الحالية متاحة.</string>
+    <string name="diagnostics_sparkline_chart_description">اتجاه %1$s، %2$d عينة</string>
+    <string name="diagnostics_sparkline_selected_state">العينة %1$d من %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">أحدث قيمة: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">العينة السابقة</string>
+    <string name="diagnostics_sparkline_next_sample">العينة التالية</string>
+    <string name="diagnostics_sparkline_clear_selection">مسح التحديد</string>
 </resources>

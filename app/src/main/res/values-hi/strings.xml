@@ -1873,4 +1873,10 @@ fakeddisorder endhost</string>
     <string name="subscription_home_invalidated_body">%1$s समाप्त या निरस्त हो गई। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
     <string name="xray_skip_unsupported_transport">%1$s ट्रांसपोर्ट मूल रूप से समर्थित नहीं है।</string>
     <string name="xray_skip_unsupported_fingerprint">%1$s TLS फिंगरप्रिंट मूल रूप से समर्थित नहीं है।</string>
+    <string name="diagnostics_sparkline_chart_description">%1$s का रुझान, %2$d नमूने</string>
+    <string name="diagnostics_sparkline_selected_state">%2$d में से नमूना %1$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">नवीनतम मान: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">पिछला नमूना</string>
+    <string name="diagnostics_sparkline_next_sample">अगला नमूना</string>
+    <string name="diagnostics_sparkline_clear_selection">चयन हटाएँ</string>
 </resources>

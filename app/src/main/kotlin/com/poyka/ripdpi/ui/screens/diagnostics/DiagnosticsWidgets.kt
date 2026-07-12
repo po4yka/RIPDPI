@@ -37,7 +37,10 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -293,6 +296,32 @@ internal fun TelemetrySparkline(trend: DiagnosticsSparklineUiModel) {
     }
 
     val sparklineState = rememberSparklineState(trend = trend, selectedIndex = selectedIndex)
+    val accessibility =
+        SparklineAccessibility(
+            description =
+                stringResource(
+                    R.string.diagnostics_sparkline_chart_description,
+                    trend.label,
+                    trend.values.size,
+                ),
+            stateDescription =
+                if (selectedIndex in trend.values.indices) {
+                    stringResource(
+                        R.string.diagnostics_sparkline_selected_state,
+                        selectedIndex + 1,
+                        trend.values.size,
+                        formatSparklineValue(sparklineState.selectedValue ?: 0f),
+                    )
+                } else {
+                    stringResource(
+                        R.string.diagnostics_sparkline_latest_state,
+                        formatSparklineValue(sparklineState.displayValue),
+                    )
+                },
+            previousSampleLabel = stringResource(R.string.diagnostics_sparkline_previous_sample),
+            nextSampleLabel = stringResource(R.string.diagnostics_sparkline_next_sample),
+            clearSelectionLabel = stringResource(R.string.diagnostics_sparkline_clear_selection),
+        )
 
     RipDpiCard {
         SparklineHeader(
@@ -314,8 +343,8 @@ internal fun TelemetrySparkline(trend: DiagnosticsSparklineUiModel) {
             selectionColor = colors.mutedForeground,
             cardColor = colors.card,
             selectedValue = sparklineState.selectedValue,
-            chipContainerColor = metricStyle.container,
-            chipContentColor = metricStyle.content,
+            chipColors = SparklineChipColors(metricStyle.container, metricStyle.content),
+            accessibility = accessibility,
         )
     }
 }
@@ -359,8 +388,8 @@ private fun SparklineChartRow(
     selectionColor: Color,
     cardColor: Color,
     selectedValue: Float?,
-    chipContainerColor: Color,
-    chipContentColor: Color,
+    chipColors: SparklineChipColors,
+    accessibility: SparklineAccessibility,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -385,14 +414,15 @@ private fun SparklineChartRow(
                 dividerColor = dividerColor,
                 selectionColor = selectionColor,
                 cardColor = cardColor,
+                accessibility = accessibility,
             )
             SparklineSelectionChip(
                 selectedIndex = selectedIndex,
                 selectedValue = selectedValue,
                 pointCount = values.size,
                 maxWidth = maxWidth,
-                containerColor = chipContainerColor,
-                contentColor = chipContentColor,
+                containerColor = chipColors.container,
+                contentColor = chipColors.content,
             )
         }
     }
@@ -430,12 +460,24 @@ private fun SparklineCanvas(
     dividerColor: Color,
     selectionColor: Color,
     cardColor: Color,
+    accessibility: SparklineAccessibility,
 ) {
+    val accessibilityActions =
+        sparklineAccessibilityActions(
+            pointCount = values.size,
+            selectedIndex = selectedIndex,
+            accessibility = accessibility,
+            onSelectedIndexChange = onSelectedIndexChange,
+        )
     Canvas(
         modifier =
             Modifier
                 .fillMaxSize()
-                .pointerInput(values.size, selectedIndex) {
+                .semantics {
+                    contentDescription = accessibility.description
+                    stateDescription = accessibility.stateDescription
+                    customActions = accessibilityActions
+                }.pointerInput(values.size, selectedIndex) {
                     detectTapGestures { offset ->
                         val pointCount = values.size
                         if (pointCount <= 1) return@detectTapGestures
@@ -471,6 +513,54 @@ private fun SparklineCanvas(
         )
     }
 }
+
+private fun sparklineAccessibilityActions(
+    pointCount: Int,
+    selectedIndex: Int,
+    accessibility: SparklineAccessibility,
+    onSelectedIndexChange: (Int) -> Unit,
+): List<CustomAccessibilityAction> =
+    buildList {
+        val selected = selectedIndex in 0 until pointCount
+        val previousIndex =
+            when {
+                pointCount == 0 -> null
+                selected && selectedIndex > 0 -> selectedIndex - 1
+                !selected -> pointCount - 1
+                else -> null
+            }
+        val nextIndex =
+            when {
+                pointCount == 0 -> null
+                selected && selectedIndex < pointCount - 1 -> selectedIndex + 1
+                !selected -> 0
+                else -> null
+            }
+        previousIndex?.let { index ->
+            add(
+                CustomAccessibilityAction(accessibility.previousSampleLabel) {
+                    onSelectedIndexChange(index)
+                    true
+                },
+            )
+        }
+        nextIndex?.let { index ->
+            add(
+                CustomAccessibilityAction(accessibility.nextSampleLabel) {
+                    onSelectedIndexChange(index)
+                    true
+                },
+            )
+        }
+        if (selected) {
+            add(
+                CustomAccessibilityAction(accessibility.clearSelectionLabel) {
+                    onSelectedIndexChange(-1)
+                    true
+                },
+            )
+        }
+    }
 
 @Composable
 private fun SparklineSelectionChip(
@@ -525,6 +615,19 @@ private fun DrawScope.drawSparklineSelection(
         center = Offset(x, y),
     )
 }
+
+private data class SparklineAccessibility(
+    val description: String,
+    val stateDescription: String,
+    val previousSampleLabel: String,
+    val nextSampleLabel: String,
+    val clearSelectionLabel: String,
+)
+
+private data class SparklineChipColors(
+    val container: Color,
+    val content: Color,
+)
 
 private data class SparklineState(
     val minValue: Float,

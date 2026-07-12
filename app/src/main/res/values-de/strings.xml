@@ -4114,4 +4114,10 @@ Quelle: %2$s</string>
     <string name="subscription_home_expired_body">%1$s kann nicht mehr aktualisiert werden. Vorhandene Profile bleiben verfügbar.</string>
     <string name="subscription_home_invalidated_title">Abonnement nicht verfügbar</string>
     <string name="subscription_home_invalidated_body">%1$s ist abgelaufen oder wurde widerrufen. Vorhandene Profile bleiben verfügbar.</string>
+    <string name="diagnostics_sparkline_chart_description">%1$s-Trend, %2$d Messwerte</string>
+    <string name="diagnostics_sparkline_selected_state">Messwert %1$d von %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">Letzter Wert: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">Vorheriger Messwert</string>
+    <string name="diagnostics_sparkline_next_sample">Nächster Messwert</string>
+    <string name="diagnostics_sparkline_clear_selection">Auswahl aufheben</string>
 </resources>

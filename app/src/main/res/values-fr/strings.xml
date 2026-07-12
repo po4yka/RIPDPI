@@ -4114,4 +4114,10 @@ Source : %2$s</string>
     <string name="subscription_home_expired_body">%1$s ne peut plus être actualisé. Les profils existants restent disponibles.</string>
     <string name="subscription_home_invalidated_title">Abonnement indisponible</string>
     <string name="subscription_home_invalidated_body">%1$s a expiré ou a été révoqué. Les profils existants restent disponibles.</string>
+    <string name="diagnostics_sparkline_chart_description">Tendance %1$s, %2$d échantillons</string>
+    <string name="diagnostics_sparkline_selected_state">Échantillon %1$d sur %2$d : %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">Dernière valeur : %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">Échantillon précédent</string>
+    <string name="diagnostics_sparkline_next_sample">Échantillon suivant</string>
+    <string name="diagnostics_sparkline_clear_selection">Effacer la sélection</string>
 </resources>

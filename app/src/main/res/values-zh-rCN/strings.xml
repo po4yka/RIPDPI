@@ -4102,4 +4102,10 @@ fake_burst 3</string>
     <string name="subscription_home_expired_body">%1$s 已无法更新。现有配置仍可使用。</string>
     <string name="subscription_home_invalidated_title">订阅不可用</string>
     <string name="subscription_home_invalidated_body">%1$s 已到期或被撤销。现有配置仍可使用。</string>
+    <string name="diagnostics_sparkline_chart_description">%1$s 趋势，共 %2$d 个样本</string>
+    <string name="diagnostics_sparkline_selected_state">第 %1$d 个样本，共 %2$d 个：%3$s</string>
+    <string name="diagnostics_sparkline_latest_state">最新值：%1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">上一个样本</string>
+    <string name="diagnostics_sparkline_next_sample">下一个样本</string>
+    <string name="diagnostics_sparkline_clear_selection">清除选择</string>
 </resources>
