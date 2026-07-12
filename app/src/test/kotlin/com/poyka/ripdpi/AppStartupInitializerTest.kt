@@ -486,7 +486,6 @@ class AppStartupInitializerTest {
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = proxyGroupRepository,
                     selectorSelectionStore = NoOpSelectorSelectionStore,
                     applicationScope = scope,

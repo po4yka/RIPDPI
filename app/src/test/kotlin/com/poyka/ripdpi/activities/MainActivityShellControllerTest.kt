@@ -199,12 +199,12 @@ class MainActivityShellControllerTest {
     }
 
     @Test
-    fun `disconnect deep link uri populates stop request`() {
+    fun `disconnect deep link uri does not populate stop request`() {
         val intent =
             Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect"))
         val controller = MainActivityShellController(intent)
 
-        assertTrue(controller.state.value.stopConfiguredModeRequested)
+        assertFalse(controller.state.value.stopConfiguredModeRequested)
     }
 
     @Test
@@ -254,7 +254,10 @@ class MainActivityShellControllerTest {
         val controller = MainActivityShellController()
 
         controller.onNewIntent(
-            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect")),
+            MainActivity.createLaunchIntent(
+                context = RuntimeEnvironment.getApplication(),
+                requestStopConfiguredMode = true,
+            ),
         )
 
         assertTrue(controller.state.value.stopConfiguredModeRequested)

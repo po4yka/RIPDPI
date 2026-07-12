@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
-import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +39,6 @@ class AppShortcutsPublisherTest {
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = selectorStore,
                     applicationScope = backgroundScope,
@@ -59,7 +57,6 @@ class AppShortcutsPublisherTest {
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(MutableStateFlow(emptyList())),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
                     applicationScope = backgroundScope,
@@ -85,7 +82,6 @@ class AppShortcutsPublisherTest {
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
                     applicationScope = backgroundScope,
@@ -109,7 +105,6 @@ class AppShortcutsPublisherTest {
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
                     applicationScope = backgroundScope,

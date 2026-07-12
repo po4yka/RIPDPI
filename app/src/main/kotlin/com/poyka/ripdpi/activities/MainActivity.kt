@@ -125,6 +125,8 @@ class MainActivity : AppCompatActivity() {
 private const val extraOpenHome = "com.poyka.ripdpi.extra.OPEN_HOME"
 private const val extraStartConfiguredMode = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
 private const val extraStopConfiguredMode = "com.poyka.ripdpi.extra.STOP_CONFIGURED_MODE"
+internal const val internalVpnControlActivityClassName =
+    "com.poyka.ripdpi.activities.InternalVpnControlActivity"
 
 internal fun createMainActivityLaunchIntent(
     context: Context,
@@ -132,7 +134,7 @@ internal fun createMainActivityLaunchIntent(
     requestStartConfiguredMode: Boolean = false,
     requestStopConfiguredMode: Boolean = false,
 ): Intent =
-    Intent(context, MainActivity::class.java).apply {
+    Intent().setClassName(context.packageName, internalVpnControlActivityClassName).apply {
         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         if (openHome) {
             putExtra(extraOpenHome, true)
@@ -148,11 +150,13 @@ internal fun createMainActivityLaunchIntent(
 internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(extraOpenHome, false) == true
 
 internal fun requestsConfiguredStart(intent: Intent?): Boolean =
-    intent?.getBooleanExtra(extraStartConfiguredMode, false) == true
+    isInternalVpnControlIntent(intent) && intent?.getBooleanExtra(extraStartConfiguredMode, false) == true
 
 internal fun requestsConfiguredStop(intent: Intent?): Boolean =
-    intent?.getBooleanExtra(extraStopConfiguredMode, false) == true ||
-        intent?.data?.toString() == "ripdpi://disconnect"
+    isInternalVpnControlIntent(intent) && intent?.getBooleanExtra(extraStopConfiguredMode, false) == true
+
+private fun isInternalVpnControlIntent(intent: Intent?): Boolean =
+    intent?.component?.className == internalVpnControlActivityClassName
 
 internal fun selectorGroupIdFrom(intent: Intent?): String? =
     intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectGroupId)

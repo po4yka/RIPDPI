@@ -87,6 +87,12 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <activity-alias
+            android:name=".activities.InternalVpnControlActivity"
+            android:enabled="true"
+            android:exported="false"
+            android:targetActivity=".activities.MainActivity" />
+
         <!--
             Import trampoline for inbound proxy share links and subscription deep links.
             Inbound proxy-like URI schemes (vless/trojan/ss/hysteria2/
