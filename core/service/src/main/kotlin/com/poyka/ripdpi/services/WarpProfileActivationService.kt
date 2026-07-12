@@ -11,6 +11,8 @@ import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
 import com.poyka.ripdpi.data.normalizeWarpAccountKind
 import com.poyka.ripdpi.data.normalizeWarpScannerMode
 import com.poyka.ripdpi.data.normalizeWarpSetupState
+import com.poyka.ripdpi.data.rollbackStoreMutation
+import com.poyka.ripdpi.proto.AppSettings
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,8 +38,7 @@ class DefaultWarpProfileActivationService
             profile: WarpProfile,
             scannerMode: String,
         ) {
-            profileStore.setActiveProfileId(profile.id)
-            appSettingsRepository.update {
+            updateActiveProfile(profile.id) {
                 setWarpProfileId(profile.id)
                 setWarpAccountKind(normalizeWarpAccountKind(profile.accountKind))
                 setWarpZeroTrustOrg(profile.zeroTrustOrg)
@@ -47,19 +48,30 @@ class DefaultWarpProfileActivationService
         }
 
         override suspend fun markProfileNeedsAttention(profile: WarpProfile) {
+            val previousProfile = profileStore.load(profile.id)
             val updatedProfile = profile.copy(setupState = WarpSetupStateNeedsAttention)
-            profileStore.save(updatedProfile)
-            if (profileStore.activeProfileId() == profile.id ||
-                appSettingsRepository.snapshot().warpProfileId == profile.id
-            ) {
-                activateProfile(profile = updatedProfile, scannerMode = updatedProfile.lastScannerModeOrAutomatic())
-            }
+            runCatching {
+                profileStore.save(updatedProfile)
+                if (profileStore.activeProfileId() == profile.id ||
+                    appSettingsRepository.snapshot().warpProfileId == profile.id
+                ) {
+                    activateProfile(profile = updatedProfile, scannerMode = updatedProfile.lastScannerModeOrAutomatic())
+                }
+            }.exceptionOrNull()
+                ?.rollbackStoreMutation(
+                    {
+                        if (previousProfile == null) {
+                            profileStore.remove(profile.id)
+                        } else {
+                            profileStore.save(previousProfile)
+                        }
+                    },
+                )
         }
 
         override suspend fun clearActiveProfile(profileId: String) {
             if (profileStore.activeProfileId() == profileId) {
-                profileStore.setActiveProfileId(null)
-                appSettingsRepository.update {
+                updateActiveProfile(null) {
                     setWarpProfileId(DefaultWarpProfileId)
                     setWarpAccountKind(WarpAccountKindConsumerFree)
                     setWarpZeroTrustOrg("")
@@ -67,5 +79,21 @@ class DefaultWarpProfileActivationService
                     setWarpLastScannerMode(WarpScannerModeAutomatic)
                 }
             }
+        }
+
+        private suspend fun updateActiveProfile(
+            profileId: String?,
+            updateSettings: AppSettings.Builder.() -> Unit,
+        ) {
+            val previousActiveProfileId = profileStore.activeProfileId()
+            val previousSettings = appSettingsRepository.snapshot()
+            runCatching {
+                profileStore.setActiveProfileId(profileId)
+                appSettingsRepository.update(updateSettings)
+            }.exceptionOrNull()
+                ?.rollbackStoreMutation(
+                    { profileStore.setActiveProfileId(previousActiveProfileId) },
+                    { appSettingsRepository.replace(previousSettings) },
+                )
         }
     }

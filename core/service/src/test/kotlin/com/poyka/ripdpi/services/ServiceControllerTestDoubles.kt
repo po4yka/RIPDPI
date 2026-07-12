@@ -580,6 +580,7 @@ internal class TestAppSettingsRepository(
     initial: AppSettings = AppSettingsSerializer.defaultValue,
 ) : AppSettingsRepository {
     private val state = MutableStateFlow(initial)
+    var failNextUpdateAfterWrite = false
 
     override val settings: Flow<AppSettings> = state.asStateFlow()
 
@@ -591,6 +592,10 @@ internal class TestAppSettingsRepository(
                 .toBuilder()
                 .apply(transform)
                 .build()
+        if (failNextUpdateAfterWrite) {
+            failNextUpdateAfterWrite = false
+            error("settings update failed after write")
+        }
     }
 
     override suspend fun replace(settings: AppSettings) {

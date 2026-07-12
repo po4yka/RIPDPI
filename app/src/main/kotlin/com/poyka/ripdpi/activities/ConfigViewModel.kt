@@ -317,9 +317,6 @@ class ConfigViewModel
                 }
                 val persistedDraft =
                     relayArtifacts.prepareForPersistence(draft)
-                appSettingsRepository.update {
-                    applyConfigDraft(persistedDraft)
-                }
                 relayArtifacts.persist(persistedDraft)
                 applySavedDraftToRunningService(persistedDraft)
                 editorSession.value = ConfigEditorSession()

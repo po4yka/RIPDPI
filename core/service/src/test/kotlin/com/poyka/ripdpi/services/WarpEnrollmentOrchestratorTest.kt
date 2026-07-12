@@ -673,6 +673,111 @@ class WarpEnrollmentOrchestratorTest {
     private fun fixtureAccessValue(suffix: String): String = listOf("access", "value", suffix).joinToString("-")
 }
 
+class WarpStoreCompensationTest {
+    @Test
+    fun `failed registration DataStore update removes new WARP profile credentials and endpoint`() =
+        runTest {
+            val stores = CompensationStores()
+            val previousSettings = stores.settings.snapshot()
+            stores.settings.failNextUpdateAfterWrite = true
+
+            val error =
+                runCatching {
+                    stores.orchestrator.registerConsumerFree(
+                        displayName = "Home WARP",
+                        request = WarpRegisterDeviceRequest(publicKey = "pub", privateKey = "priv"),
+                        profileId = "home-warp",
+                        networkScopeKey = "wifi:home",
+                    )
+                }.exceptionOrNull()
+
+            assertNotNull(error)
+            assertNull(stores.profiles.load("home-warp"))
+            assertNull(stores.credentials.load("home-warp"))
+            assertNull(stores.endpoints.load("home-warp", "wifi:home"))
+            assertNull(stores.profiles.activeProfileId())
+            assertEquals(previousSettings, stores.settings.snapshot())
+        }
+
+    @Test
+    fun `failed WARP DataStore update restores profile credentials active id and settings`() =
+        runTest {
+            val stores = CompensationStores()
+            val (previousProfile, previousCredentials) = stores.seedActiveProfile()
+            stores.settings.update {
+                setWarpProfileId(DefaultWarpProfileId)
+                setWarpAccountKind(WarpAccountKindConsumerFree)
+                setWarpSetupState(WarpSetupStateProvisioned)
+            }
+            val previousSettings = stores.settings.snapshot()
+            stores.settings.failNextUpdateAfterWrite = true
+
+            val error =
+                runCatching {
+                    stores.orchestrator.attachWarpPlusLicense(DefaultWarpProfileId, "new-license")
+                }.exceptionOrNull()
+
+            assertNotNull(error)
+            assertEquals(previousProfile, stores.profiles.load(DefaultWarpProfileId))
+            assertEquals(previousCredentials, stores.credentials.load(DefaultWarpProfileId))
+            assertEquals(DefaultWarpProfileId, stores.profiles.activeProfileId())
+            assertEquals(previousSettings, stores.settings.snapshot())
+        }
+
+    @Test
+    fun `failed WARP credential update restores profile credentials and settings`() =
+        runTest {
+            val stores = CompensationStores()
+            val (previousProfile, previousCredentials) = stores.seedActiveProfile()
+            val previousSettings = stores.settings.snapshot()
+            stores.credentials.failNextSaveAfterWrite = true
+
+            val error =
+                runCatching {
+                    stores.orchestrator.attachWarpPlusLicense(DefaultWarpProfileId, "new-license")
+                }.exceptionOrNull()
+
+            assertNotNull(error)
+            assertEquals(previousProfile, stores.profiles.load(DefaultWarpProfileId))
+            assertEquals(previousCredentials, stores.credentials.load(DefaultWarpProfileId))
+            assertEquals(previousSettings, stores.settings.snapshot())
+        }
+
+    private class CompensationStores {
+        val settings = TestAppSettingsRepository()
+        val profiles = FakeWarpProfileStore()
+        val credentials = FakeWarpCredentialStore()
+        val endpoints = FakeWarpEndpointStore()
+        val orchestrator =
+            createWarpEnrollmentOrchestrator(
+                appSettingsRepository = settings,
+                profileStore = profiles,
+                credentialStore = credentials,
+                endpointStore = endpoints,
+            )
+
+        suspend fun seedActiveProfile(): Pair<WarpProfile, WarpCredentials> {
+            val profile =
+                WarpProfile(
+                    id = DefaultWarpProfileId,
+                    accountKind = WarpAccountKindConsumerFree,
+                    displayName = "Consumer",
+                    setupState = WarpSetupStateProvisioned,
+                )
+            val credentials =
+                WarpCredentials(
+                    profileId = DefaultWarpProfileId,
+                    deviceId = "device-1",
+                    accessToken = listOf("access", "value", "consumer").joinToString("-"),
+                )
+            profiles.save(profile)
+            profiles.setActiveProfileId(DefaultWarpProfileId)
+            this.credentials.save(DefaultWarpProfileId, credentials)
+            return profile to credentials
+        }
+    }
+}
+
 private fun fullBuiltInWarpMatrixSize(): Int =
     BuiltInWarpEndpointPoolV4.size * BuiltInWarpEndpointPorts.size + BuiltInWarpEndpointPoolV6.size
 
@@ -712,6 +817,7 @@ private fun createWarpEnrollmentOrchestrator(
             FakeWarpEndpointProbe(),
         ),
 ): DefaultWarpEnrollmentOrchestrator {
+    val mutationLock = WarpStoreMutationLock()
     val activationService =
         DefaultWarpProfileActivationService(
             appSettingsRepository = appSettingsRepository,
@@ -728,6 +834,7 @@ private fun createWarpEnrollmentOrchestrator(
                 bootstrapProxyRunner = bootstrapProxyRunner,
                 endpointScanner = endpointScanner,
                 profileActivationService = activationService,
+                mutationLock = mutationLock,
             ),
         credentialProfileMutationService =
             DefaultWarpCredentialProfileMutationService(
@@ -735,6 +842,7 @@ private fun createWarpEnrollmentOrchestrator(
                 credentialStore = credentialStore,
                 endpointStore = endpointStore,
                 profileActivationService = activationService,
+                mutationLock = mutationLock,
             ),
     )
 }
@@ -799,6 +907,7 @@ private class FakeWarpProfileStore : WarpProfileStore {
 
 private class FakeWarpCredentialStore : WarpCredentialStore {
     private val credentials = linkedMapOf<String, WarpCredentials>()
+    var failNextSaveAfterWrite = false
 
     override suspend fun load(profileId: String): WarpCredentials? = credentials[profileId]
 
@@ -809,6 +918,10 @@ private class FakeWarpCredentialStore : WarpCredentialStore {
         credentials: WarpCredentials,
     ) {
         this.credentials[profileId] = credentials.copy(profileId = profileId)
+        if (failNextSaveAfterWrite) {
+            failNextSaveAfterWrite = false
+            error("credential save failed after write")
+        }
     }
 
     override suspend fun clear(profileId: String) {

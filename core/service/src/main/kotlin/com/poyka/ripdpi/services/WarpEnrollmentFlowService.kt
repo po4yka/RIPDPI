@@ -12,6 +12,8 @@ import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
 import com.poyka.ripdpi.data.WarpScannerModeAutomatic
 import com.poyka.ripdpi.data.WarpSetupStateProvisioned
+import com.poyka.ripdpi.data.rollbackStoreMutation
+import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,6 +41,7 @@ class DefaultWarpEnrollmentFlowService
         private val bootstrapProxyRunner: WarpBootstrapProxyRunner,
         private val endpointScanner: WarpEndpointScanner,
         private val profileActivationService: WarpProfileActivationService,
+        private val mutationLock: WarpStoreMutationLock,
     ) : WarpEnrollmentFlowService {
         override suspend fun registerConsumerFree(
             displayName: String,
@@ -73,17 +76,18 @@ class DefaultWarpEnrollmentFlowService
                     displayName = profile.displayName,
                     license = provisioning.license,
                 )
-            profileStore.save(profile)
-            profileStore.setActiveProfileId(normalizedProfileId)
-            credentialStore.save(normalizedProfileId, credentials)
-            val endpoint =
-                endpointScanner.resolveEndpoint(
-                    profileId = normalizedProfileId,
-                    networkScopeKey = networkScopeKey.orEmpty(),
-                    provisioned = provisioning.endpoint,
-                )
-            profileActivationService.activateProfile(profile = profile, scannerMode = WarpScannerModeAutomatic)
-            return WarpEnrollmentSnapshot(profile = profile, credentials = credentials, endpoint = endpoint)
+            return persistEnrollment(profile.id) {
+                profileStore.save(profile)
+                credentialStore.save(normalizedProfileId, credentials)
+                val endpoint =
+                    endpointScanner.resolveEndpoint(
+                        profileId = normalizedProfileId,
+                        networkScopeKey = networkScopeKey.orEmpty(),
+                        provisioned = provisioning.endpoint,
+                    )
+                profileActivationService.activateProfile(profile = profile, scannerMode = WarpScannerModeAutomatic)
+                WarpEnrollmentSnapshot(profile = profile, credentials = credentials, endpoint = endpoint)
+            }
         }
 
         override suspend fun refreshActiveProfile(networkScopeKey: String?): WarpEnrollmentSnapshot {
@@ -130,27 +134,66 @@ class DefaultWarpEnrollmentFlowService
                     setupState = WarpSetupStateProvisioned,
                     lastProvisionedAtEpochMillis = System.currentTimeMillis(),
                 )
-            profileStore.save(refreshedProfile)
-            credentialStore.save(activeProfile.id, refreshedCredentials)
-            val endpoint =
-                saveWarpEndpoint(
-                    endpointStore = endpointStore,
-                    profileId = activeProfile.id,
-                    networkScopeKey = networkScopeKey,
-                    entry =
-                        endpointScanner.resolveEndpoint(
-                            profileId = activeProfile.id,
-                            networkScopeKey = networkScopeKey.orEmpty(),
-                            provisioned = provisioning.endpoint,
-                        ),
+            return persistEnrollment(activeProfile.id) {
+                profileStore.save(refreshedProfile)
+                credentialStore.save(activeProfile.id, refreshedCredentials)
+                val endpoint =
+                    saveWarpEndpoint(
+                        endpointStore = endpointStore,
+                        profileId = activeProfile.id,
+                        networkScopeKey = networkScopeKey,
+                        entry =
+                            endpointScanner.resolveEndpoint(
+                                profileId = activeProfile.id,
+                                networkScopeKey = networkScopeKey.orEmpty(),
+                                provisioned = provisioning.endpoint,
+                            ),
+                    )
+                profileActivationService.activateProfile(
+                    profile = refreshedProfile,
+                    scannerMode = WarpScannerModeAutomatic,
                 )
-            profileActivationService.activateProfile(profile = refreshedProfile, scannerMode = WarpScannerModeAutomatic)
-            return WarpEnrollmentSnapshot(
-                profile = refreshedProfile,
-                credentials = refreshedCredentials,
-                endpoint = endpoint,
-            )
+                WarpEnrollmentSnapshot(
+                    profile = refreshedProfile,
+                    credentials = refreshedCredentials,
+                    endpoint = endpoint,
+                )
+            }
         }
+
+        private suspend fun <T> persistEnrollment(
+            profileId: String,
+            operation: suspend () -> T,
+        ): T =
+            mutationLock.mutex.withLock {
+                val previousProfile = profileStore.load(profileId)
+                val previousCredentials = credentialStore.load(profileId)
+                val previousEndpoints = endpointStore.loadAll(profileId)
+                runCatching {
+                    operation()
+                }.getOrElse { error ->
+                    error.rollbackStoreMutation(
+                        {
+                            if (previousProfile == null) {
+                                profileStore.remove(profileId)
+                            } else {
+                                profileStore.save(previousProfile)
+                            }
+                        },
+                        {
+                            if (previousCredentials == null) {
+                                credentialStore.clear(profileId)
+                            } else {
+                                credentialStore.save(profileId, previousCredentials)
+                            }
+                        },
+                        {
+                            endpointStore.clearProfile(profileId)
+                            previousEndpoints.forEach { endpointStore.save(it) }
+                        },
+                    )
+                }
+            }
 
         private fun WarpCredentials.toConsumerCredentials(
             profileId: String,
