@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.IOException
 import java.security.SecureRandom
@@ -356,14 +357,16 @@ open class RootHelperManager
             timeoutMs: Long,
             pollIntervalMs: Long,
         ): Boolean {
-            val deadline = System.currentTimeMillis() + timeoutMs
-            while (System.currentTimeMillis() < deadline) {
-                if (socket.exists() && canConnect(socket)) {
-                    return true
+            var ready = false
+            withTimeoutOrNull<Unit>(timeoutMs) {
+                while (!ready) {
+                    ready = (socket.exists() && canConnect(socket))
+                    if (!ready) {
+                        delay(pollIntervalMs)
+                    }
                 }
-                delay(pollIntervalMs)
             }
-            return socket.exists() && canConnect(socket)
+            return ready || (socket.exists() && canConnect(socket))
         }
 
         private fun canConnect(socket: File): Boolean {

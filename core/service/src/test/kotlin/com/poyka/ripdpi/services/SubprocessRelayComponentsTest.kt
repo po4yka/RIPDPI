@@ -16,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.net.InetSocketAddress
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SubprocessRelayComponentsTest {
@@ -158,6 +159,31 @@ class SubprocessRelayComponentsTest {
             )
 
             assertEquals(2, attempts)
+        }
+
+    @Test
+    fun `readiness timeout follows coroutine monotonic time`() =
+        runTest(timeout = 1.seconds) {
+            var failure: String? = null
+            val probe =
+                SubprocessRelayReadinessProbe(
+                    connector = SocksReadinessConnector { _, _ -> false },
+                    pollIntervalMs = 10L,
+                    timeoutMs = 50L,
+                )
+
+            val result =
+                runCatching {
+                    probe.waitUntilReady(
+                        config = sampleResolvedRelayConfig(),
+                        isRunning = { true },
+                        onFailure = { failure = it },
+                    )
+                }
+
+            assertTrue(result.isFailure)
+            assertEquals("Subprocess relay readiness timed out", failure)
+            assertEquals(50L, testScheduler.currentTime)
         }
 
     @Test
