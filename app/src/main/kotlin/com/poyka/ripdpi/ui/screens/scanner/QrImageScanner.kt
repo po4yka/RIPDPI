@@ -5,7 +5,9 @@ import android.net.Uri
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
 /**
@@ -29,7 +31,9 @@ object QrImageScanner {
         uri: Uri,
     ): String? {
         val image =
-            runCatching { InputImage.fromFilePath(context, uri) }.getOrNull() ?: return null
+            withContext(Dispatchers.IO) {
+                runCatching { InputImage.fromFilePath(context, uri) }.getOrNull()
+            } ?: return null
         return suspendCancellableCoroutine { continuation ->
             scanner
                 .process(image)
