@@ -1,13 +1,10 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +26,7 @@ import com.poyka.ripdpi.lua.LuaAssetManager
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import com.poyka.ripdpi.services.StrategyConfigRuntime
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +51,7 @@ fun StrategyConfigRoute(
     var luaFunction by rememberSaveable { mutableStateOf("") }
     var banner by rememberSaveable { mutableStateOf<StrategyConfigBanner?>(null) }
 
-    SecureStrategyConfigWindowEffect(context)
+    SecureWindowEffect()
     LaunchedEffect(uiState.desync.chainDsl, source) {
         if (source == StrategyConfigSource.BuiltIn) {
             configText = uiState.desync.chainDsl
@@ -191,18 +189,6 @@ private suspend fun saveStrategyConfigFromRoute(
         applySavedConfig = applySavedConfig,
         uiState = uiState,
     )
-
-@Composable
-private fun SecureStrategyConfigWindowEffect(context: Context) {
-    if (System.getProperty("ripdpi.staticMotion").toBoolean()) {
-        return
-    }
-    val window = (context as? Activity)?.window
-    DisposableEffect(Unit) {
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-    }
-}
 
 private fun activePathLabel(
     context: Context,
