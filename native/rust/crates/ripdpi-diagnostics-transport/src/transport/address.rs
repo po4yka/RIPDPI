@@ -1,5 +1,5 @@
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
-use std::sync::mpsc;
+use std::sync::{Arc, LazyLock, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 
@@ -55,19 +55,96 @@ fn ordered_connect_targets(host: Option<&str>, connect_ip: Option<&str>, connect
 }
 
 const DNS_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
+const DNS_RESOLVER_WORKERS: usize = 4;
+const DNS_RESOLVER_QUEUE_CAPACITY: usize = 64;
+
+type ResolveFn = dyn Fn(&str, u16) -> Result<Vec<SocketAddr>, String> + Send + Sync + 'static;
+
+static DNS_RESOLVER: LazyLock<Result<ResolverExecutor, String>> = LazyLock::new(|| {
+    ResolverExecutor::new(
+        DNS_RESOLVER_WORKERS,
+        DNS_RESOLVER_QUEUE_CAPACITY,
+        Arc::new(|host, port| (host, port).to_socket_addrs().map(Iterator::collect).map_err(|err| err.to_string())),
+    )
+});
+
+struct ResolveJob {
+    host: String,
+    port: u16,
+    response: mpsc::Sender<Result<Vec<SocketAddr>, String>>,
+}
+
+struct ResolverExecutor {
+    jobs: Option<mpsc::SyncSender<ResolveJob>>,
+    workers: Vec<thread::JoinHandle<()>>,
+}
+
+impl ResolverExecutor {
+    fn new(worker_count: usize, queue_capacity: usize, resolver: Arc<ResolveFn>) -> Result<Self, String> {
+        if worker_count == 0 || queue_capacity == 0 {
+            return Err("dns resolver executor requires non-zero workers and queue capacity".to_string());
+        }
+        let (jobs, receiver) = mpsc::sync_channel::<ResolveJob>(queue_capacity);
+        let receiver = Arc::new(Mutex::new(receiver));
+        let mut workers = Vec::with_capacity(worker_count);
+        for index in 0..worker_count {
+            let receiver = Arc::clone(&receiver);
+            let resolver = Arc::clone(&resolver);
+            let worker = thread::Builder::new()
+                .name(format!("ripdpi-dns-resolver-{index}"))
+                .spawn(move || resolver_worker(receiver, resolver))
+                .map_err(|error| format!("failed to spawn diagnostics DNS resolver worker: {error}"))?;
+            workers.push(worker);
+        }
+        Ok(Self { jobs: Some(jobs), workers })
+    }
+
+    fn submit(&self, host: String, port: u16) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, String>>, String> {
+        let (response, result) = mpsc::channel();
+        let jobs = self.jobs.as_ref().ok_or_else(|| "dns_resolver_unavailable".to_string())?;
+        jobs.try_send(ResolveJob { host, port, response }).map_err(|error| match error {
+            mpsc::TrySendError::Full(_) => "dns_resolver_busy".to_string(),
+            mpsc::TrySendError::Disconnected(_) => "dns_resolver_unavailable".to_string(),
+        })?;
+        Ok(result)
+    }
+
+    fn resolve(&self, host: String, port: u16, timeout: Duration) -> Result<Vec<SocketAddr>, String> {
+        match self.submit(host, port)?.recv_timeout(timeout) {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => Err("dns_resolve_timeout".to_string()),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err("dns_resolver_unavailable".to_string()),
+        }
+    }
+}
+
+impl Drop for ResolverExecutor {
+    fn drop(&mut self) {
+        self.jobs.take();
+        for worker in self.workers.drain(..) {
+            let _ = worker.join();
+        }
+    }
+}
+
+fn resolver_worker(receiver: Arc<Mutex<mpsc::Receiver<ResolveJob>>>, resolver: Arc<ResolveFn>) {
+    loop {
+        let job = {
+            let receiver = receiver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            receiver.recv()
+        };
+        let Ok(job) = job else {
+            break;
+        };
+        let _ = job.response.send(resolver(&job.host, job.port));
+    }
+}
 
 pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, String> {
     match target {
         TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
         TargetAddress::Host(host) => {
-            let host = host.clone();
-            let (tx, rx) = mpsc::channel();
-            thread::spawn(move || {
-                let _ = tx.send(
-                    (host.as_str(), port).to_socket_addrs().map(Iterator::collect).map_err(|err| err.to_string()),
-                );
-            });
-            rx.recv_timeout(DNS_RESOLVE_TIMEOUT).map_err(|_| "dns_resolve_timeout".to_string())?
+            DNS_RESOLVER.as_ref().map_err(Clone::clone)?.resolve(host.clone(), port, DNS_RESOLVE_TIMEOUT)
         }
     }
 }
@@ -78,6 +155,9 @@ pub fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, String> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Condvar, Mutex};
+
     use super::*;
 
     #[test]
@@ -146,5 +226,79 @@ mod tests {
         let target = TargetAddress::Ip("127.0.0.1".parse().unwrap());
         let addrs = resolve_addresses(&target, 80).unwrap();
         assert_eq!(addrs, vec!["127.0.0.1:80".parse::<SocketAddr>().unwrap()]);
+    }
+
+    #[test]
+    fn resolve_addresses_with_localhost_uses_bounded_executor() {
+        let target = TargetAddress::Host("localhost".to_string());
+        let addrs = resolve_addresses(&target, 443).expect("resolve localhost");
+
+        assert!(addrs.iter().any(|address| address.ip().is_loopback() && address.port() == 443));
+    }
+
+    #[test]
+    fn timed_out_dns_requests_do_not_create_unbounded_resolver_threads() {
+        const REQUESTS: usize = 8;
+        const MAX_WORKERS: usize = 4;
+        let active = Arc::new(AtomicUsize::new(0));
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let active = Arc::clone(&active);
+            let release = Arc::clone(&release);
+            move |_host, _port| {
+                active.fetch_add(1, Ordering::SeqCst);
+                let (released, wake) = &*release;
+                let guard = released.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                drop(wake.wait_while(guard, |released| !*released));
+                active.fetch_sub(1, Ordering::SeqCst);
+                Ok(Vec::new())
+            }
+        });
+        let executor = ResolverExecutor::new(MAX_WORKERS, REQUESTS, resolver).expect("create resolver executor");
+
+        for index in 0..REQUESTS {
+            let result = executor.resolve(format!("blocked-{index}.example"), 443, Duration::from_millis(10));
+            assert_eq!(result, Err("dns_resolve_timeout".to_string()));
+        }
+        let peak = active.load(Ordering::SeqCst);
+        let (released, wake) = &*release;
+        *released.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+        wake.notify_all();
+        drop(executor);
+
+        assert!(peak <= MAX_WORKERS, "resolver threads must be bounded to {MAX_WORKERS}, observed {peak}");
+    }
+
+    #[test]
+    fn resolver_executor_rejects_work_when_queue_is_full() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let active = Arc::clone(&active);
+            let release = Arc::clone(&release);
+            move |_host, _port| {
+                active.store(1, Ordering::Release);
+                let (released, wake) = &*release;
+                let guard = released.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                drop(wake.wait_while(guard, |released| !*released));
+                Ok(Vec::new())
+            }
+        });
+        let executor = ResolverExecutor::new(1, 1, resolver).expect("create resolver executor");
+
+        let first = executor.submit("first.example".to_string(), 443).expect("submit running lookup");
+        while active.load(Ordering::Acquire) == 0 {
+            thread::yield_now();
+        }
+        let second = executor.submit("second.example".to_string(), 443).expect("fill resolver queue");
+        let third = executor.submit("third.example".to_string(), 443);
+
+        let (released, wake) = &*release;
+        *released.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+        wake.notify_all();
+        drop(first);
+        drop(second);
+        drop(executor);
+        assert_eq!(third.expect_err("full resolver queue must reject work"), "dns_resolver_busy");
     }
 }
