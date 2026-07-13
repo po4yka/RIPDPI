@@ -28,8 +28,10 @@ async fn connect_protected_tcp(
     port: u16,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<TcpStream> {
-    let mut addrs = tokio::net::lookup_host((host, port)).await?;
-    let server_addr = addrs
+    let server_addr = socket_protection
+        .resolve_host(host, port)
+        .await?
+        .into_iter()
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for anytls server"))?;
     let socket = match server_addr {

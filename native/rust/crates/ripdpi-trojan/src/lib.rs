@@ -257,8 +257,11 @@ pub struct TrojanClientConfig {
 /// socket bypasses the app's own TUN route. Loopback-skip and fail-closed are
 /// handled by [`protect_outbound_socket`]. REL-1.
 async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream> {
-    let mut addrs = tokio::net::lookup_host((config.server_host.as_str(), config.server_port)).await?;
-    let server_addr = addrs
+    let server_addr = config
+        .socket_protection
+        .resolve_host(&config.server_host, config.server_port)
+        .await?
+        .into_iter()
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for trojan server"))?;
     let socket = match server_addr {

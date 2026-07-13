@@ -73,10 +73,10 @@ impl RelaySessionFactory for MieruSessionFactory {
         // TUN; own-UID exclusion via computeAppRoutingPlan remains the second
         // layer. (Resolves the prior unverified TODO.) REL-1 / REL-4. See
         // .claude/rules/vpnservice-protect-invariant.md.
-        let mut addrs = tokio::net::lookup_host((config.server.as_str(), config.port)).await?;
-        let server_addr = addrs.next().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, "no address resolved for mieru server")
-        })?;
+        let server_addr =
+            self.socket_protection.resolve_host(&config.server, config.port).await?.into_iter().next().ok_or_else(
+                || std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, "no address resolved for mieru server"),
+            )?;
         let socket = match server_addr {
             std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
             std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,

@@ -10,7 +10,7 @@ use ripdpi_shadowsocks::{
     UdpPacket,
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::{TcpSocket, TcpStream, UdpSocket, lookup_host};
+use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 
 const BUFFER_SIZE: usize = 65_536;
 
@@ -86,8 +86,11 @@ impl RelaySession for ShadowsocksSession {
         let config = Arc::clone(&self.config);
         let socket = bind_udp(config.outbound_bind_ip).await?;
         let want_v4 = socket.local_addr()?.is_ipv4();
-        let server_addr = lookup_host((config.server_host.as_str(), config.server_port))
+        let server_addr = config
+            .socket_protection
+            .resolve_host(&config.server_host, config.server_port)
             .await?
+            .into_iter()
             .find(|addr| addr.is_ipv4() == want_v4)
             .ok_or_else(|| {
                 io::Error::new(io::ErrorKind::AddrNotAvailable, "no UDP server address matches socket family")
@@ -260,12 +263,12 @@ where
 
 async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStream> {
     let bind_ip = config.outbound_bind_ip;
-    let mut addrs = lookup_host((config.server_host.as_str(), config.server_port)).await?;
+    let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
     let server_addr = match bind_ip {
-        Some(ip) => addrs.find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
+        Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
         })?,
-        None => addrs.next().ok_or_else(|| {
+        None => addrs.into_iter().next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for shadowsocks server")
         })?,
     };

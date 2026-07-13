@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::Once;
@@ -167,9 +167,15 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     Ok(())
 }
 
-pub(crate) fn resolve_server_addr(server: &str, port: i32) -> io::Result<SocketAddr> {
-    (server, port as u16)
-        .to_socket_addrs()?
+pub(crate) async fn resolve_server_addr(
+    server: &str,
+    port: i32,
+    socket_protection: SocketProtectionPolicy,
+) -> io::Result<SocketAddr> {
+    socket_protection
+        .resolve_host(server, port as u16)
+        .await?
+        .into_iter()
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"))
 }

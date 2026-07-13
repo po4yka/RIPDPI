@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.IpPrefix
 import android.os.Build
+import androidx.annotation.Keep
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiLogContext
@@ -73,6 +74,7 @@ class RipDpiVpnService :
         notificationController = VpnForegroundNotificationController(serviceStateStore)
         notificationController.registerChannel(this)
         underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this)
+        underlyingNetworkBinder.captureActiveNetwork()
         sessionLifecycle =
             VpnServiceSessionLifecycle(
                 service = this,
@@ -151,6 +153,10 @@ class RipDpiVpnService :
         refreshHardKillSwitchState()
         underlyingNetworkBinder.syncFromActiveNetwork()
     }
+
+    /** Resolve bootstrap hostnames on the explicitly selected underlying network. */
+    @Keep
+    fun resolveHost(host: String): Array<String> = underlyingNetworkBinder.resolveHost(host)
 
     internal suspend fun createBuilder(
         dns: String,
