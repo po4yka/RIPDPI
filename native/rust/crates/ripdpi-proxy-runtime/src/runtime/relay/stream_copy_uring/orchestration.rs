@@ -1,6 +1,5 @@
 use std::io;
 use std::net::TcpStream;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -42,14 +41,12 @@ pub(crate) fn relay_streams_uring(
     let timeouts = settings.group.timeouts();
     let down_done = peer_done.clone();
     let uring_clone = Arc::clone(uring);
-    let client_fd = sockets.client_writer.as_raw_fd();
     let down = thread::Builder::new()
         .name("ripdpi-dn-zc".into())
         .spawn(move || {
             copy_inbound_zc(
                 sockets.upstream_reader,
                 sockets.client_writer,
-                client_fd,
                 inbound_session,
                 down_done,
                 timeouts,

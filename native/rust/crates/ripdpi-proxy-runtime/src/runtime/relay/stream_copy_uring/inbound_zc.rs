@@ -1,5 +1,6 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
+use std::os::fd::AsFd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -36,7 +37,6 @@ use crate::runtime::types::RuntimeRelayTimeouts;
 pub(super) fn copy_inbound_zc(
     mut reader: TcpStream,
     mut writer: TcpStream,
-    writer_fd: i32,
     session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
     timeouts: RuntimeRelayTimeouts,
@@ -63,7 +63,7 @@ pub(super) fn copy_inbound_zc(
                 // across the blocking wait so the registered buffer stays
                 // valid for the kernel's read; the buffer returns to the pool
                 // only after the one CQE (on `handle` drop at end of scope).
-                let future = uring.write_fixed(writer_fd, handle.buf_index(), n as u32);
+                let future = uring.write_fixed(writer.as_fd(), handle.buf_index(), n as u32);
                 let result = block_on_completion(future);
 
                 if result.result < 0 {

@@ -33,7 +33,7 @@ pub use bufpool::{BufferHandle, PendingBuffer, RegisteredBufferPool};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub use probe::{IoUringCapabilities, io_uring_capabilities};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub use ring::{CompletionFuture, CompletionResult, IoUringDriver, Submission, block_on_completion};
+pub use ring::{CompletionFuture, CompletionResult, IoUringDriver, block_on_completion};
 
 // On non-Linux platforms, provide a stub capabilities struct that always
 // reports unavailable so callers can use it unconditionally.

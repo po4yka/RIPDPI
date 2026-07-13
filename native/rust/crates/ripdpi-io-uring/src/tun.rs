@@ -4,7 +4,7 @@
 //! descriptor through the [`IoUringDriver`], reducing per-packet system call
 //! overhead compared to the default `try_recv`/`try_send` path.
 
-use std::os::fd::RawFd;
+use std::os::fd::BorrowedFd;
 
 use crate::bufpool::{BufferHandle, RegisteredBufferPool};
 use crate::ring::IoUringDriver;
@@ -35,7 +35,7 @@ pub struct TunReadBatch {
 pub fn batch_tun_read(
     uring: &IoUringDriver,
     pool: &RegisteredBufferPool,
-    tun_fd: RawFd,
+    tun_fd: BorrowedFd<'_>,
 ) -> std::io::Result<TunReadBatch> {
     let mut buf_indices = Vec::with_capacity(TUN_READ_BATCH_SIZE);
 
@@ -83,7 +83,7 @@ pub fn batch_tun_read(
 /// matching completion is reaped.
 ///
 /// This is a blocking function.
-pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]) -> std::io::Result<usize> {
+pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: BorrowedFd<'_>, packets: &[Vec<u8>]) -> std::io::Result<usize> {
     let mut written = 0;
     let pool = uring.pool();
 

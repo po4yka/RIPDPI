@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use io_uring::IoUring;
@@ -14,15 +15,17 @@ pub(crate) fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, re
     // Keyed by submission token; the entry is dropped after the matching CQE
     // is drained, freeing the heap allocation referenced by the kernel's SQE.
     let mut pending_write_buffers: HashMap<u64, Vec<u8>> = HashMap::new();
+    let mut pending_fds = HashMap::new();
     loop {
-        let submitted = drain_submissions(&mut ring, &rx, &mut pending_write_buffers);
+        let submitted = drain_submissions(&mut ring, &rx, &mut pending_write_buffers, &mut pending_fds);
         if matches!(submitted, SubmissionDrain::Shutdown) {
             // Reap any in-flight completions before the ring is dropped. The
             // kernel may still be reading SQE-referenced buffers (the plain
             // `Write` payloads owned by `pending_write_buffers`); dropping the
             // ring without draining would free those buffers while a DMA read
             // is still pending. Draining is bounded so shutdown cannot hang.
-            drain_in_flight_on_shutdown(&mut ring, &registry, &mut pending_write_buffers);
+            drain_in_flight_on_shutdown(&mut ring, &registry, &mut pending_write_buffers, &mut pending_fds);
+            drop(ring);
             return;
         }
 
@@ -32,7 +35,7 @@ pub(crate) fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, re
             continue;
         }
 
-        drain_completions(&mut ring, &registry, &mut pending_write_buffers);
+        drain_completions(&mut ring, &registry, &mut pending_write_buffers, &mut pending_fds);
     }
 }
 
@@ -45,6 +48,7 @@ fn drain_submissions(
     ring: &mut IoUring,
     rx: &flume::Receiver<Submission>,
     pending_write_buffers: &mut HashMap<u64, Vec<u8>>,
+    pending_fds: &mut HashMap<u64, std::os::fd::OwnedFd>,
 ) -> SubmissionDrain {
     let mut submitted = 0u32;
     loop {
@@ -67,24 +71,26 @@ fn drain_submissions(
                 return SubmissionDrain::Shutdown;
             }
             Submission::SendZc { fd, buf_index, len, token } => {
-                let entry = opcode::SendZc::new(Fd(fd), std::ptr::null(), len)
+                let entry = opcode::SendZc::new(Fd(fd.as_raw_fd()), std::ptr::null(), len)
                     .buf_index(Some(buf_index))
                     .build()
                     .user_data(token)
                     .flags(Flags::BUFFER_SELECT);
+                pending_fds.insert(token, fd);
                 // SAFETY: entry is valid and references registered buffers.
                 push_entry(ring, &entry);
                 submitted += 1;
             }
             Submission::RecvFixed { fd, buf_index, token } => {
                 let entry = opcode::ReadFixed::new(
-                    Fd(fd),
+                    Fd(fd.as_raw_fd()),
                     std::ptr::null_mut(),
                     0, // len filled from registered buffer
                     buf_index,
                 )
                 .build()
                 .user_data(token);
+                pending_fds.insert(token, fd);
                 // SAFETY: entry references a registered buffer.
                 push_entry(ring, &entry);
                 submitted += 1;
@@ -97,43 +103,25 @@ fn drain_submissions(
                 // metadata is inserted into the HashMap, so `ptr` remains
                 // valid for the lifetime of the SQE.
                 pending_write_buffers.insert(token, buf);
-                let entry = opcode::Write::new(Fd(fd), ptr, len).build().user_data(token);
+                let entry = opcode::Write::new(Fd(fd.as_raw_fd()), ptr, len).build().user_data(token);
+                pending_fds.insert(token, fd);
                 // SAFETY: the buffer at `ptr` is owned by `pending_write_buffers`
                 // until the matching CQE is drained below; the heap allocation
-                // is stable for that window. `fd` follows the same caller-keeps-
-                // open contract documented on `Submission`.
+                // is stable for that window. `pending_fds` owns the duplicated
+                // descriptor through the matching completion.
                 push_entry(ring, &entry);
                 submitted += 1;
             }
             Submission::WriteFixed { fd, buf_index, len, token } => {
-                let entry = opcode::WriteFixed::new(Fd(fd), std::ptr::null(), len, buf_index).build().user_data(token);
+                let entry = opcode::WriteFixed::new(Fd(fd.as_raw_fd()), std::ptr::null(), len, buf_index)
+                    .build()
+                    .user_data(token);
+                pending_fds.insert(token, fd);
                 // SAFETY: entry references a registered buffer at
                 // `buf_index`; the caller must keep that slot reserved
                 // until the CQE is reaped. Same contract as RecvFixed.
                 push_entry(ring, &entry);
                 submitted += 1;
-            }
-            Submission::TunReadBatch { fd, buf_indices, token_base } => {
-                for (i, &buf_idx) in buf_indices.iter().enumerate() {
-                    let token = token_base + i as u64;
-                    let entry =
-                        opcode::ReadFixed::new(Fd(fd), std::ptr::null_mut(), 0, buf_idx).build().user_data(token);
-                    // SAFETY: submission buffers and fds live until the completion is reaped;
-                    // see SAFETY notes on SendZc/RecvFixed arms above for the full contract.
-                    push_entry(ring, &entry);
-                    submitted += 1;
-                }
-            }
-            Submission::TunWriteBatch { fd, entries, token_base } => {
-                for (i, &(buf_idx, len)) in entries.iter().enumerate() {
-                    let token = token_base + i as u64;
-                    let entry =
-                        opcode::WriteFixed::new(Fd(fd), std::ptr::null(), len, buf_idx).build().user_data(token);
-                    // SAFETY: submission buffers and fds live until the completion is reaped;
-                    // see SAFETY notes on SendZc/RecvFixed arms above for the full contract.
-                    push_entry(ring, &entry);
-                    submitted += 1;
-                }
             }
         }
     }
@@ -145,6 +133,7 @@ fn drain_completions(
     ring: &mut IoUring,
     registry: &CompletionRegistry,
     pending_write_buffers: &mut HashMap<u64, Vec<u8>>,
+    pending_fds: &mut HashMap<u64, std::os::fd::OwnedFd>,
 ) {
     let cq = ring.completion();
     for cqe in cq {
@@ -153,6 +142,7 @@ fn drain_completions(
         // If this token belongs to a plain Write, release the buffer now
         // that the kernel is done with it. No-op for any other opcode.
         pending_write_buffers.remove(&token);
+        pending_fds.remove(&token);
         registry.complete(token, result);
     }
 }
@@ -176,9 +166,10 @@ fn drain_in_flight_on_shutdown(
     ring: &mut IoUring,
     registry: &CompletionRegistry,
     pending_write_buffers: &mut HashMap<u64, Vec<u8>>,
+    pending_fds: &mut HashMap<u64, std::os::fd::OwnedFd>,
 ) {
     // First reap anything already completed without blocking.
-    drain_completions(ring, registry, pending_write_buffers);
+    drain_completions(ring, registry, pending_write_buffers, pending_fds);
 
     // Bound the number of wait cycles: at most one cycle per in-flight buffer,
     // plus a small slack, so a kernel that never completes an op cannot wedge
@@ -187,7 +178,7 @@ fn drain_in_flight_on_shutdown(
     while !pending_write_buffers.is_empty() && remaining_cycles > 0 {
         remaining_cycles -= 1;
         match ring.submit_and_wait(1) {
-            Ok(_) => drain_completions(ring, registry, pending_write_buffers),
+            Ok(_) => drain_completions(ring, registry, pending_write_buffers, pending_fds),
             Err(e) => {
                 log::error!("io_uring shutdown drain submit_and_wait failed: {e}");
                 break;

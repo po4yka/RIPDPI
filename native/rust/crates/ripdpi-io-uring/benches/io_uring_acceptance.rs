@@ -24,7 +24,7 @@
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use std::fs::OpenOptions;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use std::os::fd::AsRawFd;
+use std::os::fd::AsFd;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use std::time::Duration;
 
@@ -65,7 +65,7 @@ fn bench_park_unpark_roundtrip(c: &mut Criterion) {
             return;
         }
     };
-    let fd = dev_null.as_raw_fd();
+    let fd = dev_null.as_fd();
 
     let mut group = c.benchmark_group("io_uring/park_unpark/plain_write");
     group.measurement_time(Duration::from_secs(5));
@@ -97,7 +97,7 @@ fn bench_registered_buffer_tx(c: &mut Criterion) {
             return;
         }
     };
-    let fd = dev_null.as_raw_fd();
+    let fd = dev_null.as_fd();
     let pool = driver.pool().clone();
 
     let mut group = c.benchmark_group("io_uring/park_unpark/write_fixed");

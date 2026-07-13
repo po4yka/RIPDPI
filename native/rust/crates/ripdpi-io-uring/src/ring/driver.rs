@@ -1,5 +1,5 @@
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, OwnedFd};
 use std::sync::Arc;
 use std::thread;
 
@@ -67,8 +67,11 @@ impl IoUringDriver {
     /// pre-completed with `-EAGAIN` so the returned future resolves
     /// immediately with an error rather than hanging forever.
     // cancel-safe: synchronous; no await points.
-    pub fn send_zc(&self, fd: RawFd, buf_index: u16, len: u32) -> CompletionFuture {
+    pub fn send_zc(&self, fd: BorrowedFd<'_>, buf_index: u16, len: u32) -> CompletionFuture {
         let token = next_token();
+        let Some(fd) = self.duplicate_fd(fd, token) else {
+            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        };
         if self.tx.send(Submission::SendZc { fd, buf_index, len, token }).is_err() {
             // Driver thread gone — pre-complete so the future does not hang.
             self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
@@ -80,8 +83,11 @@ impl IoUringDriver {
     ///
     /// See [`Self::send_zc`] for backpressure and failure behaviour.
     // cancel-safe: synchronous; no await points.
-    pub fn recv_fixed(&self, fd: RawFd, buf_index: u16) -> CompletionFuture {
+    pub fn recv_fixed(&self, fd: BorrowedFd<'_>, buf_index: u16) -> CompletionFuture {
         let token = next_token();
+        let Some(fd) = self.duplicate_fd(fd, token) else {
+            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        };
         if self.tx.send(Submission::RecvFixed { fd, buf_index, token }).is_err() {
             self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
         }
@@ -97,8 +103,11 @@ impl IoUringDriver {
     ///
     /// See [`Self::send_zc`] for backpressure and failure behaviour.
     // cancel-safe: synchronous; no await points.
-    pub fn write(&self, fd: RawFd, buf: Vec<u8>) -> CompletionFuture {
+    pub fn write(&self, fd: BorrowedFd<'_>, buf: Vec<u8>) -> CompletionFuture {
         let token = next_token();
+        let Some(fd) = self.duplicate_fd(fd, token) else {
+            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        };
         if self.tx.send(Submission::Write { fd, buf, token }).is_err() {
             self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
         }
@@ -115,8 +124,11 @@ impl IoUringDriver {
     ///
     /// See [`Self::send_zc`] for backpressure and failure behaviour.
     // cancel-safe: synchronous; no await points.
-    pub fn write_fixed(&self, fd: RawFd, buf_index: u16, len: u32) -> CompletionFuture {
+    pub fn write_fixed(&self, fd: BorrowedFd<'_>, buf_index: u16, len: u32) -> CompletionFuture {
         let token = next_token();
+        let Some(fd) = self.duplicate_fd(fd, token) else {
+            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        };
         if self.tx.send(Submission::WriteFixed { fd, buf_index, len, token }).is_err() {
             self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
         }
@@ -126,6 +138,17 @@ impl IoUringDriver {
     /// Access the registered buffer pool.
     pub fn pool(&self) -> &Arc<RegisteredBufferPool> {
         &self.pool
+    }
+
+    fn duplicate_fd(&self, fd: BorrowedFd<'_>, token: u64) -> Option<OwnedFd> {
+        match fd.try_clone_to_owned() {
+            Ok(fd) => Some(fd),
+            Err(error) => {
+                let errno = error.raw_os_error().unwrap_or(libc::EIO);
+                self.registry.complete(token, CompletionResult { result: -errno, flags: 0 });
+                None
+            }
+        }
     }
 
     /// Construct a driver whose submission channel is already disconnected
@@ -161,7 +184,9 @@ impl Drop for IoUringDriver {
 #[cfg(test)]
 mod tests {
     use std::fs::OpenOptions;
-    use std::os::fd::AsRawFd;
+    use std::io::Read;
+    use std::os::fd::AsFd;
+    use std::os::unix::net::UnixStream;
     use std::sync::Arc;
 
     use io_uring::IoUring;
@@ -181,9 +206,27 @@ mod tests {
         handle.as_mut_buf()[..4].copy_from_slice(b"ring");
         handle.set_len(4);
 
-        let result = block_on_completion(driver.write_fixed(file.as_raw_fd(), handle.buf_index(), 4));
+        let result = block_on_completion(driver.write_fixed(file.as_fd(), handle.buf_index(), 4));
 
         assert_eq!(result.result, 4, "fixed write must use the driver's registered buffer table");
+    }
+
+    #[test]
+    fn submission_owns_fd_after_caller_drops_socket() {
+        let Ok(driver) = IoUringDriver::start(4, 1024) else {
+            eprintln!("io_uring unavailable; skipping submission_owns_fd_after_caller_drops_socket");
+            return;
+        };
+        let (sender, mut receiver) = UnixStream::pair().expect("create socket pair");
+
+        let future = driver.write(sender.as_fd(), b"owned".to_vec());
+        drop(sender);
+        let result = block_on_completion(future);
+
+        assert_eq!(result.result, 5);
+        let mut bytes = [0_u8; 5];
+        receiver.read_exact(&mut bytes).expect("read io_uring payload");
+        assert_eq!(&bytes, b"owned");
     }
 
     /// Helper: create a small pool if io_uring is available on this host.
@@ -211,7 +254,8 @@ mod tests {
         let driver = IoUringDriver::new_with_disconnected_channel(pool);
 
         // Use the `write` path (no registered-buffer index required).
-        let future = driver.write(3 /* dummy fd */, vec![0u8; 4]);
+        let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
+        let future = driver.write(file.as_fd(), vec![0u8; 4]);
 
         // block_on_completion uses pollster which is a simple sync executor;
         // the future must resolve in the first poll because complete() was
@@ -235,7 +279,8 @@ mod tests {
         // Snapshot registry size before submit.
         let before = driver.registry.slot_count();
 
-        let future = driver.write(3 /* dummy fd */, vec![0u8; 4]);
+        let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
+        let future = driver.write(file.as_fd(), vec![0u8; 4]);
         // The slot was inserted by complete() just before the future was
         // returned; it must be present now (count should be before + 1).
         let during = driver.registry.slot_count();
