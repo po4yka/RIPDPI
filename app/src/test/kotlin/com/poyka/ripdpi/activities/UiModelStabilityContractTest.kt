@@ -6,32 +6,32 @@ import java.io.File
 
 class UiModelStabilityContractTest {
     @Test
-    fun `annotated ui models expose only immutable lists`() {
+    fun `ui models expose only immutable collections`() {
         val violations =
             sourceRoot()
                 .walkTopDown()
                 .filter { it.isFile && it.extension == "kt" }
-                .flatMap(::plainListViolations)
+                .flatMap(::plainCollectionViolations)
                 .toList()
 
         assertTrue(
-            "@Stable and @Immutable models must use ImmutableList:\n${violations.joinToString("\n")}",
+            "UI models must use immutable collection interfaces:\n${violations.joinToString("\n")}",
             violations.isEmpty(),
         )
     }
 
-    private fun plainListViolations(file: File): Sequence<String> =
+    private fun plainCollectionViolations(file: File): Sequence<String> =
         sequence {
             val source = file.readText()
-            AnnotatedClass.findAll(source).forEach { match ->
-                val className = match.groupValues[2]
+            UiModelClass.findAll(source).forEach { match ->
+                val className = match.groupValues[2].ifBlank { match.groupValues[3] }
                 val constructorStart = source.indexOf('(', match.range.last + 1)
                 if (constructorStart < 0) return@forEach
                 val constructorEnd = source.findClosingDelimiter(constructorStart, '(', ')')
                 if (constructorEnd < 0) return@forEach
                 val constructor = source.substring(constructorStart, constructorEnd + 1)
-                PlainList.findAll(constructor).forEach { listMatch ->
-                    val offset = constructorStart + listMatch.range.first
+                PlainCollection.findAll(constructor).forEach { collectionMatch ->
+                    val offset = constructorStart + collectionMatch.range.first
                     yield("${file.relativeTo(sourceRoot()).path}:${source.lineNumber(offset)} $className")
                 }
 
@@ -40,8 +40,8 @@ class UiModelStabilityContractTest {
                 val bodyEnd = source.findClosingDelimiter(bodyStart, '{', '}')
                 if (bodyEnd < 0) return@forEach
                 val body = source.substring(bodyStart, bodyEnd + 1)
-                PlainBodyList.findAll(body).forEach { listMatch ->
-                    val offset = bodyStart + listMatch.range.first
+                PlainBodyCollection.findAll(body).forEach { collectionMatch ->
+                    val offset = bodyStart + collectionMatch.range.first
                     yield("${file.relativeTo(sourceRoot()).path}:${source.lineNumber(offset)} $className")
                 }
             }
@@ -82,8 +82,13 @@ class UiModelStabilityContractTest {
     }
 
     private companion object {
-        val AnnotatedClass = Regex("""@(Stable|Immutable)\s+(?:data\s+)?class\s+(\w+)""")
-        val PlainList = Regex("""(?<!Immutable)\bList\s*<""")
-        val PlainBodyList = Regex("""(?m)^ {4}(?:override\s+)?val\s+\w+\s*:\s*(?<!Immutable)List\s*<""")
+        val UiModelClass =
+            Regex(
+                """(?:@(Stable|Immutable)\s+(?:data\s+)?class\s+(\w+)|""" +
+                    """(?:data\s+)?class\s+(\w+(?:UiState|UiModel)\b))""",
+            )
+        val PlainCollection = Regex("""\b(?:List|Set|Map|Collection)\s*<""")
+        val PlainBodyCollection =
+            Regex("""(?m)^ {4}(?:override\s+)?val\s+\w+\s*:\s*(?:List|Set|Map|Collection)\s*<""")
     }
 }

@@ -8,6 +8,9 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -51,9 +54,10 @@ class RememberedNetworksViewModel
                     RememberedNetworksUiState(
                         loading = false,
                         entries =
-                            policies.map { policy ->
-                                policy.toRememberedNetworkUiModel(::formatRememberedNetworkTimestamp)
-                            },
+                            policies
+                                .map { policy ->
+                                    policy.toRememberedNetworkUiModel(::formatRememberedNetworkTimestamp)
+                                }.toImmutableList(),
                     )
                 }.stateIn(
                     scope = viewModelScope,
@@ -89,7 +93,7 @@ class RememberedNetworksViewModel
 
 data class RememberedNetworksUiState(
     val loading: Boolean = true,
-    val entries: List<RememberedNetworkUiModel> = emptyList(),
+    val entries: ImmutableList<RememberedNetworkUiModel> = persistentListOf(),
 ) {
     val isEmpty: Boolean
         get() = !loading && entries.isEmpty()

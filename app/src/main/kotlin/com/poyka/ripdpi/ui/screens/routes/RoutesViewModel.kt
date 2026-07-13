@@ -10,6 +10,9 @@ import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +34,7 @@ data class RuleRow(
 
 /** Render state for the routing-rule list screen. */
 data class RoutesUiState(
-    val rows: List<RuleRow> = emptyList(),
+    val rows: ImmutableList<RuleRow> = persistentListOf(),
 )
 
 /**
@@ -68,17 +71,18 @@ class RoutesViewModel
             ) { rules, groups, relayProfiles ->
                 RoutesUiState(
                     rows =
-                        rules.map { rule ->
-                            RuleRow(
-                                rule = rule,
-                                outboundLabel =
-                                    outboundTargetCatalog.labelFor(
-                                        tag = rule.outboundTag,
-                                        groups = groups,
-                                        profiles = relayProfiles,
-                                    ),
-                            )
-                        },
+                        rules
+                            .map { rule ->
+                                RuleRow(
+                                    rule = rule,
+                                    outboundLabel =
+                                        outboundTargetCatalog.labelFor(
+                                            tag = rule.outboundTag,
+                                            groups = groups,
+                                            profiles = relayProfiles,
+                                        ),
+                                )
+                            }.toImmutableList(),
                 )
             }.stateIn(
                 scope = viewModelScope,

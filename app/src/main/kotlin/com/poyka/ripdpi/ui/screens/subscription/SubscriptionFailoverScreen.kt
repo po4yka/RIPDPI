@@ -26,6 +26,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun SubscriptionFailoverRoute(
@@ -228,7 +229,7 @@ fun previewSubscriptionFailoverUiState(): SubscriptionFailoverUiState =
                     positionLabel = "server 4/4",
                     detail = "available if the app switches",
                 ),
-            ),
+            ).toImmutableList(),
         events =
             listOf(
                 SubscriptionFailoverEventUiState(
@@ -239,5 +240,5 @@ fun previewSubscriptionFailoverUiState(): SubscriptionFailoverUiState =
                     message = "primary server stopped answering",
                     timeLabel = "14:01",
                 ),
-            ),
+            ).toImmutableList(),
     )

@@ -7,6 +7,9 @@ import com.poyka.ripdpi.services.SplitTunnelMode
 import com.poyka.ripdpi.ui.screens.routes.InstalledAppCatalog
 import com.poyka.ripdpi.ui.screens.routes.InstalledAppItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +25,7 @@ import javax.inject.Inject
  */
 data class SplitTunnelUiState(
     val mode: String = SplitTunnelMode.Off,
-    val selectedPackages: Set<String> = emptySet(),
+    val selectedPackages: ImmutableSet<String> = persistentSetOf(),
     val fullTunnelMode: Boolean = false,
 )
 
@@ -44,7 +47,7 @@ class SplitTunnelViewModel
                 .map { settings ->
                     SplitTunnelUiState(
                         mode = settings.splitTunnelMode.ifBlank { SplitTunnelMode.Off },
-                        selectedPackages = settings.splitTunnelPackagesList.toSet(),
+                        selectedPackages = settings.splitTunnelPackagesList.toImmutableSet(),
                         fullTunnelMode = settings.fullTunnelMode,
                     )
                 }.stateIn(

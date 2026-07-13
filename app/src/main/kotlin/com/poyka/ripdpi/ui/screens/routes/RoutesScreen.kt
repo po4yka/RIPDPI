@@ -45,6 +45,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlin.math.roundToInt
@@ -99,7 +101,7 @@ internal fun RoutesScreen(
         val mutable = localRows.toMutableList()
         val item = mutable.removeAt(from)
         mutable.add(to, item)
-        localRows = mutable
+        localRows = mutable.toImmutableList()
         onReorder(mutable.map { it.rule.id })
     }
 
@@ -364,7 +366,7 @@ private fun previewRows() =
 private fun previewRoutesScreen() {
     RipDpiTheme(themePreference = "light") {
         RoutesScreen(
-            state = RoutesUiState(rows = previewRows()),
+            state = RoutesUiState(rows = previewRows().toImmutableList()),
             onBack = {},
             onAddRule = {},
             onEditRule = {},
@@ -380,7 +382,7 @@ private fun previewRoutesScreen() {
 private fun previewRoutesScreenDark() {
     RipDpiTheme(themePreference = "dark") {
         RoutesScreen(
-            state = RoutesUiState(rows = emptyList()),
+            state = RoutesUiState(rows = persistentListOf()),
             onBack = {},
             onAddRule = {},
             onEditRule = {},

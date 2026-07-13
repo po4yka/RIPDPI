@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.detection
 import android.Manifest
 import android.os.Build
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Owns the permission-state slice of the detection screen: probing the required permissions and
@@ -36,7 +37,7 @@ internal class DetectionPermissionStateOwner(
         reducer.mutate {
             it.copy(
                 permissionAction = action,
-                missingPermissions = missing,
+                missingPermissions = missing.toImmutableList(),
             )
         }
     }

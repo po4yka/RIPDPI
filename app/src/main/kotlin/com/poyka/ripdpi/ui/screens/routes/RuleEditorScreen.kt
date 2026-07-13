@@ -43,6 +43,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * @param ruleId informational for callers/NavHost; the ViewModel reads it from [SavedStateHandle],
@@ -335,14 +336,14 @@ private fun previewRuleEditorScreen() {
                     name = "Streaming direct",
                     domains = "domain_suffix:netflix.com\ngeosite:netflix",
                     network = RuleNetwork.BOTH,
-                    packages = setOf("com.netflix.mediaclient"),
+                    packages = setOf("com.netflix.mediaclient").toImmutableSet(),
                     outboundTag = OutboundTag.Bypass,
                     outboundTargets =
                         listOf(
                             OutboundTarget(OutboundTag.Proxy, "Proxy"),
                             OutboundTarget(OutboundTag.Bypass, "Bypass (direct)"),
                             OutboundTarget(OutboundTag.Block, "Block"),
-                        ),
+                        ).toImmutableList(),
                     loaded = true,
                 ),
             onBack = {},
@@ -369,7 +370,7 @@ private fun previewRuleEditorScreenEmptyDark() {
             state =
                 RuleEditorUiState(
                     outboundTargets =
-                        listOf(OutboundTarget(OutboundTag.Proxy, "Proxy")),
+                        listOf(OutboundTarget(OutboundTag.Proxy, "Proxy")).toImmutableList(),
                     loaded = true,
                 ),
             onBack = {},

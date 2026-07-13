@@ -8,6 +8,9 @@ import com.poyka.ripdpi.data.support.SupportSettingsFieldChange
 import com.poyka.ripdpi.data.support.SupportSettingsPreview
 import com.poyka.ripdpi.data.support.SupportSettingsPreviewResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +26,7 @@ data class SupportSettingsUiState(
     val loading: Boolean = false,
     val applying: Boolean = false,
     val preview: SupportSettingsPreview? = null,
-    val changes: List<SupportSettingsFieldChange> = emptyList(),
+    val changes: ImmutableList<SupportSettingsFieldChange> = persistentListOf(),
     val invalid: Boolean = false,
 )
 
@@ -54,7 +57,7 @@ class SupportSettingsViewModel
                             it.copy(
                                 loading = false,
                                 preview = result.preview,
-                                changes = result.preview.changes,
+                                changes = result.preview.changes.toImmutableList(),
                                 invalid = false,
                             )
                         }
@@ -77,7 +80,7 @@ class SupportSettingsViewModel
                         _uiState.update {
                             it.copy(
                                 applying = false,
-                                changes = result.changes,
+                                changes = result.changes.toImmutableList(),
                             )
                         }
                         completed = true

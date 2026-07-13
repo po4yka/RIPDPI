@@ -12,6 +12,7 @@ import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckScreen
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckSiteDiagnosis
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -43,7 +44,7 @@ class BlockcheckScreenScreenshotTest {
                             failureKind = StrategyProbeFailureKind.DnsTampered,
                             dnsTampered = true,
                         ),
-                    ),
+                    ).toImmutableList(),
                 rankedStrategies =
                     listOf(
                         rankedResult(
@@ -54,7 +55,7 @@ class BlockcheckScreenScreenshotTest {
                             latencyMs = 118,
                         ),
                         rankedResult("quic_disabled", "Disable QUIC", successes = 0, total = 1, latencyMs = 0),
-                    ),
+                    ).toImmutableList(),
                 diagnoses =
                     listOf(
                         diagnosis(
@@ -62,7 +63,7 @@ class BlockcheckScreenScreenshotTest {
                             layer = BlockLayer.DNS_POISONING,
                             bypassClass = BypassStrategyClass.ENCRYPTED_DNS,
                         ),
-                    ),
+                    ).toImmutableList(),
                 totalExpectedResults = 12,
                 message = "Testing youtube.com",
             ),
@@ -80,7 +81,7 @@ class BlockcheckScreenScreenshotTest {
                         probeResult("tlsrec_split_host", "TLS record split", success = true, latencyMs = 132),
                         probeResult("fake_split", "Fake split", success = true, latencyMs = 170),
                         probeResult("plain", "Plain", success = false, latencyMs = 0),
-                    ),
+                    ).toImmutableList(),
                 rankedStrategies =
                     listOf(
                         rankedResult(
@@ -92,7 +93,7 @@ class BlockcheckScreenScreenshotTest {
                         ),
                         rankedResult("fake_split", "Fake split", successes = 1, total = 1, latencyMs = 170),
                         rankedResult("plain", "Plain", successes = 0, total = 1, latencyMs = 0),
-                    ),
+                    ).toImmutableList(),
                 diagnoses =
                     listOf(
                         diagnosis(
@@ -100,7 +101,7 @@ class BlockcheckScreenScreenshotTest {
                             layer = BlockLayer.SNI_BASED_RESET,
                             bypassClass = BypassStrategyClass.TLS_RECORD_SPLIT,
                         ),
-                    ),
+                    ).toImmutableList(),
                 recommendedStrategyId = "tlsrec_split_host",
                 recommendedStrategyLabel = "TLS record split",
                 totalExpectedResults = 4,

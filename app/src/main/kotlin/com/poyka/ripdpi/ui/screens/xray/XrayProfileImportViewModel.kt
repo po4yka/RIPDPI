@@ -12,6 +12,9 @@ import com.poyka.ripdpi.data.xray.XrayImportParser
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -43,8 +46,8 @@ data class XrayImportUiState(
     val validating: Boolean = false,
     val acceptedConfigReady: Boolean = false,
     val importableCount: Int = 0,
-    val capabilities: List<XrayCapability> = emptyList(),
-    val skipped: List<XraySkippedNode> = emptyList(),
+    val capabilities: ImmutableList<XrayCapability> = persistentListOf(),
+    val skipped: ImmutableList<XraySkippedNode> = persistentListOf(),
     val errorMessage: String? = null,
 ) {
     /** True when the chosen option needs a validated Xray profile to proceed. */
@@ -119,8 +122,8 @@ class XrayProfileImportViewModel
                     selectedOption = option,
                     acceptedConfigReady = false,
                     importableCount = 0,
-                    capabilities = emptyList(),
-                    skipped = emptyList(),
+                    capabilities = persistentListOf(),
+                    skipped = persistentListOf(),
                     errorMessage = null,
                 )
             }
@@ -136,8 +139,8 @@ class XrayProfileImportViewModel
                     rawInput = value,
                     acceptedConfigReady = false,
                     importableCount = 0,
-                    capabilities = emptyList(),
-                    skipped = emptyList(),
+                    capabilities = persistentListOf(),
+                    skipped = persistentListOf(),
                     errorMessage = null,
                 )
             }
@@ -171,8 +174,8 @@ class XrayProfileImportViewModel
                             validating = false,
                             acceptedConfigReady = false,
                             importableCount = 0,
-                            capabilities = emptyList(),
-                            skipped = emptyList(),
+                            capabilities = persistentListOf(),
+                            skipped = persistentListOf(),
                             errorMessage = persistence.unparseableMessage,
                         )
                     }
@@ -190,8 +193,8 @@ class XrayProfileImportViewModel
                         validating = false,
                         acceptedConfigReady = false,
                         importableCount = 0,
-                        capabilities = emptyList(),
-                        skipped = result.skipped,
+                        capabilities = persistentListOf(),
+                        skipped = result.skipped.toImmutableList(),
                         errorMessage = persistence.noSupportedNodesMessage,
                     )
                 }
@@ -226,8 +229,8 @@ class XrayProfileImportViewModel
                     validating = false,
                     acceptedConfigReady = true,
                     importableCount = 1,
-                    capabilities = capabilitiesFor(listOf(activated)),
-                    skipped = result.skipped + deferred,
+                    capabilities = capabilitiesFor(listOf(activated)).toImmutableList(),
+                    skipped = (result.skipped + deferred).toImmutableList(),
                     errorMessage = null,
                 )
             }
@@ -261,8 +264,8 @@ class XrayProfileImportViewModel
                                 validating = false,
                                 acceptedConfigReady = true,
                                 importableCount = 1,
-                                capabilities = parsed.capabilities,
-                                skipped = skipped,
+                                capabilities = parsed.capabilities.toImmutableList(),
+                                skipped = skipped.toImmutableList(),
                                 errorMessage = null,
                             )
                         }
@@ -287,8 +290,8 @@ class XrayProfileImportViewModel
                     validating = false,
                     acceptedConfigReady = false,
                     importableCount = 0,
-                    capabilities = emptyList(),
-                    skipped = skipped,
+                    capabilities = persistentListOf(),
+                    skipped = skipped.toImmutableList(),
                     errorMessage = message,
                 )
             }

@@ -12,6 +12,9 @@ import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.services.ConnectionHealthRepository
 import com.poyka.ripdpi.services.ConnectionHealthSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -19,13 +22,14 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 data class ConnectionHealthUiState(
-    val rows: List<ConnectionHealthRowUiState> =
-        ConnectionHealthDestinationClass.entries.map { destinationClass ->
-            ConnectionHealthRowUiState(destinationClass = destinationClass)
-        },
+    val rows: ImmutableList<ConnectionHealthRowUiState> =
+        ConnectionHealthDestinationClass.entries
+            .map { destinationClass ->
+                ConnectionHealthRowUiState(destinationClass = destinationClass)
+            }.toImmutableList(),
     val qualityLossPercent: Int? = null,
     val qualityRttP50Ms: Long? = null,
-    val latencyDistributions: List<LatencyDistributionUiState> = emptyList(),
+    val latencyDistributions: ImmutableList<LatencyDistributionUiState> = persistentListOf(),
     val dnsCounters: DnsCountersUiState? = null,
     val observedAt: Long = 0L,
 ) {
@@ -106,10 +110,10 @@ private fun toUiState(
     insights: RuntimeTelemetryInsights,
 ): ConnectionHealthUiState =
     ConnectionHealthUiState(
-        rows = snapshot.buckets.map(ConnectionHealthBucket::toRowUiState),
+        rows = snapshot.buckets.map(ConnectionHealthBucket::toRowUiState).toImmutableList(),
         qualityLossPercent = snapshot.quality?.lossPct?.toInt(),
         qualityRttP50Ms = snapshot.quality?.rttP50Ms,
-        latencyDistributions = insights.latencyDistributions.toUiStates(),
+        latencyDistributions = insights.latencyDistributions.toUiStates().toImmutableList(),
         dnsCounters = insights.dnsCounters?.toUiState(),
         observedAt = snapshot.observedAt,
     )

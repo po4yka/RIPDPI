@@ -9,6 +9,8 @@ import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -71,7 +73,7 @@ internal class DetectionAuxStateOwner(
     fun loadHistory() {
         scope.launch {
             val history = historyStore.loadLatest()
-            reducer.mutate { it.copy(history = history) }
+            reducer.mutate { it.copy(history = history.toImmutableList()) }
         }
     }
 
@@ -131,7 +133,7 @@ internal class DetectionAuxStateOwner(
             appSettingsRepository.update {
                 applyDetectionFixes(reducer.value.suggestedFixes)
             }
-            reducer.mutate { it.copy(suggestedFixes = emptyList()) }
+            reducer.mutate { it.copy(suggestedFixes = persistentListOf()) }
         }
     }
 
