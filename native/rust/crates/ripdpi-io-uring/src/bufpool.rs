@@ -76,7 +76,7 @@ impl RegisteredBufferPool {
     ///
     /// Returns `Err` if `IORING_REGISTER_BUFFERS` fails (e.g. kernel too old
     /// or resource limits exceeded).
-    pub fn new(ring: &IoUring, capacity: u16, buffer_size: usize) -> std::io::Result<Self> {
+    pub(crate) fn new(ring: &IoUring, capacity: u16, buffer_size: usize) -> std::io::Result<Self> {
         let cap = usize::from(capacity);
         let mut buffers: Vec<UnsafeCell<Box<[u8]>>> =
             (0..cap).map(|_| UnsafeCell::new(vec![0u8; buffer_size].into_boxed_slice())).collect();

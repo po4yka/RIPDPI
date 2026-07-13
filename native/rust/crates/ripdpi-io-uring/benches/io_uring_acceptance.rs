@@ -26,8 +26,6 @@ use std::fs::OpenOptions;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use std::os::fd::AsRawFd;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use std::sync::Arc;
-#[cfg(any(target_os = "linux", target_os = "android"))]
 use std::time::Duration;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -36,9 +34,7 @@ use std::hint::black_box;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use io_uring::IoUring;
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use ripdpi_io_uring::{IoUringDriver, RegisteredBufferPool, block_on_completion, io_uring_capabilities};
+use ripdpi_io_uring::{IoUringDriver, block_on_completion, io_uring_capabilities};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 const POOL_CAPACITY: u16 = 16;
@@ -53,9 +49,7 @@ fn try_driver() -> Option<IoUringDriver> {
     if !caps.available {
         return None;
     }
-    let probe_ring = IoUring::new(8).ok()?;
-    let pool = Arc::new(RegisteredBufferPool::new(&probe_ring, POOL_CAPACITY, POOL_BUFFER_SIZE).ok()?);
-    IoUringDriver::start(pool).ok()
+    IoUringDriver::start(POOL_CAPACITY, POOL_BUFFER_SIZE).ok()
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]

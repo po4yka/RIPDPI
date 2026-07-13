@@ -32,21 +32,14 @@ pub struct IoUringDriver {
 }
 
 impl IoUringDriver {
-    /// Start the driver thread with a new io_uring instance.
+    /// Start the driver thread and register its buffer pool on the same ring.
     ///
-    /// `pool` must already be registered with the io_uring instance used
-    /// internally. The caller should create the pool via
-    /// [`RegisteredBufferPool::new`] with the ring returned by
-    /// [`Self::create_ring`] before calling this constructor.
-    pub fn start(pool: Arc<RegisteredBufferPool>) -> io::Result<Self> {
+    /// Ring construction and buffer registration are deliberately one safe
+    /// operation: callers cannot pair a pool registered on one ring with a
+    /// driver that submits fixed-buffer operations on another ring.
+    pub fn start(pool_capacity: u16, buffer_size: usize) -> io::Result<Self> {
         let ring = IoUring::new(RING_SIZE)?;
-
-        // Re-register the pool's buffers with this ring instance.
-        // The pool was created with a probe ring; we need to register with
-        // the actual driver ring.
-        // NOTE: The pool manages its own iovecs. For a production
-        // implementation, the pool and ring would share the same instance.
-        // For now, we accept that buffers are registered twice (probe + driver).
+        let pool = Arc::new(RegisteredBufferPool::new(&ring, pool_capacity, buffer_size)?);
 
         let (tx, rx) = flume::bounded::<Submission>(RING_SIZE as usize);
         let registry = Arc::new(CompletionRegistry::new());
@@ -167,6 +160,8 @@ impl Drop for IoUringDriver {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::OpenOptions;
+    use std::os::fd::AsRawFd;
     use std::sync::Arc;
 
     use io_uring::IoUring;
@@ -174,6 +169,22 @@ mod tests {
     use super::*;
     use crate::bufpool::RegisteredBufferPool;
     use crate::ring::block_on_completion;
+
+    #[test]
+    fn driver_registers_pool_on_its_own_ring() {
+        let Ok(driver) = IoUringDriver::start(4, 1024) else {
+            eprintln!("io_uring unavailable; skipping driver_registers_pool_on_its_own_ring");
+            return;
+        };
+        let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
+        let mut handle = driver.pool().acquire().expect("acquire registered buffer");
+        handle.as_mut_buf()[..4].copy_from_slice(b"ring");
+        handle.set_len(4);
+
+        let result = block_on_completion(driver.write_fixed(file.as_raw_fd(), handle.buf_index(), 4));
+
+        assert_eq!(result.result, 4, "fixed write must use the driver's registered buffer table");
+    }
 
     /// Helper: create a small pool if io_uring is available on this host.
     /// Returns `None` on macOS or kernels without io_uring support — the
