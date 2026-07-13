@@ -130,8 +130,11 @@ impl MonitorSession {
     pub fn destroy(&self) {
         self.cancel_scan();
         let handle = self.worker.lock().ok().and_then(|mut worker_guard| worker_guard.take());
-        if let Some(handle) = handle {
-            WORKER_REAPER.reap(handle);
+        if let Some(handle) = handle
+            && let Err(handle) = WORKER_REAPER.reap(handle)
+        {
+            log::error!("detaching diagnostics worker because the bounded reaper is saturated or unavailable");
+            drop(handle);
         }
     }
 
