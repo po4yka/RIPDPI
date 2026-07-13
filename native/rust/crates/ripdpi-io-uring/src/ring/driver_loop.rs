@@ -1,15 +1,34 @@
 use std::collections::HashMap;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use io_uring::IoUring;
 use io_uring::opcode;
 use io_uring::squeue::Entry;
-use io_uring::types::Fd;
+use io_uring::types::{CancelBuilder, Fd, SubmitArgs, Timespec};
 
 use crate::BufferHandle;
 use crate::ring::completion::{CompletionRegistry, CompletionResult};
 use crate::ring::submission::Submission;
+
+const SUBMISSION_BUDGET: u32 = 256;
+const COMPLETION_WAIT: Duration = Duration::from_millis(10);
+const SHUTDOWN_CANCEL_TIMEOUT: Duration = Duration::from_millis(50);
+
+/// Keeps the ring ahead of its registered backing pool in every drop path,
+/// including failure to spawn the driver thread.
+pub(crate) struct DriverResources {
+    ring: IoUring,
+    _pool: Arc<crate::bufpool::RegisteredBufferPool>,
+}
+
+impl DriverResources {
+    pub(crate) fn new(ring: IoUring, pool: Arc<crate::bufpool::RegisteredBufferPool>) -> Self {
+        Self { ring, _pool: pool }
+    }
+}
 
 enum InFlight {
     PlainWrite { _fd: std::os::fd::OwnedFd, _buffer: Vec<u8> },
@@ -32,29 +51,39 @@ impl InFlight {
     }
 }
 
-pub(crate) fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc<CompletionRegistry>) {
+pub(crate) fn driver_loop(
+    resources: DriverResources,
+    rx: flume::Receiver<Submission>,
+    registry: Arc<CompletionRegistry>,
+    shutdown: Arc<AtomicBool>,
+) {
+    let DriverResources { mut ring, _pool } = resources;
     let mut in_flight: HashMap<u64, InFlight> = HashMap::new();
     loop {
-        let submitted = drain_submissions(&mut ring, &rx, &registry, &mut in_flight);
-        if matches!(submitted, SubmissionDrain::Shutdown) {
-            // Reap any in-flight completions before the ring is dropped. The
-            // kernel may still be reading SQE-referenced resources held in
-            // `in_flight`; dropping those resources before the ring would let
-            // the kernel access freed memory. Draining is bounded so shutdown
-            // cannot hang.
-            drain_in_flight_on_shutdown(&mut ring, &registry, &mut in_flight);
-            drop(ring);
-            return;
+        drain_completions(&mut ring, &registry, &mut in_flight);
+        if shutdown.load(Ordering::Acquire) {
+            break;
         }
 
-        // Submit all queued SQEs and wait for at least one completion.
-        if let Err(e) = ring.submit_and_wait(1) {
-            log::error!("io_uring submit_and_wait failed: {e}");
-            continue;
+        let block_for_first = in_flight.is_empty();
+        if matches!(
+            drain_submissions(&mut ring, &rx, &registry, &mut in_flight, block_for_first, &shutdown),
+            SubmissionDrain::Shutdown
+        ) {
+            break;
         }
 
+        if !in_flight.is_empty()
+            && let Err(error) = submit_and_wait_bounded(&ring, COMPLETION_WAIT)
+        {
+            log::error!("io_uring bounded submit/wait failed: {error}");
+            break;
+        }
         drain_completions(&mut ring, &registry, &mut in_flight);
     }
+
+    shutdown_ring(ring, rx, &registry, in_flight);
+    drop(_pool);
 }
 
 enum SubmissionDrain {
@@ -67,10 +96,15 @@ fn drain_submissions(
     rx: &flume::Receiver<Submission>,
     registry: &CompletionRegistry,
     in_flight: &mut HashMap<u64, InFlight>,
+    block_for_first: bool,
+    shutdown: &AtomicBool,
 ) -> SubmissionDrain {
-    let mut submitted = 0u32;
-    loop {
-        let sub = if submitted == 0 {
+    let mut processed = 0u32;
+    while processed < SUBMISSION_BUDGET {
+        if shutdown.load(Ordering::Acquire) {
+            return SubmissionDrain::Shutdown;
+        }
+        let sub = if processed == 0 && block_for_first {
             match rx.recv() {
                 Ok(s) => s,
                 Err(_) => return SubmissionDrain::Shutdown,
@@ -81,11 +115,10 @@ fn drain_submissions(
                 Err(_) => break,
             }
         };
+        processed += 1;
 
         match sub {
             Submission::Shutdown => {
-                // Submit any pending work, then exit.
-                let _ = ring.submit();
                 return SubmissionDrain::Shutdown;
             }
             Submission::RecvFixed { fd, mut buffer, token } => {
@@ -99,7 +132,6 @@ fn drain_submissions(
                 .user_data(token);
                 if push_entry(ring, &entry) {
                     in_flight.insert(token, InFlight::FixedRead { _fd: fd, buffer });
-                    submitted += 1;
                 } else {
                     registry.complete(token, CompletionResult::with_buffer(-libc::EBUSY, 0, buffer));
                 }
@@ -118,7 +150,6 @@ fn drain_submissions(
                 // the duplicated descriptor through completion.
                 if push_entry(ring, &entry) {
                     in_flight.insert(token, InFlight::PlainWrite { _fd: fd, _buffer: buf });
-                    submitted += 1;
                 } else {
                     registry.complete(token, CompletionResult::plain(-libc::EBUSY, 0));
                 }
@@ -130,7 +161,6 @@ fn drain_submissions(
                         .user_data(token);
                 if push_entry(ring, &entry) {
                     in_flight.insert(token, InFlight::FixedWrite { _fd: fd, buffer });
-                    submitted += 1;
                 } else {
                     registry.complete(token, CompletionResult::with_buffer(-libc::EBUSY, 0, buffer));
                 }
@@ -153,44 +183,69 @@ fn drain_completions(ring: &mut IoUring, registry: &CompletionRegistry, in_fligh
     }
 }
 
-/// Drain completions for ops still in flight when a `Shutdown` arrives, before
-/// the ring is dropped.
-///
-/// Every entry in `in_flight` owns the fd and memory referenced by its SQE. If
-/// the ring is torn down after the map but before the kernel stops accessing an
-/// entry, the kernel can observe a closed/reused descriptor or freed memory.
-/// Reaping the matching CQEs first guarantees those resources can be released.
-///
-/// The wait is bounded: each `submit_and_wait(1)` blocks only until at least
-/// one CQE is ready, and the loop caps total iterations so a wedged op cannot
-/// hang shutdown forever. Registered-buffer ops (recv/write-fixed) reference
-/// pool memory that outlives the ring, so only the plain-`Write` set gates the
-/// drain.
-fn drain_in_flight_on_shutdown(
-    ring: &mut IoUring,
+fn shutdown_ring(
+    mut ring: IoUring,
+    rx: flume::Receiver<Submission>,
     registry: &CompletionRegistry,
-    in_flight: &mut HashMap<u64, InFlight>,
+    mut in_flight: HashMap<u64, InFlight>,
 ) {
-    // First reap anything already completed without blocking.
-    drain_completions(ring, registry, in_flight);
-
-    // Bound the number of wait cycles: at most one cycle per in-flight buffer,
-    // plus a small slack, so a kernel that never completes an op cannot wedge
-    // the driver thread (and thus `IoUringDriver::drop`) indefinitely.
-    let mut remaining_cycles = in_flight.len().saturating_add(1);
-    while !in_flight.is_empty() && remaining_cycles > 0 {
-        remaining_cycles -= 1;
-        match ring.submit_and_wait(1) {
-            Ok(_) => drain_completions(ring, registry, in_flight),
-            Err(e) => {
-                log::error!("io_uring shutdown drain submit_and_wait failed: {e}");
-                break;
-            }
-        }
-    }
+    let _ = ring.submit();
+    drain_completions(&mut ring, registry, &mut in_flight);
 
     if !in_flight.is_empty() {
-        log::warn!("io_uring driver shut down with {} operation(s) still in flight", in_flight.len());
+        let cancel =
+            ring.submitter().register_sync_cancel(Some(Timespec::from(SHUTDOWN_CANCEL_TIMEOUT)), CancelBuilder::any());
+        if let Err(error) = cancel
+            && !matches!(error.raw_os_error(), Some(libc::ENOENT | libc::EINVAL))
+        {
+            log::debug!("io_uring synchronous shutdown cancellation failed: {error}");
+        }
+        let _ = submit_and_wait_bounded(&ring, COMPLETION_WAIT);
+        drain_completions(&mut ring, registry, &mut in_flight);
+    }
+
+    let remaining = in_flight.len();
+    // Closing the ring happens while every SQE-referenced resource is still
+    // owned by `in_flight`. Even if cancellation did not yield a CQE, kernel
+    // teardown can therefore finish before those resources are returned.
+    drop(ring);
+
+    for (token, resource) in in_flight {
+        registry.complete(token, resource.complete(-libc::ECANCELED, 0));
+    }
+    for submission in rx.try_iter() {
+        complete_cancelled_submission(registry, submission);
+    }
+    registry.fail_pending(-libc::ECANCELED);
+
+    if remaining != 0 {
+        log::debug!("io_uring driver closed with {remaining} operation(s) cancelled during teardown");
+    }
+}
+
+fn complete_cancelled_submission(registry: &CompletionRegistry, submission: Submission) {
+    match submission {
+        Submission::RecvFixed { buffer, token, .. } | Submission::WriteFixed { buffer, token, .. } => {
+            registry.complete(token, CompletionResult::with_buffer(-libc::ECANCELED, 0, buffer));
+        }
+        Submission::Write { token, .. } => registry.complete(token, CompletionResult::plain(-libc::ECANCELED, 0)),
+        Submission::Shutdown => {}
+    }
+}
+
+fn submit_and_wait_bounded(ring: &IoUring, timeout: Duration) -> std::io::Result<()> {
+    if ring.params().is_feature_ext_arg() {
+        let timeout = Timespec::from(timeout);
+        let args = SubmitArgs::new().timespec(&timeout);
+        match ring.submitter().submit_with_args(1, &args) {
+            Ok(_) => Ok(()),
+            Err(error) if matches!(error.raw_os_error(), Some(libc::ETIME | libc::ETIMEDOUT | libc::EINTR)) => Ok(()),
+            Err(error) => Err(error),
+        }
+    } else {
+        ring.submit()?;
+        std::thread::sleep(timeout);
+        Ok(())
     }
 }
 

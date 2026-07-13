@@ -1,33 +1,34 @@
 use std::io;
 use std::os::fd::{BorrowedFd, OwnedFd};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 use io_uring::IoUring;
 
 use crate::bufpool::{BufferHandle, RegisteredBufferPool};
 use crate::ring::completion::{CompletionFuture, CompletionRegistry, CompletionResult};
-use crate::ring::driver_loop::driver_loop;
+use crate::ring::driver_loop::{DriverResources, driver_loop};
 use crate::ring::submission::{Submission, next_token};
 
 /// Ring size (submission queue entries). Power of two.
 const RING_SIZE: u32 = 256;
+const DRIVER_SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(250);
 
 /// The io_uring driver manages a dedicated thread that processes submissions
 /// and completions, bridging to tokio tasks via [`CompletionFuture`].
 ///
-/// Drop order: the `Drop::drop` body drives the full shutdown handshake
-/// (`tx.send(Submission::Shutdown)` -> `thread.take() + join()`) BEFORE
-/// any field drops, so the declaration order between `tx`, `registry`,
-/// `pool`, and `thread` is incidental rather than load-bearing. After
-/// the body returns, the joined thread has already released its
-/// `Sender` clone, so `tx`/`registry`/`pool` drop with no concurrent
-/// reader. The `thread` field is `None` at that point (taken by
-/// `Option::take`), so its implicit drop is trivial.
+/// Drop signals shutdown without blocking on the submission queue and waits a
+/// bounded interval for the worker. If kernel teardown exceeds that interval,
+/// the worker is detached while retaining its own pool/registry guards.
 pub struct IoUringDriver {
     tx: flume::Sender<Submission>,
     registry: Arc<CompletionRegistry>,
     pool: Arc<RegisteredBufferPool>,
+    shutdown: Arc<AtomicBool>,
+    done_rx: Option<mpsc::Receiver<()>>,
     thread: Option<thread::JoinHandle<()>>,
 }
 
@@ -44,19 +45,25 @@ impl IoUringDriver {
         let (tx, rx) = flume::bounded::<Submission>(RING_SIZE as usize);
         let registry = Arc::new(CompletionRegistry::new());
         let registry_clone = Arc::clone(&registry);
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let shutdown_clone = Arc::clone(&shutdown);
+        let resources = DriverResources::new(ring, Arc::clone(&pool));
+        let (done_tx, done_rx) = mpsc::sync_channel(1);
 
-        let thread = thread::Builder::new()
-            .name("io-uring-driver".into())
-            .spawn(move || driver_loop(ring, rx, registry_clone))?;
+        let thread = thread::Builder::new().name("io-uring-driver".into()).spawn(move || {
+            driver_loop(resources, rx, registry_clone, shutdown_clone);
+            let _ = done_tx.send(());
+        })?;
 
-        Ok(Self { tx, registry, pool, thread: Some(thread) })
+        Ok(Self { tx, registry, pool, shutdown, done_rx: Some(done_rx), thread: Some(thread) })
     }
 
     /// Submit a receive into a registered buffer and return a future.
     ///
     /// The lease must come from [`Self::acquire_buffer`]. Ownership transfers
     /// to the driver until the CQE arrives, then returns in
-    /// [`CompletionResult::into_buffer`].
+    /// [`CompletionResult::into_buffer`]. A full or disconnected submission
+    /// queue resolves immediately with `-EAGAIN` instead of blocking a caller.
     // cancel-safe: synchronous; no await points.
     pub fn recv_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
@@ -69,8 +76,8 @@ impl IoUringDriver {
                 return CompletionFuture::new(token, Arc::clone(&self.registry));
             }
         };
-        if let Err(error) = self.tx.send(Submission::RecvFixed { fd, buffer, token }) {
-            let Submission::RecvFixed { buffer, .. } = error.0 else { unreachable!() };
+        if let Err(error) = self.tx.try_send(Submission::RecvFixed { fd, buffer, token }) {
+            let Submission::RecvFixed { buffer, .. } = error.into_inner() else { unreachable!() };
             self.registry.complete(token, CompletionResult::with_buffer(-libc::EAGAIN, 0, buffer));
         }
         CompletionFuture::new(token, Arc::clone(&self.registry))
@@ -81,7 +88,8 @@ impl IoUringDriver {
     /// Ownership of `buf` is transferred to the driver, which keeps it alive
     /// until the io_uring completion is reaped.
     ///
-    /// See [`Self::recv_fixed`] for backpressure and failure behaviour.
+    /// A full or disconnected submission queue resolves immediately with
+    /// `-EAGAIN` instead of blocking a caller.
     // cancel-safe: synchronous; no await points.
     pub fn write(&self, fd: BorrowedFd<'_>, buf: Vec<u8>) -> CompletionFuture {
         let token = next_token();
@@ -89,7 +97,7 @@ impl IoUringDriver {
         let Some(fd) = self.duplicate_fd(fd, token) else {
             return CompletionFuture::new(token, Arc::clone(&self.registry));
         };
-        if self.tx.send(Submission::Write { fd, buf, token }).is_err() {
+        if self.tx.try_send(Submission::Write { fd, buf, token }).is_err() {
             self.registry.complete(token, CompletionResult::plain(-libc::EAGAIN, 0));
         }
         CompletionFuture::new(token, Arc::clone(&self.registry))
@@ -97,7 +105,8 @@ impl IoUringDriver {
 
     /// Submit `IORING_OP_WRITE_FIXED`, consuming the registered-buffer lease
     /// until the CQE is reaped. The completed lease is returned through
-    /// [`CompletionResult::into_buffer`].
+    /// [`CompletionResult::into_buffer`]. Queue saturation resolves as
+    /// `-EAGAIN` without blocking.
     // cancel-safe: synchronous; no await points.
     pub fn write_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
@@ -110,8 +119,8 @@ impl IoUringDriver {
                 return CompletionFuture::new(token, Arc::clone(&self.registry));
             }
         };
-        if let Err(error) = self.tx.send(Submission::WriteFixed { fd, buffer, token }) {
-            let Submission::WriteFixed { buffer, .. } = error.0 else { unreachable!() };
+        if let Err(error) = self.tx.try_send(Submission::WriteFixed { fd, buffer, token }) {
+            let Submission::WriteFixed { buffer, .. } = error.into_inner() else { unreachable!() };
             self.registry.complete(token, CompletionResult::with_buffer(-libc::EAGAIN, 0, buffer));
         }
         CompletionFuture::new(token, Arc::clone(&self.registry))
@@ -154,21 +163,38 @@ impl IoUringDriver {
         // (disconnected) on the very first call.
         drop(rx);
         let registry = Arc::new(CompletionRegistry::new());
-        Self { tx, registry, pool, thread: None }
+        Self { tx, registry, pool, shutdown: Arc::new(AtomicBool::new(false)), done_rx: None, thread: None }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_stalled_channel(pool: Arc<RegisteredBufferPool>) -> (Self, flume::Receiver<Submission>) {
+        let (tx, rx) = flume::bounded::<Submission>(1);
+        let registry = Arc::new(CompletionRegistry::new());
+        let driver =
+            Self { tx, registry, pool, shutdown: Arc::new(AtomicBool::new(false)), done_rx: None, thread: None };
+        (driver, rx)
     }
 }
 
 impl Drop for IoUringDriver {
     fn drop(&mut self) {
-        // Blocking here is bounded: the driver thread drains the queue and
-        // exits, so send unblocks within one drain cycle. send() returns Err
-        // only when the receiver is already gone (driver exited on its own),
-        // which is also fine — the thread join below will succeed immediately.
-        if self.tx.send(Submission::Shutdown).is_err() {
-            log::warn!("io-uring driver thread was already gone at Drop");
-        }
+        self.shutdown.store(true, Ordering::Release);
+        let _ = self.tx.try_send(Submission::Shutdown);
         if let Some(handle) = self.thread.take() {
-            let _ = handle.join();
+            let finished = self.done_rx.as_ref().is_some_and(|done_rx| {
+                matches!(
+                    done_rx.recv_timeout(DRIVER_SHUTDOWN_TIMEOUT),
+                    Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected)
+                )
+            });
+            if finished {
+                if handle.join().is_err() {
+                    log::warn!("io-uring driver thread panicked during shutdown");
+                }
+            } else {
+                log::warn!("io-uring driver did not stop within {DRIVER_SHUTDOWN_TIMEOUT:?}; detaching cleanup thread");
+                drop(handle);
+            }
         }
     }
 }
@@ -244,6 +270,47 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         assert_eq!(driver.available_buffers(), 4, "late CQE must release the abandoned lease");
+    }
+
+    #[test]
+    fn saturated_submission_queue_returns_without_blocking() {
+        let Some(pool) = try_make_pool() else {
+            eprintln!("io_uring unavailable; skipping saturated_submission_queue_returns_without_blocking");
+            return;
+        };
+        let (driver, stalled_rx) = IoUringDriver::new_with_stalled_channel(pool);
+        let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
+        let first = driver.write(file.as_fd(), vec![0_u8; 4]);
+
+        let started = Instant::now();
+        let second = driver.write(file.as_fd(), vec![0_u8; 4]);
+        assert!(started.elapsed() < Duration::from_millis(50), "a full submission queue must not block the caller");
+        let result = block_on_completion(second);
+        assert_eq!(result.result, -libc::EAGAIN);
+
+        drop(first);
+        drop(stalled_rx);
+        drop(driver);
+    }
+
+    #[test]
+    fn driver_drop_is_bounded_with_blocked_read() {
+        let Ok(driver) = IoUringDriver::start(4, 1024) else {
+            eprintln!("io_uring unavailable; skipping driver_drop_is_bounded_with_blocked_read");
+            return;
+        };
+        let (_sender, receiver) = UnixStream::pair().expect("create socket pair");
+        let handle = driver.acquire_buffer().expect("acquire registered buffer");
+        let future = driver.recv_fixed(receiver.as_fd(), handle);
+        std::thread::sleep(Duration::from_millis(25));
+
+        let started = Instant::now();
+        drop(driver);
+        assert!(
+            started.elapsed() < DRIVER_SHUTDOWN_TIMEOUT + Duration::from_millis(100),
+            "driver Drop exceeded its bounded shutdown interval"
+        );
+        drop(future);
     }
 
     /// Helper: create a small pool if io_uring is available on this host.

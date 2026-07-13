@@ -129,6 +129,29 @@ impl CompletionRegistry {
             waker.wake();
         }
     }
+
+    /// Resolve any registry entries not accounted for by the driver resource
+    /// maps during teardown. Ready results are preserved; abandoned entries
+    /// are removed without waking a task that no longer exists.
+    pub(crate) fn fail_pending(&self, error: i32) {
+        let wakers = {
+            let mut slots = self.slots.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut wakers = Vec::new();
+            slots.retain(|_, slot| match slot {
+                WakerSlot::Pending(waker) => {
+                    wakers.extend(waker.take());
+                    *slot = WakerSlot::Ready(CompletionResult::plain(error, 0));
+                    true
+                }
+                WakerSlot::Ready(_) => true,
+                WakerSlot::Abandoned => false,
+            });
+            wakers
+        };
+        for waker in wakers {
+            waker.wake();
+        }
+    }
 }
 
 impl std::future::Future for CompletionFuture {
