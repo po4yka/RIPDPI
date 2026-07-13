@@ -81,6 +81,119 @@ async fn settings_synack_tcp_echo_and_multiplexing_share_one_tls_session() {
 }
 
 #[tokio::test]
+async fn concurrent_opens_share_one_in_flight_tls_session() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let (first, second) = tokio::join!(
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+    );
+    let mut first = first.expect("open first stream");
+    let mut second = second.expect("open second stream");
+
+    first.write_all(b"first").await.expect("write first");
+    second.write_all(b"second").await.expect("write second");
+    assert_eq!(first.read_exact_len(5).await.expect("read first"), b"first");
+    assert_eq!(second.read_exact_len(6).await.expect("read second"), b"second");
+
+    let observed = fixture.observed();
+    assert_eq!(observed.tls_session_count, 1, "concurrent opens must share one in-flight carrier");
+    assert_eq!(observed.syn_stream_ids, vec![1, 2]);
+}
+
+#[tokio::test]
+async fn cancelling_open_closes_only_its_pending_stream() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { synack_delay: Duration::from_millis(250), ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let opening_client = client.clone();
+    let target_port = fixture.target_port();
+    let opening =
+        tokio::spawn(async move { opening_client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), target_port).await });
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            if fixture.observed().syn_stream_ids == vec![1] {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("first stream SYN");
+
+    opening.abort();
+    assert!(opening.await.expect_err("open task must be cancelled").is_cancelled());
+
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            if fixture.observed().fin_stream_ids == vec![1] {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("cancelled open must close its pending stream");
+
+    let mut next = tokio::time::timeout(
+        Duration::from_secs(2),
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+    )
+    .await
+    .expect("next open must complete")
+    .expect("open next stream");
+    next.write_all(b"next").await.expect("write next stream");
+    assert_eq!(next.read_exact_len(4).await.expect("read next stream"), b"next");
+    assert_eq!(fixture.observed().tls_session_count, 1, "cancellation must not discard the shared carrier");
+}
+
+#[tokio::test]
+async fn cancelling_first_waiter_does_not_cancel_shared_establishment() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { tls_handshake_delay: Duration::from_millis(250), ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let first_client = client.clone();
+    let target_port = fixture.target_port();
+    let first =
+        tokio::spawn(async move { first_client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), target_port).await });
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            if fixture.observed().tls_session_count == 1 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("first carrier accepted");
+
+    first.abort();
+    assert!(first.await.expect_err("first waiter must be cancelled").is_cancelled());
+
+    let mut second = tokio::time::timeout(
+        Duration::from_secs(2),
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+    )
+    .await
+    .expect("second waiter must observe shared establishment")
+    .expect("open second stream");
+    second.write_all(b"shared").await.expect("write second stream");
+    assert_eq!(second.read_exact_len(6).await.expect("read second stream"), b"shared");
+    assert_eq!(fixture.observed().tls_session_count, 1, "caller cancellation must not restart the carrier");
+}
+
+#[tokio::test]
 async fn unread_stream_does_not_block_other_streams_on_the_same_session() {
     let fixture = AnyTlsLoopback::start(
         "fixture-password",

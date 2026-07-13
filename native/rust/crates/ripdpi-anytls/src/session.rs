@@ -102,7 +102,7 @@ pub struct AnyTlsDatagram {
     pub payload: Vec<u8>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum AnyTlsError {
     #[error("invalid AnyTLS config: {0}")]
     Config(String),
@@ -149,6 +149,7 @@ pub struct AnyTlsClient {
 struct ClientState {
     padding_scheme: PaddingScheme,
     session: Option<SessionHandle>,
+    session_waiters: Vec<oneshot::Sender<Result<SessionHandle, AnyTlsError>>>,
 }
 
 struct SessionHandle {
@@ -178,6 +179,22 @@ enum Outbound {
     Batch(Vec<Frame>),
 }
 
+struct CancelOpenOnDrop(Option<oneshot::Sender<()>>);
+
+impl CancelOpenOnDrop {
+    fn disarm(&mut self) {
+        self.0.take();
+    }
+}
+
+impl Drop for CancelOpenOnDrop {
+    fn drop(&mut self) {
+        if let Some(sender) = self.0.take() {
+            sender.send(()).ok();
+        }
+    }
+}
+
 pub struct AnyTlsStream {
     stream_id: u32,
     outbound: mpsc::Sender<Outbound>,
@@ -204,16 +221,50 @@ impl AnyTlsClient {
             .map_err(|error| AnyTlsError::Padding(error.to_string()))?;
         Ok(Self {
             config: Arc::new(config),
-            state: Arc::new(Mutex::new(ClientState { padding_scheme, session: None })),
+            state: Arc::new(Mutex::new(ClientState { padding_scheme, session: None, session_waiters: Vec::new() })),
         })
     }
 
+    /// cancel-safe: a detached worker owns session establishment and pending-route
+    /// cleanup; dropping this future signals cancellation without abandoning state.
     pub async fn open_tcp(&self, target: TargetAddr, port: u16) -> Result<AnyTlsStream, AnyTlsError> {
-        let session = self.session().await?;
+        let (cancel_tx, cancel_rx) = oneshot::channel();
+        let (result_tx, result_rx) = oneshot::channel();
+        let (accepted_tx, accepted_rx) = oneshot::channel();
+        let mut cancel_on_drop = CancelOpenOnDrop(Some(cancel_tx));
+        let client = self.clone();
+        tokio::spawn(async move {
+            client.open_tcp_worker(target, port, cancel_rx, result_tx, accepted_rx).await;
+        });
+
+        let result = result_rx.await.unwrap_or(Err(AnyTlsError::SessionClosed));
+        if result.is_ok() {
+            accepted_tx.send(()).ok();
+        }
+        cancel_on_drop.disarm();
+        result
+    }
+
+    async fn open_tcp_worker(
+        &self,
+        target: TargetAddr,
+        port: u16,
+        mut cancel_rx: oneshot::Receiver<()>,
+        result_tx: oneshot::Sender<Result<AnyTlsStream, AnyTlsError>>,
+        accepted_rx: oneshot::Receiver<()>,
+    ) {
+        let session = tokio::select! {
+            biased;
+            _ = &mut cancel_rx => return,
+            result = self.session() => match result {
+                Ok(session) => session,
+                Err(error) => {
+                    result_tx.send(Err(error)).ok();
+                    return;
+                }
+            },
+        };
         let stream_id = session.allocate_stream_id().await;
-        let (inbound_tx, inbound_rx) = mpsc::channel(32);
-        let (ack_tx, ack_rx) = oneshot::channel();
-        session.streams.lock().await.insert(stream_id, StreamRoute { inbound: inbound_tx, open_ack: Some(ack_tx) });
 
         let mut frames = Vec::new();
         if stream_id == 1 {
@@ -222,31 +273,69 @@ impl AnyTlsClient {
             frames.push(Frame::with_data(Command::Settings, 0, settings));
         }
         frames.push(Frame::control(Command::Syn, stream_id));
-        frames.push(Frame::with_data(Command::Psh, stream_id, encode_target(&target, port)?));
-        if let Err(error) = session.send_batch(frames).await {
-            session.streams.lock().await.remove(&stream_id);
-            self.clear_cached_session(&session).await;
-            return Err(error);
+        let target = match encode_target(&target, port) {
+            Ok(target) => target,
+            Err(error) => {
+                result_tx.send(Err(error)).ok();
+                return;
+            }
+        };
+        frames.push(Frame::with_data(Command::Psh, stream_id, target));
+
+        if !matches!(cancel_rx.try_recv(), Err(oneshot::error::TryRecvError::Empty)) {
+            return;
         }
 
-        match ack_rx.await {
-            Ok(Ok(())) => Ok(AnyTlsStream {
-                stream_id,
-                outbound: session.outbound.clone(),
-                inbound: inbound_rx,
-                read_buffer: VecDeque::new(),
-            }),
+        let (inbound_tx, inbound_rx) = mpsc::channel(32);
+        let (ack_tx, mut ack_rx) = oneshot::channel();
+        session.streams.lock().await.insert(stream_id, StreamRoute { inbound: inbound_tx, open_ack: Some(ack_tx) });
+
+        let send_result = tokio::select! {
+            biased;
+            _ = &mut cancel_rx => {
+                close_pending_stream(&session, stream_id).await;
+                return;
+            }
+            result = session.send_batch(frames) => result,
+        };
+        if let Err(error) = send_result {
+            close_pending_stream(&session, stream_id).await;
+            self.clear_cached_session(&session).await;
+            result_tx.send(Err(error)).ok();
+            return;
+        }
+
+        let ack_result = tokio::select! {
+            biased;
+            _ = &mut cancel_rx => {
+                close_pending_stream(&session, stream_id).await;
+                return;
+            }
+            result = &mut ack_rx => result,
+        };
+        match ack_result {
+            Ok(Ok(())) => {
+                let stream = AnyTlsStream {
+                    stream_id,
+                    outbound: session.outbound.clone(),
+                    inbound: inbound_rx,
+                    read_buffer: VecDeque::new(),
+                };
+                if result_tx.send(Ok(stream)).is_err() || accepted_rx.await.is_err() {
+                    close_pending_stream(&session, stream_id).await;
+                }
+            }
             Ok(Err(error)) => {
-                session.streams.lock().await.remove(&stream_id);
+                close_pending_stream(&session, stream_id).await;
                 if matches!(error, AnyTlsError::SessionClosed) {
                     self.clear_cached_session(&session).await;
                 }
-                Err(error)
+                result_tx.send(Err(error)).ok();
             }
             Err(_) => {
-                session.streams.lock().await.remove(&stream_id);
+                close_pending_stream(&session, stream_id).await;
                 self.clear_cached_session(&session).await;
-                Err(AnyTlsError::SessionClosed)
+                result_tx.send(Err(AnyTlsError::SessionClosed)).ok();
             }
         }
     }
@@ -278,18 +367,42 @@ impl AnyTlsClient {
         client.open_tcp(target, port).await
     }
 
+    /// cancel-safe: establishment runs in a detached singleflight task; dropping
+    /// one waiter only closes its oneshot receiver and cannot cancel the carrier.
     async fn session(&self) -> Result<SessionHandle, AnyTlsError> {
-        // Snapshot the cached handle in its own scope. An `if let` scrutinee
-        // temporary lives through the body, so locking inline here would keep
-        // the state guard held while `clear_cached_session` locks it again.
-        let cached_session = { self.state.lock().await.session.clone() };
-        if let Some(session) = cached_session {
-            if !session.outbound.is_closed() && !session.closing.load(Ordering::Acquire) {
-                return Ok(session);
+        let (receiver, should_start) = {
+            let mut state = self.state.lock().await;
+            if let Some(session) = state.session.clone() {
+                if !session.outbound.is_closed() && !session.closing.load(Ordering::Acquire) {
+                    return Ok(session);
+                }
+                state.session = None;
             }
-            self.clear_cached_session(&session).await;
+
+            let (sender, receiver) = oneshot::channel();
+            let should_start = state.session_waiters.is_empty();
+            state.session_waiters.push(sender);
+            (receiver, should_start)
+        };
+
+        if should_start {
+            let client = self.clone();
+            tokio::spawn(async move {
+                let result = client.establish_network_session().await;
+                let waiters = {
+                    let mut state = client.state.lock().await;
+                    std::mem::take(&mut state.session_waiters)
+                };
+                for waiter in waiters {
+                    waiter.send(result.clone()).ok();
+                }
+            });
         }
 
+        receiver.await.unwrap_or(Err(AnyTlsError::SessionClosed))
+    }
+
+    async fn establish_network_session(&self) -> Result<SessionHandle, AnyTlsError> {
         // PROTECT INVARIANT: the carrier socket is protected before connect via the
         // in-process VpnService.protect registry (loopback-skipped, fail-closed under
         // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
@@ -349,8 +462,16 @@ impl SessionHandle {
         id
     }
 
+    /// cancel-safe: Tokio's bounded `mpsc::Sender::send` does not enqueue the
+    /// batch when its future is cancelled before capacity becomes available.
     async fn send_batch(&self, frames: Vec<Frame>) -> Result<(), AnyTlsError> {
         self.outbound.send(Outbound::Batch(frames)).await.map_err(|_| AnyTlsError::SessionClosed)
+    }
+}
+
+async fn close_pending_stream(session: &SessionHandle, stream_id: u32) {
+    if session.streams.lock().await.remove(&stream_id).is_some() {
+        session.outbound.try_send(Outbound::Batch(vec![Frame::control(Command::Fin, stream_id)])).ok();
     }
 }
 
