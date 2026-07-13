@@ -74,9 +74,8 @@ internal class DiagnosticsUiCoreSupport
     @Inject
     constructor(
         internal val formatter: DiagnosticsUiFormatter,
-    ) {
-        constructor() : this(DiagnosticsUiFormatter())
-    }
+        internal val strings: StringResolver,
+    )
 
 internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
     session: DiagnosticScanSession,
@@ -88,18 +87,39 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
         id = session.id,
         profileId = session.profileId,
         title = session.summary,
-        subtitle = "${session.pathMode} · ${session.serviceMode ?: "Unknown"} · ${formatTimestamp(session.startedAt)}",
+        subtitle =
+            strings.getString(
+                R.string.diagnostics_session_subtitle_format,
+                session.pathMode,
+                session.serviceMode ?: strings.getString(R.string.diagnostics_field_unknown),
+                formatTimestamp(session.startedAt),
+            ),
         pathMode = session.pathMode,
-        serviceMode = session.serviceMode ?: "Unknown",
+        serviceMode = session.serviceMode ?: strings.getString(R.string.diagnostics_field_unknown),
         status = session.status,
         startedAtLabel = formatTimestamp(session.startedAt),
         summary = session.summary,
         metrics =
             buildList {
-                add(DiagnosticsMetricUiModel(label = "Path", value = session.pathMode))
-                add(DiagnosticsMetricUiModel(label = "Mode", value = session.serviceMode ?: "Unknown"))
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = strings.getString(R.string.diagnostics_metric_path),
+                        value = session.pathMode,
+                    ),
+                )
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = strings.getString(R.string.diagnostics_metric_mode),
+                        value = session.serviceMode ?: strings.getString(R.string.diagnostics_field_unknown),
+                    ),
+                )
                 report?.results?.size?.let {
-                    add(DiagnosticsMetricUiModel(label = "Probes", value = it.toString()))
+                    add(
+                        DiagnosticsMetricUiModel(
+                            label = strings.getString(R.string.diagnostics_metric_probes),
+                            value = it.toString(),
+                        ),
+                    )
                 }
             }.toImmutableList(),
         tone =
@@ -208,13 +228,15 @@ internal fun DiagnosticsUiCoreSupport.formatBps(bps: Long): String = formatter.f
 internal fun DiagnosticsUiCoreSupport.formatDurationMs(durationMs: Long): String =
     formatter.formatDurationMs(durationMs)
 
-internal fun DiagnosticsUiCoreSupport.redactValue(value: String?): String = value?.let { "Hidden" } ?: "Unknown"
+internal fun DiagnosticsUiCoreSupport.redactValue(value: String?): String =
+    value?.let { strings.getString(R.string.diagnostics_field_hidden) }
+        ?: strings.getString(R.string.diagnostics_field_unknown)
 
 internal fun DiagnosticsUiCoreSupport.redactCollection(values: List<String>): String =
     if (values.isEmpty()) {
-        "Unknown"
+        strings.getString(R.string.diagnostics_field_unknown)
     } else {
-        "Hidden (${values.size})"
+        strings.getString(R.string.diagnostics_field_hidden_count_format, values.size)
     }
 
 internal fun DiagnosticsUiCoreSupport.aggregateBucketForProbeResults(

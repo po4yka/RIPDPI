@@ -1,0 +1,29 @@
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%2$s पर %1$s</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">अवधि</string>
+    <string name="diagnostics_metric_health">स्थिति</string>
+    <string name="diagnostics_metric_route_changes">रूट परिवर्तन</string>
+    <string name="diagnostics_metric_path">पथ</string>
+    <string name="diagnostics_metric_probes">जाँच</string>
+    <string name="diagnostics_field_hidden">छिपा हुआ</string>
+    <string name="diagnostics_field_hidden_count_format">छिपा हुआ (%1$d)</string>
+    <string name="diagnostics_field_winning_tcp_family">विजेता TCP परिवार</string>
+    <string name="diagnostics_field_winning_quic_family">विजेता QUIC परिवार</string>
+    <string name="diagnostics_field_network_fingerprint">नेटवर्क फ़िंगरप्रिंट</string>
+    <string name="diagnostics_field_proxy_rtt_band">प्रॉक्सी RTT बैंड</string>
+    <string name="diagnostics_field_resolver_rtt_band">रिज़ॉल्वर RTT बैंड</string>
+    <string name="diagnostics_field_aggregate_rtt_band">कुल RTT बैंड</string>
+    <string name="diagnostics_field_proxy_route_retries">प्रॉक्सी रूट पुनः प्रयास</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">टनल रिकवरी पुनः प्रयास</string>
+    <string name="diagnostics_field_total_retries">कुल पुनः प्रयास</string>
+    <string name="diagnostics_field_classifier">वर्गीकारक</string>
+    <string name="diagnostics_field_packs">पैक</string>
+    <string name="diagnostics_field_source">स्रोत</string>
+    <string name="diagnostics_field_recorded">दर्ज</string>
+    <string name="diagnostics_duration_hours_format">%1$d घं %2$d मि</string>
+    <string name="diagnostics_duration_minutes_format">%1$d मि %2$d से</string>
+    <string name="diagnostics_duration_seconds_format">%1$d से</string>
+</resources>

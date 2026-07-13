@@ -1,0 +1,29 @@
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%1$s sur %2$s</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">Durée</string>
+    <string name="diagnostics_metric_health">État</string>
+    <string name="diagnostics_metric_route_changes">Changements de route</string>
+    <string name="diagnostics_metric_path">Chemin</string>
+    <string name="diagnostics_metric_probes">Sondes</string>
+    <string name="diagnostics_field_hidden">Masqué</string>
+    <string name="diagnostics_field_hidden_count_format">Masqué (%1$d)</string>
+    <string name="diagnostics_field_winning_tcp_family">Famille TCP gagnante</string>
+    <string name="diagnostics_field_winning_quic_family">Famille QUIC gagnante</string>
+    <string name="diagnostics_field_network_fingerprint">Empreinte réseau</string>
+    <string name="diagnostics_field_proxy_rtt_band">Plage RTT du proxy</string>
+    <string name="diagnostics_field_resolver_rtt_band">Plage RTT du résolveur</string>
+    <string name="diagnostics_field_aggregate_rtt_band">Plage RTT globale</string>
+    <string name="diagnostics_field_proxy_route_retries">Nouvelles tentatives de route proxy</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">Nouvelles tentatives du tunnel</string>
+    <string name="diagnostics_field_total_retries">Total des nouvelles tentatives</string>
+    <string name="diagnostics_field_classifier">Classificateur</string>
+    <string name="diagnostics_field_packs">Packs</string>
+    <string name="diagnostics_field_source">Source</string>
+    <string name="diagnostics_field_recorded">Enregistré</string>
+    <string name="diagnostics_duration_hours_format">%1$d h %2$d min</string>
+    <string name="diagnostics_duration_minutes_format">%1$d min %2$d s</string>
+    <string name="diagnostics_duration_seconds_format">%1$d s</string>
+</resources>

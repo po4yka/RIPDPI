@@ -1,0 +1,29 @@
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%1$s（%2$s）</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">持续时间</string>
+    <string name="diagnostics_metric_health">状态</string>
+    <string name="diagnostics_metric_route_changes">路由变更</string>
+    <string name="diagnostics_metric_path">路径</string>
+    <string name="diagnostics_metric_probes">探测</string>
+    <string name="diagnostics_field_hidden">已隐藏</string>
+    <string name="diagnostics_field_hidden_count_format">已隐藏（%1$d）</string>
+    <string name="diagnostics_field_winning_tcp_family">胜出 TCP 系列</string>
+    <string name="diagnostics_field_winning_quic_family">胜出 QUIC 系列</string>
+    <string name="diagnostics_field_network_fingerprint">网络指纹</string>
+    <string name="diagnostics_field_proxy_rtt_band">代理 RTT 区间</string>
+    <string name="diagnostics_field_resolver_rtt_band">解析器 RTT 区间</string>
+    <string name="diagnostics_field_aggregate_rtt_band">总体 RTT 区间</string>
+    <string name="diagnostics_field_proxy_route_retries">代理路由重试</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">隧道恢复重试</string>
+    <string name="diagnostics_field_total_retries">重试总数</string>
+    <string name="diagnostics_field_classifier">分类器</string>
+    <string name="diagnostics_field_packs">包</string>
+    <string name="diagnostics_field_source">来源</string>
+    <string name="diagnostics_field_recorded">记录时间</string>
+    <string name="diagnostics_duration_hours_format">%1$d小时%2$d分钟</string>
+    <string name="diagnostics_duration_minutes_format">%1$d分钟%2$d秒</string>
+    <string name="diagnostics_duration_seconds_format">%1$d秒</string>
+</resources>

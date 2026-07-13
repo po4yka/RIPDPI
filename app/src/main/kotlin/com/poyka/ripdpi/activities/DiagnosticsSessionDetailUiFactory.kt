@@ -97,14 +97,21 @@ internal class DiagnosticsSessionDetailUiFactory
                             )
                         }
                     }
-                    report?.classifierVersion?.let { add(DiagnosticsFieldUiModel("Classifier", it)) }
+                    report?.classifierVersion?.let {
+                        add(
+                            DiagnosticsFieldUiModel(
+                                support.context.getString(R.string.diagnostics_field_classifier),
+                                it,
+                            ),
+                        )
+                    }
                     report
                         ?.packVersions
                         ?.takeIf { it.isNotEmpty() }
                         ?.let { versions ->
                             add(
                                 DiagnosticsFieldUiModel(
-                                    "Packs",
+                                    support.context.getString(R.string.diagnostics_field_packs),
                                     versions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" },
                                 ),
                             )
@@ -156,10 +163,20 @@ internal class DiagnosticsSessionDetailUiFactory
                     buildList {
                         addAll(details.map { DiagnosticsFieldUiModel(it.label, it.value) })
                         if (source.isNotBlank()) {
-                            add(DiagnosticsFieldUiModel("Source", source))
+                            add(
+                                DiagnosticsFieldUiModel(
+                                    support.context.getString(R.string.diagnostics_field_source),
+                                    source,
+                                ),
+                            )
                         }
                         if (updatedAt > 0L) {
-                            add(DiagnosticsFieldUiModel("Recorded", support.formatTimestamp(updatedAt)))
+                            add(
+                                DiagnosticsFieldUiModel(
+                                    support.context.getString(R.string.diagnostics_field_recorded),
+                                    support.formatTimestamp(updatedAt),
+                                ),
+                            )
                         }
                     }.toImmutableList(),
             )

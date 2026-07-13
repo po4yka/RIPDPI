@@ -17,7 +17,7 @@ class DiagnosticsUiCoreSupportTest {
     @Test
     fun `format timestamp uses injected zone`() {
         val support =
-            DiagnosticsUiCoreSupport(
+            testDiagnosticsUiCoreSupport(
                 object : DiagnosticsUiFormatter() {
                     override val locale: Locale = Locale.US
                     override val zoneId: ZoneId = ZoneId.of("America/New_York")
@@ -30,7 +30,7 @@ class DiagnosticsUiCoreSupportTest {
     @Test
     fun `formatters use injected locale`() {
         val support =
-            DiagnosticsUiCoreSupport(
+            testDiagnosticsUiCoreSupport(
                 object : DiagnosticsUiFormatter() {
                     override val locale: Locale = Locale.FRANCE
                     override val zoneId: ZoneId = ZoneId.of("UTC")
@@ -44,7 +44,7 @@ class DiagnosticsUiCoreSupportTest {
 
     @Test
     fun `probe tone uses canonical taxonomy`() {
-        val support = DiagnosticsUiCoreSupport()
+        val support = testDiagnosticsUiCoreSupport()
 
         assertEquals(
             DiagnosticsTone.Positive,
@@ -62,7 +62,7 @@ class DiagnosticsUiCoreSupportTest {
 
     @Test
     fun `session row tone comes from report results before status`() {
-        val support = DiagnosticsUiCoreSupport()
+        val support = testDiagnosticsUiCoreSupport()
         val session =
             DiagnosticScanSession(
                 id = "session-1",
@@ -91,7 +91,7 @@ class DiagnosticsUiCoreSupportTest {
 
     @Test
     fun `event level tone uses explicit mapping`() {
-        val support = DiagnosticsUiCoreSupport()
+        val support = testDiagnosticsUiCoreSupport()
 
         assertEquals(DiagnosticsTone.Info, support.toneForEventLevel("info"))
         assertEquals(DiagnosticsTone.Warning, support.toneForEventLevel("warn"))
@@ -100,7 +100,7 @@ class DiagnosticsUiCoreSupportTest {
 
     @Test
     fun `session row exposes owned stack launch target when verdict requires owned stack`() {
-        val support = DiagnosticsUiCoreSupport()
+        val support = testDiagnosticsUiCoreSupport()
         val session =
             DiagnosticScanSession(
                 id = "session-owned-stack",
@@ -132,7 +132,7 @@ class DiagnosticsUiCoreSupportTest {
 
     @Test
     fun `session row preserves transport verdict metadata for remediation branching`() {
-        val support = DiagnosticsUiCoreSupport()
+        val support = testDiagnosticsUiCoreSupport()
         val session =
             DiagnosticScanSession(
                 id = "session-transport",

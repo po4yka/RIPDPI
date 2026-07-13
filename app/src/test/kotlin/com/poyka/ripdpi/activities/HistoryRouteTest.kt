@@ -54,7 +54,7 @@ class HistoryRouteTest {
     private fun createHistoryViewModel(
         diagnosticsBootstrapper: FakeHistoryDiagnosticsBootstrapper = FakeHistoryDiagnosticsBootstrapper(),
     ): HistoryViewModel {
-        val coreSupport = DiagnosticsUiCoreSupport()
+        val coreSupport = testDiagnosticsUiCoreSupport()
         return HistoryViewModel(
             diagnosticsHistorySource = FakeDiagnosticsHistorySource(),
             historyDetailLoader = FakeHistoryDetailLoader(),

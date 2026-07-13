@@ -1,0 +1,29 @@
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%1$s عبر %2$s</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">المدة</string>
+    <string name="diagnostics_metric_health">الحالة</string>
+    <string name="diagnostics_metric_route_changes">تغييرات المسار</string>
+    <string name="diagnostics_metric_path">المسار</string>
+    <string name="diagnostics_metric_probes">الاختبارات</string>
+    <string name="diagnostics_field_hidden">مخفي</string>
+    <string name="diagnostics_field_hidden_count_format">مخفي (%1$d)</string>
+    <string name="diagnostics_field_winning_tcp_family">عائلة TCP الفائزة</string>
+    <string name="diagnostics_field_winning_quic_family">عائلة QUIC الفائزة</string>
+    <string name="diagnostics_field_network_fingerprint">بصمة الشبكة</string>
+    <string name="diagnostics_field_proxy_rtt_band">نطاق RTT للوكيل</string>
+    <string name="diagnostics_field_resolver_rtt_band">نطاق RTT للمحلل</string>
+    <string name="diagnostics_field_aggregate_rtt_band">نطاق RTT الإجمالي</string>
+    <string name="diagnostics_field_proxy_route_retries">إعادات محاولة مسار الوكيل</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">إعادات استعادة النفق</string>
+    <string name="diagnostics_field_total_retries">إجمالي الإعادات</string>
+    <string name="diagnostics_field_classifier">المصنّف</string>
+    <string name="diagnostics_field_packs">الحزم</string>
+    <string name="diagnostics_field_source">المصدر</string>
+    <string name="diagnostics_field_recorded">مسجل</string>
+    <string name="diagnostics_duration_hours_format">%1$d س %2$d د</string>
+    <string name="diagnostics_duration_minutes_format">%1$d د %2$d ث</string>
+    <string name="diagnostics_duration_seconds_format">%1$d ث</string>
+</resources>

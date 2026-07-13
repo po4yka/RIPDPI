@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Context
+import androidx.annotation.StringRes
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
@@ -31,11 +32,25 @@ internal class HistoryConnectionDetailUiFactory
             val summary =
                 session.failureMessage
                     ?: session.endedReason
-                    ?: "${session.serviceMode} on ${session.networkType}"
+                    ?: stringResolver.getString(
+                        R.string.history_connection_summary_format,
+                        session.serviceMode,
+                        session.networkType,
+                    )
             return HistoryConnectionRowUiModel(
                 id = session.id,
-                title = "${session.serviceMode} ${session.connectionState.lowercase(Locale.US)}",
-                subtitle = "${session.networkType} · ${coreSupport.formatTimestamp(session.startedAt)}",
+                title =
+                    stringResolver.getString(
+                        R.string.history_connection_title_format,
+                        session.serviceMode,
+                        session.connectionState.lowercase(Locale.US),
+                    ),
+                subtitle =
+                    stringResolver.getString(
+                        R.string.history_connection_subtitle_format,
+                        session.networkType,
+                        coreSupport.formatTimestamp(session.startedAt),
+                    ),
                 serviceMode = session.serviceMode,
                 connectionState = session.connectionState,
                 networkType = session.networkType,
@@ -47,15 +62,22 @@ internal class HistoryConnectionDetailUiFactory
                     },
                 metrics =
                     persistentListOf(
-                        DiagnosticsMetricUiModel("Duration", formatDurationMs(durationMs)),
-                        DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(session.txBytes), DiagnosticsTone.Info),
                         DiagnosticsMetricUiModel(
-                            "RX",
+                            stringResolver.getString(R.string.diagnostics_metric_duration),
+                            formatDurationMs(durationMs),
+                        ),
+                        DiagnosticsMetricUiModel(
+                            stringResolver.getString(R.string.diagnostics_metric_tx),
+                            coreSupport.formatBytes(session.txBytes),
+                            DiagnosticsTone.Info,
+                        ),
+                        DiagnosticsMetricUiModel(
+                            stringResolver.getString(R.string.diagnostics_metric_rx),
                             coreSupport.formatBytes(session.rxBytes),
                             DiagnosticsTone.Positive,
                         ),
                         DiagnosticsMetricUiModel(
-                            "Errors",
+                            stringResolver.getString(R.string.diagnostics_metric_errors),
                             session.totalErrors.toString(),
                             if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
                         ),
@@ -84,32 +106,50 @@ internal class HistoryConnectionDetailUiFactory
             val retryTone = if (retryCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
             val errorTone = if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
             return buildList {
-                add(DiagnosticsMetricUiModel("Network", session.networkType, DiagnosticsTone.Info))
+                add(metric(R.string.diagnostics_metric_network, session.networkType, DiagnosticsTone.Info))
                 add(
-                    DiagnosticsMetricUiModel(
-                        "Health",
+                    metric(
+                        R.string.diagnostics_metric_health,
                         session.health.replaceFirstChar { it.uppercase() },
                         toneForConnection(session),
                     ),
                 )
-                add(DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(session.txBytes), DiagnosticsTone.Info))
-                add(DiagnosticsMetricUiModel("RX", coreSupport.formatBytes(session.rxBytes), DiagnosticsTone.Positive))
-                add(DiagnosticsMetricUiModel("Errors", session.totalErrors.toString(), errorTone))
-                add(DiagnosticsMetricUiModel("Route changes", session.routeChanges.toString(), DiagnosticsTone.Info))
+                add(
+                    metric(
+                        R.string.diagnostics_metric_tx,
+                        coreSupport.formatBytes(session.txBytes),
+                        DiagnosticsTone.Info,
+                    ),
+                )
+                add(
+                    metric(
+                        R.string.diagnostics_metric_rx,
+                        coreSupport.formatBytes(session.rxBytes),
+                        DiagnosticsTone.Positive,
+                    ),
+                )
+                add(metric(R.string.diagnostics_metric_errors, session.totalErrors.toString(), errorTone))
+                add(
+                    metric(
+                        R.string.diagnostics_metric_route_changes,
+                        session.routeChanges.toString(),
+                        DiagnosticsTone.Info,
+                    ),
+                )
                 (latestTelemetry?.failureClass ?: session.failureClass)?.let { failure ->
-                    add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
+                    add(metric(R.string.diagnostics_metric_failure_class, failure, DiagnosticsTone.Warning))
                 }
                 (latestTelemetry?.winningStrategyFamily() ?: session.winningStrategyFamily())?.let { strategy ->
-                    add(DiagnosticsMetricUiModel("Strategy", strategy, DiagnosticsTone.Positive))
+                    add(metric(R.string.diagnostics_metric_strategy, strategy, DiagnosticsTone.Positive))
                 }
                 add(
                     DiagnosticsMetricUiModel(
-                        "RTT band",
+                        stringResolver.getString(R.string.diagnostics_metric_rtt_band),
                         latestTelemetry?.rttBand() ?: session.rttBand(),
                         DiagnosticsTone.Info,
                     ),
                 )
-                add(DiagnosticsMetricUiModel("Retries", retryCount.toString(), retryTone))
+                add(metric(R.string.diagnostics_metric_retries, retryCount.toString(), retryTone))
             }.toImmutableList()
         }
 
@@ -134,7 +174,12 @@ internal class HistoryConnectionDetailUiFactory
             val snapshot = snapshotEntity.snapshot ?: return null
             return DiagnosticsNetworkSnapshotUiModel(
                 title = snapshotEntity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
-                subtitle = "${snapshot.transport} · ${coreSupport.formatTimestamp(snapshot.capturedAt)}",
+                subtitle =
+                    stringResolver.getString(
+                        R.string.history_connection_subtitle_format,
+                        snapshot.transport,
+                        coreSupport.formatTimestamp(snapshot.capturedAt),
+                    ),
                 fieldGroups =
                     listOf(
                         DiagnosticsFieldGroupUiModel(
@@ -142,14 +187,26 @@ internal class HistoryConnectionDetailUiFactory
                             fields =
                                 listOf(
                                     DiagnosticsFieldUiModel(
-                                        "DNS",
-                                        snapshot.dnsServers.joinToString().ifBlank { "Unknown" },
+                                        stringResolver.getString(R.string.diagnostics_field_dns),
+                                        snapshot.dnsServers.joinToString().ifBlank {
+                                            stringResolver.getString(R.string.diagnostics_field_unknown)
+                                        },
                                     ),
-                                    DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
-                                    DiagnosticsFieldUiModel("Public IP", snapshot.publicIp ?: "Unknown"),
-                                    DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
                                     DiagnosticsFieldUiModel(
-                                        "Captive portal",
+                                        stringResolver.getString(R.string.diagnostics_field_private_dns),
+                                        snapshot.privateDnsMode,
+                                    ),
+                                    DiagnosticsFieldUiModel(
+                                        stringResolver.getString(R.string.diagnostics_field_public_ip),
+                                        snapshot.publicIp
+                                            ?: stringResolver.getString(R.string.diagnostics_field_unknown),
+                                    ),
+                                    DiagnosticsFieldUiModel(
+                                        stringResolver.getString(R.string.diagnostics_field_validated),
+                                        snapshot.networkValidated.toString(),
+                                    ),
+                                    DiagnosticsFieldUiModel(
+                                        stringResolver.getString(R.string.diagnostics_field_captive_portal),
                                         snapshot.captivePortalDetected.toString(),
                                     ),
                                 ).toImmutableList(),
@@ -164,36 +221,49 @@ internal class HistoryConnectionDetailUiFactory
                     title = context.getString(R.string.history_detail_section_service),
                     fields =
                         listOf(
-                            DiagnosticsFieldUiModel("Status", service.serviceStatus),
-                            DiagnosticsFieldUiModel("Mode", service.activeMode),
-                            DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
-                            DiagnosticsFieldUiModel("Config source", service.configSource),
-                            DiagnosticsFieldUiModel("Proxy", service.proxyEndpoint),
-                            DiagnosticsFieldUiModel("Chain", service.chainSummary),
-                            DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),
+                            field(R.string.diagnostics_field_status, service.serviceStatus),
+                            field(R.string.diagnostics_field_mode, service.activeMode),
+                            field(R.string.diagnostics_field_profile, service.selectedProfileName),
+                            field(R.string.diagnostics_field_config_source, service.configSource),
+                            field(R.string.diagnostics_field_proxy, service.proxyEndpoint),
+                            field(R.string.diagnostics_field_chain, service.chainSummary),
+                            field(R.string.diagnostics_field_last_native_error, service.lastNativeErrorHeadline),
                         ).toImmutableList(),
                 ),
                 DiagnosticsContextGroupUiModel(
                     title = context.getString(R.string.history_detail_section_environment),
                     fields =
                         listOf(
-                            DiagnosticsFieldUiModel("VPN permission", permissions.vpnPermissionState),
-                            DiagnosticsFieldUiModel("Notifications", permissions.notificationPermissionState),
-                            DiagnosticsFieldUiModel("Battery optimization", permissions.batteryOptimizationState),
-                            DiagnosticsFieldUiModel("Data saver", permissions.dataSaverState),
-                            DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
-                            DiagnosticsFieldUiModel("Metered", environment.networkMeteredState),
-                            DiagnosticsFieldUiModel("Roaming", environment.roamingState),
+                            field(R.string.diagnostics_field_vpn_permission, permissions.vpnPermissionState),
+                            field(
+                                R.string.diagnostics_field_notification_permission,
+                                permissions.notificationPermissionState,
+                            ),
+                            field(
+                                R.string.diagnostics_field_battery_optimization,
+                                permissions.batteryOptimizationState,
+                            ),
+                            field(R.string.diagnostics_field_data_saver, permissions.dataSaverState),
+                            field(R.string.diagnostics_field_power_save, environment.powerSaveModeState),
+                            field(R.string.diagnostics_field_metered, environment.networkMeteredState),
+                            field(R.string.diagnostics_field_roaming, environment.roamingState),
                         ).toImmutableList(),
                 ),
                 DiagnosticsContextGroupUiModel(
                     title = context.getString(R.string.history_detail_section_device),
                     fields =
                         listOf(
-                            DiagnosticsFieldUiModel("App", device.appVersionName),
-                            DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
-                            DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
-                            DiagnosticsFieldUiModel("Locale", device.locale),
+                            field(R.string.diagnostics_field_app, device.appVersionName),
+                            field(R.string.diagnostics_field_device, "${device.manufacturer} ${device.model}"),
+                            field(
+                                R.string.diagnostics_field_android,
+                                stringResolver.getString(
+                                    R.string.diagnostics_field_android_version_format,
+                                    device.androidVersion,
+                                    device.apiLevel,
+                                ),
+                            ),
+                            field(R.string.diagnostics_field_locale, device.locale),
                         ).toImmutableList(),
                 ),
             )
@@ -216,19 +286,27 @@ internal class HistoryConnectionDetailUiFactory
             val retryCount = telemetry?.retryCount() ?: session.retryCount()
             val fields =
                 buildList {
-                    failureClass?.let { add(DiagnosticsFieldUiModel("Failure class", it)) }
-                    winningStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning strategy", it)) }
-                    winningTcpStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning TCP family", it)) }
-                    winningQuicStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning QUIC family", it)) }
-                    telemetryNetworkFingerprintHash?.let {
-                        add(DiagnosticsFieldUiModel("Network fingerprint", formatTelemetryHash(it)))
+                    failureClass?.let {
+                        add(field(R.string.diagnostics_metric_failure_class, it))
                     }
-                    add(DiagnosticsFieldUiModel("Proxy RTT band", proxyRttBand))
-                    add(DiagnosticsFieldUiModel("Resolver RTT band", resolverRttBand))
-                    add(DiagnosticsFieldUiModel("Aggregate RTT band", rttBand))
-                    add(DiagnosticsFieldUiModel("Proxy route retries", proxyRouteRetryCount.toString()))
-                    add(DiagnosticsFieldUiModel("Tunnel recovery retries", tunnelRecoveryRetryCount.toString()))
-                    add(DiagnosticsFieldUiModel("Total retries", retryCount.toString()))
+                    winningStrategyFamily?.let {
+                        add(field(R.string.diagnostics_metric_winning_strategy, it))
+                    }
+                    winningTcpStrategyFamily?.let {
+                        add(field(R.string.diagnostics_field_winning_tcp_family, it))
+                    }
+                    winningQuicStrategyFamily?.let {
+                        add(field(R.string.diagnostics_field_winning_quic_family, it))
+                    }
+                    telemetryNetworkFingerprintHash?.let {
+                        add(field(R.string.diagnostics_field_network_fingerprint, formatTelemetryHash(it)))
+                    }
+                    add(field(R.string.diagnostics_field_proxy_rtt_band, proxyRttBand))
+                    add(field(R.string.diagnostics_field_resolver_rtt_band, resolverRttBand))
+                    add(field(R.string.diagnostics_field_aggregate_rtt_band, rttBand))
+                    add(field(R.string.diagnostics_field_proxy_route_retries, proxyRouteRetryCount.toString()))
+                    add(field(R.string.diagnostics_field_tunnel_recovery_retries, tunnelRecoveryRetryCount.toString()))
+                    add(field(R.string.diagnostics_field_total_retries, retryCount.toString()))
                 }
             return fields.takeIf { it.isNotEmpty() }?.let {
                 DiagnosticsContextGroupUiModel(
@@ -298,6 +376,17 @@ internal class HistoryConnectionDetailUiFactory
                 "${value.take(TelemetryHashPrefixLength)}...${value.takeLast(TelemetryHashSuffixLength)}"
             }
 
+        private fun metric(
+            @StringRes labelRes: Int,
+            value: String,
+            tone: DiagnosticsTone = DiagnosticsTone.Neutral,
+        ): DiagnosticsMetricUiModel = DiagnosticsMetricUiModel(stringResolver.getString(labelRes), value, tone)
+
+        private fun field(
+            @StringRes labelRes: Int,
+            value: String,
+        ): DiagnosticsFieldUiModel = DiagnosticsFieldUiModel(stringResolver.getString(labelRes), value)
+
         private fun toneForConnection(session: DiagnosticConnectionSession): DiagnosticsTone =
             when {
                 session.connectionState.equals("failed", ignoreCase = true) -> DiagnosticsTone.Negative
@@ -312,9 +401,9 @@ internal class HistoryConnectionDetailUiFactory
             val minutes = (totalSeconds % SecondsPerHour) / SecondsPerMinute
             val seconds = totalSeconds % SecondsPerMinute
             return when {
-                hours > 0L -> "${hours}h ${minutes}m"
-                minutes > 0L -> "${minutes}m ${seconds}s"
-                else -> "${seconds}s"
+                hours > 0L -> stringResolver.getString(R.string.diagnostics_duration_hours_format, hours, minutes)
+                minutes > 0L -> stringResolver.getString(R.string.diagnostics_duration_minutes_format, minutes, seconds)
+                else -> stringResolver.getString(R.string.diagnostics_duration_seconds_format, seconds)
             }
         }
     }
