@@ -10,6 +10,9 @@ use crate::io_loop::packet::{TcpFlowKey, tcp_syn_flow_key};
 
 use super::socketaddr_to_listen_endpoint;
 
+/// Each pending TCP socket owns two `TCP_SOCKET_BUF` allocations. Keep the half-open handshake budget at roughly 16 MiB on Android.
+const MAX_PENDING_LISTENS: usize = 128;
+
 pub(crate) fn ensure_pending_listen_for_syn(
     pkt: &[u8],
     pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
@@ -18,16 +21,38 @@ pub(crate) fn ensure_pending_listen_for_syn(
     let Some(flow_key) = tcp_syn_flow_key(pkt) else {
         return;
     };
-    if let std::collections::hash_map::Entry::Vacant(entry) = pending_listens.entry(flow_key) {
-        let buf = || tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]);
-        let mut sock = TcpSocket::new(buf(), buf());
-        if sock.listen(socketaddr_to_listen_endpoint(flow_key.dst)).is_ok() {
-            let handle = socket_set.add(sock);
-            entry.insert((handle, StdInstant::now()));
-            debug!("Added LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
-        } else {
-            warn!("listen({}) failed for flow {} -> {}", flow_key.dst.port(), flow_key.src, flow_key.dst);
-        }
+    if pending_listens.contains_key(&flow_key) {
+        return;
+    }
+
+    let buf = || tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]);
+    let mut sock = TcpSocket::new(buf(), buf());
+    if sock.listen(socketaddr_to_listen_endpoint(flow_key.dst)).is_err() {
+        warn!("listen({}) failed for flow {} -> {}", flow_key.dst.port(), flow_key.src, flow_key.dst);
+        return;
+    }
+
+    if pending_listens.len() >= MAX_PENDING_LISTENS {
+        evict_oldest_pending_listen(pending_listens, socket_set);
+    }
+
+    let handle = socket_set.add(sock);
+    pending_listens.insert(flow_key, (handle, StdInstant::now()));
+    debug!("Added LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
+}
+
+fn evict_oldest_pending_listen(
+    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
+    socket_set: &mut SocketSet<'static>,
+) {
+    let oldest = pending_listens
+        .iter()
+        .min_by_key(|(key, (_, created_at))| (*created_at, key.src, key.dst))
+        .map(|(key, (handle, _))| (*key, *handle));
+    if let Some((flow_key, handle)) = oldest {
+        pending_listens.remove(&flow_key);
+        socket_set.remove(handle);
+        debug!("Evicted oldest pending LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
     }
 }
 

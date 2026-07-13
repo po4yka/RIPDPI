@@ -65,7 +65,9 @@ mod tests {
     use crate::{ActiveSessions, Stats, TunDevice};
 
     use super::super::TCP_SOCKET_BUF;
-    use super::super::packet::{build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr};
+    use super::super::packet::{
+        build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr, tcp_syn_flow_key,
+    };
     use super::{
         ensure_pending_listen_for_syn, socketaddr_to_listen_endpoint, spawn_new_tcp_sessions, tcp_session_target_addr,
     };
@@ -118,6 +120,28 @@ mod tests {
         assert_eq!(ipv4.port, 443);
         assert_eq!(ipv6.addr, Some(IpAddress::v6(0, 0, 0, 0, 0, 0, 0, 1)));
         assert_eq!(ipv6.port, 8443);
+    }
+
+    #[test]
+    fn pending_syn_admission_evicts_oldest_at_capacity() {
+        let mut pending_listens = HashMap::new();
+        let mut socket_set = SocketSet::new(vec![]);
+        let client_ip = Ipv4Addr::new(10, 0, 0, 99);
+        let target_ip = Ipv4Addr::new(203, 0, 113, 20);
+
+        for offset in 0..=128u16 {
+            let syn = build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_000 + offset, 443);
+            ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+        }
+
+        let oldest = tcp_syn_flow_key(&build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_000, 443))
+            .expect("valid oldest SYN flow");
+        let newest = tcp_syn_flow_key(&build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_128, 443))
+            .expect("valid newest SYN flow");
+        assert_eq!(pending_listens.len(), 128, "pending handshakes must stay within the memory budget");
+        assert_eq!(socket_set.iter().count(), 128, "eviction must remove the matching smoltcp socket");
+        assert!(!pending_listens.contains_key(&oldest), "the oldest pending handshake must be evicted first");
+        assert!(pending_listens.contains_key(&newest), "the newest pending handshake must be admitted");
     }
 
     #[test]
