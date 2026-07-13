@@ -2,7 +2,6 @@ use std::io;
 use std::os::fd::{BorrowedFd, OwnedFd};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -29,9 +28,14 @@ pub struct IoUringDriver {
     registry: Arc<CompletionRegistry>,
     pool: Arc<RegisteredBufferPool>,
     shutdown: Arc<AtomicBool>,
-    done_rx: Option<mpsc::Receiver<()>>,
+    done_rx: Option<flume::Receiver<()>>,
     thread: Option<thread::JoinHandle<()>>,
 }
+
+const _: fn() = || {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<IoUringDriver>();
+};
 
 impl IoUringDriver {
     /// Start the driver thread and register its buffer pool on the same ring.
@@ -61,7 +65,7 @@ impl IoUringDriver {
         let shutdown = Arc::new(AtomicBool::new(false));
         let shutdown_clone = Arc::clone(&shutdown);
         let resources = DriverResources::new(ring, Arc::clone(&pool));
-        let (done_tx, done_rx) = mpsc::sync_channel(1);
+        let (done_tx, done_rx) = flume::bounded(1);
 
         let thread = thread::Builder::new().name("io-uring-driver".into()).spawn(move || {
             driver_loop(resources, rx, registry_clone, shutdown_clone);
@@ -201,7 +205,7 @@ impl Drop for IoUringDriver {
             let finished = self.done_rx.as_ref().is_some_and(|done_rx| {
                 matches!(
                     done_rx.recv_timeout(DRIVER_SHUTDOWN_TIMEOUT),
-                    Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected)
+                    Ok(()) | Err(flume::RecvTimeoutError::Disconnected)
                 )
             });
             if finished {
