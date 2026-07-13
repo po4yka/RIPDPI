@@ -33,7 +33,7 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | transport | [Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture](issues/audit-relay-mux-default-nested-handshake-conformance.md) | unassigned | 2026-06-17 |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 
-## Review (13)
+## Review (14)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -42,6 +42,7 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | critical | data | [Make reset noncancellable after start](issues/make-reset-noncancellable-after-start.md) | Codex | 2026-07-13 |
 | critical | data | [Serialize full backup snapshots](issues/serialize-full-backup-snapshots.md) | Codex | 2026-07-13 |
 | critical | diagnostics | [Schedule diagnostics retention without monitor](issues/schedule-diagnostics-retention-without-monitor.md) | Codex | 2026-07-13 |
+| critical | service | [Serialize all WARP profile mutations](issues/serialize-all-warp-profile-mutations.md) | Codex | 2026-07-13 |
 | critical | service | [Unify root helper process ownership](issues/unify-root-helper-process-ownership.md) | Codex | 2026-07-13 |
 | critical | vpn | [Fail closed on VPN runtime stop failure](issues/fail-closed-on-vpn-runtime-stop-failure.md) | Codex | 2026-07-13 |
 | critical | vpn | [Stop VPN runtime during service destroy](issues/stop-vpn-runtime-during-service-destroy.md) | Codex | 2026-07-13 |
@@ -63,11 +64,10 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | unassigned | 2026-06-11 |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | unassigned | 2026-06-11 |
 
-## Todo (2)
+## Todo (1)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
-| critical | service | [Serialize all WARP profile mutations](issues/serialize-all-warp-profile-mutations.md) | Codex | 2026-07-13 |
 | medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | unassigned | 2026-06-11 |
 
 ## Backlog (14)

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.normalizeWarpScannerMode
 import com.poyka.ripdpi.data.normalizeWarpSetupState
 import com.poyka.ripdpi.data.rollbackStoreMutation
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,6 +34,7 @@ class DefaultWarpProfileActivationService
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val profileStore: WarpProfileStore,
+        private val mutationLock: WarpStoreMutationLock,
     ) : WarpProfileActivationService {
         override suspend fun activateProfile(
             profile: WarpProfile,
@@ -47,27 +49,23 @@ class DefaultWarpProfileActivationService
             }
         }
 
-        override suspend fun markProfileNeedsAttention(profile: WarpProfile) {
-            val previousProfile = profileStore.load(profile.id)
-            val updatedProfile = profile.copy(setupState = WarpSetupStateNeedsAttention)
-            runCatching {
-                profileStore.save(updatedProfile)
-                if (profileStore.activeProfileId() == profile.id ||
-                    appSettingsRepository.snapshot().warpProfileId == profile.id
-                ) {
-                    activateProfile(profile = updatedProfile, scannerMode = updatedProfile.lastScannerModeOrAutomatic())
-                }
-            }.exceptionOrNull()
-                ?.rollbackStoreMutation(
-                    {
-                        if (previousProfile == null) {
-                            profileStore.remove(profile.id)
-                        } else {
-                            profileStore.save(previousProfile)
-                        }
-                    },
-                )
-        }
+        override suspend fun markProfileNeedsAttention(profile: WarpProfile) =
+            mutationLock.mutex.withLock {
+                val previousProfile = profileStore.load(profile.id) ?: return@withLock
+                val updatedProfile = previousProfile.copy(setupState = WarpSetupStateNeedsAttention)
+                runCatching {
+                    profileStore.save(updatedProfile)
+                    if (profileStore.activeProfileId() == profile.id ||
+                        appSettingsRepository.snapshot().warpProfileId == profile.id
+                    ) {
+                        activateProfile(
+                            profile = updatedProfile,
+                            scannerMode = updatedProfile.lastScannerModeOrAutomatic(),
+                        )
+                    }
+                }.exceptionOrNull()
+                    ?.rollbackStoreMutation({ profileStore.save(previousProfile) })
+            }
 
         override suspend fun clearActiveProfile(profileId: String) {
             if (profileStore.activeProfileId() == profileId) {

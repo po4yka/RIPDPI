@@ -822,6 +822,7 @@ private fun createWarpEnrollmentOrchestrator(
         DefaultWarpProfileActivationService(
             appSettingsRepository = appSettingsRepository,
             profileStore = profileStore,
+            mutationLock = mutationLock,
         )
     return DefaultWarpEnrollmentOrchestrator(
         enrollmentFlowService =
