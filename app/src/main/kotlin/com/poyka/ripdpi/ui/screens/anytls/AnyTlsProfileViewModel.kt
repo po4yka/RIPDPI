@@ -7,9 +7,12 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,15 +21,13 @@ import javax.inject.Inject
  * UI state for the AnyTLS profile editor.
  *
  * [editor] is the immutable field/validation snapshot. [saving] is `true` while the
- * profile is being persisted and the native relay activated; [saved] flips to `true`
- * once the active relay has been set so the host can navigate away. [errorMessage]
+ * profile is being persisted and the native relay activated. [errorMessage]
  * carries a string resource when activation does not take, so the editor surfaces the
  * failure and keeps the user on the screen instead of silently discarding the input.
  */
 data class AnyTlsProfileUiState(
     val editor: AnyTlsProfileEditorState,
     val saving: Boolean = false,
-    val saved: Boolean = false,
     @StringRes val errorMessage: Int? = null,
 )
 
@@ -51,6 +52,9 @@ class AnyTlsProfileViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(AnyTlsProfileUiState(editor = AnyTlsProfileEditorState.initial()))
         val uiState: StateFlow<AnyTlsProfileUiState> = _uiState.asStateFlow()
+        private val savedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
+        val savedEvents: Flow<Unit> = savedEventChannel.receiveAsFlow()
+        private var completed = false
 
         /** Applies a user edit of [field] to [raw], tracking the keystrokes regardless of validity. */
         fun onFieldChanged(
@@ -69,7 +73,7 @@ class AnyTlsProfileViewModel
          */
         fun onSave() {
             val profile = _uiState.value.editor.toProfile() ?: return
-            if (_uiState.value.saving || _uiState.value.saved) return
+            if (_uiState.value.saving || completed) return
             _uiState.update { it.copy(saving = true, errorMessage = null) }
             viewModelScope.launch {
                 val activated =
@@ -80,10 +84,14 @@ class AnyTlsProfileViewModel
                         }
                 _uiState.update {
                     if (activated) {
-                        it.copy(saving = false, saved = true)
+                        it.copy(saving = false)
                     } else {
                         it.copy(saving = false, errorMessage = R.string.relay_editor_activation_failed)
                     }
+                }
+                if (activated) {
+                    completed = true
+                    savedEventChannel.send(Unit)
                 }
             }
         }

@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,13 +18,11 @@ import javax.inject.Inject
  * UI state for the SSH profile editor.
  *
  * [editor] is the immutable field/validation snapshot. [saving] is `true` while the
- * profile is being persisted and the native relay activated; [saved] flips to `true`
- * once the active relay has been set so the host can navigate away.
+ * profile is being persisted and the native relay activated.
  */
 data class SshProfileUiState(
     val editor: SshProfileEditorState,
     val saving: Boolean = false,
-    val saved: Boolean = false,
 )
 
 /**
@@ -47,6 +48,9 @@ class SshProfileViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SshProfileUiState(editor = SshProfileEditorState.initial()))
         val uiState: StateFlow<SshProfileUiState> = _uiState.asStateFlow()
+        private val savedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
+        val savedEvents: Flow<Unit> = savedEventChannel.receiveAsFlow()
+        private var completed = false
 
         /** Applies a user edit of [field] to [raw], tracking the keystrokes regardless of validity. */
         fun onFieldChanged(
@@ -88,12 +92,13 @@ class SshProfileViewModel
          */
         fun onSave() {
             val profile = _uiState.value.editor.toProfile() ?: return
-            if (_uiState.value.saving || _uiState.value.saved) return
+            if (_uiState.value.saving || completed) return
             _uiState.update { it.copy(saving = true) }
             viewModelScope.launch {
                 try {
                     relayActivator.activate(profile)
-                    _uiState.update { it.copy(saved = true) }
+                    completed = true
+                    savedEventChannel.send(Unit)
                 } finally {
                     // Reset the in-flight flag even if activation throws (e.g. a
                     // Keystore write failure) so the editor stays usable and the

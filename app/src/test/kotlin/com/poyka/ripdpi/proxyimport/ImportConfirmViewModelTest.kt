@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -82,7 +83,6 @@ class ImportConfirmViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse("a relay link that activates nothing must not report imported", state.imported)
             assertFalse(state.importing)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
             assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
@@ -118,7 +118,6 @@ class ImportConfirmViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse("a tuic link that activates nothing must not report imported", state.imported)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
             assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
         }
@@ -156,7 +155,6 @@ class ImportConfirmViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse("an invalid profile must not be imported", state.imported)
             assertFalse(state.importing)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
             assertTrue("no group is persisted for an invalid import", repository.list().isEmpty())
@@ -187,15 +185,20 @@ class ImportConfirmViewModelTest {
                 )
 
             viewModel.setProfile(profile)
-            viewModel.confirm()
-            advanceUntilIdle()
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                advanceUntilIdle()
+                awaitItem()
+                viewModel.confirm()
+                advanceUntilIdle()
+                expectNoEvents()
+            }
 
             val settings = settingsRepository.snapshot()
             val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
             val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
             // A genuinely relay-activatable kind reports honest success and keeps
             // the persisted group (the positive counterpart to the P1-4 dead-end).
-            assertTrue("a relay that activates must report imported", viewModel.uiState.value.imported)
             assertEquals(1, repository.list().size)
             assertEquals(ProxyGroupType.BASIC, repository.list().single().type)
             assertEquals(RelayKindTrojan, settings.relayKind)
@@ -516,8 +519,12 @@ class ImportConfirmViewModelTest {
             val viewModel = SubscriptionImportConfirmViewModel(repository)
 
             viewModel.setRequest(url = "https://sub.example.com/c", name = "Fleet", bootstrap = false)
-            viewModel.confirm()
-            advanceUntilIdle()
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                advanceUntilIdle()
+                awaitItem()
+                expectNoEvents()
+            }
 
             val groups = repository.list()
             assertEquals(1, groups.size)
@@ -525,7 +532,6 @@ class ImportConfirmViewModelTest {
             assertEquals(ProxyGroupType.SUBSCRIPTION, group.type)
             assertEquals("Fleet", group.name)
             assertEquals("https://sub.example.com/c", group.subscription?.link)
-            assertTrue(viewModel.uiState.value.imported)
         }
 
     @Test

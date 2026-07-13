@@ -8,9 +8,12 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -22,7 +25,6 @@ data class SubscriptionImportConfirmUiState(
     val name: String = "",
     val bootstrap: Boolean = false,
     val importing: Boolean = false,
-    val imported: Boolean = false,
 )
 
 /**
@@ -43,6 +45,9 @@ class SubscriptionImportConfirmViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SubscriptionImportConfirmUiState())
         val uiState: StateFlow<SubscriptionImportConfirmUiState> = _uiState.asStateFlow()
+        private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
+        val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
+        private var completed = false
 
         /** Seeds the screen with the deep link's pre-filled fields. */
         fun setRequest(
@@ -50,6 +55,7 @@ class SubscriptionImportConfirmViewModel
             name: String,
             bootstrap: Boolean,
         ) {
+            completed = false
             _uiState.update {
                 it.copy(url = url, name = name, bootstrap = bootstrap)
             }
@@ -70,7 +76,7 @@ class SubscriptionImportConfirmViewModel
         fun confirm() {
             val state = _uiState.value
             if (state.url.isBlank()) return
-            if (state.importing || state.imported) return
+            if (state.importing || completed) return
             _uiState.update { it.copy(importing = true) }
             viewModelScope.launch {
                 val groupId = UUID.randomUUID().toString()
@@ -87,7 +93,9 @@ class SubscriptionImportConfirmViewModel
                         subscription = Subscription(link = state.url, kind = kind),
                     ),
                 )
-                _uiState.update { it.copy(importing = false, imported = true) }
+                _uiState.update { it.copy(importing = false) }
+                completed = true
+                importedEventChannel.send(Unit)
             }
         }
 

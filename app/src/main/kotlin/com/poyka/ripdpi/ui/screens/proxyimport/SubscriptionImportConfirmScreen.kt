@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -46,10 +47,9 @@ fun SubscriptionImportConfirmRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.imported) {
-        if (uiState.imported) {
-            onImported()
-        }
+    val latestOnImported by rememberUpdatedState(onImported)
+    LaunchedEffect(viewModel) {
+        viewModel.importedEvents.collect { latestOnImported() }
     }
 
     SubscriptionImportConfirmScreen(
@@ -90,14 +90,9 @@ internal fun SubscriptionImportConfirmScreen(
             )
         }
         RipDpiButton(
-            text =
-                if (uiState.imported) {
-                    stringResource(R.string.import_confirm_done_action)
-                } else {
-                    stringResource(R.string.import_confirm_add_action)
-                },
+            text = stringResource(R.string.import_confirm_add_action),
             onClick = onConfirm,
-            enabled = !uiState.importing && !uiState.imported && uiState.url.isNotBlank(),
+            enabled = !uiState.importing && uiState.url.isNotBlank(),
             loading = uiState.importing,
             modifier = Modifier.fillMaxWidth(),
         )

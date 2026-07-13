@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -55,10 +56,12 @@ class SshProfileViewModelTest {
             viewModel.onFieldChanged(SshEditorField.SERVER_PORT, "22")
             viewModel.onFieldChanged(SshEditorField.USERNAME, "alice")
             viewModel.onFieldChanged(SshEditorField.PASSWORD, passwordFixture)
-            viewModel.onSave()
-            advanceUntilIdle()
-
-            assertTrue(viewModel.uiState.value.saved)
+            viewModel.savedEvents.test {
+                viewModel.onSave()
+                advanceUntilIdle()
+                awaitItem()
+                expectNoEvents()
+            }
             assertFalse(viewModel.uiState.value.saving)
 
             val snapshot = settings.snapshot()
@@ -87,7 +90,6 @@ class SshProfileViewModelTest {
             viewModel.onSave()
             advanceUntilIdle()
 
-            assertFalse(viewModel.uiState.value.saved)
             assertFalse(settings.snapshot().relayEnabled)
         }
 }

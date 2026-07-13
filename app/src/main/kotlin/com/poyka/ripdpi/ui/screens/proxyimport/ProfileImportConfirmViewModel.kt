@@ -11,9 +11,12 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -23,7 +26,6 @@ import javax.inject.Inject
 data class ProfileImportConfirmUiState(
     val profile: ProxyProfile? = null,
     val importing: Boolean = false,
-    val imported: Boolean = false,
     /** String resource to show when validation/activation failed; `null` when there is no error. */
     @StringRes val errorRes: Int? = null,
 )
@@ -47,9 +49,13 @@ class ProfileImportConfirmViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ProfileImportConfirmUiState())
         val uiState: StateFlow<ProfileImportConfirmUiState> = _uiState.asStateFlow()
+        private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
+        val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
+        private var completed = false
 
         /** Seeds the screen with the [profile] parsed from the inbound share link. */
         fun setProfile(profile: ProxyProfile) {
+            completed = false
             _uiState.update { it.copy(profile = profile) }
         }
 
@@ -61,7 +67,7 @@ class ProfileImportConfirmViewModel
          */
         fun confirm() {
             val profile = _uiState.value.profile ?: return
-            if (_uiState.value.importing || _uiState.value.imported) return
+            if (_uiState.value.importing || completed) return
             _uiState.update { it.copy(importing = true, errorRes = null) }
             viewModelScope.launch {
                 // Validation throws IllegalArgumentException on invalid field
@@ -106,7 +112,7 @@ class ProfileImportConfirmViewModel
                     result.fold(
                         onSuccess = { activated ->
                             if (activated) {
-                                it.copy(importing = false, imported = true)
+                                it.copy(importing = false)
                             } else {
                                 it.copy(importing = false, errorRes = R.string.import_profile_confirm_error)
                             }
@@ -115,6 +121,10 @@ class ProfileImportConfirmViewModel
                             it.copy(importing = false, errorRes = R.string.import_profile_confirm_error)
                         },
                     )
+                }
+                if (result.getOrNull() == true) {
+                    completed = true
+                    importedEventChannel.send(Unit)
                 }
             }
         }

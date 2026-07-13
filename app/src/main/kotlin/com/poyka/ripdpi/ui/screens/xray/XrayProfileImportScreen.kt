@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -60,8 +61,9 @@ fun XrayProfileImportRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.imported) {
-        if (uiState.imported) onFinished()
+    val latestOnFinished by rememberUpdatedState(onFinished)
+    LaunchedEffect(viewModel) {
+        viewModel.importedEvents.collect { latestOnFinished() }
     }
 
     XrayProfileImportScreen(
@@ -115,14 +117,9 @@ internal fun XrayProfileImportScreen(
         }
 
         RipDpiButton(
-            text =
-                if (uiState.imported) {
-                    stringResource(R.string.xray_import_done_action)
-                } else {
-                    stringResource(R.string.xray_import_finish_action)
-                },
+            text = stringResource(R.string.xray_import_finish_action),
             onClick = onConfirm,
-            enabled = uiState.canFinish && !uiState.imported,
+            enabled = uiState.canFinish,
             modifier = Modifier.fillMaxWidth(),
         )
     }

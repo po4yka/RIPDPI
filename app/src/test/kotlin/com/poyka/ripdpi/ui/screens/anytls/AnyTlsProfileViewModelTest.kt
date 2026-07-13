@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.anytls
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -55,10 +56,14 @@ class AnyTlsProfileViewModelTest {
             viewModel.onFieldChanged(AnyTlsEditorField.SERVER, "anytls.example.com")
             viewModel.onFieldChanged(AnyTlsEditorField.SERVER_PORT, "443")
             viewModel.onFieldChanged(AnyTlsEditorField.PASSWORD, passwordFixture)
-            viewModel.onSave()
-            advanceUntilIdle()
-
-            assertTrue(viewModel.uiState.value.saved)
+            viewModel.savedEvents.test {
+                viewModel.onSave()
+                advanceUntilIdle()
+                awaitItem()
+                viewModel.onSave()
+                advanceUntilIdle()
+                expectNoEvents()
+            }
             assertFalse(viewModel.uiState.value.saving)
             assertNull(viewModel.uiState.value.errorMessage)
 
@@ -88,7 +93,6 @@ class AnyTlsProfileViewModelTest {
             viewModel.onSave()
             advanceUntilIdle()
 
-            assertFalse(viewModel.uiState.value.saved)
             assertFalse(settings.snapshot().relayEnabled)
         }
 }

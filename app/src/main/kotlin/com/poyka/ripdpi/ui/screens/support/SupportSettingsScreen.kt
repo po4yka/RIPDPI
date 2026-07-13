@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -42,10 +43,9 @@ fun SupportSettingsRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.applied) {
-        if (uiState.applied) {
-            onApplied()
-        }
+    val latestOnApplied by rememberUpdatedState(onApplied)
+    LaunchedEffect(viewModel) {
+        viewModel.appliedEvents.collect { latestOnApplied() }
     }
 
     SupportSettingsScreen(
@@ -133,14 +133,9 @@ private fun SupportSettingsPreviewContent(
         }
     }
     RipDpiButton(
-        text =
-            if (uiState.applied) {
-                stringResource(R.string.support_settings_applied_action)
-            } else {
-                stringResource(R.string.support_settings_apply_action)
-            },
+        text = stringResource(R.string.support_settings_apply_action),
         onClick = onApply,
-        enabled = !uiState.applying && !uiState.applied,
+        enabled = !uiState.applying,
         loading = uiState.applying,
         modifier = Modifier.fillMaxWidth(),
     )
