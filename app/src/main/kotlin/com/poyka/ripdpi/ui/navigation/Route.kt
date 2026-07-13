@@ -316,7 +316,7 @@ sealed class Route {
 
     @Serializable
     data class ProfileImportConfirm(
-        val profileJson: String = "",
+        val importToken: String = "",
     ) : Route() {
         @kotlinx.serialization.Transient
         override val stableRoute = "import/profile_confirm"

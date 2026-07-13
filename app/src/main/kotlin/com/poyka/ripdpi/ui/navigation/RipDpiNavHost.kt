@@ -34,7 +34,7 @@ import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
-import com.poyka.ripdpi.serialization.RipDpiJson
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
 import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileRoute
@@ -766,18 +766,12 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
 private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
     composable<Route.ProfileImportConfirm> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.ProfileImportConfirm>()
-        val profile = remember(route.profileJson) { decodeImportedProfile(route.profileJson) }
-        if (profile == null) {
-            // Defensive: a malformed payload should never have reached navigation, but if
-            // it does, fall back rather than crash.
-            navController.navigateHome()
-        } else {
-            ProfileImportConfirmRoute(
-                profile = profile,
-                onBack = { navController.popBackStack() },
-                onImported = { navController.navigateHome() },
-            )
-        }
+        ProfileImportConfirmRoute(
+            importToken = route.importToken,
+            onBack = { navController.popBackStack() },
+            onImported = { navController.navigateHome() },
+            onUnavailable = { navController.navigateHome() },
+        )
     }
     composable<Route.SubscriptionImportConfirm> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.SubscriptionImportConfirm>()
@@ -808,11 +802,7 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
         QrScannerRoute(
             onBack = { navController.popBackStack() },
             onProfileScanned = { request ->
-                navController.navigate(
-                    Route.ProfileImportConfirm(profileJson = encodeImportedProfile(request.profile)),
-                ) {
-                    launchSingleTop = true
-                }
+                navController.navigateProfileImport(request)
             },
         )
     }
@@ -838,35 +828,14 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
 
 /**
  * Routes to the single-profile import-confirmation destination for a clipboard- or
- * scanner-sourced [request], encoding the parsed profile into the type-safe route arg.
+ * scanner-sourced [request], staging the credential-bearing profile outside saved state.
  */
 private fun NavHostController.navigateProfileImport(request: com.poyka.ripdpi.proxyimport.ProxyImportRequest.Profile) {
-    navigate(Route.ProfileImportConfirm(profileJson = encodeImportedProfile(request.profile))) {
+    val importToken = PendingProxyImportStore.process.stage(request.profile)
+    navigate(Route.ProfileImportConfirm(importToken = importToken)) {
         launchSingleTop = true
     }
 }
-
-private val importProfileJson = RipDpiJson
-
-internal fun decodeImportedProfile(profileJson: String): com.poyka.ripdpi.data.ProxyProfile? =
-    profileJson
-        .takeIf { it.isNotBlank() }
-        ?.let { json ->
-            runCatching {
-                importProfileJson.decodeFromString(
-                    com.poyka.ripdpi.data.ProxyProfile
-                        .serializer(),
-                    json,
-                )
-            }.getOrNull()
-        }
-
-internal fun encodeImportedProfile(profile: com.poyka.ripdpi.data.ProxyProfile): String =
-    importProfileJson.encodeToString(
-        com.poyka.ripdpi.data.ProxyProfile
-            .serializer(),
-        profile,
-    )
 
 private fun NavHostController.navigateHome() {
     navigateTopLevel(Route.Home)

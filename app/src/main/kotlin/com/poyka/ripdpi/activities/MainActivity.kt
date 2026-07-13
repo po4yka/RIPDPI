@@ -22,9 +22,9 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.navigation.decodeImportedProfile
 import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -205,11 +205,10 @@ internal fun importRouteFrom(intent: Intent?): Route? {
     val route = intent?.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE) ?: return null
     return when (route) {
         ImportLaunchRoute.PROFILE_CONFIRM -> {
-            val profileJson =
-                intent.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_JSON) ?: return null
-            // Validate the payload up front so navigation never lands on a broken screen.
-            if (decodeImportedProfile(profileJson) == null) return null
-            Route.ProfileImportConfirm(profileJson = profileJson)
+            val importToken =
+                intent.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_IMPORT_TOKEN) ?: return null
+            if (!PendingProxyImportStore.process.contains(importToken)) return null
+            Route.ProfileImportConfirm(importToken = importToken)
         }
 
         ImportLaunchRoute.SUBSCRIPTION_CONFIRM -> {

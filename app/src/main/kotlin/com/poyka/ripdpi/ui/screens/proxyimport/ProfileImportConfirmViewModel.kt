@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.validateNativeRelayProfileResult
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -52,6 +53,19 @@ class ProfileImportConfirmViewModel
         private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
         val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
         private var completed = false
+        private var loadedImportToken: String? = null
+
+        /** Claims the pending profile once so credentials never enter navigation saved state. */
+        internal fun loadProfile(
+            importToken: String,
+            pendingImports: PendingProxyImportStore = PendingProxyImportStore.process,
+        ): Boolean {
+            if (loadedImportToken == importToken) return _uiState.value.profile != null
+            loadedImportToken = importToken
+            completed = false
+            _uiState.value = ProfileImportConfirmUiState(profile = pendingImports.claim(importToken))
+            return _uiState.value.profile != null
+        }
 
         /** Seeds the screen with the [profile] parsed from the inbound share link. */
         fun setProfile(profile: ProxyProfile) {

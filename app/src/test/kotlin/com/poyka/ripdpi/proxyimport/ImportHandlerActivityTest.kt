@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -52,6 +54,17 @@ class ImportHandlerActivityTest {
         assertEquals(
             ImportLaunchRoute.PROFILE_CONFIRM,
             forwarded.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE),
+        )
+        val importToken = forwarded.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_IMPORT_TOKEN)
+        assertNotNull(importToken)
+        assertFalse(
+            forwarded.extras?.keySet()?.contains("com.poyka.ripdpi.extra.IMPORT_PROFILE_JSON") == true,
+        )
+        assertEquals(
+            "11111111-2222-3333-4444-555555555555",
+            PendingProxyImportStore.process.claim(requireNotNull(importToken))?.let {
+                (it as com.poyka.ripdpi.data.ProxyProfile.Vless).uuid
+            },
         )
         assertTrue(activity.isFinishing)
         controller.destroy()
