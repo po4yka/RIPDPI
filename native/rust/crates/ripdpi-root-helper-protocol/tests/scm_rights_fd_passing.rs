@@ -48,7 +48,7 @@ fn sample_request() -> HelperRequest {
 
 /// Run one `send_message` -> `recv_message` round trip over a fresh IPC socket
 /// pair, exactly as the root-helper client and helper exchange one message.
-/// Returns the JSON line bytes and whichever fd (if any) arrived out-of-band.
+/// Returns the JSON frame bytes and whichever fd (if any) arrived out-of-band.
 fn ipc_round_trip(json: &[u8], fd: Option<RawFd>) -> (Vec<u8>, Option<RawFd>) {
     let (client, helper) = UnixStream::pair().expect("ipc socket pair");
     send_message(&client, json, fd).expect("send_message");

@@ -8,7 +8,7 @@ pub const MAX_SESSION_NONCE_BYTES: usize = 128;
 /// Bumped only on a backward-incompatible protocol change. Clients may use it
 /// to gate features they need a known-recent helper for; missing on responses
 /// from a pre-versioned helper, so consumers MUST tolerate `None`.
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// Capability-set version stamped by the helper on every response.
 ///
