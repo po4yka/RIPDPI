@@ -4121,4 +4121,15 @@ Quelle: %2$s</string>
     <string name="diagnostics_sparkline_previous_sample">Vorheriger Messwert</string>
     <string name="diagnostics_sparkline_next_sample">Nächster Messwert</string>
     <string name="diagnostics_sparkline_clear_selection">Auswahl aufheben</string>
+    <string name="backup_encryption_create_title">Vollständiges Backup verschlüsseln</string>
+    <string name="backup_encryption_create_body">Erstelle eine Passphrase mit mindestens 8 Zeichen. Du benötigst sie zur Wiederherstellung auf jedem Gerät.</string>
+    <string name="backup_encryption_create_action">Verschlüsseln und speichern</string>
+    <string name="backup_encryption_unlock_title">Verschlüsseltes Backup entsperren</string>
+    <string name="backup_encryption_unlock_body">Gib die Passphrase ein, die beim Erstellen dieses vollständigen Backups verwendet wurde.</string>
+    <string name="backup_encryption_unlock_action">Entsperren</string>
+    <string name="backup_encryption_unlock_failed">Die Passphrase ist falsch oder das Backup wurde verändert.</string>
+    <string name="backup_encryption_passphrase">Backup-Passphrase</string>
+    <string name="backup_encryption_confirm_passphrase">Passphrase bestätigen</string>
+    <string name="backup_encryption_passphrase_mismatch">Passphrasen stimmen nicht überein</string>
+    <string name="backup_import_legacy_full_warning">Dieses ältere vollständige Backup ist nicht verschlüsselt. Stelle es nur aus einer vertrauenswürdigen Quelle wieder her und exportiere danach ein neues verschlüsseltes Backup.</string>
 </resources>

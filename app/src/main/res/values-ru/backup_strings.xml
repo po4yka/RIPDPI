@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_encryption_create_title">Зашифровать полную копию</string>
+    <string name="backup_encryption_create_body">Придумайте парольную фразу не короче 8 символов. Она понадобится для восстановления копии на любом устройстве.</string>
+    <string name="backup_encryption_create_action">Зашифровать и сохранить</string>
+    <string name="backup_encryption_unlock_title">Разблокировать зашифрованную копию</string>
+    <string name="backup_encryption_unlock_body">Введите парольную фразу, использованную при создании этой полной копии.</string>
+    <string name="backup_encryption_unlock_action">Разблокировать</string>
+    <string name="backup_encryption_unlock_failed">Парольная фраза неверна или резервная копия была изменена.</string>
+    <string name="backup_encryption_passphrase">Парольная фраза копии</string>
+    <string name="backup_encryption_confirm_passphrase">Подтвердите парольную фразу</string>
+    <string name="backup_encryption_passphrase_mismatch">Парольные фразы не совпадают</string>
+    <string name="backup_import_legacy_full_warning">Эта устаревшая полная копия не зашифрована. Восстанавливайте её только из доверенного источника, затем создайте новую зашифрованную копию.</string>
+</resources>

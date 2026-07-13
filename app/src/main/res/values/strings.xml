@@ -4251,4 +4251,15 @@ Source: %2$s</string>
     <string name="diagnostics_sparkline_previous_sample">Previous sample</string>
     <string name="diagnostics_sparkline_next_sample">Next sample</string>
     <string name="diagnostics_sparkline_clear_selection">Clear selection</string>
+    <string name="backup_encryption_create_title">Encrypt full backup</string>
+    <string name="backup_encryption_create_body">Create a passphrase with at least 8 characters. You will need it to restore this backup on any device.</string>
+    <string name="backup_encryption_create_action">Encrypt and save</string>
+    <string name="backup_encryption_unlock_title">Unlock encrypted backup</string>
+    <string name="backup_encryption_unlock_body">Enter the passphrase that was used when this full backup was created.</string>
+    <string name="backup_encryption_unlock_action">Unlock</string>
+    <string name="backup_encryption_unlock_failed">The passphrase is incorrect or the backup was modified.</string>
+    <string name="backup_encryption_passphrase">Backup passphrase</string>
+    <string name="backup_encryption_confirm_passphrase">Confirm passphrase</string>
+    <string name="backup_encryption_passphrase_mismatch">Passphrases do not match</string>
+    <string name="backup_import_legacy_full_warning">This legacy full backup is not encrypted. Restore it only from a trusted source, then export a new encrypted backup.</string>
 </resources>

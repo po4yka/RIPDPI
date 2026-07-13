@@ -61,6 +61,10 @@ sealed interface BackupRestoreEffect {
 
     /** Restore and compensation both failed, so live-store integrity is not guaranteed. */
     data object IntegrityFailure : BackupRestoreEffect
+
+    /** The encrypted archive could not be authenticated with the entered passphrase. */
+    data object DecryptionFailed : BackupRestoreEffect
+
     /** The user picked a file but selected no categories to restore. */
     data object NothingSelected : BackupRestoreEffect
 }
@@ -91,6 +95,7 @@ data class BackupImportPreview(
     val json: String,
     val preview: BackupPreview,
     val selection: RestoreSelection,
+    val encrypted: Boolean = false,
 )
 
 /** Immutable render state for the Backup & Restore screen. */
@@ -103,6 +108,8 @@ data class BackupRestoreUiState(
     val sharing: Boolean = false,
     /** Non-null while the import-preview sheet is visible. */
     val importPreview: BackupImportPreview? = null,
+    /** True while an encrypted FULL archive is waiting for its passphrase. */
+    val encryptedImportPending: Boolean = false,
     /** True while the typed-confirmation reset dialog is visible. */
     val resetDialogVisible: Boolean = false,
     /** The text the user has typed into the reset-confirmation field so far. */

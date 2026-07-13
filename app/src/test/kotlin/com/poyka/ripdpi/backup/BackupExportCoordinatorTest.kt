@@ -69,7 +69,12 @@ class BackupExportCoordinatorTest {
         runTest(StandardTestDispatcher()) {
             val h = harness()
 
-            h.coordinator.export(BackupVariant.FULL, openOutput = { null }, onWriteFailed = {})
+            h.coordinator.export(
+                BackupVariant.FULL,
+                openOutput = { null },
+                onWriteFailed = {},
+                passphrase = ArchivePhrase.copyOf(),
+            )
             assertTrue(h.state.value.exporting)
             testScheduler.advanceUntilIdle()
 
@@ -99,7 +104,12 @@ class BackupExportCoordinatorTest {
         runTest(StandardTestDispatcher()) {
             val h = harness()
 
-            h.coordinator.export(BackupVariant.FULL, openOutput = { ByteArrayOutputStream() }, onWriteFailed = {})
+            h.coordinator.export(
+                BackupVariant.FULL,
+                openOutput = { ByteArrayOutputStream() },
+                onWriteFailed = {},
+                passphrase = ArchivePhrase.copyOf(),
+            )
             testScheduler.advanceUntilIdle()
 
             val effect = h.exportEffects.single() as BackupExportEffect.Success
@@ -118,6 +128,7 @@ class BackupExportCoordinatorTest {
                 BackupVariant.FULL,
                 openOutput = { stream },
                 onWriteFailed = { writeFailedCalls++ },
+                passphrase = ArchivePhrase.copyOf(),
             )
             testScheduler.advanceUntilIdle()
 
@@ -214,6 +225,10 @@ class BackupExportCoordinatorTest {
         val exportEffects: List<BackupExportEffect>,
         val shareEffects: List<BackupShareEffect>,
     )
+
+    private companion object {
+        val ArchivePhrase = "archive phrase fixture".toCharArray()
+    }
 
     private fun TestScope.harness(policyDisabled: Boolean = false): Harness {
         val state = MutableStateFlow(BackupRestoreUiState(exportDisabledByPolicy = policyDisabled))

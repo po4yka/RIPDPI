@@ -6,7 +6,6 @@ import android.net.Uri
 import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -44,7 +42,6 @@ import com.poyka.ripdpi.backup.BackupRestoreUiState
 import com.poyka.ripdpi.backup.BackupRestoreViewModel
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.security.BiometricAuthManager
-import com.poyka.ripdpi.security.BiometricAuthResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -70,6 +67,7 @@ import java.util.Date
 import java.util.Locale
 
 private const val BackupMimeType = "application/json"
+private const val EncryptedBackupMimeType = "application/vnd.poyka.ripdpi.backup"
 
 /** Builds the default export filename, e.g. `ripdpi-backup-2026-05-29T14-30.json`. */
 internal fun defaultBackupFilename(now: Date = Date()): String {
@@ -86,6 +84,7 @@ fun BackupRestoreRoute(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var importPassphrase by remember { mutableStateOf("") }
 
     // Export wiring (launcher + effect + variant sheet) lives in its own composable
     // so this route stays small; it returns the click handler for the export button.
@@ -126,8 +125,9 @@ fun BackupRestoreRoute(
         onBack = onBack,
         onExportClick = onExportClick,
         onShareRedactedClick = onShareRedactedClick,
-        // SAF picker restricted to JSON documents.
-        onImportClick = { openDocumentLauncher.launch(arrayOf(BackupMimeType)) },
+        onImportClick = {
+            openDocumentLauncher.launch(arrayOf(BackupMimeType, EncryptedBackupMimeType, "application/octet-stream"))
+        },
         onResetClick = { viewModel.setResetDialogVisible(true) },
         modifier = modifier,
     )
@@ -140,6 +140,24 @@ fun BackupRestoreRoute(
             onInputChange = viewModel::onResetConfirmationInputChange,
             onConfirm = viewModel::confirmReset,
             onDismiss = { viewModel.setResetDialogVisible(false) },
+        )
+    }
+
+    if (uiState.encryptedImportPending) {
+        BackupPassphraseDialog(
+            title = stringResource(R.string.backup_encryption_unlock_title),
+            message = stringResource(R.string.backup_encryption_unlock_body),
+            passphrase = importPassphrase,
+            onPassphraseChange = { importPassphrase = it },
+            confirmLabel = stringResource(R.string.backup_encryption_unlock_action),
+            onConfirm = {
+                viewModel.unlockEncryptedImport(importPassphrase.toCharArray())
+                importPassphrase = ""
+            },
+            onDismiss = {
+                importPassphrase = ""
+                viewModel.cancelEncryptedImport()
+            },
         )
     }
 
@@ -174,72 +192,56 @@ private fun rememberBackupExportController(
     var showVariantPicker by rememberSaveable { mutableStateOf(false) }
     // The variant chosen in the picker, carried across the SAF document-create round-trip.
     var pendingVariant by rememberSaveable { mutableStateOf<BackupVariant?>(null) }
+    var pendingPassphrase by remember { mutableStateOf<String?>(null) }
+    var showPassphraseDialog by remember { mutableStateOf(false) }
     // The Uri written by the last successful export, used for the SHARE follow-up.
     var lastWrittenUri by remember { mutableStateOf<Uri?>(null) }
 
-    val biometricTitle = stringResource(R.string.backup_export_biometric_title)
-    val biometricSubtitle = stringResource(R.string.backup_export_biometric_subtitle)
-    val biometricCancel = stringResource(R.string.backup_export_biometric_cancel)
-    val biometricFailedMessage = stringResource(R.string.backup_export_biometric_failed)
-    val biometricUnavailableMessage = stringResource(R.string.backup_export_biometric_unavailable)
-
-    val createDocumentLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupMimeType)) { uri ->
-            val variant = pendingVariant
-            if (uri == null || variant == null) {
-                pendingVariant = null
-                return@rememberLauncherForActivityResult
-            }
+    val onDocumentCreated: (Uri?) -> Unit = { uri ->
+        val variant = pendingVariant
+        if (uri == null || variant == null) {
+            pendingPassphrase = null
+            pendingVariant = null
+        } else {
             lastWrittenUri = uri
             viewModel.export(
                 variant = variant,
                 openOutput = { context.contentResolver.openOutputStream(uri, "wt") },
                 // Delete the partial document so a half-written backup is never left behind.
                 onWriteFailed = { deletePartialDocument(context, uri) },
+                passphrase = pendingPassphrase?.toCharArray(),
             )
+            pendingPassphrase = null
             pendingVariant = null
         }
+    }
+
+    val createShareDocumentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupMimeType), onDocumentCreated)
+    val createEncryptedDocumentLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(EncryptedBackupMimeType),
+            onDocumentCreated,
+        )
 
     val launchPicker: (BackupVariant) -> Unit = { variant ->
         pendingVariant = variant
-        createDocumentLauncher.launch(defaultBackupFilename())
-    }
-
-    val onVariantChosen: (BackupVariant) -> Unit = { variant ->
-        showVariantPicker = false
-        if (variant == BackupVariant.FULL) {
-            // FULL carries credentials, so it is gated by biometric auth. Every
-            // non-success outcome must give the user feedback rather than silently
-            // doing nothing (the previous behaviour, which left FULL export dead on
-            // devices with no enrolled biometric).
-            if (biometricAuthManager.canAuthenticate(context) != BiometricManager.BIOMETRIC_SUCCESS) {
-                coroutineScope.launch { snackbarHostState.showSnackbar(biometricUnavailableMessage) }
-            } else {
-                coroutineScope.launch {
-                    when (
-                        biometricAuthManager.authenticate(
-                            context as FragmentActivity,
-                            biometricTitle,
-                            biometricSubtitle,
-                            biometricCancel,
-                        )
-                    ) {
-                        is BiometricAuthResult.Success -> launchPicker(BackupVariant.FULL)
-
-                        // User backed out deliberately: no export, no noise.
-                        is BiometricAuthResult.Cancelled -> Unit
-
-                        // Error / Failed: tell the user the gate did not pass.
-                        is BiometricAuthResult.Error,
-                        is BiometricAuthResult.Failed,
-                        -> snackbarHostState.showSnackbar(biometricFailedMessage)
-                    }
-                }
-            }
-        } else {
-            launchPicker(variant)
+        when (variant) {
+            BackupVariant.SHARE -> createShareDocumentLauncher.launch(defaultBackupFilename())
+            BackupVariant.FULL -> createEncryptedDocumentLauncher.launch(defaultEncryptedBackupFilename())
         }
     }
+
+    val onVariantChosen =
+        rememberBackupVariantChosen(
+            context = context,
+            coroutineScope = coroutineScope,
+            biometricAuthManager = biometricAuthManager,
+            snackbarHostState = snackbarHostState,
+            launchPicker = launchPicker,
+            onFullAuthenticated = { showPassphraseDialog = true },
+            onPickerDismissed = { showVariantPicker = false },
+        )
 
     BackupExportEffectHandler(
         flow = viewModel.effects,
@@ -248,12 +250,18 @@ private fun rememberBackupExportController(
         onShare = { lastWrittenUri?.let { uri -> shareBackup(context, uri) } },
     )
 
-    if (showVariantPicker) {
-        BackupVariantPickerSheet(
-            onDismiss = { showVariantPicker = false },
-            onVariantChosen = onVariantChosen,
-        )
-    }
+    BackupExportOverlays(
+        showVariantPicker = showVariantPicker,
+        showPassphraseDialog = showPassphraseDialog,
+        onVariantPickerDismiss = { showVariantPicker = false },
+        onVariantChosen = onVariantChosen,
+        onPassphraseDismiss = { showPassphraseDialog = false },
+        onPassphraseConfirmed = { confirmedPassphrase ->
+            pendingPassphrase = confirmedPassphrase
+            showPassphraseDialog = false
+            launchPicker(BackupVariant.FULL)
+        },
+    )
 
     return { showVariantPicker = true }
 }
@@ -370,6 +378,7 @@ private fun BackupRestoreEffectHandler(
     val restoredMessage = stringResource(R.string.backup_restore_success)
     val malformedMessage = stringResource(R.string.backup_restore_malformed)
     val integrityFailureMessage = stringResource(R.string.backup_restore_integrity_failure)
+    val decryptionFailedMessage = stringResource(R.string.backup_encryption_unlock_failed)
     val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
     val unsupportedVersionTemplate = stringResource(R.string.backup_restore_unsupported_version)
     BackupEffectCollector(flow) { effect ->
@@ -408,6 +417,15 @@ private fun BackupRestoreEffectHandler(
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
             }
+
+            BackupRestoreEffect.DecryptionFailed -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = decryptionFailedMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+            }
+
             BackupRestoreEffect.NothingSelected -> {
                 snackbarHostState.showRipDpiSnackbar(
                     message = nothingSelectedMessage,
@@ -890,6 +908,13 @@ private fun BackupImportPreviewSheet(
                     tone = WarningBannerTone.Restricted,
                 )
             }
+            if (summary.containsCredentials && !preview.encrypted) {
+                WarningBanner(
+                    title = stringResource(R.string.backup_variant_full_warning_title),
+                    message = stringResource(R.string.backup_import_legacy_full_warning),
+                    tone = WarningBannerTone.Restricted,
+                )
+            }
             // Profiles + groups category.
             RipDpiSwitch(
                 checked = selection.profilesAndGroups,
@@ -938,7 +963,7 @@ private fun BackupImportPreviewSheet(
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun BackupVariantPickerSheet(
+internal fun BackupVariantPickerSheet(
     onDismiss: () -> Unit,
     onVariantChosen: (BackupVariant) -> Unit,
 ) {

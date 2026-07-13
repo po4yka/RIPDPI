@@ -295,6 +295,7 @@ class BackupExportUseCaseTest {
                     variant = BackupVariant.FULL,
                     output = failing,
                     appVersion = "1.0.0",
+                    passphrase = "test password".toCharArray(),
                     createdAtEpochMillis = 0L,
                 )
 

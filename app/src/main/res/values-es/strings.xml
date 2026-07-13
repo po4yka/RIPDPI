@@ -4121,4 +4121,15 @@ Origen: %2$s</string>
     <string name="diagnostics_sparkline_previous_sample">Muestra anterior</string>
     <string name="diagnostics_sparkline_next_sample">Muestra siguiente</string>
     <string name="diagnostics_sparkline_clear_selection">Borrar selección</string>
+    <string name="backup_encryption_create_title">Cifrar copia completa</string>
+    <string name="backup_encryption_create_body">Crea una frase de contraseña de al menos 8 caracteres. La necesitarás para restaurar esta copia en cualquier dispositivo.</string>
+    <string name="backup_encryption_create_action">Cifrar y guardar</string>
+    <string name="backup_encryption_unlock_title">Desbloquear copia cifrada</string>
+    <string name="backup_encryption_unlock_body">Introduce la frase de contraseña usada al crear esta copia completa.</string>
+    <string name="backup_encryption_unlock_action">Desbloquear</string>
+    <string name="backup_encryption_unlock_failed">La frase de contraseña es incorrecta o la copia fue modificada.</string>
+    <string name="backup_encryption_passphrase">Frase de contraseña de la copia</string>
+    <string name="backup_encryption_confirm_passphrase">Confirmar frase de contraseña</string>
+    <string name="backup_encryption_passphrase_mismatch">Las frases de contraseña no coinciden</string>
+    <string name="backup_import_legacy_full_warning">Esta copia completa antigua no está cifrada. Restáurala solo desde una fuente de confianza y exporta después una nueva copia cifrada.</string>
 </resources>

@@ -94,7 +94,8 @@ class BackupRestoreViewModel
             variant: BackupVariant,
             openOutput: () -> OutputStream?,
             onWriteFailed: () -> Unit,
-        ) = exportCoordinator.export(variant, openOutput, onWriteFailed)
+            passphrase: CharArray? = null,
+        ) = exportCoordinator.export(variant, openOutput, onWriteFailed, passphrase)
 
         /**
          * Writes a FRESH [BackupVariant.SHARE] backup into the stream produced by
@@ -128,6 +129,10 @@ class BackupRestoreViewModel
          * stream is fully read and closed here.
          */
         fun openImport(openInput: () -> InputStream?) = importCoordinator.openImport(openInput)
+
+        fun unlockEncryptedImport(passphrase: CharArray) = importCoordinator.unlockEncryptedImport(passphrase)
+
+        fun cancelEncryptedImport() = importCoordinator.cancelEncryptedImport()
 
         /** Toggles one restore category in the active preview. */
         fun setProfilesAndGroupsSelected(selected: Boolean) = importCoordinator.setProfilesAndGroupsSelected(selected)

@@ -14,11 +14,11 @@ private const val LogTag = "BackupExport"
 /**
  * Outcome of a backup export.
  *
- * The byte count is the size of the JSON written to the destination; it is the
+ * The byte count is the size of the archive written to the destination; it is the
  * only payload-derived value that may be logged or shown to the user.
  */
 sealed interface BackupExportResult {
-    /** The export succeeded and [byteCount] JSON bytes were streamed to the destination. */
+    /** The export succeeded and [byteCount] archive bytes were streamed to the destination. */
     data class Success(
         val variant: BackupVariant,
         val byteCount: Long,
@@ -69,11 +69,25 @@ class BackupExportUseCase
             variant: BackupVariant,
             output: OutputStream,
             appVersion: String,
+            passphrase: CharArray? = null,
             createdAtEpochMillis: Long = System.currentTimeMillis(),
         ): BackupExportResult {
             val document = gather(variant, appVersion, createdAtEpochMillis)
             return try {
-                val byteCount = BackupSerializer.encodeToStream(document, output)
+                val byteCount =
+                    when (variant) {
+                        BackupVariant.SHARE -> {
+                            BackupSerializer.encodeToStream(document, output)
+                        }
+
+                        BackupVariant.FULL -> {
+                            BackupEncryption.encryptToStream(
+                                document = document,
+                                passphrase = requireNotNull(passphrase) { "FULL backup passphrase is required" },
+                                output = output,
+                            )
+                        }
+                    }
                 Log.i(LogTag, "Backup export complete: variant=$variant bytes=$byteCount")
                 BackupExportResult.Success(variant = variant, byteCount = byteCount)
             } catch (e: IOException) {

@@ -4121,4 +4121,15 @@ Source : %2$s</string>
     <string name="diagnostics_sparkline_previous_sample">Échantillon précédent</string>
     <string name="diagnostics_sparkline_next_sample">Échantillon suivant</string>
     <string name="diagnostics_sparkline_clear_selection">Effacer la sélection</string>
+    <string name="backup_encryption_create_title">Chiffrer la sauvegarde complète</string>
+    <string name="backup_encryption_create_body">Créez une phrase secrète d’au moins 8 caractères. Elle sera nécessaire pour restaurer cette sauvegarde sur tout appareil.</string>
+    <string name="backup_encryption_create_action">Chiffrer et enregistrer</string>
+    <string name="backup_encryption_unlock_title">Déverrouiller la sauvegarde chiffrée</string>
+    <string name="backup_encryption_unlock_body">Saisissez la phrase secrète utilisée lors de la création de cette sauvegarde complète.</string>
+    <string name="backup_encryption_unlock_action">Déverrouiller</string>
+    <string name="backup_encryption_unlock_failed">La phrase secrète est incorrecte ou la sauvegarde a été modifiée.</string>
+    <string name="backup_encryption_passphrase">Phrase secrète de sauvegarde</string>
+    <string name="backup_encryption_confirm_passphrase">Confirmer la phrase secrète</string>
+    <string name="backup_encryption_passphrase_mismatch">Les phrases secrètes ne correspondent pas</string>
+    <string name="backup_import_legacy_full_warning">Cette ancienne sauvegarde complète n’est pas chiffrée. Ne la restaurez que depuis une source fiable, puis exportez une nouvelle sauvegarde chiffrée.</string>
 </resources>

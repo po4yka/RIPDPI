@@ -4126,4 +4126,15 @@ fakeddisorder endhost</string>
     <string name="diagnostics_sparkline_previous_sample">نمونه قبلی</string>
     <string name="diagnostics_sparkline_next_sample">نمونه بعدی</string>
     <string name="diagnostics_sparkline_clear_selection">پاک کردن انتخاب</string>
+    <string name="backup_encryption_create_title">رمزگذاری پشتیبان کامل</string>
+    <string name="backup_encryption_create_body">یک عبارت عبور با حداقل ۸ نویسه بسازید. برای بازیابی این پشتیبان در هر دستگاهی به آن نیاز دارید.</string>
+    <string name="backup_encryption_create_action">رمزگذاری و ذخیره</string>
+    <string name="backup_encryption_unlock_title">باز کردن پشتیبان رمزگذاری‌شده</string>
+    <string name="backup_encryption_unlock_body">عبارت عبوری را که هنگام ساخت این پشتیبان کامل استفاده شد وارد کنید.</string>
+    <string name="backup_encryption_unlock_action">باز کردن</string>
+    <string name="backup_encryption_unlock_failed">عبارت عبور نادرست است یا پشتیبان تغییر کرده است.</string>
+    <string name="backup_encryption_passphrase">عبارت عبور پشتیبان</string>
+    <string name="backup_encryption_confirm_passphrase">تأیید عبارت عبور</string>
+    <string name="backup_encryption_passphrase_mismatch">عبارت‌های عبور یکسان نیستند</string>
+    <string name="backup_import_legacy_full_warning">این پشتیبان کامل قدیمی رمزگذاری نشده است. آن را فقط از منبع مورد اعتماد بازیابی کنید و سپس یک پشتیبان رمزگذاری‌شده جدید بگیرید.</string>
 </resources>
