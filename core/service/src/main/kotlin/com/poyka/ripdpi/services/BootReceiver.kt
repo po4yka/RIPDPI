@@ -10,8 +10,43 @@ import com.poyka.ripdpi.data.ApplicationScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+
+private const val BootResumeTimeoutMillis = 8_000L
+
+internal fun launchBoundedBootResume(
+    scope: CoroutineScope,
+    timeoutMillis: Long,
+    resume: suspend () -> Unit,
+    onFailure: (Throwable) -> Unit,
+    finish: () -> Unit,
+): Job {
+    val finished = AtomicBoolean(false)
+    val finishOnce = { if (finished.compareAndSet(false, true)) finish() }
+    val job =
+        scope.launch {
+            try {
+                withTimeout(timeoutMillis) { resume() }
+            } catch (timeout: TimeoutCancellationException) {
+                onFailure(timeout)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (
+                @Suppress("TooGenericExceptionCaught") error: Exception,
+            ) {
+                onFailure(error)
+            } finally {
+                finishOnce()
+            }
+        }
+    job.invokeOnCompletion { finishOnce() }
+    return job
+}
 
 /**
  * Resumes the previously-active RIPDPI session after the device boots or the app
@@ -44,19 +79,15 @@ class BootReceiver : BroadcastReceiver() {
             -> {
                 Logger.withTag("BootReceiver").i { "received $action; resuming within broadcast lifetime" }
                 val pendingResult = goAsync()
-                applicationScope.launch {
-                    try {
-                        bootResumeCoordinator.resume(action)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (
-                        @Suppress("TooGenericExceptionCaught") error: Exception,
-                    ) {
+                launchBoundedBootResume(
+                    scope = applicationScope,
+                    timeoutMillis = BootResumeTimeoutMillis,
+                    resume = { bootResumeCoordinator.resume(action) },
+                    onFailure = { error ->
                         Logger.withTag("BootReceiver").e(error) { "boot resume failed for $action" }
-                    } finally {
-                        pendingResult.finish()
-                    }
-                }
+                    },
+                    finish = pendingResult::finish,
+                )
             }
 
             else -> {
