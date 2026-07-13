@@ -11,7 +11,7 @@ use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
 
 use super::log_level::parse_native_log_level;
 use super::reaper::WORKER_REAPER;
-use super::validation::validate_scan_request;
+use super::validation::ValidatedScanRequest;
 use super::wire_json::{passive_events_to_json, progress_to_json, report_to_json};
 use super::worker::{join_finished_worker_locked, spawn_scan_worker};
 
@@ -74,8 +74,8 @@ impl MonitorSession {
     }
 
     pub fn start_scan(&self, session_id: String, request: EngineScanRequestWire) -> Result<(), String> {
-        validate_scan_request(&request)?;
-        let native_log_level = parse_native_log_level(request.native_log_level.as_deref())?;
+        let request = ValidatedScanRequest::try_from(request)?;
+        let native_log_level = parse_native_log_level(request.as_wire().native_log_level.as_deref())?;
         let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
         join_finished_worker_locked(&mut worker_guard);
         if worker_guard.is_some() {
@@ -87,7 +87,7 @@ impl MonitorSession {
             let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
             shared.progress = None;
             shared.report = None;
-            shared.log_context = request.log_context.clone();
+            shared.log_context = request.as_wire().log_context.clone();
         }
         let domain_request = request.into();
         *worker_guard = Some(spawn_scan_worker(
