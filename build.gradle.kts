@@ -14,6 +14,7 @@ import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
@@ -200,13 +201,12 @@ abstract class VerifyAppEngineBoundaryTask : DefaultTask() {
     }
 }
 
-val coverageModulePaths =
-    listOf(
-        ":core:data",
-        ":core:diagnostics",
-        ":core:engine",
-        ":core:service",
-    )
+val coreCoverageModulePaths =
+    subprojects
+        .map { it.path }
+        .filter { modulePath -> modulePath.startsWith(":core:") }
+        .sorted()
+val coverageModulePaths = listOf(":app") + coreCoverageModulePaths
 
 val qualityModulePaths =
     subprojects
@@ -225,6 +225,11 @@ val lintTaskPaths =
 fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
 
 fun moduleBuildDir(modulePath: String) = layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("build")
+
+fun coverageVariantName(modulePath: String): String = if (modulePath == ":app") "githubFullDebug" else "debug"
+
+fun coverageVariantTaskSuffix(modulePath: String): String =
+    coverageVariantName(modulePath).replaceFirstChar(Char::uppercaseChar)
 
 val kotlinCoverageExcludes =
     listOf(
@@ -246,21 +251,42 @@ val kotlinCoverageExcludes =
         "**/com/poyka/ripdpi/data/schemas/**",
     )
 
-fun kotlinDebugCoverageClasses(modulePath: String) =
-    files(
-        fileTree(moduleBuildDir(modulePath).dir("tmp/kotlin-classes/debug")) {
-            exclude(kotlinCoverageExcludes)
+fun kotlinDebugCoverageClasses(modulePath: String): FileCollection {
+    val variantName = coverageVariantName(modulePath)
+    val variantTaskSuffix = coverageVariantTaskSuffix(modulePath)
+    val transformedClasses =
+        moduleBuildDir(modulePath).dir(
+            "intermediates/classes/$variantName/transform${variantTaskSuffix}ClassesWithAsm/dirs",
+        )
+    val kotlinClasses =
+        moduleBuildDir(modulePath).dir(
+            "intermediates/built_in_kotlinc/$variantName/compile${variantTaskSuffix}Kotlin/classes",
+        )
+    val javaClasses =
+        moduleBuildDir(modulePath).dir(
+            "intermediates/javac/$variantName/compile${variantTaskSuffix}JavaWithJavac/classes",
+        )
+    return files(
+        provider {
+            if (transformedClasses.asFile.isDirectory) {
+                listOf(transformedClasses.asFile)
+            } else {
+                listOf(kotlinClasses.asFile, javaClasses.asFile)
+            }
         },
-        fileTree(moduleBuildDir(modulePath).dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
-            exclude(kotlinCoverageExcludes)
-        },
-    )
-
-fun kotlinDebugCoverageExecutionData(modulePath: String) =
-    fileTree(moduleBuildDir(modulePath)) {
-        include("jacoco/testDebugUnitTest.exec")
-        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    ).asFileTree.matching {
+        exclude(kotlinCoverageExcludes)
     }
+}
+
+fun kotlinDebugCoverageExecutionData(modulePath: String): FileTree {
+    val variantName = coverageVariantName(modulePath)
+    val testTaskName = "test${coverageVariantTaskSuffix(modulePath)}UnitTest"
+    return fileTree(moduleBuildDir(modulePath)) {
+        include("jacoco/$testTaskName.exec")
+        include("outputs/unit_test_code_coverage/${variantName}UnitTest/$testTaskName.exec")
+    }
+}
 
 fun handwrittenJavaSources() =
     fileTree(layout.projectDirectory) {
@@ -297,10 +323,38 @@ tasks.register<JacocoReport>("kotlinCoverageReport") {
     onlyIf { executionData.files.any { it.exists() } }
 }
 
+tasks.register<JacocoCoverageVerification>("kotlinCoverageVerification") {
+    group = "verification"
+    description = "Verifies aggregate Kotlin line coverage across Android modules."
+    dependsOn("kotlinCoverageReport")
+
+    violationRules {
+        rule {
+            element = "BUNDLE"
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.40".toBigDecimal()
+            }
+        }
+    }
+
+    sourceDirectories.setFrom(
+        coverageModulePaths.flatMap { modulePath ->
+            listOf(
+                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/java"),
+                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/kotlin"),
+            )
+        },
+    )
+    classDirectories.setFrom(coverageModulePaths.map(::kotlinDebugCoverageClasses))
+    executionData.setFrom(coverageModulePaths.map(::kotlinDebugCoverageExecutionData))
+}
+
 tasks.register("coverageReport") {
     group = "verification"
-    description = "Runs aggregate Kotlin coverage reporting."
-    dependsOn("kotlinCoverageReport")
+    description = "Runs aggregate Kotlin coverage reporting and verification."
+    dependsOn("kotlinCoverageVerification")
 }
 
 tasks.register<CheckFileLocLimitsTask>("checkFileLocLimits") {

@@ -26,6 +26,45 @@ val jacocoExcludes =
         "**/com/poyka/ripdpi/data/schemas/**",
     )
 
+val coverageVariantName = if (project.path == ":app") "githubFullDebug" else "debug"
+val coverageVariantTaskSuffix = coverageVariantName.replaceFirstChar(Char::uppercaseChar)
+val coverageUnitTestTaskName = "test${coverageVariantTaskSuffix}UnitTest"
+val transformedCoverageClasses =
+    layout.buildDirectory.dir(
+        "intermediates/classes/$coverageVariantName/" +
+            "transform${coverageVariantTaskSuffix}ClassesWithAsm/dirs",
+    )
+val kotlinCoverageClasses =
+    layout.buildDirectory.dir(
+        "intermediates/built_in_kotlinc/$coverageVariantName/" +
+            "compile${coverageVariantTaskSuffix}Kotlin/classes",
+    )
+val javaCoverageClasses =
+    layout.buildDirectory.dir(
+        "intermediates/javac/$coverageVariantName/" +
+            "compile${coverageVariantTaskSuffix}JavaWithJavac/classes",
+    )
+val coverageClassDirectories =
+    files(
+        transformedCoverageClasses.map { transformedClasses ->
+            if (transformedClasses.asFile.isDirectory) {
+                listOf(transformedClasses.asFile)
+            } else {
+                listOf(kotlinCoverageClasses.get().asFile, javaCoverageClasses.get().asFile)
+            }
+        },
+    ).asFileTree.matching {
+        exclude(jacocoExcludes)
+    }
+val coverageExecutionData =
+    fileTree(layout.buildDirectory) {
+        include("jacoco/$coverageUnitTestTaskName.exec")
+        include(
+            "outputs/unit_test_code_coverage/${coverageVariantName}UnitTest/" +
+                "$coverageUnitTestTaskName.exec",
+        )
+    }
+
 val jacocoAgentEnabled =
     providers
         .gradleProperty("ripdpi.jacoco.enabled")
@@ -52,7 +91,7 @@ tasks.withType<Test>().configureEach {
 tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
     group = "verification"
     description = "Generates JaCoCo coverage reports for debug unit tests."
-    dependsOn("testDebugUnitTest")
+    dependsOn(coverageUnitTestTaskName)
 
     reports {
         xml.required.set(true)
@@ -67,23 +106,8 @@ tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
         ),
     )
 
-    classDirectories.setFrom(
-        files(
-            fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
-                exclude(jacocoExcludes)
-            },
-            fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
-                exclude(jacocoExcludes)
-            },
-        ),
-    )
-
-    executionData.setFrom(
-        fileTree(layout.buildDirectory) {
-            include("jacoco/testDebugUnitTest.exec")
-            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
-        },
-    )
+    classDirectories.setFrom(coverageClassDirectories)
+    executionData.setFrom(coverageExecutionData)
     onlyIf { executionData.files.any { it.exists() } }
 }
 
@@ -98,7 +122,7 @@ tasks.register<JacocoCoverageVerification>("jacocoDebugUnitTestCoverageVerificat
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                minimum = "0.0".toBigDecimal()
+                minimum = "0.05".toBigDecimal()
             }
         }
     }
@@ -110,23 +134,8 @@ tasks.register<JacocoCoverageVerification>("jacocoDebugUnitTestCoverageVerificat
         ),
     )
 
-    classDirectories.setFrom(
-        files(
-            fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
-                exclude(jacocoExcludes)
-            },
-            fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
-                exclude(jacocoExcludes)
-            },
-        ),
-    )
-
-    executionData.setFrom(
-        fileTree(layout.buildDirectory) {
-            include("jacoco/testDebugUnitTest.exec")
-            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
-        },
-    )
+    classDirectories.setFrom(coverageClassDirectories)
+    executionData.setFrom(coverageExecutionData)
 }
 
 tasks.named("jacocoDebugUnitTestReport") {
