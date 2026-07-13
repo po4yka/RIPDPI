@@ -7,7 +7,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
-use crate::migration::QuicMigrationState;
+use crate::migration::QuicMigration;
 use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
 use crate::tls_quic::{ClientSocketSpec, authenticate_connection, build_endpoint, build_tls_config};
 use crate::udp::{UdpPacket, UdpSession, dispatch_udp_datagrams};
@@ -60,8 +60,7 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         max_datagram_size,
         socket_spec,
         migrate_after_handshake: config.quic_migrate_after_handshake,
-        current_socket: Mutex::new(current_socket),
-        migration: Mutex::new(QuicMigrationState::new_not_attempted()),
+        migration: QuicMigration::new_not_attempted(current_socket),
     });
 
     let dispatch_guard = if udp_supported {
@@ -84,19 +83,21 @@ pub struct HysteriaClient {
 
 impl HysteriaClient {
     pub async fn tcp_connect(&self, address: &str) -> Result<DuplexStream> {
-        let migrated = self.inner.begin_quic_migration().await?;
+        let migration = self.inner.begin_quic_migration()?;
         match self.open_tcp_stream(address).await {
             Ok(stream) => {
-                if migrated {
-                    self.inner.complete_quic_migration("path_validated_after_stream_open").await;
+                if let Some(migration) = migration {
+                    migration.complete("path_validated_after_stream_open");
                 }
                 Ok(stream)
             }
-            Err(_error) if migrated => {
-                let _ = self.inner.rollback_quic_migration("stream_open_failed_after_rebind").await;
-                self.open_tcp_stream(address).await
-            }
-            Err(error) => Err(error),
+            Err(error) => match migration {
+                Some(migration) => {
+                    migration.rollback("stream_open_failed_after_rebind")?;
+                    self.open_tcp_stream(address).await
+                }
+                None => Err(error),
+            },
         }
     }
 
@@ -138,6 +139,5 @@ pub(crate) struct ClientInner {
     pub(crate) max_datagram_size: Option<usize>,
     pub(crate) socket_spec: ClientSocketSpec,
     pub(crate) migrate_after_handshake: bool,
-    pub(crate) current_socket: Mutex<std::net::UdpSocket>,
-    pub(crate) migration: Mutex<QuicMigrationState>,
+    pub(crate) migration: QuicMigration,
 }

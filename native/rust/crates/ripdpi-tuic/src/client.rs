@@ -14,7 +14,7 @@ use crate::config::Config;
 use crate::endpoint::{
     ClientSocketSpec, build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config,
 };
-use crate::migration::QuicMigrationState;
+use crate::migration::QuicMigration;
 use crate::protocol::{TuicAddress, authenticate_connection, classify_handshake_failure};
 use crate::tcp::{DuplexStream, encode_connect_header};
 use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
@@ -73,14 +73,7 @@ impl TuicClient {
             max_datagram_size,
             socket_spec,
             migrate_after_handshake: config.quic_migrate_after_handshake,
-            current_socket: Mutex::new(current_socket),
-            migration: Mutex::new(QuicMigrationState {
-                status: Some("not_attempted".to_string()),
-                reason: None,
-                validated: false,
-                cooldown_until: None,
-                previous_socket: None,
-            }),
+            migration: QuicMigration::new_not_attempted(current_socket),
         });
 
         let dispatch_guard = if config.udp_enabled && max_datagram_size.is_some() {
@@ -95,19 +88,21 @@ impl TuicClient {
 
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
         let target = TuicAddress::from_authority(authority)?;
-        let migrated = self.inner.begin_quic_migration().await?;
+        let migration = self.inner.begin_quic_migration()?;
         match self.open_tcp_stream(&target).await {
             Ok(stream) => {
-                if migrated {
-                    self.inner.complete_quic_migration("path_validated_after_stream_open").await;
+                if let Some(migration) = migration {
+                    migration.complete("path_validated_after_stream_open");
                 }
                 Ok(stream)
             }
-            Err(_error) if migrated => {
-                let _ = self.inner.rollback_quic_migration("stream_open_failed_after_rebind").await;
-                self.open_tcp_stream(&target).await
-            }
-            Err(error) => Err(error),
+            Err(error) => match migration {
+                Some(migration) => {
+                    migration.rollback("stream_open_failed_after_rebind")?;
+                    self.open_tcp_stream(&target).await
+                }
+                None => Err(error),
+            },
         }
     }
 
@@ -167,6 +162,5 @@ pub(crate) struct ClientInner {
     pub(crate) max_datagram_size: Option<usize>,
     pub(crate) socket_spec: ClientSocketSpec,
     pub(crate) migrate_after_handshake: bool,
-    pub(crate) current_socket: Mutex<std::net::UdpSocket>,
-    pub(crate) migration: Mutex<QuicMigrationState>,
+    pub(crate) migration: QuicMigration,
 }

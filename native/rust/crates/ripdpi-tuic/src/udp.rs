@@ -60,19 +60,21 @@ impl UdpSession {
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> io::Result<()> {
         let target = TuicAddress::from_authority(address)?;
         let (assoc_id, packet_id) = self.route_for(address).await?;
-        let migrated = self.client.begin_quic_migration().await?;
+        let migration = self.client.begin_quic_migration()?;
         match send_udp_payload(&self.client, assoc_id, packet_id, &target, payload) {
             Ok(()) => {
-                if migrated {
-                    self.client.complete_quic_migration("path_validated_after_datagram_send").await;
+                if let Some(migration) = migration {
+                    migration.complete("path_validated_after_datagram_send");
                 }
                 Ok(())
             }
-            Err(_error) if migrated => {
-                let _ = self.client.rollback_quic_migration("datagram_send_failed_after_rebind").await;
-                send_udp_payload(&self.client, assoc_id, packet_id, &target, payload)
-            }
-            Err(error) => Err(error),
+            Err(error) => match migration {
+                Some(migration) => {
+                    migration.rollback("datagram_send_failed_after_rebind")?;
+                    send_udp_payload(&self.client, assoc_id, packet_id, &target, payload)
+                }
+                None => Err(error),
+            },
         }
     }
 
