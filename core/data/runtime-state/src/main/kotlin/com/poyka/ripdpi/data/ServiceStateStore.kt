@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.sample
@@ -156,19 +157,20 @@ class DefaultServiceStateStore
         private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
         override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
 
-        // DROP_OLDEST: the newest event must always be delivered; older queued events are superseded.
-        private val _events =
-            MutableSharedFlow<ServiceEvent>(
-                replay = 0,
-                extraBufferCapacity = 64,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
+        private val eventIngress = Channel<ServiceEvent>(capacity = Channel.UNLIMITED)
+        private val _events = MutableSharedFlow<ServiceEvent>()
         override val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
 
         private val _telemetry = MutableStateFlow(ServiceTelemetrySnapshot())
         override val telemetry: StateFlow<ServiceTelemetrySnapshot> = _telemetry.asStateFlow()
 
         init {
+            applicationScope.launch {
+                for (event in eventIngress) {
+                    _events.subscriptionCount.first { subscriberCount -> subscriberCount > 0 }
+                    _events.emit(event)
+                }
+            }
             applicationScope.launch {
                 val snapshots = combine(_status, _telemetry, ::toWidgetSnapshot)
                 merge(
@@ -261,7 +263,9 @@ class DefaultServiceStateStore
                         updatedAt = now,
                     )
             }
-            _events.tryEmit(ServiceEvent.Failed(sender, reason))
+            check(eventIngress.trySend(ServiceEvent.Failed(sender, reason)).isSuccess) {
+                "Service event ingress is unavailable"
+            }
         }
 
         override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
