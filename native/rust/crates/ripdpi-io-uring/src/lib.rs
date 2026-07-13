@@ -42,10 +42,7 @@ mod stub {
     #[derive(Debug, Clone, Copy, Default)]
     pub struct IoUringCapabilities {
         pub available: bool,
-        pub send_zc: bool,
-        pub recv_zc: bool,
         pub fixed_buffers: bool,
-        pub multishot_recv: bool,
     }
 
     pub fn io_uring_capabilities() -> IoUringCapabilities {
@@ -71,10 +68,7 @@ mod tests {
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         {
             assert!(!caps.available);
-            assert!(!caps.send_zc);
-            assert!(!caps.recv_zc);
             assert!(!caps.fixed_buffers);
-            assert!(!caps.multishot_recv);
         }
         // On Linux, just verify the function doesn't panic.
         #[cfg(any(target_os = "linux", target_os = "android"))]

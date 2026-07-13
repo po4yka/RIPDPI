@@ -7,8 +7,7 @@ use io_uring::IoUring;
 /// A pool of fixed-size buffers registered with an io_uring instance.
 ///
 /// Registration pins the buffers in kernel memory, enabling zero-copy I/O
-/// via `IORING_OP_READ_FIXED` / `IORING_OP_WRITE_FIXED` and
-/// `IORING_OP_SEND_ZC` with buffer indices.
+/// via `IORING_OP_READ_FIXED` / `IORING_OP_WRITE_FIXED`.
 pub struct RegisteredBufferPool {
     /// Backing storage. Each cell is exclusively accessible to the unique
     /// `BufferHandle` whose `index` matches; that uniqueness is enforced by

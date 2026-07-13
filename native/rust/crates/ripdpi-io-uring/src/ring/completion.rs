@@ -238,11 +238,8 @@ mod tests {
         );
     }
 
-    /// F12 regression: a second completion for the same token (e.g. the
-    /// `IORING_CQE_F_NOTIF` CQE that follows a `SEND_ZC` result CQE) arriving
-    /// before the future is polled must NOT overwrite the first result and
-    /// must NOT strand an extra registry slot. The first result wins and
-    /// exactly one slot exists.
+    /// A duplicate completion arriving before the future is polled must not
+    /// overwrite the first result or strand an extra registry slot.
     #[test]
     fn duplicate_completion_before_poll_keeps_first_result_and_one_slot() {
         let registry = CompletionRegistry::new();
