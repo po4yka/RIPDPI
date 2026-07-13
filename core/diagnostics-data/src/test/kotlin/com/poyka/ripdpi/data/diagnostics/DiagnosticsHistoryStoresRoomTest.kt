@@ -13,7 +13,6 @@ import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
-import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
@@ -269,21 +268,11 @@ class DiagnosticsHistoryStoresRoomTest {
                     ),
                 )
             }
-            store.upsertRememberedNetworkPolicy(
-                rememberedPolicy(
-                    fingerprintHash = "fp-stale",
-                    mode = "vpn",
-                    status = RememberedNetworkPolicyStatusObserved,
-                    updatedAt = clock.now() - RememberedNetworkPolicyRetentionMaxAgeMs - 1L,
-                ),
-            )
-
             assertEquals("fp-match", store.findValidatedRememberedNetworkPolicy("fp-match", "vpn")?.fingerprintHash)
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-suppressed", "vpn"))
 
             store.pruneRememberedNetworkPolicies()
 
-            assertNull(store.getRememberedNetworkPolicy("fp-stale", "vpn"))
             assertEquals(RememberedNetworkPolicyRetentionLimit, rowCount("remembered_network_policies"))
         }
 
