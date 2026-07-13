@@ -14,6 +14,7 @@ use crate::varint::{decode_varint, encode_varint};
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
+const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
 
 /// Maximum number of wrap-around retry attempts before declaring session-id space exhausted.
 /// u32 has 4 billion values so exhaustion is not a practical concern, but we still check
@@ -156,6 +157,13 @@ struct PartialPacket {
     address: String,
     fragments: Vec<Option<Vec<u8>>>,
     received: usize,
+    buffered_bytes: usize,
+}
+
+enum ReassemblyResult {
+    Pending,
+    Complete(UdpPacket),
+    Rejected,
 }
 
 // NOT cancel-safe: maintains mutable partials map across multiple await points.
@@ -201,30 +209,9 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
                 }
 
                 let key = (session_id, packet_id);
-                let partial = partials.entry(key).or_insert_with(|| PartialPacket {
-                    started_at: Instant::now(),
-                    address: address.clone(),
-                    fragments: vec![None; usize::from(fragment_count)],
-                    received: 0,
-                });
-                let index = usize::from(fragment_id);
-                if index >= partial.fragments.len() {
-                    continue;
-                }
-                if partial.fragments[index].is_none() {
-                    partial.fragments[index] = Some(payload);
-                    partial.received += 1;
-                    partial.address = address;
-                }
-
-                if partial.received == partial.fragments.len() {
-                    let mut assembled = Vec::new();
-                    for fragment in partial.fragments.iter().flatten() {
-                        assembled.extend_from_slice(fragment);
-                    }
-                    let packet = UdpPacket { address: partial.address.clone(), payload: assembled };
-                    partials.remove(&key);
-                    try_deliver(&sender, packet);
+                match reassemble_fragment(&mut partials, key, fragment_id, fragment_count, address, payload) {
+                    ReassemblyResult::Complete(packet) => try_deliver(&sender, packet),
+                    ReassemblyResult::Pending | ReassemblyResult::Rejected => {}
                 }
             }
             Err(error) => {
@@ -239,6 +226,71 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
 fn try_deliver(sender: &mpsc::Sender<UdpPacket>, packet: UdpPacket) {
     if let Err(error) = sender.try_send(packet) {
         tracing::trace!(error = %error, "Dropping Hysteria UDP packet for unavailable consumer");
+    }
+}
+
+fn reassemble_fragment(
+    partials: &mut HashMap<(u32, u16), PartialPacket>,
+    key: (u32, u16),
+    fragment_id: u8,
+    fragment_count: u8,
+    address: String,
+    payload: Vec<u8>,
+) -> ReassemblyResult {
+    if !partials.contains_key(&key) {
+        while partials.len() >= MAX_REASSEMBLY_SLOTS {
+            evict_oldest_partial(partials);
+        }
+        partials.insert(
+            key,
+            PartialPacket {
+                started_at: Instant::now(),
+                address: address.clone(),
+                fragments: vec![None; usize::from(fragment_count)],
+                received: 0,
+                buffered_bytes: 0,
+            },
+        );
+    }
+
+    let Some(partial) = partials.get_mut(&key) else {
+        return ReassemblyResult::Rejected;
+    };
+    let index = usize::from(fragment_id);
+    if index >= partial.fragments.len() {
+        return ReassemblyResult::Rejected;
+    }
+    if partial.fragments[index].is_none() {
+        let Some(buffered_bytes) = partial.buffered_bytes.checked_add(payload.len()) else {
+            partials.remove(&key);
+            return ReassemblyResult::Rejected;
+        };
+        if buffered_bytes > MAX_REASSEMBLED_PAYLOAD_SIZE {
+            partials.remove(&key);
+            return ReassemblyResult::Rejected;
+        }
+        partial.fragments[index] = Some(payload);
+        partial.received += 1;
+        partial.buffered_bytes = buffered_bytes;
+        partial.address = address;
+    }
+    if partial.received != partial.fragments.len() {
+        return ReassemblyResult::Pending;
+    }
+
+    let Some(partial) = partials.remove(&key) else {
+        return ReassemblyResult::Rejected;
+    };
+    let mut assembled = Vec::with_capacity(partial.buffered_bytes);
+    for fragment in partial.fragments.iter().flatten() {
+        assembled.extend_from_slice(fragment);
+    }
+    ReassemblyResult::Complete(UdpPacket { address: partial.address, payload: assembled })
+}
+
+fn evict_oldest_partial(partials: &mut HashMap<(u32, u16), PartialPacket>) {
+    if let Some(oldest_key) = partials.iter().min_by_key(|(_, partial)| partial.started_at).map(|(key, _)| *key) {
+        partials.remove(&oldest_key);
     }
 }
 
@@ -443,5 +495,44 @@ mod tests {
         assert_eq!(fast_rx.try_recv().expect("fast consumer receives packet").address, "fast.example:53");
         assert_eq!(slow_rx.try_recv().expect("queued slow packet remains").address, "slow.example:53");
         assert!(slow_rx.try_recv().is_err(), "overflow packet must be dropped");
+    }
+
+    #[test]
+    fn reassembly_evicts_oldest_packet_at_slot_limit() {
+        let mut partials = HashMap::new();
+        let oldest_key = (0, 0);
+        for index in 0..MAX_REASSEMBLY_SLOTS {
+            partials.insert(
+                (index as u32, 0),
+                PartialPacket {
+                    started_at: Instant::now() + Duration::from_millis(index as u64),
+                    address: "example.com:53".to_string(),
+                    fragments: vec![Some(vec![1]), None],
+                    received: 1,
+                    buffered_bytes: 1,
+                },
+            );
+        }
+
+        let result = reassemble_fragment(&mut partials, (u32::MAX, 0), 0, 2, "new.example:53".to_string(), vec![1]);
+
+        assert!(matches!(result, ReassemblyResult::Pending));
+        assert_eq!(partials.len(), MAX_REASSEMBLY_SLOTS);
+        assert!(!partials.contains_key(&oldest_key));
+    }
+
+    #[test]
+    fn reassembly_rejects_payload_above_udp_limit() {
+        let mut partials = HashMap::new();
+        let key = (1, 1);
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 0, 2, "example.com:53".to_string(), vec![0; 40_000]),
+            ReassemblyResult::Pending
+        ));
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 1, 2, "example.com:53".to_string(), vec![0; 30_000]),
+            ReassemblyResult::Rejected
+        ));
+        assert!(!partials.contains_key(&key));
     }
 }

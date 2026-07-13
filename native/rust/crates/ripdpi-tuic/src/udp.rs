@@ -14,6 +14,7 @@ use crate::protocol::{PacketHeader, TuicAddress};
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
+const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
 
 /// Maximum number of wrap-around retry attempts before declaring assoc-id space exhausted.
 const MAX_ASSOC_ID_SCAN_ATTEMPTS: u16 = 1024;
@@ -154,6 +155,13 @@ struct PartialPacket {
     address: Option<TuicAddress>,
     fragments: Vec<Option<Vec<u8>>>,
     received: usize,
+    buffered_bytes: usize,
+}
+
+enum ReassemblyResult {
+    Pending,
+    Complete(UdpPacket),
+    Rejected,
 }
 
 // NOT cancel-safe: maintains mutable partials map across multiple await points.
@@ -208,38 +216,9 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
         }
 
         let key = (header.assoc_id, header.packet_id);
-        let partial = partials.entry(key).or_insert_with(|| PartialPacket {
-            started_at: Instant::now(),
-            address: None,
-            fragments: vec![None; usize::from(header.fragment_total)],
-            received: 0,
-        });
-        let fragment_index = usize::from(header.fragment_id);
-        if fragment_index >= partial.fragments.len() {
-            continue;
-        }
-        if !matches!(header.address, TuicAddress::None) {
-            partial.address = Some(header.address.clone());
-        }
-        if partial.fragments[fragment_index].is_none() {
-            partial.fragments[fragment_index] = Some(payload.to_vec());
-            partial.received += 1;
-        }
-
-        if partial.received == partial.fragments.len() {
-            let Some(address) = partial.address.clone() else {
-                partials.remove(&key);
-                continue;
-            };
-            let mut assembled = Vec::new();
-            for fragment in partial.fragments.iter().flatten() {
-                assembled.extend_from_slice(fragment);
-            }
-            partials.remove(&key);
-            let Ok(address) = address.to_authority() else {
-                continue;
-            };
-            try_deliver(&sender, UdpPacket { address, payload: assembled });
+        match reassemble_fragment(&mut partials, key, &header, payload) {
+            ReassemblyResult::Complete(packet) => try_deliver(&sender, packet),
+            ReassemblyResult::Pending | ReassemblyResult::Rejected => {}
         }
     }
 
@@ -249,6 +228,74 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
 fn try_deliver(sender: &mpsc::Sender<UdpPacket>, packet: UdpPacket) {
     if let Err(error) = sender.try_send(packet) {
         tracing::trace!(error = %error, "Dropping TUIC UDP packet for unavailable consumer");
+    }
+}
+
+fn reassemble_fragment(
+    partials: &mut HashMap<(u16, u16), PartialPacket>,
+    key: (u16, u16),
+    header: &PacketHeader,
+    payload: &[u8],
+) -> ReassemblyResult {
+    if !partials.contains_key(&key) {
+        while partials.len() >= MAX_REASSEMBLY_SLOTS {
+            evict_oldest_partial(partials);
+        }
+        partials.insert(
+            key,
+            PartialPacket {
+                started_at: Instant::now(),
+                address: None,
+                fragments: vec![None; usize::from(header.fragment_total)],
+                received: 0,
+                buffered_bytes: 0,
+            },
+        );
+    }
+
+    let Some(partial) = partials.get_mut(&key) else {
+        return ReassemblyResult::Rejected;
+    };
+    let fragment_index = usize::from(header.fragment_id);
+    if fragment_index >= partial.fragments.len() {
+        return ReassemblyResult::Rejected;
+    }
+    if !matches!(header.address, TuicAddress::None) {
+        partial.address = Some(header.address.clone());
+    }
+    if partial.fragments[fragment_index].is_none() {
+        let Some(buffered_bytes) = partial.buffered_bytes.checked_add(payload.len()) else {
+            partials.remove(&key);
+            return ReassemblyResult::Rejected;
+        };
+        if buffered_bytes > MAX_REASSEMBLED_PAYLOAD_SIZE {
+            partials.remove(&key);
+            return ReassemblyResult::Rejected;
+        }
+        partial.fragments[fragment_index] = Some(payload.to_vec());
+        partial.received += 1;
+        partial.buffered_bytes = buffered_bytes;
+    }
+    if partial.received != partial.fragments.len() {
+        return ReassemblyResult::Pending;
+    }
+
+    let Some(partial) = partials.remove(&key) else {
+        return ReassemblyResult::Rejected;
+    };
+    let Some(address) = partial.address.and_then(|address| address.to_authority().ok()) else {
+        return ReassemblyResult::Rejected;
+    };
+    let mut assembled = Vec::with_capacity(partial.buffered_bytes);
+    for fragment in partial.fragments.iter().flatten() {
+        assembled.extend_from_slice(fragment);
+    }
+    ReassemblyResult::Complete(UdpPacket { address, payload: assembled })
+}
+
+fn evict_oldest_partial(partials: &mut HashMap<(u16, u16), PartialPacket>) {
+    if let Some(oldest_key) = partials.iter().min_by_key(|(_, partial)| partial.started_at).map(|(key, _)| *key) {
+        partials.remove(&oldest_key);
     }
 }
 
@@ -400,5 +447,63 @@ mod tests {
         assert_eq!(fast_rx.try_recv().expect("fast consumer receives packet").address, "fast.example:53");
         assert_eq!(slow_rx.try_recv().expect("queued slow packet remains").address, "slow.example:53");
         assert!(slow_rx.try_recv().is_err(), "overflow packet must be dropped");
+    }
+
+    #[test]
+    fn reassembly_evicts_oldest_packet_at_slot_limit() {
+        let mut partials = HashMap::new();
+        let oldest_key = (0, 0);
+        for index in 0..MAX_REASSEMBLY_SLOTS {
+            partials.insert(
+                (index as u16, 0),
+                PartialPacket {
+                    started_at: Instant::now() + Duration::from_millis(index as u64),
+                    address: Some(TuicAddress::Domain("example.com".to_string(), 53)),
+                    fragments: vec![Some(vec![1]), None],
+                    received: 1,
+                    buffered_bytes: 1,
+                },
+            );
+        }
+        let header = PacketHeader {
+            assoc_id: u16::MAX,
+            packet_id: 0,
+            fragment_total: 2,
+            fragment_id: 0,
+            payload_len: 1,
+            address: TuicAddress::Domain("new.example".to_string(), 53),
+        };
+
+        let result = reassemble_fragment(&mut partials, (header.assoc_id, header.packet_id), &header, &[1]);
+
+        assert!(matches!(result, ReassemblyResult::Pending));
+        assert_eq!(partials.len(), MAX_REASSEMBLY_SLOTS);
+        assert!(!partials.contains_key(&oldest_key));
+    }
+
+    #[test]
+    fn reassembly_rejects_payload_above_udp_limit() {
+        let mut partials = HashMap::new();
+        let key = (1, 1);
+        let mut header = PacketHeader {
+            assoc_id: key.0,
+            packet_id: key.1,
+            fragment_total: 2,
+            fragment_id: 0,
+            payload_len: 40_000,
+            address: TuicAddress::Domain("example.com".to_string(), 53),
+        };
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, &header, &vec![0; 40_000]),
+            ReassemblyResult::Pending
+        ));
+        header.fragment_id = 1;
+        header.payload_len = 30_000;
+        header.address = TuicAddress::None;
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, &header, &vec![0; 30_000]),
+            ReassemblyResult::Rejected
+        ));
+        assert!(!partials.contains_key(&key));
     }
 }
