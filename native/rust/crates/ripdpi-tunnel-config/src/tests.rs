@@ -144,6 +144,13 @@ fn rejects_mapdns_cache_larger_than_validated_limit() {
 }
 
 #[test]
+fn rejects_unknown_uid_policy_mode() {
+    let yaml = format!("{MINIMAL_VALID}\nmisc:\n  uid-policy-mode: bypass\n");
+
+    assert!(Config::from_str(&yaml).is_err(), "unknown UID policy mode must fail during config parsing");
+}
+
+#[test]
 fn test_defaults_when_optional_sections_absent() {
     let cfg = Config::from_str(MINIMAL_VALID).expect("minimal YAML should parse");
 
@@ -156,6 +163,8 @@ fn test_defaults_when_optional_sections_absent() {
     assert_eq!(cfg.misc.tcp_read_write_timeout, 300000);
     assert_eq!(cfg.misc.udp_read_write_timeout, 60000);
     assert_eq!(cfg.misc.limit_nofile, 65535);
+    assert_eq!(cfg.misc.uid_policy_mode, "disarmed");
+    assert!(cfg.misc.uid_policy_uids.is_empty());
 }
 
 #[test]

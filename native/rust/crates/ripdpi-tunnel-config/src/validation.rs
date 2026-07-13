@@ -44,6 +44,12 @@ pub(crate) fn validate_values(config: &Config) -> Result<(), ConfigError> {
     in_range("misc.tcp-read-write-timeout", config.misc.tcp_read_write_timeout, 1, MAX_TIMEOUT_MS)?;
     in_range("misc.udp-read-write-timeout", config.misc.udp_read_write_timeout, 1, MAX_TIMEOUT_MS)?;
     in_range("misc.limit-nofile", config.misc.limit_nofile, 64, 1_048_576)?;
+    if !matches!(config.misc.uid_policy_mode.as_str(), "disarmed" | "allowlist" | "denylist") {
+        return invalid("misc.uid-policy-mode", "must be disarmed, allowlist, or denylist");
+    }
+    if config.misc.uid_policy_uids.len() > 4_096 {
+        return invalid("misc.uid-policy-uids", "must contain at most 4096 entries");
+    }
 
     if let Some(mapdns) = &config.mapdns {
         parse_ipv4("mapdns.address", &mapdns.address)?;

@@ -10,6 +10,7 @@ use tokio_util::sync::CancellationToken;
 use crate::dns_cache::DnsCache;
 use crate::io_loop::packet::{TcpFlowKey, endpoint_to_socketaddr};
 use crate::session::Auth;
+use crate::uid_policy::{CachedFlowUidSource, PROTO_TCP, UidFlowPolicy, Verdict};
 use crate::{ActiveSessions, Stats};
 
 use super::target::{pinned_synthetic_ip, tcp_session_target_addr};
@@ -20,9 +21,6 @@ mod session;
 
 use pending::PendingTcpSession;
 use session::admit_session;
-
-/// IANA IP protocol number for TCP, for flow-attribution `note_flow`.
-const PROTO_TCP: u8 = 6;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_new_tcp_sessions(
@@ -35,8 +33,9 @@ pub(crate) fn spawn_new_tcp_sessions(
     cancel: &CancellationToken,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
+    uid_policy: &UidFlowPolicy,
 ) {
-    let (new_sessions, unresolvable) = collect_admissible_sessions(socket_set, sessions, stats, dns_cache);
+    let (new_sessions, unresolvable) = collect_admissible_sessions(socket_set, sessions, stats, dns_cache, uid_policy);
     abort_unresolved_sessions(socket_set, pending_listens, unresolvable);
 
     for pending in new_sessions {
@@ -60,6 +59,7 @@ fn collect_admissible_sessions(
     sessions: &ActiveSessions,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
+    uid_policy: &UidFlowPolicy,
 ) -> (Vec<PendingTcpSession>, Vec<SocketHandle>) {
     let mut new_sessions = Vec::new();
     let mut unresolvable = Vec::new();
@@ -78,8 +78,24 @@ fn collect_admissible_sessions(
                 // endpoint) and the intercepted destination. `note_flow` only locks
                 // a mutex and pushes to a queue (deduped by destination) — never any
                 // JNI on this hot path; a background worker resolves off-path.
-                if let Some(app_src) = tcp.remote_endpoint().map(endpoint_to_socketaddr) {
-                    ripdpi_flow_app_attribution::note_flow(PROTO_TCP, app_src, target_addr);
+                let Some(app_src) = tcp.remote_endpoint().map(endpoint_to_socketaddr) else {
+                    if uid_policy.is_enforcing() {
+                        abort_unresolved_tcp_socket(handle, tcp);
+                        unresolvable.push(handle);
+                        continue;
+                    }
+                    new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip });
+                    continue;
+                };
+                ripdpi_flow_app_attribution::note_flow(PROTO_TCP, app_src, target_addr);
+                match uid_policy.admit(&CachedFlowUidSource, PROTO_TCP, app_src, target_addr) {
+                    Verdict::Allow => {}
+                    Verdict::Pending => continue,
+                    Verdict::ResetTcp | Verdict::DropUdp => {
+                        abort_unresolved_tcp_socket(handle, tcp);
+                        unresolvable.push(handle);
+                        continue;
+                    }
                 }
                 new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip });
             }

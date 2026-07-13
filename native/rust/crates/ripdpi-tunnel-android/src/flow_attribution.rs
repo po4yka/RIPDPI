@@ -6,11 +6,11 @@
 //! process-global `ripdpi-flow-app-attribution` queue (a non-blocking,
 //! hot-path-safe push). A **dedicated background worker thread** owned by this
 //! module drains the queue and, for each request, calls a Kotlin bridge method
-//! `noteFlow(int, String, int, String, int)` via JNI — entirely off the per-flow
+//! `noteFlow(int, String, int, String, int): int` via JNI — entirely off the per-flow
 //! / per-packet path (see `.claude/rules/vpnservice-protect-invariant.md`).
-//! Kotlin resolves UID → package → version and owns the attribution map; the
-//! resolved result never crosses back into Rust, so no package identity is held
-//! natively.
+//! Kotlin resolves UID → package → version and owns the attribution map; only
+//! the numeric UID returns to the native full-5-tuple admission cache, while no
+//! package identity is held natively.
 //!
 //! Registration mirrors `ripdpi-android-vpn-protect-adapter`: Kotlin calls
 //! [`register_flow_attribution`] at tunnel start (receiving a generation token)
@@ -34,7 +34,7 @@ use jni::{EnvUnowned, JavaVM, Outcome};
 
 use ripdpi_flow_app_attribution::{
     AttributionGeneration, FlowResolveRequest, begin_attribution_session, end_attribution_session_if,
-    pop_pending_request, store_resolution,
+    pop_pending_request, store_resolution, store_uid_resolution,
 };
 
 /// How long the worker blocks waiting for a queued request before re-checking the
@@ -44,7 +44,7 @@ const WORKER_POLL: Duration = Duration::from_millis(250);
 /// Sink the worker forwards resolved-flow notifications into. Abstracted so the
 /// worker drain logic is unit-testable without a live JVM.
 trait FlowNotifier: Send {
-    fn note(&self, request: FlowResolveRequest);
+    fn note(&self, request: FlowResolveRequest) -> Option<u32>;
 }
 
 /// Calls the Kotlin flow-attribution bridge's `noteFlow` over JNI. Holds the
@@ -63,7 +63,7 @@ struct JniFlowNotifier {
 // instead of being silently forced thread-safe.
 
 impl FlowNotifier for JniFlowNotifier {
-    fn note(&self, request: FlowResolveRequest) {
+    fn note(&self, request: FlowResolveRequest) -> Option<u32> {
         let local_ip = request.local.ip().to_string();
         let remote_ip = request.remote.ip().to_string();
         let protocol = i32::from(request.protocol);
@@ -78,28 +78,33 @@ impl FlowNotifier for JniFlowNotifier {
         // Teardown-safe without scoping because `stop_worker` joins this thread before
         // teardown, so its TLS attach guard detaches it at thread exit — it can never be
         // left attached across DestroyJavaVM.
-        let result: Result<(), jni::errors::Error> = self.vm.attach_current_thread(|env| -> jni::errors::Result<()> {
-            let local = env.new_string(&local_ip)?;
-            let remote = env.new_string(&remote_ip)?;
-            env.call_method(
-                &self.bridge,
-                jni::jni_str!("noteFlow"),
-                jni::jni_sig!("(ILjava/lang/String;ILjava/lang/String;I)V"),
-                &[
-                    JValue::Int(protocol),
-                    JValue::Object(&local),
-                    JValue::Int(local_port),
-                    JValue::Object(&remote),
-                    JValue::Int(remote_port),
-                ],
-            )?;
-            Ok(())
-        });
+        let result: Result<i32, jni::errors::Error> =
+            self.vm.attach_current_thread(|env| -> jni::errors::Result<i32> {
+                let local = env.new_string(&local_ip)?;
+                let remote = env.new_string(&remote_ip)?;
+                env.call_method(
+                    &self.bridge,
+                    jni::jni_str!("noteFlow"),
+                    jni::jni_sig!("(ILjava/lang/String;ILjava/lang/String;I)I"),
+                    &[
+                        JValue::Int(protocol),
+                        JValue::Object(&local),
+                        JValue::Int(local_port),
+                        JValue::Object(&remote),
+                        JValue::Int(remote_port),
+                    ],
+                )?
+                .i()
+            });
 
-        if let Err(err) = result {
-            // Off the hot path; a failed attribution just leaves the flow
-            // unattributed (conservative). Never propagate across the worker loop.
-            tracing::warn!("flow-attribution noteFlow JNI call failed: {err}");
+        match result {
+            Ok(uid) => u32::try_from(uid).ok(),
+            Err(err) => {
+                // Off the hot path; a failed attribution just leaves the flow
+                // unattributed (conservative). Never propagate across the worker loop.
+                tracing::warn!("flow-attribution noteFlow JNI call failed: {err}");
+                None
+            }
         }
     }
 }
@@ -110,7 +115,8 @@ impl FlowNotifier for JniFlowNotifier {
 fn drain_once(notifier: &dyn FlowNotifier) -> bool {
     match pop_pending_request(WORKER_POLL) {
         Some(request) => {
-            notifier.note(request);
+            let uid = notifier.note(request);
+            store_uid_resolution(request, uid);
             // Mark the destination "notified". The authoritative attribution lives
             // in the Kotlin map; the native cache only needs the dedupe marker.
             store_resolution(request.key(), None);
@@ -185,7 +191,7 @@ fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> std::io::Result<At
 /// Register the Kotlin flow-attribution bridge and start the worker.
 ///
 /// `bridge` is a global ref to a Kotlin object exposing
-/// `noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort)`.
+/// `int noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort)`.
 /// Returns the generation token Kotlin threads back to
 /// [`unregister_flow_attribution`].
 fn register_flow_attribution(vm: &JavaVM, bridge: Global<JObject<'static>>) -> i64 {
@@ -271,8 +277,9 @@ mod tests {
     }
 
     impl FlowNotifier for RecordingNotifier {
-        fn note(&self, request: FlowResolveRequest) {
+        fn note(&self, request: FlowResolveRequest) -> Option<u32> {
             self.seen.lock().expect("seen lock").push(request);
+            Some(10_123)
         }
     }
 
@@ -298,10 +305,13 @@ mod tests {
         let seen = notifier.seen.lock().expect("seen");
         assert_eq!(seen.len(), 1);
         assert_eq!(seen[0].remote, remote);
-        // After draining, the destination carries the "notified" marker so a later
-        // flow does not re-enqueue.
+        // After draining, the exact tuple carries a UID verdict and does not re-enqueue.
         assert!(lookup_flow(IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34))).is_none());
-        assert!(note_flow(6, sock(10, 0, 0, 2, 51001), remote).is_none());
+        assert_eq!(
+            ripdpi_flow_app_attribution::lookup_flow_uid(6, local, remote),
+            ripdpi_flow_app_attribution::FlowUidLookup::Resolved(Some(10_123))
+        );
+        assert!(note_flow(6, local, remote).is_none());
         assert_eq!(pending_len(), 0);
     }
 

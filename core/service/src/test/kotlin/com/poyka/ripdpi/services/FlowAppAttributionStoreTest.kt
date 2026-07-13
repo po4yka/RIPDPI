@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.os.Build
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -62,5 +63,54 @@ class FlowAppAttributionStoreTest {
             FlowAttribution.Attributed("com.example.app", 42L),
             decideAttribution(uid = 10123, packagesForUid = arrayOf("com.example.app")) { 42L },
         )
+    }
+
+    @Test
+    fun `native uid policy is disarmed before android 12`() {
+        val policy =
+            nativeUidPolicyFor(
+                plan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.allowed")),
+                sdkInt = Build.VERSION_CODES.R,
+                uidForPackage = { 10123 },
+            )
+
+        assertEquals(NativeUidPolicy.Disarmed, policy)
+    }
+
+    @Test
+    fun `native uid allowlist mirrors resolved builder packages`() {
+        val uids = mapOf("com.example.one" to 10123, "com.example.two" to 10124, "com.example.shared" to 10123)
+        val policy =
+            nativeUidPolicyFor(
+                plan = VpnAppRoutingPlan.AllowOnly(uids.keys + "com.example.missing"),
+                sdkInt = Build.VERSION_CODES.S,
+                uidForPackage = uids::get,
+            )
+
+        assertEquals(NativeUidPolicy("allowlist", listOf(10123, 10124)), policy)
+    }
+
+    @Test
+    fun `native uid allowlist is disarmed when no package remains installed`() {
+        val policy =
+            nativeUidPolicyFor(
+                plan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.missing")),
+                sdkInt = Build.VERSION_CODES.S,
+                uidForPackage = { null },
+            )
+
+        assertEquals(NativeUidPolicy.Disarmed, policy)
+    }
+
+    @Test
+    fun `native uid denylist mirrors resolved builder packages`() {
+        val policy =
+            nativeUidPolicyFor(
+                plan = VpnAppRoutingPlan.Disallow(setOf("com.example.denied")),
+                sdkInt = Build.VERSION_CODES.S,
+                uidForPackage = { packageName -> if (packageName == "com.example.denied") 10420 else null },
+            )
+
+        assertEquals(NativeUidPolicy("denylist", listOf(10420)), policy)
     }
 }

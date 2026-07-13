@@ -103,6 +103,7 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
         &state.cancel,
         &state.stats,
         &mut state.dns_cache,
+        &state.runtime.uid_policy,
     );
 }
 
@@ -124,7 +125,7 @@ pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopSta
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::net::SocketAddr;
     use std::sync::atomic::Ordering;
     use std::sync::{Arc, Mutex};
@@ -210,6 +211,37 @@ mod tests {
         stalled_proxy.abort();
     }
 
+    #[tokio::test]
+    async fn udp_admission_waits_for_cached_uid_and_drops_denied_flow() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        let packet = ipv4_udp_packet(55_123, 443, b"uid-gated");
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:55123".parse().expect("local endpoint"),
+            remote: "93.184.216.34:443".parse().expect("remote endpoint"),
+        };
+
+        route_tun_packet(&packet, &mut state);
+        assert!(state.udp_associations.is_empty(), "pending UID must not create an association");
+
+        ripdpi_flow_app_attribution::store_uid_resolution(request, Some(20_000));
+        route_tun_packet(&packet, &mut state);
+        assert!(state.udp_associations.is_empty(), "denied UID must remain dropped");
+
+        let allowed_packet = ipv4_udp_packet(55_124, 443, b"uid-allowed");
+        let allowed_request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:55124".parse().expect("local endpoint"),
+            remote: "93.184.216.34:443".parse().expect("remote endpoint"),
+        };
+        route_tun_packet(&allowed_packet, &mut state);
+        ripdpi_flow_app_attribution::store_uid_resolution(allowed_request, Some(10_123));
+        route_tun_packet(&allowed_packet, &mut state);
+        assert_eq!(state.udp_associations.len(), 1, "allowed UID may create the association");
+        state.shutdown().await;
+    }
+
     struct RecordingEgressHandler {
         consume: bool,
         seen_packets: Arc<Mutex<Vec<Vec<u8>>>>,
@@ -248,6 +280,7 @@ mod tests {
                 mapdns_runtime: None,
                 mapdns_classify: None,
                 filter_injected_resets: false,
+                uid_policy: crate::uid_policy::UidFlowPolicy::disarmed(),
                 tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
                 tun_egress_interceptor,
                 udp_idle_timeout: Duration::from_secs(1),

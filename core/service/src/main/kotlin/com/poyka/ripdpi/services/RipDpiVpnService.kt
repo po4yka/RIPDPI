@@ -64,6 +64,7 @@ class RipDpiVpnService :
     private lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
     private val connectivityManager: ConnectivityManager
         get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private var activeAppRoutingPlan: VpnAppRoutingPlan = VpnAppRoutingPlan.Disallow(emptySet())
 
     override val serviceScope = lifecycleScope
 
@@ -134,6 +135,8 @@ class RipDpiVpnService :
         )
     }
 
+    override fun currentAppRoutingPlan(): VpnAppRoutingPlan = activeAppRoutingPlan
+
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
@@ -183,7 +186,9 @@ class RipDpiVpnService :
         // Android forbids mixing addAllowedApplication and addDisallowedApplication on the same
         // Builder, so the policy returns exactly one shape. The plan is derived from the settings
         // store (NOT the routing_rules Room table), so it never reorders the user's routing rules.
-        when (val plan = vpnAppExclusionPolicy.appRoutingPlan(applicationContext.packageName)) {
+        val appRoutingPlan = vpnAppExclusionPolicy.appRoutingPlan(applicationContext.packageName)
+        activeAppRoutingPlan = appRoutingPlan
+        when (val plan = appRoutingPlan) {
             is VpnAppRoutingPlan.Disallow -> {
                 plan.packages.forEach { pkg ->
                     try {
@@ -275,6 +280,7 @@ class RipDpiVpnService :
             protectPath: String? = null,
             rootHelperSocketPath: String? = null,
             luaScriptBaseDir: String? = null,
+            uidPolicy: NativeUidPolicy = NativeUidPolicy.Disarmed,
         ): Tun2SocksConfig {
             val tunnelDns = dnsPlan.resolverDns
             val mapDnsEnabled = dnsPlan.mapDnsEnabled
@@ -321,6 +327,8 @@ class RipDpiVpnService :
                 protectPath = protectPath,
                 rootHelperSocketPath = rootHelperSocketPath,
                 luaScriptBaseDir = luaScriptBaseDir,
+                uidPolicyMode = uidPolicy.mode,
+                uidPolicyUids = uidPolicy.uids,
                 logContext = logContext,
                 username = localProxyEndpoint.username,
                 password = localProxyEndpoint.password,

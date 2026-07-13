@@ -5,8 +5,9 @@
 //! 5-tuple; the proxy-runtime policy layer (`ripdpi-runtime-policy`) is where
 //! direct-path learning verdicts (`NO_TCP_FALLBACK`, …) are decided — but it
 //! only sees a loopback socket, never the app. This crate is the shared,
-//! process-global side-channel both halves consult, keyed by the **destination
-//! IP** of the flow (the one value both sides can compute):
+//! process-global side-channel both halves consult. App attribution is keyed by
+//! the **destination IP** (the one value both sides can compute), while native
+//! admission keeps a separate full-5-tuple UID cache:
 //!
 //! * TUN core, at flow birth, calls [`note_flow`] with the originating 5-tuple.
 //!   On a cache miss the request is enqueued for asynchronous resolution and
@@ -14,7 +15,7 @@
 //!   path (see `.claude/rules/vpnservice-protect-invariant.md`).
 //! * A background worker (the JNI adapter) drains [`pop_pending_request`],
 //!   resolves UID → package → version off the hot path, and calls
-//!   [`store_resolution`].
+//!   [`store_resolution`] plus [`store_uid_resolution`].
 //! * The policy layer calls [`lookup_flow`] (read-only, no enqueue) for each of
 //!   its candidate destination IPs to attribute a learning signal.
 //!
@@ -88,7 +89,7 @@ impl FlowAppContext {
     }
 }
 
-/// Cache entry state for a destination IP.
+/// App-attribution cache entry state for a destination IP.
 #[derive(Debug, Clone)]
 enum Resolution {
     /// A resolve request has been enqueued; no answer yet.
@@ -97,9 +98,23 @@ enum Resolution {
     Resolved(Option<FlowAppContext>),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UidResolution {
+    Pending,
+    Resolved(Option<u32>),
+}
+
+/// Cached UID lookup state for one complete flow tuple.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowUidLookup {
+    Missing,
+    Pending,
+    Resolved(Option<u32>),
+}
+
 /// A pending request the worker resolves off the hot path. Carries the full
 /// 5-tuple so the resolver can call `getConnectionOwnerUid(protocol, local, remote)`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FlowResolveRequest {
     /// IP protocol number: 6 = TCP, 17 = UDP.
     pub protocol: u8,
@@ -110,7 +125,7 @@ pub struct FlowResolveRequest {
 }
 
 impl FlowResolveRequest {
-    /// The cache key for this request — the destination IP.
+    /// The app-attribution cache key for this request — the destination IP.
     #[must_use]
     pub fn key(&self) -> IpAddr {
         self.remote.ip()
@@ -149,6 +164,7 @@ impl AttributionGeneration {
 
 struct State {
     cache: LruCache<IpAddr, Resolution>,
+    uid_cache: LruCache<FlowResolveRequest, UidResolution>,
     pending: VecDeque<FlowResolveRequest>,
     generation: u64,
 }
@@ -157,6 +173,7 @@ impl State {
     fn new() -> Self {
         Self {
             cache: LruCache::new(NonZeroUsize::new(CACHE_CAPACITY).expect("non-zero cache capacity")),
+            uid_cache: LruCache::new(NonZeroUsize::new(CACHE_CAPACITY).expect("non-zero UID cache capacity")),
             pending: VecDeque::new(),
             generation: 0,
         }
@@ -164,6 +181,7 @@ impl State {
 
     fn clear(&mut self) {
         self.cache.clear();
+        self.uid_cache.clear();
         self.pending.clear();
     }
 }
@@ -193,20 +211,47 @@ fn lock() -> std::sync::MutexGuard<'static, State> {
 /// `None`. A later flow to the same destination picks up the resolved answer.
 pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> Option<FlowAppContext> {
     let key = remote.ip();
+    let request = FlowResolveRequest { protocol, local, remote };
     let mut guard = lock();
-    match guard.cache.get(&key) {
-        Some(Resolution::Resolved(ctx)) => return ctx.clone(),
-        Some(Resolution::Pending) => return None,
-        None => {}
+    let context = match guard.cache.get(&key) {
+        Some(Resolution::Resolved(ctx)) => ctx.clone(),
+        Some(Resolution::Pending) | None => None,
+    };
+    if !guard.cache.contains(&key) {
+        guard.cache.put(key, Resolution::Pending);
     }
-    guard.cache.put(key, Resolution::Pending);
-    if guard.pending.len() >= PENDING_CAPACITY {
-        guard.pending.pop_front();
+    if guard.uid_cache.contains(&request) {
+        return context;
     }
-    guard.pending.push_back(FlowResolveRequest { protocol, local, remote });
+    guard.uid_cache.put(request, UidResolution::Pending);
+    if guard.pending.len() >= PENDING_CAPACITY
+        && let Some(dropped) = guard.pending.pop_front()
+    {
+        guard.uid_cache.pop(&dropped);
+    }
+    guard.pending.push_back(request);
     drop(guard);
     pending_signal().notify_one();
-    None
+    context
+}
+
+/// Read the asynchronous UID-resolution state for one complete flow tuple.
+#[must_use]
+pub fn lookup_flow_uid(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowUidLookup {
+    let request = FlowResolveRequest { protocol, local, remote };
+    match lock().uid_cache.get(&request) {
+        Some(UidResolution::Pending) => FlowUidLookup::Pending,
+        Some(UidResolution::Resolved(uid)) => FlowUidLookup::Resolved(*uid),
+        None => FlowUidLookup::Missing,
+    }
+}
+
+/// Store the UID result produced by the background JNI worker.
+pub fn store_uid_resolution(request: FlowResolveRequest, uid: Option<u32>) {
+    let mut guard = lock();
+    if matches!(guard.uid_cache.peek(&request), Some(UidResolution::Pending)) {
+        guard.uid_cache.put(request, UidResolution::Resolved(uid));
+    }
 }
 
 /// Read-only attribution lookup for a destination IP (the policy-layer entry
@@ -240,7 +285,13 @@ pub fn store_resolution(dest_ip: IpAddr, context: Option<FlowAppContext>) {
 
 /// Drop the cache entry for a destination IP (called on flow close).
 pub fn evict_flow(dest_ip: IpAddr) {
-    lock().cache.pop(&dest_ip);
+    let mut guard = lock();
+    guard.cache.pop(&dest_ip);
+    let keys =
+        guard.uid_cache.iter().filter_map(|(key, _)| (key.remote.ip() == dest_ip).then_some(*key)).collect::<Vec<_>>();
+    for key in keys {
+        guard.uid_cache.pop(&key);
+    }
 }
 
 /// Clear all cached attributions and pending requests.
@@ -313,14 +364,48 @@ mod tests {
         assert!(note_flow(6, local, remote).is_none());
         assert_eq!(pending_len(), 1);
 
-        // A second flow to the same dest is already Pending — no duplicate enqueue.
-        assert!(note_flow(6, sock(10, 0, 0, 2, 50001), remote).is_none());
+        // The exact 5-tuple is deduplicated while pending.
+        assert!(note_flow(6, local, remote).is_none());
         assert_eq!(pending_len(), 1);
 
         let request = pop_pending_request(Duration::from_millis(10)).expect("a pending request");
         assert_eq!(request.protocol, 6);
         assert_eq!(request.remote, remote);
         assert_eq!(request.key(), remote.ip());
+    }
+
+    #[test]
+    fn uid_resolution_is_cached_by_complete_flow_tuple() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let remote = sock(93, 184, 216, 34, 443);
+        let first_local = sock(10, 0, 0, 2, 50000);
+        let second_local = sock(10, 0, 0, 2, 50001);
+
+        note_flow(6, first_local, remote);
+        note_flow(6, second_local, remote);
+        assert_eq!(pending_len(), 2, "parallel flows to one destination need independent UID lookups");
+        assert_eq!(lookup_flow_uid(6, first_local, remote), FlowUidLookup::Pending);
+
+        let first = pop_pending_request(Duration::from_millis(10)).expect("first request");
+        store_uid_resolution(first, Some(10_123));
+        assert_eq!(lookup_flow_uid(6, first_local, remote), FlowUidLookup::Resolved(Some(10_123)));
+        assert_eq!(lookup_flow_uid(6, second_local, remote), FlowUidLookup::Pending);
+    }
+
+    #[test]
+    fn late_uid_resolution_does_not_resurrect_evicted_flow() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let local = sock(10, 0, 0, 2, 50000);
+        let remote = sock(93, 184, 216, 34, 443);
+        let request = FlowResolveRequest { protocol: 6, local, remote };
+
+        note_flow(6, local, remote);
+        evict_flow(remote.ip());
+        store_uid_resolution(request, Some(10_123));
+
+        assert_eq!(lookup_flow_uid(6, local, remote), FlowUidLookup::Missing);
     }
 
     #[test]
@@ -335,10 +420,11 @@ mod tests {
         let ctx = lookup_flow(remote.ip()).expect("resolved context");
         assert_eq!(ctx.package(), "com.example.app");
         assert_eq!(ctx.version_code(), 42);
-        // A later flow to the same dest gets the cached answer with no new enqueue.
+        // App attribution remains destination-cached, while the distinct 5-tuple
+        // still queues its own UID lookup for admission.
         let before = pending_len();
         assert_eq!(note_flow(6, sock(10, 0, 0, 2, 40001), remote).map(|c| c.version_code()), Some(42));
-        assert_eq!(pending_len(), before);
+        assert_eq!(pending_len(), before + 1);
     }
 
     #[test]

@@ -6,18 +6,15 @@
 //! UID attribution, so that bypass is invisible to the routing layer. This module is
 //! the enforcement core: a UID is resolved for each *new* flow (off the hot path, via
 //! a [`FlowUidSource`] the JNI layer implements) and checked against the split-tunnel
-//! allowlist before a SOCKS session is opened.
+//! allowlist/denylist before a SOCKS session is opened.
 //!
 //! ## Scope of this module
 //!
 //! The **pure, unit-testable decision** ([`UidFlowPolicy::evaluate`] /
-//! [`UidFlowPolicy::admit`]) plus the [`FlowUidSource`] port. The live data-path
-//! wiring (consulting the policy at the smoltcp admission seams — TCP at
-//! `io_loop::tcp_accept::admission`, UDP at `io_loop::udp_assoc::forwarding::ensure`)
-//! and the JNI `getConnectionOwnerUid` source are **device-gated** (they need a
-//! kernel-5.7+ device plus the `SO_BINDTODEVICE=tun0` escape test) and are NOT wired
-//! here. An unverified data-plane gate either breaks all traffic or fails open
-//! silently, so the wiring lands in a dedicated on-device session.
+//! [`UidFlowPolicy::admit`]) plus the [`FlowUidSource`] port. The live data path
+//! consults it at the smoltcp admission seams: TCP before opening a SOCKS session,
+//! and UDP before creating an association. Android arms the policy only on API 31+
+//! and resolves `getConnectionOwnerUid` asynchronously through the JNI worker.
 //!
 //! ## Privacy
 //!
@@ -35,6 +32,9 @@ pub const PROTO_UDP: u8 = 17;
 /// The admission decision for a new flow.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
+    /// UID resolution is still running off the data-plane thread. TCP admission
+    /// remains parked; UDP drops the current datagram and retries on the next one.
+    Pending,
     /// Forward the flow to the SOCKS proxy as usual.
     Allow,
     /// Unauthorized TCP (or non-UDP) flow: abort the smoltcp socket (send RST) and
@@ -62,11 +62,39 @@ pub trait FlowUidSource: Send + Sync {
     /// The owning UID, or `None` if unattributable (shared/unknown UID, multiple
     /// owners, or lookup failure). `None` is handled per
     /// [`UidFlowPolicy::admit`]'s unresolved policy.
-    fn uid_for(&self, protocol: u8, local: SocketAddr, remote: SocketAddr) -> Option<u32>;
+    fn uid_for(&self, protocol: u8, local: SocketAddr, remote: SocketAddr) -> UidLookup;
 }
 
-/// Split-tunnel UID admission policy: the set of UIDs permitted to use the tunnel,
-/// an `enforce` arm flag, and how to treat unattributable flows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UidLookup {
+    Missing,
+    Pending,
+    Resolved(Option<u32>),
+}
+
+/// Process-local 5-tuple cache populated by the Android JNI attribution worker.
+pub struct CachedFlowUidSource;
+
+impl FlowUidSource for CachedFlowUidSource {
+    fn uid_for(&self, protocol: u8, local: SocketAddr, remote: SocketAddr) -> UidLookup {
+        match ripdpi_flow_app_attribution::lookup_flow_uid(protocol, local, remote) {
+            ripdpi_flow_app_attribution::FlowUidLookup::Missing => UidLookup::Missing,
+            ripdpi_flow_app_attribution::FlowUidLookup::Pending => UidLookup::Pending,
+            ripdpi_flow_app_attribution::FlowUidLookup::Resolved(uid) => UidLookup::Resolved(uid),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+enum PolicyMode {
+    #[default]
+    Disarmed,
+    Allowlist,
+    Denylist,
+}
+
+/// Split-tunnel UID admission policy: an allowlist or denylist of UIDs, an arm
+/// mode, and how to treat unattributable flows.
 ///
 /// A **disarmed** policy (the [`Default`]) allows every flow — the gate must never be
 /// the component that breaks traffic on an unverified path, so it is inert until the
@@ -79,8 +107,8 @@ pub trait FlowUidSource: Send + Sync {
 /// such flows through.
 #[derive(Debug, Clone, Default)]
 pub struct UidFlowPolicy {
-    allowed_uids: HashSet<u32>,
-    enforce: bool,
+    uids: HashSet<u32>,
+    mode: PolicyMode,
     block_unresolved: bool,
 }
 
@@ -95,7 +123,14 @@ impl UidFlowPolicy {
     /// flows. Arm only on kernel >= 5.7.
     #[must_use]
     pub fn enforcing(allowed_uids: HashSet<u32>) -> Self {
-        Self { allowed_uids, enforce: true, block_unresolved: true }
+        Self { uids: allowed_uids, mode: PolicyMode::Allowlist, block_unresolved: true }
+    }
+
+    /// An enforcing denylist policy used by Android's `addDisallowedApplication`
+    /// routing shape.
+    #[must_use]
+    pub fn denying(denied_uids: HashSet<u32>) -> Self {
+        Self { uids: denied_uids, mode: PolicyMode::Denylist, block_unresolved: true }
     }
 
     /// Consume `self` and let unattributable flows (resolver returns `None`) pass.
@@ -109,14 +144,19 @@ impl UidFlowPolicy {
     /// Whether this policy actively gates flows.
     #[must_use]
     pub fn is_enforcing(&self) -> bool {
-        self.enforce
+        !matches!(self.mode, PolicyMode::Disarmed)
     }
 
     /// Pure decision for an already-resolved `uid`. Disarmed => always
     /// [`Verdict::Allow`]. Infallible and side-effect-free — the unit-test surface.
     #[must_use]
     pub fn evaluate(&self, uid: u32, protocol: u8) -> Verdict {
-        if !self.enforce || self.allowed_uids.contains(&uid) { Verdict::Allow } else { Verdict::deny_for(protocol) }
+        let allowed = match self.mode {
+            PolicyMode::Disarmed => true,
+            PolicyMode::Allowlist => self.uids.contains(&uid),
+            PolicyMode::Denylist => !self.uids.contains(&uid),
+        };
+        if allowed { Verdict::Allow } else { Verdict::deny_for(protocol) }
     }
 
     /// Resolve the flow's UID via `source`, then [`evaluate`](Self::evaluate). A
@@ -125,13 +165,14 @@ impl UidFlowPolicy {
     /// was set.
     #[must_use]
     pub fn admit(&self, source: &dyn FlowUidSource, protocol: u8, local: SocketAddr, remote: SocketAddr) -> Verdict {
-        if !self.enforce {
+        if !self.is_enforcing() {
             return Verdict::Allow;
         }
         match source.uid_for(protocol, local, remote) {
-            Some(uid) => self.evaluate(uid, protocol),
-            None if self.block_unresolved => Verdict::deny_for(protocol),
-            None => Verdict::Allow,
+            UidLookup::Missing | UidLookup::Pending => Verdict::Pending,
+            UidLookup::Resolved(Some(uid)) => self.evaluate(uid, protocol),
+            UidLookup::Resolved(None) if self.block_unresolved => Verdict::deny_for(protocol),
+            UidLookup::Resolved(None) => Verdict::Allow,
         }
     }
 }
@@ -150,9 +191,9 @@ mod tests {
     }
 
     /// A `FlowUidSource` that returns a fixed answer, ignoring the flow tuple.
-    struct FixedSource(Option<u32>);
+    struct FixedSource(UidLookup);
     impl FlowUidSource for FixedSource {
-        fn uid_for(&self, _protocol: u8, _local: SocketAddr, _remote: SocketAddr) -> Option<u32> {
+        fn uid_for(&self, _protocol: u8, _local: SocketAddr, _remote: SocketAddr) -> UidLookup {
             self.0
         }
     }
@@ -165,7 +206,10 @@ mod tests {
         assert_eq!(policy.evaluate(12345, PROTO_TCP), Verdict::Allow);
         assert_eq!(policy.evaluate(12345, PROTO_UDP), Verdict::Allow);
         // admit never consults the source when disarmed (a denying source is ignored).
-        assert_eq!(policy.admit(&FixedSource(Some(999)), PROTO_TCP, addr(1), addr(2)), Verdict::Allow);
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(Some(999))), PROTO_TCP, addr(1), addr(2)),
+            Verdict::Allow
+        );
     }
 
     #[test]
@@ -190,26 +234,44 @@ mod tests {
     fn admit_resolves_then_evaluates() {
         let policy = UidFlowPolicy::enforcing(allowlist(&[1000]));
         // Resolver attributes the flow to an allowed UID → Allow.
-        assert_eq!(policy.admit(&FixedSource(Some(1000)), PROTO_TCP, addr(1), addr(2)), Verdict::Allow);
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(Some(1000))), PROTO_TCP, addr(1), addr(2)),
+            Verdict::Allow
+        );
         // Resolver attributes it to a denied UID → reset/drop by protocol.
-        assert_eq!(policy.admit(&FixedSource(Some(2000)), PROTO_TCP, addr(1), addr(2)), Verdict::ResetTcp);
-        assert_eq!(policy.admit(&FixedSource(Some(2000)), PROTO_UDP, addr(1), addr(2)), Verdict::DropUdp);
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(Some(2000))), PROTO_TCP, addr(1), addr(2)),
+            Verdict::ResetTcp
+        );
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(Some(2000))), PROTO_UDP, addr(1), addr(2)),
+            Verdict::DropUdp
+        );
     }
 
     #[test]
     fn enforcing_blocks_unresolved_by_default_fail_closed() {
         let policy = UidFlowPolicy::enforcing(allowlist(&[1000]));
-        assert_eq!(policy.admit(&FixedSource(None), PROTO_TCP, addr(1), addr(2)), Verdict::ResetTcp);
-        assert_eq!(policy.admit(&FixedSource(None), PROTO_UDP, addr(1), addr(2)), Verdict::DropUdp);
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(None)), PROTO_TCP, addr(1), addr(2)),
+            Verdict::ResetTcp
+        );
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(None)), PROTO_UDP, addr(1), addr(2)),
+            Verdict::DropUdp
+        );
     }
 
     #[test]
     fn allowing_unresolved_passes_unattributable_flows() {
         let policy = UidFlowPolicy::enforcing(allowlist(&[1000])).allowing_unresolved();
-        assert_eq!(policy.admit(&FixedSource(None), PROTO_TCP, addr(1), addr(2)), Verdict::Allow);
-        assert_eq!(policy.admit(&FixedSource(None), PROTO_UDP, addr(1), addr(2)), Verdict::Allow);
+        assert_eq!(policy.admit(&FixedSource(UidLookup::Resolved(None)), PROTO_TCP, addr(1), addr(2)), Verdict::Allow);
+        assert_eq!(policy.admit(&FixedSource(UidLookup::Resolved(None)), PROTO_UDP, addr(1), addr(2)), Verdict::Allow);
         // A resolved-but-denied UID is still blocked even with unresolved allowed.
-        assert_eq!(policy.admit(&FixedSource(Some(2000)), PROTO_TCP, addr(1), addr(2)), Verdict::ResetTcp);
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(Some(2000))), PROTO_TCP, addr(1), addr(2)),
+            Verdict::ResetTcp
+        );
     }
 
     #[test]
@@ -218,6 +280,23 @@ mod tests {
         // caller must populate the allowlist before arming on-device.
         let policy = UidFlowPolicy::enforcing(HashSet::new());
         assert_eq!(policy.evaluate(1000, PROTO_TCP), Verdict::ResetTcp);
-        assert_eq!(policy.admit(&FixedSource(Some(1000)), PROTO_UDP, addr(1), addr(2)), Verdict::DropUdp);
+        assert_eq!(
+            policy.admit(&FixedSource(UidLookup::Resolved(Some(1000))), PROTO_UDP, addr(1), addr(2)),
+            Verdict::DropUdp
+        );
+    }
+
+    #[test]
+    fn pending_resolution_parks_admission_without_blocking() {
+        let policy = UidFlowPolicy::enforcing(allowlist(&[1000]));
+        assert_eq!(policy.admit(&FixedSource(UidLookup::Pending), PROTO_TCP, addr(1), addr(2)), Verdict::Pending);
+        assert_eq!(policy.admit(&FixedSource(UidLookup::Missing), PROTO_UDP, addr(1), addr(2)), Verdict::Pending);
+    }
+
+    #[test]
+    fn denylist_rejects_only_listed_uids() {
+        let policy = UidFlowPolicy::denying(allowlist(&[2000]));
+        assert_eq!(policy.evaluate(1000, PROTO_TCP), Verdict::Allow);
+        assert_eq!(policy.evaluate(2000, PROTO_TCP), Verdict::ResetTcp);
     }
 }

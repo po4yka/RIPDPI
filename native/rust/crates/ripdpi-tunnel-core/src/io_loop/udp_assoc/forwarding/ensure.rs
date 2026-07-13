@@ -16,9 +16,6 @@ use super::super::eviction::{UdpEvictionEntry, evict_if_over_capacity};
 use super::allocation::alloc_association;
 use super::quic_sni::record_quic_sni_if_present;
 
-/// IANA IP protocol number for UDP, for flow-attribution `note_flow`.
-const PROTO_UDP: u8 = 17;
-
 #[allow(clippy::too_many_arguments)]
 pub(super) fn ensure_udp_association(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
@@ -40,11 +37,6 @@ pub(super) fn ensure_udp_association(
         return;
     }
 
-    // New UDP association: record the originating app's flow for per-app
-    // attribution (once per association, not per datagram). `note_flow` only
-    // locks a mutex and pushes to a queue (deduped by destination) -- no JNI
-    // on this path; a background worker resolves off-path.
-    ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
     record_quic_sni_if_present(stats, payload);
     if eviction_heap.is_full() {
         evict_if_over_capacity(associations, eviction_heap);

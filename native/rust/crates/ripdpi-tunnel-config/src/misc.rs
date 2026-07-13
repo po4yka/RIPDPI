@@ -27,6 +27,10 @@ pub struct MiscConfig {
     pub limit_nofile: u32,
     #[serde(default)]
     pub filter_injected_resets: bool,
+    #[serde(default = "default_uid_policy_mode")]
+    pub uid_policy_mode: String,
+    #[serde(default)]
+    pub uid_policy_uids: Vec<u32>,
     pub strategy_chain_yaml: Option<String>,
     pub protect_path: Option<String>,
     pub root_helper_socket_path: Option<String>,
@@ -53,6 +57,8 @@ impl Default for MiscConfig {
             pid_file: None,
             limit_nofile: default_limit_nofile(),
             filter_injected_resets: false,
+            uid_policy_mode: default_uid_policy_mode(),
+            uid_policy_uids: Vec::new(),
             strategy_chain_yaml: None,
             protect_path: None,
             root_helper_socket_path: None,
@@ -95,4 +101,8 @@ fn default_limit_nofile() -> u32 {
 
 fn default_log_level() -> String {
     "warn".to_string()
+}
+
+fn default_uid_policy_mode() -> String {
+    "disarmed".to_string()
 }

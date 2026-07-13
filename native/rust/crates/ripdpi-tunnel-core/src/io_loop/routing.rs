@@ -45,6 +45,7 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
                     &state.cancel,
                     &state.udp_tx,
                     &state.stats,
+                    &state.runtime.uid_policy,
                 );
             }
         }

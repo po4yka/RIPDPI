@@ -52,7 +52,7 @@ pub(super) fn proxy_addr(config: &Config) -> io::Result<SocketAddr> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::sync::Arc;
 
@@ -290,7 +290,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_new_tcp_sessions_waits_for_established_handshake() {
+    async fn spawn_new_tcp_sessions_waits_for_handshake_and_uid_resolution() {
         let mut device = TunDevice::new(1500);
         let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
         let mut iface = Interface::new(config, &mut device, Instant::now());
@@ -311,6 +311,7 @@ mod tests {
         let mut dns_cache = None;
         let auth = super::Auth::NoAuth;
         let proxy_sockaddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9);
+        let uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
 
         let client_ip = Ipv4Addr::new(10, 0, 0, 99);
         let target_ip = Ipv4Addr::new(127, 0, 0, 1);
@@ -332,6 +333,7 @@ mod tests {
             &cancel,
             &stats,
             &mut dns_cache,
+            &uid_policy,
         );
         assert!(sessions.is_empty(), "half-open SYN-RECEIVED sockets must not spawn upstream sessions");
 
@@ -351,8 +353,29 @@ mod tests {
             &cancel,
             &stats,
             &mut dns_cache,
+            &uid_policy,
         );
-        assert_eq!(sessions.len(), 1, "established sockets must spawn upstream sessions exactly once");
+        assert!(sessions.is_empty(), "established sockets must remain parked while UID resolution is pending");
+
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_TCP,
+            local: SocketAddr::new(IpAddr::V4(client_ip), client_port),
+            remote: SocketAddr::new(IpAddr::V4(target_ip), target_port),
+        };
+        ripdpi_flow_app_attribution::store_uid_resolution(request, Some(10_123));
+        spawn_new_tcp_sessions(
+            &mut socket_set,
+            &mut sessions,
+            &mut pending_listens,
+            proxy_sockaddr,
+            &auth,
+            None,
+            &cancel,
+            &stats,
+            &mut dns_cache,
+            &uid_policy,
+        );
+        assert_eq!(sessions.len(), 1, "an authorized resolved UID must open one upstream session");
 
         let handles: Vec<_> = sessions.iter_mut().map(|(handle, _)| handle).collect();
         for handle in handles {

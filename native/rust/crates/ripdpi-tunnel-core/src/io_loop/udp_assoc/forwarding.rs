@@ -9,6 +9,7 @@ use tracing::debug;
 
 use crate::Stats;
 use crate::session::Auth;
+use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, UidFlowPolicy, Verdict};
 
 mod allocation;
 mod ensure;
@@ -39,7 +40,14 @@ pub(in crate::io_loop) fn forward_udp_payload(
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
     stats: &Arc<Stats>,
+    uid_policy: &UidFlowPolicy,
 ) {
+    ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
+    match uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, resolved_dst) {
+        Verdict::Allow => {}
+        Verdict::Pending | Verdict::DropUdp | Verdict::ResetTcp => return,
+    }
+
     ensure_udp_association(
         associations,
         eviction_heap,

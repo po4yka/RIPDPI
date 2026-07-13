@@ -15,6 +15,7 @@ use ripdpi_tunnel_intercept::egress::{RawTunPacketInjector, TunEgressInterceptor
 use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, SynAckStrategy, TunIngressInterceptor};
 
 use crate::dns_cache::DnsCache;
+use crate::uid_policy::UidFlowPolicy;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{parse_dns_cache, parse_mapdns_runtime};
@@ -55,12 +56,19 @@ pub(in crate::io_loop) fn setup_io_loop(
         )
     });
     let max_sessions = config.misc.max_session_count as usize;
+    let policy_uids = config.misc.uid_policy_uids.iter().copied().collect();
+    let uid_policy = match config.misc.uid_policy_mode.as_str() {
+        "allowlist" => UidFlowPolicy::enforcing(policy_uids),
+        "denylist" => UidFlowPolicy::denying(policy_uids),
+        _ => UidFlowPolicy::disarmed(),
+    };
     let runtime = LoopRuntime {
         proxy_sockaddr,
         auth,
         mapdns_runtime,
         mapdns_classify,
         filter_injected_resets: config.misc.filter_injected_resets,
+        uid_policy,
         tun_ingress_interceptor: TunIngressInterceptor::new(
             SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
             RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
