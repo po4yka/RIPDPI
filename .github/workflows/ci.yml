@@ -622,6 +622,9 @@ jobs:
         with:
           tool: cargo-deny@0.19.8
 
+      - name: Validate advisory waiver governance
+        run: python3 scripts/ci/check_rust_advisory_waivers.py
+
       - name: Run cargo-deny
         run: cargo deny --locked --manifest-path native/rust/Cargo.toml check
 
@@ -641,6 +644,9 @@ jobs:
         uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2.82.9
         with:
           tool: cargo-deny@0.19.8
+
+      - name: Validate advisory waiver governance
+        run: python3 scripts/ci/check_rust_advisory_waivers.py
 
       - name: Run cargo-deny advisories
         run: cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories

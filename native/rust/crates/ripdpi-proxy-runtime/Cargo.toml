@@ -17,6 +17,7 @@ loom = { workspace = true, optional = true }
 ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]
+daemonize = ["ripdpi-proxy-runtime-adapter/daemonize"]
 loom = ["dep:loom", "ripdpi-proxy-runtime-adapter/loom"]
 io-uring = ["dep:ripdpi-io-uring", "ripdpi-proxy-runtime-adapter/io-uring"]
 

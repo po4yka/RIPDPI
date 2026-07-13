@@ -4,24 +4,28 @@ type: task
 status: backlog
 area: rust-native
 priority: low
-owner: unassigned
+owner: Native security maintainer
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-12
-updated: 2026-06-12
+updated: 2026-07-13
 source_wiki_pages: []
 linked_task: null
 ---
 
 ## Motivation
 
-`native/rust/Cargo.toml` pins russh at exactly `=0.61.1` and `native/rust/deny.toml` suppresses RUSTSEC-2023-0071 (rsa Marvin timing sidechannel) with the justification that:
+`native/rust/Cargo.toml` pins russh at exactly `=0.62.1` and `native/rust/deny.toml` suppresses RUSTSEC-2023-0071 (rsa Marvin timing sidechannel) with the justification that:
 
-1. rsa 0.9.10 enters via Arti 0.43.0 → ssh-key-fork-arti — RIPDPI uses Arti only as a Tor client backend and does not expose RSA private-key service operations.
-2. rsa 0.10.0-rc.18 enters via russh 0.61.1 (ripdpi-ssh SSH outbound engine) — SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable.
+1. rsa 0.9.10 enters via Arti 0.44.0 → ssh-key-fork-arti — RIPDPI uses Arti only as a Tor client backend and does not expose RSA private-key service operations.
+2. rsa 0.10.0-rc.18 enters via russh 0.62.1 (ripdpi-ssh SSH outbound engine) — SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable.
 
 No safe upgrade existed on either path at the time of pinning. The suppression is a placeholder, not a permanent decision.
+
+## Review deadline
+
+Re-evaluate the waiver no later than 2026-08-12. The machine-checked expiry in `native/rust/advisory-waivers.toml` intentionally blocks CI on that date until this task is reviewed.
 
 ## Trigger
 
@@ -29,7 +33,7 @@ A russh release that either:
 - Drops the rsa dependency entirely, or
 - Upgrades rsa to a version that resolves RUSTSEC-2023-0071 (i.e., a russh release compatible with rsa ≥ 0.10.0 stable with the fix applied).
 
-Check periodically: https://github.com/warp-tech/russh/releases
+Check periodically: https://github.com/Eugeny/russh/releases
 
 ## Proposed change
 
@@ -44,12 +48,12 @@ Check periodically: https://github.com/warp-tech/russh/releases
 - [ ] `cargo deny check advisories` exits 0 with the RUSTSEC-2023-0071 suppression removed from deny.toml.
 - [ ] `cargo nextest run -p ripdpi-ssh --locked` green.
 - [ ] `cargo nextest run --workspace --locked` green.
-- [ ] The `=0.61.1` exact pin is removed or updated in Cargo.toml.
+- [ ] The `=0.62.1` exact pin is removed or updated in Cargo.toml.
 - [ ] Commit message references the russh release that resolved the rsa dependency.
 
 ## References
 
 - `native/rust/deny.toml` lines 10-14 — current suppression with full rationale.
-- `native/rust/Cargo.toml` line 225 — `russh = "=0.61.1"` exact pin.
+- `native/rust/Cargo.toml` — `russh = "=0.62.1"` exact pin.
 - RUSTSEC-2023-0071: https://rustsec.org/advisories/RUSTSEC-2023-0071.html
-- russh releases: https://github.com/warp-tech/russh/releases
+- russh releases: https://github.com/Eugeny/russh/releases

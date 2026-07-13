@@ -55,8 +55,12 @@ pre-commit:
       run: python3 scripts/ci/check_architecture_health.py --staged
 
     cargo-deny:
-      glob: "native/rust/Cargo*.toml"
+      glob: "{native/rust/Cargo*.toml,native/rust/deny.toml}"
       run: command -v cargo-deny >/dev/null || exit 0; cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
+
+    advisory-waivers:
+      glob: "{native/rust/deny.toml,native/rust/advisory-waivers.toml,scripts/ci/check_rust_advisory_waivers.py,scripts/ci/test_rust_advisory_waivers.py}"
+      run: python3 scripts/ci/check_rust_advisory_waivers.py && python3 -m unittest scripts.ci.test_rust_advisory_waivers
 
     rust-clippy:
       glob: "*.rs"
