@@ -44,6 +44,7 @@ class AppShortcutsPublisher
         @param:ApplicationContext private val context: Context,
         private val proxyGroupRepository: ProxyGroupRepository,
         private val selectorSelectionStore: SelectorSelectionStore,
+        private val selectorShortcutCapability: SelectorShortcutCapability,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         private val started = AtomicBoolean(false)
@@ -110,5 +111,6 @@ class AppShortcutsPublisher
                 setPackage(context.packageName)
                 putExtra(ExtraSelectGroupId, entry.groupId)
                 putExtra(ExtraSelectProfileId, entry.profileId)
+                putExtra(ExtraSelectorCapability, selectorShortcutCapability.sign(entry.groupId, entry.profileId))
             }
     }

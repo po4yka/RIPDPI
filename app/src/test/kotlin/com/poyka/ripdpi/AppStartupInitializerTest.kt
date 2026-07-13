@@ -27,6 +27,7 @@ import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.FlowAppAttributionStore
 import com.poyka.ripdpi.services.FlowAttribution
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
+import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.CancellationException
@@ -488,6 +489,7 @@ class AppStartupInitializerTest {
                     context = application,
                     proxyGroupRepository = proxyGroupRepository,
                     selectorSelectionStore = NoOpSelectorSelectionStore,
+                    selectorShortcutCapability = SelectorShortcutCapability(application),
                     applicationScope = scope,
                 ),
             applicationScope = scope,

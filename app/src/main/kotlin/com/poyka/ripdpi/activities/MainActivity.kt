@@ -22,6 +22,7 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
+import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.navigation.decodeImportedProfile
 import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
@@ -40,6 +41,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     internal lateinit var selectorSelectionStore: SelectorSelectionStore
+
+    @Inject
+    internal lateinit var selectorShortcutCapability: SelectorShortcutCapability
 
     private val viewModel: MainViewModel by viewModels()
     private val shellController by lazy(LazyThreadSafetyMode.NONE) { MainActivityShellController(intent) }
@@ -113,12 +117,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applySelectorSelection(intent: Intent?) {
-        val groupId = selectorGroupIdFrom(intent) ?: return
-        val profileId = selectorProfileIdFrom(intent) ?: return
-        runCatching { selectorSelectionStore.select(groupId, profileId) }
+        val groupId = selectorGroupIdFrom(intent)
+        val profileId = selectorProfileIdFrom(intent)
+        if (groupId != null || profileId != null) {
+            if (!applySelectorSelectionIntent(
+                    intent = intent,
+                    verifies = selectorShortcutCapability::verifies,
+                    select = selectorSelectionStore::select,
+                )
+            ) {
+                Logger.w { "Rejected selector selection without a valid shortcut capability" }
+            }
+        }
+    }
+}
+
+internal fun applySelectorSelectionIntent(
+    intent: Intent?,
+    verifies: (Intent?) -> Boolean,
+    select: (String, String) -> Unit,
+): Boolean {
+    val groupId = selectorGroupIdFrom(intent)
+    val profileId = selectorProfileIdFrom(intent)
+    return if (groupId == null || profileId == null || !verifies(intent)) {
+        false
+    } else {
+        runCatching { select(groupId, profileId) }
             .onFailure { error ->
                 Logger.w(error) { "Failed to apply selector selection from shortcut intent" }
-            }
+            }.isSuccess
     }
 }
 

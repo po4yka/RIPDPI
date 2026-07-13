@@ -7,6 +7,10 @@ import android.net.Uri
 import android.net.VpnService
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.shortcuts.ExtraSelectGroupId
+import com.poyka.ripdpi.shortcuts.ExtraSelectProfileId
+import com.poyka.ripdpi.shortcuts.ExtraSelectorCapability
+import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -95,6 +99,49 @@ class MainActivityPermissionTest {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect"))
 
         assertFalse(requestsConfiguredStop(intent))
+    }
+
+    @Test
+    fun `forged main activity selector extras cannot mutate selection`() {
+        val context: Context = RuntimeEnvironment.getApplication()
+        val forgedIntent =
+            Intent(context, MainActivity::class.java)
+                .putExtra(ExtraSelectGroupId, "group")
+                .putExtra(ExtraSelectProfileId, "profile")
+        val selections = mutableListOf<Pair<String, String>>()
+        val capability = SelectorShortcutCapability(context)
+
+        val applied =
+            applySelectorSelectionIntent(
+                intent = forgedIntent,
+                verifies = capability::verifies,
+                select = { groupId, profileId -> selections += groupId to profileId },
+            )
+
+        assertFalse(applied)
+        assertTrue(selections.isEmpty())
+    }
+
+    @Test
+    fun `signed selector extras remain accepted by main activity boundary`() {
+        val context: Context = RuntimeEnvironment.getApplication()
+        val capability = SelectorShortcutCapability(context)
+        val intent =
+            Intent(context, MainActivity::class.java)
+                .putExtra(ExtraSelectGroupId, "group")
+                .putExtra(ExtraSelectProfileId, "profile")
+                .putExtra(ExtraSelectorCapability, capability.sign("group", "profile"))
+        val selections = mutableListOf<Pair<String, String>>()
+
+        val applied =
+            applySelectorSelectionIntent(
+                intent = intent,
+                verifies = capability::verifies,
+                select = { groupId, profileId -> selections += groupId to profileId },
+            )
+
+        assertTrue(applied)
+        assertEquals(listOf("group" to "profile"), selections)
     }
 
     @Test

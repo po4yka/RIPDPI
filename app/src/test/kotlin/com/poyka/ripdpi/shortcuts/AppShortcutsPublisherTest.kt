@@ -35,12 +35,14 @@ class AppShortcutsPublisherTest {
                 )
             val selectorStore = FakeSelectorSelectionStore()
             repeat(6) { selectorStore.set("group-$it", "profile-$it") }
+            val capability = SelectorShortcutCapability(application)
 
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = selectorStore,
+                    selectorShortcutCapability = capability,
                     applicationScope = backgroundScope,
                 )
 
@@ -49,6 +51,7 @@ class AppShortcutsPublisherTest {
 
             val dynamic = ShortcutManagerCompat.getDynamicShortcuts(application)
             assertTrue("expected at most 4 dynamic shortcuts, got ${dynamic.size}", dynamic.size <= 4)
+            assertTrue(dynamic.all { shortcut -> capability.verifies(shortcut.intent) })
         }
 
     @Test
@@ -59,6 +62,7 @@ class AppShortcutsPublisherTest {
                     context = application,
                     proxyGroupRepository = FlowBackedProxyGroupRepository(MutableStateFlow(emptyList())),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
+                    selectorShortcutCapability = SelectorShortcutCapability(application),
                     applicationScope = backgroundScope,
                 )
 
@@ -84,6 +88,7 @@ class AppShortcutsPublisherTest {
                     context = application,
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
+                    selectorShortcutCapability = SelectorShortcutCapability(application),
                     applicationScope = backgroundScope,
                 )
 
@@ -107,6 +112,7 @@ class AppShortcutsPublisherTest {
                     context = application,
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
+                    selectorShortcutCapability = SelectorShortcutCapability(application),
                     applicationScope = backgroundScope,
                 )
 
