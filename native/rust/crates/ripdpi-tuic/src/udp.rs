@@ -15,6 +15,7 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
 const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
+const MAX_DESTINATIONS_PER_UDP_SESSION: usize = 256;
 
 /// Maximum number of wrap-around retry attempts before declaring assoc-id space exhausted.
 const MAX_ASSOC_ID_SCAN_ATTEMPTS: u16 = 1024;
@@ -23,26 +24,42 @@ pub struct UdpSession {
     client: Arc<ClientInner>,
     incoming_rx: mpsc::Receiver<UdpPacket>,
     incoming_tx: mpsc::Sender<UdpPacket>,
-    assoc_ids: Mutex<HashMap<String, u16>>,
-    packet_ids: Mutex<HashMap<u16, u16>>,
+    destinations: Mutex<DestinationState>,
+}
+
+#[derive(Default)]
+struct DestinationState {
+    entries: HashMap<String, DestinationEntry>,
+    access_sequence: u64,
+}
+
+struct DestinationEntry {
+    assoc_id: u16,
+    next_packet_id: u16,
+    last_used: u64,
+}
+
+impl DestinationState {
+    fn route_for_existing(&mut self, address: &str) -> Option<(u16, u16)> {
+        self.access_sequence = self.access_sequence.saturating_add(1);
+        let last_used = self.access_sequence;
+        let entry = self.entries.get_mut(address)?;
+        let packet_id = entry.next_packet_id;
+        entry.next_packet_id = entry.next_packet_id.wrapping_add(1);
+        entry.last_used = last_used;
+        Some((entry.assoc_id, packet_id))
+    }
 }
 
 impl UdpSession {
     pub(crate) fn new(client: Arc<ClientInner>) -> Self {
         let (incoming_tx, incoming_rx) = mpsc::channel(64);
-        Self {
-            client,
-            incoming_rx,
-            incoming_tx,
-            assoc_ids: Mutex::new(HashMap::new()),
-            packet_ids: Mutex::new(HashMap::new()),
-        }
+        Self { client, incoming_rx, incoming_tx, destinations: Mutex::new(DestinationState::default()) }
     }
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> io::Result<()> {
         let target = TuicAddress::from_authority(address)?;
-        let assoc_id = self.assoc_id_for(address).await?;
-        let packet_id = self.next_packet_id(assoc_id).await;
+        let (assoc_id, packet_id) = self.route_for(address).await?;
         let migrated = self.client.begin_quic_migration().await?;
         match send_udp_payload(&self.client, assoc_id, packet_id, &target, payload) {
             Ok(()) => {
@@ -67,34 +84,25 @@ impl UdpSession {
             .map(|packet| (packet.address, packet.payload))
     }
 
-    // NOT cancel-safe: holds assoc_ids lock and registrations lock across await points;
-    // dropping the future mid-way leaves the id allocated in assoc_ids but not registered,
-    // or vice versa, resulting in an inconsistent state.
-    async fn assoc_id_for(&self, address: &str) -> io::Result<u16> {
-        let mut assoc_ids = self.assoc_ids.lock().await;
-        if let Some(existing) = assoc_ids.get(address).copied() {
-            return Ok(existing);
+    async fn route_for(&self, address: &str) -> io::Result<(u16, u16)> {
+        let mut destinations = self.destinations.lock().await;
+        if let Some(route) = destinations.route_for_existing(address) {
+            return Ok(route);
         }
-
-        // Scan for a free id via the shared helper (also exercised by unit tests).
         let mut regs = self.client.registrations.lock().await;
-        let id =
-            allocate_assoc_id(&self.client.next_assoc_id, &mut regs, self.incoming_tx.clone()).ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::ResourceBusy,
-                    "TUIC UDP association-id space exhausted: too many concurrent sessions",
-                )
-            })?;
-        assoc_ids.insert(address.to_owned(), id);
-        Ok(id)
-    }
-
-    async fn next_packet_id(&self, assoc_id: u16) -> u16 {
-        let mut packet_ids = self.packet_ids.lock().await;
-        let next = packet_ids.entry(assoc_id).or_insert(0);
-        let packet_id = *next;
-        *next = next.wrapping_add(1);
-        packet_id
+        allocate_new_destination_route(
+            &mut destinations,
+            &self.client.next_assoc_id,
+            &mut regs,
+            self.incoming_tx.clone(),
+            address,
+        )
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::ResourceBusy,
+                "TUIC UDP association-id space exhausted: too many concurrent sessions",
+            )
+        })
     }
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
@@ -105,11 +113,11 @@ impl UdpSession {
 impl Drop for UdpSession {
     fn drop(&mut self) {
         // NEVER panic in Drop.
-        // Collect the assoc-ids this session registered. assoc_ids is a per-session
+        // Collect the assoc-ids this session registered. destinations is a per-session
         // Mutex, so try_lock() will always succeed in practice (no other holder once
         // drop() runs), but we treat the Err path gracefully.
-        let ids: Vec<u16> = match self.assoc_ids.try_lock() {
-            Ok(map) => map.values().copied().collect(),
+        let ids: Vec<u16> = match self.destinations.try_lock() {
+            Ok(state) => state.entries.values().map(|entry| entry.assoc_id).collect(),
             Err(_) => {
                 // Could not acquire; entries will be cleaned up by
                 // dispatch_incoming_datagrams's clear() when the connection closes.
@@ -141,6 +149,28 @@ impl Drop for UdpSession {
         }
         // If no runtime is available, entries die with the connection's clear() call.
     }
+}
+
+fn allocate_new_destination_route(
+    destinations: &mut DestinationState,
+    counter: &std::sync::atomic::AtomicU16,
+    registrations: &mut HashMap<u16, mpsc::Sender<UdpPacket>>,
+    sender: mpsc::Sender<UdpPacket>,
+    address: &str,
+) -> Option<(u16, u16)> {
+    destinations.access_sequence = destinations.access_sequence.saturating_add(1);
+    let last_used = destinations.access_sequence;
+    if destinations.entries.len() >= MAX_DESTINATIONS_PER_UDP_SESSION
+        && let Some(oldest_address) =
+            destinations.entries.iter().min_by_key(|(_, entry)| entry.last_used).map(|(address, _)| address.clone())
+        && let Some(evicted) = destinations.entries.remove(&oldest_address)
+    {
+        registrations.remove(&evicted.assoc_id);
+    }
+
+    let assoc_id = allocate_assoc_id(counter, registrations, sender)?;
+    destinations.entries.insert(address.to_string(), DestinationEntry { assoc_id, next_packet_id: 1, last_used });
+    Some((assoc_id, 0))
 }
 
 #[derive(Debug)]
@@ -432,6 +462,50 @@ mod tests {
         let (tx, _rx) = mpsc::channel::<UdpPacket>(1);
         let result = allocate_assoc_id(&counter, &mut regs, tx);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn destination_state_is_bounded_and_evicts_least_recently_used_route() {
+        let counter = AtomicU16::new(0);
+        let (sender, _receiver) = mpsc::channel(1);
+        let mut registrations = HashMap::new();
+        let mut destinations = DestinationState::default();
+        for index in 0..MAX_DESTINATIONS_PER_UDP_SESSION {
+            let address = format!("host-{index}.example:53");
+            allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender.clone(), &address)
+                .expect("allocate destination route");
+        }
+        destinations.route_for_existing("host-0.example:53").expect("refresh oldest route");
+        allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender, "new.example:53")
+            .expect("allocate replacement route");
+
+        assert_eq!(destinations.entries.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
+        assert_eq!(registrations.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
+        assert!(destinations.entries.contains_key("host-0.example:53"));
+        assert!(!destinations.entries.contains_key("host-1.example:53"));
+        assert!(destinations.entries.contains_key("new.example:53"));
+    }
+
+    #[test]
+    fn existing_destination_reuses_id_and_advances_packet_id() {
+        let counter = AtomicU16::new(7);
+        let (sender, _receiver) = mpsc::channel(1);
+        let mut registrations = HashMap::new();
+        let mut destinations = DestinationState::default();
+
+        let first = allocate_new_destination_route(
+            &mut destinations,
+            &counter,
+            &mut registrations,
+            sender.clone(),
+            "example.com:53",
+        )
+        .expect("first route");
+        let second = destinations.route_for_existing("example.com:53").expect("second route");
+
+        assert_eq!(first, (7, 0));
+        assert_eq!(second, (7, 1));
+        assert_eq!(registrations.len(), 1);
     }
 
     #[test]
