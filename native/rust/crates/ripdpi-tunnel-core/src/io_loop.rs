@@ -103,6 +103,7 @@ fn send_dns_servfail(
 /// 4. Duplex bridge -- pump data between smoltcp sockets and session tasks
 /// 5. Flush tx_queue -- write smoltcp-produced packets back to TUN fd
 /// 6. Wait -- sleep until TUN readable / poll_delay / cancellation
+///
 /// Optional io_uring context for batch TUN I/O acceleration.
 ///
 /// When provided, Phase 5 (flush tx_queue) uses io_uring batched writes

@@ -47,9 +47,8 @@ pub(super) fn copy_inbound_zc(
         FreezeDetector::new(timeouts.freeze_window_ms, timeouts.freeze_min_bytes, timeouts.freeze_max_stalls);
 
     loop {
-        let mut handle = match acquire_registered_buffer(uring) {
-            Some(handle) => handle,
-            None => return copy_inbound_fallback(reader, writer, session, peer_done, detector, freeze_detected),
+        let Some(mut handle) = acquire_registered_buffer(uring) else {
+            return copy_inbound_fallback(reader, writer, session, peer_done, detector, freeze_detected);
         };
 
         match reader.read(handle.as_mut_buf()) {
