@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +60,7 @@ class ResetAllSettingsUseCaseTest {
         groupRepository = groups,
         ruleDao = rules,
         settingsRepository = settings,
+        profileMutations = NoOpProfileMutationCoordinator,
         userProfileResetStore = profileData,
         diagnosticsHistoryResetStore = diagnostics,
         userArtifactResetStore = artifacts,

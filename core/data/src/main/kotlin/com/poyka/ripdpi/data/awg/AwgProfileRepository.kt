@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.rollbackStoreMutation
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -60,14 +63,23 @@ class AwgProfileRepository
     constructor(
         private val dao: AwgProfileDao,
         private val credentialStore: AwgCredentialStore,
+        private val profileMutations: ProfileMutationCoordinator,
     ) {
+        constructor(
+            dao: AwgProfileDao,
+            credentialStore: AwgCredentialStore,
+        ) : this(dao, credentialStore, DirectAwgProfileMutationCoordinator(dao, credentialStore))
+
         private val encodeJson = RipDpiEncodeDefaultsJson
         private val decodeJson = RipDpiContractJson
         private val mutationMutex = Mutex()
 
         /** Observes every saved profile, newest-updated first, each stamped with its stable id. */
         fun observeProfiles(): Flow<List<SavedAwgProfile>> =
-            dao.observeProfiles().map { rows -> rows.toSavedProfiles() }
+            flow {
+                profileMutations.recover()
+                emitAll(dao.observeProfiles().map { rows -> rows.toSavedProfiles() })
+            }
 
         // List.map cannot call the suspend secret-rehydration, so build explicitly.
         private suspend fun List<AwgProfileEntity>.toSavedProfiles(): List<SavedAwgProfile> {
@@ -79,7 +91,11 @@ class AwgProfileRepository
         }
 
         /** Loads a single saved profile by its stable [id], or `null` when none exists. */
-        suspend fun load(id: String): SavedAwgProfile? = mutationMutex.withLock { dao.getProfile(id)?.toSavedProfile() }
+        suspend fun load(id: String): SavedAwgProfile? =
+            mutationMutex.withLock {
+                profileMutations.recover()
+                dao.getProfile(id)?.toSavedProfile()
+            }
 
         private suspend fun secretsFor(id: String): AwgSecrets = credentialStore.load(id) ?: AwgSecrets()
 
@@ -99,8 +115,6 @@ class AwgProfileRepository
             mutationMutex.withLock {
                 request.obfuscation.requireArm64Safe()
                 val id = existingId ?: generateProfileId()
-                val previousProfile = dao.getProfile(id)
-                val previousSecrets = credentialStore.load(id)
                 // Strip the id and the two secrets from the Room blob; secrets go to the keystore.
                 val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
                 val blob = encodeJson.encodeToString(sanitized)
@@ -111,51 +125,19 @@ class AwgProfileRepository
                         requestJson = blob,
                         updatedAt = System.currentTimeMillis(),
                     )
-                runCatching {
-                    credentialStore.save(
-                        id,
-                        AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
-                    )
-                    dao.upsertProfile(updatedProfile)
-                }.exceptionOrNull()
-                    ?.rollbackStoreMutation(
-                        {
-                            if (previousProfile == null) {
-                                dao.deleteProfile(updatedProfile)
-                            } else {
-                                dao.upsertProfile(previousProfile)
-                            }
-                        },
-                        {
-                            if (previousSecrets == null) {
-                                credentialStore.clear(id)
-                            } else {
-                                credentialStore.save(id, previousSecrets)
-                            }
-                        },
-                    )
+                profileMutations.upsertAwg(
+                    profile = updatedProfile,
+                    secrets = AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
+                )
                 id
             }
 
         /** Deletes the saved profile identified by [id]; a no-op when it does not exist. */
         suspend fun delete(id: String) =
             mutationMutex.withLock {
+                profileMutations.recover()
                 val existing = dao.getProfile(id) ?: return@withLock
-                val previousSecrets = credentialStore.load(id)
-                runCatching {
-                    dao.deleteProfile(existing)
-                    credentialStore.clear(id)
-                }.exceptionOrNull()
-                    ?.rollbackStoreMutation(
-                        { dao.upsertProfile(existing) },
-                        {
-                            if (previousSecrets == null) {
-                                credentialStore.clear(id)
-                            } else {
-                                credentialStore.save(id, previousSecrets)
-                            }
-                        },
-                    )
+                profileMutations.deleteAwg(existing.id)
                 Unit
             }
 
@@ -187,3 +169,76 @@ class AwgProfileRepository
             fun generateProfileId(): String = "awg-${UUID.randomUUID()}"
         }
     }
+
+private class DirectAwgProfileMutationCoordinator(
+    private val dao: AwgProfileDao,
+    private val credentials: AwgCredentialStore,
+) : ProfileMutationCoordinator {
+    override suspend fun recover() = Unit
+
+    override suspend fun runReset(block: suspend () -> Unit) = block()
+
+    override suspend fun upsertAwg(
+        profile: AwgProfileEntity,
+        secrets: AwgSecrets,
+    ) {
+        val previousProfile = dao.getProfile(profile.id)
+        val previousSecrets = credentials.load(profile.id)
+        runCatching {
+            credentials.save(profile.id, secrets)
+            dao.upsertProfile(profile)
+        }.exceptionOrNull()?.rollbackStoreMutation(
+            {
+                if (previousSecrets ==
+                    null
+                ) {
+                    credentials.clear(profile.id)
+                } else {
+                    credentials.save(profile.id, previousSecrets)
+                }
+            },
+            {
+                if (previousProfile == null) {
+                    dao.getProfile(profile.id)?.let { dao.deleteProfile(it) }
+                } else {
+                    dao.upsertProfile(previousProfile)
+                }
+            },
+        )
+    }
+
+    override suspend fun deleteAwg(profileId: String) {
+        credentials.clear(profileId)
+        dao.getProfile(profileId)?.let { dao.deleteProfile(it) }
+    }
+
+    override suspend fun upsertRelay(
+        profile: com.poyka.ripdpi.data.RelayProfileRecord,
+        credentials: com.poyka.ripdpi.data.RelayCredentialRecord,
+        enabled: Boolean,
+        select: Boolean,
+        settingsAfterImage: com.poyka.ripdpi.proto.AppSettings?,
+    ) = unsupported()
+
+    override suspend fun upsertWarp(
+        profile: com.poyka.ripdpi.data.WarpProfile,
+        credentials: com.poyka.ripdpi.data.WarpCredentials,
+        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
+        activate: Boolean,
+        scannerMode: String,
+    ) = unsupported()
+
+    override suspend fun deleteWarp(
+        profileId: String,
+        clearActive: Boolean,
+    ) = unsupported()
+
+    override suspend fun deactivateWarp(profileId: String) = unsupported()
+
+    override suspend fun replacePrivateBackup(
+        data: com.poyka.ripdpi.data.backup.BackupPrivateDataV1,
+        rollbackData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
+    ) = unsupported()
+
+    private fun unsupported(): Nothing = error("Only AWG mutations are supported")
+}

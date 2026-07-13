@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PersistedEchEntry
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.boot.BootSessionPointer
@@ -30,6 +31,7 @@ import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
+import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -88,7 +90,7 @@ class AppStartupInitializerTest {
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
             assertEquals(
-                "App startup report: reset_event_consume=succeeded, " +
+                "App startup report: profile_mutation_recovery=succeeded, reset_event_consume=succeeded, " +
                     "compatibility_reset=succeeded, " +
                     "strategy_pack_initialization=succeeded, diagnostics_bootstrap=succeeded, " +
                     "dns_path_invalidator_registration=succeeded, " +
@@ -99,6 +101,30 @@ class AppStartupInitializerTest {
                     "simple_config_seed=succeeded",
                 report.toLogMessage(),
             )
+        }
+
+    @Test
+    fun `initialize completes profile recovery before returning`() =
+        runTest {
+            var recoverCalls = 0
+            val profileMutations =
+                object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
+                    override suspend fun recover() {
+                        recoverCalls += 1
+                    }
+                }
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    profileMutations = profileMutations,
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+
+            assertEquals(1, recoverCalls)
         }
 
     @Test
@@ -465,11 +491,12 @@ class AppStartupInitializerTest {
         resetEventRecorder: ResetEventRecorder = NoOpResetEventRecorder,
         lastExitInspector: LastExitInspector = NoOpLastExitInspector,
         memoryProfilingRegistrar: MemoryProfilingRegistrar = NoOpMemoryProfilingRegistrar,
+        profileMutations: ProfileMutationCoordinator = NoOpProfileMutationCoordinator,
         scope: CoroutineScope,
     ): AppStartupInitializer =
         AppStartupInitializer(
             context = application,
-            appCompatibilityResetter = compatibilityResetter,
+            startupDataRecovery = StartupDataRecovery(compatibilityResetter, profileMutations),
             diagnosticsBootstrapperProvider = constantProvider(diagnosticsBootstrapper),
             detectionObservationStarter = detectionObservationStarter,
             strategyPackService = strategyPackService,

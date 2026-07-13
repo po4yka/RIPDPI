@@ -3,6 +3,7 @@ package com.poyka.ripdpi.backup
 import android.util.Log
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.rules.RuleDao
@@ -46,6 +47,7 @@ class ResetAllSettingsUseCase
         private val groupRepository: ProxyGroupRepository,
         private val ruleDao: RuleDao,
         private val settingsRepository: AppSettingsRepository,
+        private val profileMutations: ProfileMutationCoordinator,
         private val userProfileResetStore: UserProfileResetStore,
         private val diagnosticsHistoryResetStore: DiagnosticsHistoryResetStore,
         private val userArtifactResetStore: UserArtifactResetStore,
@@ -61,26 +63,31 @@ class ResetAllSettingsUseCase
                 // 1. Telemetry BEFORE the wipe, to a store outside the wipe set.
                 resetEventRecorder.recordResetInitiated()
 
-                // 2. Groups + embedded profiles (covers ProxyEntity / ProxyGroup / Subscription).
-                groupRepository.replaceAll(emptyList())
+                // Hold the profile-mutation mutex from marker removal through the full wipe.
+                // A concurrent mutator can only start after reset has finished, so its intent
+                // can never be replayed as resurrection of data that belonged to this reset.
+                profileMutations.runReset {
+                    // 2. Groups + embedded profiles (covers ProxyEntity / ProxyGroup / Subscription).
+                    groupRepository.replaceAll(emptyList())
 
-                // 3. Routing rules.
-                ruleDao.deleteAll()
+                    // 3. Routing rules.
+                    ruleDao.deleteAll()
 
-                // 4. Separate profile/credential stores and their durable pointers.
-                userProfileResetStore.clearAll()
+                    // 4. Separate profile/credential stores and their durable pointers.
+                    userProfileResetStore.clearAll()
 
-                // 5. User settings back to the same canonical defaults as a clean install.
-                settingsRepository.replace(AppSettingsSerializer.defaultValue)
+                    // 5. User settings back to the same canonical defaults as a clean install.
+                    settingsRepository.replace(AppSettingsSerializer.defaultValue)
 
-                // 6. Diagnostics user-history tables (catalog/pack versions retained).
-                diagnosticsHistoryResetStore.clearRuntimeHistory()
+                    // 6. Diagnostics user-history tables (catalog/pack versions retained).
+                    diagnosticsHistoryResetStore.clearRuntimeHistory()
 
-                // 7. User-owned files and preference stores outside DataStore.
-                userArtifactResetStore.clearAll(settingsBeforeReset)
+                    // 7. User-owned files and preference stores outside DataStore.
+                    userArtifactResetStore.clearAll(settingsBeforeReset)
 
-                // 8. Cache directories.
-                cacheDirectoryCleaner.clearCaches()
+                    // 8. Cache directories.
+                    cacheDirectoryCleaner.clearCaches()
+                }
 
                 Log.i(LogTag, "Reset complete: all user stores wiped; restart pending")
             }

@@ -818,10 +818,19 @@ private fun createWarpEnrollmentOrchestrator(
         ),
 ): DefaultWarpEnrollmentOrchestrator {
     val mutationLock = WarpStoreMutationLock()
+    val profileMutations =
+        TestProfileMutationCoordinator(
+            settings = appSettingsRepository,
+            profiles = profileStore,
+            credentials = credentialStore,
+            endpoints = endpointStore,
+        )
     val activationService =
         DefaultWarpProfileActivationService(
-            appSettingsRepository = appSettingsRepository,
             profileStore = profileStore,
+            credentialStore = credentialStore,
+            endpointStore = endpointStore,
+            profileMutations = profileMutations,
             mutationLock = mutationLock,
         )
     return DefaultWarpEnrollmentOrchestrator(
@@ -836,14 +845,15 @@ private fun createWarpEnrollmentOrchestrator(
                 endpointScanner = endpointScanner,
                 profileActivationService = activationService,
                 mutationLock = mutationLock,
+                profileMutations = profileMutations,
             ),
         credentialProfileMutationService =
             DefaultWarpCredentialProfileMutationService(
                 profileStore = profileStore,
                 credentialStore = credentialStore,
                 endpointStore = endpointStore,
-                profileActivationService = activationService,
                 mutationLock = mutationLock,
+                profileMutations = profileMutations,
             ),
     )
 }
@@ -906,7 +916,7 @@ private class FakeWarpProfileStore : WarpProfileStore {
     }
 }
 
-private class FakeWarpCredentialStore : WarpCredentialStore {
+internal class FakeWarpCredentialStore : WarpCredentialStore {
     private val credentials = linkedMapOf<String, WarpCredentials>()
     var failNextSaveAfterWrite = false
 
@@ -934,7 +944,7 @@ private class FakeWarpCredentialStore : WarpCredentialStore {
     }
 }
 
-private class FakeWarpEndpointStore : WarpEndpointStore {
+internal class FakeWarpEndpointStore : WarpEndpointStore {
     private val entries = linkedMapOf<Pair<String, String>, WarpEndpointCacheEntry>()
 
     override suspend fun load(

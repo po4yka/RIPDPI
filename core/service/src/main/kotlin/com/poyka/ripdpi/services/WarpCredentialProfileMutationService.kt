@@ -1,18 +1,17 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpAccountKindConsumerPlus
 import com.poyka.ripdpi.data.WarpAccountKindZeroTrust
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpCredentials
-import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import com.poyka.ripdpi.data.WarpEndpointStore
 import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
 import com.poyka.ripdpi.data.WarpScannerModeManual
 import com.poyka.ripdpi.data.WarpSetupStateProvisioned
-import com.poyka.ripdpi.data.rollbackStoreMutation
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -37,8 +36,8 @@ class DefaultWarpCredentialProfileMutationService
         private val profileStore: WarpProfileStore,
         private val credentialStore: WarpCredentialStore,
         private val endpointStore: WarpEndpointStore,
-        private val profileActivationService: WarpProfileActivationService,
         private val mutationLock: WarpStoreMutationLock,
+        private val profileMutations: ProfileMutationCoordinator,
     ) : WarpCredentialProfileMutationService {
         override suspend fun attachWarpPlusLicense(
             profileId: String,
@@ -106,37 +105,24 @@ class DefaultWarpCredentialProfileMutationService
                     interfaceAddressV6 = request.interfaceAddressV6,
                 )
             return mutationLock.mutex.withLock {
-                val previousProfile = profileStore.load(profileId)
-                val previousCredentials = credentialStore.load(profileId)
-                runCatching {
-                    profileStore.save(profile)
-                    credentialStore.save(profileId, credentials)
-                    profileActivationService.activateProfile(profile = profile, scannerMode = WarpScannerModeManual)
-                }.exceptionOrNull()
-                    ?.rollbackStoreMutation(
-                        { restoreProfile(profileId, previousProfile) },
-                        { restoreCredentials(profileId, previousCredentials) },
-                    )
+                profileMutations.upsertWarp(
+                    profile = profile,
+                    credentials = credentials,
+                    endpoints = endpointStore.loadAll(profileId),
+                    activate = true,
+                    scannerMode = WarpScannerModeManual,
+                )
                 WarpEnrollmentSnapshot(profile = profile, credentials = credentials, endpoint = null)
             }
         }
 
         override suspend fun resetProfile(profileId: String) =
             mutationLock.mutex.withLock {
-                val previousProfile = profileStore.load(profileId)
-                val previousCredentials = credentialStore.load(profileId)
-                val previousEndpoints = endpointStore.loadAll(profileId)
-                runCatching {
-                    profileStore.remove(profileId)
-                    credentialStore.clear(profileId)
-                    endpointStore.clearProfile(profileId)
-                    profileActivationService.clearActiveProfile(profileId)
-                }.exceptionOrNull()
-                    ?.rollbackStoreMutation(
-                        { restoreProfile(profileId, previousProfile) },
-                        { restoreCredentials(profileId, previousCredentials) },
-                        { restoreEndpoints(profileId, previousEndpoints) },
-                    )
+                profileMutations.recover()
+                profileMutations.deleteWarp(
+                    profileId = profileId,
+                    clearActive = profileStore.activeProfileId() == profileId,
+                )
                 Unit
             }
 
@@ -145,49 +131,22 @@ class DefaultWarpCredentialProfileMutationService
             transform: suspend (WarpProfile, WarpCredentials) -> Pair<WarpProfile, WarpCredentials>,
         ): WarpEnrollmentSnapshot =
             mutationLock.mutex.withLock {
+                profileMutations.recover()
                 val profile = profileStore.load(profileId) ?: error("No WARP profile found for $profileId")
                 val credentials = credentialStore.load(profileId) ?: error("No WARP credentials found for $profileId")
                 val (updatedProfile, updatedCredentials) = transform(profile, credentials)
-                runCatching {
-                    profileStore.save(updatedProfile)
-                    credentialStore.save(profileId, updatedCredentials)
-                    if (profileStore.activeProfileId() == profileId) {
-                        profileActivationService.activateProfile(
-                            profile = updatedProfile,
-                            scannerMode = WarpScannerModeManual,
-                        )
-                    }
-                }.exceptionOrNull()
-                    ?.rollbackStoreMutation(
-                        { restoreProfile(profileId, profile) },
-                        { restoreCredentials(profileId, credentials) },
-                    )
+                val activate = profileStore.activeProfileId() == profileId
+                profileMutations.upsertWarp(
+                    profile = updatedProfile,
+                    credentials = updatedCredentials,
+                    endpoints = endpointStore.loadAll(profileId),
+                    activate = activate,
+                    scannerMode = WarpScannerModeManual,
+                )
                 WarpEnrollmentSnapshot(
                     profile = updatedProfile,
                     credentials = updatedCredentials,
                     endpoint = endpointStore.load(profileId, GlobalWarpEndpointScopeKey),
                 )
             }
-
-        private suspend fun restoreProfile(
-            profileId: String,
-            profile: WarpProfile?,
-        ) {
-            if (profile == null) profileStore.remove(profileId) else profileStore.save(profile)
-        }
-
-        private suspend fun restoreCredentials(
-            profileId: String,
-            credentials: WarpCredentials?,
-        ) {
-            if (credentials == null) credentialStore.clear(profileId) else credentialStore.save(profileId, credentials)
-        }
-
-        private suspend fun restoreEndpoints(
-            profileId: String,
-            endpoints: List<WarpEndpointCacheEntry>,
-        ) {
-            endpointStore.clearProfile(profileId)
-            endpoints.forEach { endpointStore.save(it) }
-        }
     }

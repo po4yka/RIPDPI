@@ -14,6 +14,9 @@ import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
+import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -34,18 +37,44 @@ class BackupPrivateDataStoreTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database = Room.inMemoryDatabaseBuilder(context, RipDpiDatabase::class.java).allowMainThreadQueries().build()
         warpEndpoints = SharedPreferencesWarpEndpointStore(context)
+        val relayProfiles = SharedPreferencesRelayProfileStore(context)
+        val relayCredentials = BackupRelayCredentialStore()
+        val warpProfiles = SharedPreferencesWarpProfileStore(context)
+        val warpCredentials = BackupWarpCredentialStore()
+        val awgCredentials = BackupAwgCredentialStore()
+        val xrayMetadata = SharedPreferencesXrayProfileMetadataStore(context)
+        val xraySecrets = BackupXraySecretStore()
+        val xraySelection = SharedPreferencesXrayProviderSelectionStore(context)
+        val profileMutations =
+            ProfileMutationRecoveryCoordinator(
+                stores =
+                    ProfileMutationStores(
+                        settings = BackupSettingsRepository(),
+                        relayProfiles = relayProfiles,
+                        relayCredentials = relayCredentials,
+                        warpProfiles = warpProfiles,
+                        warpCredentials = warpCredentials,
+                        warpEndpoints = warpEndpoints,
+                        xrayMetadata = xrayMetadata,
+                        xraySecrets = xraySecrets,
+                        xraySelection = xraySelection,
+                    ),
+                awgProfiles = database.awgProfileDao(),
+                awgCredentials = awgCredentials,
+                journal = BackupProfileMutationJournal(),
+            )
         store =
             DefaultBackupPrivateDataStore(
-                relayProfiles = SharedPreferencesRelayProfileStore(context),
-                relayCredentials = BackupRelayCredentialStore(),
-                warpProfiles = SharedPreferencesWarpProfileStore(context),
-                warpCredentials = BackupWarpCredentialStore(),
-                warpEndpoints = warpEndpoints,
+                relayProfiles = relayProfiles,
+                relayCredentials = relayCredentials,
+                warpProfiles = warpProfiles,
+                warpCredentials = warpCredentials,
                 awgProfiles = database.awgProfileDao(),
-                awgCredentials = BackupAwgCredentialStore(),
-                xrayMetadata = SharedPreferencesXrayProfileMetadataStore(context),
-                xraySecrets = BackupXraySecretStore(),
-                xraySelection = SharedPreferencesXrayProviderSelectionStore(context),
+                awgCredentials = awgCredentials,
+                xrayMetadata = xrayMetadata,
+                xraySecrets = xraySecrets,
+                xraySelection = xraySelection,
+                profileMutations = profileMutations,
             )
     }
 
@@ -186,4 +215,51 @@ private class BackupXraySecretStore : XrayProfileSecretStore {
     }
 
     override suspend fun clearAll() = records.clear()
+}
+
+private class BackupSettingsRepository : AppSettingsRepository {
+    private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
+    override val settings: Flow<AppSettings> = state
+
+    override suspend fun snapshot() = state.value
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
+    }
+
+    override suspend fun replace(settings: AppSettings) {
+        state.value = settings
+    }
+}
+
+private class BackupProfileMutationJournal : ProfileMutationJournal {
+    private var value: PendingProfileMutation? = null
+
+    override suspend fun prepare(mutation: PendingProfileMutation) {
+        check(value == null)
+        value = mutation
+    }
+
+    override suspend fun pending() = value
+
+    override suspend fun replace(
+        expectedMutationId: String,
+        mutation: PendingProfileMutation,
+    ) {
+        check(value?.mutationId == expectedMutationId)
+        value = mutation
+    }
+
+    override suspend fun complete(mutationId: String) {
+        check(value?.mutationId == mutationId)
+        value = null
+    }
+
+    override suspend fun clearForReset() {
+        value = null
+    }
 }

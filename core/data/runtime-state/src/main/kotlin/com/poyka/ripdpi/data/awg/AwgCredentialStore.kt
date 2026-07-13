@@ -8,6 +8,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -82,18 +84,20 @@ class KeystoreAwgCredentialStore
             profileId: String,
             secrets: AwgSecrets,
         ) {
-            blobStore.putString(
-                prefKey(profileId),
-                json.encodeToString(AwgSecrets.serializer(), secrets),
-            )
+            withContext(Dispatchers.IO) {
+                blobStore.putString(
+                    prefKey(profileId),
+                    json.encodeToString(AwgSecrets.serializer(), secrets),
+                )
+            }
         }
 
         override suspend fun clear(profileId: String) {
-            blobStore.remove(prefKey(profileId))
+            withContext(Dispatchers.IO) { blobStore.remove(prefKey(profileId)) }
         }
 
         override suspend fun clearAll() {
-            blobStore.clear()
+            withContext(Dispatchers.IO) { blobStore.clear() }
         }
 
         private fun prefKey(profileId: String): String = "$CredentialsEntryPrefix$profileId"

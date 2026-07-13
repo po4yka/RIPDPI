@@ -8,6 +8,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -40,6 +42,9 @@ data class RelayProfileRecord(
     val xhttpPath: String = "",
     val xhttpHost: String = "",
     val xhttpMode: String = RelayXhttpModeAuto,
+    val mieruProtocol: String = "tcp",
+    val mieruMultiplexing: String = "middle",
+    val mieruMtu: Int = 1400,
     val cloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",
@@ -254,42 +259,42 @@ class SharedPreferencesRelayProfileStore
             return migration.record
         }
 
-        override suspend fun list(): List<RelayProfileRecord> =
-            preferences.all.keys
-                .asSequence()
-                .filter { it.startsWith(ProfilePrefKeyPrefix) }
-                .mapNotNull { key ->
-                    preferences.getString(key, null)?.let { encoded ->
-                        json.decodeFromString(RelayProfileRecord.serializer(), encoded)
-                    }
-                }.map { stored ->
-                    val migration = migrateRelayProfileRecord(stored)
-                    if (migration.changed) {
-                        persist(migration.record)
-                    }
-                    migration.record
-                }.sortedBy { it.id }
-                .toList()
+        override suspend fun list(): List<RelayProfileRecord> {
+            val migrations =
+                preferences.all.keys
+                    .asSequence()
+                    .filter { it.startsWith(ProfilePrefKeyPrefix) }
+                    .mapNotNull { key ->
+                        preferences.getString(key, null)?.let { encoded ->
+                            json.decodeFromString(RelayProfileRecord.serializer(), encoded)
+                        }
+                    }.map(::migrateRelayProfileRecord)
+                    .toList()
+            migrations.filter(RelayProfileMigrationResult::changed).forEach { persist(it.record) }
+            return migrations.map(RelayProfileMigrationResult::record).sortedBy(RelayProfileRecord::id)
+        }
 
         override suspend fun save(profile: RelayProfileRecord) {
             persist(profile)
         }
 
         override suspend fun clear(profileId: String) {
-            preferences.edit().remove(prefKey(profileId)).apply()
+            withContext(Dispatchers.IO) { preferences.edit().remove(prefKey(profileId)).commitOrThrow() }
         }
 
         override suspend fun clearAll() {
-            preferences.edit().clear().commit()
+            withContext(Dispatchers.IO) { preferences.edit().clear().commitOrThrow() }
         }
 
-        private fun persist(profile: RelayProfileRecord) {
-            preferences
-                .edit()
-                .putString(
-                    prefKey(profile.id),
-                    json.encodeToString(RelayProfileRecord.serializer(), profile),
-                ).apply()
+        private suspend fun persist(profile: RelayProfileRecord) {
+            withContext(Dispatchers.IO) {
+                preferences
+                    .edit()
+                    .putString(
+                        prefKey(profile.id),
+                        json.encodeToString(RelayProfileRecord.serializer(), profile),
+                    ).commitOrThrow()
+            }
         }
 
         private fun prefKey(profileId: String): String = "$ProfilePrefKeyPrefix$profileId"
@@ -319,18 +324,20 @@ class KeystoreRelayCredentialStore
                 ?.let { json.decodeFromString(RelayCredentialRecord.serializer(), it) }
 
         override suspend fun save(credentials: RelayCredentialRecord) {
-            blobStore.putString(
-                prefKey(credentials.profileId),
-                json.encodeToString(RelayCredentialRecord.serializer(), credentials),
-            )
+            withContext(Dispatchers.IO) {
+                blobStore.putString(
+                    prefKey(credentials.profileId),
+                    json.encodeToString(RelayCredentialRecord.serializer(), credentials),
+                )
+            }
         }
 
         override suspend fun clear(profileId: String) {
-            blobStore.remove(prefKey(profileId))
+            withContext(Dispatchers.IO) { blobStore.remove(prefKey(profileId)) }
         }
 
         override suspend fun clearAll() {
-            blobStore.clear()
+            withContext(Dispatchers.IO) { blobStore.clear() }
         }
 
         private fun prefKey(profileId: String): String = "$CredentialsEntryPrefix$profileId"

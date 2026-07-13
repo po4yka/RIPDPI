@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.WarpCredentials
 import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,8 +17,18 @@ class WarpProfileActivationServiceTest {
         runTest {
             val profile = WarpProfile(id = "deleted-profile")
             val profiles = RecordingWarpProfileStore().apply { save(profile) }
+            val credentials =
+                FakeWarpCredentialStore().apply {
+                    save(
+                        profile.id,
+                        WarpCredentials(profile.id, "device", "token"),
+                    )
+                }
+            val endpoints = FakeWarpEndpointStore()
             val lock = WarpStoreMutationLock()
-            val service = DefaultWarpProfileActivationService(TestAppSettingsRepository(), profiles, lock)
+            val profileMutations =
+                TestProfileMutationCoordinator(TestAppSettingsRepository(), profiles, credentials, endpoints)
+            val service = DefaultWarpProfileActivationService(profiles, credentials, endpoints, profileMutations, lock)
             lock.mutex.lock()
             val markJob = backgroundScope.launch { service.markProfileNeedsAttention(profile) }
             runCurrent()

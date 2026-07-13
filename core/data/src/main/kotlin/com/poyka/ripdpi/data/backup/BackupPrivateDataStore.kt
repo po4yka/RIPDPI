@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.backup
 
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.WarpCredentialStore
@@ -15,8 +16,6 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,14 +45,17 @@ class DefaultBackupPrivateDataStore
         private val relayCredentials: RelayCredentialStore,
         private val warpProfiles: WarpProfileStore,
         private val warpCredentials: WarpCredentialStore,
-        private val warpEndpoints: WarpEndpointStore,
         private val awgProfiles: AwgProfileDao,
         private val awgCredentials: AwgCredentialStore,
         private val xrayMetadata: XrayProfileMetadataStore,
         private val xraySecrets: XrayProfileSecretStore,
         private val xraySelection: XrayProviderSelectionStore,
+        private val profileMutations: ProfileMutationCoordinator,
     ) : BackupPrivateDataStore {
-        override suspend fun snapshot(): BackupPrivateDataV1 = consistentBackupSnapshot { snapshotOnce() }
+        override suspend fun snapshot(): BackupPrivateDataV1 {
+            profileMutations.recover()
+            return consistentBackupSnapshot { snapshotOnce() }
+        }
 
         private suspend fun snapshotOnce(): BackupPrivateDataV1 {
             val relayProfileSnapshot = relayProfiles.list()
@@ -85,47 +87,10 @@ class DefaultBackupPrivateDataStore
             )
         }
 
-        @Suppress("TooGenericExceptionCaught")
         override suspend fun replaceAll(data: BackupPrivateDataV1) {
             data.validate()
             val preimage = snapshot()
-            try {
-                applySnapshot(data)
-            } catch (failure: Exception) {
-                val rollbackFailure =
-                    runCatching {
-                        withContext(NonCancellable) { applySnapshot(preimage) }
-                    }.exceptionOrNull()
-                if (rollbackFailure != null) failure.addSuppressed(rollbackFailure)
-                throw failure
-            }
-        }
-
-        private suspend fun applySnapshot(data: BackupPrivateDataV1) {
-            relayCredentials.clearAll()
-            relayProfiles.clearAll()
-            data.relayCredentials.forEach { relayCredentials.save(it) }
-            data.relayProfiles.forEach { relayProfiles.save(it) }
-
-            warpEndpoints.clearAll()
-            warpCredentials.clearAll()
-            warpProfiles.clearAll()
-            data.warpCredentials.forEach { warpCredentials.save(it.profileId, it) }
-            data.warpProfiles.forEach { warpProfiles.save(it) }
-            warpProfiles.setActiveProfileId(data.warpActiveProfileId)
-
-            awgCredentials.clearAll()
-            awgProfiles.deleteAll()
-            data.awgProfiles.forEach { profile ->
-                profile.secrets?.let { awgCredentials.save(profile.id, it) }
-                awgProfiles.upsertProfile(profile.toEntity())
-            }
-
-            xraySecrets.clearAll()
-            xrayMetadata.clearAll()
-            data.xraySecrets.forEach { xraySecrets.save(it) }
-            data.xrayMetadata.forEach { xrayMetadata.save(it) }
-            xraySelection.update(data.xraySelection)
+            profileMutations.replacePrivateBackup(data, rollbackData = preimage)
         }
 
         private fun BackupPrivateDataV1.validate() = validateBackupPrivateData()

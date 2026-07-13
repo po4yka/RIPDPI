@@ -6,6 +6,7 @@ import com.poyka.ripdpi.backup.ResetEventName
 import com.poyka.ripdpi.backup.ResetEventRecorder
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsRetentionWorker
@@ -21,7 +22,9 @@ import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -31,7 +34,7 @@ class AppStartupInitializer
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-        private val appCompatibilityResetter: AppCompatibilityResetter,
+        private val startupDataRecovery: StartupDataRecovery,
         private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
         private val detectionObservationStarter: DetectionObservationStarter,
         private val strategyPackService: StrategyPackService,
@@ -46,13 +49,17 @@ class AppStartupInitializer
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
+            val profileMutationRecovery =
+                runBlocking(Dispatchers.IO) {
+                    recoverProfileMutations()
+                }
             runCatching { DiagnosticsRetentionWorker.enqueuePeriodic(context) }
                 .onFailure { error -> Logger.w(error) { "Diagnostics retention worker failed to enqueue" } }
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
             simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope)
             applicationScope.launch {
-                val report = initializeSubsystems()
+                val report = initializeSubsystemsAfterRecovery(profileMutationRecovery)
                 Logger.i { report.toLogMessage() }
                 // Record whether the previous process was capped by Android 17's
                 // memory limiter. A pure diagnostics read, isolated from the
@@ -77,7 +84,23 @@ class AppStartupInitializer
             }
         }
 
-        internal suspend fun initializeSubsystems(): AppStartupReport {
+        internal suspend fun initializeSubsystems(): AppStartupReport =
+            initializeSubsystemsAfterRecovery(recoverProfileMutations())
+
+        private suspend fun recoverProfileMutations(): AppStartupSubsystemResult {
+            val profileMutationRecovery =
+                runSubsystem(AppStartupSubsystem.ProfileMutationRecovery) {
+                    startupDataRecovery.profileMutations.recover()
+                }
+            check(profileMutationRecovery.status == AppStartupSubsystemStatus.Succeeded) {
+                "Profile mutation recovery failed"
+            }
+            return profileMutationRecovery
+        }
+
+        private suspend fun initializeSubsystemsAfterRecovery(
+            profileMutationRecovery: AppStartupSubsystemResult,
+        ): AppStartupReport {
             val resetEventConsume =
                 runSubsystem(AppStartupSubsystem.ResetEventConsume) {
                     // The reset wipe recorded this BEFORE deleting everything; it
@@ -90,7 +113,7 @@ class AppStartupInitializer
                 }
             val compatibilityReset =
                 runSubsystem(AppStartupSubsystem.CompatibilityReset) {
-                    appCompatibilityResetter.resetIfNeeded()
+                    startupDataRecovery.appCompatibilityResetter.resetIfNeeded()
                 }
             val strategyPackInitialization =
                 runSubsystem(AppStartupSubsystem.StrategyPackInitialization) {
@@ -129,6 +152,7 @@ class AppStartupInitializer
                     simpleFlavorStartupHooks.seeder.orElse(null)?.seed()
                 }
             return AppStartupReport(
+                profileMutationRecovery = profileMutationRecovery,
                 resetEventConsume = resetEventConsume,
                 compatibilityReset = compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
@@ -171,6 +195,7 @@ class AppStartupInitializer
     }
 
 internal data class AppStartupReport(
+    val profileMutationRecovery: AppStartupSubsystemResult,
     val resetEventConsume: AppStartupSubsystemResult,
     val compatibilityReset: AppStartupSubsystemResult,
     val strategyPackInitialization: AppStartupSubsystemResult,
@@ -186,6 +211,7 @@ internal data class AppStartupReport(
     fun toLogMessage(): String =
         "App startup report: " +
             listOf(
+                profileMutationRecovery,
                 resetEventConsume,
                 compatibilityReset,
                 strategyPackInitialization,
@@ -220,6 +246,7 @@ internal data class AppStartupSubsystemResult(
 internal enum class AppStartupSubsystem(
     val logLabel: String,
 ) {
+    ProfileMutationRecovery("profile_mutation_recovery"),
     ResetEventConsume("reset_event_consume"),
     CompatibilityReset("compatibility_reset"),
     StrategyPackInitialization("strategy_pack_initialization"),
