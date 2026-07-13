@@ -967,7 +967,6 @@
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com
 split midsld
-
 [udp]
 fake_burst 3</string>
     <string name="ripdpi_hostfake_available_title">Таргетинг по имени хоста доступен</string>
@@ -1650,8 +1649,6 @@ fakeddisorder endhost</string>
     <string name="data_transparency_export_privacy_section">Конфиденциальность экспорта</string>
     <string name="data_transparency_export_redaction">В экспортируемых сводках и манифестах скрываются IP-адреса, идентификаторы Wi-Fi и контекст поддержки; raw файлы отчёта и PCAP после явного включения остаются нетронутыми для диагностики</string>
     <string name="data_transparency_export_control">Вы контролируете, что сохраняется или отправляется, кто это получает и когда удалять сохранённые экспорты вне хранилища приложения</string>
-
-    <!-- Settings maintenance notice titles -->
     <string name="notice_host_packs_refreshed_title">Наборы хостов обновлены</string>
     <string name="notice_host_packs_refreshed_message">RIPDPI загрузил geosite.dat, проверил контрольную сумму SHA-256 и обновил курируемые наборы хостов на устройстве.</string>
     <string name="notice_host_pack_verification_failed_title">Проверка набора хостов не прошла</string>
@@ -1694,20 +1691,14 @@ fakeddisorder endhost</string>
     <string name="notice_activation_window_reset_message">RIPDPI прекратит ограничивать активную группу стратегии обхода по раунду, размеру пакета или позиции байта потока при следующем запуске.</string>
     <string name="notice_telemetry_salt_reset_title">Соль телеметрии сброшена</string>
     <string name="notice_telemetry_salt_reset_message">Новая соль будет сгенерирована при следующем подключении. Ранее записанные хеши отпечатков больше нельзя связать с будущими сессиями.</string>
-
-    <!-- Diagnostics context warnings -->
     <string name="diagnostics_warn_vpn_permission">Разрешение VPN в данный момент не предоставлено.</string>
     <string name="diagnostics_warn_notification_permission">Разрешение на уведомления отключено, поэтому проблемы сервиса могут быть менее заметны.</string>
     <string name="diagnostics_warn_power_restriction">Ограничения питания или фоновой работы могут мешать стабильной диагностике.</string>
-
-    <!-- Diagnostics snapshot section headers -->
     <string name="diagnostics_section_network">Сеть</string>
     <string name="diagnostics_section_carrier">Оператор</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>
     <string name="diagnostics_section_transport">Транспорт</string>
     <string name="diagnostics_section_device">Устройство</string>
-
-    <!-- Diagnostics context field labels -->
     <string name="diagnostics_field_capabilities">Возможности</string>
     <string name="diagnostics_field_private_dns">Приватный DNS</string>
     <string name="diagnostics_field_local">Локальный</string>
@@ -1767,8 +1758,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_timezone">Часовой пояс</string>
     <string name="diagnostics_field_battery_saver">Режим энергосбережения</string>
     <string name="diagnostics_field_network_metered">Лимитированная сеть</string>
-
-    <!-- Diagnostics Wi-Fi field labels -->
     <string name="diagnostics_field_wifi_ssid">Wi-Fi SSID</string>
     <string name="diagnostics_field_wifi_bssid">Wi-Fi BSSID</string>
     <string name="diagnostics_field_wifi_band">Диапазон Wi-Fi</string>
@@ -1792,8 +1781,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_wifi_subnet">Подсеть Wi-Fi</string>
     <string name="diagnostics_field_wifi_lease">Аренда Wi-Fi</string>
     <string name="diagnostics_field_wifi_lease_format">%1$dс</string>
-
-    <!-- Diagnostics cellular field labels -->
     <string name="diagnostics_field_carrier">Оператор</string>
     <string name="diagnostics_field_sim_operator">Оператор SIM</string>
     <string name="diagnostics_field_network_operator">Оператор сети</string>
@@ -1810,8 +1797,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_signal_level">Уровень сигнала</string>
     <string name="diagnostics_field_signal_dbm">Сигнал дБм</string>
     <string name="diagnostics_field_signal_dbm_format">%1$d дБм</string>
-
-    <!-- Diagnostics metric labels -->
     <string name="diagnostics_metric_sessions">Сессии</string>
     <string name="diagnostics_metric_events">События</string>
     <string name="diagnostics_metric_tx">TX</string>
@@ -1841,13 +1826,9 @@ fakeddisorder endhost</string>
     <string name="diagnostics_metric_resolver_fallback_active">Активен</string>
     <string name="diagnostics_metric_packets">Пакеты</string>
     <string name="diagnostics_metric_approach">Подход</string>
-
-    <!-- Diagnostics sparkline labels -->
     <string name="diagnostics_sparkline_tx_bytes">TX байты</string>
     <string name="diagnostics_sparkline_rx_bytes">RX байты</string>
     <string name="diagnostics_sparkline_errors">Ошибки</string>
-
-    <!-- Diagnostics overview headlines -->
     <string name="diagnostics_headline_scan_active">Диагностическое сканирование активно</string>
     <string name="diagnostics_headline_probe_active">Стратегический зонд выполняется</string>
     <string name="diagnostics_headline_no_data">Данные диагностики ещё не собраны</string>
@@ -1855,14 +1836,10 @@ fakeddisorder endhost</string>
     <string name="diagnostics_headline_attention">Диагностика показывает неоднозначные сигналы</string>
     <string name="diagnostics_headline_healthy">Текущая телеметрия выглядит стабильно</string>
     <string name="diagnostics_headline_waiting">Ожидание следующей диагностической сессии</string>
-
-    <!-- Diagnostics overview body -->
     <string name="diagnostics_body_healthy">Пассивная телеметрия и последний отчёт не показывают критических сбоев. Проверяйте счётчики реального времени на предмет отклонений.</string>
     <string name="diagnostics_body_attention">Обнаружены предупреждения или частичные сбои. Сравните результат последнего сканирования с текущим мониторингом в реальном времени.</string>
     <string name="diagnostics_body_degraded">Недавние события или результаты сканирования указывают на деградацию, сбои или нестабильность транспорта.</string>
     <string name="diagnostics_body_idle">Запустите RIPDPI или выполните сканирование для заполнения аналитики диагностики.</string>
-
-    <!-- Diagnostics live headlines -->
     <string name="diagnostics_live_headline_error">Среда выполнения требует вмешательства</string>
     <string name="diagnostics_live_headline_attention">Среда выполнения требует внимания</string>
     <string name="diagnostics_live_headline_standby">Мониторинг в реальном времени в режиме ожидания</string>
@@ -1877,22 +1854,16 @@ fakeddisorder endhost</string>
     <string name="diagnostics_live_mode_summary_format">Режим %1$s \u00b7 %2$s передано \u00b7 %3$d пакетов наблюдалось</string>
     <string name="diagnostics_live_signal_format">%1$s отправлено \u00b7 %2$s получено</string>
     <string name="diagnostics_live_no_transfer">Передача данных ещё не наблюдалась</string>
-
-    <!-- Diagnostics live event summary -->
     <string name="diagnostics_live_errors_and_warnings_format">%1$d ошиб%2$s \u00b7 %3$d предупрежд%4$s в потоке событий</string>
     <string name="diagnostics_live_errors_format">%1$d ошиб%2$s в потоке событий</string>
     <string name="diagnostics_live_warnings_format">%1$d предупрежд%2$s в потоке событий</string>
     <string name="diagnostics_live_info_events_format">%1$d информационн%2$s событи%2$s в потоке событий</string>
     <string name="diagnostics_live_feed_quiet">Поток событий спокоен</string>
-
-    <!-- Diagnostics scan UI -->
     <string name="diagnostics_scan_automatic_audit">Автоматический аудит</string>
     <string name="diagnostics_scan_automatic_probing">Автоматическое зондирование</string>
     <string name="diagnostics_scan_raw_path_format">%1$s запускает временную среду выполнения RIPDPI по прямому пути и возвращает ручную рекомендацию.</string>
     <string name="diagnostics_scan_raw_only_format">%1$s работает только по прямому пути, так как запускает изолированные временные испытания стратегий.</string>
     <string name="diagnostics_scan_in_path_service_halted">Запустите службу RIPDPI перед диагностикой внутри пути.</string>
-
-    <!-- Diagnostics share preview -->
     <string name="diagnostics_share_title">Диагностика RIPDPI</string>
     <string name="diagnostics_share_no_session">Выберите сессию диагностики для создания сводки.</string>
     <string name="diagnostics_share_archive_line">Архив содержит выбранную сессию диагностики, происхождение, метаданные конфигурации времени выполнения и app-scoped logcat при наличии.</string>
@@ -1903,8 +1874,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_share_metric_network">Сеть</string>
     <string name="diagnostics_share_metric_mode">Режим</string>
     <string name="diagnostics_share_metric_app">Приложение</string>
-
-    <!-- Diagnostics autolearn states -->
     <string name="diagnostics_autolearn_active">Активно</string>
     <string name="diagnostics_autolearn_off">Выключено</string>
     <string name="diagnostics_autolearn_none_yet">Пока нет</string>
@@ -1916,8 +1885,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_autolearn_learned_format">%1$d изучено</string>
     <string name="diagnostics_autolearn_penalized_format">%1$d оштрафовано</string>
     <string name="diagnostics_autolearn_blocked_format">%1$d заблокировано</string>
-
-    <!-- Diagnostics Telegram card -->
     <string name="diagnostics_telegram_download">Загрузка</string>
     <string name="diagnostics_telegram_upload">Отдача</string>
     <string name="diagnostics_telegram_data_centers">Дата-центры</string>
@@ -1926,12 +1893,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_telegram_peak_speed">Пиковая скорость</string>
     <string name="diagnostics_telegram_transferred">Передано</string>
     <string name="diagnostics_telegram_error">Ошибка</string>
-
-    <!-- Logs -->
     <string name="logs_service_action_format">Сервис %1$s %2$s</string>
     <string name="logs_service_failure_format">Сервис %1$s не удалось запустить: %2$s</string>
-
-    <!-- DNS settings placeholders -->
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd\u2026</string>
@@ -1944,8 +1907,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_error_dns_failure">Ошибка разрешения DNS</string>
     <string name="diagnostics_error_unknown">Ошибка подключения</string>
     <string name="status_indicator_description">Статус: %1$s</string>
-
-    <!-- Diagnostics audit -->
     <string name="diagnostics_audit_confidence_title">Достоверность аудита</string>
     <plurals name="diagnostics_audit_hidden_candidates_count">
         <item quantity="one">%d другой кандидат скрыт</item>
@@ -1963,22 +1924,16 @@ fakeddisorder endhost</string>
     <string name="diagnostics_audit_winning_path_title">Лучший путь</string>
     <string name="diagnostics_audit_winning_quic_title">Победитель QUIC</string>
     <string name="diagnostics_audit_winning_tcp_title">Победитель TCP</string>
-
-    <!-- Diagnostics scan workflow -->
     <string name="diagnostics_scan_blocked_setting_label">Заблокированная настройка</string>
     <string name="diagnostics_scan_grant_vpn_permission">Предоставить разрешение VPN</string>
     <string name="diagnostics_scan_open_advanced_settings">Открыть расширенные настройки</string>
     <string name="diagnostics_scan_vpn_permission_warning_body_format">Рекомендации %1$s предполагают маршрутизацию через VPN. Без разрешения VPN рекомендованную стратегию нельзя применить в режиме VPN. Предоставьте разрешение перед запуском аудита для получения применимых результатов.</string>
     <string name="diagnostics_scan_vpn_permission_warning_title">Рекомендуется разрешение VPN</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s заблокирован, так как %2$s включена. Отключите её в расширенных настройках перед запуском этого процесса, чтобы RIPDPI мог запустить изолированные временные пробы стратегий с визуальной конфигурацией.</string>
-
-    <!-- Diagnostics snackbar -->
     <string name="diagnostics_snackbar_dns_recommendation_format">DNS-ответы на этой сети выглядели иначе. %1$s.</string>
     <string name="diagnostics_snackbar_dns_recommendation_generic">DNS-ответы на этой сети выглядели иначе. Откройте настройки DNS и попробуйте безопасный резолвер.</string>
     <string name="diagnostics_snackbar_dns_setting_saved">Настройка DNS сохранена</string>
     <string name="diagnostics_snackbar_scan_complete">Сканирование завершено</string>
-
-    <!-- Logs -->
     <string name="logs_active_session_body">Показать текущую сессию подключения или диагностики и скрыть старые сохранённые записи.</string>
     <string name="logs_active_session_title">Только активная сессия</string>
     <string name="logs_filters_summary_compact">%1$d подсистем \u00b7 %2$d уровней</string>
@@ -1992,67 +1947,53 @@ fakeddisorder endhost</string>
     <string name="logs_subsystem_service">СЕРВИС</string>
     <string name="logs_subsystem_tunnel">ТУННЕЛЬ</string>
     <string name="logs_subsystems_title">Подсистемы</string>
-
-    <!-- Crash report -->
     <string name="crash_report_title">Приложение аварийно завершилось</string>
     <string name="crash_report_body">Приложение неожиданно остановилось из-за:\n%1$s\n\nОтправить отчёт об ошибке разработчику?</string>
     <string name="crash_report_share">Отправить отчёт</string>
     <string name="crash_report_dismiss">Закрыть</string>
     <string name="copied_to_clipboard">Скопировано в буфер обмена</string>
     <string name="diagnostics_probe_copy_action">Копировать результат</string>
-
-    <!-- Destructive action confirmation dialogs -->
     <string name="confirm_forget_learned_hosts_title">Забыть изученные хосты?</string>
     <string name="confirm_forget_learned_hosts_body">Все автоматически изученные записи хостов будут удалены. Движок начнёт обучение заново при следующей сессии.</string>
     <string name="confirm_forget_learned_hosts_confirm">Забыть</string>
     <string name="confirm_forget_learned_hosts_dismiss">Отмена</string>
-
     <string name="confirm_clear_remembered_networks_title">Очистить запомненные сети?</string>
     <string name="confirm_clear_remembered_networks_body">Сохранённые стратегии для каждой сети будут удалены. Приложение заново оценит каждую сеть при подключении.</string>
     <string name="confirm_clear_remembered_networks_confirm">Очистить</string>
     <string name="confirm_clear_remembered_networks_dismiss">Отмена</string>
-
     <string name="confirm_rotate_telemetry_salt_title">Сбросить соль телеметрии?</string>
     <string name="confirm_rotate_telemetry_salt_body">Ранее записанные хеши сетевых отпечатков больше нельзя будет сопоставить с будущими сессиями.</string>
     <string name="confirm_rotate_telemetry_salt_confirm">Сбросить</string>
     <string name="confirm_rotate_telemetry_salt_dismiss">Отмена</string>
-
     <string name="confirm_reset_adaptive_split_title">Сбросить адаптивный сплит?</string>
     <string name="confirm_reset_adaptive_split_body">Маркер позиции разделения вернётся в ручной режим. Потребуется повторная настройка или выбор пресета.</string>
     <string name="confirm_reset_adaptive_split_confirm">Сбросить</string>
     <string name="confirm_reset_adaptive_split_dismiss">Отмена</string>
-
     <string name="confirm_reset_adaptive_fake_ttl_title">Сбросить адаптивный fake TTL?</string>
     <string name="confirm_reset_adaptive_fake_ttl_body">Профиль TTL вернётся к фиксированному значению. Данные обучения будут удалены при следующей сессии.</string>
     <string name="confirm_reset_adaptive_fake_ttl_confirm">Сбросить</string>
     <string name="confirm_reset_adaptive_fake_ttl_dismiss">Отмена</string>
-
     <string name="confirm_reset_activation_window_title">Сбросить окно активации?</string>
     <string name="confirm_reset_activation_window_body">Пользовательские фильтры раундов, размера и потока будут удалены. Все пакеты будут обрабатываться без ограничений.</string>
     <string name="confirm_reset_activation_window_confirm">Сбросить</string>
     <string name="confirm_reset_activation_window_dismiss">Отмена</string>
-
     <string name="confirm_reset_http_parser_evasions_title">Сбросить обход HTTP-парсера?</string>
     <string name="confirm_reset_http_parser_evasions_body">Все безопасные и агрессивные настройки мутации заголовков вернутся к значениям по умолчанию. Может потребоваться перезапуск сервиса.</string>
     <string name="confirm_reset_http_parser_evasions_confirm">Сбросить</string>
     <string name="confirm_reset_http_parser_evasions_dismiss">Отмена</string>
-
     <string name="confirm_reset_fake_payload_library_title">Сбросить пресеты fake-нагрузки?</string>
     <string name="confirm_reset_fake_payload_library_body">Пользовательские профили TCP и UDP fake-нагрузки вернутся к встроенным значениям по умолчанию.</string>
     <string name="confirm_reset_fake_payload_library_confirm">Сбросить</string>
     <string name="confirm_reset_fake_payload_library_dismiss">Отмена</string>
-
     <string name="confirm_reset_fake_tls_profile_title">Сбросить профиль fake TLS?</string>
     <string name="confirm_reset_fake_tls_profile_body">SNI, мутации и переопределения размера вернутся к значениям по умолчанию. Может потребоваться перезапуск сервиса.</string>
     <string name="confirm_reset_fake_tls_profile_confirm">Сбросить</string>
     <string name="confirm_reset_fake_tls_profile_dismiss">Отмена</string>
-
     <string name="settings_community_api_url_label">URL API сообщества</string>
     <string name="settings_community_api_url_helper">Оставьте пустым для использования встроенного адреса.</string>
     <string name="settings_community_api_url_save">Сохранить</string>
     <string name="settings_community_api_url_reset">Сбросить</string>
     <string name="settings_clear_community_cache">Очистить кеш сообщества</string>
-
     <string name="title_detection_check">Проверка обнаружения</string>
     <string name="title_detection_settings">Настройки обнаружения</string>
     <string name="detection_dns_provider_label">DNS-провайдер</string>
@@ -2111,7 +2052,6 @@ fakeddisorder endhost</string>
     <string name="detection_empty_history">Проверок пока нет</string>
     <string name="detection_error_retry">Повторить</string>
     <string name="detection_permission_title">Разрешения</string>
-
     <string name="detection_methodology_info">О методике</string>
     <string name="detection_finding_detected">Обнаружено</string>
     <string name="detection_finding_review">Требует проверки</string>
@@ -2120,8 +2060,6 @@ fakeddisorder endhost</string>
     <string name="detection_score_degraded">Оценка ухудшилась</string>
     <string name="detection_score_unchanged">Без изменений</string>
     <string name="detection_stealth_score_a11y">Оценка скрытности %1$d</string>
-
-    <!-- gap-fill: adaptive_fallback_* -->
     <string name="adaptive_fallback_auto_sort_body">Если поздняя группа продолжает побеждать для одних и тех же назначений, переместите её раньше в адаптивном порядке для более быстрого восстановления.</string>
     <string name="adaptive_fallback_auto_sort_title">Продвигать лучшие маршруты резерва</string>
     <string name="adaptive_fallback_badge_auto_sort">Авто-сортировка</string>
@@ -2160,8 +2098,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fallback_summary_label_triggers">Триггеры</string>
     <string name="adaptive_fallback_tls_err_title">Ошибка TLS</string>
     <string name="adaptive_fallback_torst_title">Сброс TCP / TORST</string>
-
-    <!-- gap-fill: blockcheck_* -->
     <string name="blockcheck_apply_best">Применить лучшую</string>
     <string name="blockcheck_best_badge">Лучшая</string>
     <string name="blockcheck_cancel">Отмена</string>
@@ -2198,8 +2134,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_run">Запустить</string>
     <string name="blockcheck_section_title">Зондирование стратегий</string>
     <string name="blockcheck_status_format">%1$d/%2$d проверок</string>
-
-    <!-- gap-fill: config_* -->
     <string name="config_error_required">Это поле обязательно.</string>
     <string name="config_error_unsupported">Эта опция не поддерживается в текущей сборке.</string>
     <string name="config_local_bypass_section_body">Настройте локальный путь прокси, DNS и параметры стратегии обхода.</string>
@@ -2341,16 +2275,12 @@ fakeddisorder endhost</string>
     <string name="config_vpn_profiles_empty_body">Вставьте ссылку профиля vless://, ss://, trojan://, hysteria2:// или похожую, чтобы добавить сервер.</string>
     <string name="config_vpn_profiles_empty_value">Серверов пока нет</string>
     <string name="config_vpn_profiles_more">+%1$d еще</string>
-
-    <!-- gap-fill: customization_icon_* -->
     <string name="customization_icon_clean">Чистый</string>
     <string name="customization_icon_cracked">Треснувший</string>
     <string name="customization_icon_disintegrate">Распад</string>
     <string name="customization_icon_glitch">Глитч</string>
     <string name="customization_icon_rubble">Обломки</string>
     <string name="customization_icon_stitch">Сшитый</string>
-
-    <!-- gap-fill: detection_resistance_* -->
     <string name="detection_resistance_active_title">Сопротивление обнаружению настроено</string>
     <string name="detection_resistance_badge_default">По умолчанию</string>
     <string name="detection_resistance_badge_evolution">Эволюция стратегии</string>
@@ -2399,8 +2329,6 @@ fakeddisorder endhost</string>
     <string name="detection_resistance_summary_tls">Профиль рукопожатия TLS</string>
     <string name="detection_resistance_tls_fingerprint_body">Применяется к HTTPS- и TLS-соединениям, которые приложение порождает само, включая провижининг, обновление каталога, проверки онбординга, поиски метаданных диагностики и встроенный браузер RIPDPI. Для платформенного ECH в этом пути с собственным стеком требуется Android 17 или новее.</string>
     <string name="detection_resistance_tls_fingerprint_title">Профиль TLS-отпечатка</string>
-
-    <!-- gap-fill: diagnostics_* (additional) -->
     <string name="diagnostics_capability_evidence_title">Доказательства возможностей</string>
     <string name="diagnostics_error_profile_blocked_by_policy">Этот профиль диагностики недоступен в рамках местной политики правовой безопасности.</string>
     <string name="diagnostics_error_sensitive_profile_consent_required">Проверьте и подтвердите этот чувствительный профиль диагностики перед запуском.</string>
@@ -2415,8 +2343,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_sensitive_profile_consent_confirm">Запустить чувствительную диагностику</string>
     <string name="diagnostics_sensitive_profile_consent_dismiss">Не сейчас</string>
     <string name="diagnostics_sensitive_profile_consent_title">Проверка чувствительной диагностики</string>
-
-    <!-- gap-fill: fake_order_card_* -->
     <string name="fake_order_card_body">Управляйте чередованием поддельных и подлинных диапазонов на основном шаге семейства fake без редактирования полного DSL цепочки.</string>
     <string name="fake_order_card_dsl_only">Эта форма цепочки не редактируется карточкой порядка fake основного шага. Используйте DSL цепочки для изменения altorder или seqmode.</string>
     <string name="fake_order_card_hostfake_order_locked">Нестандартный порядок hostfake требует маркера разделения midhost. Добавьте `midhost=` в DSL цепочки, чтобы разблокировать изменения altorder.</string>
@@ -2429,8 +2355,6 @@ fakeddisorder endhost</string>
     <string name="fake_order_card_seqmode_title">Режим последовательности fake</string>
     <string name="fake_order_card_step_label">Основной шаг</string>
     <string name="fake_order_card_title">Порядок fake</string>
-
-    <!-- gap-fill: home_connection_actuator_* -->
     <string name="home_connection_actuator_action_activate">Замкнуть защищённую линию</string>
     <string name="home_connection_actuator_action_deactivate">Разомкнуть защищённую линию</string>
     <string name="home_connection_actuator_action_wait">Защищённая линия замыкается</string>
@@ -2444,14 +2368,10 @@ fakeddisorder endhost</string>
     <string name="home_connection_actuator_state_locked">Защищённая линия заблокирована</string>
     <string name="home_connection_actuator_state_direct">Прямая линия заблокирована</string>
     <string name="home_connection_actuator_state_open">Защищённая линия открыта</string>
-
-    <!-- gap-fill: home_connection_stage_* -->
     <string name="home_connection_stage_handshake">Рукопожатие</string>
     <string name="home_connection_stage_network">Сеть</string>
     <string name="home_connection_stage_route">Маршрут</string>
     <string name="home_connection_stage_tunnel">Туннель</string>
-
-    <!-- gap-fill: home_diagnostics_* (additional) -->
     <string name="home_diagnostics_actionable_section">Что делать дальше</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_bufferbloat_summary">Оценка %1$s · в простое %2$s · под нагрузкой %3$s</string>
@@ -2497,8 +2417,6 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_routing_sanity_summary">Настроено %1$d известных приложений-детекторов VPN из %2$d записей всего.</string>
     <string name="home_diagnostics_vpn_detectors_summary">%1$d установленных приложений известны как детекторы VPN.</string>
     <string name="home_diagnostics_vpn_detectors_title">Приложения, обнаруживающие VPN</string>
-
-    <!-- gap-fill: home_mode_card_* and home_mode_* -->
     <string name="home_mode_card_configure">Настроить</string>
     <string name="home_mode_card_connected_format">Подключено %1$s</string>
     <string name="home_mode_card_connecting">Запуск...</string>
@@ -2520,15 +2438,11 @@ fakeddisorder endhost</string>
     <string name="home_mode_diagnostic_scan">Диагностическое сканирование</string>
     <string name="home_mode_local_dpi_bypass">Локальный обход</string>
     <string name="home_mode_remote_vpn">VPN</string>
-
-    <!-- gap-fill: home_quality_* and home_stat_quality -->
     <string name="home_quality_connecting">Подключение</string>
     <string name="home_quality_excellent">Отлично</string>
     <string name="home_quality_good">Хорошо</string>
     <string name="home_quality_offline">Офлайн</string>
     <string name="home_stat_quality">Качество</string>
-
-    <!-- gap-fill: onboarding_* -->
     <string name="onboarding_diagnostics_body">Обнаруживайте вмешательство DPI и анализируйте состояние сети, не покидая приложение.</string>
     <string name="onboarding_diagnostics_title">Встроенная диагностика</string>
     <string name="onboarding_setup_test_failed">Подключение не удалось: %1$s</string>
@@ -2537,21 +2451,15 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_test_running">Проверка соединения…</string>
     <string name="onboarding_setup_test_success">Подключено за %1$d мс</string>
     <string name="onboarding_setup_test_title">Проверить соединение</string>
-
-    <!-- gap-fill: qs_tile_* -->
     <string name="qs_tile_label_connected">RIPDPI: Подключено</string>
     <string name="qs_tile_subtitle_tap_connect">Нажмите для подключения</string>
     <string name="qs_tile_subtitle_tap_disconnect">Нажмите для отключения</string>
-
-    <!-- gap-fill: ripdpi_http_* and ripdpi_ip_id_* -->
     <string name="ripdpi_http_host_extra_space_setting">Дополнительный пробел в Host</string>
     <string name="ripdpi_http_host_pad_setting">Заголовок Pad для Host</string>
     <string name="ripdpi_http_host_tab_setting">Разделитель табуляции в Host</string>
     <string name="ripdpi_http_method_space_setting">Дополнительный пробел в методе</string>
     <string name="ripdpi_ip_id_mode_body">Управляет значениями идентификации IPv4 для путей сырых fake и фрагментов. Seqgroup также продвигает смешанные fake/оригинальные TCP-отправки на путь сырой замены, чтобы ID оставались точными.</string>
     <string name="ripdpi_ip_id_mode_title">Режим IPv4 ID</string>
-
-    <!-- gap-fill: ripdpi_seqovl_* -->
     <string name="ripdpi_seqovl_available_body">Используйте seqovl, когда устройство поддерживает бэкенд packet-owned. До этого сохранённые шаги seqovl остаются обратимыми, но во время выполнения откатываются к split.</string>
     <string name="ripdpi_seqovl_available_title">Доступно перекрытие последовательностей</string>
     <string name="ripdpi_seqovl_cli_body">Визуальные подсказки seqovl остаются видны здесь, но активная цепочка приходит из сырых аргументов RIPDPI, пока активны настройки командной строки.</string>
@@ -2579,8 +2487,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_seqovl_summary_scope_none">Ни один подходящий протокол не включён</string>
     <string name="ripdpi_seqovl_unsupported_body">Это устройство не предоставляет восходящий TCP-бэкенд packet-owned, который нужен seqovl. Новые элементы управления seqovl остаются отключёнными, а сохранённые шаги seqovl деградируют до split.</string>
     <string name="ripdpi_seqovl_unsupported_title">Перекрытие последовательностей недоступно</string>
-
-    <!-- gap-fill: routing_protection_* -->
     <string name="routing_protection_anti_correlation_body">Предназначен для давления мобильного whitelist. Сохраняет внутренние назначения прямыми, направляя пути с большим CDN-трафиком через VPN или реле.</string>
     <string name="routing_protection_anti_correlation_title">Режим антикорреляции</string>
     <string name="routing_protection_detected_packages">Обнаруженные пакеты: %1$s</string>
@@ -2600,16 +2506,12 @@ fakeddisorder endhost</string>
     <string name="routing_protection_summary_body">%1$d рискованных приложений обнаружено в %2$d включённых пресетах.</string>
     <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="routing_protection_summary_title">Предложения по маршрутизации используют только сопоставления установленных приложений</string>
-
-    <!-- gap-fill: semantic_action_* and semantic_state_* -->
     <string name="semantic_action_collapse">Свернуть</string>
     <string name="semantic_action_expand">Развернуть</string>
     <string name="semantic_state_collapsed">Свёрнуто</string>
     <string name="semantic_state_expanded">Развёрнуто</string>
     <string name="semantic_state_off">Выкл</string>
     <string name="semantic_state_on">Вкл</string>
-
-    <!-- gap-fill: settings_* -->
     <string name="settings_danger_section">Опасная зона</string>
     <string name="settings_exclude_russian_apps_body">Банковские приложения, доставка и государственные сервисы обходят VPN, чтобы избежать проблем с обнаружением</string>
     <string name="settings_exclude_russian_apps_title">Исключить российские приложения</string>
@@ -2627,8 +2529,6 @@ fakeddisorder endhost</string>
     <string name="settings_tethering_dns_warning_title">Риск утечки DNS при модеме</string>
     <string name="settings_vpn_flag_warning_body">Приложения во всех профилях Android (включая Рабочий профиль и Knox) могут обнаружить, что VPN активен. Для полной изоляции используйте отдельное устройство для российских приложений</string>
     <string name="settings_vpn_flag_warning_title">Флаг VPN виден</string>
-
-    <!-- gap-fill: shortcut_* -->
     <string name="shortcut_diagnostics_disabled">Диагностика недоступна</string>
     <string name="shortcut_diagnostics_short">Диагностика</string>
     <string name="shortcut_diagnostics">Запустить диагностику</string>
@@ -2642,8 +2542,6 @@ fakeddisorder endhost</string>
     <string name="shortcut_open_config_short">Профили</string>
     <string name="shortcut_open_settings">Открыть настройки</string>
     <string name="shortcut_open_settings_short">Настройки</string>
-
-    <!-- gap-fill: stage plurals -->
     <plurals name="stage_failed_count">
         <item quantity="one">, %d сбой</item>
         <item quantity="few">, %d сбоя</item>
@@ -2692,8 +2590,6 @@ fakeddisorder endhost</string>
         <item quantity="many">%d сбоев</item>
         <item quantity="other">%d сбоев</item>
     </plurals>
-
-    <!-- gap-fill: strategy_config_* -->
     <string name="strategy_config_active_path_label">Активный источник</string>
     <string name="strategy_config_editor_label">Стратегия обхода</string>
     <string name="strategy_config_entry_body">Просмотрите активную стратегию обхода, импортируйте локальную конфигурацию, экспортируйте текст или загрузите Lua-скрипт стратегии.</string>
@@ -2738,8 +2634,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_source_lua">Lua-скрипт</string>
     <string name="strategy_config_source_yaml">Пользовательский YAML</string>
     <string name="strategy_config_validate_action">Проверить</string>
-
-    <!-- gap-fill: tcp_flag_card_* and tcp_flag_* -->
     <string name="tcp_flag_card_body">Настройте флаги fake и оригинальных TCP-пакетов на основном шаге отправки без перехода в DSL цепочки.</string>
     <string name="tcp_flag_card_dsl_only">Эта форма цепочки не редактируется карточкой TCP-флагов основного шага. Используйте DSL цепочки для изменения масок флагов.</string>
     <string name="tcp_flag_card_runtime_custom">Пользовательские TCP-флаги</string>
@@ -2751,8 +2645,6 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_fake_set_title">Поддельный пакет: установить флаги</string>
     <string name="tcp_flag_orig_clear_title">Оригинальный пакет: очистить флаги</string>
     <string name="tcp_flag_orig_set_title">Оригинальный пакет: установить флаги</string>
-
-    <!-- gap-fill: title_* -->
     <string name="title_blockcheck">Зондирование стратегий</string>
     <string name="title_local_bypass_config">Конфигурация локального обхода</string>
     <string name="title_shared_diagnostic_result">Общая диагностика</string>
@@ -2772,8 +2664,6 @@ fakeddisorder endhost</string>
     <string name="root_mode_strategy_ipfrag2_body">Разбивает пакеты на уровне IP, чтобы инспекторы никогда не видели полную полезную нагрузку.</string>
     <string name="root_mode_strategies_configure_action">Открыть редактор стратегий</string>
     <string name="title_vpn_config">Конфигурация VPN</string>
-
-    <!-- gap-fill: warp_* -->
     <string name="warp_account_kind_body">Тип активной идентификации WARP. Consumer Free, WARP+ и Zero Trust используют разные пути регистрации.</string>
     <string name="warp_account_kind_title">Тип аккаунта</string>
     <string name="warp_amnezia_h1_title">Amnezia H1</string>
@@ -2827,8 +2717,6 @@ fakeddisorder endhost</string>
     <string name="warp_setup_state_title">Состояние настройки</string>
     <string name="warp_zero_trust_org_body">Показывается, когда активный профиль принадлежит регистрации Zero Trust.</string>
     <string name="warp_zero_trust_org_title">Организация Zero Trust</string>
-
-    <!-- Language picker -->
     <string name="settings_language_title">Язык</string>
     <string name="settings_language_body">Выберите язык, используемый приложением RIPDPI</string>
     <string name="language_picker_sheet_title">Выберите язык</string>
@@ -2873,8 +2761,6 @@ fakeddisorder endhost</string>
     <string name="update_error_installer_unavailable">Android installer is unavailable</string>
     <string name="update_error_not_available">no checked update is available</string>
     <string name="update_error_unknown">unexpected error</string>
-
-    <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Неподдерживаемая ссылка импорта.</string>
     <string name="import_error_missing_url">В ссылке импорта отсутствует URL подписки.</string>
     <string name="import_error_bad_encoding">Ссылка импорта повреждена.</string>
@@ -2901,8 +2787,6 @@ fakeddisorder endhost</string>
     <string name="scanner_invalid_qr_title">QR-код не распознан</string>
     <string name="scanner_invalid_qr_body">Этот QR-код не является поддерживаемой ссылкой прокси (начинается с: %1$s).</string>
     <string name="scanner_pick_image_action">Импорт из изображения</string>
-
-    <!-- Clipboard import -->
     <string name="import_clipboard_action">Импорт из буфера обмена</string>
     <string name="import_clipboard_unknown_title">В буфере обмена нет ссылки прокси</string>
     <string name="import_clipboard_unknown_with_scheme">В буфере обмена ссылка \"%1$s\", которая не является поддерживаемой ссылкой прокси.</string>
@@ -2911,8 +2795,6 @@ fakeddisorder endhost</string>
     <string name="import_clipboard_empty_body">Сначала скопируйте ссылку прокси, затем повторите импорт.</string>
     <string name="import_clipboard_clear_after_title">Очистить буфер обмена после импорта</string>
     <string name="import_clipboard_clear_after_body">Удалять скопированную ссылку из буфера обмена после её импорта.</string>
-
-    <!-- Profile share: QR + URI -->
     <string name="profile_share_action">Поделиться профилем</string>
     <string name="profile_share_title">Поделиться профилем</string>
     <string name="profile_share_warning_title">Этот QR-код содержит секреты</string>
@@ -2936,8 +2818,6 @@ fakeddisorder endhost</string>
     <string name="profile_share_unshareable_title">Профилем нельзя поделиться</string>
     <string name="profile_share_unshareable_body">У этого профиля нет формы ссылки для передачи.</string>
     <string name="profile_share_qr_content_description">QR-код сохранённого профиля</string>
-
-    <!-- AmneziaWG profile editor -->
     <string name="awg_editor_title">Профиль AmneziaWG</string>
     <string name="awg_section_interface">Интерфейс</string>
     <string name="awg_section_peer">Пир</string>
@@ -2985,9 +2865,6 @@ fakeddisorder endhost</string>
     <string name="awg_connect_ready_hint">Готово к подключению.</string>
     <string name="awg_connect_incomplete_hint">Укажите сервер, порт, приватный ключ, публичный ключ узла и адрес, чтобы подключиться.</string>
     <string name="awg_connect_error">Не удалось подключиться. Проверьте данные сервера и попробуйте снова.</string>
-
-    <!-- VMess profile editor (legacy outbound) -->
-
     <string name="anytls_editor_title">Профиль AnyTLS</string>
     <string name="anytls_section_endpoint">Адрес сервера</string>
     <string name="anytls_section_tls">TLS</string>
@@ -2999,7 +2876,6 @@ fakeddisorder endhost</string>
     <string name="anytls_field_sni">SNI</string>
     <string name="anytls_field_invalid">Недопустимое значение для этого поля.</string>
     <string name="anytls_save_action">Сохранить</string>
-
     <string name="mieru_editor_title">Профиль Mieru</string>
     <string name="mieru_section_endpoint">Адрес сервера</string>
     <string name="mieru_section_credentials">Учётные данные</string>
@@ -3023,7 +2899,6 @@ fakeddisorder endhost</string>
     <string name="mieru_save_action">Сохранить</string>
     <string name="mieru_experimental_title">Экспериментально — не проверено на реальных серверах</string>
     <string name="mieru_experimental_body">Поддержка Mieru не тестировалась с настоящим сервером Mieru. Соединения могут не работать. Сообщайте об ошибках, чтобы помочь нам проверить этот ретранслятор.</string>
-
     <string name="ssh_editor_title">Профиль SSH</string>
     <string name="ssh_section_endpoint">Адрес</string>
     <string name="ssh_section_auth">Аутентификация</string>
@@ -3047,8 +2922,6 @@ fakeddisorder endhost</string>
     <string name="ssh_secret_hidden">Скрыто — нажмите «Показать»</string>
     <string name="ssh_reveal_secret_action">Показать</string>
     <string name="ssh_save_action">Сохранить</string>
-
-    <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Переключатель подключения</string>
     <string name="widget_description_status">Статус VPN</string>
     <string name="widget_description_telemetry">Телеметрия</string>
@@ -3066,8 +2939,6 @@ fakeddisorder endhost</string>
     <string name="widget_telemetry_restarts">Перезапуски</string>
     <string name="widget_mode_proxy">Прокси</string>
     <string name="widget_mode_picker_title">Выбрать режим</string>
-
-    <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Сбой повтора</string>
     <string name="title_replay_history">Прошлые повторы</string>
     <string name="title_handshake_timeline">Хронология рукопожатия</string>
@@ -3149,15 +3020,11 @@ fakeddisorder endhost</string>
     <string name="vpn_export_consent_redact_label">Скрыть IP-адреса как 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Отмена</string>
     <string name="vpn_export_consent_confirm">Экспортировать</string>
-
-    <!-- What's-new card -->
     <string name="whats_new_title">Что нового</string>
     <string name="whats_new_subtitle">Заметки о выпуске · 3 категории</string>
     <string name="whats_new_badge">Что нового</string>
     <string name="whats_new_later">Позже</string>
     <string name="whats_new_acknowledge">Понятно</string>
-
-    <!-- Replay recommendations -->
     <string name="vpn_replay_rec_rst_after_client_hello">Возможен RST + инспекция SNI · попробуйте tlsrec_split_host</string>
     <string name="vpn_replay_rec_dns_tampered">DNS похоже подменяется · попробуйте резолвер DNS-over-HTTPS</string>
     <string name="vpn_replay_rec_tcp_unreachable">Целевой TCP-порт недоступен · проверьте адрес назначения</string>
@@ -3193,15 +3060,11 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_capture_list_empty">Захватов пока нет · включите в настройках</string>
     <string name="vpn_pcap_capture_meta_format">%1$d КиБ · %2$d пакетов</string>
     <string name="vpn_pcap_capture_drops_format">%1$d пакетов потеряно под нагрузкой</string>
-
-    <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Разработчик</string>
     <string name="vpn_dev_pcap_toggle_label">Захват пакетов (диагностика)</string>
     <string name="vpn_dev_pcap_toggle_desc">Локальный захват пакетов VPN для анализа. По умолчанию отключён.</string>
     <string name="vpn_dev_pcap_consent_title">Включить захват пакетов?</string>
     <string name="vpn_dev_pcap_consent_warning">При включении заголовки пакетов, имена SNI TLS, IP-адреса конечных точек и сигнатуры стратегий из следующей VPN-сессии записываются в ротируемый файл захвата размером до 64 МиБ на устройстве. Файлы захвата остаются приватными и доступны только приложению, пока вы не экспортируете их явно.</string>
-
-    <!-- OOM recovery surface -->
     <string name="title_oom_recovery">Восстановление после OOM</string>
     <string name="oom_recovery_title">Восстановление после OOM</string>
     <string name="oom_recovery_banner_title">RIPDPI был остановлен системой Android</string>
@@ -3211,15 +3074,11 @@ fakeddisorder endhost</string>
     <string name="oom_recovery_action_dismiss">Закрыть</string>
     <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
     <string name="oom_recovery_sample_downtime">4 мин 18 с</string>
-
-    <!-- Strategy A/B comparison surface -->
     <string name="title_strategy_ab">Стратегия A/B</string>
     <string name="strategy_ab_title">Стратегия A/B</string>
     <string name="strategy_ab_action_switch">Переключить</string>
     <string name="strategy_ab_badge_current">ТЕКУЩАЯ</string>
     <string name="strategy_ab_badge_candidate">КАНДИДАТ</string>
-
-    <!-- Strategy import screen -->
     <string name="title_strategy_import">Импорт стратегии</string>
     <string name="strategy_import_title">Импорт стратегии</string>
     <string name="strategy_import_source_file_title">Из файла</string>
@@ -3231,8 +3090,6 @@ fakeddisorder endhost</string>
     <string name="strategy_import_source_clipboard_sub">Автоопределение URL, JSON или аргументов стратегии</string>
     <string name="strategy_import_recent_title">Последние импорты</string>
     <string name="strategy_import_caption">Импорт стратегии · 4 источника (файл / QR / URL / буфер) · автоопределение при вставке · быстрый повторный импорт.</string>
-
-    <!-- Profile Variants screen -->
     <string name="title_profile_variants">Варианты профиля</string>
     <string name="profile_variants_title">Варианты профиля</string>
     <string name="profile_variants_chip_balanced">СБАЛАНСИРОВАННЫЙ</string>
@@ -3250,8 +3107,6 @@ fakeddisorder endhost</string>
     <string name="profile_variants_cta_select">Выбрать</string>
     <string name="profile_variants_cta_selected">Активен</string>
     <string name="profile_variants_caption">Варианты профиля · галерея предустановок стратегий (Сбалансированный / Агрессивный / Невидимый) · цветной чип заголовка · 3 метрики · кнопка выбора.</string>
-
-    <!-- Share link preview card -->
     <string name="share_link_preview_eyebrow_link">Сгенерированная ссылка</string>
     <string name="share_link_preview_eyebrow_payload">Содержимое фрагмента</string>
     <string name="share_link_preview_copy_action">Копировать</string>
@@ -3281,7 +3136,6 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_lockdown_ready">Android блокирует трафик, когда VPN RIPDPI не подключен.</string>
     <string name="settings_permissions_lockdown_title">Блокировать без VPN</string>
     <string name="settings_permissions_lockdown_unknown">Android еще не сообщил состояние блокировки без VPN. Откройте настройки VPN, чтобы проверить его.</string>
-    <!-- Domain bypass list (routing) -->
     <string name="title_domain_bypass_list">Список доменов в обход</string>
     <string name="settings_domain_bypass_body">Держать выбранные домены вне прокси (напрямую)</string>
     <string name="domain_bypass_intro_title">Прямые домены</string>
@@ -3300,7 +3154,6 @@ fakeddisorder endhost</string>
     <string name="domain_bypass_copied">Скопировано в буфер обмена</string>
     <string name="domain_bypass_clipboard_empty">Буфер обмена пуст</string>
     <string name="domain_bypass_moved">Перемещено в редактор правил</string>
-    <!-- Routing rules editor -->
     <string name="title_routes">Правила маршрутизации</string>
     <string name="title_rule_editor">Изменить правило</string>
     <string name="settings_routing_rules_body">Создавайте и упорядочивайте свои правила маршрутизации</string>
@@ -3422,7 +3275,6 @@ fakeddisorder endhost</string>
     <string name="asset_provider_updated_days_ago">Обновлено %1$d дн. назад</string>
     <string name="asset_provider_updated_today">Обновлено сегодня</string>
     <string name="asset_provider_updated_never">Никогда не обновлялось</string>
-    <!-- Backup &amp; Restore -->
     <string name="title_backup_restore">Резервная копия</string>
     <string name="settings_backup_section">Резервная копия</string>
     <string name="settings_backup_body">Экспорт профилей, групп, правил и настроек в файл</string>
@@ -3479,7 +3331,6 @@ fakeddisorder endhost</string>
     <string name="backup_reset_dialog_body">Введите %1$s для подтверждения. Это удалит все профили, группы, маршруты, настройки и историю диагностики, после чего перезапустит приложение.</string>
     <string name="backup_reset_confirm_action">Сбросить и перезапустить</string>
     <string name="backup_reset_cancel_action">Отмена</string>
-    <!-- Xray provider selection + import (Task 5) -->
     <string name="service_mode_native_direct_title">Прямой VPN</string>
     <string name="service_mode_native_direct_desc">Защитите устройство встроенным VPN с прямым подключением.</string>
     <string name="service_mode_native_proxy_title">VPN через ретранслятор</string>
@@ -3510,9 +3361,6 @@ fakeddisorder endhost</string>
     <string name="xray_import_capabilities_body">Это подключение обеспечивает:</string>
     <string name="xray_import_finish_action">Использовать режим</string>
     <string name="xray_import_done_action">Готово</string>
-
-    <!-- onboarding refactor additions -->
-    <!-- intro chips -->
     <string name="onboarding_chip_no_account">Без аккаунта</string>
     <string name="onboarding_chip_no_telemetry">Без телеметрии</string>
     <string name="onboarding_chip_no_cloud_sync">Без облачной синхронизации</string>
@@ -3521,20 +3369,16 @@ fakeddisorder endhost</string>
     <string name="onboarding_chip_local_vpn">Локальный VPN</string>
     <string name="onboarding_chip_local_proxy">Локальный прокси</string>
     <string name="onboarding_chip_local_config">Локальная конфигурация</string>
-    <!-- per-screen skip -->
     <string name="onboarding_skip_setup">Пропустить настройку</string>
     <string name="onboarding_use_recommended">Использовать рекомендуемое</string>
     <string name="onboarding_skip_test">Пропустить проверку</string>
-    <!-- mode badges -->
     <string name="onboarding_badge_recommended">Рекомендуется</string>
     <string name="onboarding_badge_advanced">Расширенный</string>
-    <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">DNS-резолвер с акцентом на приватность.</string>
     <string name="onboarding_dns_advanced">Расширенные настройки DNS</string>
     <string name="onboarding_setup_mode_subtitle">Выберите, как RIPDPI должен направлять трафик на этом устройстве.</string>
     <string name="onboarding_setup_mode_vpn_meta">Запрашивает разрешение Android VPN во время теста.</string>
     <string name="onboarding_test_permission_card_title">Разрешение для локального VPN</string>
-    <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Запустите выбранный режим и убедитесь, что RIPDPI правильно маршрутизирует трафик.</string>
     <string name="onboarding_test_step_tunnel_vpn">Запуск локального VPN-туннеля</string>
     <string name="onboarding_test_step_tunnel_proxy">Запуск локального прокси</string>
@@ -3556,20 +3400,15 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_success_title">Настройка завершена</string>
     <string name="onboarding_test_success_body">RIPDPI готов к работе.</string>
     <string name="onboarding_test_failed_title">Проверка соединения не удалась</string>
-    <!-- accessibility state descriptions for checklist rows -->
     <string name="onboarding_test_row_state_pending">Ожидание</string>
     <string name="onboarding_test_row_state_active">Выполняется</string>
     <string name="onboarding_test_row_state_done">Готово</string>
     <string name="onboarding_test_row_state_failed">Ошибка</string>
-
-    <!-- ViewModel status messages -->
     <string name="blockcheck_message_probe_cancelled">Проверка отменена</string>
     <string name="blockcheck_message_probe_complete">Проверка завершена</string>
     <string name="blockcheck_message_strategy_applied">Стратегия применена</string>
     <string name="blockcheck_message_strategy_unregistered">Стратегия больше не зарегистрирована</string>
     <string name="strategy_tuner_message_strategy_applied">Стратегия применена</string>
-
-    <!-- Clipboard labels -->
     <string name="clipboard_label_ripdpi_domains">Домены RIPDPI</string>
     <string name="clipboard_label_error">Ошибка</string>
     <string name="clipboard_label_lan_auth_token">Токен аутентификации LAN</string>
@@ -3581,7 +3420,6 @@ fakeddisorder endhost</string>
     <string name="clipboard_label_detection_markdown_export">Экспорт обнаружения в Markdown</string>
     <string name="clipboard_label_profile_link">Ссылка на профиль RIPDPI</string>
     <string name="clipboard_label_setup_sheet">Памятка по настройке RIPDPI</string>
-    <!-- Xray import: per-node skip reasons and errors for native translation. -->
     <string name="xray_import_skipped_title">Пропущенные узлы</string>
     <string name="xray_import_error_no_supported">Ни один исходящий узел этой конфигурации Xray не может работать нативно.</string>
     <string name="xray_import_error_unparseable">Недействительная конфигурация Xray или ссылка.</string>
@@ -4260,4 +4098,21 @@ fakeddisorder endhost</string>
     <string name="subscription_home_expired_body">%1$s больше не обновляется. Существующие профили сохранены.</string>
     <string name="subscription_home_invalidated_title">Подписка недоступна</string>
     <string name="subscription_home_invalidated_body">%1$s истекла или отозвана. Существующие профили сохранены.</string>
+    <string name="diagnostics_sparkline_chart_description">График %1$s, точек: %2$d</string>
+    <string name="diagnostics_sparkline_selected_state">Точка %1$d/%2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">Сейчас: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">Назад</string>
+    <string name="diagnostics_sparkline_next_sample">Вперёд</string>
+    <string name="diagnostics_sparkline_clear_selection">Сбросить</string>
+    <string name="backup_encryption_create_title">Шифрование копии</string>
+    <string name="backup_encryption_create_body">Фраза от 8 символов нужна для восстановления на любом устройстве.</string>
+    <string name="backup_encryption_create_action">Зашифровать</string>
+    <string name="backup_encryption_unlock_title">Открыть копию</string>
+    <string name="backup_encryption_unlock_body">Введите парольную фразу этой полной копии.</string>
+    <string name="backup_encryption_unlock_action">Открыть</string>
+    <string name="backup_encryption_unlock_failed">Неверная парольная фраза или копия изменена.</string>
+    <string name="backup_encryption_passphrase">Парольная фраза</string>
+    <string name="backup_encryption_confirm_passphrase">Повторите фразу</string>
+    <string name="backup_encryption_passphrase_mismatch">Парольные фразы не совпадают</string>
+    <string name="backup_import_legacy_full_warning">Старая копия не зашифрована. Используйте доверенный источник, затем создайте новую зашифрованную копию.</string>
 </resources>

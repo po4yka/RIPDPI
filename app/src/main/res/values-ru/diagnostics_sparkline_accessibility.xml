@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="diagnostics_sparkline_chart_description">Тренд «%1$s», точек: %2$d</string>
-    <string name="diagnostics_sparkline_selected_state">Точка %1$d из %2$d: %3$s</string>
-    <string name="diagnostics_sparkline_latest_state">Последнее значение: %1$s</string>
-    <string name="diagnostics_sparkline_previous_sample">Предыдущая точка</string>
-    <string name="diagnostics_sparkline_next_sample">Следующая точка</string>
-    <string name="diagnostics_sparkline_clear_selection">Сбросить выбор</string>
-</resources>
