@@ -12,11 +12,21 @@ use super::state::LoopState;
 use super::tcp_accept::{gc_stale_pending_listens, spawn_new_tcp_sessions};
 use super::{LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
 
-pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopState) {
-    let mut tun_read_buf = std::mem::take(&mut state.tun_read_buf);
+/// Keep one busy TUN producer from monopolising the single-owner io loop. The
+/// cap matches the existing maximum TUN write batch, keeping packet work
+/// symmetric while guaranteeing every tick reaches timers and cancellation.
+const TUN_DRAIN_PACKET_BUDGET: usize = 64;
 
-    loop {
-        let n = match tun.try_recv(&mut tun_read_buf) {
+pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopState) {
+    drain_tun_with(state, |buffer| tun.try_recv(buffer));
+}
+
+fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::Result<usize>) -> usize {
+    let mut tun_read_buf = std::mem::take(&mut state.tun_read_buf);
+    let mut drained = 0;
+
+    while drained < TUN_DRAIN_PACKET_BUDGET {
+        let n = match recv(&mut tun_read_buf) {
             Ok(0) => break,
             Ok(n) => n,
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
@@ -28,6 +38,7 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
 
         state.stats.tx_packets.fetch_add(1, Ordering::Relaxed);
         state.stats.tx_bytes.fetch_add(n as u64, Ordering::Relaxed);
+        drained += 1;
 
         let packet = &tun_read_buf[..n];
         // Feed the inbound (TUN -> userspace) packet to the optional
@@ -42,6 +53,7 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
     }
 
     state.tun_read_buf = tun_read_buf;
+    drained
 }
 
 pub(in crate::io_loop) fn drain_dns(state: &mut LoopState) {
@@ -155,6 +167,23 @@ mod tests {
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+    }
+
+    #[test]
+    fn tun_drain_stops_at_per_tick_packet_budget() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        let packet = ipv4_tcp_packet(55000, 443);
+        let mut reads = 0;
+
+        let drained = drain_tun_with(&mut state, |buffer| {
+            reads += 1;
+            buffer[..packet.len()].copy_from_slice(&packet);
+            Ok(packet.len())
+        });
+
+        assert_eq!(drained, TUN_DRAIN_PACKET_BUDGET);
+        assert_eq!(reads, TUN_DRAIN_PACKET_BUDGET);
+        assert_eq!(state.stats.tx_packets.load(Ordering::Relaxed), TUN_DRAIN_PACKET_BUDGET as u64);
     }
 
     #[tokio::test]
