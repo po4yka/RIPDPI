@@ -1,5 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::thread::JoinHandle;
 
 use rustls::client::danger::ServerCertVerifier;
@@ -13,6 +15,62 @@ use super::log_level::native_log_level_from_str;
 use super::validation::validate_scan_request;
 use super::wire_json::{passive_events_to_json, progress_to_json, report_to_json};
 use super::worker::{join_finished_worker_locked, spawn_scan_worker};
+
+static WORKER_REAPER: std::sync::LazyLock<WorkerReaper> = std::sync::LazyLock::new(WorkerReaper::new);
+
+struct WorkerReaper {
+    sender: Option<Sender<ReaperCommand>>,
+}
+
+enum ReaperCommand {
+    Join(JoinHandle<()>),
+    #[cfg(test)]
+    Flush(Sender<()>),
+}
+
+impl WorkerReaper {
+    fn new() -> Self {
+        let (sender, receiver) = mpsc::channel::<ReaperCommand>();
+        match thread::Builder::new().name("ripdpi-monitor-reaper".to_string()).spawn(move || {
+            while let Ok(command) = receiver.recv() {
+                match command {
+                    ReaperCommand::Join(handle) => {
+                        let _ = handle.join();
+                    }
+                    #[cfg(test)]
+                    ReaperCommand::Flush(done) => {
+                        let _ = done.send(());
+                    }
+                }
+            }
+        }) {
+            Ok(_reaper) => Self { sender: Some(sender) },
+            Err(err) => {
+                log::error!("failed to start diagnostics worker reaper: {err}");
+                Self { sender: None }
+            }
+        }
+    }
+
+    fn reap(&self, handle: JoinHandle<()>) {
+        let Some(sender) = &self.sender else {
+            log::error!("detaching diagnostics worker because the reaper is unavailable");
+            return;
+        };
+        if sender.send(ReaperCommand::Join(handle)).is_err() {
+            log::error!("detaching diagnostics worker because the reaper stopped");
+        }
+    }
+
+    #[cfg(test)]
+    fn flush(&self) -> mpsc::Receiver<()> {
+        let (done_tx, done_rx) = mpsc::channel();
+        if let Some(sender) = &self.sender {
+            let _ = sender.send(ReaperCommand::Flush(done_tx));
+        }
+        done_rx
+    }
+}
 
 pub struct MonitorSession {
     pub(super) shared: Arc<Mutex<SharedState>>,
@@ -128,9 +186,17 @@ impl MonitorSession {
         passive_events_to_json(self.platform_bridge.drain_passive_events())
     }
 
+    /// Cancel the active scan and retire its worker without blocking the caller.
+    ///
+    /// An unfinished worker is joined by the process-wide diagnostics reaper.
+    /// This keeps JNI teardown bounded even when a probe is inside blocking I/O;
+    /// the worker still owns its state until it exits and is reaped.
     pub fn destroy(&self) {
         self.cancel_scan();
-        self.try_join_worker();
+        let handle = self.worker.lock().ok().and_then(|mut worker_guard| worker_guard.take());
+        if let Some(handle) = handle {
+            WORKER_REAPER.reap(handle);
+        }
     }
 
     fn try_join_worker(&self) {
@@ -141,5 +207,47 @@ impl MonitorSession {
         if let Some(handle) = worker_guard.take() {
             let _ = handle.join();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn destroy_returns_without_waiting_for_blocked_worker() {
+        let session = MonitorSession::new();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            started_tx.send(()).expect("signal worker start");
+            release_rx.recv().expect("wait for worker release");
+        });
+        started_rx.recv_timeout(Duration::from_secs(1)).expect("worker started");
+        *session.worker.lock().expect("worker lock") = Some(worker);
+
+        let started = Instant::now();
+        session.destroy();
+        assert!(started.elapsed() < Duration::from_millis(250), "destroy must not join a blocked probe worker");
+        assert!(session.worker.lock().expect("worker lock").is_none());
+
+        release_tx.send(()).expect("release worker for asynchronous join");
+    }
+
+    #[test]
+    fn worker_reaper_joins_workers_in_the_background() {
+        let reaper = WorkerReaper::new();
+        let (release_tx, release_rx) = mpsc::channel();
+        let worker = thread::spawn(move || release_rx.recv().expect("wait for release"));
+
+        reaper.reap(worker);
+        let flushed = reaper.flush();
+        assert!(
+            flushed.recv_timeout(Duration::from_millis(50)).is_err(),
+            "reaper must wait for the queued worker before processing later commands"
+        );
+        release_tx.send(()).expect("release worker");
+        flushed.recv_timeout(Duration::from_secs(1)).expect("reaper joined worker and flushed queue");
     }
 }
