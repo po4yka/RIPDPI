@@ -208,10 +208,19 @@ val coverageModulePaths =
         ":core:service",
     )
 
-val qualityModulePaths = listOf(":app") + coverageModulePaths
+val qualityModulePaths =
+    subprojects
+        .map { it.path }
+        .filter { modulePath -> modulePath == ":app" || modulePath.startsWith(":core:") }
+        .sorted()
 val lintTaskPaths =
-    listOf(":app:lintGithubFullDebug", ":app:lintGithubSimpleDebug") +
-        coverageModulePaths.map { "$it:lintDebug" }
+    qualityModulePaths.flatMap { modulePath ->
+        if (modulePath == ":app") {
+            listOf(":app:lintGithubFullDebug", ":app:lintGithubSimpleDebug")
+        } else {
+            listOf("$modulePath:lintDebug")
+        }
+    }
 
 fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
 

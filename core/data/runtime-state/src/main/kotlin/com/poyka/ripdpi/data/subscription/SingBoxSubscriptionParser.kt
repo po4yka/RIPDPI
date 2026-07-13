@@ -206,35 +206,63 @@ private fun unsupportedNode(
 ): SingBoxSkippedNode? {
     val normalizedType = type.lowercase()
     val label = obj.string("tag") ?: "$normalizedType outbound ${index + 1}"
+    return unsupportedTransport(obj, normalizedType, index, label)
+        ?: unsupportedFingerprint(obj, normalizedType, index, label)
+        ?: unsupportedHysteria2Option(obj, normalizedType, index, label)
+}
+
+private fun unsupportedTransport(
+    obj: JsonObject,
+    type: String,
+    index: Int,
+    label: String,
+): SingBoxSkippedNode? {
     val transport = (obj["transport"] as? JsonObject)?.string("type")?.lowercase()
     val allowedTransports =
-        when (normalizedType) {
+        when (type) {
             "vless" -> setOf("tcp", "xhttp")
             "trojan", "shadowsocks" -> setOf("tcp")
             else -> emptySet()
         }
-    if (transport != null && normalizedType in setOf("vless", "trojan", "shadowsocks") &&
-        transport !in allowedTransports
-    ) {
-        return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, transport)
-    }
-    if (normalizedType == "vless") {
-        val fingerprint =
-            (((obj["tls"] as? JsonObject)?.get("utls") as? JsonObject)?.string("fingerprint"))
-        if (fingerprint != null && normalizeImportedTlsFingerprint(fingerprint) == null) {
-            return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, fingerprint.lowercase())
+    return transport
+        ?.takeIf { type in setOf("vless", "trojan", "shadowsocks") && it !in allowedTransports }
+        ?.let { SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, it) }
+}
+
+private fun unsupportedFingerprint(
+    obj: JsonObject,
+    type: String,
+    index: Int,
+    label: String,
+): SingBoxSkippedNode? {
+    val fingerprint = ((obj["tls"] as? JsonObject)?.get("utls") as? JsonObject)?.string("fingerprint")
+    return fingerprint
+        ?.takeIf { type == "vless" && normalizeImportedTlsFingerprint(it) == null }
+        ?.let { SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, it.lowercase()) }
+}
+
+private fun unsupportedHysteria2Option(
+    obj: JsonObject,
+    type: String,
+    index: Int,
+    label: String,
+): SingBoxSkippedNode? {
+    if (type != "hysteria2") return null
+    val hasPortHopping = obj["server_ports"] != null || obj["hop_interval"] != null || obj["hop_interval_max"] != null
+    val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
+    return when {
+        hasPortHopping -> {
+            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, "server_ports")
+        }
+
+        obfsType != null && obfsType != "salamander" -> {
+            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
+        }
+
+        else -> {
+            null
         }
     }
-    if (normalizedType == "hysteria2") {
-        if (obj["server_ports"] != null || obj["hop_interval"] != null || obj["hop_interval_max"] != null) {
-            return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, "server_ports")
-        }
-        val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
-        if (obfsType != null && obfsType != "salamander") {
-            return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
-        }
-    }
-    return null
 }
 
 /** Permissive JSON reader shared by the sing-box parser and its outbound mappers. */

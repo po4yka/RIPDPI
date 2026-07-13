@@ -160,31 +160,9 @@ object SelectorUrltestGroupImport {
         // profile tags. The urltest tag is group metadata, not a member.
         val memberOrder = rawMembers.filter { it != urltestTag }
         val missing = memberOrder.filterNot { it in profileTags }
-        if (missing.isNotEmpty()) {
-            val rejectedMember = parsed.skipped.firstOrNull { it.label in missing }
-            if (rejectedMember != null) {
-                val message =
-                    "selector member ${rejectedMember.label} uses unsupported " +
-                        rejectedMember.detail.orEmpty()
-                return SelectorUrltestImportResult.Error(
-                    message = message,
-                    reason = rejectedMember.reason,
-                    detail = rejectedMember.detail,
-                )
-            }
-            return SelectorUrltestImportResult.Error(
-                "selector references tag(s) absent from the bundle: ${missing.joinToString(", ")}",
-            )
-        }
+        missingSelectorMemberError(missing, parsed.skipped)?.let { return it }
 
-        val failoverPolicy =
-            urltest?.let { entry ->
-                FailoverPolicy.Urltest(
-                    probeUrl = entry.string("url").orEmpty(),
-                    intervalSeconds = parseInterval(entry.string("interval")),
-                    toleranceMs = entry.int("tolerance") ?: 0,
-                )
-            } ?: FailoverPolicy.Manual
+        val failoverPolicy = failoverPolicy(urltest)
 
         // Resolve the member tags back to their concrete profiles, in declared
         // selector order, so the group durably carries its candidate set. A
@@ -197,25 +175,61 @@ object SelectorUrltestGroupImport {
                 .mapNotNull(membersByTag::get)
                 .filterNot { it is ProxyProfile.RawConfig }
 
-        val group =
-            ProxyGroup(
-                id = groupId,
-                name = selectorEntry.string("tag") ?: groupId,
-                type = ProxyGroupType.SUBSCRIPTION,
-                order = 0,
-                isSelector = true,
-                members = memberProfiles,
-                failover = failoverPolicy.toSelectorFailover(),
-            )
         return SelectorUrltestImportResult.Success(
             profiles = profiles,
-            group = group,
+            group = selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy),
             memberOrder = memberOrder,
             defaultMemberTag = selectorEntry.string("default"),
             failoverPolicy = failoverPolicy,
             skipped = parsed.skipped,
         )
     }
+
+    private fun missingSelectorMemberError(
+        missing: List<String>,
+        skipped: List<SingBoxSkippedNode>,
+    ): SelectorUrltestImportResult.Error? {
+        if (missing.isEmpty()) return null
+        val rejectedMember = skipped.firstOrNull { it.label in missing }
+        return if (rejectedMember != null) {
+            SelectorUrltestImportResult.Error(
+                message =
+                    "selector member ${rejectedMember.label} uses unsupported " +
+                        rejectedMember.detail.orEmpty(),
+                reason = rejectedMember.reason,
+                detail = rejectedMember.detail,
+            )
+        } else {
+            SelectorUrltestImportResult.Error(
+                "selector references tag(s) absent from the bundle: ${missing.joinToString(", ")}",
+            )
+        }
+    }
+
+    private fun failoverPolicy(urltest: JsonObject?): FailoverPolicy =
+        urltest?.let { entry ->
+            FailoverPolicy.Urltest(
+                probeUrl = entry.string("url").orEmpty(),
+                intervalSeconds = parseInterval(entry.string("interval")),
+                toleranceMs = entry.int("tolerance") ?: 0,
+            )
+        } ?: FailoverPolicy.Manual
+
+    private fun selectorGroup(
+        groupId: String,
+        selector: JsonObject,
+        members: List<ProxyProfile>,
+        failoverPolicy: FailoverPolicy,
+    ): ProxyGroup =
+        ProxyGroup(
+            id = groupId,
+            name = selector.string("tag") ?: groupId,
+            type = ProxyGroupType.SUBSCRIPTION,
+            order = 0,
+            isSelector = true,
+            members = members,
+            failover = failoverPolicy.toSelectorFailover(),
+        )
 
     /**
      * Parses a sing-box duration string (`"5m"`, `"30s"`, `"1h"`, or a bare

@@ -160,9 +160,7 @@ internal class VpnSupervisorExitHandler(
                 Logger.e { "Relay runtime was cancelled unexpectedly; keeping base VPN runtime active" }
             }
 
-            SupervisorExitCause.ExpectedStop -> {
-                Unit
-            }
+            SupervisorExitCause.ExpectedStop -> {}
         }
     }
 }

@@ -48,20 +48,21 @@ sealed interface SupportSettingsPackageDecodeResult {
 object SupportSettingsPackageCodec {
     fun decode(payload: String): SupportSettingsPackageDecodeResult {
         if (payload.isBlank()) return SupportSettingsPackageDecodeResult.Error.Empty
-        val parsed =
-            try {
-                RipDpiContractJson.decodeFromString(SupportSettingsPackage.serializer(), payload)
-            } catch (_: SerializationException) {
-                return SupportSettingsPackageDecodeResult.Error.Malformed
-            } catch (_: IllegalArgumentException) {
-                return SupportSettingsPackageDecodeResult.Error.Malformed
-            }
-        if (parsed.schema != SupportSettingsPackageSchema) {
-            return SupportSettingsPackageDecodeResult.Error.UnsupportedSchema
+        val parsed = decodePackage(payload)
+        return when {
+            parsed == null -> SupportSettingsPackageDecodeResult.Error.Malformed
+            parsed.schema != SupportSettingsPackageSchema -> SupportSettingsPackageDecodeResult.Error.UnsupportedSchema
+            parsed.operations.isEmpty() -> SupportSettingsPackageDecodeResult.Error.NoOperations
+            else -> SupportSettingsPackageDecodeResult.Success(parsed)
         }
-        if (parsed.operations.isEmpty()) {
-            return SupportSettingsPackageDecodeResult.Error.NoOperations
-        }
-        return SupportSettingsPackageDecodeResult.Success(parsed)
     }
+
+    private fun decodePackage(payload: String): SupportSettingsPackage? =
+        try {
+            RipDpiContractJson.decodeFromString(SupportSettingsPackage.serializer(), payload)
+        } catch (_: SerializationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
 }

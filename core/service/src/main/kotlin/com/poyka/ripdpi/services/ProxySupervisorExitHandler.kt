@@ -160,9 +160,7 @@ internal class ProxySupervisorExitHandler(
                 Logger.e { "Relay runtime was cancelled unexpectedly; keeping base proxy runtime active" }
             }
 
-            SupervisorExitCause.ExpectedStop -> {
-                Unit
-            }
+            SupervisorExitCause.ExpectedStop -> {}
         }
     }
 }

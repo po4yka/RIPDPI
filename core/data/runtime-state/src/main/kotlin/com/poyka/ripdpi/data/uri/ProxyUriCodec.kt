@@ -256,22 +256,26 @@ object ProxyUriCodec {
         val pbk = queryValue(rawQuery, "pbk")
         val isReality = security?.lowercase() == "reality" || !pbk.isNullOrBlank()
         return if (isReality) {
-            val realityPublicKey = pbk?.takeIf { it.isNotBlank() } ?: return null
-            val sid = queryValue(rawQuery, "sid").orEmpty()
-            val sni = queryValue(rawQuery, "sni") ?: host
-            val flow = queryValue(rawQuery, "flow") ?: "xtls-rprx-vision"
-            val fp = queryValue(rawQuery, "fp")
-            val transportType = queryValue(rawQuery, "type")?.lowercase()
-            // RIPDPI's VLESS+REALITY client only implements the plain-TCP and xhttp
-            // wire transports. A share link advertising grpc/ws/h2/httpupgrade/etc.
-            // must be rejected rather than silently coerced to TCP Reality, which
-            // would activate the wrong wire transport against the server.
-            if (transportType != null && transportType != "tcp" && transportType != "xhttp") {
-                return null
-            }
-            val xhttpPath = if (transportType == "xhttp") queryValue(rawQuery, "path").orEmpty() else null
-            val xhttpHost = if (transportType == "xhttp") queryValue(rawQuery, "host") else null
-            val xhttpMode = if (transportType == "xhttp") queryValue(rawQuery, "mode") ?: "auto" else "auto"
+            parseVlessReality(parsed, uuid, host, port, rawQuery, pbk)
+        } else {
+            parsePlainVless(parsed, uuid, host, port, rawQuery)
+        }
+    }
+
+    private fun parseVlessReality(
+        parsed: URI,
+        uuid: String,
+        host: String,
+        port: Int,
+        rawQuery: String?,
+        publicKey: String?,
+    ): ProxyProfile.VlessReality? {
+        val realityPublicKey = publicKey?.takeIf(String::isNotBlank)
+        val transportType = queryValue(rawQuery, "type")?.lowercase()
+        // RIPDPI's VLESS+REALITY client only implements plain TCP and xhttp.
+        val supportedTransport = transportType == null || transportType in setOf("tcp", "xhttp")
+        return if (realityPublicKey != null && supportedTransport) {
+            val isXhttp = transportType == "xhttp"
             ProxyProfile.VlessReality(
                 id = newId(),
                 displayName = displayName(parsed.fragment, host),
@@ -280,40 +284,41 @@ object ProxyUriCodec {
                 serverPort = port,
                 uuid = uuid,
                 realityPublicKey = realityPublicKey,
-                realityShortId = sid,
-                serverName = sni,
-                flow = flow,
-                fingerprint = fp,
-                xhttpPath = xhttpPath,
-                xhttpHost = xhttpHost,
-                xhttpMode = xhttpMode,
+                realityShortId = queryValue(rawQuery, "sid").orEmpty(),
+                serverName = queryValue(rawQuery, "sni") ?: host,
+                flow = queryValue(rawQuery, "flow") ?: "xtls-rprx-vision",
+                fingerprint = queryValue(rawQuery, "fp"),
+                xhttpPath = if (isXhttp) queryValue(rawQuery, "path").orEmpty() else null,
+                xhttpHost = if (isXhttp) queryValue(rawQuery, "host") else null,
+                xhttpMode = if (isXhttp) queryValue(rawQuery, "mode") ?: "auto" else "auto",
             )
         } else {
-            ProxyProfile.Vless(
-                id = newId(),
-                displayName = displayName(parsed.fragment, host),
-                groupId = "",
-                server = host,
-                serverPort = port,
-                uuid = uuid,
-                serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName"),
-                flow = queryValue(rawQuery, "flow").orEmpty(),
-                fingerprint = queryValue(rawQuery, "fp"),
-                xhttpPath =
-                    if (queryValue(rawQuery, "type")?.equals("xhttp", ignoreCase = true) == true) {
-                        queryValue(rawQuery, "path").orEmpty()
-                    } else {
-                        null
-                    },
-                xhttpHost =
-                    if (queryValue(rawQuery, "type")?.equals("xhttp", ignoreCase = true) == true) {
-                        queryValue(rawQuery, "host")
-                    } else {
-                        null
-                    },
-                xhttpMode = queryValue(rawQuery, "mode") ?: "auto",
-            )
+            null
         }
+    }
+
+    private fun parsePlainVless(
+        parsed: URI,
+        uuid: String,
+        host: String,
+        port: Int,
+        rawQuery: String?,
+    ): ProxyProfile.Vless {
+        val isXhttp = queryValue(rawQuery, "type")?.equals("xhttp", ignoreCase = true) == true
+        return ProxyProfile.Vless(
+            id = newId(),
+            displayName = displayName(parsed.fragment, host),
+            groupId = "",
+            server = host,
+            serverPort = port,
+            uuid = uuid,
+            serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName"),
+            flow = queryValue(rawQuery, "flow").orEmpty(),
+            fingerprint = queryValue(rawQuery, "fp"),
+            xhttpPath = if (isXhttp) queryValue(rawQuery, "path").orEmpty() else null,
+            xhttpHost = if (isXhttp) queryValue(rawQuery, "host") else null,
+            xhttpMode = queryValue(rawQuery, "mode") ?: "auto",
+        )
     }
 
     /**

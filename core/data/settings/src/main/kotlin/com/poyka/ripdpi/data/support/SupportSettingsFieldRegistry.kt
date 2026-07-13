@@ -17,6 +17,8 @@ import java.lang.reflect.Method
 import java.util.Base64
 
 private const val SettingsPathPrefix = "settings."
+private const val Base64BlockSize = 4
+private const val Base64PaddingOffset = Base64BlockSize - 1
 
 data class SupportSettingsFieldChange(
     val path: String,
@@ -57,25 +59,26 @@ object SupportSettingsFieldRegistry {
         builder: AppSettings.Builder,
         operation: SupportSettingsOperation,
     ): SupportSettingsFieldResult {
-        if (operation.op != SupportSettingsOpSet) {
-            return SupportSettingsFieldResult.Error(
-                operation.path,
-                SupportSettingsFieldErrorReason.UnsupportedOperation,
-            )
+        val field = normalizePath(operation.path)?.let(fields::get)
+        return when {
+            operation.op != SupportSettingsOpSet -> {
+                SupportSettingsFieldResult.Error(
+                    operation.path,
+                    SupportSettingsFieldErrorReason.UnsupportedOperation,
+                )
+            }
+
+            field == null -> {
+                SupportSettingsFieldResult.Error(
+                    operation.path,
+                    SupportSettingsFieldErrorReason.UnsupportedPath,
+                )
+            }
+
+            else -> {
+                field.apply(builder, operation.value)
+            }
         }
-        val normalized =
-            normalizePath(operation.path)
-                ?: return SupportSettingsFieldResult.Error(
-                    operation.path,
-                    SupportSettingsFieldErrorReason.UnsupportedPath,
-                )
-        val field =
-            fields[normalized]
-                ?: return SupportSettingsFieldResult.Error(
-                    operation.path,
-                    SupportSettingsFieldErrorReason.UnsupportedPath,
-                )
-        return field.apply(builder, operation.value)
     }
 
     private fun buildFields(): Map<String, SupportSettingsField> {
@@ -108,10 +111,11 @@ object SupportSettingsFieldRegistry {
 
     private fun normalizePath(path: String): String? {
         val trimmed = path.trim()
-        if (!trimmed.startsWith(SettingsPathPrefix)) return null
-        val rawName = trimmed.removePrefix(SettingsPathPrefix)
-        if (rawName.isBlank()) return null
-        return SettingsPathPrefix + rawName.toSnakeCase()
+        return trimmed
+            .takeIf { it.startsWith(SettingsPathPrefix) }
+            ?.removePrefix(SettingsPathPrefix)
+            ?.takeIf(String::isNotBlank)
+            ?.let { rawName -> SettingsPathPrefix + rawName.toSnakeCase() }
     }
 
     private fun pathForSuffix(suffix: String): String = SettingsPathPrefix + suffix.toSnakeCase()
@@ -233,10 +237,12 @@ private fun parseUnsupportedMessage(
     value: JsonElement,
     type: Class<*>,
 ): Any? {
-    if (!MessageLite::class.java.isAssignableFrom(type)) return null
-    val bytes = base64Bytes(value) ?: return null
-    val parserMethod = type.getMethod("parseFrom", ByteArray::class.java)
-    return parserMethod.invoke(null, bytes)
+    val bytes = base64Bytes(value)
+    return if (MessageLite::class.java.isAssignableFrom(type) && bytes != null) {
+        type.getMethod("parseFrom", ByteArray::class.java).invoke(null, bytes)
+    } else {
+        null
+    }
 }
 
 private fun <T : MessageLite> parseMessage(
@@ -248,9 +254,19 @@ private fun <T : MessageLite> parseMessage(
 }
 
 private fun base64Bytes(value: JsonElement): ByteArray? {
-    if (value is JsonNull) return null
-    val encoded = (value as? JsonPrimitive)?.contentOrNull ?: return null
-    return runCatching { Base64.getUrlDecoder().decode(encoded.padEnd((encoded.length + 3) / 4 * 4, '=')) }.getOrNull()
+    val encoded = (value as? JsonPrimitive)?.takeUnless { value is JsonNull }?.contentOrNull
+    return encoded?.let { content ->
+        runCatching {
+            Base64
+                .getUrlDecoder()
+                .decode(
+                    content.padEnd(
+                        (content.length + Base64PaddingOffset) / Base64BlockSize * Base64BlockSize,
+                        '=',
+                    ),
+                )
+        }.getOrNull()
+    }
 }
 
 private fun getter(
@@ -269,18 +285,13 @@ private fun displayValue(value: Any?): String =
     }
 
 private fun sensitivityFor(path: String): SupportSettingsSensitivity =
-    if (
-        path in sensitivePaths ||
-        path.contains("token") ||
-        path.contains("credential") ||
-        path.contains("password") ||
-        path.contains("private_key") ||
-        path.contains("keylog")
-    ) {
+    if (path in sensitivePaths || sensitivePathFragments.any(path::contains)) {
         SupportSettingsSensitivity.Sensitive
     } else {
         SupportSettingsSensitivity.Standard
     }
+
+private val sensitivePathFragments = setOf("token", "credential", "password", "private_key", "keylog")
 
 private val sensitivePaths =
     setOf(
