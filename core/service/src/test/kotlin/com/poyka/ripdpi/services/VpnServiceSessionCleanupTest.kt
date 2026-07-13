@@ -2,6 +2,8 @@ package com.poyka.ripdpi.services
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -19,6 +21,64 @@ class VpnServiceSessionCleanupTest {
         }
 
         assertEquals(listOf("unregister", "protect-stop"), calls)
+    }
+
+    @Test
+    fun nativeProtectCleanupAttemptsBothOwnersAndRetriesOnlyFailure() {
+        val calls = mutableListOf<String>()
+        val cleanup = VpnServiceSessionCleanup()
+        val unregisterFailure = IllegalStateException("unregister failed")
+
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                cleanup.cleanupNativeProtect(
+                    unregisterNativeProtect = {
+                        calls += "unregister"
+                        throw unregisterFailure
+                    },
+                    stopProtectSocketServer = { calls += "protect-stop" },
+                )
+            }
+
+        assertSame(unregisterFailure, thrown)
+        cleanup.cleanupNativeProtect(
+            unregisterNativeProtect = { calls += "unregister-retry" },
+            stopProtectSocketServer = { calls += "protect-stop-again" },
+        )
+        assertEquals(listOf("unregister", "protect-stop", "unregister-retry"), calls)
+    }
+
+    @Test
+    fun nativeProtectCleanupPreservesBothFailuresAndRetriesBothOwners() {
+        val calls = mutableListOf<String>()
+        val cleanup = VpnServiceSessionCleanup()
+        val unregisterFailure = IllegalStateException("unregister failed")
+        val stopFailure = IllegalArgumentException("stop failed")
+
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                cleanup.cleanupNativeProtect(
+                    unregisterNativeProtect = {
+                        calls += "unregister"
+                        throw unregisterFailure
+                    },
+                    stopProtectSocketServer = {
+                        calls += "protect-stop"
+                        throw stopFailure
+                    },
+                )
+            }
+
+        assertSame(unregisterFailure, thrown)
+        assertEquals(listOf(stopFailure), thrown.suppressed.toList())
+        cleanup.cleanupNativeProtect(
+            unregisterNativeProtect = { calls += "unregister-retry" },
+            stopProtectSocketServer = { calls += "protect-stop-retry" },
+        )
+        assertEquals(
+            listOf("unregister", "protect-stop", "unregister-retry", "protect-stop-retry"),
+            calls,
+        )
     }
 
     @Test

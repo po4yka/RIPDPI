@@ -6,16 +6,29 @@ import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class VpnServiceSessionCleanup {
-    private val nativeProtectCleaned = AtomicBoolean(false)
+    private var nativeProtectUnregistered = false
+    private var protectSocketServerStopped = false
     private val coordinatorDestroyed = AtomicBoolean(false)
 
+    @Synchronized
     fun cleanupNativeProtect(
         unregisterNativeProtect: () -> Unit,
         stopProtectSocketServer: () -> Unit,
     ) {
-        if (!nativeProtectCleaned.compareAndSet(false, true)) return
-        unregisterNativeProtect()
-        stopProtectSocketServer()
+        var failure: Throwable? = null
+        if (!nativeProtectUnregistered) {
+            runCatching(unregisterNativeProtect)
+                .onSuccess { nativeProtectUnregistered = true }
+                .onFailure { failure = it }
+        }
+        if (!protectSocketServerStopped) {
+            runCatching(stopProtectSocketServer)
+                .onSuccess { protectSocketServerStopped = true }
+                .onFailure { current ->
+                    failure?.addSuppressed(current) ?: run { failure = current }
+                }
+        }
+        failure?.let { throw it }
     }
 
     fun destroyCoordinator(destroy: () -> Unit) {

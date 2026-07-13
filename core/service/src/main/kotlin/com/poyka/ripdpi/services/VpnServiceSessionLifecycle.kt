@@ -24,11 +24,18 @@ internal class VpnServiceSessionLifecycle(
         val socketServer = entryPoint.protectSocketServer()
         coordinator = runtimeCoordinator
         protectSocketServer = socketServer
-        advertiseProtectPath(
-            startProtectSocketServer = socketServer::start,
-            advertiseProtectPath = { activeProtectSocketPathProvider.set(socketServer.socketPath) },
-        )
-        VpnNativeProtectRegistration.register(service)
+        val protectionFailure =
+            runCatching {
+                establishProtectPath(
+                    startProtectSocketServer = socketServer::start,
+                    advertiseProtectPath = { activeProtectSocketPathProvider.set(socketServer.socketPath) },
+                    registerNativeProtect = { VpnNativeProtectRegistration.register(service) },
+                    rollbackProtection = ::cleanupNativeProtect,
+                )
+            }.exceptionOrNull()
+        if (protectionFailure != null) {
+            throw protectionFailure
+        }
         return ServiceShellDelegate(
             serviceScope = service.serviceScope,
             serviceLabel = "vpn",
@@ -116,6 +123,25 @@ internal inline fun advertiseProtectPath(
 ) {
     startProtectSocketServer()
     advertiseProtectPath()
+}
+
+internal inline fun establishProtectPath(
+    startProtectSocketServer: () -> Unit,
+    advertiseProtectPath: () -> Unit,
+    registerNativeProtect: () -> Unit,
+    rollbackProtection: () -> Unit,
+) {
+    val failure =
+        runCatching {
+            advertiseProtectPath(startProtectSocketServer, advertiseProtectPath)
+            registerNativeProtect()
+        }.exceptionOrNull()
+    if (failure != null) {
+        runCatching(rollbackProtection)
+            .exceptionOrNull()
+            ?.let(failure::addSuppressed)
+        throw failure
+    }
 }
 
 /**
