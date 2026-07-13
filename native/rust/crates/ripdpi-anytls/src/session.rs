@@ -504,8 +504,18 @@ async fn run_session<S>(
             match frame.command() {
                 Command::SynAck => handle_synack(&streams, frame.stream_id(), frame.data()).await,
                 Command::Psh => {
-                    if let Some(route) = streams.lock().await.get(&frame.stream_id()) {
-                        route.inbound.send(frame.data().to_vec()).await.map_err(|_| AnyTlsError::SessionClosed)?;
+                    let stream_id = frame.stream_id();
+                    let delivery_failed = {
+                        let guard = streams.lock().await;
+                        guard
+                            .get(&stream_id)
+                            .is_some_and(|route| route.inbound.try_send(frame.data().to_vec()).is_err())
+                    };
+                    if delivery_failed && streams.lock().await.remove(&stream_id).is_some() {
+                        // Backpressure is per logical stream: a full or closed mailbox
+                        // terminates only that stream instead of parking the carrier
+                        // reader and blocking every multiplexed sibling behind it.
+                        outbound_tx.try_send(Outbound::Batch(vec![Frame::control(Command::Fin, stream_id)])).ok();
                     }
                 }
                 Command::Fin => {

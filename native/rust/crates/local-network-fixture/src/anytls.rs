@@ -22,6 +22,7 @@ pub struct AnyTlsLoopbackConfig {
     pub close_after_update: bool,
     pub send_heart_request_after_settings: bool,
     pub send_alert_after_first_syn: Option<String>,
+    pub flood_first_stream_frames: usize,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -253,6 +254,11 @@ async fn handle_connection(
                     } else {
                         observed.lock().expect("anytls observed").synack_successes.push(frame.stream_id);
                         write_frame(&mut tls, CMD_SYNACK, frame.stream_id, &[]).await?;
+                        if frame.stream_id == 1 {
+                            for _ in 0..config.flood_first_stream_frames {
+                                write_frame(&mut tls, CMD_PSH, frame.stream_id, b"stalled-stream").await?;
+                            }
+                        }
                     }
                 } else {
                     write_frame(&mut tls, CMD_PSH, frame.stream_id, &frame.data).await?;

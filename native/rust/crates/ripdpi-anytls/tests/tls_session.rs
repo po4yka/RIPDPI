@@ -1,4 +1,5 @@
 use std::net::Ipv4Addr;
+use std::time::Duration;
 
 use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
 use ripdpi_anytls::DEFAULT_PADDING_SCHEME;
@@ -77,6 +78,37 @@ async fn settings_synack_tcp_echo_and_multiplexing_share_one_tls_session() {
     assert_eq!(observed.syn_stream_ids, vec![1, 2]);
     assert_eq!(observed.synack_successes, vec![1, 2]);
     assert_eq!(observed.tcp_targets.len(), 2);
+}
+
+#[tokio::test]
+async fn unread_stream_does_not_block_other_streams_on_the_same_session() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { flood_first_stream_frames: 33, ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let _unread = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("open unread stream");
+    let mut responsive = tokio::time::timeout(
+        Duration::from_secs(1),
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+    )
+    .await
+    .expect("unread stream must not block opening a sibling stream")
+    .expect("open responsive stream");
+
+    responsive.write_all(b"responsive").await.expect("write responsive stream");
+    let echoed = tokio::time::timeout(Duration::from_secs(1), responsive.read_exact_len(10))
+        .await
+        .expect("unread stream must not block sibling traffic")
+        .expect("read responsive stream");
+    assert_eq!(echoed, b"responsive");
+    assert_eq!(fixture.observed().tls_session_count, 1, "both streams must share one carrier");
 }
 
 #[tokio::test]
