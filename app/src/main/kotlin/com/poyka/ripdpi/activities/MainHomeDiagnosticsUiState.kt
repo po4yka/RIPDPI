@@ -7,15 +7,16 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict
 import com.poyka.ripdpi.diagnostics.HomeDnsResolverClass
 import com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary
+import com.poyka.ripdpi.diagnostics.HomeStrategyEffectivenessEntry
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
 import kotlinx.collections.immutable.toImmutableList
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun buildHomeDiagnosticsUiState(
     settings: AppSettings,
     appStatus: AppStatus,
@@ -23,340 +24,32 @@ internal fun buildHomeDiagnosticsUiState(
     runtime: HomeDiagnosticsRuntimeState,
     stringResolver: StringResolver,
 ): HomeDiagnosticsUiState {
-    val fingerprintMismatch =
-        runtime.latestCompositeOutcome?.fingerprintHash != null &&
-            runtime.currentFingerprintHash != null &&
-            runtime.latestCompositeOutcome.fingerprintHash != runtime.currentFingerprintHash
-    val analysisBusy = runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
-    val verificationBusy = runtime.waitingForVerifiedVpnStart || runtime.activeVerificationSessionId != null
-    val analysisEnabled =
-        !analysisBusy &&
-            !verificationBusy &&
-            !runtime.externalScanActive &&
-            !settings.enableCmdSettings
-    val analysisSupportingText =
-        when {
-            analysisBusy -> {
-                val progress = runtime.activeRunProgress
-                val activeStageIndex = progress.activeStageIndex
-                val stageLabel = progress.stages.getOrNull(activeStageIndex ?: -1)?.stageLabel
-                val stagePrefix =
-                    if (activeStageIndex != null) {
-                        "Stage ${activeStageIndex + 1} of ${progress.stages.size}"
-                    } else {
-                        null
-                    }
-                listOfNotNull(stagePrefix, runtime.activeRunStageProgress ?: stageLabel)
-                    .joinToString(" · ")
-                    .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
-            }
-
-            verificationBusy -> {
-                stringResolver.getString(R.string.home_diagnostics_busy_verifying)
-            }
-
-            runtime.externalScanActive -> {
-                runtime.externalScanMessage
-                    ?: stringResolver.getString(R.string.home_diagnostics_busy_other_scan)
-            }
-
-            settings.enableCmdSettings -> {
-                stringResolver.getString(R.string.home_diagnostics_command_line_blocked)
-            }
-
-            else -> {
-                stringResolver.getString(R.string.home_diagnostics_analysis_body)
-            }
-        }
-    val verificationEnabled =
-        !analysisBusy &&
-            !verificationBusy &&
-            !runtime.externalScanActive &&
-            appStatus == AppStatus.Halted &&
-            connectionState != ConnectionState.Connecting &&
-            runtime.latestCompositeOutcome?.actionable == true &&
-            !fingerprintMismatch
-    val verificationSupportingText =
-        when {
-            verificationBusy -> {
-                runtime.verificationProgress
-                    ?: stringResolver.getString(R.string.home_diagnostics_verifying)
-            }
-
-            analysisBusy -> {
-                stringResolver.getString(R.string.home_diagnostics_finish_analysis_first)
-            }
-
-            runtime.externalScanActive -> {
-                runtime.externalScanMessage
-                    ?: stringResolver.getString(R.string.home_diagnostics_busy_other_scan)
-            }
-
-            runtime.latestCompositeOutcome == null -> {
-                stringResolver.getString(R.string.home_diagnostics_run_analysis_first)
-            }
-
-            runtime.latestCompositeOutcome.actionable.not() -> {
-                stringResolver.getString(R.string.home_diagnostics_no_actionable_result)
-            }
-
-            fingerprintMismatch -> {
-                stringResolver.getString(R.string.home_diagnostics_run_again)
-            }
-
-            appStatus == AppStatus.Running || connectionState == ConnectionState.Connected -> {
-                stringResolver.getString(R.string.home_diagnostics_disconnect_first)
-            }
-
-            else -> {
-                stringResolver.getString(R.string.home_diagnostics_verified_vpn_body)
-            }
-        }
-    val latestAudit =
-        runtime.latestCompositeOutcome?.let { outcome ->
-            outcome.toLatestAuditUiState(fingerprintMismatch)
-        } ?: runtime.latestManualDiagnosticSession?.toLatestManualScanUiState()
-    val remediationLadder =
-        if (analysisBusy || verificationBusy || runtime.externalScanActive) {
-            null
-        } else {
-            stringResolver.buildHomeRemediationLadder(
-                commandLineBlocked = settings.enableCmdSettings,
-                fingerprintMismatch = fingerprintMismatch,
-                latestOutcome = latestAudit,
-            )
-        }
-
-    val quickScanBusy = analysisBusy && runtime.quickScanActive
-    val pcapToggleVisible = settings.rootModeEnabled
+    val availability = resolveHomeDiagnosticsAvailability(settings, appStatus, connectionState, runtime, stringResolver)
     return HomeDiagnosticsUiState(
         pcapRecordingRequested = runtime.pcapRecordingRequested,
-        pcapToggleVisible = pcapToggleVisible,
+        pcapToggleVisible = settings.rootModeEnabled,
         analysisAction =
             HomeDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.home_diagnostics_run_analysis),
-                supportingText = analysisSupportingText,
-                enabled = analysisEnabled,
-                busy = analysisBusy,
+                supportingText = availability.analysisSupportingText,
+                enabled = availability.analysisEnabled,
+                busy = availability.analysisBusy,
             ),
-        quickScanBusy = quickScanBusy,
+        quickScanBusy = availability.analysisBusy && runtime.quickScanActive,
         verifiedVpnAction =
             HomeDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.home_diagnostics_start_verified_vpn),
-                supportingText = verificationSupportingText,
-                enabled = verificationEnabled,
-                busy = verificationBusy,
+                supportingText = availability.verificationSupportingText,
+                enabled = availability.verificationEnabled,
+                busy = availability.verificationBusy,
             ),
-        latestAudit = latestAudit,
-        remediationLadder = remediationLadder,
-        analysisProgress =
-            runtime.activeRunProgress?.takeIf { analysisBusy }?.let { progress ->
-                AnalysisProgressUiState(
-                    stages =
-                        progress.stages
-                            .mapIndexed { stageIndex, stage ->
-                                val stageStatus =
-                                    when (stage.status) {
-                                        DiagnosticsHomeCompositeStageStatus.PENDING -> AnalysisStageStatus.PENDING
-
-                                        DiagnosticsHomeCompositeStageStatus.RUNNING -> AnalysisStageStatus.RUNNING
-
-                                        DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                        DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                                        -> AnalysisStageStatus.COMPLETED
-
-                                        DiagnosticsHomeCompositeStageStatus.FAILED,
-                                        DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
-                                        -> AnalysisStageStatus.FAILED
-                                    }
-                                AnalysisStageUiState(
-                                    status = stageStatus,
-                                    progress =
-                                        if (stageIndex == progress.activeStageIndex) {
-                                            runtime.activeStageStepProgress
-                                        } else {
-                                            when (stageStatus) {
-                                                AnalysisStageStatus.COMPLETED, AnalysisStageStatus.FAILED -> 1f
-                                                else -> 0f
-                                            }
-                                        },
-                                )
-                            }.toImmutableList(),
-                    activeStageIndex = progress.activeStageIndex,
-                )
-            },
+        latestAudit = availability.latestAudit,
+        remediationLadder = availability.remediationLadder,
+        analysisProgress = buildAnalysisProgress(runtime, availability.analysisBusy),
         analysisSheet =
             runtime.latestCompositeOutcome
                 ?.takeIf { runtime.analysisSheetVisible }
-                ?.let { outcome ->
-                    HomeDiagnosticsAnalysisSheetUiState(
-                        runId = outcome.runId,
-                        headline = outcome.headline,
-                        summary = outcome.summary,
-                        confidenceSummary = outcome.confidenceSummary,
-                        coverageSummary = outcome.coverageSummary,
-                        recommendationSummary = outcome.recommendationSummary,
-                        appliedSettings = outcome.appliedSettings.toImmutableList(),
-                        capabilityEvidence =
-                            outcome.capabilityEvidence
-                                .map(
-                                    ::toCapabilityEvidenceUiModel,
-                                ).toImmutableList(),
-                        stageSummaries =
-                            outcome.stageSummaries
-                                .map { stage ->
-                                    HomeDiagnosticsStageUiState(
-                                        label = stage.stageLabel,
-                                        headline = stage.headline,
-                                        summary = stage.summary,
-                                        failed =
-                                            stage.status == DiagnosticsHomeCompositeStageStatus.FAILED,
-                                        skipped =
-                                            stage.status == DiagnosticsHomeCompositeStageStatus.SKIPPED ||
-                                                stage.status == DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
-                                        recommendationContributor = stage.recommendationContributor,
-                                    )
-                                }.toImmutableList(),
-                        completedStageCount = outcome.completedStageCount,
-                        failedStageCount = outcome.failedStageCount,
-                        shareBusy = runtime.shareBusy,
-                        detectionVerdict =
-                            outcome.detectionVerdict?.let { verdict ->
-                                stringResolver.getString(
-                                    when (verdict) {
-                                        DiagnosticsHomeDetectionVerdict.DETECTED -> {
-                                            R.string.home_diagnostics_detection_detected
-                                        }
-
-                                        DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> {
-                                            R.string.home_diagnostics_detection_needs_review
-                                        }
-
-                                        DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> {
-                                            R.string.home_diagnostics_detection_not_detected
-                                        }
-                                    },
-                                )
-                            },
-                        detectionFindings = outcome.detectionFindings.toImmutableList(),
-                        installedVpnDetectorCount = outcome.installedVpnDetectorCount,
-                        installedVpnDetectorTopApps = outcome.installedVpnDetectorTopApps.toImmutableList(),
-                        pcapRecordingRequested = outcome.pcapRecordingRequested,
-                        remediationLadder = remediationLadder,
-                        actionableHeadline = outcome.actionableHeadline,
-                        actionableNextSteps = outcome.actionableNextSteps.toImmutableList(),
-                        networkCharacterRows =
-                            buildNetworkCharacterRows(outcome.networkCharacter, stringResolver).toImmutableList(),
-                        networkCharacterNotes =
-                            outcome.networkCharacter
-                                ?.notes
-                                .orEmpty()
-                                .toImmutableList(),
-                        strategyEffectivenessRows =
-                            outcome.strategyEffectiveness
-                                .map { entry ->
-                                    HomeAnalysisLabeledRow(
-                                        label = entry.label,
-                                        value =
-                                            stringResolver.getString(
-                                                R.string.home_diagnostics_effectiveness_row_value,
-                                                entry.successCount,
-                                                entry.failureCount,
-                                            ),
-                                    )
-                                }.toImmutableList(),
-                        routingSanitySummary =
-                            outcome.routingSanity?.let { sanity ->
-                                stringResolver.getString(
-                                    R.string.home_diagnostics_routing_sanity_summary,
-                                    sanity.confirmedDetectorCount,
-                                    sanity.totalConfiguredApps,
-                                )
-                            },
-                        routingSanityFindings =
-                            outcome.routingSanity
-                                ?.findings
-                                ?.map { finding ->
-                                    HomeAnalysisLabeledRow(
-                                        label = finding.packageName,
-                                        value = "${finding.severity}: ${finding.description}",
-                                    )
-                                }.orEmpty()
-                                .toImmutableList(),
-                        regressionDeltaSummary =
-                            outcome.regressionDelta?.let { delta ->
-                                stringResolver.getString(
-                                    R.string.home_diagnostics_regression_summary,
-                                    delta.newlyFailedStageKeys.size,
-                                    delta.newlyRecoveredStageKeys.size,
-                                    delta.unchangedStageCount,
-                                )
-                            },
-                        regressionDeltaFailures =
-                            outcome.regressionDelta
-                                ?.newlyFailedStageKeys
-                                .orEmpty()
-                                .toImmutableList(),
-                        regressionDeltaRecoveries =
-                            outcome.regressionDelta
-                                ?.newlyRecoveredStageKeys
-                                .orEmpty()
-                                .toImmutableList(),
-                        bufferbloatSummary =
-                            outcome.bufferbloat?.let { result ->
-                                val gradeLabel = result.grade.name
-                                val idle = result.idleRttMs?.let { "${it}ms" } ?: "—"
-                                val loaded = result.loadedRttMs?.let { "${it}ms" } ?: "—"
-                                stringResolver.getString(
-                                    R.string.home_diagnostics_bufferbloat_summary,
-                                    gradeLabel,
-                                    idle,
-                                    loaded,
-                                )
-                            },
-                        dnsCharacterizationSummary =
-                            outcome.dnsCharacterization?.let { dns ->
-                                stringResolver.getString(
-                                    when (dns.resolverClass) {
-                                        HomeDnsResolverClass.SYSTEM_RESOLVER_OK -> {
-                                            R.string.home_diagnostics_dns_resolver_ok
-                                        }
-
-                                        HomeDnsResolverClass.DOH_PREFERRED -> {
-                                            R.string.home_diagnostics_dns_resolver_doh_preferred
-                                        }
-
-                                        HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY -> {
-                                            R.string.home_diagnostics_dns_resolver_transparent_proxy
-                                        }
-
-                                        HomeDnsResolverClass.POSSIBLE_POISONING -> {
-                                            R.string.home_diagnostics_dns_resolver_poisoning
-                                        }
-
-                                        HomeDnsResolverClass.DOH_UNREACHABLE -> {
-                                            R.string.home_diagnostics_dns_resolver_doh_unreachable
-                                        }
-
-                                        HomeDnsResolverClass.UNKNOWN -> {
-                                            R.string.home_diagnostics_dns_resolver_unknown
-                                        }
-                                    },
-                                )
-                            },
-                        dnsCharacterizationNotes =
-                            outcome.dnsCharacterization
-                                ?.let { dns ->
-                                    buildList {
-                                        addAll(dns.notes)
-                                        if (dns.poisonedHosts.isNotEmpty()) {
-                                            add("Poisoned hosts: ${dns.poisonedHosts.joinToString(", ")}")
-                                        }
-                                    }
-                                }.orEmpty()
-                                .toImmutableList(),
-                    )
-                },
+                ?.toAnalysisSheetUiState(runtime, availability.remediationLadder, stringResolver),
         verificationSheet =
             runtime.verificationSheet?.let { outcome ->
                 HomeDiagnosticsVerificationSheetUiState(
@@ -369,6 +62,327 @@ internal fun buildHomeDiagnosticsUiState(
             },
     )
 }
+
+private data class HomeDiagnosticsAvailability(
+    val fingerprintMismatch: Boolean,
+    val analysisBusy: Boolean,
+    val verificationBusy: Boolean,
+    val analysisEnabled: Boolean,
+    val analysisSupportingText: String,
+    val verificationEnabled: Boolean,
+    val verificationSupportingText: String,
+    val latestAudit: HomeDiagnosticsLatestAuditUiState?,
+    val remediationLadder: DiagnosticsRemediationLadderUiModel?,
+)
+
+private fun resolveHomeDiagnosticsAvailability(
+    settings: AppSettings,
+    appStatus: AppStatus,
+    connectionState: ConnectionState,
+    runtime: HomeDiagnosticsRuntimeState,
+    stringResolver: StringResolver,
+): HomeDiagnosticsAvailability {
+    val fingerprintMismatch = runtime.hasCompositeFingerprintMismatch()
+    val analysisBusy = runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
+    val verificationBusy = runtime.waitingForVerifiedVpnStart || runtime.activeVerificationSessionId != null
+    val latestAudit =
+        runtime.latestCompositeOutcome?.toLatestAuditUiState(fingerprintMismatch)
+            ?: runtime.latestManualDiagnosticSession?.toLatestManualScanUiState()
+    val busy = analysisBusy || verificationBusy || runtime.externalScanActive
+    return HomeDiagnosticsAvailability(
+        fingerprintMismatch = fingerprintMismatch,
+        analysisBusy = analysisBusy,
+        verificationBusy = verificationBusy,
+        analysisEnabled = !busy && !settings.enableCmdSettings,
+        analysisSupportingText =
+            resolveAnalysisSupportingText(
+                settings,
+                runtime,
+                analysisBusy,
+                verificationBusy,
+                stringResolver,
+            ),
+        verificationEnabled =
+            !busy && appStatus == AppStatus.Halted && connectionState != ConnectionState.Connecting &&
+                runtime.latestCompositeOutcome?.actionable == true && !fingerprintMismatch,
+        verificationSupportingText =
+            resolveVerificationSupportingText(
+                appStatus,
+                connectionState,
+                runtime,
+                analysisBusy,
+                verificationBusy,
+                fingerprintMismatch,
+                stringResolver,
+            ),
+        latestAudit = latestAudit,
+        remediationLadder =
+            if (busy) {
+                null
+            } else {
+                stringResolver.buildHomeRemediationLadder(
+                    settings.enableCmdSettings,
+                    fingerprintMismatch,
+                    latestAudit,
+                )
+            },
+    )
+}
+
+private fun HomeDiagnosticsRuntimeState.hasCompositeFingerprintMismatch(): Boolean =
+    latestCompositeOutcome?.fingerprintHash != null && currentFingerprintHash != null &&
+        latestCompositeOutcome.fingerprintHash != currentFingerprintHash
+
+private fun resolveAnalysisSupportingText(
+    settings: AppSettings,
+    runtime: HomeDiagnosticsRuntimeState,
+    analysisBusy: Boolean,
+    verificationBusy: Boolean,
+    stringResolver: StringResolver,
+): String =
+    when {
+        analysisBusy -> {
+            runtime.analysisProgressLabel(stringResolver)
+        }
+
+        verificationBusy -> {
+            stringResolver.getString(R.string.home_diagnostics_busy_verifying)
+        }
+
+        runtime.externalScanActive -> {
+            runtime.externalScanMessage
+                ?: stringResolver.getString(R.string.home_diagnostics_busy_other_scan)
+        }
+
+        settings.enableCmdSettings -> {
+            stringResolver.getString(R.string.home_diagnostics_command_line_blocked)
+        }
+
+        else -> {
+            stringResolver.getString(R.string.home_diagnostics_analysis_body)
+        }
+    }
+
+private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: StringResolver): String {
+    val progress = activeRunProgress
+    val activeStageIndex = progress?.activeStageIndex
+    val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+    val stagePrefix = activeStageIndex?.let { "Stage ${it + 1} of ${progress.stages.size}" }
+    return listOfNotNull(stagePrefix, activeRunStageProgress ?: stageLabel)
+        .joinToString(" · ")
+        .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
+}
+
+private fun resolveVerificationSupportingText(
+    appStatus: AppStatus,
+    connectionState: ConnectionState,
+    runtime: HomeDiagnosticsRuntimeState,
+    analysisBusy: Boolean,
+    verificationBusy: Boolean,
+    fingerprintMismatch: Boolean,
+    stringResolver: StringResolver,
+): String =
+    when {
+        verificationBusy -> {
+            runtime.verificationProgress
+                ?: stringResolver.getString(R.string.home_diagnostics_verifying)
+        }
+
+        analysisBusy -> {
+            stringResolver.getString(R.string.home_diagnostics_finish_analysis_first)
+        }
+
+        runtime.externalScanActive -> {
+            runtime.externalScanMessage
+                ?: stringResolver.getString(R.string.home_diagnostics_busy_other_scan)
+        }
+
+        runtime.latestCompositeOutcome == null -> {
+            stringResolver.getString(R.string.home_diagnostics_run_analysis_first)
+        }
+
+        !runtime.latestCompositeOutcome.actionable -> {
+            stringResolver.getString(R.string.home_diagnostics_no_actionable_result)
+        }
+
+        fingerprintMismatch -> {
+            stringResolver.getString(R.string.home_diagnostics_run_again)
+        }
+
+        appStatus == AppStatus.Running || connectionState == ConnectionState.Connected -> {
+            stringResolver.getString(R.string.home_diagnostics_disconnect_first)
+        }
+
+        else -> {
+            stringResolver.getString(R.string.home_diagnostics_verified_vpn_body)
+        }
+    }
+
+private fun buildAnalysisProgress(
+    runtime: HomeDiagnosticsRuntimeState,
+    analysisBusy: Boolean,
+): AnalysisProgressUiState? =
+    runtime.activeRunProgress?.takeIf { analysisBusy }?.let { progress ->
+        AnalysisProgressUiState(
+            stages =
+                progress.stages
+                    .mapIndexed { index, stage ->
+                        val status = stage.status.toAnalysisStageStatus()
+                        AnalysisStageUiState(
+                            status = status,
+                            progress =
+                                if (index ==
+                                    progress.activeStageIndex
+                                ) {
+                                    runtime.activeStageStepProgress
+                                } else {
+                                    status.finishedProgress()
+                                },
+                        )
+                    }.toImmutableList(),
+            activeStageIndex = progress.activeStageIndex,
+        )
+    }
+
+private fun DiagnosticsHomeCompositeStageStatus.toAnalysisStageStatus(): AnalysisStageStatus =
+    when (this) {
+        DiagnosticsHomeCompositeStageStatus.PENDING -> AnalysisStageStatus.PENDING
+
+        DiagnosticsHomeCompositeStageStatus.RUNNING -> AnalysisStageStatus.RUNNING
+
+        DiagnosticsHomeCompositeStageStatus.COMPLETED,
+        DiagnosticsHomeCompositeStageStatus.SKIPPED,
+        -> AnalysisStageStatus.COMPLETED
+
+        DiagnosticsHomeCompositeStageStatus.FAILED,
+        DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+        -> AnalysisStageStatus.FAILED
+    }
+
+private fun AnalysisStageStatus.finishedProgress(): Float =
+    if (this == AnalysisStageStatus.COMPLETED || this == AnalysisStageStatus.FAILED) 1f else 0f
+
+private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
+    runtime: HomeDiagnosticsRuntimeState,
+    remediationLadder: DiagnosticsRemediationLadderUiModel?,
+    stringResolver: StringResolver,
+): HomeDiagnosticsAnalysisSheetUiState =
+    HomeDiagnosticsAnalysisSheetUiState(
+        runId = runId,
+        headline = headline,
+        summary = summary,
+        confidenceSummary = confidenceSummary,
+        coverageSummary = coverageSummary,
+        recommendationSummary = recommendationSummary,
+        appliedSettings = appliedSettings.toImmutableList(),
+        capabilityEvidence = capabilityEvidence.map(::toCapabilityEvidenceUiModel).toImmutableList(),
+        stageSummaries = stageSummaries.map(DiagnosticsHomeCompositeStageSummary::toUiState).toImmutableList(),
+        completedStageCount = completedStageCount,
+        failedStageCount = failedStageCount,
+        shareBusy = runtime.shareBusy,
+        detectionVerdict = detectionVerdict?.label(stringResolver),
+        detectionFindings = detectionFindings.toImmutableList(),
+        installedVpnDetectorCount = installedVpnDetectorCount,
+        installedVpnDetectorTopApps = installedVpnDetectorTopApps.toImmutableList(),
+        pcapRecordingRequested = pcapRecordingRequested,
+        remediationLadder = remediationLadder,
+        actionableHeadline = actionableHeadline,
+        actionableNextSteps = actionableNextSteps.toImmutableList(),
+        networkCharacterRows = buildNetworkCharacterRows(networkCharacter, stringResolver).toImmutableList(),
+        networkCharacterNotes = networkCharacter?.notes.orEmpty().toImmutableList(),
+        strategyEffectivenessRows = strategyEffectiveness.map { it.toUiState(stringResolver) }.toImmutableList(),
+        routingSanitySummary =
+            routingSanity?.let {
+                stringResolver.getString(
+                    R.string.home_diagnostics_routing_sanity_summary,
+                    it.confirmedDetectorCount,
+                    it.totalConfiguredApps,
+                )
+            },
+        routingSanityFindings =
+            routingSanity
+                ?.findings
+                ?.map {
+                    HomeAnalysisLabeledRow(it.packageName, "${it.severity}: ${it.description}")
+                }.orEmpty()
+                .toImmutableList(),
+        regressionDeltaSummary =
+            regressionDelta?.let {
+                stringResolver.getString(
+                    R.string.home_diagnostics_regression_summary,
+                    it.newlyFailedStageKeys.size,
+                    it.newlyRecoveredStageKeys.size,
+                    it.unchangedStageCount,
+                )
+            },
+        regressionDeltaFailures = regressionDelta?.newlyFailedStageKeys.orEmpty().toImmutableList(),
+        regressionDeltaRecoveries = regressionDelta?.newlyRecoveredStageKeys.orEmpty().toImmutableList(),
+        bufferbloatSummary =
+            bufferbloat?.let {
+                stringResolver.getString(
+                    R.string.home_diagnostics_bufferbloat_summary,
+                    it.grade.name,
+                    it.idleRttMs?.let { value -> "${value}ms" } ?: "—",
+                    it.loadedRttMs?.let { value -> "${value}ms" } ?: "—",
+                )
+            },
+        dnsCharacterizationSummary = dnsCharacterization?.resolverClass?.label(stringResolver),
+        dnsCharacterizationNotes =
+            dnsCharacterization
+                ?.let { dns ->
+                    buildList {
+                        addAll(dns.notes)
+                        if (dns.poisonedHosts.isNotEmpty()) {
+                            add("Poisoned hosts: ${dns.poisonedHosts.joinToString(", ")}")
+                        }
+                    }
+                }.orEmpty()
+                .toImmutableList(),
+    )
+
+private fun DiagnosticsHomeCompositeStageSummary.toUiState() =
+    HomeDiagnosticsStageUiState(
+        label = stageLabel,
+        headline = headline,
+        summary = summary,
+        failed = status == DiagnosticsHomeCompositeStageStatus.FAILED,
+        skipped =
+            status == DiagnosticsHomeCompositeStageStatus.SKIPPED ||
+                status == DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+        recommendationContributor = recommendationContributor,
+    )
+
+private fun HomeStrategyEffectivenessEntry.toUiState(stringResolver: StringResolver) =
+    HomeAnalysisLabeledRow(
+        label = label,
+        value =
+            stringResolver.getString(
+                R.string.home_diagnostics_effectiveness_row_value,
+                successCount,
+                failureCount,
+            ),
+    )
+
+private fun DiagnosticsHomeDetectionVerdict.label(stringResolver: StringResolver): String =
+    stringResolver.getString(
+        when (this) {
+            DiagnosticsHomeDetectionVerdict.DETECTED -> R.string.home_diagnostics_detection_detected
+            DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> R.string.home_diagnostics_detection_needs_review
+            DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> R.string.home_diagnostics_detection_not_detected
+        },
+    )
+
+private fun HomeDnsResolverClass.label(stringResolver: StringResolver): String =
+    stringResolver.getString(
+        when (this) {
+            HomeDnsResolverClass.SYSTEM_RESOLVER_OK -> R.string.home_diagnostics_dns_resolver_ok
+            HomeDnsResolverClass.DOH_PREFERRED -> R.string.home_diagnostics_dns_resolver_doh_preferred
+            HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY -> R.string.home_diagnostics_dns_resolver_transparent_proxy
+            HomeDnsResolverClass.POSSIBLE_POISONING -> R.string.home_diagnostics_dns_resolver_poisoning
+            HomeDnsResolverClass.DOH_UNREACHABLE -> R.string.home_diagnostics_dns_resolver_doh_unreachable
+            HomeDnsResolverClass.UNKNOWN -> R.string.home_diagnostics_dns_resolver_unknown
+        },
+    )
 
 private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(fingerprintMismatch: Boolean) =
     HomeDiagnosticsLatestAuditUiState(
@@ -409,7 +423,7 @@ private fun toCapabilityEvidenceUiModel(
                 if (evidence.source.isNotBlank()) {
                     add(DiagnosticsFieldUiModel("Source", evidence.source))
                 }
-            }.toImmutableList(),
+            },
     )
 
 private fun buildNetworkCharacterRows(

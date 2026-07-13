@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ResolverOverrideStore
@@ -17,7 +18,7 @@ private const val AutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover"
 
 internal class VpnEncryptedDnsFailoverState {
     var networkScopeKey: String? = null
-    var preferredPath: com.poyka.ripdpi.data.EncryptedDnsPathCandidate? = null
+    var preferredPath: EncryptedDnsPathCandidate? = null
     var currentPathKey: String? = null
     var currentDnsSignature: String? = null
     var expectedPathKey: String? = null
@@ -64,7 +65,6 @@ internal class VpnEncryptedDnsFailoverController(
         private val log = Logger.withTag("DnsFailover")
     }
 
-    @Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount")
     suspend fun evaluate(
         state: VpnEncryptedDnsFailoverState,
         activeDns: ActiveDnsSettings?,
@@ -72,98 +72,127 @@ internal class VpnEncryptedDnsFailoverController(
         networkScopeKey: String?,
         telemetry: NativeRuntimeSnapshot,
     ): Boolean {
-        val encryptedDns =
-            activeDns?.takeIf { it.isEncrypted } ?: run {
-                state.resetAll()
-                return false
-            }
-        val currentPath =
-            encryptedDns.toEncryptedDnsPathCandidate() ?: run {
-                state.resetAll()
-                return false
-            }
-
-        if (state.networkScopeKey != networkScopeKey) {
+        val encryptedDns = activeDns?.takeIf { it.isEncrypted }
+        val currentPath = encryptedDns?.toEncryptedDnsPathCandidate()
+        if (encryptedDns == null || currentPath == null) {
             state.resetAll()
-            state.networkScopeKey = networkScopeKey
-            state.preferredPath =
-                networkScopeKey?.let { fingerprintHash ->
-                    networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
-                }
-            state.blockedPathKeys =
-                networkScopeKey?.let { fingerprintHash ->
-                    networkDnsBlockedPathStore.getBlockedPathKeys(fingerprintHash)
-                } ?: emptySet()
-            log.d { "network scope changed to $networkScopeKey, preferred=${state.preferredPath?.pathKey()}" }
+            return false
         }
 
+        synchronizeNetworkScope(state, networkScopeKey)
+        observeResolverChange(state, currentPath, currentDnsSignature, networkScopeKey, telemetry)
+        observeSuccessfulPath(state, currentPath, networkScopeKey, telemetry)
+        return failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry)
+    }
+
+    private suspend fun synchronizeNetworkScope(
+        state: VpnEncryptedDnsFailoverState,
+        networkScopeKey: String?,
+    ) {
+        if (state.networkScopeKey == networkScopeKey) return
+        state.resetAll()
+        state.networkScopeKey = networkScopeKey
+        reloadNetworkPreferences(state, networkScopeKey)
+        log.d { "network scope changed to $networkScopeKey, preferred=${state.preferredPath?.pathKey()}" }
+    }
+
+    private suspend fun observeResolverChange(
+        state: VpnEncryptedDnsFailoverState,
+        currentPath: EncryptedDnsPathCandidate,
+        currentDnsSignature: String?,
+        networkScopeKey: String?,
+        telemetry: NativeRuntimeSnapshot,
+    ) {
         val currentPathKey = currentPath.pathKey()
-        val controllerActivatedPath = state.expectedPathKey != null && state.expectedPathKey == currentPathKey
         val resolverChanged =
-            state.currentPathKey != currentPathKey ||
-                state.currentDnsSignature != currentDnsSignature
-        if (resolverChanged) {
-            if (!controllerActivatedPath) {
-                state.resetTracking()
-                state.networkScopeKey = networkScopeKey
-                state.preferredPath =
-                    networkScopeKey?.let { fingerprintHash ->
-                        networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
-                    }
-                state.blockedPathKeys =
-                    networkScopeKey?.let { fingerprintHash ->
-                        networkDnsBlockedPathStore.getBlockedPathKeys(fingerprintHash)
-                    } ?: emptySet()
-            }
-            state.currentPathKey = currentPathKey
-            state.currentDnsSignature = currentDnsSignature
-            state.pathStartQueries = telemetry.dnsQueriesTotal
-            state.pathStartFailures = telemetry.dnsFailuresTotal
-            state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
-            state.consecutiveFailureEvents = 0
-            state.currentPathSelectedByFailover = controllerActivatedPath
-            state.currentPathPersisted = false
-            state.attemptedPathKeys += currentPathKey
-            state.expectedPathKey = null
-            log.d { "resolver changed pathKey=$currentPathKey attempts=${state.attemptedPathKeys.size}" }
-        }
+            state.currentPathKey != currentPathKey || state.currentDnsSignature != currentDnsSignature
+        if (!resolverChanged) return
 
-        val successfulQueriesSincePathActivated =
+        val controllerActivatedPath = state.expectedPathKey == currentPathKey
+        if (!controllerActivatedPath) {
+            state.resetTracking()
+            state.networkScopeKey = networkScopeKey
+            reloadNetworkPreferences(state, networkScopeKey)
+        }
+        state.currentPathKey = currentPathKey
+        state.currentDnsSignature = currentDnsSignature
+        state.pathStartQueries = telemetry.dnsQueriesTotal
+        state.pathStartFailures = telemetry.dnsFailuresTotal
+        state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
+        state.consecutiveFailureEvents = 0
+        state.currentPathSelectedByFailover = controllerActivatedPath
+        state.currentPathPersisted = false
+        state.attemptedPathKeys += currentPathKey
+        state.expectedPathKey = null
+        log.d { "resolver changed pathKey=$currentPathKey attempts=${state.attemptedPathKeys.size}" }
+    }
+
+    private suspend fun reloadNetworkPreferences(
+        state: VpnEncryptedDnsFailoverState,
+        networkScopeKey: String?,
+    ) {
+        state.preferredPath = networkScopeKey?.let { networkDnsPathPreferenceStore.getPreferredPath(it) }
+        state.blockedPathKeys = networkScopeKey?.let { networkDnsBlockedPathStore.getBlockedPathKeys(it) }.orEmpty()
+    }
+
+    private suspend fun observeSuccessfulPath(
+        state: VpnEncryptedDnsFailoverState,
+        currentPath: EncryptedDnsPathCandidate,
+        networkScopeKey: String?,
+        telemetry: NativeRuntimeSnapshot,
+    ) {
+        val successfulQueries =
             (telemetry.dnsQueriesTotal - state.pathStartQueries) -
                 (telemetry.dnsFailuresTotal - state.pathStartFailures)
-        val successEvent = successfulQueriesSincePathActivated > 0 && telemetry.lastDnsError.isNullOrBlank()
-        if (successEvent) {
-            log.d { "success on path ${state.currentPathKey}, resetting failure counter" }
-            state.consecutiveFailureEvents = 0
-            if (state.currentPathSelectedByFailover && !state.currentPathPersisted) {
-                val fingerprint = networkFingerprintProvider.capture()
-                if (fingerprint != null && fingerprint.scopeKey() == networkScopeKey) {
-                    networkDnsPathPreferenceStore.rememberPreferredPath(
-                        fingerprint = fingerprint,
-                        path = currentPath,
-                    )
-                    state.preferredPath = currentPath
-                    state.currentPathPersisted = true
-                    log.i { "persisted preferred path ${state.currentPathKey} for $networkScopeKey" }
-                }
-            }
-        }
+        if (successfulQueries <= 0 || !telemetry.lastDnsError.isNullOrBlank()) return
 
+        log.d { "success on path ${state.currentPathKey}, resetting failure counter" }
+        state.consecutiveFailureEvents = 0
+        if (!state.currentPathSelectedByFailover || state.currentPathPersisted) return
+
+        val fingerprint = networkFingerprintProvider.capture()
+        if (fingerprint != null && fingerprint.scopeKey() == networkScopeKey) {
+            networkDnsPathPreferenceStore.rememberPreferredPath(fingerprint, currentPath)
+            state.preferredPath = currentPath
+            state.currentPathPersisted = true
+            log.i { "persisted preferred path ${state.currentPathKey} for $networkScopeKey" }
+        }
+    }
+
+    private suspend fun failoverAfterFailure(
+        state: VpnEncryptedDnsFailoverState,
+        encryptedDns: ActiveDnsSettings,
+        currentPath: EncryptedDnsPathCandidate,
+        networkScopeKey: String?,
+        telemetry: NativeRuntimeSnapshot,
+    ): Boolean {
+        val failureObserved = observeFailureThreshold(state, telemetry)
+        if (!failureObserved || state.exhausted) return false
+
+        recordBlockedPath(state, currentPath.pathKey(), networkScopeKey, telemetry.lastDnsError.orEmpty())
+        val nextPath = selectNextPath(state, encryptedDns, currentPath.pathKey())
+        return if (nextPath == null) {
+            log.w { "all candidates exhausted after ${state.attemptedPathKeys.size} attempts" }
+            state.exhausted = true
+            false
+        } else {
+            activatePath(state, nextPath, telemetry.lastDnsError.orEmpty())
+            true
+        }
+    }
+
+    private fun observeFailureThreshold(
+        state: VpnEncryptedDnsFailoverState,
+        telemetry: NativeRuntimeSnapshot,
+    ): Boolean {
         val failureEvent =
             telemetry.dnsFailuresTotal > state.lastObservedDnsFailuresTotal &&
                 !telemetry.lastDnsError.isNullOrBlank()
         state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
-        if (!failureEvent || state.exhausted) {
-            return false
-        }
+        if (!failureEvent) return false
 
         state.consecutiveFailureEvents += 1
         log.w { "failure #${state.consecutiveFailureEvents} error=${telemetry.lastDnsError}" }
-
-        // Eager failover: when very few queries have been attempted and the error
-        // is catastrophic (connection reset, refused, etc.), skip the threshold and
-        // failover immediately.  This prevents the service from halting before the
-        // failover controller gets a second chance.
         val queriesSincePathStart = telemetry.dnsQueriesTotal - state.pathStartQueries
         if (queriesSincePathStart <= EagerFailoverMaxQueries &&
             isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())
@@ -171,44 +200,44 @@ internal class VpnEncryptedDnsFailoverController(
             log.w { "catastrophic error on bootstrap, eager failover triggered (queries=$queriesSincePathStart)" }
             state.consecutiveFailureEvents = FailoverThreshold
         }
-
-        if (state.consecutiveFailureEvents < FailoverThreshold) {
+        val thresholdReached = state.consecutiveFailureEvents >= FailoverThreshold
+        if (!thresholdReached) {
             log.d { "failure #${state.consecutiveFailureEvents} < threshold $FailoverThreshold, waiting" }
-            return false
         }
+        return thresholdReached
+    }
 
-        val blockReason = classifyBlockReason(telemetry.lastDnsError.orEmpty())
-        if (blockReason != null && networkScopeKey != null) {
-            networkDnsBlockedPathStore.recordBlockedPath(
-                fingerprintHash = networkScopeKey,
-                pathKey = currentPathKey,
-                blockReason = blockReason,
-            )
-            state.blockedPathKeys = state.blockedPathKeys + currentPathKey
-            log.w { "path $currentPathKey blocked reason=$blockReason" }
-        }
+    private suspend fun recordBlockedPath(
+        state: VpnEncryptedDnsFailoverState,
+        currentPathKey: String,
+        networkScopeKey: String?,
+        error: String,
+    ) {
+        val blockReason = classifyBlockReason(error) ?: return
+        val fingerprintHash = networkScopeKey ?: return
+        networkDnsBlockedPathStore.recordBlockedPath(fingerprintHash, currentPathKey, blockReason)
+        state.blockedPathKeys = state.blockedPathKeys + currentPathKey
+        log.w { "path $currentPathKey blocked reason=$blockReason" }
+    }
 
-        val nextPath =
-            buildEncryptedDnsCandidatePlan(
-                activeDns = encryptedDns,
-                preferredPath = state.preferredPath,
-                blockedPathKeys = state.blockedPathKeys,
-            ).firstOrNull { candidate ->
+    private fun selectNextPath(
+        state: VpnEncryptedDnsFailoverState,
+        encryptedDns: ActiveDnsSettings,
+        currentPathKey: String,
+    ): EncryptedDnsPathCandidate? =
+        buildEncryptedDnsCandidatePlan(encryptedDns, state.preferredPath, state.blockedPathKeys)
+            .firstOrNull { candidate ->
                 val candidatePathKey = candidate.pathKey()
                 candidatePathKey != currentPathKey && candidatePathKey !in state.attemptedPathKeys
             }
 
-        if (nextPath == null) {
-            log.w { "all candidates exhausted after ${state.attemptedPathKeys.size} attempts" }
-            state.exhausted = true
-            return false
-        }
-
+    private suspend fun activatePath(
+        state: VpnEncryptedDnsFailoverState,
+        nextPath: EncryptedDnsPathCandidate,
+        lastDnsError: String,
+    ) {
         resolverOverrideStore.setTemporaryOverride(
-            nextPath.toTemporaryResolverOverride(
-                reason = buildAutoFailoverReason(telemetry.lastDnsError.orEmpty()),
-                appliedAt = clock.nowMillis(),
-            ),
+            nextPath.toTemporaryResolverOverride(buildAutoFailoverReason(lastDnsError), clock.nowMillis()),
         )
         state.expectedPathKey = nextPath.pathKey()
         log.i { "switching to ${nextPath.pathKey()} (attempt #${state.attemptedPathKeys.size})" }
@@ -216,7 +245,6 @@ internal class VpnEncryptedDnsFailoverController(
         state.consecutiveFailureEvents = 0
         state.exhausted = false
         state.currentPathPersisted = false
-        return true
     }
 
     internal fun buildAutoFailoverReason(lastDnsError: String): String {

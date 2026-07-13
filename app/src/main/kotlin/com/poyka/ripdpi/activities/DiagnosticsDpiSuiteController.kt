@@ -3,10 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
-import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
-import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
@@ -14,71 +12,64 @@ import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
-import com.poyka.ripdpi.diagnostics.dpi.DpiProbeSuiteRunner
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteConfig
-import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteDomainsProvider
-import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEchTargetsProvider
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEvent
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
-import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbes
-import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTcp16TargetsProvider
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
-import com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbe
 import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
-import com.poyka.ripdpi.diagnostics.dpi.FixtureBackedQuicFingerprintFactory
-import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
-import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
-import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
-import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
 import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import java.util.Locale
 
-private const val SuiteDnsIntegrityPreviewDomainLimit = 5
 private const val DpiSuiteMinConcurrency = 1
 private const val DpiSuiteMaxConcurrency = 250
 
 internal class DiagnosticsDpiSuiteController(
     private val scope: CoroutineScope,
     private val appSettingsRepository: AppSettingsRepository,
-    private val dnsIntegrityChecker: DnsIntegrityChecker,
-    private val dnsAvailabilitySurvey: DnsAvailabilitySurvey,
-    private val domainReachabilityScanner: DomainReachabilityScanner,
-    private val tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
-    private val assetLoader: DpiAssetLoader,
-    private val diagnosticsFiles: DiagnosticsFiles,
-    private val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer,
-    private val echTlsHandshake: EchTlsHandshake,
+    dnsIntegrityChecker: DnsIntegrityChecker,
+    dnsAvailabilitySurvey: DnsAvailabilitySurvey,
+    domainReachabilityScanner: DomainReachabilityScanner,
+    tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
+    assetLoader: DpiAssetLoader,
+    diagnosticsFiles: DiagnosticsFiles,
+    tlsKeylogRunFinalizer: TlsKeylogRunFinalizer,
+    echTlsHandshake: EchTlsHandshake,
     private val stringResolver: StringResolver,
 ) {
     private val _tool = MutableStateFlow(initialDiagnosticsDpiSuiteUiModel(stringResolver))
     val tool: StateFlow<DiagnosticsDpiSuiteToolUiModel> = _tool.asStateFlow()
 
     private var suiteJob: Job? = null
+    private val runnerFactory =
+        DiagnosticsDpiSuiteRunnerFactory(
+            dnsIntegrityChecker,
+            dnsAvailabilitySurvey,
+            domainReachabilityScanner,
+            tcp16FatHeaderProbe,
+            assetLoader,
+            echTlsHandshake,
+        )
+    private val tlsRunFinalizer = DiagnosticsDpiSuiteTlsRunFinalizer(diagnosticsFiles, tlsKeylogRunFinalizer)
 
     init {
         scope.launch {
@@ -155,11 +146,11 @@ internal class DiagnosticsDpiSuiteController(
                             randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
                         )
                     try {
-                        buildRunner().run(config).collect { event ->
+                        runnerFactory.build().run(config).collect { event ->
                             handleEvent(event, rows)
                         }
                     } finally {
-                        finalizeTlsKeylogRun(settings)
+                        tlsRunFinalizer.finish(settings)
                     }
                 }.onFailure { error ->
                     _tool.value =
@@ -182,117 +173,6 @@ internal class DiagnosticsDpiSuiteController(
     fun cancel() {
         suiteJob?.cancel()
     }
-
-    private suspend fun loadDomains(): List<String> =
-        withContext(Dispatchers.IO) {
-            assetLoader.loadDomains()
-        }
-
-    private suspend fun loadTcp16Targets(): List<Tcp16Target> =
-        withContext(Dispatchers.IO) {
-            assetLoader.loadTcp16Targets()
-        }
-
-    private suspend fun loadWhitelistSni(): List<String> =
-        withContext(Dispatchers.IO) {
-            assetLoader.loadWhitelistSni()
-        }
-
-    private suspend fun loadEchTargets(): List<String> =
-        withContext(Dispatchers.IO) {
-            assetLoader.loadEchTargets()
-        }
-
-    private suspend fun loadQuicFingerprintFixtures(): Map<QuicFingerprint, ByteArray> =
-        withContext(Dispatchers.IO) {
-            assetLoader.loadQuicFingerprintFixtures()
-        }
-
-    private suspend fun finalizeTlsKeylogRun(settings: AppSettings) {
-        val path = settings.effectiveDiagnosticTlsKeylogPath(appFilesDir = diagnosticsFiles.appFilesDir) ?: return
-        withContext(NonCancellable + Dispatchers.IO) {
-            tlsKeylogRunFinalizer.finishRun(path)
-        }
-    }
-
-    private fun buildRunner(): DpiProbeSuiteRunner =
-        DpiProbeSuiteRunner(
-            domainsProvider = DpiSuiteDomainsProvider { loadDomains() },
-            tcp16TargetsProvider = DpiSuiteTcp16TargetsProvider { loadTcp16Targets() },
-            echTargetsProvider = DpiSuiteEchTargetsProvider { loadEchTargets() },
-            probes =
-                object : DpiSuiteProbes {
-                    override suspend fun checkDnsIntegrity(domains: List<String>): DnsIntegrityResult =
-                        dnsIntegrityChecker.check(domains)
-
-                    override suspend fun collectStubIpsSilently(
-                        domains: List<String>,
-                        timeoutMs: Long,
-                    ): Set<String> =
-                        withTimeout(timeoutMs) {
-                            dnsIntegrityChecker.check(domains.take(SuiteDnsIntegrityPreviewDomainLimit)).stubIps
-                        }
-
-                    override suspend fun runDnsAvailability(): List<DnsServerResult> = dnsAvailabilitySurvey.run()
-
-                    override suspend fun runDomainReachability(
-                        domains: List<String>,
-                        stubIps: Set<String>,
-                        concurrency: Int,
-                        randomHostname: Boolean,
-                    ): List<DomainReachabilityResult> =
-                        if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
-                            domainReachabilityScanner.scan(domains, stubIps, randomHostname = randomHostname)
-                        } else {
-                            domainReachabilityScanner
-                                .withMaxConcurrent(concurrency)
-                                .scan(domains, stubIps, randomHostname = randomHostname)
-                        }
-
-                    override suspend fun runTcp16(
-                        targets: List<Tcp16Target>,
-                        concurrency: Int,
-                        randomHostname: Boolean,
-                    ): List<Tcp16ProbeResult> =
-                        if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
-                            tcp16FatHeaderProbe.run(targets, randomHostname = randomHostname)
-                        } else {
-                            tcp16FatHeaderProbe
-                                .withConcurrency(concurrency)
-                                .run(targets, randomHostname = randomHostname)
-                        }
-
-                    override suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>) =
-                        AllowlistSniFinder(
-                            probe = tcp16FatHeaderProbe,
-                            sniList = loadWhitelistSni(),
-                        ).find(results)
-
-                    override suspend fun runTelegram() = TelegramSpeedTest().run()
-
-                    override suspend fun runQuicH3(
-                        targets: List<String>,
-                        concurrency: Int,
-                    ): List<QuicProbeResult> =
-                        QuicH3FingerprintProbe(
-                            packetFactory = FixtureBackedQuicFingerprintFactory(loadQuicFingerprintFixtures()),
-                            concurrency = concurrency,
-                        ).checkAll(targets)
-
-                    override suspend fun runEchReadiness(
-                        targets: List<String>,
-                        vanillaTlsByTarget: Map<String, Boolean>,
-                        concurrency: Int,
-                    ): List<EchProbeResult> {
-                        val probe =
-                            EchReadinessProbe(
-                                tlsHandshake = echTlsHandshake,
-                                concurrency = concurrency,
-                            )
-                        return probe.checkAll(targets, vanillaTlsByTarget)
-                    }
-                },
-        )
 
     private fun handleEvent(
         event: DpiSuiteEvent,
@@ -343,42 +223,6 @@ internal class DiagnosticsDpiSuiteController(
         }
     }
 }
-
-private fun parseCustomDomains(input: String): List<String>? =
-    input
-        .lineSequence()
-        .flatMap { line -> line.split(',', ' ', ';').asSequence() }
-        .map { value -> value.trim().trimEnd('/') }
-        .filter { value -> value.isNotBlank() }
-        .toList()
-        .takeIf { domains -> domains.isNotEmpty() }
-
-private fun MutableList<DiagnosticsDpiSuiteProbeRowUiModel>.upsert(row: DiagnosticsDpiSuiteProbeRowUiModel) {
-    val index = indexOfFirst { existing -> existing.kind == row.kind }
-    if (index >= 0) {
-        this[index] = row
-    } else {
-        add(row)
-    }
-}
-
-private fun DpiProbeKind.startedRow(): DiagnosticsDpiSuiteProbeRowUiModel =
-    DiagnosticsDpiSuiteProbeRowUiModel(
-        kind = this,
-        label = displayLabel(),
-        status = "running",
-        detail = "Probe is in progress.",
-        tone = DiagnosticsTone.Info,
-    )
-
-private fun DpiSuiteEvent.ProbeProgress.progressRow(): DiagnosticsDpiSuiteProbeRowUiModel =
-    DiagnosticsDpiSuiteProbeRowUiModel(
-        kind = kind,
-        label = kind.displayLabel(),
-        status = "running",
-        detail = "$completed/$total steps complete.",
-        tone = DiagnosticsTone.Info,
-    )
 
 internal fun DpiSuiteProbeResult.toDpiSuiteProbeRowUiModel(
     stringResolver: StringResolver,
@@ -707,7 +551,7 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
         }
     }
 
-private fun DpiProbeKind.displayLabel(): String =
+internal fun DpiProbeKind.displayLabel(): String =
     when (this) {
         DpiProbeKind.DNS_INTEGRITY -> "DNS integrity"
         DpiProbeKind.DNS_AVAILABILITY -> "DNS availability"
