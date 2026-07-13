@@ -8,17 +8,20 @@ private const val RelayProcessStopTimeoutMs = 1_500L
 
 internal class SubprocessRelayProcessSupervisor(
     private val outputParser: SubprocessRelayOutputParser,
+    private val startProcess: (ProcessBuilder) -> Process = { builder -> builder.start() },
 ) {
     @Volatile private var process: Process? = null
 
     @Volatile private var processOutputThread: Thread? = null
 
+    @Synchronized
     fun start(
         processBuilder: ProcessBuilder,
         spec: SubprocessSocksRelayLaunchSpec,
         onOutputEvent: (SubprocessRelayOutputEvent) -> Unit,
     ): Process {
-        val activeProcess = processBuilder.start()
+        check(process == null) { "Previous subprocess is still owned by the supervisor" }
+        val activeProcess = startProcess(processBuilder)
         process = activeProcess
         try {
             spec.standardInput?.let { payload ->
@@ -28,29 +31,33 @@ internal class SubprocessRelayProcessSupervisor(
                 }
             }
         } catch (error: IOException) {
-            activeProcess.destroyForcibly()
-            process = null
+            runCatching { terminate(activeProcess) }
+                .onSuccess { exited -> if (exited) release(activeProcess) }
+                .onFailure(error::addSuppressed)
             throw error
         }
         processOutputThread = startProcessOutputThread(activeProcess, spec, onOutputEvent)
         return activeProcess
     }
 
+    @Synchronized
     fun stop(): String? {
         processOutputThread?.interrupt()
-        processOutputThread = null
         val activeProcess = process
-        process = null
         if (activeProcess == null) {
+            processOutputThread = null
             return null
         }
         return try {
-            activeProcess.destroy()
-            if (!activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)) {
-                activeProcess.destroyForcibly()
-                activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)
+            if (terminate(activeProcess)) {
+                release(activeProcess)
+                null
+            } else {
+                "Subprocess did not exit after forced termination"
             }
-            null
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            error.message ?: "Interrupted while waiting for subprocess exit"
         } catch (error: IOException) {
             error.message
         } catch (error: SecurityException) {
@@ -58,7 +65,12 @@ internal class SubprocessRelayProcessSupervisor(
         }
     }
 
-    suspend fun waitForExit(): Int = process?.waitFor() ?: 0
+    suspend fun waitForExit(): Int {
+        val activeProcess = process ?: return 0
+        val exitCode = activeProcess.waitFor()
+        release(activeProcess)
+        return exitCode
+    }
 
     fun isRunning(): Boolean {
         val activeProcess = process ?: return false
@@ -83,4 +95,19 @@ internal class SubprocessRelayProcessSupervisor(
                 }
             }
         }
+
+    private fun terminate(activeProcess: Process): Boolean {
+        activeProcess.destroy()
+        if (activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)) return true
+        activeProcess.destroyForcibly()
+        return activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)
+    }
+
+    @Synchronized
+    private fun release(activeProcess: Process) {
+        if (process === activeProcess) {
+            process = null
+            processOutputThread = null
+        }
+    }
 }
