@@ -21,18 +21,39 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use ripdpi_pcap::rewrite_endpoints;
+#[cfg(test)]
 use ripdpi_tunnel_core::PacketObserver;
+use ripdpi_tunnel_core::Stats;
 
-use crate::pcap::{PcapCaptureSet, list_captures};
+use crate::pcap::{PcapCaptureSet, WriterStopResult, list_captures};
 
-static REGISTRY: LazyLock<Mutex<HashMap<i64, Arc<PcapCaptureSet>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+struct ActiveCapture {
+    set: PcapCaptureSet,
+    stats: Arc<Stats>,
+}
+
+static REGISTRY: LazyLock<Mutex<HashMap<i64, ActiveCapture>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 static NEXT_SET_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Inner entry: start a capture set bound to the given session handle.
 /// Returns a positive capture-set ID on success, 0 on failure
 /// (directory missing, writer-thread spawn failed, registry mutex
 /// poisoned, or a capture is already active for this session).
-pub(crate) fn pcap_start_entry(session_handle: i64, capture_dir: PathBuf, max_file_bytes: u64, max_files: u32) -> i64 {
+pub(crate) fn pcap_start_entry(
+    session_handle: i64,
+    stats: Arc<Stats>,
+    capture_dir: PathBuf,
+    max_file_bytes: u64,
+    max_files: u32,
+) -> i64 {
+    let Ok(mut reg) = REGISTRY.lock() else {
+        log::error!("pcap_start_entry: registry mutex poisoned");
+        return 0;
+    };
+    if reg.contains_key(&session_handle) {
+        log::warn!("pcap_start_entry: session {session_handle} already has an active capture");
+        return 0;
+    }
     let set_id = NEXT_SET_ID.fetch_add(1, Ordering::Relaxed);
     let set = match PcapCaptureSet::start(set_id, capture_dir, max_file_bytes, max_files) {
         Ok(s) => s,
@@ -41,57 +62,39 @@ pub(crate) fn pcap_start_entry(session_handle: i64, capture_dir: PathBuf, max_fi
             return 0;
         }
     };
-    let Ok(mut reg) = REGISTRY.lock() else {
-        log::error!("pcap_start_entry: registry mutex poisoned");
-        return 0;
-    };
-    // Refuse to overwrite an in-flight capture; the Kotlin side must
-    // stop the previous capture before starting a new one. Returning
-    // 0 surfaces as "start failed" to the bridge.
-    if reg.contains_key(&session_handle) {
-        log::warn!("pcap_start_entry: session {session_handle} already has an active capture");
-        return 0;
-    }
-    reg.insert(session_handle, Arc::new(set));
+    let observer = set.observer_handle();
+    reg.insert(session_handle, ActiveCapture { set, stats: stats.clone() });
+    stats.set_packet_observer(observer);
     set_id as i64
+}
+
+fn stop_capture(session_handle: i64) -> Option<WriterStopResult> {
+    let active = match REGISTRY.lock() {
+        Ok(mut reg) => reg.remove(&session_handle),
+        Err(_) => {
+            log::error!("pcap stop: registry mutex poisoned");
+            return None;
+        }
+    }?;
+    active.set.request_stop();
+    active.stats.clear_packet_observer();
+    Some(active.set.stop())
 }
 
 /// Inner entry: stop the capture-set bound to the session and return
 /// JSON metadata (an array of file descriptors per `PcapCaptureMetadata`).
 /// Returns `"[]"` if no capture is bound to this handle, the registry
-/// mutex is poisoned, the Arc still has outstanding clones (the packet
-/// observer kept it alive), or JSON serialization fails.
+/// mutex is poisoned, or JSON serialization fails.
 pub(crate) fn pcap_stop_entry(session_handle: i64) -> String {
-    let removed = match REGISTRY.lock() {
-        Ok(mut reg) => reg.remove(&session_handle),
-        Err(_) => {
-            log::error!("pcap_stop_entry: registry mutex poisoned");
-            return "[]".to_string();
-        }
-    };
-    let Some(arc_set) = removed else { return "[]".to_string() };
-    // Detach the observer from Stats BEFORE calling stop(). The observer
-    // holds clone-able Arc handles to the queue / drops counter (NOT the
-    // PcapCaptureSet itself), so the Stats-side Arc only contributes to
-    // PcapPacketObserver's refcount, not to PcapCaptureSet's. With no
-    // other path keeping the set alive, try_unwrap() succeeds.
-    match Arc::try_unwrap(arc_set) {
-        Ok(set) => {
-            let result = set.stop();
-            serde_json::to_string(&result.files).unwrap_or_else(|err| {
-                log::error!("pcap_stop_entry: serialize files: {err}");
-                "[]".to_string()
-            })
-        }
-        Err(_) => {
-            // Unreachable in normal flow (observers only clone the queue
-            // Arc, not the set Arc), but defensive: if a future caller
-            // holds a stray Arc<PcapCaptureSet> we cannot drain the
-            // writer thread cleanly.
-            log::error!("pcap_stop_entry: capture set still has outstanding references");
-            "[]".to_string()
-        }
-    }
+    let Some(result) = stop_capture(session_handle) else { return "[]".to_string() };
+    serde_json::to_string(&result.files).unwrap_or_else(|err| {
+        log::error!("pcap_stop_entry: serialize files: {err}");
+        "[]".to_string()
+    })
+}
+
+pub(crate) fn pcap_retire_entry(session_handle: i64) {
+    let _ = stop_capture(session_handle);
 }
 
 /// Inner entry: list captures on disk for the given directory. Used by
@@ -145,14 +148,10 @@ pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_fd: i32) -> u64 {
 /// Return a `PacketObserver` view of the active capture-set for the
 /// given session, suitable for installing via
 /// `Stats::set_packet_observer`. `None` if no capture is bound.
+#[cfg(test)]
 pub(crate) fn observer_for_session(session_handle: i64) -> Option<Arc<dyn PacketObserver>> {
     let reg = REGISTRY.lock().ok()?;
-    let set = reg.get(&session_handle)?;
-    // The observer holds independent Arc handles to the set's queue +
-    // drops counter (NOT the set itself), so the set Arc can be
-    // try_unwrap'd in `pcap_stop_entry` even while the observer is
-    // still installed on Stats.
-    Some(set.observer_handle())
+    Some(reg.get(&session_handle)?.set.observer_handle())
 }
 
 #[cfg(test)]
@@ -172,11 +171,30 @@ mod tests {
         TEST_SESSION_HANDLE.fetch_add(1, TestOrdering::Relaxed)
     }
 
+    fn test_stats() -> Arc<Stats> {
+        Arc::new(Stats::new())
+    }
+
+    fn serial_pcap_test() -> std::sync::MutexGuard<'static, ()> {
+        crate::pcap::TEST_PCAP_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn wait_for_live_writer_count(expected: u64) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        while crate::pcap::LIVE_WRITER_THREADS.load(TestOrdering::Relaxed) != expected
+            && std::time::Instant::now() < deadline
+        {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(crate::pcap::LIVE_WRITER_THREADS.load(TestOrdering::Relaxed), expected);
+    }
+
     #[test]
     fn pcap_start_entry_then_stop_entry_roundtrips_metadata() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let handle = next_test_handle();
-        let set_id = pcap_start_entry(handle, dir.path().to_path_buf(), 1024 * 1024, 4);
+        let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024 * 1024, 4);
         assert!(set_id > 0, "expected positive set id, got {set_id}");
         let json = pcap_stop_entry(handle);
         // Must be parseable JSON array (possibly empty).
@@ -192,10 +210,11 @@ mod tests {
 
     #[test]
     fn pcap_start_entry_rejects_missing_directory() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let missing = dir.path().join("does-not-exist");
         let handle = next_test_handle();
-        let set_id = pcap_start_entry(handle, missing, 1024, 1);
+        let set_id = pcap_start_entry(handle, test_stats(), missing, 1024, 1);
         assert_eq!(set_id, 0, "expected 0 (failure) for missing dir, got {set_id}");
         // Nothing should be left in the registry.
         assert_eq!(pcap_stop_entry(handle), "[]");
@@ -203,14 +222,18 @@ mod tests {
 
     #[test]
     fn pcap_start_entry_refuses_double_start_for_same_session() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let handle = next_test_handle();
-        let first = pcap_start_entry(handle, dir.path().to_path_buf(), 1024, 1);
+        let first = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024, 1);
         assert!(first > 0);
-        let second = pcap_start_entry(handle, dir.path().to_path_buf(), 1024, 1);
+        let second = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024, 1);
         assert_eq!(second, 0, "second start for same session must return 0");
-        // Cleanup.
+        let other_handle = next_test_handle();
+        let next = pcap_start_entry(other_handle, test_stats(), dir.path().to_path_buf(), 1024, 1);
+        assert_eq!(next, first + 1, "rejected double-start must not allocate or spawn a capture");
         let _ = pcap_stop_entry(handle);
+        let _ = pcap_stop_entry(other_handle);
     }
 
     #[test]
@@ -280,9 +303,10 @@ mod tests {
 
     #[test]
     fn observer_for_session_returns_some_when_capture_active() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let handle = next_test_handle();
-        let set_id = pcap_start_entry(handle, dir.path().to_path_buf(), 1024, 1);
+        let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024, 1);
         assert!(set_id > 0);
         let observer = observer_for_session(handle);
         assert!(observer.is_some(), "expected observer Arc once capture is active");
@@ -294,9 +318,10 @@ mod tests {
 
     #[test]
     fn observer_for_session_packets_reach_capture_queue() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let handle = next_test_handle();
-        let set_id = pcap_start_entry(handle, dir.path().to_path_buf(), 1024 * 1024, 4);
+        let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024 * 1024, 4);
         assert!(set_id > 0);
         // Build a tiny IPv4 packet (header only).
         let mut pkt = vec![0u8; 28];
@@ -317,5 +342,24 @@ mod tests {
         let total_packets: u64 =
             arr.iter().filter_map(|f| f.get("packetCount").and_then(serde_json::Value::as_u64)).sum();
         assert!(total_packets >= 1, "expected >=1 packet captured, got {total_packets}: {json}");
+    }
+
+    #[test]
+    fn retiring_capture_stops_writer_and_clears_stats_observer() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let handle = next_test_handle();
+        let stats = test_stats();
+        let live_before = crate::pcap::LIVE_WRITER_THREADS.load(TestOrdering::Relaxed);
+        let set_id = pcap_start_entry(handle, stats.clone(), dir.path().to_path_buf(), 1024, 1);
+        assert!(set_id > 0);
+        wait_for_live_writer_count(live_before + 1);
+        assert!(stats.packet_observer_present.load(TestOrdering::Relaxed));
+
+        pcap_retire_entry(handle);
+
+        wait_for_live_writer_count(live_before);
+        assert!(!stats.packet_observer_present.load(TestOrdering::Relaxed));
+        assert!(observer_for_session(handle).is_none());
     }
 }

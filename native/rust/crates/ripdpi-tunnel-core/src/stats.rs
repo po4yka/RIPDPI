@@ -177,6 +177,11 @@ impl Stats {
         observer::set_packet_observer(self, observer);
     }
 
+    /// Removes the packet observer before its backing capture resources are retired.
+    pub fn clear_packet_observer(&self) {
+        observer::clear_packet_observer(self);
+    }
+
     /// Installs a callback that is invoked every `LOSS_EMIT_INTERVAL` loop
     /// iterations with the current TCP-retransmit-derived loss percentage
     /// (0.0..=100.0). Call before the tunnel starts running.
@@ -389,5 +394,19 @@ mod tests {
 
         assert_eq!(count_a.load(Ordering::Relaxed), 1);
         assert_eq!(count_b.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn clearing_packet_observer_stops_callbacks() {
+        let stats = Stats::default();
+        let count = Arc::new(AtomicUsize::new(0));
+        stats.set_packet_observer(Arc::new(CountingObserver(Arc::clone(&count))));
+        stats.on_inbound_packet(b"before");
+
+        stats.clear_packet_observer();
+        stats.on_inbound_packet(b"after");
+
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+        assert!(!stats.packet_observer_present.load(Ordering::Relaxed));
     }
 }

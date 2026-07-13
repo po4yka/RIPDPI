@@ -6,7 +6,7 @@ use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, Outcome};
 
 use super::pcap;
-use super::registry::lookup_stats_for_session;
+use super::registry::{TunnelSessionState, lookup_tunnel_session};
 
 pub(crate) fn tunnel_pcap_start_entry(
     mut env: EnvUnowned<'_>,
@@ -20,17 +20,16 @@ pub(crate) fn tunnel_pcap_start_entry(
         .with_env(move |env| -> jni::errors::Result<jlong> {
             let dir =
                 capture_dir.try_to_string(env).map(PathBuf::from).map_err(|_| jni::errors::Error::JavaException)?;
+            let Ok(session) = lookup_tunnel_session(handle) else { return Ok(0) };
+            let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let TunnelSessionState::Running { stats, .. } = &*state else { return Ok(0) };
             let set_id = pcap::pcap_start_entry(
                 handle,
+                stats.clone(),
                 dir,
                 u64::try_from(max_file_bytes).unwrap_or(0),
                 u32::try_from(max_files).unwrap_or(0),
             );
-            if let (true, Some(observer), Some(stats)) =
-                (set_id > 0, pcap::observer_for_session(handle), lookup_stats_for_session(handle))
-            {
-                stats.set_packet_observer(observer);
-            }
             Ok(set_id)
         })
         .into_outcome()
