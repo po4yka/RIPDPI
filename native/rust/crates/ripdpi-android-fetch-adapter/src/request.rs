@@ -25,28 +25,25 @@ pub(crate) async fn execute_once(
     url: &Url,
     request: &NativeOwnedTlsHttpRequest,
 ) -> io::Result<RawHttpResponse> {
+    let https = match url.scheme() {
+        "https" => true,
+        "http" => false,
+        scheme => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unsupported scheme for native TLS fetch: {scheme}"),
+            ));
+        }
+    };
     let endpoint = parse_url_endpoint(url)?;
     let tcp = connect_transport(&endpoint.host, endpoint.port, request.connect_timeout_ms).await?;
     tcp.set_nodelay(true)?;
 
-    match url.scheme() {
-        "https" => execute_once_https(method, &endpoint, request, tcp).await,
-        "http" => {
-            send_request(
-                method,
-                &endpoint.target_path,
-                &endpoint.host,
-                endpoint.port,
-                false,
-                request,
-                TokioIo::new(tcp),
-            )
+    if https {
+        execute_once_https(method, &endpoint, request, tcp).await
+    } else {
+        send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, false, request, TokioIo::new(tcp))
             .await
-        }
-        scheme => Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("unsupported scheme for native TLS fetch: {scheme}"),
-        )),
     }
 }
 

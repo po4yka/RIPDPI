@@ -44,6 +44,24 @@ fn execute_fetches_plain_http_response() {
 }
 
 #[test]
+fn execute_rejects_unsupported_scheme_before_connect() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+    listener.set_nonblocking(true).expect("set nonblocking");
+    let port = listener.local_addr().expect("local addr").port();
+    let request = serde_json::json!({
+        "url": format!("ftp://127.0.0.1:{port}/manifest.json"),
+        "tlsProfileId": "chrome_stable",
+    });
+
+    let payload = execute(&request.to_string()).expect("execute");
+    let response: Value = serde_json::from_str(&payload).expect("json response");
+
+    assert!(response["error"].as_str().expect("error").contains("unsupported scheme"));
+    let accept_error = listener.accept().expect_err("unsupported scheme must not open a connection");
+    assert_eq!(accept_error.kind(), io::ErrorKind::WouldBlock);
+}
+
+#[test]
 fn execute_follows_redirects() {
     let server = spawn_http_server(vec![
         http_response("302 Found", &[("Location", "/final.json")], b""),
