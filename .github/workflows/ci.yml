@@ -1256,7 +1256,7 @@ jobs:
             ${{ runner.temp }}/macrobenchmark-summary.md
           retention-days: 7
 
-  # Runs :app instrumented tests on explicitly provisioned x86_64 emulators — one runner per device image.
+  # Runs :app instrumented smoke tests across minSdk, modern-runtime, and targetSdk x86_64 emulators.
   # Prebuilt x86_64 native shards from the rust-native matrix are staged via
   # -Pripdpi.prebuilt*Dir so cargo is skipped.
   android-instrumented-tests:
@@ -1268,9 +1268,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - device: pixel6Api34Atd
+          - device: pixel6Api27Aosp
+            api: 27
+            system-image: default
+          - device: pixel6Api33Atd
+            api: 33
             system-image: aosp_atd
-          - device: pixel6Api34Google
+          - device: pixel6Api35Google
+            api: 35
             system-image: google_apis
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -1309,7 +1314,7 @@ jobs:
         run: |
           bash scripts/ci/start-android-emulator.sh \
             --avd "${{ matrix.device }}" \
-            --api 34 \
+            --api "${{ matrix.api }}" \
             --arch x86_64 \
             --target "${{ matrix.system-image }}" \
             --boot-timeout 600
