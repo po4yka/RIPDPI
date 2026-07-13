@@ -4,12 +4,16 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 
 _Legacy issue statuses are normalized while their source files are triaged: `in-progress` -> `doing`, `in-review` -> `review`, `device-smoke-pending` -> `blocked`; `done` and `dropped` issue files are omitted._
 
-## Doing (23)
+## Doing (39)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-06-11 |
+| high | data | [Encrypt full private backups](issues/encrypt-full-private-backups.md) | Codex data lane | 2026-07-13 |
+| high | data | [Finish backup restore compensation after cancellation](issues/finish-backup-restore-compensation-after-cancellation.md) | Codex data lane | 2026-07-13 |
+| high | data | [Reconcile multi-store profile mutations after process death](issues/reconcile-multi-store-profile-mutations-after-process-death.md) | Codex data lane | 2026-07-13 |
+| high | epic | [Close remaining Android audit risks](issues/epic-close-remaining-android-audit-risks.md) | Codex coordinator | 2026-07-13 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
@@ -18,7 +22,13 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | unassigned | 2026-06-10 |
 | high | transport | [Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)](issues/wire-standalone-amneziawg-profile-transport.md) | unassigned | 2026-06-21 |
 | high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | unassigned | 2026-06-11 |
+| high | vpn | [Make VPN protect cleanup exception-safe](issues/make-vpn-protect-cleanup-exception-safe.md) | Codex service lane | 2026-07-13 |
+| medium | android | [Protect debug automation receiver](issues/protect-debug-automation-receiver.md) | Codex security lane | 2026-07-13 |
+| medium | android | [Reject external selector mutations](issues/reject-external-selector-mutations.md) | Codex security lane | 2026-07-13 |
+| medium | data | [Deliver terminal service failures reliably](issues/deliver-terminal-service-failures-reliably.md) | Codex service lane | 2026-07-13 |
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | unassigned | 2026-06-05 |
+| medium | diagnostics | [Trim remembered network policies](issues/trim-remembered-network-policies.md) | Codex data lane | 2026-07-13 |
+| medium | dns | [Handle DNS telemetry counter resets](issues/handle-dns-counter-resets.md) | Codex service lane | 2026-07-13 |
 | medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | unassigned | 2026-06-11 |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-10 |
 | medium | outbound | [Add SSH outbound client crate and profile editor](issues/add-ssh-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-05 |
@@ -27,10 +37,16 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | outbound | [Finish AnyTLS profile editor and compatibility gaps](issues/add-anytls-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-05 |
 | medium | routing | [Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS](issues/adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md) | unassigned | 2026-06-11 |
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | unassigned | 2026-06-11 |
+| medium | service | [Bound boot receiver work](issues/bound-boot-receiver-work.md) | Codex service lane | 2026-07-13 |
+| medium | service | [Retain subprocess ownership until exit](issues/retain-subprocess-ownership-until-exit.md) | Codex service lane | 2026-07-13 |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/wire-naiveproxy-probe-into-manager-startup.md) | unassigned | 2026-06-10 |
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | unassigned | 2026-06-11 |
+| medium | testing | [Enforce complete Compose UI model stability](issues/enforce-complete-compose-ui-model-stability.md) | Codex Compose lane | 2026-07-13 |
 | medium | transport | [Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture](issues/audit-relay-mux-default-nested-handshake-conformance.md) | unassigned | 2026-06-17 |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
+| medium | ui | [Collect backup effects with lifecycle](issues/collect-backup-effects-with-lifecycle.md) | Codex Compose lane | 2026-07-13 |
+| medium | ui | [Localize remaining diagnostics fallbacks](issues/localize-remaining-diagnostics-fallbacks.md) | Codex Compose lane | 2026-07-13 |
+| medium | ui | [Model navigation as one-shot events](issues/model-navigation-as-one-shot-events.md) | Codex Compose lane | 2026-07-13 |
 
 ## Review (5)
 
