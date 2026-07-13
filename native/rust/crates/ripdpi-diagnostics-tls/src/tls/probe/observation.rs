@@ -24,8 +24,7 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
     let tls_handshake_ms = Some(result.tls_handshake_ms);
     let cert_chain_length = result.cert_chain_length;
     let cert_issuer = result.cert_issuer;
-    let observed_server_ttl = result.observed_server_ttl;
-    let estimated_hop_count = result.estimated_hop_count;
+    let local_socket_ttl = result.local_socket_ttl;
     let ja3_fingerprint = result.ja3_fingerprint;
     let connected_addr = result.connected_addr;
     let local_addr = result.local_addr;
@@ -50,8 +49,7 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
         tls_handshake_ms,
         cert_chain_length,
         cert_issuer,
-        observed_server_ttl,
-        estimated_hop_count,
+        local_socket_ttl,
         ja3_fingerprint,
         tls_alert_code: None,
         tls_alert_description: None,
@@ -80,8 +78,7 @@ pub(crate) fn from_probe_error(err: String, profile: TlsClientProfile) -> TlsObs
             tls_handshake_ms: None,
             cert_chain_length: None,
             cert_issuer: None,
-            observed_server_ttl: None,
-            estimated_hop_count: None,
+            local_socket_ttl: None,
             ja3_fingerprint: None,
             tls_alert_code: None,
             tls_alert_description: None,
@@ -113,8 +110,7 @@ pub(crate) fn from_probe_error(err: String, profile: TlsClientProfile) -> TlsObs
         tls_handshake_ms: None,
         cert_chain_length: None,
         cert_issuer: None,
-        observed_server_ttl: None,
-        estimated_hop_count: None,
+        local_socket_ttl: None,
         ja3_fingerprint: None,
         tls_alert_code,
         tls_alert_description,
