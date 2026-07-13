@@ -14,7 +14,7 @@ use crate::{ActiveSessions, SessionEntry, Stats};
 
 use super::super::duplex::create_session_duplex;
 use super::super::eviction::remove_evicted_session_socket;
-use super::super::listener::remove_pending_listen;
+use super::super::eviction::remove_pending_listen;
 use super::super::target::pin_synthetic_ip;
 use super::PendingTcpSession;
 

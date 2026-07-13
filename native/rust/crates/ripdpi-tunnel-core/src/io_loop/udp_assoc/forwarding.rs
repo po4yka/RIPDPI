@@ -56,14 +56,12 @@ pub(in crate::io_loop) fn forward_udp_payload(
         stats,
     );
 
-    let Some((outbound, last_activity)) = associations
-        .get(&src)
-        .map(|association| (association.outbound.clone(), Arc::clone(&association.last_activity)))
-    else {
+    let Some(association) = associations.get(&src) else {
         return;
     };
+    let outbound = association.outbound.clone();
 
-    touch_udp_activity(&last_activity);
+    touch_udp_activity(&association.last_activity);
     match outbound.try_send(OutboundDatagram { dest: resolved_dst, payload: payload.to_vec() }) {
         Ok(()) => {}
         Err(TrySendError::Full(_)) => debug!("UDP association queue full for {src}; dropping datagram"),

@@ -1,7 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::thread::JoinHandle;
 
 use rustls::client::danger::ServerCertVerifier;
@@ -11,66 +9,11 @@ use crate::platform::NoopMonitorPlatformBridge;
 use crate::types::{EngineScanRequestWire, SharedState};
 use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
 
-use super::log_level::native_log_level_from_str;
+use super::log_level::parse_native_log_level;
+use super::reaper::WORKER_REAPER;
 use super::validation::validate_scan_request;
 use super::wire_json::{passive_events_to_json, progress_to_json, report_to_json};
 use super::worker::{join_finished_worker_locked, spawn_scan_worker};
-
-static WORKER_REAPER: std::sync::LazyLock<WorkerReaper> = std::sync::LazyLock::new(WorkerReaper::new);
-
-struct WorkerReaper {
-    sender: Option<Sender<ReaperCommand>>,
-}
-
-enum ReaperCommand {
-    Join(JoinHandle<()>),
-    #[cfg(test)]
-    Flush(Sender<()>),
-}
-
-impl WorkerReaper {
-    fn new() -> Self {
-        let (sender, receiver) = mpsc::channel::<ReaperCommand>();
-        match thread::Builder::new().name("ripdpi-monitor-reaper".to_string()).spawn(move || {
-            while let Ok(command) = receiver.recv() {
-                match command {
-                    ReaperCommand::Join(handle) => {
-                        let _ = handle.join();
-                    }
-                    #[cfg(test)]
-                    ReaperCommand::Flush(done) => {
-                        let _ = done.send(());
-                    }
-                }
-            }
-        }) {
-            Ok(_reaper) => Self { sender: Some(sender) },
-            Err(err) => {
-                log::error!("failed to start diagnostics worker reaper: {err}");
-                Self { sender: None }
-            }
-        }
-    }
-
-    fn reap(&self, handle: JoinHandle<()>) {
-        let Some(sender) = &self.sender else {
-            log::error!("detaching diagnostics worker because the reaper is unavailable");
-            return;
-        };
-        if sender.send(ReaperCommand::Join(handle)).is_err() {
-            log::error!("detaching diagnostics worker because the reaper stopped");
-        }
-    }
-
-    #[cfg(test)]
-    fn flush(&self) -> mpsc::Receiver<()> {
-        let (done_tx, done_rx) = mpsc::channel();
-        if let Some(sender) = &self.sender {
-            let _ = sender.send(ReaperCommand::Flush(done_tx));
-        }
-        done_rx
-    }
-}
 
 pub struct MonitorSession {
     pub(super) shared: Arc<Mutex<SharedState>>,
@@ -132,14 +75,7 @@ impl MonitorSession {
 
     pub fn start_scan(&self, session_id: String, request: EngineScanRequestWire) -> Result<(), String> {
         validate_scan_request(&request)?;
-        let native_log_level = request
-            .native_log_level
-            .as_deref()
-            .map(|value| {
-                native_log_level_from_str(value)
-                    .ok_or_else(|| format!("Unsupported diagnostics nativeLogLevel: {value}"))
-            })
-            .transpose()?;
+        let native_log_level = parse_native_log_level(request.native_log_level.as_deref())?;
         let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
         join_finished_worker_locked(&mut worker_guard);
         if worker_guard.is_some() {
@@ -213,6 +149,8 @@ impl MonitorSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
+    use std::thread;
     use std::time::{Duration, Instant};
 
     #[test]
@@ -233,21 +171,5 @@ mod tests {
         assert!(session.worker.lock().expect("worker lock").is_none());
 
         release_tx.send(()).expect("release worker for asynchronous join");
-    }
-
-    #[test]
-    fn worker_reaper_joins_workers_in_the_background() {
-        let reaper = WorkerReaper::new();
-        let (release_tx, release_rx) = mpsc::channel();
-        let worker = thread::spawn(move || release_rx.recv().expect("wait for release"));
-
-        reaper.reap(worker);
-        let flushed = reaper.flush();
-        assert!(
-            flushed.recv_timeout(Duration::from_millis(50)).is_err(),
-            "reaper must wait for the queued worker before processing later commands"
-        );
-        release_tx.send(()).expect("release worker");
-        flushed.recv_timeout(Duration::from_secs(1)).expect("reaper joined worker and flushed queue");
     }
 }

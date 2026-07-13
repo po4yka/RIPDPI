@@ -8,6 +8,7 @@ use tracing::{debug, warn};
 use crate::io_loop::TCP_SOCKET_BUF;
 use crate::io_loop::packet::{TcpFlowKey, tcp_syn_flow_key};
 
+use super::eviction::evict_oldest_pending_listen;
 use super::socketaddr_to_listen_endpoint;
 
 /// Each pending TCP socket owns two `TCP_SOCKET_BUF` allocations. Keep the half-open handshake budget at roughly 16 MiB on Android.
@@ -41,21 +42,6 @@ pub(crate) fn ensure_pending_listen_for_syn(
     debug!("Added LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
 }
 
-fn evict_oldest_pending_listen(
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
-    socket_set: &mut SocketSet<'static>,
-) {
-    let oldest = pending_listens
-        .iter()
-        .min_by_key(|(key, (_, created_at))| (*created_at, key.src, key.dst))
-        .map(|(key, (handle, _))| (*key, *handle));
-    if let Some((flow_key, handle)) = oldest {
-        pending_listens.remove(&flow_key);
-        socket_set.remove(handle);
-        debug!("Evicted oldest pending LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
-    }
-}
-
 pub(crate) fn gc_stale_pending_listens(
     pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
     socket_set: &mut SocketSet<'static>,
@@ -71,15 +57,4 @@ pub(crate) fn gc_stale_pending_listens(
         socket_set.remove(*handle);
         false
     });
-}
-
-pub(super) fn remove_pending_listen(
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
-    handle: SocketHandle,
-) {
-    if let Some(key) =
-        pending_listens.iter().find_map(|(key, (pending_handle, _))| (*pending_handle == handle).then_some(*key))
-    {
-        pending_listens.remove(&key);
-    }
 }

@@ -1,5 +1,6 @@
 mod lifecycle;
 mod log_level;
+mod reaper;
 mod validation;
 mod wire_json;
 mod worker;
