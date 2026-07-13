@@ -1,61 +1,16 @@
-//! Batch TUN fd I/O helpers using io_uring.
+//! Bounded TUN write helpers using io_uring.
 //!
-//! Provides functions that submit batched read/write operations on a TUN file
-//! descriptor through the [`IoUringDriver`], reducing per-packet system call
-//! overhead compared to the default `try_recv`/`try_send` path.
+//! Phase 1 reads remain on the readiness-driven `try_recv` path. Submitting a
+//! fixed number of blocking reads and waiting for every CQE can stall forever
+//! when fewer packets than the requested batch arrive.
 
 use std::os::fd::BorrowedFd;
 
 use crate::bufpool::BufferHandle;
 use crate::ring::IoUringDriver;
 
-/// Maximum number of packets to read in a single batch.
-pub const TUN_READ_BATCH_SIZE: usize = 32;
-
 /// Maximum number of packets to write in a single batch.
 pub const TUN_WRITE_BATCH_SIZE: usize = 64;
-
-/// Result of a batched TUN read operation.
-pub struct TunReadBatch {
-    /// Owning registered-buffer leases for each successfully read packet.
-    pub packets: Vec<BufferHandle>,
-}
-
-/// Submit a batch of reads on the TUN fd and collect results.
-///
-/// Acquires up to `TUN_READ_BATCH_SIZE` buffers from the pool, submits them
-/// as fixed reads to the io_uring driver, and returns the completed reads.
-///
-/// Buffers for failed or zero-length reads are returned to the pool. The
-/// caller is responsible for returning successful buffers after consuming
-/// their contents.
-///
-/// This is a blocking function intended to be called from an async context
-/// via `tokio::task::spawn_blocking` or similar.
-pub fn batch_tun_read(uring: &IoUringDriver, tun_fd: BorrowedFd<'_>) -> std::io::Result<TunReadBatch> {
-    let mut futures = Vec::with_capacity(TUN_READ_BATCH_SIZE);
-
-    for _ in 0..TUN_READ_BATCH_SIZE {
-        match uring.acquire_buffer() {
-            Some(handle) => futures.push(uring.recv_fixed(tun_fd, handle)),
-            None => break,
-        }
-    }
-
-    if futures.is_empty() {
-        return Ok(TunReadBatch { packets: Vec::new() });
-    }
-
-    let mut packets = Vec::with_capacity(futures.len());
-    for future in futures {
-        let result = crate::ring::block_on_completion(future);
-        if result.result > 0 {
-            packets.push(result.into_buffer().expect("fixed read completion must return its buffer lease"));
-        }
-    }
-
-    Ok(TunReadBatch { packets })
-}
 
 /// Submit a batch of writes to the TUN fd from the smoltcp tx_queue.
 ///

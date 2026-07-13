@@ -1,7 +1,8 @@
-//! io_uring zero-copy networking support for RIPDPI.
+//! Registered-buffer io_uring networking support for RIPDPI.
 //!
-//! This crate provides optional io_uring integration for zero-copy send/recv
-//! on Linux 6.0+ kernels. All types and functions are gated behind
+//! This crate provides optional single-CQE fixed-buffer reads and writes on
+//! Linux and Android. It deliberately does not expose multi-CQE zero-copy send
+//! operations. All types and functions are gated behind
 //! `cfg(any(target_os = "linux", target_os = "android"))`.
 
 // Crate-local hardening for issue #16 (`Vec::from_raw_parts` /

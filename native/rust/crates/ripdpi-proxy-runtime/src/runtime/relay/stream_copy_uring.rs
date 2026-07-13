@@ -1,8 +1,9 @@
 //! Registered-buffer relay using io_uring `IORING_OP_WRITE_FIXED`.
 //!
 //! This module provides an alternative implementation of the relay stream
-//! copy that uses io_uring zero-copy send for the inbound half (upstream ->
-//! client). The outbound half still uses the standard desync path.
+//! copy that uses a single-CQE fixed-buffer write for the inbound half
+//! (upstream -> client). The outbound half still uses the standard desync
+//! path.
 //!
 //! Enabled only when the `io-uring` feature is active and fixed-buffer
 //! registration succeeds at runtime.

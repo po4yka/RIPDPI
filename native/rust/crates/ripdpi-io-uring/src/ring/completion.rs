@@ -9,7 +9,9 @@ use crate::bufpool::BufferHandle;
 pub struct CompletionResult {
     /// io_uring result code (bytes transferred, or negative errno).
     pub result: i32,
-    /// CQE flags (check for `IORING_CQE_F_NOTIF`, `IORING_CQE_F_MORE`).
+    /// Raw CQE flags for the implemented single-completion operations.
+    /// Multi-CQE operations such as `SEND_ZC` and multishot reads are not
+    /// supported by this driver.
     pub flags: u32,
     buffer: Option<BufferHandle>,
 }
