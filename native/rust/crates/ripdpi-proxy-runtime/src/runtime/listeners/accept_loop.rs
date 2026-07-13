@@ -19,7 +19,7 @@ pub(crate) fn run_accept_loop(
     let worker_pool = ClientWorkerPool::new(client_capacity)?;
     let result = poll_accept_loop(listener, state.clone(), shutdown, &worker_pool, client_capacity);
     state.note_listener_stopped();
-    worker_pool.drain_gracefully();
+    worker_pool.drain_gracefully(&state);
     result
 }
 

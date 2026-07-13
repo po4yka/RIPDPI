@@ -34,8 +34,8 @@
 
 mod support;
 
-use std::io;
-use std::net::{Ipv4Addr, TcpListener};
+use std::io::{self, Read, Write};
+use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
@@ -94,6 +94,78 @@ fn proxy_restart_cycles_all_exit_cleanly() {
         let result = handle.join().expect("proxy thread must not panic");
         assert!(result.is_ok(), "cycle {cycle}: expected Ok(()) from clean shutdown, got {result:?}");
     }
+}
+
+#[test]
+fn shutdown_closes_incomplete_handshake_before_runtime_returns() {
+    prepare_embedded();
+    clear_runtime_telemetry();
+    let startup = Arc::new(StartupLatch::default());
+    let telemetry: Arc<dyn ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink> =
+        Arc::new(ProxyHarnessTelemetry { startup: startup.clone(), delegate: None });
+    let control = Arc::new(EmbeddedProxyControl::new(Some(telemetry)));
+    let config = minimal_config();
+    let listener = create_listener(&config).expect("bind ephemeral listener");
+    let addr = listener.local_addr().expect("listener address");
+    let control_for_thread = control.clone();
+    let handle = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
+    startup.wait(START_TIMEOUT);
+
+    let mut client = TcpStream::connect(addr).expect("connect incomplete handshake");
+    client.set_read_timeout(Some(Duration::from_millis(500))).expect("set client read timeout");
+    thread::sleep(Duration::from_millis(100));
+    control.request_shutdown();
+    handle.join().expect("proxy thread must not panic").expect("proxy stopped cleanly");
+
+    let write_result = client.write_all(&[0x05, 0x01, 0x00]);
+    let mut response = [0u8; 2];
+    let bytes_after_shutdown = if write_result.is_ok() { client.read(&mut response).unwrap_or(0) } else { 0 };
+    assert_eq!(bytes_after_shutdown, 0, "proxy emitted bytes after shutdown returned: {response:?}");
+}
+
+#[test]
+fn shutdown_closes_active_relay_before_runtime_returns() {
+    let echo_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind echo server");
+    let echo_port = echo_listener.local_addr().expect("echo address").port();
+    let echo_thread = thread::spawn(move || {
+        let (mut stream, _) = echo_listener.accept().expect("accept echo connection");
+        let mut buffer = [0u8; 64];
+        while let Ok(size) = stream.read(&mut buffer) {
+            if size == 0 || stream.write_all(&buffer[..size]).is_err() {
+                break;
+            }
+        }
+    });
+
+    prepare_embedded();
+    clear_runtime_telemetry();
+    let startup = Arc::new(StartupLatch::default());
+    let telemetry: Arc<dyn ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink> =
+        Arc::new(ProxyHarnessTelemetry { startup: startup.clone(), delegate: None });
+    let control = Arc::new(EmbeddedProxyControl::new(Some(telemetry)));
+    let config = minimal_config();
+    let listener = create_listener(&config).expect("bind ephemeral listener");
+    let proxy_port = listener.local_addr().expect("proxy address").port();
+    let control_for_thread = control.clone();
+    let handle = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
+    startup.wait(START_TIMEOUT);
+
+    let mut client = support::socks5::socks_connect(proxy_port, echo_port);
+    client.write_all(b"before").expect("write before shutdown");
+    let mut response = [0u8; 6];
+    client.read_exact(&mut response).expect("read before shutdown");
+    assert_eq!(&response, b"before");
+
+    control.request_shutdown();
+    handle.join().expect("proxy thread must not panic").expect("proxy stopped cleanly");
+
+    client.set_read_timeout(Some(Duration::from_millis(500))).expect("set client read timeout");
+    let write_result = client.write_all(b"after");
+    let mut after = [0u8; 5];
+    let bytes_after_shutdown = if write_result.is_ok() { client.read(&mut after).unwrap_or(0) } else { 0 };
+    assert_eq!(bytes_after_shutdown, 0, "active relay emitted bytes after shutdown returned: {after:?}");
+    drop(client);
+    echo_thread.join().expect("echo thread stopped");
 }
 
 // ── test: expected-stop vs crash disambiguation ───────────────────────────────
