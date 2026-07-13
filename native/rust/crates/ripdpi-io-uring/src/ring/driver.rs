@@ -60,6 +60,7 @@ impl IoUringDriver {
     // cancel-safe: synchronous; no await points.
     pub fn recv_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
+        self.registry.begin(token);
         let fd = match fd.try_clone_to_owned() {
             Ok(fd) => fd,
             Err(error) => {
@@ -84,6 +85,7 @@ impl IoUringDriver {
     // cancel-safe: synchronous; no await points.
     pub fn write(&self, fd: BorrowedFd<'_>, buf: Vec<u8>) -> CompletionFuture {
         let token = next_token();
+        self.registry.begin(token);
         let Some(fd) = self.duplicate_fd(fd, token) else {
             return CompletionFuture::new(token, Arc::clone(&self.registry));
         };
@@ -99,6 +101,7 @@ impl IoUringDriver {
     // cancel-safe: synchronous; no await points.
     pub fn write_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
+        self.registry.begin(token);
         let fd = match fd.try_clone_to_owned() {
             Ok(fd) => fd,
             Err(error) => {
@@ -173,10 +176,11 @@ impl Drop for IoUringDriver {
 #[cfg(test)]
 mod tests {
     use std::fs::OpenOptions;
-    use std::io::Read;
+    use std::io::{Read, Write};
     use std::os::fd::AsFd;
     use std::os::unix::net::UnixStream;
     use std::sync::Arc;
+    use std::time::{Duration, Instant};
 
     use io_uring::IoUring;
 
@@ -219,6 +223,27 @@ mod tests {
         let mut bytes = [0_u8; 5];
         receiver.read_exact(&mut bytes).expect("read io_uring payload");
         assert_eq!(&bytes, b"owned");
+    }
+
+    #[test]
+    fn abandoned_fixed_read_releases_lease_only_after_cqe() {
+        let Ok(driver) = IoUringDriver::start(4, 1024) else {
+            eprintln!("io_uring unavailable; skipping abandoned_fixed_read_releases_lease_only_after_cqe");
+            return;
+        };
+        let (mut sender, receiver) = UnixStream::pair().expect("create socket pair");
+        let handle = driver.acquire_buffer().expect("acquire registered buffer");
+
+        let future = driver.recv_fixed(receiver.as_fd(), handle);
+        drop(future);
+        assert_eq!(driver.available_buffers(), 3, "dropped future must not release a kernel-visible lease");
+
+        sender.write_all(b"late").expect("complete abandoned read");
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while driver.available_buffers() != 4 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(driver.available_buffers(), 4, "late CQE must release the abandoned lease");
     }
 
     /// Helper: create a small pool if io_uring is available on this host.
