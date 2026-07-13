@@ -279,7 +279,11 @@ impl AnyTlsClient {
     }
 
     async fn session(&self) -> Result<SessionHandle, AnyTlsError> {
-        if let Some(session) = self.state.lock().await.session.clone() {
+        // Snapshot the cached handle in its own scope. An `if let` scrutinee
+        // temporary lives through the body, so locking inline here would keep
+        // the state guard held while `clear_cached_session` locks it again.
+        let cached_session = { self.state.lock().await.session.clone() };
+        if let Some(session) = cached_session {
             if !session.outbound.is_closed() && !session.closing.load(Ordering::Acquire) {
                 return Ok(session);
             }
@@ -650,6 +654,50 @@ mod redaction_tests {
         config.root_certificate_pem = None;
         let rendered = format!("{config:?}");
         assert!(rendered.contains("root_certificate_pem: None"), "expected None rendering: {rendered}");
+    }
+}
+
+#[cfg(test)]
+mod session_cache_tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use std::time::Duration;
+
+    use tokio::sync::{Mutex, mpsc};
+
+    use super::{AnyTlsClient, AnyTlsClientConfig, Outbound, SessionHandle, TargetAddr};
+
+    #[tokio::test]
+    async fn open_tcp_does_not_deadlock_on_closed_cached_session() {
+        let client = AnyTlsClient::new(AnyTlsClientConfig {
+            server_host: "127.0.0.1".to_owned(),
+            server_port: 0,
+            server_name: "localhost".to_owned(),
+            password: "test-password".to_owned(),
+            tls_fingerprint_profile: "chrome".to_owned(),
+            root_certificate_pem: None,
+            client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        })
+        .expect("client");
+        let (outbound, outbound_rx) = mpsc::channel::<Outbound>(1);
+        drop(outbound_rx);
+        client.state.lock().await.session = Some(SessionHandle {
+            outbound,
+            streams: Arc::new(Mutex::new(HashMap::new())),
+            next_stream_id: Arc::new(Mutex::new(1)),
+            closing: Arc::new(AtomicBool::new(false)),
+        });
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            client.open_tcp(TargetAddr::Domain("example.test".to_owned()), 443),
+        )
+        .await;
+
+        assert!(result.is_ok(), "closed cached session must not self-deadlock while being evicted");
+        assert!(client.state.lock().await.session.is_none(), "closed cached session must be evicted");
     }
 }
 
