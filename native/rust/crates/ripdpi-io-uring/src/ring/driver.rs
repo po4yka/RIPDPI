@@ -15,6 +15,7 @@ use crate::ring::submission::{Submission, next_token};
 /// Ring size (submission queue entries). Power of two.
 pub(crate) const RING_SIZE: u32 = 256;
 const MAX_REGISTERED_BUFFER_SIZE: usize = 65_536;
+const MAX_PLAIN_WRITE_SIZE: usize = 65_536;
 const DRIVER_SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(250);
 
 /// The io_uring driver manages a dedicated thread that processes submissions
@@ -115,6 +116,10 @@ impl IoUringDriver {
     pub fn write(&self, fd: BorrowedFd<'_>, buf: Vec<u8>) -> CompletionFuture {
         let token = next_token();
         self.registry.begin(token);
+        if buf.len() > MAX_PLAIN_WRITE_SIZE {
+            self.registry.complete(token, CompletionResult::plain(-libc::EMSGSIZE, 0));
+            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        }
         let Ok(len) = u32::try_from(buf.len()) else {
             self.registry.complete(token, CompletionResult::plain(-libc::EOVERFLOW, 0));
             return CompletionFuture::new(token, Arc::clone(&self.registry));
@@ -303,6 +308,19 @@ mod tests {
             };
             assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
         }
+    }
+
+    #[test]
+    fn plain_write_rejects_oversized_network_buffer() {
+        let Ok(driver) = IoUringDriver::start(4, 1024) else {
+            eprintln!("io_uring unavailable; skipping plain_write_rejects_oversized_network_buffer");
+            return;
+        };
+        let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
+
+        let result = block_on_completion(driver.write(file.as_fd(), vec![0_u8; MAX_PLAIN_WRITE_SIZE + 1]));
+
+        assert_eq!(result.result, -libc::EMSGSIZE);
     }
 
     #[test]
