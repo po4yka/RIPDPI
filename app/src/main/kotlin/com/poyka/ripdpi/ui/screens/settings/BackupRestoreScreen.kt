@@ -31,7 +31,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.backup.BackupExportEffect
@@ -60,7 +63,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -346,18 +349,21 @@ private fun rememberBackupShareController(
 
 @Composable
 internal fun <T> BackupEffectCollector(
-    flow: SharedFlow<T>,
+    flow: Flow<T>,
     onEffect: suspend (T) -> Unit,
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnEffect by rememberUpdatedState(onEffect)
-    LaunchedEffect(flow) {
-        flow.collect { effect -> currentOnEffect(effect) }
+    LaunchedEffect(flow, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            flow.collect { effect -> currentOnEffect(effect) }
+        }
     }
 }
 
 @Composable
 private fun BackupRestoreEffectHandler(
-    flow: SharedFlow<BackupRestoreEffect>,
+    flow: Flow<BackupRestoreEffect>,
     snackbarHostState: SnackbarHostState,
     onRestart: () -> Unit,
 ) {
@@ -415,7 +421,7 @@ private fun BackupRestoreEffectHandler(
 
 @Composable
 private fun BackupResetEffectHandler(
-    flow: SharedFlow<com.poyka.ripdpi.backup.BackupResetEffect>,
+    flow: Flow<com.poyka.ripdpi.backup.BackupResetEffect>,
     onRestart: () -> Unit,
 ) {
     BackupEffectCollector(flow) { effect ->
@@ -579,7 +585,7 @@ private fun launchShareIntent(
 
 @Composable
 private fun BackupShareEffectHandler(
-    flow: SharedFlow<com.poyka.ripdpi.backup.BackupShareEffect>,
+    flow: Flow<com.poyka.ripdpi.backup.BackupShareEffect>,
     snackbarHostState: SnackbarHostState,
     onReady: () -> Unit,
     onFailed: () -> Unit,
@@ -632,7 +638,7 @@ private fun BackupShareReminderDialog(
 
 @Composable
 private fun BackupExportEffectHandler(
-    flow: SharedFlow<BackupExportEffect>,
+    flow: Flow<BackupExportEffect>,
     snackbarHostState: SnackbarHostState,
     context: Context,
     onShare: () -> Unit,
