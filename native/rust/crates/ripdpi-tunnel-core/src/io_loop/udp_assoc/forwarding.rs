@@ -13,19 +13,19 @@ use crate::session::Auth;
 mod allocation;
 mod ensure;
 mod quic_sni;
-mod retry;
 
 use ensure::ensure_udp_association;
 #[cfg(test)]
 pub(in crate::io_loop) use quic_sni::record_quic_sni_if_present;
-use retry::retry_udp_send_with_new_association;
+use tokio::sync::mpsc::error::TrySendError;
 
-use super::association_state::{UdpAssociation, touch_udp_activity};
+use super::association_removal::remove_association;
+use super::association_state::{OutboundDatagram, UdpAssociation, touch_udp_activity};
 use super::event_handling::UdpEvent;
 use super::eviction::UdpEvictionEntry;
 
 #[allow(clippy::too_many_arguments)]
-pub(in crate::io_loop) async fn forward_udp_payload(
+pub(in crate::io_loop) fn forward_udp_payload(
     proxy_addr: SocketAddr,
     auth: &Auth,
     src: SocketAddr,
@@ -40,7 +40,7 @@ pub(in crate::io_loop) async fn forward_udp_payload(
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
     stats: &Arc<Stats>,
 ) {
-    if let Err(err) = ensure_udp_association(
+    ensure_udp_association(
         associations,
         eviction_heap,
         next_id,
@@ -54,36 +54,39 @@ pub(in crate::io_loop) async fn forward_udp_payload(
         cancel,
         udp_tx,
         stats,
-    )
-    .await
-    {
-        debug!("Failed to create UDP association for {src}: {err}");
-        return;
-    }
+    );
 
-    let Some((session, last_activity)) =
-        associations.get(&src).map(|association| (association.session.clone(), Arc::clone(&association.last_activity)))
+    let Some((outbound, last_activity)) = associations
+        .get(&src)
+        .map(|association| (association.outbound.clone(), Arc::clone(&association.last_activity)))
     else {
         return;
     };
 
     touch_udp_activity(&last_activity);
-    if session.send_to(resolved_dst, payload).await.is_ok() {
-        return;
+    match outbound.try_send(OutboundDatagram { dest: resolved_dst, payload: payload.to_vec() }) {
+        Ok(()) => {}
+        Err(TrySendError::Full(_)) => debug!("UDP association queue full for {src}; dropping datagram"),
+        Err(TrySendError::Closed(datagram)) => {
+            remove_association(associations, src);
+            ensure_udp_association(
+                associations,
+                eviction_heap,
+                next_id,
+                proxy_addr,
+                auth,
+                src,
+                datagram.dest,
+                &datagram.payload,
+                idle_timeout,
+                protect_path,
+                cancel,
+                udp_tx,
+                stats,
+            );
+            if let Some(association) = associations.get(&src) {
+                let _ = association.outbound.try_send(datagram);
+            }
+        }
     }
-
-    retry_udp_send_with_new_association(
-        associations,
-        next_id,
-        proxy_addr,
-        auth,
-        src,
-        resolved_dst,
-        payload,
-        idle_timeout,
-        protect_path,
-        cancel,
-        udp_tx,
-    )
-    .await;
 }

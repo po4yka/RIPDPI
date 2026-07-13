@@ -38,7 +38,7 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
         // Observe TCP retransmits for loss-percentage tracking.
         // O(1) amortised; no logging on the hot path.
         state.retransmit_tracker.observe(packet);
-        route_tun_packet(packet, state).await;
+        route_tun_packet(packet, state);
     }
 
     state.tun_read_buf = tun_read_buf;
@@ -118,6 +118,7 @@ mod tests {
     use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
     use smoltcp::time::Instant;
     use smoltcp::wire::HardwareAddress;
+    use tokio::net::TcpListener;
     use tokio::sync::mpsc;
     use tokio_util::sync::CancellationToken;
 
@@ -137,7 +138,7 @@ mod tests {
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(true, Arc::clone(&seen_packets))));
         let packet = ipv4_udp_packet(55000, 443, b"quic");
 
-        route_tun_packet(&packet, &mut state).await;
+        route_tun_packet(&packet, &mut state);
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.stats.dht_trigger_observations.load(Ordering::Relaxed), 0);
@@ -150,10 +151,30 @@ mod tests {
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
         let packet = ipv4_tcp_packet(55000, 443);
 
-        route_tun_packet(&packet, &mut state).await;
+        route_tun_packet(&packet, &mut state);
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+    }
+
+    #[tokio::test]
+    async fn udp_association_setup_does_not_block_packet_routing() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind stalled proxy");
+        let proxy_addr = listener.local_addr().expect("proxy address");
+        let stalled_proxy = tokio::spawn(async move {
+            let (_stream, _) = listener.accept().await.expect("accept association setup");
+            std::future::pending::<()>().await;
+        });
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.proxy_sockaddr = proxy_addr;
+        let packet = ipv4_udp_packet(55000, 443, b"quic");
+
+        route_tun_packet(&packet, &mut state);
+        let tcp_packet = ipv4_tcp_packet(55001, 443);
+        route_tun_packet(&tcp_packet, &mut state);
+
+        assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &tcp_packet);
+        stalled_proxy.abort();
     }
 
     struct RecordingEgressHandler {

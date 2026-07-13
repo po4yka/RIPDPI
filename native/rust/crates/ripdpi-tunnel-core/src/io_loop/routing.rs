@@ -7,7 +7,7 @@ use super::state::LoopState;
 use super::tcp_accept::ensure_pending_listen_for_syn;
 use super::udp_assoc::forward_udp_payload;
 
-pub(in crate::io_loop) async fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
+pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
     if state.runtime.tun_egress_interceptor.handle_packet(packet) {
         return;
     }
@@ -45,8 +45,7 @@ pub(in crate::io_loop) async fn route_tun_packet(packet: &[u8], state: &mut Loop
                     &state.cancel,
                     &state.udp_tx,
                     &state.stats,
-                )
-                .await;
+                );
             }
         }
     }

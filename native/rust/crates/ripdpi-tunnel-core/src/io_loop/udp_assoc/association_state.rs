@@ -5,7 +5,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tokio_util::sync::CancellationToken;
 
-use crate::session::UdpSession;
+pub(super) const UDP_OUTBOUND_QUEUE_CAPACITY: usize = 64;
+
+pub(super) struct OutboundDatagram {
+    pub(super) dest: SocketAddr,
+    pub(super) payload: Vec<u8>,
+}
 
 /// Returns milliseconds since the Unix epoch, or 0 on clock failure.
 pub(super) fn now_millis() -> u64 {
@@ -14,7 +19,7 @@ pub(super) fn now_millis() -> u64 {
 
 pub(in crate::io_loop) struct UdpAssociation {
     pub(super) id: u64,
-    pub(super) session: UdpSession,
+    pub(super) outbound: tokio::sync::mpsc::Sender<OutboundDatagram>,
     pub(super) cancel: CancellationToken,
     pub(super) last_activity: Arc<AtomicU64>,
     pub(super) worker: tokio::task::JoinHandle<()>,

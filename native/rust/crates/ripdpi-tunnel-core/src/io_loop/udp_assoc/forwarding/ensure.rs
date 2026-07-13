@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -21,7 +20,7 @@ use super::quic_sni::record_quic_sni_if_present;
 const PROTO_UDP: u8 = 17;
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn ensure_udp_association(
+pub(super) fn ensure_udp_association(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     next_id: &mut u64,
@@ -35,10 +34,10 @@ pub(super) async fn ensure_udp_association(
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
     stats: &Arc<Stats>,
-) -> io::Result<()> {
+) {
     #[allow(clippy::map_entry)]
     if associations.contains_key(&src) {
-        return Ok(());
+        return;
     }
 
     // New UDP association: record the originating app's flow for per-app
@@ -60,10 +59,8 @@ pub(super) async fn ensure_udp_association(
         protect_path,
         cancel,
         udp_tx,
-    )
-    .await?;
+    );
     eviction_heap
         .push(UdpEvictionEntry { addr: src, last_activity_epoch: association.last_activity.load(Ordering::Relaxed) });
     associations.insert(src, association);
-    Ok(())
 }

@@ -5,16 +5,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, UdpSocket};
 use tokio_util::sync::CancellationToken;
 
 use crate::TunDevice;
 use crate::session::Auth;
 
-use super::association_state::{now_millis, touch_udp_activity, udp_association_is_idle};
+use super::association_state::{OutboundDatagram, now_millis, touch_udp_activity, udp_association_is_idle};
 use super::event_handling::{UdpEvent, handle_udp_event};
 use super::shutdown::shutdown_udp_associations;
-use super::worker::create_udp_association;
+use super::worker::spawn_udp_association;
 
 async fn spawn_udp_associate_stub() -> SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy listener");
@@ -35,13 +35,73 @@ async fn spawn_udp_associate_stub() -> SocketAddr {
     proxy_addr
 }
 
+async fn spawn_udp_recording_stub() -> (SocketAddr, tokio::sync::oneshot::Receiver<Vec<u8>>) {
+    let relay = UdpSocket::bind("127.0.0.1:0").await.expect("bind UDP relay");
+    let relay_addr = relay.local_addr().expect("relay address");
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy listener");
+    let proxy_addr = listener.local_addr().expect("proxy address");
+    let (datagram_tx, datagram_rx) = tokio::sync::oneshot::channel();
+
+    tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.expect("accept proxy");
+        let mut buf = [0u8; 64];
+        let _ = stream.read(&mut buf).await.expect("read greeting");
+        stream.write_all(&[0x05, 0x00]).await.expect("write no-auth");
+        let _ = stream.read(&mut buf).await.expect("read UDP associate");
+        let port = relay_addr.port().to_be_bytes();
+        stream
+            .write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, port[0], port[1]])
+            .await
+            .expect("write UDP associate reply");
+        let mut datagram = vec![0u8; 2048];
+        let (len, _) = relay.recv_from(&mut datagram).await.expect("receive queued datagram");
+        datagram.truncate(len);
+        let _ = datagram_tx.send(datagram);
+        std::future::pending::<()>().await;
+    });
+
+    (proxy_addr, datagram_rx)
+}
+
+#[tokio::test]
+async fn association_worker_sends_datagram_queued_during_setup() {
+    let (proxy_addr, datagram_rx) = spawn_udp_recording_stub().await;
+    let src = "10.0.0.2:53009".parse().expect("source address");
+    let dest = "203.0.113.20:443".parse().expect("destination address");
+    let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+    let association = spawn_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        src,
+        dest,
+        9,
+        Duration::from_secs(1),
+        None,
+        CancellationToken::new(),
+        udp_tx,
+    );
+
+    association
+        .outbound
+        .try_send(OutboundDatagram { dest, payload: b"queued-during-setup".to_vec() })
+        .expect("queue datagram");
+    let datagram = tokio::time::timeout(Duration::from_secs(1), datagram_rx)
+        .await
+        .expect("worker should finish setup")
+        .expect("recording relay should receive datagram");
+
+    assert!(datagram.ends_with(b"queued-during-setup"));
+    association.cancel.cancel();
+    association.worker.abort();
+}
+
 #[tokio::test]
 async fn handle_udp_event_queues_matching_association_packet() {
     let proxy_addr = spawn_udp_associate_stub().await;
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association = create_udp_association(
+    let association = spawn_udp_association(
         proxy_addr,
         Auth::NoAuth,
         src,
@@ -51,9 +111,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
         None,
         cancel.child_token(),
         udp_tx,
-    )
-    .await
-    .expect("udp association");
+    );
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -77,7 +135,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53001);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association = create_udp_association(
+    let association = spawn_udp_association(
         proxy_addr,
         Auth::NoAuth,
         src,
@@ -87,9 +145,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
         None,
         cancel.child_token(),
         udp_tx,
-    )
-    .await
-    .expect("udp association");
+    );
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -109,7 +165,7 @@ async fn handle_udp_event_removes_closed_association() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53002);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association = create_udp_association(
+    let association = spawn_udp_association(
         proxy_addr,
         Auth::NoAuth,
         src,
@@ -119,9 +175,7 @@ async fn handle_udp_event_removes_closed_association() {
         None,
         cancel.child_token(),
         udp_tx,
-    )
-    .await
-    .expect("udp association");
+    );
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -138,7 +192,7 @@ async fn handle_udp_event_ignores_stale_close() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53003);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association = create_udp_association(
+    let association = spawn_udp_association(
         proxy_addr,
         Auth::NoAuth,
         src,
@@ -148,9 +202,7 @@ async fn handle_udp_event_ignores_stale_close() {
         None,
         cancel.child_token(),
         udp_tx,
-    )
-    .await
-    .expect("udp association");
+    );
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -201,7 +253,7 @@ async fn shutdown_cancels_all_associations() {
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(4);
     let cancel = CancellationToken::new();
 
-    let a1 = create_udp_association(
+    let a1 = spawn_udp_association(
         proxy_addr,
         Auth::NoAuth,
         src1,
@@ -211,12 +263,10 @@ async fn shutdown_cancels_all_associations() {
         None,
         cancel.child_token(),
         udp_tx.clone(),
-    )
-    .await
-    .expect("association 1");
+    );
 
     let proxy_addr2 = spawn_udp_associate_stub().await;
-    let a2 = create_udp_association(
+    let a2 = spawn_udp_association(
         proxy_addr2,
         Auth::NoAuth,
         src2,
@@ -226,9 +276,7 @@ async fn shutdown_cancels_all_associations() {
         None,
         cancel.child_token(),
         udp_tx,
-    )
-    .await
-    .expect("association 2");
+    );
 
     let cancel1 = a1.cancel.clone();
     let cancel2 = a2.cancel.clone();
