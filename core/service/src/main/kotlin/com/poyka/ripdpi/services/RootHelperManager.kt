@@ -16,6 +16,7 @@ import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Manages the lifecycle of the root helper binary.
@@ -23,6 +24,7 @@ import javax.inject.Inject
  * When root mode is enabled, extracts the helper binary from APK assets,
  * starts it via `su`, and monitors its Unix socket for readiness.
  */
+@Singleton
 open class RootHelperManager
     @Inject
     constructor() {
