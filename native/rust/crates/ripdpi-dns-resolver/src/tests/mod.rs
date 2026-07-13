@@ -875,6 +875,36 @@ async fn doq_query_timeout_covers_stalled_response_stream() {
     assert!(err.to_string().contains("DoQ query timeout"), "expected full-query timeout, got: {err}");
 }
 
+#[tokio::test]
+async fn doq_falls_back_after_unreachable_bootstrap_ip() {
+    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+    let manifest = stack.manifest();
+    let certificate = CertificateDer::from_pem_slice(manifest.tls_certificate_pem.as_bytes()).expect("parse pem");
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doq,
+            resolver_id: Some("fixture-doq".to_string()),
+            host: manifest.fixture_domain.clone(),
+            port: manifest.dns_doq_port,
+            tls_server_name: Some(manifest.fixture_domain.clone()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2)), IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        },
+        EncryptedDnsTransport::Direct,
+        Duration::from_millis(150),
+        vec![certificate],
+    )
+    .expect("build doq resolver");
+
+    let response =
+        resolver.exchange(&build_query(&manifest.fixture_domain)).await.expect("second bootstrap IP should succeed");
+
+    assert!(!response.is_empty());
+}
+
 #[test]
 fn dnscrypt_exchange_supports_socks_transport() {
     let query = build_query("fixture.test");
