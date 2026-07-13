@@ -96,7 +96,7 @@ classpath. Native-crate dependency direction is enforced separately by
 ## 4. Native Rust artifact map
 
 The Rust workspace is at [`native/rust/`](../../native/rust/Cargo.toml) — a
-Cargo workspace of 115 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
+Cargo workspace of 116 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
 builds it via the `ripdpi.android.rust-native` convention plugin: **five** JNI
 `.so` libraries, three managed Rust helper binaries, and pluggable-transport
 assets are packaged into the APK. See

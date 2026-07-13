@@ -63,7 +63,7 @@ Every job or feature is performed in a dedicated git worktree, never directly on
 Split parallel work along crate / module boundaries (the workspace already gives you these), not across the same files from two directions. One set of files is touched by nearly every change and causes *semantic* conflicts that pass CI per-branch but break `main` once combined — assign these to a **single serialized lane**, never two parallel agents at once:
 
 - `native/rust/Cargo.lock` and `gradle/libs.versions.toml` — dependency graph.
-- `*.proto` + `EngineContract.kt` + Rust `wire.rs`, and any bump of `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` / `RelayNativeConfigSchemaVersion` (schema `8`) — the Kotlin/Rust wire contract.
+- `*.proto` + `EngineContract.kt` + Rust `wire.rs`, and any bump of `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` / `RelayNativeConfigSchemaVersion` (schema `10`) — the Kotlin/Rust wire contract.
 - the 9 `values*/strings.xml` locale sets — `MissingTranslation` parity gate.
 - `*baseline*` files and `config/static/architecture-health-baseline.json` — hook-enforced and the `architecture-delta` gate.
 - golden fixtures under `tests/golden/` / `src/test/resources/golden/` — see `.claude/rules/golden-bless-discipline.md`.
@@ -308,9 +308,9 @@ Supporting crates providing shared traits, data structures, and classification:
 
 ### Relay Ground Truth
 
-- Current relay kind strings are `off`, `vless`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`, `google_apps_script`, `snowflake`, `webtunnel`, and `obfs4`.
-- Native relay-core descriptor-backed backends are Hysteria2, TUIC v5, VLESS Reality/xHTTP, Cloudflare Tunnel consume path, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, and Tor. NaiveProxy is a subprocess fallback. WebTunnel is the in-repository Rust `ripdpi-webtunnel` PT helper binary; Snowflake and obfs4 are external PT binary paths managed by Kotlin service code. Google Apps Script uses the in-repository Apps Script runtime. WARP and AmneziaWG are separate VPN/tunnel profile surfaces.
-- `RelayNativeConfigSchemaVersion` and Rust `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are currently `8` (v6 base → v7 generalized the chain-relay section to a 2..=4 hop list → v8 removed the legacy VMess/Trojan-Go/Hysteria-v1 kinds per ADR 0004); the accepted range is `6..=8`. Bump them together only for a breaking relay native-config shape change.
+- Current relay kind strings are `off`, `vless`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`, `google_apps_script`, `snowflake`, `webtunnel`, `mieru`, `ssh`, and `obfs4`.
+- Native relay-core descriptor-backed backends are Hysteria2, TUIC v5, VLESS Reality/xHTTP, Cloudflare Tunnel consume path, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, and Tor. NaiveProxy is a subprocess fallback. WebTunnel is the in-repository Rust `ripdpi-webtunnel` PT helper binary; Snowflake and obfs4 are external PT binary paths managed by Kotlin service code. Google Apps Script uses the in-repository Apps Script runtime. WARP and AmneziaWG are separate VPN/tunnel profile surfaces.
+- `RelayNativeConfigSchemaVersion` and Rust `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are currently `10` (v6 base → v7 generalized the chain-relay section to a 2..=4 hop list → v8 removed the legacy VMess/Trojan-Go/Hysteria-v1 kinds per ADR 0004 → v10 requires explicit `tlsFingerprintProfile` on every resolved relay/chain-hop/ShadowTLS-inner config); versions `6..=9` are retired (exact-match only, no range accepted). Bump them together only for a breaking relay native-config shape change.
 - Snowflake remains the external Go `ripdpi-snowflake` binary; do not document or create native Rust Snowflake unless the no-go decision is superseded. VLESS Reality does not use real ECH; link `docs/adr/0001-reality-ech.md` for the GREASE-only policy.
 - Relay/test oracles include `local-network-fixture`, `rust-turmoil`, Chutney-gated Tor tests, relay-core descriptor/schema tests, and golden fixtures. Use `RIPDPI_BLESS_GOLDENS=1` only intentionally and under the golden bless discipline.
 
@@ -329,7 +329,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 
 ## CI/CD
 
-- **`ci.yml`** -- PR/push: `build`, `release-verification`, `native-bloat`, `cargo-deny`, `rust-lint`, `rust-cross-check`, `rust-workspace-tests`, `gradle-static-analysis`, `rust-network-e2e`, `cli-packet-smoke`, `rust-turmoil`, `coverage`, `rust-loom`; Nightly/manual: `rust-criterion-bench`, `android-macrobenchmark`, `rust-native-soak`, `rust-native-load`, `nightly-rust-coverage`, `android-network-e2e`, `linux-tun-e2e`, `linux-tun-soak`
+- **`ci.yml`** -- PR/push: `design-md-lint`, `architecture-health`, `release-gates`, `rust-native`, `build-android-debug`, `build-android-tests`, `verify-roborazzi`, `release-verification`, `native-bloat`, `rust-miri`, `cargo-deny`, `diagnostics-probes-facade`, `rust-lint`, `rust-cross-check`, `rust-workspace-tests`, `rust-fuzz-smoke`, `runtime-api-snapshot`, `gradle-static-analysis`, `rust-network-e2e`, `relay-interoperability`, `cli-packet-smoke`, `rust-turmoil`, `coverage`, `android-instrumented-tests`, `rust-loom`; Nightly/manual: `cargo-deny-advisories`, `rust-criterion-bench`, `phase0-baseline`, `android-macrobenchmark`, `rust-native-soak`, `rust-native-load`, `nightly-rust-coverage`, `android-network-e2e`, `android-journeys`, `android-relay-emulator-smoke`, `linux-tun-e2e`, `linux-tun-soak`
 - **`codeql.yml`** -- Runs on push/PR to main plus weekly schedule: GitHub Actions CodeQL analysis; Kotlin analysis is currently disabled pending upstream support
 - **`release.yml`** -- Runs on `v*` tags: builds signed release APK, creates GitHub Release
 - **`mutation-testing.yml`** -- Weekly Rust mutation testing via cargo-mutants
@@ -344,7 +344,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 
 - detekt config: `config/detekt/detekt.yml`
 - Max line length: 120 characters
-- SDK targets: compileSdk 36, minSdk 27, targetSdk 35
+- SDK targets: compileSdk 37, minSdk 27, targetSdk 35
 - Baseline policy lives in CLAUDE.md and is hook-enforced; do not extend baselines.
 
 ### Kotlin Anti-Patterns
@@ -456,7 +456,6 @@ Additional skills in `.claude/skills/` (also accessible to Codex via `.codex/ski
 | `compose` | Compose expert guidance (state, recomposition, modifiers, navigation, theming) or scored Compose codebase audit (Performance/State/Side Effects/API Quality), generating `COMPOSE-AUDIT-REPORT.md` |
 | `desync-engine` | Working with DPI desync evasion pipeline, DesyncMode, DesyncGroup, TcpChainStep, UdpChainStep, OffsetExpr, or ActivationFilter |
 | `diagnostics-system` | Working with diagnostics scan pipeline, ScanRequest, ScanReport, ProbeTask, the `ripdpi-monitor-*` / `ripdpi-diagnostics-*` crates, strategy probes, or diagnostics catalog |
-| `legal-check` | Reviewing public docs, store listings, or UI copy for Russian VPN/circumvention advertising risk |
 | `material-3` | Material Design 3 token usage, component selection, dynamic color, layout, or accessibility guidance |
 | `memory-model` | Understanding memory ordering, writing lock-free code, using Rust atomics, or diagnosing data races on ARM64 Android |
 | `play-store-screenshots` | Creating Play Store listing assets, marketing screenshots, or feature graphics |

@@ -260,7 +260,8 @@ a deliberate follow-up rather than a mechanical refactor:
 - **Runtime readiness callback** (ADR 0003) — registered by
   `jniRegisterReadinessListener(handle: jlong, listener): jlong`, cleared by
   `jniUnregisterReadinessListener(handle: jlong)`, on `RipDpiProxyNativeBindings`,
-  `RipDpiRelayNativeBindings`, and `RipDpiWarpNativeBindings`. `listener` is a
+  `RipDpiRelayNativeBindings`, `RipDpiWarpNativeBindings`, and
+  `RipDpiAmneziaWgNativeBindings`. `listener` is a
   `RuntimeReadinessListener` whose `onRuntimeReady()V` the native runtime
   invokes **exactly once**, from the runtime thread the moment the listener
   binds (right after the `runtime_ready` telemetry event), so the Kotlin

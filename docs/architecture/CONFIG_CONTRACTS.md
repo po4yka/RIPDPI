@@ -339,7 +339,7 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
 
 **Current state.** Versioning is explicit for native-facing JSON contracts:
 
-- The **diagnostics engine** request/report/progress wire uses schema `3` on
+- The **diagnostics engine** request/report/progress wire uses schema `5` on
   both Kotlin and Rust. `schemaVersion` is required; missing, older, and future
   versions are rejected. The bundled diagnostics catalog has an independent
   schema and is not part of this engine envelope.
