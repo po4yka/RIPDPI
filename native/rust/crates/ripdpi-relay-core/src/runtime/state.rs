@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+use std::future::Future;
 use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use arc_swap::ArcSwapOption;
+use tokio::task::{AbortHandle, Id};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
@@ -13,10 +16,77 @@ use ripdpi_failure_classifier::{
     ConfirmGoodTerminalReason,
 };
 
+const SESSION_ABORT_JOIN_GRACE: std::time::Duration = std::time::Duration::from_secs(1);
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum SessionDrainOutcome {
+    Graceful,
+    Aborted,
+    AbortTimedOut,
+}
+
+#[derive(Default)]
+struct SessionTaskRegistry {
+    abort_handles: Arc<Mutex<HashMap<Id, AbortHandle>>>,
+}
+
+impl SessionTaskRegistry {
+    fn spawn<F>(&self, tracker: &TaskTracker, task: F)
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
+        let (start_tx, start_rx) = tokio::sync::oneshot::channel();
+        let abort_handles = Arc::clone(&self.abort_handles);
+        let handle = tracker.spawn(async move {
+            let Ok(id) = start_rx.await else {
+                return;
+            };
+            let _registration = SessionTaskRegistration { id, abort_handles };
+            task.await;
+        });
+        let id = handle.id();
+        self.abort_handles.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(id, handle.abort_handle());
+        if start_tx.send(id).is_err() {
+            self.abort_handles.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
+        }
+    }
+
+    fn abort_all(&self) {
+        let handles = {
+            let mut handles = self.abort_handles.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            handles.drain().map(|(_, handle)| handle).collect::<Vec<_>>()
+        };
+        for handle in handles {
+            handle.abort();
+        }
+    }
+}
+
+struct SessionTaskRegistration {
+    id: Id,
+    abort_handles: Arc<Mutex<HashMap<Id, AbortHandle>>>,
+}
+
+impl Drop for SessionTaskRegistration {
+    fn drop(&mut self) {
+        self.abort_handles.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&self.id);
+    }
+}
+
+pub(super) struct ActiveSessionGuard {
+    active_sessions: Arc<AtomicU64>,
+}
+
+impl Drop for ActiveSessionGuard {
+    fn drop(&mut self) {
+        self.active_sessions.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 pub(super) struct RuntimeState {
     stop_requested: AtomicBool,
     running: AtomicBool,
-    active_sessions: AtomicU64,
+    active_sessions: Arc<AtomicU64>,
     total_sessions: AtomicU64,
     backend: OnceLock<Arc<RelayBackend>>,
     listener_address: OnceLock<String>,
@@ -34,6 +104,7 @@ pub(super) struct RuntimeState {
     /// Tracks every spawned session task so [`RuntimeState::drain_sessions`]
     /// can join them within a bounded grace window on shutdown.
     session_tracker: TaskTracker,
+    session_tasks: SessionTaskRegistry,
 }
 
 impl RuntimeState {
@@ -41,7 +112,7 @@ impl RuntimeState {
         Self {
             stop_requested: AtomicBool::new(false),
             running: AtomicBool::new(false),
-            active_sessions: AtomicU64::new(0),
+            active_sessions: Arc::new(AtomicU64::new(0)),
             total_sessions: AtomicU64::new(0),
             backend: OnceLock::new(),
             listener_address: OnceLock::new(),
@@ -53,6 +124,7 @@ impl RuntimeState {
             confirm_good_dpi: Mutex::new(ConfirmGoodDpiAccumulator::default()),
             shutdown_token: CancellationToken::new(),
             session_tracker: TaskTracker::new(),
+            session_tasks: SessionTaskRegistry::default(),
         }
     }
 
@@ -73,11 +145,15 @@ impl RuntimeState {
         self.shutdown_token.child_token()
     }
 
-    /// A cheap (`Arc`-backed) clone of the session tracker, used by
-    /// `spawn_socks_session` to register each session task. Cloning before the
-    /// spawn avoids moving `&self`'s owner into the spawned future.
-    pub(super) fn clone_tracker(&self) -> TaskTracker {
-        self.session_tracker.clone()
+    /// Register a session future behind a start gate so its abort handle is
+    /// visible before the task can run or finish.
+    ///
+    /// cancel-safe: synchronous; no `.await` inside.
+    pub(super) fn spawn_session_task<F>(&self, task: F)
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
+        self.session_tasks.spawn(&self.session_tracker, task);
     }
 
     /// Close the tracker (so no new tasks register) and join all in-flight
@@ -85,11 +161,20 @@ impl RuntimeState {
     /// within the window, `false` if the timeout elapsed first. Idempotent:
     /// re-closing an already-closed tracker is a no-op.
     ///
-    /// cancel-safe: the only `.await` is `timeout(grace, wait())`; cancelling
-    /// it merely abandons the wait — the tracker and its tasks are unaffected.
-    pub(super) async fn drain_sessions(&self, grace: std::time::Duration) -> bool {
+    /// Not cancel-safe after the grace timeout: once forced abort begins, the
+    /// caller must keep polling this future until it reports that aborted tasks
+    /// were joined (or the bounded abort join itself timed out).
+    pub(super) async fn drain_sessions(&self, grace: std::time::Duration) -> SessionDrainOutcome {
         self.session_tracker.close();
-        tokio::time::timeout(grace, self.session_tracker.wait()).await.is_ok()
+        if tokio::time::timeout(grace, self.session_tracker.wait()).await.is_ok() {
+            return SessionDrainOutcome::Graceful;
+        }
+        self.session_tasks.abort_all();
+        if tokio::time::timeout(SESSION_ABORT_JOIN_GRACE, self.session_tracker.wait()).await.is_ok() {
+            SessionDrainOutcome::Aborted
+        } else {
+            SessionDrainOutcome::AbortTimedOut
+        }
     }
 
     pub(super) fn set_running(&self, running: bool) {
@@ -100,13 +185,10 @@ impl RuntimeState {
         self.running.load(Ordering::SeqCst)
     }
 
-    pub(super) fn start_session(&self) {
+    pub(super) fn start_session(&self) -> ActiveSessionGuard {
         self.active_sessions.fetch_add(1, Ordering::SeqCst);
         self.total_sessions.fetch_add(1, Ordering::SeqCst);
-    }
-
-    pub(super) fn finish_session(&self) {
-        self.active_sessions.fetch_sub(1, Ordering::SeqCst);
+        ActiveSessionGuard { active_sessions: Arc::clone(&self.active_sessions) }
     }
 
     pub(super) fn active_sessions(&self) -> u64 {
@@ -254,9 +336,48 @@ fn load_optional_string(slot: &ArcSwapOption<String>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
     use super::*;
+
+    struct DropSignal(Arc<AtomicBool>);
+
+    impl Drop for DropSignal {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[tokio::test]
+    async fn drain_aborts_session_that_ignores_cooperative_cancellation() {
+        let state = RuntimeState::new();
+        let dropped = Arc::new(AtomicBool::new(false));
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let task_dropped = Arc::clone(&dropped);
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(1));
+        let permit = Arc::clone(&semaphore).try_acquire_owned().expect("test permit");
+        let active_session = state.start_session();
+        state.spawn_session_task(async move {
+            let _permit = permit;
+            let _active_session = active_session;
+            let _drop_signal = DropSignal(task_dropped);
+            let _ = started_tx.send(());
+            std::future::pending::<()>().await;
+        });
+        started_rx.await.expect("tracked session started");
+
+        assert_eq!(
+            state.drain_sessions(std::time::Duration::from_millis(10)).await,
+            SessionDrainOutcome::Aborted,
+            "session must exceed grace and be force-aborted",
+        );
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "timed-out session future must be aborted and dropped before drain returns"
+        );
+        assert_eq!(state.active_sessions(), 0, "forced abort must retire active-session telemetry");
+        assert_eq!(semaphore.available_permits(), 1, "forced abort must release admission permit");
+    }
 
     #[test]
     fn target_digest_never_exposes_the_target() {
