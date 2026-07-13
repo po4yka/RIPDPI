@@ -24,6 +24,7 @@ internal class VpnEncryptedDnsFailoverState {
     var expectedPathKey: String? = null
     var pathStartQueries: Long = 0
     var pathStartFailures: Long = 0
+    var lastObservedDnsQueriesTotal: Long = 0
     var lastObservedDnsFailuresTotal: Long = 0
     var consecutiveFailureEvents: Int = 0
     var exhausted: Boolean = false
@@ -45,6 +46,7 @@ internal class VpnEncryptedDnsFailoverState {
         expectedPathKey = null
         pathStartQueries = 0
         pathStartFailures = 0
+        lastObservedDnsQueriesTotal = 0
         lastObservedDnsFailuresTotal = 0
         consecutiveFailureEvents = 0
         exhausted = false
@@ -81,6 +83,7 @@ internal class VpnEncryptedDnsFailoverController(
 
         synchronizeNetworkScope(state, networkScopeKey)
         observeResolverChange(state, currentPath, currentDnsSignature, networkScopeKey, telemetry)
+        resetRolledBackCounters(state, telemetry)
         observeSuccessfulPath(state, currentPath, networkScopeKey, telemetry)
         return failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry)
     }
@@ -118,6 +121,7 @@ internal class VpnEncryptedDnsFailoverController(
         state.currentDnsSignature = currentDnsSignature
         state.pathStartQueries = telemetry.dnsQueriesTotal
         state.pathStartFailures = telemetry.dnsFailuresTotal
+        state.lastObservedDnsQueriesTotal = telemetry.dnsQueriesTotal
         state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
         state.consecutiveFailureEvents = 0
         state.currentPathSelectedByFailover = controllerActivatedPath
@@ -125,6 +129,25 @@ internal class VpnEncryptedDnsFailoverController(
         state.attemptedPathKeys += currentPathKey
         state.expectedPathKey = null
         log.d { "resolver changed pathKey=$currentPathKey attempts=${state.attemptedPathKeys.size}" }
+    }
+
+    private fun resetRolledBackCounters(
+        state: VpnEncryptedDnsFailoverState,
+        telemetry: NativeRuntimeSnapshot,
+    ) {
+        val countersRolledBack =
+            telemetry.dnsQueriesTotal < state.lastObservedDnsQueriesTotal ||
+                telemetry.dnsFailuresTotal < state.lastObservedDnsFailuresTotal
+        state.lastObservedDnsQueriesTotal = telemetry.dnsQueriesTotal
+        if (!countersRolledBack) return
+
+        log.i {
+            "dns counters restarted at queries=${telemetry.dnsQueriesTotal}, failures=${telemetry.dnsFailuresTotal}"
+        }
+        state.pathStartQueries = telemetry.dnsQueriesTotal
+        state.pathStartFailures = telemetry.dnsFailuresTotal
+        state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
+        state.consecutiveFailureEvents = 0
     }
 
     private suspend fun reloadNetworkPreferences(
