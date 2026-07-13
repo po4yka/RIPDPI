@@ -107,7 +107,7 @@ class LocationSignalsCheckerTest {
     }
 
     @Test
-    fun `beacondb country extracted from valid response`() {
+    fun `radio candidates remain local aggregate counts`() {
         val result =
             LocationSignalsChecker.evaluate(
                 LocationSnapshot(
@@ -120,15 +120,15 @@ class LocationSignalsCheckerTest {
                     bssid = null,
                     phonePermissionGranted = true,
                     locationPermissionGranted = true,
-                    beaconDbCountryIso = "RU",
                     cellTowerCandidatesCount = 3,
                     wifiAccessPointCandidatesCount = 2,
                 ),
             )
 
         assertFalse(result.needsReview)
-        assertTrue(result.findings.any { it.description == "location_country_ru:true" })
-        assertTrue(result.findings.any { it.description == "cell_country_ru:true" })
+        assertTrue(result.findings.any { it.description == "Cell lookup candidates: 3" })
+        assertTrue(result.findings.any { it.description == "Wi-Fi scan candidates: 2" })
+        assertFalse(result.findings.any { it.description.contains("BeaconDB") })
     }
 
     @Test
@@ -149,28 +149,6 @@ class LocationSignalsCheckerTest {
             )
 
         assertTrue(result.findings.any { it.description == "home_routed_roaming:true" })
-    }
-
-    @Test
-    fun `beacondb failure does not fail checker`() {
-        val result =
-            LocationSignalsChecker.evaluate(
-                LocationSnapshot(
-                    networkMcc = "250",
-                    networkCountryIso = "ru",
-                    networkOperatorName = "MTS",
-                    simMcc = "250",
-                    simCountryIso = "ru",
-                    isRoaming = false,
-                    bssid = null,
-                    phonePermissionGranted = true,
-                    locationPermissionGranted = true,
-                    beaconDbLookupSummary = "BeaconDB: request failed",
-                ),
-            )
-
-        assertFalse(result.needsReview)
-        assertTrue(result.findings.any { it.description == "BeaconDB: request failed" })
     }
 
     @Test
@@ -216,27 +194,5 @@ class LocationSignalsCheckerTest {
 
         assertTrue(result.findings.any { it.description == "BSSID: unavailable" })
         assertFalse(result.findings.any { it.description == "BSSID: present" })
-    }
-
-    @Test
-    fun `beacondb country mismatch is separate finding`() {
-        val result =
-            LocationSignalsChecker.evaluate(
-                LocationSnapshot(
-                    networkMcc = "262",
-                    networkCountryIso = "de",
-                    networkOperatorName = "T-Mobile",
-                    simMcc = "262",
-                    simCountryIso = "de",
-                    isRoaming = false,
-                    bssid = null,
-                    phonePermissionGranted = true,
-                    locationPermissionGranted = true,
-                    beaconDbCountryIso = "RU",
-                ),
-            )
-
-        assertTrue(result.needsReview)
-        assertTrue(result.findings.any { it.description.contains("Location country mismatch") })
     }
 }

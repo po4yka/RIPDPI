@@ -1,7 +1,7 @@
 ---
 title: "Prevent detection radio identifier upload"
 type: task
-status: doing
+status: review
 area: android
 priority: critical
 owner: Codex
@@ -21,3 +21,9 @@ Keep raw BSSID and cell identifiers on device unless a separately informed and e
 - A regression test proves a normal detection run does not send BSSID or cell IDs to BeaconDB.
 - Detection retains useful local signals without leaking raw radio identifiers.
 - `:core:detection:testDebugUnitTest` passes.
+
+## Work log
+
+- Removed the BeaconDB request path and endpoint from production code; detection now retains only local aggregate candidate counts.
+- Added regression coverage that local radio candidate findings contain no BeaconDB result.
+- Verified with `./gradlew :core:detection:testDebugUnitTest -Pripdpi.skipNativeBuild=true --console=plain`.
