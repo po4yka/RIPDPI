@@ -44,19 +44,27 @@ pub struct ScopedHandle<T, F: FreeFunction<T>> {
     // trait marker that names which C free function `Drop` will call;
     // `PhantomData<F>` is the only way to carry the type at the type
     // level without an instance. The marker has no ownership over `F`
-    // (drop-check sees no `F` value); Send/Sync are gated by the
-    // explicit `unsafe impl Send` below plus the absence of an
-    // `unsafe impl Sync`.
+    // (drop-check sees no `F` value). The wrapper intentionally remains
+    // `!Send + !Sync`: `FreeFunction` does not promise that destruction may
+    // move away from the thread that created the foreign handle.
     _phantom: std::marker::PhantomData<F>,
 }
 
-// SAFETY: ScopedHandle hands its pointer to a C-side free function.
-// For refcount-managed FFI handles in the BoringSSL family, the free
-// function is documented as thread-safe (atomic refcount decrement).
-// The wrapper itself does not dereference the pointer. Send is sound
-// when `T: Send`; consumers that need Sync must provide it via
-// interior-synchronisation on the FFI side.
-unsafe impl<T: Send, F: FreeFunction<T>> Send for ScopedHandle<T, F> {}
+const _: fn() = || {
+    struct Check<T>(std::marker::PhantomData<T>);
+    trait AmbiguousIfSend<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfSend<()> for Check<T> {}
+    impl<T: Send> AmbiguousIfSend<u8> for Check<T> {}
+
+    <Check<ScopedHandle<u8, ThreadAffineFree>> as AmbiguousIfSend<_>>::check();
+
+    struct ThreadAffineFree;
+    impl FreeFunction<u8> for ThreadAffineFree {
+        unsafe fn free(_: *mut u8) {}
+    }
+};
 
 impl<T, F: FreeFunction<T>> ScopedHandle<T, F> {
     /// Construct from a non-null raw pointer. Returns `None` for
