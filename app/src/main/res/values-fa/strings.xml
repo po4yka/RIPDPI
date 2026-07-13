@@ -3320,6 +3320,7 @@ fakeddisorder endhost</string>
     <string name="backup_restore_success">پشتیبان بازیابی شد</string>
     <string name="backup_restore_unsupported_version">این پشتیبان (نسخه %1$d) جدیدتر از چیزی است که این برنامه پشتیبانی می‌کند (نسخه %2$d)</string>
     <string name="backup_restore_malformed">این فایل یک پشتیبان معتبر نیست</string>
+    <string name="backup_restore_integrity_failure">یکپارچگی داده‌ها پس از بازیابی تضمین نشد. برنامه را دوباره راه‌اندازی کنید و نمایه‌ها را بررسی کنید.</string>
     <string name="backup_restore_nothing_selected">حداقل یک دسته برای بازیابی انتخاب کنید</string>
     <string name="backup_import_preview_title">بررسی پشتیبان</string>
     <string name="backup_import_preview_schema">پشتیبان نسخه %1$d، ساخته‌شده توسط برنامه %2$s</string>

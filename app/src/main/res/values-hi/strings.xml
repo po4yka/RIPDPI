@@ -1879,4 +1879,5 @@ fakeddisorder endhost</string>
     <string name="diagnostics_sparkline_previous_sample">पिछला नमूना</string>
     <string name="diagnostics_sparkline_next_sample">अगला नमूना</string>
     <string name="diagnostics_sparkline_clear_selection">चयन हटाएँ</string>
+    <string name="backup_restore_integrity_failure">पुनर्स्थापना के बाद डेटा की अखंडता की गारंटी नहीं दी जा सकी। ऐप को पुनः आरंभ करें और अपनी प्रोफ़ाइलों की जाँच करें।</string>
 </resources>

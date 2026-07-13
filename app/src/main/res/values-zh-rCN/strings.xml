@@ -3306,6 +3306,7 @@ fake_burst 3</string>
     <string name="backup_restore_success">备份已恢复</string>
     <string name="backup_restore_unsupported_version">此备份（版本 %1$d）比本应用支持的版本（版本 %2$d）更新</string>
     <string name="backup_restore_malformed">此文件不是有效的备份</string>
+    <string name="backup_restore_integrity_failure">恢复后无法保证数据完整性。请重启应用并检查您的配置文件。</string>
     <string name="backup_restore_nothing_selected">请至少选择一个要恢复的类别</string>
     <string name="backup_import_preview_title">查看备份</string>
     <string name="backup_import_preview_schema">备份版本 %1$d，由应用 %2$s 创建</string>

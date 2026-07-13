@@ -3315,6 +3315,7 @@ Source : %2$s</string>
     <string name="backup_restore_success">Sauvegarde restaurée</string>
     <string name="backup_restore_unsupported_version">Cette sauvegarde (version %1$d) est plus récente que ce que l’application prend en charge (version %2$d)</string>
     <string name="backup_restore_malformed">Ce fichier n’est pas une sauvegarde valide</string>
+    <string name="backup_restore_integrity_failure">L’intégrité des données n’a pas pu être garantie après la restauration. Redémarrez l’application et vérifiez vos profils.</string>
     <string name="backup_restore_nothing_selected">Sélectionnez au moins une catégorie à restaurer</string>
     <string name="backup_import_preview_title">Vérifier la sauvegarde</string>
     <string name="backup_import_preview_schema">Sauvegarde version %1$d, créée par l’application %2$s</string>

@@ -202,6 +202,7 @@ private fun RestoreResult.toEffect(): BackupRestoreEffect =
         is RestoreResult.Success -> BackupRestoreEffect.Restored
         is RestoreResult.UnsupportedVersion -> BackupRestoreEffect.UnsupportedVersion(found, supported)
         is RestoreResult.Aborted -> BackupRestoreEffect.Malformed
+        is RestoreResult.IntegrityFailure -> BackupRestoreEffect.IntegrityFailure
         RestoreResult.NothingSelected -> BackupRestoreEffect.NothingSelected
     }
 

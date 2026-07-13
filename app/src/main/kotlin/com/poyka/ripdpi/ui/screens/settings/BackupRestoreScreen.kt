@@ -363,6 +363,7 @@ private fun BackupRestoreEffectHandler(
 ) {
     val restoredMessage = stringResource(R.string.backup_restore_success)
     val malformedMessage = stringResource(R.string.backup_restore_malformed)
+    val integrityFailureMessage = stringResource(R.string.backup_restore_integrity_failure)
     val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
     val unsupportedVersionTemplate = stringResource(R.string.backup_restore_unsupported_version)
     BackupEffectCollector(flow) { effect ->
@@ -394,6 +395,13 @@ private fun BackupRestoreEffectHandler(
                 )
             }
 
+            BackupRestoreEffect.IntegrityFailure -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = integrityFailureMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+            }
             BackupRestoreEffect.NothingSelected -> {
                 snackbarHostState.showRipDpiSnackbar(
                     message = nothingSelectedMessage,

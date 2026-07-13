@@ -396,7 +396,7 @@ class BackupImportCoordinatorTest {
         }
 
     @Test
-    fun `confirmRestore exception clears restoring and emits Malformed`() =
+    fun `confirmRestore surfaces compensation failure as integrity failure`() =
         runTest(StandardTestDispatcher()) {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val repository =
@@ -412,7 +412,7 @@ class BackupImportCoordinatorTest {
 
             assertFalse(h.state.value.restoring)
             assertNull(h.state.value.importPreview)
-            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.IntegrityFailure), h.restoreEffects)
         }
 
     @Test

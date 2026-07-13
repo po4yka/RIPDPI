@@ -56,9 +56,11 @@ sealed interface BackupRestoreEffect {
         val supported: Int,
     ) : BackupRestoreEffect
 
-    /** The file was malformed, unreadable, or failed an integrity check. */
+    /** The file was malformed or unreadable before live data changed. */
     data object Malformed : BackupRestoreEffect
 
+    /** Restore and compensation both failed, so live-store integrity is not guaranteed. */
+    data object IntegrityFailure : BackupRestoreEffect
     /** The user picked a file but selected no categories to restore. */
     data object NothingSelected : BackupRestoreEffect
 }

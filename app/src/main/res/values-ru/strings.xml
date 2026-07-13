@@ -3454,6 +3454,7 @@ fakeddisorder endhost</string>
     <string name="backup_restore_success">Резервная копия восстановлена</string>
     <string name="backup_restore_unsupported_version">Эта копия (версия %1$d) новее, чем поддерживает приложение (версия %2$d)</string>
     <string name="backup_restore_malformed">Этот файл не является корректной резервной копией</string>
+    <string name="backup_restore_integrity_failure">После восстановления не удалось гарантировать целостность данных. Перезапустите приложение и проверьте профили.</string>
     <string name="backup_restore_nothing_selected">Выберите хотя бы одну категорию для восстановления</string>
     <string name="backup_import_preview_title">Просмотр копии</string>
     <string name="backup_import_preview_schema">Версия копии %1$d, создана приложением %2$s</string>

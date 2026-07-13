@@ -124,6 +124,12 @@ sealed interface RestoreResult {
     data class Aborted(
         val reason: String,
     ) : RestoreResult
+
+    /** A commit failed and at least one compensating write also failed, leaving integrity uncertain. */
+    data class IntegrityFailure(
+        val commitFailure: String,
+        val rollbackFailures: List<String>,
+    ) : RestoreResult
 }
 
 /**
@@ -289,20 +295,20 @@ class BackupRestoreUseCase
             val progress = RestoreCommitProgress()
             return try {
                 staged.privateData?.let {
-                    privateDataStore.replaceAll(it)
                     progress.privateData = true
+                    privateDataStore.replaceAll(it)
                 }
                 staged.groups?.let {
-                    groupRepository.replaceAll(it)
                     progress.groups = true
+                    groupRepository.replaceAll(it)
                 }
                 staged.rules?.let {
-                    ruleDao.replaceAll(it)
                     progress.rules = true
+                    ruleDao.replaceAll(it)
                 }
                 staged.settings?.let {
-                    settingsRepository.replace(it)
                     progress.settings = true
+                    settingsRepository.replace(it)
                 }
 
                 Log.i(
@@ -312,12 +318,25 @@ class BackupRestoreUseCase
                 )
                 RestoreResult.Success(restartRequired = true)
             } catch (cancelled: CancellationException) {
-                withContext(NonCancellable) { rollback(preimage, progress, cancelled) }
+                withContext(NonCancellable) { rollback(preimage, progress) }
+                    .filterNot { rollbackFailure -> rollbackFailure === cancelled }
+                    .forEach(cancelled::addSuppressed)
                 throw cancelled
             } catch (failure: Exception) {
-                rollback(preimage, progress, failure)
-                Log.w(LogTag, "Backup restore commit failed and was compensated: ${failure::class.simpleName}")
-                RestoreResult.Aborted(reason = failure::class.simpleName.orEmpty())
+                val rollbackFailures = withContext(NonCancellable) { rollback(preimage, progress) }
+                rollbackFailures
+                    .filterNot { rollbackFailure -> rollbackFailure === failure }
+                    .forEach(failure::addSuppressed)
+                if (rollbackFailures.isEmpty()) {
+                    Log.w(LogTag, "Backup restore commit failed and was compensated: ${failure::class.simpleName}")
+                    RestoreResult.Aborted(reason = failure::class.simpleName.orEmpty())
+                } else {
+                    Log.e(LogTag, "Backup restore compensation failed after ${failure::class.simpleName}")
+                    RestoreResult.IntegrityFailure(
+                        commitFailure = failure::class.simpleName.orEmpty(),
+                        rollbackFailures = rollbackFailures.map { it::class.simpleName.orEmpty() },
+                    )
+                }
             }
         }
 
@@ -333,13 +352,14 @@ class BackupRestoreUseCase
         private suspend fun rollback(
             preimage: RestorePreimage,
             progress: RestoreCommitProgress,
-            originalFailure: Exception,
-        ) {
+        ): List<Exception> {
+            val failures = mutableListOf<Exception>()
+
             suspend fun compensate(block: suspend () -> Unit) {
                 try {
                     block()
                 } catch (rollbackFailure: Exception) {
-                    originalFailure.addSuppressed(rollbackFailure)
+                    failures += rollbackFailure
                 }
             }
 
@@ -347,6 +367,7 @@ class BackupRestoreUseCase
             if (progress.rules) compensate { ruleDao.replaceAll(requireNotNull(preimage.rules)) }
             if (progress.groups) compensate { groupRepository.replaceAll(requireNotNull(preimage.groups)) }
             if (progress.privateData) compensate { privateDataStore.replaceAll(requireNotNull(preimage.privateData)) }
+            return failures
         }
 
         private suspend fun stageSafely(

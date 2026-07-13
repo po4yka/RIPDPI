@@ -3196,6 +3196,7 @@ fakeddisorder endhost</string>
     <string name="backup_restore_success">تمت استعادة النسخة الاحتياطية</string>
     <string name="backup_restore_unsupported_version">هذه النسخة الاحتياطية (الإصدار %1$d) أحدث مما يدعمه هذا التطبيق (الإصدار %2$d)</string>
     <string name="backup_restore_malformed">هذا الملف ليس نسخة احتياطية صالحة</string>
+    <string name="backup_restore_integrity_failure">تعذّر ضمان سلامة البيانات بعد الاستعادة. أعد تشغيل التطبيق وراجع ملفاتك الشخصية.</string>
     <string name="backup_restore_nothing_selected">حدد فئة واحدة على الأقل للاستعادة</string>
     <string name="backup_import_preview_title">مراجعة النسخة الاحتياطية</string>
     <string name="backup_import_preview_schema">نسخة احتياطية الإصدار %1$d، أنشأها التطبيق %2$s</string>

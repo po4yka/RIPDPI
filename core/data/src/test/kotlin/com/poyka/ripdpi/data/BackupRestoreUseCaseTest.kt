@@ -25,16 +25,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.coroutines.cancellation.CancellationException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -103,6 +106,33 @@ class BackupRestoreUseCaseTest {
         settingsRepository = settings,
         privateDataStore = privateDataStore,
     )
+
+    private fun settingsWithPort(port: Int): AppSettings =
+        AppSettings
+            .getDefaultInstance()
+            .toBuilder()
+            .setProxyPort(port)
+            .build()
+
+    private suspend fun restoreSettings(
+        settings: FakeAppSettingsRepository,
+        targetPort: Int,
+    ): RestoreResult {
+        val document =
+            BackupExporter.export(
+                variant = BackupVariant.FULL,
+                profiles = emptyList(),
+                groups = emptyList(),
+                rules = emptyList(),
+                settings = BackupSettingsConverter.toMap(settingsWithPort(targetPort), BackupVariant.FULL),
+                createdAtEpochMillis = 0L,
+                appVersion = "1.0.0",
+            )
+        return restoreUseCase(FakeGroupRepository(mutableListOf()), settings).restore(
+            BackupSerializer.encodeToString(document),
+            RestoreSelection(profilesAndGroups = false, routes = false, settings = true),
+        )
+    }
 
     @Test
     fun `absent settings snapshot leaves live settings unchanged`() =
@@ -190,6 +220,61 @@ class BackupRestoreUseCaseTest {
                     .name,
             )
             assertEquals(1111, liveSettings.snapshot().proxyPort)
+        }
+
+    @Test
+    fun `write then throw is compensated from the captured settings preimage`() =
+        runTest {
+            val liveSettings =
+                FakeAppSettingsRepository(
+                    current = settingsWithPort(1111),
+                    failAfterReplace = true,
+                )
+
+            val result = restoreSettings(liveSettings, targetPort = 9999)
+
+            assertTrue(result is RestoreResult.Aborted)
+            assertEquals(1111, liveSettings.snapshot().proxyPort)
+            assertEquals(2, liveSettings.replaceCalls)
+        }
+
+    @Test
+    fun `cancellation compensates in a non cancellable context and remains cancellation`() =
+        runTest {
+            val liveSettings =
+                FakeAppSettingsRepository(
+                    current = settingsWithPort(1111),
+                    cancelAfterReplace = true,
+                )
+
+            val cancellation =
+                try {
+                    restoreSettings(liveSettings, targetPort = 9999)
+                    null
+                } catch (caught: CancellationException) {
+                    caught
+                }
+
+            assertNotNull(cancellation)
+            assertEquals(1111, liveSettings.snapshot().proxyPort)
+            assertTrue(liveSettings.rollbackWasActive)
+        }
+
+    @Test
+    fun `rollback failure reports integrity failure`() =
+        runTest {
+            val liveSettings =
+                FakeAppSettingsRepository(
+                    current = settingsWithPort(1111),
+                    failAfterReplace = true,
+                    failRollback = true,
+                )
+
+            val result = restoreSettings(liveSettings, targetPort = 9999)
+
+            assertTrue(result is RestoreResult.IntegrityFailure)
+            assertEquals(9999, liveSettings.snapshot().proxyPort)
+            assertEquals(1, (result as RestoreResult.IntegrityFailure).rollbackFailures.size)
         }
 
     @Test
@@ -523,6 +608,7 @@ class BackupRestoreUseCaseTest {
         private val failOnReplace: Boolean = false,
     ) : ProxyGroupRepository {
         private val state = MutableStateFlow(groups.toList())
+        private var replaceCalls = 0
 
         override suspend fun add(group: ProxyGroup) {
             groups.removeAll { it.id == group.id }
@@ -544,7 +630,8 @@ class BackupRestoreUseCaseTest {
         override suspend fun list(): List<ProxyGroup> = groups.toList()
 
         override suspend fun replaceAll(groups: List<ProxyGroup>) {
-            check(!failOnReplace) { "group replace failed" }
+            replaceCalls += 1
+            check(!failOnReplace || replaceCalls > 1) { "group replace failed" }
             this.groups.clear()
             this.groups.addAll(groups)
             state.value = this.groups.toList()
@@ -556,9 +643,14 @@ class BackupRestoreUseCaseTest {
     private class FakeAppSettingsRepository(
         current: AppSettings = AppSettings.getDefaultInstance(),
         private val failOnReplace: Boolean = false,
+        private val failAfterReplace: Boolean = false,
+        private val failRollback: Boolean = false,
+        private val cancelAfterReplace: Boolean = false,
     ) : AppSettingsRepository {
         private val state = MutableStateFlow(current)
         var replaceCalls: Int = 0
+            private set
+        var rollbackWasActive: Boolean = false
             private set
 
         override val settings: Flow<AppSettings> = state.asStateFlow()
@@ -575,7 +667,15 @@ class BackupRestoreUseCaseTest {
 
         override suspend fun replace(settings: AppSettings) {
             replaceCalls += 1
-            check(!failOnReplace) { "settings replace failed" }
+            if (replaceCalls > 1) {
+                rollbackWasActive = kotlinx.coroutines.currentCoroutineContext().isActive
+                check(!failRollback) { "settings rollback failed" }
+            }
+            if (replaceCalls == 1 && (failAfterReplace || cancelAfterReplace)) {
+                state.value = settings
+            }
+            if (replaceCalls == 1 && cancelAfterReplace) throw CancellationException("settings cancelled")
+            check(replaceCalls != 1 || (!failOnReplace && !failAfterReplace)) { "settings replace failed" }
             state.value = settings
         }
     }
