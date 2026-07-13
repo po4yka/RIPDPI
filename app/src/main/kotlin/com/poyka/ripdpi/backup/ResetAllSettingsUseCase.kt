@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.rules.RuleDao
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val LogTag = "ResetAllSettings"
@@ -53,32 +55,33 @@ class ResetAllSettingsUseCase
          * Performs the full wipe. Telemetry is recorded first; each subsequent store
          * is wiped independently. On success the caller restarts the process.
          */
-        suspend fun reset() {
-            val settingsBeforeReset = settingsRepository.snapshot()
-            // 1. Telemetry BEFORE the wipe, to a store outside the wipe set.
-            resetEventRecorder.recordResetInitiated()
+        suspend fun reset() =
+            withContext(NonCancellable) {
+                val settingsBeforeReset = settingsRepository.snapshot()
+                // 1. Telemetry BEFORE the wipe, to a store outside the wipe set.
+                resetEventRecorder.recordResetInitiated()
 
-            // 2. Groups + embedded profiles (covers ProxyEntity / ProxyGroup / Subscription).
-            groupRepository.replaceAll(emptyList())
+                // 2. Groups + embedded profiles (covers ProxyEntity / ProxyGroup / Subscription).
+                groupRepository.replaceAll(emptyList())
 
-            // 3. Routing rules.
-            ruleDao.deleteAll()
+                // 3. Routing rules.
+                ruleDao.deleteAll()
 
-            // 4. Separate profile/credential stores and their durable pointers.
-            userProfileResetStore.clearAll()
+                // 4. Separate profile/credential stores and their durable pointers.
+                userProfileResetStore.clearAll()
 
-            // 5. User settings back to the same canonical defaults as a clean install.
-            settingsRepository.replace(AppSettingsSerializer.defaultValue)
+                // 5. User settings back to the same canonical defaults as a clean install.
+                settingsRepository.replace(AppSettingsSerializer.defaultValue)
 
-            // 6. Diagnostics user-history tables (catalog/pack versions retained).
-            diagnosticsHistoryResetStore.clearRuntimeHistory()
+                // 6. Diagnostics user-history tables (catalog/pack versions retained).
+                diagnosticsHistoryResetStore.clearRuntimeHistory()
 
-            // 7. User-owned files and preference stores outside DataStore.
-            userArtifactResetStore.clearAll(settingsBeforeReset)
+                // 7. User-owned files and preference stores outside DataStore.
+                userArtifactResetStore.clearAll(settingsBeforeReset)
 
-            // 8. Cache directories.
-            cacheDirectoryCleaner.clearCaches()
+                // 8. Cache directories.
+                cacheDirectoryCleaner.clearCaches()
 
-            Log.i(LogTag, "Reset complete: all user stores wiped; restart pending")
-        }
+                Log.i(LogTag, "Reset complete: all user stores wiped; restart pending")
+            }
     }

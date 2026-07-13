@@ -1,7 +1,7 @@
 ---
 title: "Make reset noncancellable after start"
 type: task
-status: todo
+status: review
 area: data
 priority: critical
 owner: Codex
@@ -21,3 +21,8 @@ Once destructive reset starts, complete the erasure despite caller or `viewModel
 - A cancellation test proves all reset phases complete after cancellation.
 - UI completion is delivered only if its owner remains active, without interrupting erasure.
 - Focused app reset tests pass.
+
+## Work log
+
+- Wrapped the full destructive reset transaction in `NonCancellable`; caller cancellation can suppress UI completion but cannot leave a partially wiped device.
+- Added a gate-controlled cancellation test that cancels during rule deletion and verifies every later phase still completes.

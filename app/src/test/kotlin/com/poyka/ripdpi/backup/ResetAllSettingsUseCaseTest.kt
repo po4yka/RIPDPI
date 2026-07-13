@@ -11,11 +11,13 @@ import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -145,6 +147,44 @@ class ResetAllSettingsUseCaseTest {
             assertFalse(recorder.hasPendingResetEvent())
         }
 
+    @Test
+    fun `reset completes destructive phases after caller cancellation`() =
+        runTest {
+            val deleteStarted = CompletableDeferred<Unit>()
+            val continueDelete = CompletableDeferred<Unit>()
+            val profileData = FakeUserProfileResetStore()
+            val diagnostics = FakeDiagnosticsHistoryResetStore()
+            val artifacts = FakeUserArtifactResetStore()
+            val caches = FakeCacheDirectoryCleaner()
+            val job =
+                backgroundScope.launch {
+                    useCase(
+                        recorder = FakeResetEventRecorder(),
+                        groups = FakeGroupRepository(mutableListOf(sampleGroup)),
+                        rules =
+                            FakeRuleDao(1) {
+                                deleteStarted.complete(Unit)
+                                continueDelete.await()
+                            },
+                        settings = FakeAppSettingsRepository(),
+                        profileData = profileData,
+                        diagnostics = diagnostics,
+                        caches = caches,
+                        artifacts = artifacts,
+                    ).reset()
+                }
+
+            deleteStarted.await()
+            job.cancel()
+            continueDelete.complete(Unit)
+            job.join()
+
+            assertEquals(1, profileData.clearCalls)
+            assertEquals(1, diagnostics.clearCalls)
+            assertEquals(1, artifacts.clearCalls)
+            assertEquals(1, caches.clearCalls)
+        }
+
     // -- Fakes ----------------------------------------------------------------
 
     private class FakeResetEventRecorder : ResetEventRecorder {
@@ -271,6 +311,7 @@ class ResetAllSettingsUseCaseTest {
      */
     private class FakeRuleDao(
         initialRowCount: Int,
+        private val beforeDelete: suspend () -> Unit = {},
     ) : RuleDao() {
         var rowCount: Int = initialRowCount
             private set
@@ -278,6 +319,7 @@ class ResetAllSettingsUseCaseTest {
             private set
 
         override suspend fun deleteAll() {
+            beforeDelete()
             deleteAllCalls++
             rowCount = 0
         }
