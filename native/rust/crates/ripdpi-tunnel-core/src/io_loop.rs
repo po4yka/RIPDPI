@@ -54,6 +54,10 @@ const PUMP_CHUNK: usize = 4096;
 const DEFAULT_POLL_DELAY_MS: u64 = 50;
 const DNS_QUEUE_CAPACITY: usize = 256;
 
+/// Maximum number of ready items one phase may process before yielding to the
+/// remaining phases and the runtime cancellation check.
+const IO_PHASE_WORK_BUDGET: usize = 64;
+
 /// Timeout for pending LISTEN sockets that never complete the handshake.
 const PENDING_LISTEN_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -138,6 +142,9 @@ pub async fn io_loop_task(
     let mut state = setup_io_loop(device, iface, socket_set, sessions, config, cancel, stats, dns_cache)?;
 
     loop {
+        if state.cancel.is_cancelled() {
+            break;
+        }
         phases::drain_tun(tun, &mut state).await;
         phases::drain_dns(&mut state);
         phases::poll_smoltcp(&mut state);
@@ -145,9 +152,13 @@ pub async fn io_loop_task(
         phases::emit_loss_sample(&mut state);
         phases::admit_tcp_sessions(&mut state);
         phases::pump_bridges(&mut state).await;
-        phases::flush_tun(tun, &mut state).await?;
+        let tx_pending = match phases::flush_tun(tun, &mut state).await? {
+            bridge::TunFlushOutcome::Drained => false,
+            bridge::TunFlushOutcome::Pending => true,
+            bridge::TunFlushOutcome::Cancelled => break,
+        };
 
-        if matches!(wait_for_next_event(tun, &mut state).await, WaitOutcome::Cancelled) {
+        if matches!(wait_for_next_event(tun, &mut state, tx_pending).await, WaitOutcome::Cancelled) {
             break;
         }
     }

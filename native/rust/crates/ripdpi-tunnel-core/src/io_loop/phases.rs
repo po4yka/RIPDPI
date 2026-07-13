@@ -5,18 +5,16 @@ use smoltcp::time::Instant;
 use tracing::warn;
 use tun_rs::AsyncDevice;
 
-use super::bridge::{flush_device_tx_queue, pump_active_sessions};
+use super::bridge::{TunFlushOutcome, flush_device_tx_queue, pump_active_sessions};
 use super::dns_intercept::drain_dns_responses;
 use super::routing::route_tun_packet;
 use super::state::LoopState;
 use super::tcp_accept::{gc_stale_pending_listens, spawn_new_tcp_sessions};
-use super::{LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
+use super::{IO_PHASE_WORK_BUDGET, LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
 
 /// Keep one busy TUN producer from monopolising the single-owner io loop. The
 /// cap matches the existing maximum TUN write batch, keeping packet work
 /// symmetric while guaranteeing every tick reaches timers and cancellation.
-const TUN_DRAIN_PACKET_BUDGET: usize = 64;
-
 pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopState) {
     drain_tun_with(state, |buffer| tun.try_recv(buffer));
 }
@@ -25,7 +23,7 @@ fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::
     let mut tun_read_buf = std::mem::take(&mut state.tun_read_buf);
     let mut drained = 0;
 
-    while drained < TUN_DRAIN_PACKET_BUDGET {
+    while drained < IO_PHASE_WORK_BUDGET {
         let n = match recv(&mut tun_read_buf) {
             Ok(0) => break,
             Ok(n) => n,
@@ -112,10 +110,16 @@ pub(in crate::io_loop) async fn pump_bridges(state: &mut LoopState) {
     pump_active_sessions(&mut state.socket_set, &mut state.sessions, &mut state.dns_cache).await;
 }
 
-pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopState) -> io::Result<()> {
-    flush_device_tx_queue(tun, &state.stats, &mut state.device, &mut state.runtime.tun_ingress_interceptor)
-        .await
-        .map_err(|e| io::Error::other(format!("flush TUN tx queue: {e}")))
+pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopState) -> io::Result<TunFlushOutcome> {
+    flush_device_tx_queue(
+        tun,
+        &state.stats,
+        &mut state.device,
+        &mut state.runtime.tun_ingress_interceptor,
+        &state.cancel,
+    )
+    .await
+    .map_err(|e| io::Error::other(format!("flush TUN tx queue: {e}")))
 }
 
 #[cfg(test)]
@@ -181,9 +185,9 @@ mod tests {
             Ok(packet.len())
         });
 
-        assert_eq!(drained, TUN_DRAIN_PACKET_BUDGET);
-        assert_eq!(reads, TUN_DRAIN_PACKET_BUDGET);
-        assert_eq!(state.stats.tx_packets.load(Ordering::Relaxed), TUN_DRAIN_PACKET_BUDGET as u64);
+        assert_eq!(drained, IO_PHASE_WORK_BUDGET);
+        assert_eq!(reads, IO_PHASE_WORK_BUDGET);
+        assert_eq!(state.stats.tx_packets.load(Ordering::Relaxed), IO_PHASE_WORK_BUDGET as u64);
     }
 
     #[tokio::test]
