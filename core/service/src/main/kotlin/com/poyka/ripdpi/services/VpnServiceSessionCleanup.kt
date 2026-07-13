@@ -36,10 +36,7 @@ internal class VpnServiceSessionCleanup {
         destroyCoordinator: () -> Unit,
         cleanupSocketProtection: () -> Unit,
     ) {
-        try {
-            stopRuntime()
-        } finally {
-            destroySession(destroyCoordinator, cleanupSocketProtection)
-        }
+        stopRuntime()
+        destroySession(destroyCoordinator, cleanupSocketProtection)
     }
 }

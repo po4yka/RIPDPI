@@ -77,7 +77,7 @@ class VpnServiceSessionCleanupTest {
         }
 
     @Test
-    fun runtimeStopFailureStillRemovesSocketProtectionLast() =
+    fun runtimeStopFailureKeepsSocketProtectionRegistered() =
         runTest {
             val calls = mutableListOf<String>()
             val cleanup = VpnServiceSessionCleanup()
@@ -100,10 +100,7 @@ class VpnServiceSessionCleanupTest {
                 }
 
             assertTrue(result.isFailure)
-            assertEquals(
-                listOf("runtime-stop", "runtime-destroy", "protect-unregister", "protect-stop"),
-                calls,
-            )
+            assertEquals(listOf("runtime-stop"), calls)
         }
 
     @Test

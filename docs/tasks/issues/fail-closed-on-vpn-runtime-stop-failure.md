@@ -1,7 +1,7 @@
 ---
 title: "Fail closed on VPN runtime stop failure"
 type: task
-status: todo
+status: review
 area: vpn
 priority: critical
 owner: Codex
@@ -21,3 +21,9 @@ Do not publish `Disconnected`, call `stopSelf`, or remove socket protection whil
 - Fault injection reproduces a runtime stop failure.
 - Failure state remains observable and protect cleanup is deferred until runtime termination is confirmed.
 - `:core:service:testDebugUnitTest` passes.
+
+## Work log
+
+- Stop failures now leave the lifecycle in `STOPPING`, retain the registered runtime, publish `Failed`, and propagate the error without `Disconnected` or `stopSelf`.
+- VPN revoke keeps JNI and Unix socket protection registered when runtime termination fails.
+- Added fault-injection coverage for coordinator state and protection ordering.
