@@ -19,7 +19,7 @@ pub(crate) enum Submission {
     /// once the matching completion is reaped. Use this for write paths that
     /// operate on `Vec<u8>` buffers (e.g. TUN `tx_queue`) where copying into
     /// a registered buffer pool isn't worth the complexity.
-    Write { fd: OwnedFd, buf: Vec<u8>, token: u64 },
+    Write { fd: OwnedFd, buf: Vec<u8>, len: u32, token: u64 },
     /// Write from an owned registered-buffer lease (`IORING_OP_WRITE_FIXED`).
     WriteFixed { fd: OwnedFd, buffer: BufferHandle, token: u64 },
     /// Shut down the driver thread.

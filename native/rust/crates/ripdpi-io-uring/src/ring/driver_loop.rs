@@ -11,9 +11,11 @@ use io_uring::types::{CancelBuilder, Fd, SubmitArgs, Timespec};
 
 use crate::BufferHandle;
 use crate::ring::completion::{CompletionRegistry, CompletionResult};
+use crate::ring::driver::RING_SIZE;
 use crate::ring::submission::Submission;
 
-const SUBMISSION_BUDGET: u32 = 256;
+const SUBMISSION_BUDGET: usize = RING_SIZE as usize;
+const MAX_IN_FLIGHT: usize = RING_SIZE as usize;
 const COMPLETION_WAIT: Duration = Duration::from_millis(10);
 const SHUTDOWN_CANCEL_TIMEOUT: Duration = Duration::from_millis(50);
 
@@ -66,10 +68,13 @@ pub(crate) fn driver_loop(
         }
 
         let block_for_first = in_flight.is_empty();
-        if matches!(
-            drain_submissions(&mut ring, &rx, &registry, &mut in_flight, block_for_first, &shutdown),
-            SubmissionDrain::Shutdown
-        ) {
+        let budget = submission_budget(in_flight.len());
+        if budget != 0
+            && matches!(
+                drain_submissions(&mut ring, &rx, &registry, &mut in_flight, block_for_first, &shutdown, budget,),
+                SubmissionDrain::Shutdown
+            )
+        {
             break;
         }
 
@@ -98,9 +103,10 @@ fn drain_submissions(
     in_flight: &mut HashMap<u64, InFlight>,
     block_for_first: bool,
     shutdown: &AtomicBool,
+    budget: usize,
 ) -> SubmissionDrain {
-    let mut processed = 0u32;
-    while processed < SUBMISSION_BUDGET {
+    let mut processed = 0usize;
+    while processed < budget && in_flight.len() < MAX_IN_FLIGHT {
         if shutdown.load(Ordering::Acquire) {
             return SubmissionDrain::Shutdown;
         }
@@ -136,8 +142,7 @@ fn drain_submissions(
                     registry.complete(token, CompletionResult::with_buffer(-libc::EBUSY, 0, buffer));
                 }
             }
-            Submission::Write { fd, buf, token } => {
-                let len = buf.len() as u32;
+            Submission::Write { fd, buf, len, token } => {
                 let ptr = buf.as_ptr();
                 // Take ownership of the buffer until the kernel finishes
                 // the IO. Vec's heap allocation does not move when the
@@ -169,6 +174,10 @@ fn drain_submissions(
     }
 
     SubmissionDrain::Continue
+}
+
+fn submission_budget(in_flight: usize) -> usize {
+    MAX_IN_FLIGHT.saturating_sub(in_flight).min(SUBMISSION_BUDGET)
 }
 
 fn drain_completions(ring: &mut IoUring, registry: &CompletionRegistry, in_flight: &mut HashMap<u64, InFlight>) {
@@ -261,4 +270,17 @@ fn push_entry(ring: &mut IoUring, entry: &Entry) -> bool {
         return unsafe { ring.submission().push(entry) }.is_ok();
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn submission_budget_caps_kernel_visible_resources() {
+        assert_eq!(submission_budget(0), MAX_IN_FLIGHT);
+        assert_eq!(submission_budget(MAX_IN_FLIGHT - 1), 1);
+        assert_eq!(submission_budget(MAX_IN_FLIGHT), 0);
+        assert_eq!(submission_budget(MAX_IN_FLIGHT + 1), 0);
+    }
 }

@@ -14,7 +14,8 @@ use crate::ring::driver_loop::{DriverResources, driver_loop};
 use crate::ring::submission::{Submission, next_token};
 
 /// Ring size (submission queue entries). Power of two.
-const RING_SIZE: u32 = 256;
+pub(crate) const RING_SIZE: u32 = 256;
+const MAX_REGISTERED_BUFFER_SIZE: usize = 65_536;
 const DRIVER_SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(250);
 
 /// The io_uring driver manages a dedicated thread that processes submissions
@@ -39,6 +40,18 @@ impl IoUringDriver {
     /// operation: callers cannot pair a pool registered on one ring with a
     /// driver that submits fixed-buffer operations on another ring.
     pub fn start(pool_capacity: u16, buffer_size: usize) -> io::Result<Self> {
+        if pool_capacity == 0 || u32::from(pool_capacity) > RING_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("registered buffer capacity must be in 1..={RING_SIZE}"),
+            ));
+        }
+        if !(1..=MAX_REGISTERED_BUFFER_SIZE).contains(&buffer_size) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("registered buffer size must be in 1..={MAX_REGISTERED_BUFFER_SIZE}"),
+            ));
+        }
         let ring = IoUring::new(RING_SIZE)?;
         let pool = Arc::new(RegisteredBufferPool::new(&ring, pool_capacity, buffer_size)?);
 
@@ -94,10 +107,14 @@ impl IoUringDriver {
     pub fn write(&self, fd: BorrowedFd<'_>, buf: Vec<u8>) -> CompletionFuture {
         let token = next_token();
         self.registry.begin(token);
+        let Ok(len) = u32::try_from(buf.len()) else {
+            self.registry.complete(token, CompletionResult::plain(-libc::EOVERFLOW, 0));
+            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        };
         let Some(fd) = self.duplicate_fd(fd, token) else {
             return CompletionFuture::new(token, Arc::clone(&self.registry));
         };
-        if self.tx.try_send(Submission::Write { fd, buf, token }).is_err() {
+        if self.tx.try_send(Submission::Write { fd, buf, len, token }).is_err() {
             self.registry.complete(token, CompletionResult::plain(-libc::EAGAIN, 0));
         }
         CompletionFuture::new(token, Arc::clone(&self.registry))
@@ -231,6 +248,21 @@ mod tests {
         assert_eq!(driver.available_buffers(), 3, "CQE result must retain the submitted lease");
         drop(result);
         assert_eq!(driver.available_buffers(), 4, "dropping the CQE result must release the lease exactly once");
+    }
+
+    #[test]
+    fn driver_rejects_unbounded_pool_allocations_before_ring_setup() {
+        for (capacity, buffer_size) in [
+            (0, 1024),
+            (u16::try_from(RING_SIZE + 1).expect("ring size fits u16"), 1024),
+            (1, 0),
+            (1, MAX_REGISTERED_BUFFER_SIZE + 1),
+        ] {
+            let Err(error) = IoUringDriver::start(capacity, buffer_size) else {
+                panic!("invalid pool configuration must fail");
+            };
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        }
     }
 
     #[test]
