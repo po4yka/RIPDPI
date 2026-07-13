@@ -4,10 +4,12 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 
 _Legacy issue statuses are normalized while their source files are triaged: `in-progress` -> `doing`, `in-review` -> `review`, `device-smoke-pending` -> `blocked`; `done` and `dropped` issue files are omitted._
 
-## Doing (23)
+## Doing (25)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
+| critical | android | [Prevent detection radio identifier upload](issues/prevent-detection-radio-identifier-upload.md) | Codex | 2026-07-13 |
+| critical | epic | [Fix Android critical residual risks](issues/epic-fix-android-critical-residual-risks.md) | Codex | 2026-07-13 |
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-06-11 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
@@ -54,10 +56,18 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | unassigned | 2026-06-11 |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | unassigned | 2026-06-11 |
 
-## Todo (1)
+## Todo (9)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
+| critical | data | [Complete reset user data erasure](issues/complete-reset-user-data-erasure.md) | Codex | 2026-07-13 |
+| critical | data | [Make reset noncancellable after start](issues/make-reset-noncancellable-after-start.md) | Codex | 2026-07-13 |
+| critical | data | [Serialize full backup snapshots](issues/serialize-full-backup-snapshots.md) | Codex | 2026-07-13 |
+| critical | diagnostics | [Schedule diagnostics retention without monitor](issues/schedule-diagnostics-retention-without-monitor.md) | Codex | 2026-07-13 |
+| critical | service | [Serialize all WARP profile mutations](issues/serialize-all-warp-profile-mutations.md) | Codex | 2026-07-13 |
+| critical | service | [Unify root helper process ownership](issues/unify-root-helper-process-ownership.md) | Codex | 2026-07-13 |
+| critical | vpn | [Fail closed on VPN runtime stop failure](issues/fail-closed-on-vpn-runtime-stop-failure.md) | Codex | 2026-07-13 |
+| critical | vpn | [Stop VPN runtime during service destroy](issues/stop-vpn-runtime-during-service-destroy.md) | Codex | 2026-07-13 |
 | medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | unassigned | 2026-06-11 |
 
 ## Backlog (14)
