@@ -16,7 +16,11 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name=".activities.MainActivity" android:exported="true">
+        <activity-alias
+            android:name=".activities.DebugAutomationActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:targetActivity=".activities.MainActivity">
             <intent-filter>
                 <action android:name="com.poyka.ripdpi.automation.LAUNCH" />
 
@@ -34,7 +38,7 @@
                     android:host="automation"
                     android:path="/launch" />
             </intent-filter>
-        </activity>
+        </activity-alias>
     </application>
 
 </manifest>
