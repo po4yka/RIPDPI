@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
@@ -17,7 +16,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.proxyimport.QrCodeEncoder
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -29,9 +27,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import android.graphics.Color as AndroidColor
-
-private const val QrBitmapSize = 512
 
 /**
  * "Share profile" dialog host: QR + plain-URI generation for a saved profile.
@@ -129,7 +124,8 @@ private fun ShareContent(
     onShareImage: (Bitmap) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val qrBitmap = remember(shareUri) { renderQrBitmap(shareUri) }
+    val qrState by rememberShareQrBitmap(shareUri)
+    val qrBitmap = qrState.bitmap
 
     RipDpiPanelHeader(title = stringResource(R.string.profile_share_title))
     qrBitmap?.let { bitmap ->
@@ -165,22 +161,4 @@ private fun ShareContent(
             modifier = Modifier.fillMaxWidth(),
         )
     }
-}
-
-/**
- * Renders the offline-encoded QR matrix for [content] into an Android [Bitmap]. Returns
- * `null` when the content cannot be encoded.
- */
-private fun renderQrBitmap(content: String): Bitmap? {
-    val matrix = QrCodeEncoder.encodeMatrixOrNull(content, QrBitmapSize) ?: return null
-    val width = matrix.width
-    val height = matrix.height
-    val pixels = IntArray(width * height)
-    for (y in 0 until height) {
-        val rowOffset = y * width
-        for (x in 0 until width) {
-            pixels[rowOffset + x] = if (matrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE
-        }
-    }
-    return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
 }
