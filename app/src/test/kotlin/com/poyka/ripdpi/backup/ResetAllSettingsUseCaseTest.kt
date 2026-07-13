@@ -51,6 +51,7 @@ class ResetAllSettingsUseCaseTest {
         profileData: UserProfileResetStore,
         diagnostics: DiagnosticsHistoryResetStore,
         caches: CacheDirectoryCleaner,
+        artifacts: UserArtifactResetStore = FakeUserArtifactResetStore(),
     ) = ResetAllSettingsUseCase(
         resetEventRecorder = recorder,
         groupRepository = groups,
@@ -58,6 +59,7 @@ class ResetAllSettingsUseCaseTest {
         settingsRepository = settings,
         userProfileResetStore = profileData,
         diagnosticsHistoryResetStore = diagnostics,
+        userArtifactResetStore = artifacts,
         cacheDirectoryCleaner = caches,
     )
 
@@ -79,8 +81,9 @@ class ResetAllSettingsUseCaseTest {
             val diagnostics = FakeDiagnosticsHistoryResetStore()
             val caches = FakeCacheDirectoryCleaner()
             val profileData = FakeUserProfileResetStore()
+            val artifacts = FakeUserArtifactResetStore()
 
-            useCase(recorder, groups, rules, settings, profileData, diagnostics, caches).reset()
+            useCase(recorder, groups, rules, settings, profileData, diagnostics, caches, artifacts).reset()
 
             // Groups and their embedded profiles are emptied.
             assertTrue(groups.list().isEmpty())
@@ -93,6 +96,7 @@ class ResetAllSettingsUseCaseTest {
             assertEquals(1, profileData.clearCalls)
             // Diagnostics user-history cleared.
             assertEquals(1, diagnostics.clearCalls)
+            assertEquals(1, artifacts.clearCalls)
             // Caches cleared.
             assertEquals(1, caches.clearCalls)
         }
@@ -247,6 +251,15 @@ class ResetAllSettingsUseCaseTest {
             private set
 
         override fun clearCaches() {
+            clearCalls++
+        }
+    }
+
+    private class FakeUserArtifactResetStore : UserArtifactResetStore {
+        var clearCalls = 0
+            private set
+
+        override fun clearAll(settings: AppSettings) {
             clearCalls++
         }
     }

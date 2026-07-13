@@ -46,6 +46,7 @@ class ResetAllSettingsUseCase
         private val settingsRepository: AppSettingsRepository,
         private val userProfileResetStore: UserProfileResetStore,
         private val diagnosticsHistoryResetStore: DiagnosticsHistoryResetStore,
+        private val userArtifactResetStore: UserArtifactResetStore,
         private val cacheDirectoryCleaner: CacheDirectoryCleaner,
     ) {
         /**
@@ -53,6 +54,7 @@ class ResetAllSettingsUseCase
          * is wiped independently. On success the caller restarts the process.
          */
         suspend fun reset() {
+            val settingsBeforeReset = settingsRepository.snapshot()
             // 1. Telemetry BEFORE the wipe, to a store outside the wipe set.
             resetEventRecorder.recordResetInitiated()
 
@@ -71,7 +73,10 @@ class ResetAllSettingsUseCase
             // 6. Diagnostics user-history tables (catalog/pack versions retained).
             diagnosticsHistoryResetStore.clearRuntimeHistory()
 
-            // 7. Cache directories.
+            // 7. User-owned files and preference stores outside DataStore.
+            userArtifactResetStore.clearAll(settingsBeforeReset)
+
+            // 8. Cache directories.
             cacheDirectoryCleaner.clearCaches()
 
             Log.i(LogTag, "Reset complete: all user stores wiped; restart pending")

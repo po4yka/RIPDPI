@@ -176,6 +176,7 @@ class BackupResetCoordinatorTest {
                 settingsRepository = FakeAppSettingsRepository(),
                 userProfileResetStore = UserProfileResetStore { },
                 diagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
+                userArtifactResetStore = UserArtifactResetStore { },
                 cacheDirectoryCleaner = FakeCacheDirectoryCleaner(probe),
             )
         val coordinator =
