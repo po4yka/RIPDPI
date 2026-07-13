@@ -53,7 +53,9 @@ class DefaultBackupPrivateDataStore
         private val xraySecrets: XrayProfileSecretStore,
         private val xraySelection: XrayProviderSelectionStore,
     ) : BackupPrivateDataStore {
-        override suspend fun snapshot(): BackupPrivateDataV1 {
+        override suspend fun snapshot(): BackupPrivateDataV1 = consistentBackupSnapshot { snapshotOnce() }
+
+        private suspend fun snapshotOnce(): BackupPrivateDataV1 {
             val relayProfileSnapshot = relayProfiles.list()
             val warpProfileSnapshot = warpProfiles.loadAll()
             val awgProfileSnapshot = awgProfiles.allProfiles()
@@ -126,30 +128,48 @@ class DefaultBackupPrivateDataStore
             xraySelection.update(data.xraySelection)
         }
 
-        private fun BackupPrivateDataV1.validate() {
-            val relayIds = relayProfiles.mapTo(mutableSetOf()) { it.id }
-            require(relayIds.size == relayProfiles.size) { "Duplicate Relay profile id" }
-            require(relayCredentials.all { it.profileId in relayIds }) {
-                "Relay credential references a missing profile"
-            }
+        private fun BackupPrivateDataV1.validate() = validateBackupPrivateData()
+    }
 
-            val warpIds = warpProfiles.mapTo(mutableSetOf()) { it.id }
-            require(warpIds.size == warpProfiles.size) { "Duplicate WARP profile id" }
-            require(warpCredentials.all { it.profileId in warpIds }) { "WARP credential references a missing profile" }
-            require(warpActiveProfileId == null || warpActiveProfileId in warpIds) { "Active WARP profile is missing" }
-
-            val awgIds = awgProfiles.mapTo(mutableSetOf()) { it.id }
-            require(awgIds.size == awgProfiles.size) { "Duplicate AWG profile id" }
-
-            val xrayIds = xrayMetadata.mapTo(mutableSetOf()) { it.profileId }
-            require(xrayIds.size == xrayMetadata.size) { "Duplicate Xray profile id" }
-            require(xraySecrets.all { it.profileId in xrayIds }) { "Xray secret references missing metadata" }
-            require(
-                xraySelection.providerKind != XrayProviderSelectionRecord.ProviderKindXray ||
-                    xraySelection.activeProfileId in xrayIds,
-            ) { "Selected Xray profile is missing" }
+internal suspend fun consistentBackupSnapshot(read: suspend () -> BackupPrivateDataV1): BackupPrivateDataV1 {
+    var lastFailure: IllegalArgumentException? = null
+    repeat(BackupSnapshotAttempts) {
+        val snapshot = read()
+        try {
+            snapshot.validateBackupPrivateData()
+            return snapshot
+        } catch (failure: IllegalArgumentException) {
+            lastFailure = failure
         }
     }
+    throw IllegalStateException("Private backup stores changed during snapshot", lastFailure)
+}
+
+private fun BackupPrivateDataV1.validateBackupPrivateData() {
+    val relayIds = relayProfiles.mapTo(mutableSetOf()) { it.id }
+    require(relayIds.size == relayProfiles.size) { "Duplicate Relay profile id" }
+    require(relayCredentials.all { it.profileId in relayIds }) {
+        "Relay credential references a missing profile"
+    }
+
+    val warpIds = warpProfiles.mapTo(mutableSetOf()) { it.id }
+    require(warpIds.size == warpProfiles.size) { "Duplicate WARP profile id" }
+    require(warpCredentials.all { it.profileId in warpIds }) { "WARP credential references a missing profile" }
+    require(warpActiveProfileId == null || warpActiveProfileId in warpIds) { "Active WARP profile is missing" }
+
+    val awgIds = awgProfiles.mapTo(mutableSetOf()) { it.id }
+    require(awgIds.size == awgProfiles.size) { "Duplicate AWG profile id" }
+
+    val xrayIds = xrayMetadata.mapTo(mutableSetOf()) { it.profileId }
+    require(xrayIds.size == xrayMetadata.size) { "Duplicate Xray profile id" }
+    require(xraySecrets.all { it.profileId in xrayIds }) { "Xray secret references missing metadata" }
+    require(
+        xraySelection.providerKind != XrayProviderSelectionRecord.ProviderKindXray ||
+            xraySelection.activeProfileId in xrayIds,
+    ) { "Selected Xray profile is missing" }
+}
+
+private const val BackupSnapshotAttempts = 3
 
 @Module
 @InstallIn(SingletonComponent::class)

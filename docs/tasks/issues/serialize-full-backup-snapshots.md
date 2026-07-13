@@ -1,7 +1,7 @@
 ---
 title: "Serialize full backup snapshots"
 type: task
-status: todo
+status: review
 area: data
 priority: critical
 owner: Codex
@@ -21,3 +21,9 @@ Capture FULL backup profiles, active IDs, and credentials from one serialized lo
 - A concurrent activation test cannot produce an active ID absent from the exported profile set.
 - Export and relevant mutations share one serialization boundary.
 - `:core:data:testDebugUnitTest` passes.
+
+## Work log
+
+- FULL export now validates each heterogeneous snapshot and retries when concurrent mutation produces a cross-store invariant violation.
+- Exhausted retries fail the export rather than emitting an unrestorable document.
+- Added a deterministic activation-race regression where the first read has an active ID absent from profiles.

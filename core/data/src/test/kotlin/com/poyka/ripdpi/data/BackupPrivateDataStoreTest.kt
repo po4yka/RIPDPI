@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.AwgBackupProfile
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore
+import com.poyka.ripdpi.data.backup.consistentBackupSnapshot
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore
@@ -89,6 +90,29 @@ class BackupPrivateDataStoreTest {
 
             assertEquals(expected, store.snapshot())
             assertTrue(warpEndpoints.loadAll("old-warp").isEmpty())
+        }
+
+    @Test
+    fun `snapshot retries rather than exporting active id without profile`() =
+        runTest {
+            var reads = 0
+
+            val snapshot =
+                consistentBackupSnapshot {
+                    reads += 1
+                    if (reads == 1) {
+                        BackupPrivateDataV1(warpActiveProfileId = "concurrent-profile")
+                    } else {
+                        BackupPrivateDataV1(
+                            warpProfiles = listOf(WarpProfile(id = "concurrent-profile")),
+                            warpActiveProfileId = "concurrent-profile",
+                        )
+                    }
+                }
+
+            assertEquals(2, reads)
+            assertEquals("concurrent-profile", snapshot.warpProfiles.single().id)
+            assertEquals("concurrent-profile", snapshot.warpActiveProfileId)
         }
 }
 
