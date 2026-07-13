@@ -1,3 +1,4 @@
+use std::fmt;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -101,9 +102,14 @@ impl UdpPoller for TokioUdpPoller {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct SalamanderCodec {
     key: Vec<u8>,
+}
+
+impl fmt::Debug for SalamanderCodec {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("SalamanderCodec").field("key", &"<redacted>").finish()
+    }
 }
 
 impl SalamanderCodec {
@@ -157,6 +163,14 @@ mod tests {
         let encoded = codec.encode(payload);
         let decoded = codec.decode(&encoded).expect("decode");
         assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn salamander_codec_debug_redacts_key() {
+        let codec = SalamanderCodec::new(b"debug-salamander-secret".to_vec());
+        let rendered = format!("{codec:?}");
+        assert!(!rendered.contains("debug-salamander-secret"));
+        assert!(rendered.contains("<redacted>"));
     }
 
     #[test]

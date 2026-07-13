@@ -239,7 +239,7 @@ fn read_exact<'a>(
 pub struct TrojanClient;
 
 /// TLS CONNECT client configuration.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TrojanClientConfig {
     pub server_host: String,
     pub server_port: u16,
@@ -248,6 +248,21 @@ pub struct TrojanClientConfig {
     pub tls_fingerprint_profile: String,
     pub root_certificate_pem: Option<String>,
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+}
+
+impl std::fmt::Debug for TrojanClientConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("TrojanClientConfig")
+            .field("server_host", &self.server_host)
+            .field("server_port", &self.server_port)
+            .field("server_name", &self.server_name)
+            .field("password", &"<redacted>")
+            .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
+            .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<redacted>"))
+            .field("socket_protection", &self.socket_protection)
+            .finish()
+    }
 }
 
 /// Open a protected TCP connection to the Trojan server.
@@ -463,6 +478,25 @@ mod tests {
         let hash = hash_password(SPEC_PASSWORD);
         assert_eq!(hash.len(), 56);
         assert!(hash.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn client_config_debug_redacts_password_and_root_certificate() {
+        let config = TrojanClientConfig {
+            server_host: "relay.example".to_string(),
+            server_port: 443,
+            server_name: "cover.example".to_string(),
+            password: "debug-trojan-secret".to_string(),
+            tls_fingerprint_profile: "chrome".to_string(),
+            root_certificate_pem: Some("debug-root-certificate-secret".to_string()),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        };
+
+        let rendered = format!("{config:?}");
+
+        assert!(!rendered.contains("debug-trojan-secret"));
+        assert!(!rendered.contains("debug-root-certificate-secret"));
+        assert!(rendered.contains("<redacted>"));
     }
 
     #[test]

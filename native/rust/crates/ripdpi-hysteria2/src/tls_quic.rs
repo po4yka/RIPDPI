@@ -1,3 +1,4 @@
+use std::fmt;
 use std::io;
 use std::sync::Arc;
 
@@ -11,12 +12,24 @@ use crate::salamander::SalamanderUdpSocket;
 
 const HYSTERIA_AUTH_STATUS: u16 = 233;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct ClientSocketSpec {
     pub(crate) ipv6: bool,
     pub(crate) bind_low_port: bool,
     pub(crate) salamander_key: Option<String>,
     pub(crate) socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+}
+
+impl fmt::Debug for ClientSocketSpec {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ClientSocketSpec")
+            .field("ipv6", &self.ipv6)
+            .field("bind_low_port", &self.bind_low_port)
+            .field("salamander_key", &self.salamander_key.as_ref().map(|_| "<redacted>"))
+            .field("socket_protection", &self.socket_protection)
+            .finish()
+    }
 }
 
 pub(crate) async fn authenticate_connection(config: &Config, connection: &quinn::Connection) -> Result<bool> {

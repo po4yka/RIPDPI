@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::time::Duration;
 
 use crate::error::{HysteriaError, Result};
 use crate::port_hopping::PortHoppingWindow;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Config {
     pub auth: String,
     pub server_addr: String,
@@ -26,6 +27,25 @@ pub struct Config {
     /// Inclusive upper bound of the Hysteria 2.8.0 randomized port-hopping
     /// window (`maxHopInterval`).
     pub max_hop_interval: Option<Duration>,
+}
+
+impl fmt::Debug for Config {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Config")
+            .field("auth", &"<redacted>")
+            .field("server_addr", &self.server_addr)
+            .field("server_name", &self.server_name)
+            .field("insecure", &self.insecure)
+            .field("salamander_key", &self.salamander_key.as_ref().map(|_| "<redacted>"))
+            .field("quic_bind_low_port", &self.quic_bind_low_port)
+            .field("quic_migrate_after_handshake", &self.quic_migrate_after_handshake)
+            .field("socket_protection", &self.socket_protection)
+            .field("hop_interval", &self.hop_interval)
+            .field("min_hop_interval", &self.min_hop_interval)
+            .field("max_hop_interval", &self.max_hop_interval)
+            .finish()
+    }
 }
 
 impl Config {
@@ -174,5 +194,18 @@ mod tests {
         assert_eq!(auth, config.auth);
         assert_eq!("[2001:db8::1]:443", config.server_addr);
         assert_eq!("cover.example", config.server_name);
+    }
+
+    #[test]
+    fn debug_redacts_auth_and_salamander_key() {
+        let config =
+            Config::from_url("hysteria2://debug-auth-secret@example.com:443/?obfs-password=debug-salamander-secret")
+                .expect("parse url");
+
+        let rendered = format!("{config:?}");
+
+        assert!(!rendered.contains("debug-auth-secret"));
+        assert!(!rendered.contains("debug-salamander-secret"));
+        assert!(rendered.contains("<redacted>"));
     }
 }
