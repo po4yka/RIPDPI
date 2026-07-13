@@ -23,6 +23,14 @@ pub(super) struct DnsCacheKey {
 pub enum DnsCacheError {
     #[error("cache size must be greater than zero")]
     EmptyCache,
+    #[error("cache size {size} exceeds the {available} allocatable addresses in the synthetic network")]
+    CapacityExceedsNetwork { size: usize, available: u32 },
+    #[error("synthetic netmask is not contiguous")]
+    NonContiguousNetmask,
+    #[error("synthetic network contains host bits outside the netmask")]
+    NetworkHasHostBits,
+    #[error("could not reserve storage for {size} DNS cache records")]
+    AllocationFailed { size: usize },
     #[error("response buffer smaller than request")]
     BufferTooSmall,
     #[error("truncated or malformed DNS packet")]
@@ -111,7 +119,7 @@ mod tests {
 
     #[test]
     fn rewrite_response_maps_a_records_and_preserves_reverse_lookup() {
-        let mut cache = DnsCache::new(NET, MASK, 8);
+        let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
         let query = build_query("fixture.test");
         let upstream = build_response("fixture.test", &[Ipv4Addr::new(203, 0, 113, 10)], false);
 
@@ -130,7 +138,7 @@ mod tests {
 
     #[test]
     fn rewrite_response_reuses_existing_mapping_for_same_host_and_real_ip() {
-        let mut cache = DnsCache::new(NET, MASK, 8);
+        let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
         let query = build_query("fixture.test");
         let upstream = build_response("fixture.test", &[Ipv4Addr::new(203, 0, 113, 10)], false);
 
@@ -144,7 +152,7 @@ mod tests {
 
     #[test]
     fn rewrite_response_strips_aaaa_records() {
-        let mut cache = DnsCache::new(NET, MASK, 8);
+        let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
         let query = build_query("fixture.test");
         let upstream = build_response("fixture.test", &[Ipv4Addr::new(203, 0, 113, 10)], true);
 
@@ -159,7 +167,7 @@ mod tests {
 
     #[test]
     fn rewrite_response_handles_aaaa_only_response() {
-        let mut cache = DnsCache::new(NET, MASK, 8);
+        let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
         let query = build_query("fixture.test");
         // Response with no A records, only AAAA.
         let upstream = build_response("fixture.test", &[], true);
@@ -174,7 +182,7 @@ mod tests {
 
     #[test]
     fn servfail_response_sets_error_and_keeps_question() {
-        let cache = DnsCache::new(NET, MASK, 8);
+        let cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
         let query = build_query("fixture.test");
 
         let response = cache.servfail_response(&query).expect("servfail builds");
@@ -186,7 +194,7 @@ mod tests {
 
     #[test]
     fn eviction_removes_stale_reverse_mapping() {
-        let mut cache = DnsCache::new(NET, MASK, 1);
+        let mut cache = DnsCache::new(NET, MASK, 1).expect("valid cache");
         let first = cache
             .rewrite_response(
                 &build_query("a.test"),
@@ -207,5 +215,14 @@ mod tests {
         assert_eq!(first_ip, second_ip);
         assert_eq!(remapped.host, "b.test");
         assert_eq!(Ipv4Addr::from(remapped.real_ip), Ipv4Addr::new(203, 0, 113, 20));
+    }
+
+    #[test]
+    fn construction_rejects_invalid_capacity_without_panicking() {
+        assert!(matches!(DnsCache::new(NET, MASK, 0), Err(DnsCacheError::EmptyCache)));
+        assert_eq!(
+            DnsCache::new(NET, 0xffff_ffff, 1).err(),
+            Some(DnsCacheError::CapacityExceedsNetwork { size: 1, available: 0 })
+        );
     }
 }

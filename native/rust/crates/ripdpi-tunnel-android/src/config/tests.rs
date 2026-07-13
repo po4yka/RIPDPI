@@ -277,6 +277,9 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 filter_injected_resets: None,
             },
         )
+        .prop_filter("credentials must be both present or both absent", |payload| {
+            payload.username.is_some() == payload.password.is_some()
+        })
 }
 
 #[test]

@@ -24,20 +24,31 @@ pub struct DnsCache {
 }
 
 impl DnsCache {
-    pub fn new(net: u32, mask: u32, max: usize) -> Self {
-        debug_assert!(max > 0, "max must be non-zero");
-        debug_assert!((max as u64) <= ((!mask) as u64), "max exceeds addressable range");
-        let capacity = NonZeroUsize::new(max).expect("max must be > 0");
-        Self {
+    pub fn new(net: u32, mask: u32, max: usize) -> Result<Self, DnsCacheError> {
+        let capacity = NonZeroUsize::new(max).ok_or(DnsCacheError::EmptyCache)?;
+        let inverted = !mask;
+        if inverted != 0 && inverted & inverted.wrapping_add(1) != 0 {
+            return Err(DnsCacheError::NonContiguousNetmask);
+        }
+        if net & mask != net {
+            return Err(DnsCacheError::NetworkHasHostBits);
+        }
+        if (max as u64) > u64::from(inverted) {
+            return Err(DnsCacheError::CapacityExceedsNetwork { size: max, available: inverted });
+        }
+        let mut records = Vec::new();
+        records.try_reserve_exact(max).map_err(|_| DnsCacheError::AllocationFailed { size: max })?;
+        records.resize_with(max, || None);
+        Ok(Self {
             lru: LruCache::new(capacity),
             rev: HashMap::new(),
-            records: vec![None; max],
+            records,
             pinned: HashSet::new(),
             net,
             mask,
             max,
             next_free: 0,
-        }
+        })
     }
 
     pub fn lookup(&mut self, ip: u32) -> Option<DnsCacheEntry> {

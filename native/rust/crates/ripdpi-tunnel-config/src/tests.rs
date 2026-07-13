@@ -122,6 +122,28 @@ fn test_password_without_username_is_err() {
 }
 
 #[test]
+fn rejects_ipv4_prefix_longer_than_address_width() {
+    let yaml = format!("{MINIMAL_VALID}\ntunnel:\n  ipv4: 10.0.0.2/33\n");
+
+    assert!(Config::from_str(&yaml).is_err(), "invalid IPv4 prefix must fail during config parsing");
+}
+
+#[test]
+fn rejects_zero_runtime_timeout() {
+    let yaml = format!("{MINIMAL_VALID}\nmisc:\n  connect-timeout: 0\n");
+
+    assert!(Config::from_str(&yaml).is_err(), "zero timeout must fail during config parsing");
+}
+
+#[test]
+fn rejects_mapdns_cache_larger_than_validated_limit() {
+    let yaml =
+        format!("{MINIMAL_VALID}\nmapdns:\n  address: 198.18.0.2\n  netmask: 255.254.0.0\n  cache-size: 4294967295\n");
+
+    assert!(Config::from_str(&yaml).is_err(), "oversized cache must fail before allocation");
+}
+
+#[test]
 fn test_defaults_when_optional_sections_absent() {
     let cfg = Config::from_str(MINIMAL_VALID).expect("minimal YAML should parse");
 
