@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.DiagnosticsSparklineUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -63,7 +64,7 @@ class DiagnosticsSparklineAccessibilityTest {
                         trend =
                             DiagnosticsSparklineUiModel(
                                 label = "TX bytes",
-                                values = listOf(10f, 20f, 30f),
+                                values = persistentListOf(10f, 20f, 30f),
                             ),
                     )
                 }

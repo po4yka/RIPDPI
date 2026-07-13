@@ -423,7 +423,7 @@ private fun toCapabilityEvidenceUiModel(
                 if (evidence.source.isNotBlank()) {
                     add(DiagnosticsFieldUiModel("Source", evidence.source))
                 }
-            },
+            }.toImmutableList(),
     )
 
 private fun buildNetworkCharacterRows(

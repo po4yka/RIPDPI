@@ -58,7 +58,7 @@ internal class MainActivityShellController(
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
-    // Queue commands while the lifecycle collector is stopped, then remove each command as soon as the single Activity collector receives it.
+    // Queue commands while collection is stopped and consume each exactly once.
     private val _hostCommands = Channel<MainActivityHostCommand>(capacity = Channel.BUFFERED)
 
     val state: StateFlow<MainActivityShellState> = _state.asStateFlow()

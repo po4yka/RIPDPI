@@ -316,6 +316,8 @@ private class FailingAwgProfileDao(
 
     override fun observeProfiles(): Flow<List<com.poyka.ripdpi.data.awg.AwgProfileEntity>> = delegate.observeProfiles()
 
+    override suspend fun allProfiles(): List<com.poyka.ripdpi.data.awg.AwgProfileEntity> = delegate.allProfiles()
+
     override suspend fun getProfile(id: String): com.poyka.ripdpi.data.awg.AwgProfileEntity? = delegate.getProfile(id)
 
     override suspend fun upsertProfile(profile: com.poyka.ripdpi.data.awg.AwgProfileEntity) {
@@ -328,5 +330,9 @@ private class FailingAwgProfileDao(
 
     override suspend fun deleteProfile(profile: com.poyka.ripdpi.data.awg.AwgProfileEntity) {
         delegate.deleteProfile(profile)
+    }
+
+    override suspend fun deleteAll() {
+        delegate.deleteAll()
     }
 }

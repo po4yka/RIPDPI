@@ -34,7 +34,7 @@ object DiagnosticsDatabaseModule {
         // ORDER MATTERS: fallbackToDestructiveMigrationOnDowngrade resets requireMigration=true,
         // so the destructive-upgrade opt-in must come after it.
         if (allowDestructiveFallback) builder = builder.fallbackToDestructiveMigration(true)
-        // RuntimeSessionCoordinator applies the current diagnosticsHistoryRetentionDays; an on-open TTL would bypass it.
+        // Cleanup uses diagnosticsHistoryRetentionDays; do not add an on-open TTL.
         return builder.build()
     }
 

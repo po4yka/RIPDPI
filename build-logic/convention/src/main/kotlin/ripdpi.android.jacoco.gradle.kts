@@ -76,7 +76,8 @@ val jacocoAgentEnabled =
                         taskName.endsWith(":coverageReport") ||
                         taskName.endsWith("jacocoDebugUnitTestReport") ||
                         taskName.endsWith("jacocoDebugUnitTestCoverageVerification") ||
-                        taskName.endsWith("kotlinCoverageReport")
+                        taskName.endsWith("kotlinCoverageReport") ||
+                        taskName.endsWith("kotlinCoverageVerification")
                 }
             },
         )

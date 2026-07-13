@@ -1302,7 +1302,7 @@ class DiagnosticsScreenTest {
                             strategyProbeProgress = null,
                         ).copy(
                             completedProbes =
-                                listOf(
+                                persistentListOf(
                                     duplicateProbe,
                                     CompletedProbeUiModel("other.example", "failed", DiagnosticsTone.Negative),
                                     duplicateProbe,
