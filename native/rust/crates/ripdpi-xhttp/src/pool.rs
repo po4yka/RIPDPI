@@ -55,6 +55,14 @@ impl PooledConnection {
     fn is_closed(&self) -> bool {
         self.closed.load(Ordering::SeqCst)
     }
+
+    pub(crate) async fn send_request(
+        &self,
+        request: http::Request<XhttpBody>,
+    ) -> Result<http::Response<hyper::body::Incoming>, hyper::Error> {
+        let mut sender = self.sender.lock().await.clone();
+        sender.send_request(request).await
+    }
 }
 
 pub(crate) async fn acquire_connection(
@@ -132,10 +140,21 @@ async fn try_acquire_existing(inner: &XhttpClientInner) -> Option<(Arc<PooledCon
 
 #[cfg(test)]
 mod tests {
+    use std::convert::Infallible;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
 
-    use super::CreationSlot;
+    use bytes::Bytes;
+    use http_body_util::{BodyExt, Empty, Full};
+    use hyper::Request;
+    use hyper::service::service_fn;
+    use hyper_util::rt::{TokioExecutor, TokioIo};
+    use tokio::sync::{Notify, mpsc};
+
+    use crate::h2_body::XhttpBody;
+
+    use super::{CreationSlot, PooledConnection};
 
     #[tokio::test]
     async fn creation_slot_releases_capacity_when_creation_task_is_cancelled() {
@@ -153,5 +172,61 @@ mod tests {
         task.abort();
         let _ = task.await;
         assert_eq!(0, creating_connections.load(Ordering::Acquire));
+    }
+
+    #[tokio::test]
+    async fn waiting_for_response_headers_does_not_block_another_h2_request() {
+        let (client_io, server_io) = tokio::io::duplex(4096);
+        let (sender, connection) = hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
+            .await
+            .expect("client h2 handshake");
+        tokio::spawn(async move { connection.await.expect("client h2 connection") });
+
+        let (request_tx, mut request_rx) = mpsc::unbounded_channel();
+        let release_first = Arc::new(Notify::new());
+        let request_index = Arc::new(AtomicUsize::new(0));
+        let server_release = Arc::clone(&release_first);
+        let server_index = Arc::clone(&request_index);
+        tokio::spawn(async move {
+            let service = service_fn(move |_request| {
+                let index = server_index.fetch_add(1, Ordering::SeqCst);
+                let request_tx = request_tx.clone();
+                let release = Arc::clone(&server_release);
+                async move {
+                    request_tx.send(index).expect("report received request");
+                    if index == 0 {
+                        release.notified().await;
+                    }
+                    Ok::<_, Infallible>(http::Response::new(Full::new(Bytes::new())))
+                }
+            });
+            hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+                .serve_connection(TokioIo::new(server_io), service)
+                .await
+                .expect("server h2 connection");
+        });
+
+        let pooled = Arc::new(PooledConnection::new(sender, 2));
+        let first = tokio::spawn({
+            let pooled = Arc::clone(&pooled);
+            async move { pooled.send_request(empty_request()).await }
+        });
+        assert_eq!(request_rx.recv().await, Some(0));
+
+        let second = tokio::spawn({
+            let pooled = Arc::clone(&pooled);
+            async move { pooled.send_request(empty_request()).await }
+        });
+        let second_arrival = tokio::time::timeout(Duration::from_millis(100), request_rx.recv()).await;
+
+        release_first.notify_one();
+        first.await.expect("first request task").expect("first response");
+        second.await.expect("second request task").expect("second response");
+        assert_eq!(second_arrival.expect("second request must not wait for first response headers"), Some(1));
+    }
+
+    fn empty_request() -> Request<XhttpBody> {
+        let body = Empty::<Bytes>::new().map_err(|never| match never {}).boxed();
+        Request::builder().uri("https://example.com/xhttp").body(body).expect("request")
     }
 }

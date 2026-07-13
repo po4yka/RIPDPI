@@ -133,9 +133,8 @@ impl PooledConnection {
         let referer = referer_padding(&host_header, &stream_path);
         let header_padding = random_padding_value();
 
-        let mut sender = self.sender.lock().await;
         let get_request = build_get_request(&stream_path, &host_header, &referer, &header_padding)?;
-        let get_response = sender.send_request(get_request).await.map_err(|error| {
+        let get_response = self.send_request(get_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP GET request failed: {error}"))
         })?;
         if get_response.status() != StatusCode::OK {
@@ -148,10 +147,9 @@ impl PooledConnection {
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
         let post_request =
             build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
-        let post_response = sender.send_request(post_request).await.map_err(|error| {
+        let post_response = self.send_request(post_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
         })?;
-        drop(sender);
         if !post_response.status().is_success() {
             return Err(io::Error::new(
                 io::ErrorKind::ConnectionRefused,
@@ -195,11 +193,9 @@ impl PooledConnection {
         let post_request =
             build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
 
-        let mut sender = self.sender.lock().await;
-        let post_response = sender.send_request(post_request).await.map_err(|error| {
+        let post_response = self.send_request(post_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP stream-one request failed: {error}"))
         })?;
-        drop(sender);
         if !post_response.status().is_success() {
             return Err(io::Error::new(
                 io::ErrorKind::ConnectionRefused,
