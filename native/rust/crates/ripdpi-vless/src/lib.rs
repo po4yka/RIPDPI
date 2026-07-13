@@ -34,8 +34,8 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
 
 use crate::config::VlessRealityConfig;
+use crate::reality::RealityTlsStream;
 use crate::vision::VisionStream;
-use tokio_boring::SslStream;
 
 /// Trait alias for an async bidirectional stream that is `Send`.
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -64,7 +64,10 @@ impl VlessRealityClient {
     }
 
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream`.
-    pub async fn connect(config: &VlessRealityConfig, target: &str) -> io::Result<VisionStream<SslStream<TcpStream>>> {
+    pub async fn connect(
+        config: &VlessRealityConfig,
+        target: &str,
+    ) -> io::Result<VisionStream<RealityTlsStream<TcpStream>>> {
         Self::connect_with_optional_bind(config, None, target).await
     }
 
@@ -74,7 +77,7 @@ impl VlessRealityClient {
         config: &VlessRealityConfig,
         bind_ip: IpAddr,
         target: &str,
-    ) -> io::Result<VisionStream<SslStream<TcpStream>>> {
+    ) -> io::Result<VisionStream<RealityTlsStream<TcpStream>>> {
         Self::connect_with_optional_bind(config, Some(bind_ip), target).await
     }
 
@@ -82,7 +85,7 @@ impl VlessRealityClient {
         config: &VlessRealityConfig,
         bind_ip: Option<IpAddr>,
         target: &str,
-    ) -> io::Result<VisionStream<SslStream<TcpStream>>> {
+    ) -> io::Result<VisionStream<RealityTlsStream<TcpStream>>> {
         tracing::debug!("VLESS+Reality: connecting");
 
         let tcp = connect_tcp(config, bind_ip).await?;
