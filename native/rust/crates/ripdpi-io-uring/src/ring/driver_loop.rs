@@ -44,7 +44,10 @@ impl InFlight {
             Self::PlainWrite { .. } => CompletionResult::plain(result, flags),
             Self::FixedRead { mut buffer, .. } => {
                 if result > 0 {
-                    buffer.set_len(result as usize);
+                    debug_assert!(
+                        buffer.set_len(result as usize),
+                        "kernel returned more bytes than the registered buffer capacity"
+                    );
                 }
                 CompletionResult::with_buffer(result, flags, buffer)
             }

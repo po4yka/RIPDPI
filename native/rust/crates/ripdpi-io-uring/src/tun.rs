@@ -74,7 +74,7 @@ pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: BorrowedFd<'_>, packets: &
             Some(mut handle) => {
                 let len = pkt.len();
                 handle.as_mut_buf()[..len].copy_from_slice(pkt);
-                handle.set_len(len);
+                debug_assert!(handle.set_len(len), "packet was checked against the registered buffer size");
                 crate::ring::block_on_completion(uring.write_fixed(tun_fd, handle))
             }
             None => {
@@ -85,8 +85,11 @@ pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: BorrowedFd<'_>, packets: &
             }
         };
 
-        if result.result >= 0 {
+        if is_complete_packet_write(result.result, pkt.len()) {
             written += 1;
+        } else if result.result >= 0 {
+            log::warn!("io_uring TUN short write: wrote {} of {} bytes", result.result, pkt.len());
+            break;
         } else {
             log::warn!("io_uring TUN write failed: errno={}", -result.result);
             break;
@@ -94,6 +97,10 @@ pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: BorrowedFd<'_>, packets: &
     }
 
     Ok(written)
+}
+
+fn is_complete_packet_write(result: i32, packet_len: usize) -> bool {
+    usize::try_from(result).is_ok_and(|written| written == packet_len)
 }
 
 /// Try to acquire a buffer slot large enough to hold `pkt`. Returns `None`
@@ -148,5 +155,12 @@ mod tests {
         let _first = try_acquire_for_packet(&driver, &pkt).expect("first acquire");
         assert_eq!(driver.available_buffers(), 0);
         assert!(try_acquire_for_packet(&driver, &pkt).is_none());
+    }
+
+    #[test]
+    fn packet_write_requires_exact_completion_length() {
+        assert!(is_complete_packet_write(1500, 1500));
+        assert!(!is_complete_packet_write(1499, 1500));
+        assert!(!is_complete_packet_write(-libc::EIO, 1500));
     }
 }

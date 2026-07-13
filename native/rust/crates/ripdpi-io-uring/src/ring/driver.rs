@@ -240,7 +240,7 @@ mod tests {
         let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
         let mut handle = driver.acquire_buffer().expect("acquire registered buffer");
         handle.as_mut_buf()[..4].copy_from_slice(b"ring");
-        handle.set_len(4);
+        assert!(handle.set_len(4));
 
         let result = block_on_completion(driver.write_fixed(file.as_fd(), handle));
 

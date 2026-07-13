@@ -150,8 +150,13 @@ impl BufferHandle {
     }
 
     /// Set the length of valid data in this buffer (e.g. after a recv).
-    pub fn set_len(&mut self, len: usize) {
-        self.len = len.min(self.pool.buffer_size);
+    #[must_use = "a rejected length must not be submitted as if it fit the registered buffer"]
+    pub fn set_len(&mut self, len: usize) -> bool {
+        if len > self.pool.buffer_size {
+            return false;
+        }
+        self.len = len;
+        true
     }
 
     /// Get the full buffer slice (up to `buffer_size`), for use as a recv

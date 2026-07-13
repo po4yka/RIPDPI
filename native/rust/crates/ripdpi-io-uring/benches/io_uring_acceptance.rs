@@ -108,7 +108,7 @@ fn bench_registered_buffer_tx(c: &mut Criterion) {
             b.iter(|| {
                 let mut handle = driver.acquire_buffer().expect("pool acquire");
                 handle.as_mut_buf()[..payload.len()].copy_from_slice(payload);
-                handle.set_len(payload.len());
+                assert!(handle.set_len(payload.len()));
                 let future = driver.write_fixed(fd, handle);
                 let result = block_on_completion(future);
                 black_box(result);

@@ -55,7 +55,9 @@ pub(super) fn copy_inbound_zc(
         match reader.read(handle.as_mut_buf()) {
             Ok(0) => break,
             Ok(n) => {
-                handle.set_len(n);
+                if !handle.set_len(n) {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, "read exceeded registered buffer capacity"));
+                }
                 session.observe_inbound_payload(&handle[..]);
 
                 // Single-completion fixed-buffer write. The driver owns the
