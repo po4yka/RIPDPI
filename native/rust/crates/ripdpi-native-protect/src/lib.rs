@@ -172,12 +172,16 @@ pub fn unregister_protect_callback() {
     *guard = None;
 }
 
+/// Invoke a snapshot of the registered callback without holding the registry
+/// lock across JNI or other blocking callback work.
 pub fn protect_socket_via_callback(fd: RawFd) -> io::Result<()> {
-    let guard = PROTECT_CB.read().expect("protect callback lock poisoned");
-    match guard.as_ref() {
-        Some(registered) => registered.callback.protect(fd),
-        None => Err(io::Error::new(io::ErrorKind::NotConnected, "VPN protect callback not registered")),
-    }
+    let callback = {
+        let guard = PROTECT_CB.read().expect("protect callback lock poisoned");
+        guard.as_ref().map(|registered| Arc::clone(&registered.callback))
+    };
+    callback
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "VPN protect callback not registered"))?
+        .protect(fd)
 }
 
 /// Returns whether a protect callback is registered.
@@ -286,6 +290,31 @@ mod tests {
 
         unregister_protect_callback();
         assert!(!has_protect_callback());
+    }
+
+    struct RegistryLockProbeCallback {
+        lock_available: std::sync::atomic::AtomicBool,
+    }
+
+    impl ProtectCallback for RegistryLockProbeCallback {
+        fn protect(&self, _fd: RawFd) -> io::Result<()> {
+            self.lock_available.store(PROTECT_CB.try_write().is_ok(), Ordering::Release);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn callback_runs_without_holding_registry_lock() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        let callback =
+            Arc::new(RegistryLockProbeCallback { lock_available: std::sync::atomic::AtomicBool::new(false) });
+        let callback_ref = Arc::clone(&callback);
+        register_protect_callback(callback);
+
+        protect_socket_via_callback(99).expect("protect callback");
+
+        assert!(callback_ref.lock_available.load(Ordering::Acquire));
+        unregister_protect_callback();
     }
 
     /// Characterizes the unconditional back-compat wrapper: a single
