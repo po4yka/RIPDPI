@@ -203,7 +203,7 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
             let Ok(address) = header.address.to_authority() else {
                 continue;
             };
-            let _ = sender.send(UdpPacket { address, payload: payload.to_vec() }).await;
+            try_deliver(&sender, UdpPacket { address, payload: payload.to_vec() });
             continue;
         }
 
@@ -239,11 +239,17 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
             let Ok(address) = address.to_authority() else {
                 continue;
             };
-            let _ = sender.send(UdpPacket { address, payload: assembled }).await;
+            try_deliver(&sender, UdpPacket { address, payload: assembled });
         }
     }
 
     client.registrations.lock().await.clear();
+}
+
+fn try_deliver(sender: &mpsc::Sender<UdpPacket>, packet: UdpPacket) {
+    if let Err(error) = sender.try_send(packet) {
+        tracing::trace!(error = %error, "Dropping TUIC UDP packet for unavailable consumer");
+    }
 }
 
 /// Allocate an assoc-id from the given atomic counter, checking `registrations`
@@ -379,5 +385,20 @@ mod tests {
         let (tx, _rx) = mpsc::channel::<UdpPacket>(1);
         let result = allocate_assoc_id(&counter, &mut regs, tx);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn saturated_session_does_not_block_other_udp_sessions() {
+        let packet = |address: &str| UdpPacket { address: address.to_string(), payload: vec![1] };
+        let (slow_tx, mut slow_rx) = mpsc::channel(1);
+        let (fast_tx, mut fast_rx) = mpsc::channel(1);
+
+        slow_tx.try_send(packet("slow.example:53")).expect("fill slow consumer queue");
+        try_deliver(&slow_tx, packet("dropped.example:53"));
+        try_deliver(&fast_tx, packet("fast.example:53"));
+
+        assert_eq!(fast_rx.try_recv().expect("fast consumer receives packet").address, "fast.example:53");
+        assert_eq!(slow_rx.try_recv().expect("queued slow packet remains").address, "slow.example:53");
+        assert!(slow_rx.try_recv().is_err(), "overflow packet must be dropped");
     }
 }

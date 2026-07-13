@@ -196,7 +196,7 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
                 };
 
                 if fragment_count <= 1 {
-                    let _ = sender.send(UdpPacket { address, payload }).await;
+                    try_deliver(&sender, UdpPacket { address, payload });
                     continue;
                 }
 
@@ -224,7 +224,7 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
                     }
                     let packet = UdpPacket { address: partial.address.clone(), payload: assembled };
                     partials.remove(&key);
-                    let _ = sender.send(packet).await;
+                    try_deliver(&sender, packet);
                 }
             }
             Err(error) => {
@@ -234,6 +234,12 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
     }
 
     client.registrations.lock().await.clear();
+}
+
+fn try_deliver(sender: &mpsc::Sender<UdpPacket>, packet: UdpPacket) {
+    if let Err(error) = sender.try_send(packet) {
+        tracing::trace!(error = %error, "Dropping Hysteria UDP packet for unavailable consumer");
+    }
 }
 
 async fn send_udp_payload(
@@ -422,5 +428,20 @@ mod tests {
         assert_eq!(id, Some(1));
         assert!(regs.contains_key(&0)); // original intact
         assert!(regs.contains_key(&1)); // new entry present
+    }
+
+    #[test]
+    fn saturated_session_does_not_block_other_udp_sessions() {
+        let packet = |address: &str| UdpPacket { address: address.to_string(), payload: vec![1] };
+        let (slow_tx, mut slow_rx) = mpsc::channel(1);
+        let (fast_tx, mut fast_rx) = mpsc::channel(1);
+
+        slow_tx.try_send(packet("slow.example:53")).expect("fill slow consumer queue");
+        try_deliver(&slow_tx, packet("dropped.example:53"));
+        try_deliver(&fast_tx, packet("fast.example:53"));
+
+        assert_eq!(fast_rx.try_recv().expect("fast consumer receives packet").address, "fast.example:53");
+        assert_eq!(slow_rx.try_recv().expect("queued slow packet remains").address, "slow.example:53");
+        assert!(slow_rx.try_recv().is_err(), "overflow packet must be dropped");
     }
 }
