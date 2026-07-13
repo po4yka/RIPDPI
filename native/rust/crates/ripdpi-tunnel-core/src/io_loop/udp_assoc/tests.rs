@@ -1,20 +1,50 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, UdpSocket};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use crate::TunDevice;
 use crate::session::Auth;
 
-use super::association_state::{OutboundDatagram, now_millis, touch_udp_activity, udp_association_is_idle};
+use super::association_state::{
+    OutboundDatagram, UdpAssociation, now_millis, touch_udp_activity, udp_association_is_idle,
+};
 use super::event_handling::{UdpEvent, handle_udp_event};
 use super::shutdown::shutdown_udp_associations;
 use super::worker::spawn_udp_association;
+
+struct WorkerAlive(Arc<AtomicBool>);
+
+impl Drop for WorkerAlive {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+fn stalled_udp_association(
+    id: u64,
+    dest: SocketAddr,
+) -> (UdpAssociation, Arc<AtomicBool>, tokio::sync::oneshot::Receiver<()>) {
+    let (outbound, _outbound_rx) = tokio::sync::mpsc::channel(1);
+    let cancel = CancellationToken::new();
+    let alive = Arc::new(AtomicBool::new(true));
+    let worker_alive = WorkerAlive(alive.clone());
+    let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+    let worker = tokio::spawn(async move {
+        let _worker_alive = worker_alive;
+        let _ = started_tx.send(());
+        std::future::pending::<()>().await;
+    });
+    let association =
+        UdpAssociation { id, outbound, cancel, last_activity: Arc::new(AtomicU64::new(now_millis())), worker, dest };
+    (association, alive, started_rx)
+}
 
 async fn spawn_udp_associate_stub() -> SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy listener");
@@ -287,6 +317,28 @@ async fn shutdown_cancels_all_associations() {
     assert!(associations.is_empty(), "all associations should be drained");
     assert!(cancel1.is_cancelled(), "association 1 cancel token should be cancelled");
     assert!(cancel2.is_cancelled(), "association 2 cancel token should be cancelled");
+}
+
+#[tokio::test(start_paused = true)]
+async fn shutdown_uses_one_grace_period_and_aborts_stalled_association_tasks() {
+    let src1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53012);
+    let src2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53013);
+    let (a1, alive1, started1) = stalled_udp_association(1, "203.0.113.41:443".parse().expect("valid test address"));
+    let (a2, alive2, started2) = stalled_udp_association(2, "203.0.113.42:443".parse().expect("valid test address"));
+    let cancel1 = a1.cancel.clone();
+    let cancel2 = a2.cancel.clone();
+    let mut associations = HashMap::from([(src1, a1), (src2, a2)]);
+    started1.await.expect("first stalled task should start");
+    started2.await.expect("second stalled task should start");
+
+    let started_at = Instant::now();
+    shutdown_udp_associations(&mut associations).await;
+
+    assert_eq!(started_at.elapsed(), Duration::from_secs(5), "all tasks must share one shutdown grace period");
+    assert!(cancel1.is_cancelled() && cancel2.is_cancelled(), "all association tokens must be cancelled together");
+    assert!(!alive1.load(Ordering::Acquire), "first stalled worker must be aborted and joined");
+    assert!(!alive2.load(Ordering::Acquire), "second stalled worker must be aborted and joined");
+    assert!(associations.is_empty(), "all associations should be drained");
 }
 
 #[test]

@@ -28,6 +28,7 @@ mod setup;
 mod setup_dns;
 mod state;
 mod state_shutdown;
+mod task_shutdown;
 mod tcp_accept;
 mod udp_assoc;
 mod wait;

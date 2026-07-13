@@ -5,7 +5,7 @@ use crate::ActiveSessions;
 use crate::dns_cache::DnsCache;
 
 use super::duplex::{flush_pending_to_session, flush_pending_to_smoltcp, try_read_duplex, try_write_duplex};
-use super::session_cleanup::{TaskDrain, remove_session};
+use super::session_cleanup::remove_session;
 use crate::io_loop::PUMP_CHUNK;
 
 pub(in crate::io_loop) async fn pump_active_sessions(
@@ -96,6 +96,6 @@ pub(in crate::io_loop) async fn pump_active_sessions(
     }
 
     for handle in to_remove.drain(..) {
-        remove_session(handle, sessions, socket_set, dns_cache, TaskDrain::Abort).await;
+        remove_session(handle, sessions, socket_set, dns_cache).await;
     }
 }
