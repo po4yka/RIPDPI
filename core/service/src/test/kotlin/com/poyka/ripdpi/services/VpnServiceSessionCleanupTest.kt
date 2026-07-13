@@ -54,6 +54,21 @@ class VpnServiceSessionCleanupTest {
     }
 
     @Test
+    fun serviceDestroyStopsRuntimeBeforeRemovingSocketProtection() {
+        val calls = mutableListOf<String>()
+        val cleanup = VpnServiceSessionCleanup()
+
+        cleanup.destroyRunningSession(
+            stopRuntime = { calls += "runtime-stop" },
+            destroyCoordinator = { calls += "runtime-destroy" },
+            cleanupSocketProtection = { calls += "protect-cleanup" },
+            timeoutMillis = 1_000L,
+        )
+
+        assertEquals(listOf("runtime-stop", "runtime-destroy", "protect-cleanup"), calls)
+    }
+
+    @Test
     fun sessionRevokeStopsRuntimeBeforeRemovingSocketProtection() =
         runTest {
             val calls = mutableListOf<String>()

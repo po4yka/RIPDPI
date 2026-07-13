@@ -49,13 +49,31 @@ internal class VpnServiceSessionLifecycle(
     }
 
     fun destroy() {
-        cleanup.destroySession(
-            destroyCoordinator = { coordinator?.onDestroy() },
-            cleanupSocketProtection = ::cleanupNativeProtect,
-        )
+        val runtimeCoordinator = coordinator
+        val failure =
+            runCatching {
+                cleanup.destroyRunningSession(
+                    stopRuntime = { runtimeCoordinator?.stop() },
+                    destroyCoordinator = { runtimeCoordinator?.onDestroy() },
+                    cleanupSocketProtection = ::cleanupNativeProtect,
+                    timeoutMillis = DESTROY_TIMEOUT_MS,
+                )
+            }.exceptionOrNull()
+        if (failure != null) {
+            serviceStateStore.emitFailed(Sender.VPN, FailureReason.Unexpected(failure))
+            return
+        }
+        clearSessionReferences()
+    }
+
+    private fun clearSessionReferences() {
         protectSocketServer = null
         coordinator = null
         sessionComponent = null
+    }
+
+    private companion object {
+        const val DESTROY_TIMEOUT_MS = 10_000L
     }
 
     private fun cleanupNativeProtect() {

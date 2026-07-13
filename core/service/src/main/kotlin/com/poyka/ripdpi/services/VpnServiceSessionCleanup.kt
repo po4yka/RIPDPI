@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class VpnServiceSessionCleanup {
@@ -38,5 +41,18 @@ internal class VpnServiceSessionCleanup {
     ) {
         stopRuntime()
         destroySession(destroyCoordinator, cleanupSocketProtection)
+    }
+
+    fun destroyRunningSession(
+        stopRuntime: suspend () -> Unit,
+        destroyCoordinator: () -> Unit,
+        cleanupSocketProtection: () -> Unit,
+        timeoutMillis: Long,
+    ) {
+        runBlocking(Dispatchers.IO) {
+            withTimeout(timeoutMillis) {
+                revokeSession(stopRuntime, destroyCoordinator, cleanupSocketProtection)
+            }
+        }
     }
 }
