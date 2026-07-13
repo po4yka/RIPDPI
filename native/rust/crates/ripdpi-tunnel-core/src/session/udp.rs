@@ -13,6 +13,7 @@ use super::socks5::{Auth, associate, decode_udp_frame, encode_udp_frame, handsha
 
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
+const MAX_UDP_DATAGRAM_LEN: usize = 65_535;
 
 /// Persistent SOCKS5 UDP association.
 ///
@@ -23,6 +24,7 @@ const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct UdpSession {
     _ctrl: Arc<Mutex<TcpStream>>,
     udp: Arc<UdpSocket>,
+    recv_buf: Arc<Mutex<Vec<u8>>>,
     recv_timeout: Duration,
 }
 
@@ -74,7 +76,12 @@ impl UdpSession {
         let udp = UdpSocket::from_std(relay_socket.into())?;
         udp.connect(relay_addr).await?;
 
-        Ok(Self { _ctrl: Arc::new(Mutex::new(ctrl)), udp: Arc::new(udp), recv_timeout: DEFAULT_RECV_TIMEOUT })
+        Ok(Self {
+            _ctrl: Arc::new(Mutex::new(ctrl)),
+            udp: Arc::new(udp),
+            recv_buf: Arc::new(Mutex::new(vec![0; MAX_UDP_DATAGRAM_LEN])),
+            recv_timeout: DEFAULT_RECV_TIMEOUT,
+        })
     }
 
     /// Override the receive timeout (default 10 s).
@@ -114,9 +121,8 @@ impl UdpSession {
     /// are mutually exclusive single-shot outcomes with no teardown arm to
     /// protect from starvation.
     pub async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
-        let mut buf = vec![0u8; 65535];
-
         let recv_fut = async {
+            let mut buf = self.recv_buf.lock().await;
             let n = self.udp.recv(&mut buf).await?;
             let (from, data) = decode_udp_frame(&buf[..n])?;
             Ok::<_, io::Error>((from, data.to_vec()))
@@ -260,6 +266,7 @@ mod tests {
         _ctrl: Arc<Mutex<turmoil::net::TcpStream>>,
         udp: Arc<turmoil::net::UdpSocket>,
         relay_addr: SocketAddr,
+        recv_buf: Arc<Mutex<Vec<u8>>>,
         recv_timeout: Duration,
     }
 
@@ -277,6 +284,7 @@ mod tests {
                 _ctrl: Arc::new(Mutex::new(ctrl)),
                 udp: Arc::new(udp),
                 relay_addr,
+                recv_buf: Arc::new(Mutex::new(vec![0; MAX_UDP_DATAGRAM_LEN])),
                 recv_timeout: DEFAULT_RECV_TIMEOUT,
             })
         }
@@ -293,9 +301,13 @@ mod tests {
         }
 
         async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
-            let mut buf = vec![0u8; 65535];
             tokio::select! {
-                result = self.udp.recv_from(&mut buf) => {
+                result = async {
+                    let mut buf = self.recv_buf.lock().await;
+                    let result = self.udp.recv_from(&mut buf).await;
+                    (result, buf)
+                } => {
+                    let (result, buf) = result;
                     let (n, _origin) = result?;
                     let (from, data) = decode_udp_frame(&buf[..n])?;
                     Ok(Some((data.to_vec(), from)))
@@ -420,6 +432,26 @@ mod tests {
         assert_eq!(second.0, b"second");
 
         assert_eq!(accepted_tcp_connections.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn recv_from_reuses_the_session_receive_buffer() {
+        let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(2, false).await;
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(3));
+
+        let initial_ptr = session.recv_buf.lock().await.as_ptr();
+        for payload in [b"first".as_slice(), b"second".as_slice()] {
+            session.send_to(echo_addr, payload).await.unwrap();
+            let (received, _from) = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
+            assert_eq!(received, payload);
+        }
+
+        let final_buf = session.recv_buf.lock().await;
+        assert_eq!(final_buf.len(), MAX_UDP_DATAGRAM_LEN);
+        assert_eq!(final_buf.as_ptr(), initial_ptr, "the 65 KiB receive allocation must be reused across datagrams");
     }
 
     #[tokio::test]
