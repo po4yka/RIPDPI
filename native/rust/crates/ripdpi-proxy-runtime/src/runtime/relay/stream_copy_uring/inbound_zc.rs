@@ -43,12 +43,11 @@ pub(super) fn copy_inbound_zc(
     freeze_detected: Arc<AtomicBool>,
     uring: &IoUringDriver,
 ) -> io::Result<()> {
-    let pool = uring.pool();
     let mut detector =
         FreezeDetector::new(timeouts.freeze_window_ms, timeouts.freeze_min_bytes, timeouts.freeze_max_stalls);
 
     loop {
-        let mut handle = match acquire_registered_buffer(pool) {
+        let mut handle = match acquire_registered_buffer(uring) {
             Some(handle) => handle,
             None => return copy_inbound_fallback(reader, writer, session, peer_done, detector, freeze_detected),
         };
@@ -59,14 +58,14 @@ pub(super) fn copy_inbound_zc(
                 handle.set_len(n);
                 session.observe_inbound_payload(&handle[..]);
 
-                // Single-completion fixed-buffer write. `handle` is held alive
-                // across the blocking wait so the registered buffer stays
-                // valid for the kernel's read; the buffer returns to the pool
-                // only after the one CQE (on `handle` drop at end of scope).
-                let future = uring.write_fixed(writer.as_fd(), handle.buf_index(), n as u32);
-                let result = block_on_completion(future);
+                // Single-completion fixed-buffer write. The driver owns the
+                // handle across the blocking wait, then returns it in the CQE
+                // result so the registered buffer remains valid throughout.
+                let result = block_on_completion(uring.write_fixed(writer.as_fd(), handle));
+                let result_code = result.result;
+                let handle = result.into_buffer().expect("fixed write completion must return its buffer lease");
 
-                if result.result < 0 {
+                if result_code < 0 {
                     // The fixed-buffer write failed. The payload still lives in
                     // the registered buffer (`handle` is alive), so flush the
                     // remainder through the plain socket write rather than
@@ -78,7 +77,7 @@ pub(super) fn copy_inbound_zc(
                     // short write can happen on a partially-writable socket;
                     // flush whatever the kernel did not take from the same
                     // (still-valid) registered buffer.
-                    let written = result.result as usize;
+                    let written = result_code as usize;
                     if written < n {
                         writer.write_all(&handle[written..])?;
                     }

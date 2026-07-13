@@ -5,7 +5,7 @@ use std::thread;
 
 use io_uring::IoUring;
 
-use crate::bufpool::RegisteredBufferPool;
+use crate::bufpool::{BufferHandle, RegisteredBufferPool};
 use crate::ring::completion::{CompletionFuture, CompletionRegistry, CompletionResult};
 use crate::ring::driver_loop::driver_loop;
 use crate::ring::submission::{Submission, next_token};
@@ -52,44 +52,25 @@ impl IoUringDriver {
         Ok(Self { tx, registry, pool, thread: Some(thread) })
     }
 
-    /// Submit a zero-copy send and return a future for the completion.
-    ///
-    /// # Backpressure and failure behaviour
-    ///
-    /// The channel is bounded (capacity == `RING_SIZE`). These methods are
-    /// called from **synchronous** relay threads (never directly from an async
-    /// task), so `flume::Sender::send` may block when the ring is full —
-    /// that blocking is the intended backpressure mechanism and is always
-    /// bounded by the driver consuming the queue.
-    ///
-    /// `send` returns `Err` only when the receiver is **disconnected** (i.e.
-    /// the driver thread has exited). In that case the submission is
-    /// pre-completed with `-EAGAIN` so the returned future resolves
-    /// immediately with an error rather than hanging forever.
-    // cancel-safe: synchronous; no await points.
-    pub fn send_zc(&self, fd: BorrowedFd<'_>, buf_index: u16, len: u32) -> CompletionFuture {
-        let token = next_token();
-        let Some(fd) = self.duplicate_fd(fd, token) else {
-            return CompletionFuture::new(token, Arc::clone(&self.registry));
-        };
-        if self.tx.send(Submission::SendZc { fd, buf_index, len, token }).is_err() {
-            // Driver thread gone — pre-complete so the future does not hang.
-            self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
-        }
-        CompletionFuture::new(token, Arc::clone(&self.registry))
-    }
-
     /// Submit a receive into a registered buffer and return a future.
     ///
-    /// See [`Self::send_zc`] for backpressure and failure behaviour.
+    /// The lease must come from [`Self::acquire_buffer`]. Ownership transfers
+    /// to the driver until the CQE arrives, then returns in
+    /// [`CompletionResult::into_buffer`].
     // cancel-safe: synchronous; no await points.
-    pub fn recv_fixed(&self, fd: BorrowedFd<'_>, buf_index: u16) -> CompletionFuture {
+    pub fn recv_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
-        let Some(fd) = self.duplicate_fd(fd, token) else {
-            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        let fd = match fd.try_clone_to_owned() {
+            Ok(fd) => fd,
+            Err(error) => {
+                let errno = error.raw_os_error().unwrap_or(libc::EIO);
+                self.registry.complete(token, CompletionResult::with_buffer(-errno, 0, buffer));
+                return CompletionFuture::new(token, Arc::clone(&self.registry));
+            }
         };
-        if self.tx.send(Submission::RecvFixed { fd, buf_index, token }).is_err() {
-            self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
+        if let Err(error) = self.tx.send(Submission::RecvFixed { fd, buffer, token }) {
+            let Submission::RecvFixed { buffer, .. } = error.0 else { unreachable!() };
+            self.registry.complete(token, CompletionResult::with_buffer(-libc::EAGAIN, 0, buffer));
         }
         CompletionFuture::new(token, Arc::clone(&self.registry))
     }
@@ -97,11 +78,9 @@ impl IoUringDriver {
     /// Submit a plain (non-registered) write and return a future.
     ///
     /// Ownership of `buf` is transferred to the driver, which keeps it alive
-    /// until the io_uring completion is reaped. This is the correct opcode
-    /// for caller-owned `Vec<u8>` payloads; `send_zc` requires a registered
-    /// buffer and is wrong for this path.
+    /// until the io_uring completion is reaped.
     ///
-    /// See [`Self::send_zc`] for backpressure and failure behaviour.
+    /// See [`Self::recv_fixed`] for backpressure and failure behaviour.
     // cancel-safe: synchronous; no await points.
     pub fn write(&self, fd: BorrowedFd<'_>, buf: Vec<u8>) -> CompletionFuture {
         let token = next_token();
@@ -109,35 +88,45 @@ impl IoUringDriver {
             return CompletionFuture::new(token, Arc::clone(&self.registry));
         };
         if self.tx.send(Submission::Write { fd, buf, token }).is_err() {
-            self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
+            self.registry.complete(token, CompletionResult::plain(-libc::EAGAIN, 0));
         }
         CompletionFuture::new(token, Arc::clone(&self.registry))
     }
 
-    /// Submit `IORING_OP_WRITE_FIXED` against a buffer already registered in
-    /// the pool, and return a future.
-    ///
-    /// The caller is responsible for keeping the buffer slot valid (i.e. not
-    /// returning it to the pool) until the matching completion arrives. This
-    /// is the high-performance path used by [`crate::tun::batch_tun_write`]
-    /// after the payload is staged into a `RegisteredBufferPool` slot.
-    ///
-    /// See [`Self::send_zc`] for backpressure and failure behaviour.
+    /// Submit `IORING_OP_WRITE_FIXED`, consuming the registered-buffer lease
+    /// until the CQE is reaped. The completed lease is returned through
+    /// [`CompletionResult::into_buffer`].
     // cancel-safe: synchronous; no await points.
-    pub fn write_fixed(&self, fd: BorrowedFd<'_>, buf_index: u16, len: u32) -> CompletionFuture {
+    pub fn write_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
-        let Some(fd) = self.duplicate_fd(fd, token) else {
-            return CompletionFuture::new(token, Arc::clone(&self.registry));
+        let fd = match fd.try_clone_to_owned() {
+            Ok(fd) => fd,
+            Err(error) => {
+                let errno = error.raw_os_error().unwrap_or(libc::EIO);
+                self.registry.complete(token, CompletionResult::with_buffer(-errno, 0, buffer));
+                return CompletionFuture::new(token, Arc::clone(&self.registry));
+            }
         };
-        if self.tx.send(Submission::WriteFixed { fd, buf_index, len, token }).is_err() {
-            self.registry.complete(token, CompletionResult { result: -libc::EAGAIN, flags: 0 });
+        if let Err(error) = self.tx.send(Submission::WriteFixed { fd, buffer, token }) {
+            let Submission::WriteFixed { buffer, .. } = error.0 else { unreachable!() };
+            self.registry.complete(token, CompletionResult::with_buffer(-libc::EAGAIN, 0, buffer));
         }
         CompletionFuture::new(token, Arc::clone(&self.registry))
     }
 
-    /// Access the registered buffer pool.
-    pub fn pool(&self) -> &Arc<RegisteredBufferPool> {
-        &self.pool
+    /// Acquire an owning lease from this driver's registered buffer pool.
+    pub fn acquire_buffer(&self) -> Option<BufferHandle> {
+        self.pool.acquire()
+    }
+
+    /// Size of each registered buffer.
+    pub fn buffer_size(&self) -> usize {
+        self.pool.buffer_size()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn available_buffers(&self) -> usize {
+        self.pool.available()
     }
 
     fn duplicate_fd(&self, fd: BorrowedFd<'_>, token: u64) -> Option<OwnedFd> {
@@ -145,7 +134,7 @@ impl IoUringDriver {
             Ok(fd) => Some(fd),
             Err(error) => {
                 let errno = error.raw_os_error().unwrap_or(libc::EIO);
-                self.registry.complete(token, CompletionResult { result: -errno, flags: 0 });
+                self.registry.complete(token, CompletionResult::plain(-errno, 0));
                 None
             }
         }
@@ -202,13 +191,16 @@ mod tests {
             return;
         };
         let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
-        let mut handle = driver.pool().acquire().expect("acquire registered buffer");
+        let mut handle = driver.acquire_buffer().expect("acquire registered buffer");
         handle.as_mut_buf()[..4].copy_from_slice(b"ring");
         handle.set_len(4);
 
-        let result = block_on_completion(driver.write_fixed(file.as_fd(), handle.buf_index(), 4));
+        let result = block_on_completion(driver.write_fixed(file.as_fd(), handle));
 
         assert_eq!(result.result, 4, "fixed write must use the driver's registered buffer table");
+        assert_eq!(driver.available_buffers(), 3, "CQE result must retain the submitted lease");
+        drop(result);
+        assert_eq!(driver.available_buffers(), 4, "dropping the CQE result must release the lease exactly once");
     }
 
     #[test]

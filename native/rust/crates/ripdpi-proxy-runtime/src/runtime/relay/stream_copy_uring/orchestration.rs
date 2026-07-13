@@ -13,10 +13,10 @@ use super::cleanup::{clone_relay_sockets, configure_relay_sockets, detach_drop_s
 use super::inbound_zc::copy_inbound_zc;
 use super::outbound_desync::copy_outbound_half;
 
-/// io_uring-accelerated relay. Replaces `relay_streams` when ZC send is
-/// available. The inbound path (upstream -> client) uses `IORING_OP_SEND_ZC`
-/// via registered buffers. The outbound path uses the standard desync
-/// pipeline since desync strategies require fine-grained socket manipulation.
+/// io_uring-accelerated relay. Replaces `relay_streams` when registered fixed
+/// buffers are available. The inbound path (upstream -> client) uses
+/// `IORING_OP_WRITE_FIXED`; the outbound path uses the standard desync pipeline
+/// since desync strategies require fine-grained socket manipulation.
 pub(crate) fn relay_streams_uring(
     client: TcpStream,
     upstream: TcpStream,

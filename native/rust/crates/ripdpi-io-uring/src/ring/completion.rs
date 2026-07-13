@@ -3,13 +3,30 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
+use crate::bufpool::BufferHandle;
+
 /// Completion result delivered back to the caller.
-#[derive(Debug, Clone)]
 pub struct CompletionResult {
     /// io_uring result code (bytes transferred, or negative errno).
     pub result: i32,
     /// CQE flags (check for `IORING_CQE_F_NOTIF`, `IORING_CQE_F_MORE`).
     pub flags: u32,
+    buffer: Option<BufferHandle>,
+}
+
+impl CompletionResult {
+    pub(crate) fn plain(result: i32, flags: u32) -> Self {
+        Self { result, flags, buffer: None }
+    }
+
+    pub(crate) fn with_buffer(result: i32, flags: u32, buffer: BufferHandle) -> Self {
+        Self { result, flags, buffer: Some(buffer) }
+    }
+
+    /// Recover the registered-buffer lease returned by a fixed-buffer operation.
+    pub fn into_buffer(self) -> Option<BufferHandle> {
+        self.buffer
+    }
 }
 
 /// A future that resolves when the io_uring CQE for the associated
@@ -129,7 +146,7 @@ mod tests {
         let driver = thread::spawn(move || {
             driver_started_clone.store(true, Ordering::Release);
             thread::sleep(Duration::from_millis(50));
-            driver_registry.complete(token, CompletionResult { result: 42, flags: 0 });
+            driver_registry.complete(token, CompletionResult::plain(42, 0));
         });
 
         // Poller: register a thread-backed waker, then park until completion.
@@ -174,9 +191,9 @@ mod tests {
         let token = 0x1234_u64;
 
         // First CQE (the result CQE).
-        registry.complete(token, CompletionResult { result: 100, flags: 0 });
+        registry.complete(token, CompletionResult::plain(100, 0));
         // Second CQE (the NOTIF CQE) for the same token, still unconsumed.
-        registry.complete(token, CompletionResult { result: 200, flags: 0x8 /* F_NOTIF */ });
+        registry.complete(token, CompletionResult::plain(200, 0x8 /* F_NOTIF */));
 
         // Only one slot is tracked despite two completions.
         assert_eq!(registry.slot_count(), 1, "duplicate completion must not strand a second slot");
@@ -196,7 +213,7 @@ mod tests {
         let registry = CompletionRegistry::new();
         let token = 0x5678_u64;
 
-        registry.complete(token, CompletionResult { result: 7, flags: 0 });
+        registry.complete(token, CompletionResult::plain(7, 0));
         let noop = waker_fn::waker_fn(|| {});
         let got = registry.register(token, &noop).expect("ready result");
         assert_eq!(got.result, 7);
@@ -205,8 +222,8 @@ mod tests {
         // A late duplicate (re-)stores one result; a second late duplicate is
         // dropped because a Ready slot already exists. Either way the slot
         // count never exceeds one.
-        registry.complete(token, CompletionResult { result: 8, flags: 0x8 });
-        registry.complete(token, CompletionResult { result: 9, flags: 0x8 });
+        registry.complete(token, CompletionResult::plain(8, 0x8));
+        registry.complete(token, CompletionResult::plain(9, 0x8));
         assert_eq!(registry.slot_count(), 1, "late duplicates must not accumulate slots");
     }
 }

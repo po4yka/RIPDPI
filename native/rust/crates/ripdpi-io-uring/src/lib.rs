@@ -29,7 +29,7 @@ mod ring;
 pub mod tun;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub use bufpool::{BufferHandle, PendingBuffer, RegisteredBufferPool};
+pub use bufpool::BufferHandle;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub use probe::{IoUringCapabilities, io_uring_capabilities};
 #[cfg(any(target_os = "linux", target_os = "android"))]

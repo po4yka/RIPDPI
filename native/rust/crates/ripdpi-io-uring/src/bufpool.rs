@@ -1,6 +1,6 @@
 use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use io_uring::IoUring;
 
@@ -52,8 +52,7 @@ const _: fn() = || {
 };
 
 // Compile-fail regression for soundness issue #14: `RegisteredBufferPool`
-// owns the kernel registration (released via `IORING_UNREGISTER_BUFFERS`
-// on the held `IoUring`, indirectly through the `_iovecs` Vec lifetime)
+// owns the backing memory and iovecs for the driver-owned kernel registration
 // plus a heap allocation (`Box<[UnsafeCell<Box<[u8]>>]>`). A
 // `#[derive(Copy)]` would let safe code duplicate the pool, hand out
 // `BufferHandle`s against two aliasing pools, and double-free the heap
@@ -107,9 +106,9 @@ impl RegisteredBufferPool {
 
     /// Try to acquire a buffer from the pool. Returns `None` if all buffers
     /// are currently in use.
-    pub fn acquire(&self) -> Option<BufferHandle<'_>> {
+    pub(crate) fn acquire(self: &Arc<Self>) -> Option<BufferHandle> {
         let index = self.free_list.lock().ok()?.pop()?;
-        Some(BufferHandle { pool: self, index, len: 0 })
+        Some(BufferHandle { pool: Arc::clone(self), index, len: 0 })
     }
 
     /// Return a buffer to the pool by index. Called by `BufferHandle::drop`.
@@ -125,45 +124,29 @@ impl RegisteredBufferPool {
     }
 
     /// Number of buffers currently available.
+    #[cfg(test)]
     pub fn available(&self) -> usize {
         self.free_list.lock().map_or(0, |f| f.len())
-    }
-
-    /// Total capacity of the pool.
-    pub fn capacity(&self) -> u16 {
-        self.buffers.len() as u16
-    }
-
-    /// Return a buffer to the pool by raw index. Used by batch I/O paths
-    /// that manage buffer indices directly (e.g. [`crate::tun`]).
-    ///
-    /// Visibility is intentionally `pub(crate)`: outside the crate the
-    /// only legitimate way to release a buffer is by dropping a
-    /// `BufferHandle` or calling `PendingBuffer::complete`. Misuse would
-    /// allow the free list to hold the same index twice and hand out
-    /// aliasing handles.
-    pub(crate) fn release_by_index(&self, index: u16) {
-        self.release(index);
     }
 }
 
 /// A handle to a single registered buffer. Provides slice access for
 /// in-place packet parsing and mutation. Returns to the pool on drop.
 ///
-/// **ZC send lifetime**: when submitting a zero-copy send, the buffer must
-/// not be returned to the pool until the kernel signals completion via
-/// `IORING_CQE_F_NOTIF`. Call [`BufferHandle::into_pending`] to convert
-/// into a `PendingBuffer` that suppresses the drop-return.
-pub struct BufferHandle<'pool> {
-    pool: &'pool RegisteredBufferPool,
+/// The handle owns an [`Arc`] to its originating pool. Moving it into a driver
+/// submission therefore keeps both the registered allocation and its exact
+/// pool identity alive until the matching CQE is reaped.
+pub struct BufferHandle {
+    pool: Arc<RegisteredBufferPool>,
     index: u16,
     /// Actual data length within the buffer (may be less than buffer_size).
     len: usize,
 }
 
-impl<'pool> BufferHandle<'pool> {
-    /// The io_uring buffer index for use in SQEs.
-    pub fn buf_index(&self) -> u16 {
+impl BufferHandle {
+    /// The io_uring buffer index. Kept crate-private so safe callers cannot
+    /// submit an index from another ring or release the slot twice.
+    pub(crate) fn buf_index(&self) -> u16 {
         self.index
     }
 
@@ -184,22 +167,30 @@ impl<'pool> BufferHandle<'pool> {
         buf
     }
 
-    /// Convert into a `PendingBuffer<'pool>` that does NOT return to the
-    /// pool on drop. Use this when the buffer has been submitted for a ZC
-    /// send and must remain valid until the kernel notification CQE
-    /// arrives. The returned `PendingBuffer` is tied to the same pool as
-    /// the original handle, so `PendingBuffer::complete` cannot release
-    /// the index against the wrong pool.
-    pub fn into_pending(self) -> PendingBuffer<'pool> {
-        let index = self.index;
-        let pool = self.pool;
-        // Suppress the Drop impl that would return to pool.
-        std::mem::forget(self);
-        PendingBuffer { pool, index }
+    pub(crate) fn as_ptr(&self) -> *const u8 {
+        let cell = &self.pool.buffers[usize::from(self.index)];
+        // SAFETY: the move-only handle is the sole accessor for this slot and
+        // the boxed allocation remains stable while the owning Arc is alive.
+        unsafe { (*cell.get()).as_ptr() }
+    }
+
+    pub(crate) fn as_mut_ptr(&mut self) -> *mut u8 {
+        let cell = &self.pool.buffers[usize::from(self.index)];
+        // SAFETY: the move-only handle is the sole accessor for this slot and
+        // the boxed allocation remains stable while the owning Arc is alive.
+        unsafe { (*cell.get()).as_mut_ptr() }
+    }
+
+    pub(crate) fn len_u32(&self) -> u32 {
+        u32::try_from(self.len).unwrap_or(u32::MAX)
+    }
+
+    pub(crate) fn capacity_u32(&self) -> u32 {
+        u32::try_from(self.pool.buffer_size).unwrap_or(u32::MAX)
     }
 }
 
-impl Deref for BufferHandle<'_> {
+impl Deref for BufferHandle {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
@@ -211,7 +202,7 @@ impl Deref for BufferHandle<'_> {
     }
 }
 
-impl DerefMut for BufferHandle<'_> {
+impl DerefMut for BufferHandle {
     fn deref_mut(&mut self) -> &mut [u8] {
         let len = self.len;
         let cell = &self.pool.buffers[usize::from(self.index)];
@@ -221,40 +212,16 @@ impl DerefMut for BufferHandle<'_> {
     }
 }
 
-impl Drop for BufferHandle<'_> {
+impl Drop for BufferHandle {
     fn drop(&mut self) {
         self.pool.release(self.index);
     }
 }
 
-/// A buffer index whose backing memory is still in-flight for a ZC send.
-/// Call [`PendingBuffer::complete`] once `IORING_CQE_F_NOTIF` is observed
-/// to return it to the pool.
-///
-/// The pool reference is captured at construction time so the index
-/// cannot be released against a different pool.
-pub struct PendingBuffer<'pool> {
-    pool: &'pool RegisteredBufferPool,
-    index: u16,
-}
-
-impl PendingBuffer<'_> {
-    /// The io_uring buffer index.
-    pub fn buf_index(&self) -> u16 {
-        self.index
-    }
-
-    /// Return this buffer to the pool after the kernel notification CQE.
-    pub fn complete(self) {
-        self.pool.release(self.index);
-    }
-}
-
-// Compile-fail regressions for soundness issue #13: `BufferHandle` and
-// `PendingBuffer` are the two canonical move-only owner handles in this
-// workspace. Their exclusive-access protocol (move-only handle + free-list
+// Compile-fail regression for soundness issue #13: `BufferHandle` is the
+// canonical move-only owner handle in this workspace. Its exclusive-access protocol (move-only handle + free-list
 // mutex + `&mut self`-anchored borrows + RAII Drop) breaks the moment safe
-// code can duplicate the handle. The four `AmbiguousIf*` const blocks below
+// code can duplicate the handle. The two `AmbiguousIf*` const blocks below
 // fail to compile if a future change ever derives `Copy` or `Clone` on
 // either type, catching the regression at workspace build time before any
 // CI test runs.
@@ -267,7 +234,7 @@ const _: fn() = || {
     }
     impl<T> AmbiguousIfCopy<()> for Check<T> {}
     impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
-    <Check<BufferHandle<'static>> as AmbiguousIfCopy<_>>::check();
+    <Check<BufferHandle> as AmbiguousIfCopy<_>>::check();
 };
 
 const _: fn() = || {
@@ -279,31 +246,7 @@ const _: fn() = || {
     }
     impl<T> AmbiguousIfClone<()> for Check<T> {}
     impl<T: Clone> AmbiguousIfClone<u8> for Check<T> {}
-    <Check<BufferHandle<'static>> as AmbiguousIfClone<_>>::check();
-};
-
-const _: fn() = || {
-    #[allow(dead_code)]
-    struct Check<T>(core::marker::PhantomData<T>);
-    #[allow(dead_code)]
-    trait AmbiguousIfCopy<A> {
-        fn check() {}
-    }
-    impl<T> AmbiguousIfCopy<()> for Check<T> {}
-    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
-    <Check<PendingBuffer<'static>> as AmbiguousIfCopy<_>>::check();
-};
-
-const _: fn() = || {
-    #[allow(dead_code)]
-    struct Check<T>(core::marker::PhantomData<T>);
-    #[allow(dead_code)]
-    trait AmbiguousIfClone<A> {
-        fn check() {}
-    }
-    impl<T> AmbiguousIfClone<()> for Check<T> {}
-    impl<T: Clone> AmbiguousIfClone<u8> for Check<T> {}
-    <Check<PendingBuffer<'static>> as AmbiguousIfClone<_>>::check();
+    <Check<BufferHandle> as AmbiguousIfClone<_>>::check();
 };
 
 #[cfg(test)]
@@ -324,8 +267,6 @@ mod tests {
     //!     (no stale handle keeps the slot reserved),
     //!   - a pool at capacity refuses to issue a duplicate handle
     //!     (no aliased mutable access can be obtained from safe code),
-    //!   - `into_pending` suppresses Drop-release and `complete`
-    //!     hands the index back exactly once (no double-release).
     //!
     //! The compile-fail properties (`BufferHandle: !Copy + !Clone` and
     //! "second `as_mut_buf` while the first slice is live") are
@@ -337,12 +278,12 @@ mod tests {
     use super::*;
     use io_uring::IoUring;
 
-    fn try_pool(capacity: u16) -> Option<RegisteredBufferPool> {
+    fn try_pool(capacity: u16) -> Option<Arc<RegisteredBufferPool>> {
         // Skip cleanly on kernels without io_uring or without
         // IORING_REGISTER_BUFFERS support. Tests in this module act as
         // smoke tests on CI Linux runners and as no-ops elsewhere.
         let ring = IoUring::new(8).ok()?;
-        RegisteredBufferPool::new(&ring, capacity, 1024).ok()
+        RegisteredBufferPool::new(&ring, capacity, 1024).ok().map(Arc::new)
     }
 
     #[test]
@@ -364,21 +305,6 @@ mod tests {
         // This is the runtime witness that safe code cannot obtain a
         // duplicate `BufferHandle` for the same cell.
         assert!(pool.acquire().is_none(), "duplicate handle must be impossible");
-    }
-
-    #[test]
-    fn pending_buffer_suppresses_drop_release_until_complete() {
-        let Some(pool) = try_pool(1) else { return };
-        let handle = pool.acquire().expect("acquire");
-        let idx = handle.buf_index();
-        let pending = handle.into_pending();
-        // `into_pending` consumed the handle without releasing its
-        // index; the pool is therefore still exhausted.
-        assert!(pool.acquire().is_none(), "into_pending must not return the index to the pool");
-        pending.complete();
-        // After explicit complete, the index returns and is reusable.
-        let after = pool.acquire().expect("acquire after complete");
-        assert_eq!(after.buf_index(), idx, "complete must return the index exactly once");
     }
 
     #[test]
