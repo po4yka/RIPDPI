@@ -143,6 +143,10 @@ pub struct BufferHandle {
 }
 
 impl BufferHandle {
+    pub(crate) fn belongs_to(&self, pool: &Arc<RegisteredBufferPool>) -> bool {
+        Arc::ptr_eq(&self.pool, pool)
+    }
+
     /// The io_uring buffer index. Kept crate-private so safe callers cannot
     /// submit an index from another ring or release the slot twice.
     pub(crate) fn buf_index(&self) -> u16 {

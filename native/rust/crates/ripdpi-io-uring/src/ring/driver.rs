@@ -85,6 +85,10 @@ impl IoUringDriver {
     pub fn recv_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
         self.registry.begin(token);
+        let buffer = match self.validate_buffer_origin(token, buffer) {
+            Ok(buffer) => buffer,
+            Err(future) => return future,
+        };
         let fd = match fd.try_clone_to_owned() {
             Ok(fd) => fd,
             Err(error) => {
@@ -132,6 +136,10 @@ impl IoUringDriver {
     pub fn write_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
         self.registry.begin(token);
+        let buffer = match self.validate_buffer_origin(token, buffer) {
+            Ok(buffer) => buffer,
+            Err(future) => return future,
+        };
         let fd = match fd.try_clone_to_owned() {
             Ok(fd) => fd,
             Err(error) => {
@@ -171,6 +179,14 @@ impl IoUringDriver {
                 None
             }
         }
+    }
+
+    fn validate_buffer_origin(&self, token: u64, buffer: BufferHandle) -> Result<BufferHandle, CompletionFuture> {
+        if buffer.belongs_to(&self.pool) {
+            return Ok(buffer);
+        }
+        self.registry.complete(token, CompletionResult::with_buffer(-libc::EXDEV, 0, buffer));
+        Err(CompletionFuture::new(token, Arc::clone(&self.registry)))
     }
 
     /// Construct a driver whose submission channel is already disconnected
@@ -252,6 +268,26 @@ mod tests {
         assert_eq!(driver.available_buffers(), 3, "CQE result must retain the submitted lease");
         drop(result);
         assert_eq!(driver.available_buffers(), 4, "dropping the CQE result must release the lease exactly once");
+    }
+
+    #[test]
+    fn driver_rejects_buffer_registered_on_another_ring() {
+        let (Ok(first), Ok(second)) = (IoUringDriver::start(4, 1024), IoUringDriver::start(4, 1024)) else {
+            eprintln!("io_uring unavailable; skipping driver_rejects_buffer_registered_on_another_ring");
+            return;
+        };
+        let file = OpenOptions::new().write(true).open("/dev/null").expect("open /dev/null");
+        let mut handle = first.acquire_buffer().expect("acquire first driver's buffer");
+        handle.as_mut_buf()[..4].copy_from_slice(b"ring");
+        assert!(handle.set_len(4));
+
+        let result = block_on_completion(second.write_fixed(file.as_fd(), handle));
+
+        assert_eq!(result.result, -libc::EXDEV, "a lease must never cross its registration ring");
+        assert_eq!(first.available_buffers(), 3, "rejected completion must retain the foreign lease");
+        assert_eq!(second.available_buffers(), 4, "rejecting a foreign lease must not consume the local pool");
+        drop(result);
+        assert_eq!(first.available_buffers(), 4, "dropping the rejection must return the lease to its origin pool");
     }
 
     #[test]
