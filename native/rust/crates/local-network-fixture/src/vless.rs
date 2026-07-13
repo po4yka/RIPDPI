@@ -202,9 +202,7 @@ async fn handle_connection(
         match parse_request_header(&buf) {
             Ok(header) => break header,
             Err(ParseRequestError::NeedMoreData) => {}
-            Err(ParseRequestError::Invalid(reason)) => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, reason));
-            }
+            Err(error) => return Err(io::Error::new(io::ErrorKind::InvalidData, error)),
         }
         if buf.len() >= MAX_REQUEST_HEADER {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "VLESS request header exceeded bound"));
@@ -222,7 +220,7 @@ async fn handle_connection(
     // 2. A VLESS mux carrier has a fixed reserved VLESS destination. It is
     // acknowledged before the SagerNet sing-mux/yamux session is driven.
     if header.target == ripdpi_vless::mux::SING_MUX_DESTINATION {
-        tls.write_all(&encode_response(&[])).await?;
+        tls.write_all(&encode_response(&[])?).await?;
         return serve_yamux_carrier(tls, &buf[header.consumed_len..]).await;
     }
 
@@ -235,7 +233,7 @@ async fn handle_connection(
     // 4. Acknowledge with the VLESS response header, then splice. Any bytes
     //    already buffered past the header (e.g. the next hop's ClientHello in a
     //    chained connect) are forwarded before the bidirectional copy.
-    tls.write_all(&encode_response(&[])).await?;
+    tls.write_all(&encode_response(&[])?).await?;
     let leftover = &buf[header.consumed_len..];
     if !leftover.is_empty() {
         upstream.write_all(leftover).await?;

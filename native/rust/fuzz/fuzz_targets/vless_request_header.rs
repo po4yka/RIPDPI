@@ -14,7 +14,9 @@ fuzz_target!(|data: &[u8]| {
         let port = 1 + u16::from(data[0]);
         let target = format!("{host}.example:{port}");
         let uuid = [data[0]; 16];
-        let encoded = ripdpi_vless::wire::encode_request(&uuid, &data[1..data.len().min(8)], &target);
+        let Ok(encoded) = ripdpi_vless::wire::encode_request(&uuid, &data[1..data.len().min(8)], &target) else {
+            return;
+        };
         let _ = ripdpi_vless::wire::parse_request_header(&encoded);
 
         let mut invalid_command = encoded.clone();

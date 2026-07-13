@@ -26,7 +26,7 @@ pub(crate) async fn run_session(
         .await
         .map_err(redact_upstream_connect_error)?;
     upstream.set_nodelay(true)?;
-    if outbound_tx.send(Ok(Bytes::from(ripdpi_vless::wire::encode_response(&[])))).await.is_err() {
+    if outbound_tx.send(Ok(Bytes::from(ripdpi_vless::wire::encode_response(&[])?))).await.is_err() {
         return Ok(());
     }
 
@@ -84,9 +84,7 @@ async fn read_request_header(
                 buffered.extend_from_slice(&chunk);
             }
 
-            Err(ripdpi_vless::wire::ParseRequestError::Invalid(message)) => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, message));
-            }
+            Err(error) => return Err(io::Error::new(io::ErrorKind::InvalidData, error)),
         }
     }
 }

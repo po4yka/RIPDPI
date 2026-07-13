@@ -164,11 +164,11 @@ impl PooledConnection {
         open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
         open_tasks.push(spawn_download_pump(get_response.into_body(), transport_download, "xHTTP GET stream failed"));
 
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target);
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
         user_upload.write_all(&request).await?;
 
         let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
-        ripdpi_vless::wire::read_response(&mut stream).await?;
+        ripdpi_vless::wire::read_response(&mut stream).await.map_err(io::Error::from)?;
         open_tasks.disarm();
         Ok(stream)
     }
@@ -214,11 +214,11 @@ impl PooledConnection {
             "xHTTP stream-one body failed",
         ));
 
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target);
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
         user_upload.write_all(&request).await?;
 
         let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
-        ripdpi_vless::wire::read_response(&mut stream).await?;
+        ripdpi_vless::wire::read_response(&mut stream).await.map_err(io::Error::from)?;
         open_tasks.disarm();
         Ok(stream)
     }
