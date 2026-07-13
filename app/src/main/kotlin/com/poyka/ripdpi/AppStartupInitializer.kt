@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsRetentionWorker
 import com.poyka.ripdpi.seed.SimpleFlavorStartupHooks
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
@@ -45,6 +46,8 @@ class AppStartupInitializer
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
+            runCatching { DiagnosticsRetentionWorker.enqueuePeriodic(context) }
+                .onFailure { error -> Logger.w(error) { "Diagnostics retention worker failed to enqueue" } }
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
             simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope)
