@@ -124,7 +124,7 @@ pub struct IoUringTunContext {
     /// `run_tunnel` and audited.  External callers must not construct
     /// `IoUringTunContext` with the same fd number already adopted by
     /// `AsyncDevice` inside `run_tunnel`.
-    pub(crate) tun_fd: std::os::fd::OwnedFd,
+    pub(crate) _tun_fd: std::os::fd::OwnedFd,
 }
 
 #[allow(clippy::too_many_arguments)]
