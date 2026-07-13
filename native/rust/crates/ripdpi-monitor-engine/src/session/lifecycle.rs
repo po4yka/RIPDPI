@@ -140,9 +140,6 @@ impl MonitorSession {
             return;
         };
         join_finished_worker_locked(&mut worker_guard);
-        if let Some(handle) = worker_guard.take() {
-            let _ = handle.join();
-        }
     }
 }
 
@@ -171,5 +168,26 @@ mod tests {
         assert!(session.worker.lock().expect("worker lock").is_none());
 
         release_tx.send(()).expect("release worker for asynchronous join");
+    }
+    #[test]
+    fn take_report_returns_without_waiting_for_blocked_worker() {
+        let session = Arc::new(MonitorSession::new());
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            started_tx.send(()).expect("signal worker start");
+            release_rx.recv().expect("wait for worker release");
+        });
+        started_rx.recv_timeout(Duration::from_secs(1)).expect("worker started");
+        *session.worker.lock().expect("worker lock") = Some(worker);
+
+        let (poll_tx, poll_rx) = mpsc::channel();
+        thread::spawn(move || {
+            poll_tx.send(session.take_report_json()).expect("return report polling result");
+        });
+
+        let result = poll_rx.recv_timeout(Duration::from_millis(100));
+        release_tx.send(()).expect("release worker after bounded poll");
+        assert!(matches!(result, Ok(Ok(None))), "report polling must not join a running worker: {result:?}");
     }
 }
