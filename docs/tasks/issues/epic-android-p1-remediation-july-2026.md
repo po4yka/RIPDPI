@@ -1,7 +1,7 @@
 ---
 title: Fix July 2026 Android P1 audit findings
 type: epic
-status: doing
+status: review
 area: epic
 priority: critical
 owner: Codex
@@ -30,18 +30,18 @@ The integrated application still has fail-open standalone AWG recovery, a nonfun
 
 ## Scope
 
-- [ ] Carry the credential-safe profile navigation commit.
-- [ ] Carry the cached telemetry sparkline geometry commit.
-- [ ] Carry the asynchronous profile-share QR commit.
-- [ ] Rehydrate standalone AWG by a persisted secret-free profile pointer and fail closed on missing state.
-- [ ] Consume bootstrap subscriptions exactly once and persist imported members before reporting success.
-- [ ] Bound subscription response bodies, profile counts, and raw configuration parsing.
-- [ ] Replace credential-bearing subscription navigation arguments with an opaque request token.
-- [ ] Keep backup PIN and PKCS#12 password out of Activity saved state.
-- [ ] Bound editor drafts, move domain compilation off the main thread, and keep large drafts out of saved state.
-- [ ] Deliver one-shot UI effects only in an active lifecycle while preserving pending events.
-- [ ] Move `StatusIndicator` frame-rate state reads to the draw/layer phase.
-- [ ] Apply navigation-bar insets to the shared authentication footer.
+- [x] Carry the credential-safe profile navigation commit.
+- [x] Carry the cached telemetry sparkline geometry commit.
+- [x] Carry the asynchronous profile-share QR commit.
+- [x] Rehydrate standalone AWG by a persisted secret-free profile pointer and fail closed on missing state.
+- [x] Consume bootstrap subscriptions exactly once and persist imported members before reporting success.
+- [x] Bound subscription response bodies, profile counts, and raw configuration parsing.
+- [x] Replace credential-bearing subscription navigation arguments with an opaque request token.
+- [x] Keep backup PIN and PKCS#12 password out of Activity saved state.
+- [x] Bound editor drafts, move domain compilation off the main thread, and keep large drafts out of saved state.
+- [x] Deliver one-shot UI effects only in an active lifecycle while preserving pending events.
+- [x] Move `StatusIndicator` frame-rate state reads to the draw/layer phase.
+- [x] Apply navigation-bar insets to the shared authentication footer.
 
 ## Ship definition
 
@@ -52,3 +52,6 @@ The integrated application still has fail-open standalone AWG recovery, a nonfun
 ## Work log
 
 - 2026-07-14: Goal started in `codex/fix-all-android-p1` from `origin/main`; ownership assigned to Codex.
+- 2026-07-14: Landed twelve atomic P1 fix commits plus focused static-analysis cleanup commits; no fix was combined with an unrelated P1.
+- 2026-07-14: Verified `:app:compileGithubFullReleaseKotlin` with Compose reports, full `staticAnalysis`, aggregate `testDebugUnitTest`, full-tree architecture health, and `cargo metadata --locked`; all completed with exit code 0.
+- 2026-07-14: Compose compiler reports classify `StatusIndicator`, `TelemetrySparkline`, and the profile-share composables as restartable and skippable. Device-only visual verification of auth insets remains appropriate before release but is not a host-gate blocker.
