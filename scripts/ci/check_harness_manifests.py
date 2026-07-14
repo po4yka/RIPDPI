@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -119,6 +120,19 @@ def validate_instruction_entrypoints() -> None:
         raise ValueError("CLAUDE.md must import AGENTS.md with @AGENTS.md")
 
 
+def validate_worktree_integration_contract() -> None:
+    instructions = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    required = (
+        "In the job worktree, run `git fetch origin` and `git rebase origin/main`.",
+        "In the main checkout, run `git merge --ff-only <job-branch>`.",
+    )
+    for statement in required:
+        if statement not in instructions:
+            raise ValueError(f"AGENTS.md missing worktree integration contract: {statement}")
+    if re.search(r"git rebase\s+origin/main\s+\S+", instructions):
+        raise ValueError("AGENTS.md must not rebase a branch that is checked out in another worktree")
+
+
 def main() -> int:
     try:
         names = skill_names()
@@ -127,6 +141,7 @@ def main() -> int:
         validate_codex_agents()
         validate_rules()
         validate_instruction_entrypoints()
+        validate_worktree_integration_contract()
     except (OSError, ValueError, tomllib.TOMLDecodeError, yaml.YAMLError) as exc:
         print(f"HARNESS MANIFEST ERROR: {exc}", file=sys.stderr)
         return 1
