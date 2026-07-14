@@ -34,7 +34,7 @@ use jni::{EnvUnowned, JavaVM, Outcome};
 
 use ripdpi_flow_app_attribution::{
     AttributionGeneration, FlowResolveRequest, begin_attribution_session, end_attribution_session_if,
-    pop_pending_request, store_flow_resolution, store_uid_resolution,
+    pop_pending_request_for_session, store_flow_resolution, store_uid_resolution,
 };
 
 /// How long the worker blocks waiting for a queued request before re-checking the
@@ -75,9 +75,9 @@ impl FlowNotifier for JniFlowNotifier {
         // noteFlow once per drained flow. The first call attaches; subsequent calls hit
         // the cheap "already attached" TLS path instead of re-attaching+detaching every
         // flow (the jni 0.22 docs warn scoped attach is expensive on a reused thread).
-        // Teardown-safe without scoping because `stop_worker` joins this thread before
-        // teardown, so its TLS attach guard detaches it at thread exit — it can never be
-        // left attached across DestroyJavaVM.
+        // Android owns the process-wide JVM for the lifetime of this library. A retired
+        // worker may finish an in-flight callback asynchronously, then its TLS attach
+        // guard detaches at thread exit.
         let result: Result<i32, jni::errors::Error> =
             self.vm.attach_current_thread(|env| -> jni::errors::Result<i32> {
                 let local = env.new_string(&local_ip)?;
@@ -112,8 +112,8 @@ impl FlowNotifier for JniFlowNotifier {
 /// Drain one queued request (blocking up to [`WORKER_POLL`]) and forward it to
 /// `notifier`, then mark its destination resolved so it is not re-notified.
 /// Returns `true` if a request was processed.
-fn drain_once(notifier: &dyn FlowNotifier) -> bool {
-    match pop_pending_request(WORKER_POLL) {
+fn drain_once(notifier: &dyn FlowNotifier, generation: AttributionGeneration) -> bool {
+    match pop_pending_request_for_session(generation, WORKER_POLL) {
         Some(job) => {
             let request = job.request();
             let uid = notifier.note(request);
@@ -127,9 +127,9 @@ fn drain_once(notifier: &dyn FlowNotifier) -> bool {
     }
 }
 
-fn worker_loop(notifier: Box<dyn FlowNotifier>, stop: Arc<AtomicBool>) {
+fn worker_loop(notifier: Box<dyn FlowNotifier>, stop: Arc<AtomicBool>, generation: AttributionGeneration) {
     while !stop.load(Ordering::Acquire) {
-        drain_once(notifier.as_ref());
+        drain_once(notifier.as_ref(), generation);
     }
 }
 
@@ -149,11 +149,13 @@ fn registered() -> std::sync::MutexGuard<'static, Option<Registered>> {
     REGISTERED.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-fn stop_worker(mut reg: Registered) {
+fn retire_worker(mut reg: Registered) {
+    end_attribution_session_if(reg.generation);
     reg.stop.store(true, Ordering::Release);
-    if let Some(join) = reg.join.take() {
-        let _ = join.join();
-    }
+    // Dropping a JoinHandle detaches the worker. It may be inside a blocking JNI
+    // callback, so unregister/re-register must not wait for it. The generation
+    // check prevents it from draining any replacement session's queue.
+    drop(reg.join.take());
 }
 
 /// Spawn the worker that drives `notifier`, replacing any prior registration, and
@@ -163,11 +165,10 @@ fn stop_worker(mut reg: Registered) {
 /// just-begun session is rolled back via [`end_attribution_session_if`] so no
 /// orphaned generation is left behind.
 fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> std::io::Result<AttributionGeneration> {
-    // Stop a prior worker (if any) before starting a new session. Taken out of the
-    // lock so the join does not hold REGISTERED.
-    let previous = registered().take();
+    let mut slot = registered();
+    let previous = slot.take();
     if let Some(previous) = previous {
-        stop_worker(previous);
+        retire_worker(previous);
     }
 
     let generation = begin_attribution_session();
@@ -175,7 +176,7 @@ fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> std::io::Result<At
     let worker_stop = Arc::clone(&stop);
     let join = match std::thread::Builder::new()
         .name("ripdpi-flow-attribution".to_owned())
-        .spawn(move || worker_loop(notifier, worker_stop))
+        .spawn(move || worker_loop(notifier, worker_stop, generation))
     {
         Ok(join) => join,
         Err(err) => {
@@ -185,7 +186,7 @@ fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> std::io::Result<At
             return Err(err);
         }
     };
-    *registered() = Some(Registered { generation, stop, join: Some(join) });
+    *slot = Some(Registered { generation, stop, join: Some(join) });
     Ok(generation)
 }
 
@@ -250,8 +251,7 @@ pub(crate) fn unregister_flow_attribution(token: i64) {
         if guard.as_ref().is_some_and(|reg| reg.generation == generation) { guard.take() } else { None }
     };
     if let Some(reg) = to_stop {
-        stop_worker(reg);
-        end_attribution_session_if(generation);
+        retire_worker(reg);
         tracing::info!(generation = generation.token(), "flow-attribution bridge unregistered");
     } else {
         tracing::info!(token, "flow-attribution unregister ignored (stale token or no registration)");
@@ -262,7 +262,8 @@ pub(crate) fn unregister_flow_attribution(token: i64) {
 mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
-    use std::sync::Mutex as StdMutex;
+    use std::sync::{Condvar, Mutex as StdMutex, mpsc};
+    use std::time::Instant;
 
     use ripdpi_flow_app_attribution::{clear, lookup_flow, note_flow, pending_len};
 
@@ -294,14 +295,14 @@ mod tests {
     #[test]
     fn drain_once_forwards_the_request_and_marks_resolved() {
         let _g = TEST_GUARD.lock().expect("test guard");
-        clear();
+        let generation = begin_attribution_session();
         let remote = sock(93, 184, 216, 34, 443);
         let local = sock(10, 0, 0, 2, 51000);
         // A flow birth enqueues a request and leaves the dest unresolved.
         assert!(note_flow(6, local, remote).context.is_none());
 
         let notifier = RecordingNotifier { seen: StdMutex::new(Vec::new()) };
-        assert!(drain_once(&notifier));
+        assert!(drain_once(&notifier, generation));
 
         let seen = notifier.seen.lock().expect("seen");
         assert_eq!(seen.len(), 1);
@@ -314,14 +315,71 @@ mod tests {
         );
         assert!(note_flow(6, local, remote).context.is_none());
         assert_eq!(pending_len(), 0);
+        drop(seen);
+        assert!(end_attribution_session_if(generation));
     }
 
     #[test]
     fn drain_once_returns_false_on_empty_queue() {
         let _g = TEST_GUARD.lock().expect("test guard");
-        clear();
+        let generation = begin_attribution_session();
         let notifier = RecordingNotifier { seen: StdMutex::new(Vec::new()) };
-        assert!(!drain_once(&notifier));
+        assert!(!drain_once(&notifier, generation));
         assert!(notifier.seen.lock().expect("seen").is_empty());
+        assert!(end_attribution_session_if(generation));
+    }
+
+    struct BlockingNotifier {
+        started: mpsc::SyncSender<()>,
+        release: Arc<(StdMutex<bool>, Condvar)>,
+        retired: mpsc::SyncSender<()>,
+    }
+
+    impl FlowNotifier for BlockingNotifier {
+        fn note(&self, _request: FlowResolveRequest) -> Option<u32> {
+            let _ = self.started.send(());
+            let (released, wake) = &*self.release;
+            let guard = released.lock().unwrap_or_else(PoisonError::into_inner);
+            drop(wake.wait_while(guard, |released| !*released));
+            Some(10_123)
+        }
+    }
+
+    impl Drop for BlockingNotifier {
+        fn drop(&mut self) {
+            let _ = self.retired.send(());
+        }
+    }
+
+    #[test]
+    fn reregister_does_not_wait_for_blocked_notifier() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        if let Some(registration) = registered().take() {
+            retire_worker(registration);
+        }
+        clear();
+        let (started_tx, started_rx) = mpsc::sync_channel(1);
+        let (retired_tx, retired_rx) = mpsc::sync_channel(1);
+        let release = Arc::new((StdMutex::new(false), Condvar::new()));
+        let first = register_with_notifier(Box::new(BlockingNotifier {
+            started: started_tx,
+            release: Arc::clone(&release),
+            retired: retired_tx,
+        }))
+        .expect("register blocking notifier");
+        let _observation = note_flow(6, sock(10, 0, 0, 2, 51_000), sock(93, 184, 216, 34, 443));
+        started_rx.recv_timeout(Duration::from_secs(1)).expect("notifier entered callback");
+
+        let started = Instant::now();
+        let second = register_with_notifier(Box::new(RecordingNotifier { seen: StdMutex::new(Vec::new()) }))
+            .expect("replace notifier");
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert_ne!(first, second);
+
+        let (released, wake) = &*release;
+        *released.lock().unwrap_or_else(PoisonError::into_inner) = true;
+        wake.notify_all();
+        retired_rx.recv_timeout(Duration::from_secs(1)).expect("retired worker exited");
+        unregister_flow_attribution(second.token() as i64);
     }
 }

@@ -380,6 +380,28 @@ pub fn pop_pending_request(timeout: Duration) -> Option<FlowResolutionJob> {
     guard.pending.pop_front()
 }
 
+/// Pop work only while `generation` is still the active attribution session.
+/// A retired worker therefore cannot consume requests queued for a replacement
+/// worker after re-registration.
+pub fn pop_pending_request_for_session(
+    generation: AttributionGeneration,
+    timeout: Duration,
+) -> Option<FlowResolutionJob> {
+    let mut guard = lock();
+    if guard.generation != generation.0 {
+        return None;
+    }
+    if let Some(request) = guard.pending.pop_front() {
+        return Some(request);
+    }
+    let (mut guard, _timed_out) =
+        pending_signal().wait_timeout(guard, timeout).expect("flow-app-attribution state poisoned");
+    if guard.generation != generation.0 {
+        return None;
+    }
+    guard.pending.pop_front()
+}
+
 /// Remove the queued generation-stamped job for one exact request without consuming unrelated work.
 #[must_use]
 pub fn take_pending_request(request: FlowResolveRequest) -> Option<FlowResolutionJob> {
@@ -591,6 +613,21 @@ mod tests {
         // The current generation clears it.
         assert!(end_attribution_session_if(current));
         assert!(lookup_flow(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))).is_none());
+    }
+
+    #[test]
+    fn stale_worker_cannot_consume_replacement_session_request() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let stale = begin_attribution_session();
+        let current = begin_attribution_session();
+        let local = sock(10, 0, 0, 2, 51_000);
+        let remote = sock(93, 184, 216, 34, 443);
+        let _observation = note_flow(6, local, remote);
+
+        assert!(pop_pending_request_for_session(stale, Duration::ZERO).is_none());
+        assert!(pop_pending_request_for_session(current, Duration::ZERO).is_some());
+        assert!(end_attribution_session_if(current));
     }
 
     #[test]
