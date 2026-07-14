@@ -68,6 +68,7 @@ impl TuicClient {
         let inner = Arc::new(ClientInner {
             endpoint,
             connection,
+            udp_enabled: config.udp_enabled,
             next_assoc_id: AtomicU16::new(1),
             registrations: Mutex::new(HashMap::new()),
             max_datagram_size,
@@ -107,6 +108,9 @@ impl TuicClient {
     }
 
     pub async fn udp_session(&self) -> io::Result<UdpSession> {
+        if !self.inner.udp_enabled {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "TUIC UDP relay is disabled by configuration"));
+        }
         if self.inner.max_datagram_size.is_none() {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
@@ -157,6 +161,7 @@ fn additional_roots_from_pem(pem: Option<&str>) -> io::Result<Option<Vec<Certifi
 pub(crate) struct ClientInner {
     pub(crate) endpoint: Endpoint,
     pub(crate) connection: quinn::Connection,
+    pub(crate) udp_enabled: bool,
     pub(crate) next_assoc_id: AtomicU16,
     pub(crate) registrations: Mutex<HashMap<u16, tokio::sync::mpsc::Sender<UdpPacket>>>,
     pub(crate) max_datagram_size: Option<usize>,

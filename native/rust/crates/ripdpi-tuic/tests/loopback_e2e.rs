@@ -31,6 +31,11 @@ async fn tuic_client_with_pinned_root_certificate_verifies_and_tunnels() {
     let config = config(server.port(), Some(server.certificate_pem().to_string()));
 
     let client = TuicClient::connect(config).await.expect("pinned-cert handshake must verify");
+    let Err(udp_error) = client.udp_session().await else {
+        panic!("disabled UDP must fail before creating a black-holed session");
+    };
+    assert_eq!(udp_error.kind(), std::io::ErrorKind::Unsupported);
+    assert!(udp_error.to_string().contains("disabled by configuration"));
     let mut stream = client.tcp_connect("127.0.0.1:9").await.expect("open proxy stream");
 
     stream.write_all(b"tuic-roundtrip").await.expect("write proxied payload");
