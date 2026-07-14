@@ -16,6 +16,7 @@ on:
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/ci/check_codex_skills_sync.py'
       - 'scripts/ci/check-rules-drift.sh'
+      - 'scripts/tests/test_agent_hooks.py'
   push:
     branches: [main]
     paths:
@@ -32,6 +33,7 @@ on:
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/ci/check_codex_skills_sync.py'
       - 'scripts/ci/check-rules-drift.sh'
+      - 'scripts/tests/test_agent_hooks.py'
 
 permissions:
   contents: read
@@ -58,3 +60,5 @@ jobs:
         run: python3 scripts/ci/check_codex_skills_sync.py
       - name: Validate rule mirrors
         run: bash scripts/ci/check-rules-drift.sh
+      - name: Test committed agent hooks
+        run: python3 scripts/tests/test_agent_hooks.py

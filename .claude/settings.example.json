@@ -1,12 +1,8 @@
 {
-  "//": "RIPDPI .claude/settings.example.json — copy to .claude/settings.json and adjust.",
-  "//1": "Real settings.json is gitignored per .gitignore line 58.",
-  "//2": "See .claude/scripts/README.md for the hook wiring rationale.",
-  "//3": "See .claude/rules/llm-rust-prompts.md for the rust-analyzer MCP rule.",
+  "//": "Optional per-developer settings. Merge only the entries you need into gitignored .claude/settings.local.json; project hooks are committed in .claude/settings.json.",
   "enabledPlugins": {
     "codex@openai-codex": true
   },
-  "//4": "permissions.allow carries into your gitignored settings.json on copy. Agents and CI both invoke the Android CLI 1.0 (`android sdk install`, `android docs search`, `android screen capture`, `android emulator`); the wildcard covers every subcommand. Journeys under `journeys/` are agent-executed (there is no `android journeys` command). See AGENTS.md § Setup.",
   "permissions": {
     "allow": [
       "Bash(android:*)"
@@ -17,64 +13,10 @@
   },
   "mcpServers": {
     "rust-analyzer": {
-      "//": "Choose ONE of: (a) zeenix/rust-analyzer-mcp; (b) bug-ops/mcpls.",
-      "//1": "(a) Install: cargo install --git https://github.com/zeenix/rust-analyzer-mcp",
-      "//2": "(b) Install: cargo install --git https://github.com/bug-ops/mcpls",
-      "//3": "When installed, set `command` to the binary name on your PATH.",
+      "//": "Install zeenix/rust-analyzer-mcp or replace command with another compatible server.",
       "command": "rust-analyzer-mcp",
       "args": [],
       "cwd": "${workspaceFolder}/native/rust"
     }
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *baseline*.xml|*-baseline.json|*loc-baseline*|*detekt-baseline*) echo 'BLOCKED: CLAUDE.md rule -- never extend baselines. Fix the underlying violation (refactor long file, resolve detekt finding, etc.) instead of suppressing it.' >&2; exit 2 ;; esac"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.kt|*.kts) command -v ktlint >/dev/null 2>&1 && ktlint -F --log-level=none \"$f\" >/dev/null 2>&1 || true ;; esac"
-          },
-          {
-            "type": "command",
-            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); bash \"$ROOT/.claude/scripts/rust-postedit-check.sh\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); bash \"$ROOT/.claude/scripts/rust-stop-verify.sh\""
-          }
-        ]
-      }
-    ],
-    "//SubagentStop": "Observability for sub-agent completions. Logs every finish to .claude/logs/subagent-stop.log and warns when audit-class agents return without a recognized conclusion marker. Requires Claude Code v2.1.145+ which exposes last_assistant_message on this event. Never blocks; SubagentStop does not support additionalContext injection.",
-    "SubagentStop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); bash \"$ROOT/.claude/scripts/subagent-stop-audit-log.sh\""
-          }
-        ]
-      }
-    ]
   }
 }
