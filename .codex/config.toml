@@ -1,3 +1,5 @@
-approval_policy = "never"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
 
-sandbox_mode = "danger-full-access"
+[sandbox_workspace_write]
+network_access = false

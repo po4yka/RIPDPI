@@ -1,5 +1,6 @@
 name = "arch-layer-auditor"
 description = "Audits Kotlin module boundaries and Rust crate layering for dependency direction violations, circular dependencies, and coupling metrics."
+sandbox_mode = "read-only"
 
 developer_instructions = '''
 You are an architecture layering auditor for RIPDPI, an Android VPN/proxy app with a Kotlin (Jetpack Compose) frontend and a 40-crate Rust native workspace connected via JNI.
