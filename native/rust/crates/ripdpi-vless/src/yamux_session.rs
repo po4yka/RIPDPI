@@ -14,6 +14,14 @@ use crate::AsyncIo;
 type Carrier = tokio_util::compat::Compat<Box<dyn AsyncIo>>;
 type Connection = yamux::Connection<Carrier>;
 
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 /// Shared client-side mux carrier. The yamux implementation owns flow control,
 /// stream lifecycle and the carrier I/O state; this wrapper serializes session
 /// operations and fails all subsequent opens after carrier failure.
@@ -21,6 +29,7 @@ type Connection = yamux::Connection<Carrier>;
 pub struct VlessYamuxSession {
     connection: Arc<Mutex<Connection>>,
     closed: Arc<AtomicBool>,
+    _driver_guard: Arc<AbortOnDrop>,
 }
 
 impl VlessYamuxSession {
@@ -34,7 +43,7 @@ impl VlessYamuxSession {
         let closed = Arc::new(AtomicBool::new(false));
         let driver_connection = Arc::clone(&connection);
         let driver_closed = Arc::clone(&closed);
-        tokio::spawn(async move {
+        let driver = tokio::spawn(async move {
             loop {
                 let next = poll_fn(|cx| {
                     driver_connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
@@ -53,7 +62,7 @@ impl VlessYamuxSession {
                 }
             }
         });
-        Ok(Self { connection, closed })
+        Ok(Self { connection, closed, _driver_guard: Arc::new(AbortOnDrop(driver)) })
     }
 
     /// Opens a TCP stream and completes the sing-mux stream request before
@@ -87,9 +96,68 @@ fn assert_stream_contract() {
 
 #[cfg(test)]
 mod tests {
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use std::time::Duration;
+
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::sync::oneshot;
     use tokio_util::compat::TokioAsyncReadCompatExt;
+
+    struct DropTrackedIo {
+        inner: tokio::io::DuplexStream,
+        dropped: Option<oneshot::Sender<()>>,
+    }
+
+    impl Drop for DropTrackedIo {
+        fn drop(&mut self) {
+            if let Some(sender) = self.dropped.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    impl AsyncRead for DropTrackedIo {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            context: &mut Context<'_>,
+            buffer: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.inner).poll_read(context, buffer)
+        }
+    }
+
+    impl AsyncWrite for DropTrackedIo {
+        fn poll_write(mut self: Pin<&mut Self>, context: &mut Context<'_>, buffer: &[u8]) -> Poll<io::Result<usize>> {
+            Pin::new(&mut self.inner).poll_write(context, buffer)
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.inner).poll_flush(context)
+        }
+
+        fn poll_shutdown(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.inner).poll_shutdown(context)
+        }
+    }
+
+    #[tokio::test]
+    async fn dropping_last_session_aborts_driver_and_releases_carrier() {
+        let (client, _server) = tokio::io::duplex(1024);
+        let (dropped_tx, dropped_rx) = oneshot::channel();
+        let session =
+            VlessYamuxSession::establish(Box::new(DropTrackedIo { inner: client, dropped: Some(dropped_tx) }), 1)
+                .await
+                .expect("establish yamux carrier");
+
+        drop(session);
+
+        tokio::time::timeout(Duration::from_secs(1), dropped_rx)
+            .await
+            .expect("driver abort must release carrier")
+            .expect("carrier drop notification");
+    }
 
     #[tokio::test]
     async fn three_streams_interleave_over_one_sing_mux_yamux_carrier() {
