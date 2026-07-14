@@ -174,7 +174,7 @@ class ServiceSessionModuleTest {
                     dependencies = runtimeDependencies,
                     protectSocketServer = protectSocketServer,
                     rootHelperManager = RootHelperManager(),
-                    flowAttributionBridge = FlowAttributionBridge(NoOpFlowAppAttributionStore),
+                    flowAttributionBridge = FlowAttributionBridge(NoOpFlowAppAttributionStore, null),
                 )
             val encryptedDnsFailoverController =
                 VpnServiceSessionModule.provideVpnEncryptedDnsFailoverController(

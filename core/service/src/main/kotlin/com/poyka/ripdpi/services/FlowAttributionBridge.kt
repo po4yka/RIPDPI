@@ -47,7 +47,7 @@ class FlowAttributionBridge
     @Inject
     constructor(
         private val store: FlowAppAttributionStore,
-        @param:ApplicationContext private val context: Context? = null,
+        @param:ApplicationContext private val context: Context?,
     ) {
         internal fun nativeUidPolicy(plan: VpnAppRoutingPlan): NativeUidPolicy {
             val packageManager = context?.packageManager ?: return NativeUidPolicy.Disarmed
