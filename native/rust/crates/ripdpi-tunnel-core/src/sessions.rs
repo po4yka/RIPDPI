@@ -1,7 +1,5 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
-use ripdpi_collections::bounded_heap::BoundedHeap;
 use smoltcp::iface::SocketHandle;
 use std::io;
 use tokio::io::DuplexStream;
@@ -32,38 +30,23 @@ pub struct SessionEntry {
     pub attribution_token: Option<ripdpi_flow_app_attribution::FlowAttributionToken>,
 }
 
-/// Eviction priority entry for the bounded heap.
-///
-/// Orders by insertion sequence (oldest first = smallest = evicted first),
-/// preserving FIFO eviction behavior while enabling O(log n) operations.
-#[derive(Debug, Eq, PartialEq)]
-struct SessionHeapEntry {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SessionOrderEntry {
     handle: SocketHandle,
     sequence: u64,
 }
 
-impl Ord for SessionHeapEntry {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.sequence.cmp(&other.sequence)
-    }
-}
-
-impl PartialOrd for SessionHeapEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-/// Bounded session table with O(1) lookup and O(log n) eviction.
-///
-/// Uses a dual data structure: `HashMap` for fast lookup by socket handle,
-/// and `BoundedHeap` for priority-based eviction ordering. Inspired by
-/// protolens's `Heap<T>` pattern, adapted for RIPDPI's session management.
+/// Bounded session table with O(1) lookup, removal, and FIFO eviction.
 pub struct ActiveSessions {
     /// Fast lookup by socket handle.
     entries: HashMap<SocketHandle, SessionEntry>,
-    /// Priority heap for eviction ordering (oldest sequence first).
-    eviction_heap: BoundedHeap<SessionHeapEntry>,
+    /// Current generation for each live handle. Queue tombstones from removed
+    /// or reused handles are rejected without scanning either queue.
+    sequences: HashMap<SocketHandle, u64>,
+    /// Insertion order for FIFO capacity eviction.
+    eviction_order: VecDeque<SessionOrderEntry>,
+    /// Independently rotating order for budgeted bridge work.
+    work_order: VecDeque<SessionOrderEntry>,
     /// Monotonic counter for insertion ordering.
     next_sequence: u64,
     /// Maximum number of concurrent sessions; 0 = unlimited.
@@ -74,7 +57,9 @@ impl ActiveSessions {
     pub fn new(max: usize) -> Self {
         Self {
             entries: HashMap::new(),
-            eviction_heap: BoundedHeap::new(if max > 0 { max } else { 0 }),
+            sequences: HashMap::new(),
+            eviction_order: VecDeque::new(),
+            work_order: VecDeque::new(),
             next_sequence: 0,
             max,
         }
@@ -89,33 +74,32 @@ impl ActiveSessions {
     /// Returns the evicted session's `SocketHandle` so the caller can remove
     /// it from the `SocketSet`, preventing socket handle leaks.
     pub fn insert(&mut self, handle: SocketHandle, entry: SessionEntry) -> Option<(SocketHandle, Option<u32>)> {
+        debug_assert!(!self.entries.contains_key(&handle), "active socket handle inserted twice");
         let seq = self.next_sequence;
-        self.next_sequence += 1;
+        self.next_sequence = self.next_sequence.wrapping_add(1);
 
-        let evicted_handle = if self.max > 0 {
-            let heap_entry = SessionHeapEntry { handle, sequence: seq };
-            if let Some(evicted) = self.eviction_heap.push_or_evict(heap_entry) {
-                // Eviction occurred — clean up the evicted session.
-                match self.entries.remove(&evicted.handle) {
-                    Some(oldest) => {
-                        oldest.cancel.cancel();
-                        if let Some(token) = oldest.attribution_token {
-                            ripdpi_flow_app_attribution::evict_flow(token);
-                        }
-                        drop(oldest.smoltcp_side);
-                        oldest.handle.abort();
-                        Some((evicted.handle, oldest.pinned_synthetic_ip))
+        let evicted_handle = if self.max > 0 && self.entries.len() >= self.max {
+            self.pop_oldest_live().and_then(|evicted| {
+                self.sequences.remove(&evicted.handle);
+                self.entries.remove(&evicted.handle).map(|oldest| {
+                    oldest.cancel.cancel();
+                    if let Some(token) = oldest.attribution_token {
+                        ripdpi_flow_app_attribution::evict_flow(token);
                     }
-                    _ => None,
-                }
-            } else {
-                None
-            }
+                    drop(oldest.smoltcp_side);
+                    oldest.handle.abort();
+                    (evicted.handle, oldest.pinned_synthetic_ip)
+                })
+            })
         } else {
             None
         };
 
         self.entries.insert(handle, entry);
+        self.sequences.insert(handle, seq);
+        let order_entry = SessionOrderEntry { handle, sequence: seq };
+        self.eviction_order.push_back(order_entry);
+        self.work_order.push_back(order_entry);
         evicted_handle
     }
 
@@ -127,9 +111,7 @@ impl ActiveSessions {
     /// Remove a session by socket handle, returning it if present.
     pub fn remove(&mut self, handle: SocketHandle) -> Option<SessionEntry> {
         let entry = self.entries.remove(&handle)?;
-        if self.max > 0 {
-            self.eviction_heap.remove_by(|e| e.handle == handle);
-        }
+        self.sequences.remove(&handle);
         Some(entry)
     }
 
@@ -148,9 +130,37 @@ impl ActiveSessions {
         self.entries.get_mut(&handle)
     }
 
+    /// Return at most `limit` live handles and rotate them behind the remaining
+    /// work. Generation stamps discard tombstones when a socket handle is
+    /// removed and later reused.
+    pub fn next_work_batch(&mut self, limit: usize) -> Vec<SocketHandle> {
+        let mut handles = Vec::with_capacity(limit.min(self.entries.len()));
+        let mut remaining = self.work_order.len();
+        while remaining > 0 && handles.len() < limit {
+            remaining -= 1;
+            let Some(entry) = self.work_order.pop_front() else {
+                break;
+            };
+            if self.sequences.get(&entry.handle) == Some(&entry.sequence) {
+                self.work_order.push_back(entry);
+                handles.push(entry.handle);
+            }
+        }
+        handles
+    }
+
     /// Iterate over (SocketHandle, &mut SessionEntry).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (SocketHandle, &mut SessionEntry)> {
         self.entries.iter_mut().map(|(h, e)| (*h, e))
+    }
+
+    fn pop_oldest_live(&mut self) -> Option<SessionOrderEntry> {
+        while let Some(entry) = self.eviction_order.pop_front() {
+            if self.sequences.get(&entry.handle) == Some(&entry.sequence) {
+                return Some(entry);
+            }
+        }
+        None
     }
 }
 
@@ -234,5 +244,26 @@ mod tests {
         }
 
         assert_eq!(sessions.len(), 100, "unlimited sessions must hold 100 entries");
+    }
+
+    #[tokio::test]
+    async fn work_batches_are_bounded_rotating_and_skip_removed_generations() {
+        let mut socket_set = SocketSet::new(vec![]);
+        let handles: Vec<_> = (0..3).map(|_| socket_set.add(make_tcp_socket())).collect();
+        let mut sessions = ActiveSessions::new(3);
+        for handle in &handles {
+            let (entry, _) = make_entry();
+            assert!(sessions.insert(*handle, entry).is_none());
+        }
+
+        assert_eq!(sessions.next_work_batch(2), handles[..2]);
+        assert_eq!(sessions.next_work_batch(2), vec![handles[2], handles[0]]);
+        sessions.remove(handles[1]).expect("remove middle session");
+
+        let batch = sessions.next_work_batch(3);
+        assert_eq!(batch.len(), 2);
+        assert!(batch.contains(&handles[0]));
+        assert!(batch.contains(&handles[2]));
+        assert!(!batch.contains(&handles[1]));
     }
 }

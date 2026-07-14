@@ -31,6 +31,7 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) dns_cache: Option<DnsCache>,
     pub(in crate::io_loop) runtime: LoopRuntime,
     pub(in crate::io_loop) pending_listens: HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
+    pub(in crate::io_loop) tcp_admission_cursor: usize,
     pub(in crate::io_loop) loop_iteration: u32,
     pub(in crate::io_loop) udp_tx: Sender<UdpEvent>,
     pub(in crate::io_loop) udp_rx: Receiver<UdpEvent>,

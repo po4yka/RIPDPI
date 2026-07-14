@@ -306,6 +306,7 @@ mod tests {
 
         let mut socket_set = SocketSet::new(vec![]);
         let mut pending_listens = HashMap::new();
+        let mut admission_cursor = 0;
         let mut sessions = ActiveSessions::new(8);
         let cancel = CancellationToken::new();
         let stats = Arc::new(Stats::default());
@@ -328,6 +329,7 @@ mod tests {
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
+            &mut admission_cursor,
             proxy_sockaddr,
             &auth,
             None,
@@ -350,6 +352,7 @@ mod tests {
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
+            &mut admission_cursor,
             proxy_sockaddr,
             &auth,
             None,
@@ -373,6 +376,7 @@ mod tests {
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
+            &mut admission_cursor,
             proxy_sockaddr,
             &auth,
             None,

@@ -40,8 +40,7 @@ pub(super) async fn take_session_task(
         entry.cancel.cancel();
         entry.smoltcp_side.shutdown().await.ok();
         task = Some(entry.handle);
+        remove_tcp_socket(socket_set, handle);
     }
-
-    remove_tcp_socket(socket_set, handle);
     task
 }

@@ -103,6 +103,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         dns_cache,
         runtime,
         pending_listens: HashMap::new(),
+        tcp_admission_cursor: 0,
         loop_iteration: 0,
         udp_tx,
         udp_rx,
