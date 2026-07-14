@@ -3,6 +3,7 @@ package com.poyka.ripdpi.integration
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
@@ -57,6 +58,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
 import java.io.IOException
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
@@ -77,8 +79,12 @@ class ServiceLifecycleIntegrationTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule
-    val notificationPermissionRule: GrantPermissionRule =
-        GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+    val notificationPermissionRule: TestRule =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            TestRule { statement, _ -> statement }
+        }
 
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
