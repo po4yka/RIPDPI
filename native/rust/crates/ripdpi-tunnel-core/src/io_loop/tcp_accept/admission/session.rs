@@ -17,7 +17,7 @@ use super::super::duplex::create_session_duplex;
 use super::super::eviction::remove_evicted_session_socket;
 use super::super::eviction::remove_pending_listen;
 use super::super::target::pin_synthetic_ip;
-use super::PendingTcpSession;
+use super::pending::PendingTcpSession;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn admit_session(

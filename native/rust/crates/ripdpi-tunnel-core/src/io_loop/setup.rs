@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::io;
-use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use ripdpi_collections::bounded_heap::BoundedHeap;
 use smoltcp::iface::{Interface, SocketSet};
@@ -11,20 +9,21 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use ripdpi_tunnel_config::Config;
-use ripdpi_tunnel_intercept::egress::{RawTunPacketInjector, TunEgressInterceptor};
-use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, SynAckStrategy, TunIngressInterceptor};
 
 use crate::dns_cache::DnsCache;
 use crate::session::udp::UdpMemoryBudget;
-use crate::uid_policy::UidFlowPolicy;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{parse_dns_cache, parse_mapdns_runtime};
 use super::retransmit::RetransmitTracker;
 use super::setup_dns::{build_dns_worker, configure_resolver_fallback};
-use super::state::{LoopRuntime, LoopState};
+use super::state::LoopState;
 use super::tcp_accept::{make_auth, proxy_addr};
 use super::udp_assoc::UDP_EVICTION_HEAP_CAPACITY;
+
+mod runtime;
+
+use runtime::build_loop_runtime;
 
 pub(in crate::io_loop) fn setup_io_loop(
     device: TunDevice,
@@ -46,46 +45,8 @@ pub(in crate::io_loop) fn setup_io_loop(
         parse_dns_cache(&config, dns_cache).map_err(|e| io::Error::other(format!("initialize DNS cache: {e}")))?;
     configure_resolver_fallback(&config, &stats);
 
-    let mapdns_classify = mapdns_runtime.map(|value| {
-        (
-            match value.intercept_addr.ip() {
-                IpAddr::V4(v4) => u32::from(v4),
-                IpAddr::V6(_) => unreachable!("mapdns runtime only supports IPv4"),
-            },
-            u32::MAX,
-            value.intercept_port,
-        )
-    });
     let max_sessions = config.misc.max_session_count as usize;
-    let policy_uids = config.misc.uid_policy_uids.iter().copied().collect();
-    let uid_policy = match config.misc.uid_policy_mode.as_str() {
-        "allowlist" => UidFlowPolicy::enforcing(policy_uids),
-        "denylist" => UidFlowPolicy::denying(policy_uids),
-        _ => UidFlowPolicy::disarmed(),
-    };
-    let runtime = LoopRuntime {
-        proxy_sockaddr,
-        auth,
-        mapdns_runtime,
-        mapdns_classify,
-        filter_injected_resets: config.misc.filter_injected_resets,
-        uid_policy,
-        tun_ingress_interceptor: TunIngressInterceptor::new(
-            SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
-            RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
-        ),
-        // Jail the egress `lua`-step `script_paths` to the app's absolute
-        // `<filesDir>/lua` dir when supplied, not `"."` (ill-defined Android CWD).
-        tun_egress_interceptor: Box::new(TunEgressInterceptor::new_with_base_dir(
-            config.misc.strategy_chain_yaml.as_deref(),
-            config.misc.lua_script_base_dir.as_deref().map_or(std::path::Path::new("."), std::path::Path::new),
-            RawTunPacketInjector::new(config.misc.protect_path.clone()),
-        )),
-        udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
-        tcp_connect_timeout: Duration::from_millis(u64::from(config.misc.connect_timeout)),
-        tcp_read_write_timeout: Duration::from_millis(u64::from(config.misc.tcp_read_write_timeout)),
-        protect_path: config.misc.protect_path.clone(),
-    };
+    let runtime = build_loop_runtime(&config, proxy_sockaddr, auth, mapdns_runtime);
 
     let (udp_tx, udp_rx) = mpsc::channel(256);
     let (dns_req_tx, dns_resp_rx) = build_dns_worker(&config, &cancel)?;

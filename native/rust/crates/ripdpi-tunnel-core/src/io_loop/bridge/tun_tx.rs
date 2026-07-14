@@ -1,22 +1,17 @@
-use std::future::Future;
 use std::io;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 
 use tokio_util::sync::CancellationToken;
-use tracing::warn;
 use tun_rs::AsyncDevice;
 
 use super::super::IO_PHASE_WORK_BUDGET;
 use crate::{Stats, TunDevice};
 use ripdpi_tunnel_intercept::ingress::{SynAckPacketInjector, TunIngressInterceptor};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::io_loop) enum TunFlushOutcome {
-    Drained,
-    Pending,
-    Cancelled,
-}
+mod packet_write;
+
+pub(in crate::io_loop) use packet_write::TunFlushOutcome;
+use packet_write::write_tun_packet;
 
 /// Flush one bounded packet batch from the userspace queue to TUN.
 ///
@@ -45,52 +40,10 @@ pub(in crate::io_loop) async fn flush_device_tx_queue(
         // A WouldBlock readiness wait retries the SAME packet without invoking
         // the observer again.
         stats.on_outbound_packet(&pkt);
-        loop {
-            match tun.try_send(&pkt) {
-                Ok(_) => {
-                    stats.rx_packets.fetch_add(1, Ordering::Relaxed);
-                    stats.rx_bytes.fetch_add(pkt.len() as u64, Ordering::Relaxed);
-                    break;
-                }
-                Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                    if !wait_for_tun_writable(tun.writable(), cancel).await? {
-                        return Ok(TunFlushOutcome::Cancelled);
-                    }
-                }
-                Err(err) => {
-                    warn!("TUN write error: {err} (packet dropped)");
-                    break;
-                }
-            }
+        if !write_tun_packet(tun, stats, &pkt, cancel).await? {
+            return Ok(TunFlushOutcome::Cancelled);
         }
         flushed += 1;
     }
     if device.tx_queue.is_empty() { Ok(TunFlushOutcome::Drained) } else { Ok(TunFlushOutcome::Pending) }
-}
-
-/// Cancel-safe: both arms are cancel-safe readiness notifications and no
-/// packet state is mutated while this helper is suspended.
-async fn wait_for_tun_writable(
-    writable: impl Future<Output = io::Result<()>>,
-    cancel: &CancellationToken,
-) -> io::Result<bool> {
-    tokio::select! {
-        biased;
-        _ = cancel.cancelled() => Ok(false),
-        result = writable => result.map(|()| true),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn writable_wait_returns_immediately_when_cancelled() {
-        let cancel = CancellationToken::new();
-        cancel.cancel();
-
-        let writable = std::future::pending::<io::Result<()>>();
-        assert!(!wait_for_tun_writable(writable, &cancel).await.expect("cancel wait"));
-    }
 }
