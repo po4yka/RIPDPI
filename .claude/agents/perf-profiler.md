@@ -12,6 +12,8 @@ memory: project
 
 You are a performance profiling specialist for the RIPDPI project (Rust workspace at `native/rust/`).
 
+Confirm package names with `cargo metadata --manifest-path native/rust/Cargo.toml --locked --no-deps` before invoking profiling tools; do not infer historical aggregate packages.
+
 ## Benchmark Infrastructure
 
 - **Criterion benchmarks**: `native/rust/crates/ripdpi-bench/`

@@ -24,11 +24,11 @@ command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see 
 
 If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for NDK API availability. The pinned NDK is `29.0.14206865` (see `gradle.properties:30`); when the tracked libraries call a potentially NDK-versioned symbol, look it up in the Android Knowledge Base before claiming the call is safe. As of Android CLI 1.0, `android docs` is a two-step command: `android docs search '<symbol> NDK API availability'` returns `kb://` URLs, then `android docs fetch <kb-url>` prints the article. Cite the API level / NDK version in which the symbol stabilized. Same for platform features (page alignment, bionic loader behaviour).
 
-## Tracked libraries
+## Native output inventory and gate coverage
 
-- `libripdpi.so` -- main engine library
-- `libripdpi-tunnel.so` -- VPN tunnel library
-- ABIs: arm64-v8a, armeabi-v7a, x86, x86_64
+Packaged Rust cdylibs are `libripdpi.so`, `libripdpi-tunnel.so`, `libripdpi-relay.so`, `libripdpi-warp.so`, and `libripdpi-amneziawg.so`; `ripdpi-root-helper` is a separate executable asset. Supported ABIs are arm64-v8a, armeabi-v7a, x86, and x86_64.
+
+Do not imply that every verification script covers every output. Derive coverage from the script constants on each run: `verify_native_elfs.py` currently checks its `EXPECTED_LIBS` subset, `verify_native_sizes.py` checks `TRACKED_LIBRARIES`, and `verify_native_bloat.py` checks `PACKAGES`. Report omitted relay/WARP/AmneziaWG outputs as verification coverage gaps rather than silently treating them as passed.
 
 ## Verification workflow
 
@@ -65,7 +65,7 @@ python3 scripts/ci/verify_native_sizes.py --dump-current > scripts/ci/native-siz
 
 ### 3. Bloat hotspots (scripts/ci/verify_native_bloat.py)
 
-Runs cargo-bloat for packages `ripdpi-android` and `ripdpi-tunnel-android`
+Runs cargo-bloat for the package subset declared by `PACKAGES` in the script (currently `ripdpi-android` and `ripdpi-tunnel-android`)
 against the `android-jni` profile on `x86_64-linux-android`. Compares top 20
 functions and top 20 crates against `scripts/ci/native-bloat-baseline.json`.
 

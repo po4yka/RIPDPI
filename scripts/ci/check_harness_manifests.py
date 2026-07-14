@@ -133,6 +133,60 @@ def validate_worktree_integration_contract() -> None:
         raise ValueError("AGENTS.md must not rebase a branch that is checked out in another worktree")
 
 
+def validate_specialist_ground_truth() -> None:
+    agent_pairs = {
+        "jni-bridge-verifier": (
+            "ripdpi-amneziawg-android",
+            "core/engine/src/main/kotlin",
+        ),
+        "android-test-runner": (
+            "connectedGithubFullDebugAndroidTest",
+            "ripdpi.localNativeAbisDefault=host",
+            "app-github-universal-debug.apk",
+        ),
+        "native-verifier": (
+            "libripdpi-relay.so",
+            "libripdpi-warp.so",
+            "libripdpi-amneziawg.so",
+        ),
+        "rust-api-auditor": (
+            "cargo metadata --manifest-path native/rust/Cargo.toml --locked --no-deps",
+        ),
+        "perf-profiler": ("ripdpi-proxy-runtime",),
+    }
+    forbidden = (
+        "across 3 adapter crates",
+        "connectedDebugAndroidTest",
+        "createDebugAndroidTestCoverageReport",
+        "ripdpi.localNativeAbisDefault=arm64-v8a",
+        "40-crate",
+        "--package ripdpi-runtime ",
+    )
+    for agent, required in agent_pairs.items():
+        paths = (
+            REPO_ROOT / ".claude" / "agents" / f"{agent}.md",
+            REPO_ROOT / ".codex" / "agents" / f"{agent}.toml",
+        )
+        for path in paths:
+            content = path.read_text(encoding="utf-8")
+            for value in required:
+                if value not in content:
+                    raise ValueError(
+                        f"{path.relative_to(REPO_ROOT)}: missing current specialist surface {value!r}"
+                    )
+            for value in forbidden:
+                if value in content:
+                    raise ValueError(
+                        f"{path.relative_to(REPO_ROOT)}: stale specialist surface {value!r}"
+                    )
+        if agent == "jni-bridge-verifier":
+            for path in paths:
+                if "app/src/main/kotlin" in path.read_text(encoding="utf-8"):
+                    raise ValueError(
+                        f"{path.relative_to(REPO_ROOT)}: JNI declarations live under core/engine"
+                    )
+
+
 def main() -> int:
     try:
         names = skill_names()
@@ -142,6 +196,7 @@ def main() -> int:
         validate_rules()
         validate_instruction_entrypoints()
         validate_worktree_integration_contract()
+        validate_specialist_ground_truth()
     except (OSError, ValueError, tomllib.TOMLDecodeError, yaml.YAMLError) as exc:
         print(f"HARNESS MANIFEST ERROR: {exc}", file=sys.stderr)
         return 1

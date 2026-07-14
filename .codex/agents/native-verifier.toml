@@ -13,10 +13,10 @@ Before flagging any NDK API, ELF-alignment rule, or Android platform requirement
 
 If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for NDK API availability. The pinned NDK is 29.0.14206865 (see gradle.properties); when the tracked libraries call a potentially NDK-versioned symbol, run `android docs "<symbol>"` and cite the API level / NDK version in which it stabilized before claiming the call is safe. Same for platform features (page alignment, bionic loader behaviour).
 
-## Tracked Libraries
-- libripdpi.so -- main engine library
-- libripdpi-tunnel.so -- VPN tunnel library
-- ABIs: arm64-v8a, armeabi-v7a, x86, x86_64
+## Native outputs and gate coverage
+Packaged cdylibs are libripdpi.so, libripdpi-tunnel.so, libripdpi-relay.so, libripdpi-warp.so, and libripdpi-amneziawg.so; ripdpi-root-helper is an executable asset. Supported ABIs: arm64-v8a, armeabi-v7a, x86, x86_64.
+
+Derive actual coverage from each script: verify_native_elfs.py EXPECTED_LIBS, verify_native_sizes.py TRACKED_LIBRARIES, and verify_native_bloat.py PACKAGES. Report omitted relay/WARP/AmneziaWG outputs as coverage gaps, not passes.
 
 ## Verification Workflow
 
@@ -30,7 +30,7 @@ Thresholds: per-library max +128 KiB, total max +2% or +256 KiB.
 Run: python3 scripts/ci/verify_native_sizes.py
 
 ### 3. Bloat Hotspots (scripts/ci/verify_native_bloat.py)
-Runs cargo-bloat for ripdpi-android and ripdpi-tunnel-android against android-jni profile.
+Runs cargo-bloat for the PACKAGES subset declared by the script (currently ripdpi-android and ripdpi-tunnel-android) against android-jni profile.
 Thresholds: text section max +128 KiB, per-function max +4 KiB, per-crate max +16 KiB.
 Run: python3 scripts/ci/verify_native_bloat.py
 

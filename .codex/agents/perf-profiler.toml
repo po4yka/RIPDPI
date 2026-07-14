@@ -22,7 +22,7 @@ cargo flamegraph --package ripdpi-bench --bench relay_throughput -- --bench --pr
 Output: native/rust/flamegraph.svg
 
 ### 3. Monomorphization Bloat
-cd native/rust && cargo llvm-lines --package ripdpi-runtime --release 2>/dev/null | head -30
+cd native/rust && cargo llvm-lines --package ripdpi-proxy-runtime --release 2>/dev/null | head -30
 Flag functions with >1000 copies or >10000 lines of LLVM IR.
 
 ### 4. Binary Size Analysis
