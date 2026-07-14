@@ -84,11 +84,12 @@ class ImportHandlerActivityTest {
             ImportLaunchRoute.SUBSCRIPTION_CONFIRM,
             forwarded.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE),
         )
+        val importToken = forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_IMPORT_TOKEN)
+        assertNotNull(importToken)
         assertEquals(
-            "https://sub.example.com/c",
-            forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_URL),
+            PendingSubscriptionImportRequest("https://sub.example.com/c", "Fleet", false),
+            PendingProxyImportStore.process.claimSubscription(requireNotNull(importToken)),
         )
-        assertEquals("Fleet", forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_NAME))
         assertTrue(activity.isFinishing)
         controller.destroy()
     }
@@ -102,7 +103,8 @@ class ImportHandlerActivityTest {
 
         val forwarded = shadowOf(controller.get()).nextStartedActivity
 
-        assertTrue(forwarded.getBooleanExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_BOOTSTRAP, false))
+        val importToken = forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_IMPORT_TOKEN)
+        assertTrue(PendingProxyImportStore.process.claimSubscription(requireNotNull(importToken))?.bootstrap == true)
         controller.destroy()
     }
 

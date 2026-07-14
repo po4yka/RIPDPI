@@ -60,6 +60,34 @@ class PendingProxyImportStoreTest {
     }
 
     @Test
+    fun `credential bearing subscription stays outside serialized route`() {
+        val store = PendingProxyImportStore()
+        val request =
+            PendingSubscriptionImportRequest(
+                url = "https://user:password@sub.example/sub/bearer-token",
+                name = "Fleet",
+                bootstrap = false,
+            )
+        val token = requireNotNull(store.stageSubscription(request))
+        val route = Route.SubscriptionImportConfirm(importToken = token)
+        val serializedRoute = RipDpiJson.encodeToString(Route.SubscriptionImportConfirm.serializer(), route)
+
+        assertTrue(serializedRoute.contains(token))
+        assertFalse(serializedRoute.contains("bearer-token"))
+        assertFalse(serializedRoute.contains("password"))
+        assertEquals(request, store.claimSubscription(token))
+        assertNull(store.claimSubscription(token))
+    }
+
+    @Test
+    fun `oversized subscription request is rejected before staging`() {
+        val store = PendingProxyImportStore()
+        val request = PendingSubscriptionImportRequest("https://example/" + "x".repeat(9_000), "", false)
+
+        assertNull(store.stageSubscription(request))
+    }
+
+    @Test
     fun `store evicts oldest profile when capacity is exceeded`() {
         val store = PendingProxyImportStore(capacity = 2)
         val firstToken = store.stage(sshProfile(id = "first"))

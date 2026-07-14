@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -69,6 +70,18 @@ class SubscriptionImportConfirmViewModel
         private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
         val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
         private var completed = false
+        private var claimedImportToken: String? = null
+
+        internal fun claimRequest(
+            importToken: String,
+            pendingImports: PendingProxyImportStore = PendingProxyImportStore.process,
+        ): Boolean {
+            if (claimedImportToken == importToken && _uiState.value.url.isNotBlank()) return true
+            val request = pendingImports.claimSubscription(importToken) ?: return false
+            claimedImportToken = importToken
+            setRequest(request.url, request.name, request.bootstrap)
+            return true
+        }
 
         /** Seeds the screen with the deep link's pre-filled fields. */
         fun setRequest(

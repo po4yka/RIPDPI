@@ -212,17 +212,10 @@ internal fun importRouteFrom(intent: Intent?): Route? {
         }
 
         ImportLaunchRoute.SUBSCRIPTION_CONFIRM -> {
-            val url =
-                intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_URL) ?: return null
-            Route.SubscriptionImportConfirm(
-                url = url,
-                name = intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_NAME).orEmpty(),
-                bootstrap =
-                    intent.getBooleanExtra(
-                        ImportHandlerActivity.EXTRA_SUBSCRIPTION_BOOTSTRAP,
-                        false,
-                    ),
-            )
+            val importToken =
+                intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_IMPORT_TOKEN) ?: return null
+            if (!PendingProxyImportStore.process.contains(importToken)) return null
+            Route.SubscriptionImportConfirm(importToken = importToken)
         }
 
         else -> {

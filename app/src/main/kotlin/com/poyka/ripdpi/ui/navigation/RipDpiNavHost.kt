@@ -776,11 +776,10 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
     composable<Route.SubscriptionImportConfirm> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.SubscriptionImportConfirm>()
         SubscriptionImportConfirmRoute(
-            url = route.url,
-            name = route.name,
-            bootstrap = route.bootstrap,
+            importToken = route.importToken,
             onBack = { navController.popBackStack() },
             onImported = { navController.navigateHome() },
+            onUnavailable = { navController.navigateHome() },
         )
     }
     composable<Route.SupportSettings> { backStackEntry ->

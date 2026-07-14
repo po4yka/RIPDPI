@@ -330,9 +330,7 @@ sealed class Route {
 
     @Serializable
     data class SubscriptionImportConfirm(
-        val url: String = "",
-        val name: String = "",
-        val bootstrap: Boolean = false,
+        val importToken: String = "",
     ) : Route() {
         @kotlinx.serialization.Transient
         override val stableRoute = "import/subscription_confirm"

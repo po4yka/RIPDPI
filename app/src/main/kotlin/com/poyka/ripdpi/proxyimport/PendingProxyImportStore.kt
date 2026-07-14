@@ -24,9 +24,19 @@ internal class PendingProxyImportStore(
     private val expiryScope: CoroutineScope? = null,
 ) {
     private data class Entry(
-        val profile: ProxyProfile,
+        val payload: Payload,
         val expiresAtNanos: Long,
     )
+
+    private sealed interface Payload {
+        data class Profile(
+            val value: ProxyProfile,
+        ) : Payload
+
+        data class Subscription(
+            val value: PendingSubscriptionImportRequest,
+        ) : Payload
+    }
 
     private val lock = Any()
     private val entries = LinkedHashMap<String, Entry>()
@@ -36,7 +46,14 @@ internal class PendingProxyImportStore(
         require(ttlNanos > 0) { "ttlNanos must be positive" }
     }
 
-    fun stage(profile: ProxyProfile): String =
+    fun stage(profile: ProxyProfile): String = stagePayload(Payload.Profile(profile))
+
+    fun stageSubscription(request: PendingSubscriptionImportRequest): String? {
+        if (!request.isBounded()) return null
+        return stagePayload(Payload.Subscription(request))
+    }
+
+    private fun stagePayload(payload: Payload): String =
         synchronized(lock) {
             val now = nanoTime()
             pruneExpired(now)
@@ -44,7 +61,7 @@ internal class PendingProxyImportStore(
                 entries.remove(entries.keys.first())
             }
             UUID.randomUUID().toString().also { token ->
-                entries[token] = Entry(profile = profile, expiresAtNanos = now + ttlNanos)
+                entries[token] = Entry(payload = payload, expiresAtNanos = now + ttlNanos)
                 expiryScope?.launch {
                     delay((ttlNanos / NanosPerMillisecond).coerceAtLeast(1L))
                     discardIfExpired(token)
@@ -57,7 +74,16 @@ internal class PendingProxyImportStore(
         return synchronized(lock) {
             val now = nanoTime()
             pruneExpired(now)
-            entries.remove(token)?.profile
+            (entries.remove(token)?.payload as? Payload.Profile)?.value
+        }
+    }
+
+    fun claimSubscription(token: String): PendingSubscriptionImportRequest? {
+        if (!token.isOpaqueImportToken()) return null
+        return synchronized(lock) {
+            val now = nanoTime()
+            pruneExpired(now)
+            (entries.remove(token)?.payload as? Payload.Subscription)?.value
         }
     }
 
@@ -88,6 +114,22 @@ internal class PendingProxyImportStore(
 
         /** Single store shared by activities, navigation, and destination ViewModels. */
         val process: PendingProxyImportStore = PendingProxyImportStore(expiryScope = processExpiryScope)
+    }
+}
+
+internal data class PendingSubscriptionImportRequest(
+    val url: String,
+    val name: String,
+    val bootstrap: Boolean,
+) {
+    fun isBounded(): Boolean =
+        url.startsWith("https://", ignoreCase = true) &&
+            url.toByteArray(Charsets.UTF_8).size in 1..MaxSubscriptionUrlBytes &&
+            name.toByteArray(Charsets.UTF_8).size <= MaxSubscriptionNameBytes
+
+    private companion object {
+        const val MaxSubscriptionUrlBytes = 8 * 1024
+        const val MaxSubscriptionNameBytes = 256
     }
 }
 

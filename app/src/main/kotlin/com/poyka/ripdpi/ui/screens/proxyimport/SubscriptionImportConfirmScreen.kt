@@ -34,16 +34,16 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
  */
 @Composable
 fun SubscriptionImportConfirmRoute(
-    url: String,
-    name: String,
-    bootstrap: Boolean,
+    importToken: String,
     onBack: () -> Unit,
     onImported: () -> Unit,
+    onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SubscriptionImportConfirmViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel, url, name, bootstrap) {
-        viewModel.setRequest(url = url, name = name, bootstrap = bootstrap)
+    val latestOnUnavailable by rememberUpdatedState(onUnavailable)
+    LaunchedEffect(viewModel, importToken) {
+        if (!viewModel.claimRequest(importToken)) latestOnUnavailable()
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
