@@ -154,6 +154,10 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         group_protocol_state.udp_enabled,
         &adaptive_fallback,
     );
+    // UDP and adaptive fallback groups are synthesized after the initial
+    // relay pass. Fill only missing upstreams so WARP/AWG routing keeps its
+    // explicitly configured SOCKS endpoint.
+    relay::attach_upstream_to_existing_groups(&mut groups, relay_upstream);
 
     adaptive_runtime_context::finalize_ui_config(
         config,

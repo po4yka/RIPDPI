@@ -173,6 +173,7 @@ fn build_fallback_group(
     g.actions.tls_fake_profile = primary.actions.tls_fake_profile;
     g.actions.http_fake_profile = primary.actions.http_fake_profile;
     g.actions.drop_sack = primary.actions.drop_sack;
+    g.policy.ext_socks = primary.policy.ext_socks;
     if needs_fake_mod {
         g.actions.fake_mod = FM_ORIG | FM_RNDSNI;
     }

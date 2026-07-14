@@ -25,7 +25,7 @@ pub(crate) fn attach_upstream_to_existing_groups(groups: &mut [DesyncGroup], ups
     };
 
     for group in groups {
-        if group.is_actionable() && group.policy.ext_socks.is_none() {
+        if group.policy.ext_socks.is_none() {
             group.policy.ext_socks = Some(upstream);
             if group.policy.label.is_empty() {
                 group.policy.label = "relay_upstream".to_string();

@@ -1467,6 +1467,47 @@ fn actionable_ui_strategy_synthesizes_detect_connect_plain_fallback_group() {
 }
 
 #[test]
+fn relay_upstream_covers_all_generated_fallback_groups() {
+    let mut ui = minimal_ui();
+    ui.upstream_relay.enabled = true;
+    ui.upstream_relay.kind = "vless_reality".to_string();
+    ui.upstream_relay.local_socks_port = 11_980;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let relay = std::net::SocketAddr::from(([127, 0, 0, 1], 11_980));
+
+    assert!(config.groups.len() >= 7, "fixture must include UDP, adaptive, and runtime-preset fallback groups");
+    for group in &config.groups {
+        assert_eq!(
+            group.policy.ext_socks.map(|upstream| upstream.addr),
+            Some(relay),
+            "group {} must not bypass the configured relay",
+            group.id,
+        );
+    }
+}
+
+#[test]
+fn relay_upstream_preserves_warp_routed_group() {
+    let mut ui = minimal_ui();
+    ui.upstream_relay.enabled = true;
+    ui.upstream_relay.kind = "vless_reality".to_string();
+    ui.upstream_relay.local_socks_port = 11_980;
+    ui.warp.enabled = true;
+    ui.warp.route_mode = "rules".to_string();
+    ui.warp.route_hosts = "__ripdpi_awg_all_traffic__".to_string();
+    ui.warp.local_socks_port = 10_809;
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    let warp_group = config.groups.iter().find(|group| group.policy.label == "warp_routed").expect("WARP-routed group");
+
+    assert_eq!(
+        warp_group.policy.ext_socks.map(|upstream| upstream.addr),
+        Some(std::net::SocketAddr::from(([127, 0, 0, 1], 10_809))),
+    );
+}
+
+#[test]
 fn tcp_and_udp_desync_produces_separate_groups() {
     let mut ui = minimal_ui();
     ui.protocols.desync_http = true;
