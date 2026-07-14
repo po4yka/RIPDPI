@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ripdpi-vpn-deploy/probe-matrix-target.schema.json",
+  "title": "Secret-bearing probe matrix target profile",
+  "type": "object",
+  "required": ["schema_version", "target_id", "endpoint", "expected_xray_version", "expected_mtg_version", "expected_mtproto_helper_version", "protocols"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "target_id": { "$ref": "#/$defs/technical_id" },
+    "endpoint": { "type": "string", "minLength": 1 },
+    "expected_xray_version": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+" },
+    "expected_mtg_version": { "const": "v2.2.8" },
+    "expected_mtproto_helper_version": { "const": "gotd-v0.160.0" },
+    "protocols": {
+      "type": "object",
+      "required": ["mtproto", "xhttp-vless", "xhttp-trojan", "tcp-trojan", "tls-non-443"],
+      "additionalProperties": false,
+      "properties": {
+        "mtproto": { "$ref": "#/$defs/mtproto" },
+        "xhttp-vless": { "$ref": "#/$defs/xhttp_vless" },
+        "xhttp-trojan": { "$ref": "#/$defs/xhttp_trojan" },
+        "tcp-trojan": { "$ref": "#/$defs/tcp_trojan" },
+        "tls-non-443": { "$ref": "#/$defs/tls" }
+      }
+    }
+  },
+  "$defs": {
+    "technical_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "server_name": { "type": "string", "minLength": 1 },
+    "mtproto": {
+      "type": "object", "required": ["port", "secret"], "additionalProperties": false,
+      "properties": { "port": { "$ref": "#/$defs/port" }, "secret": { "type": "string", "minLength": 16 } }
+    },
+    "xhttp_vless": {
+      "type": "object", "required": ["port", "server_name", "path", "uuid"], "additionalProperties": false,
+      "properties": {
+        "port": { "$ref": "#/$defs/port" }, "server_name": { "$ref": "#/$defs/server_name" },
+        "path": { "type": "string", "pattern": "^/" },
+        "uuid": { "type": "string", "pattern": "^([0-9a-fA-F-]{36}|REPLACE_WITH_[A-Z0-9_]+)$" }
+      }
+    },
+    "xhttp_trojan": {
+      "type": "object", "required": ["port", "server_name", "path", "password"], "additionalProperties": false,
+      "properties": {
+        "port": { "$ref": "#/$defs/port" }, "server_name": { "$ref": "#/$defs/server_name" },
+        "path": { "type": "string", "pattern": "^/" }, "password": { "type": "string", "minLength": 16 }
+      }
+    },
+    "tcp_trojan": {
+      "type": "object", "required": ["port", "server_name", "password"], "additionalProperties": false,
+      "properties": {
+        "port": { "$ref": "#/$defs/port" }, "server_name": { "$ref": "#/$defs/server_name" },
+        "password": { "type": "string", "minLength": 16 }
+      }
+    },
+    "tls": {
+      "type": "object", "required": ["port", "server_name"], "additionalProperties": false,
+      "properties": { "port": { "$ref": "#/$defs/port" }, "server_name": { "$ref": "#/$defs/server_name" } }
+    }
+  }
+}

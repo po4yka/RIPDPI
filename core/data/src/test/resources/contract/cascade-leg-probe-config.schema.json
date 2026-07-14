@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vpn-deploy/cascade-leg-probe-config.schema.json",
+  "title": "Operator-side cascade authenticated leg probe configuration",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "host_id",
+    "leg_id",
+    "probe_url",
+    "expected_status",
+    "expected_body_sha256",
+    "leg_interface",
+    "direct_interface",
+    "timeout_seconds",
+    "failure_threshold"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "host_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+    "leg_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+    "probe_url": {"type": "string", "pattern": "^https://"},
+    "expected_status": {"type": "integer", "minimum": 200, "maximum": 299},
+    "expected_body_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "leg_interface": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,64}$"},
+    "direct_interface": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,64}$"},
+    "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 60},
+    "failure_threshold": {"type": "integer", "minimum": 3, "maximum": 10}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ripdpi-vpn-deploy/probe-matrix-report.schema.json",
+  "title": "Probe matrix report",
+  "type": "object",
+  "required": ["schema_version", "vantage", "started_at_unix_ms", "finished_at_unix_ms", "poll_interval_seconds", "controls", "cells", "windows", "observations"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 2 },
+    "vantage": { "$ref": "#/$defs/technical_id" },
+    "started_at_unix_ms": { "type": "integer", "minimum": 0 },
+    "finished_at_unix_ms": { "type": "integer", "minimum": 0 },
+    "poll_interval_seconds": { "type": "integer", "minimum": 1 },
+    "controls": { "type": "array", "items": { "$ref": "#/$defs/control" } },
+    "cells": { "type": "array", "items": { "$ref": "#/$defs/cell" } },
+    "windows": { "type": "array", "items": { "$ref": "#/$defs/window" } },
+    "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } }
+  },
+  "$defs": {
+    "technical_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "protocol": { "enum": ["mtproto", "xhttp-vless", "xhttp-trojan", "tcp-trojan", "tls-non-443"] },
+    "class": { "enum": ["allowlist-pattern", "neutral-pattern", "non-allowlist-pattern"] },
+    "topology": { "enum": ["single-ip-dual-role", "split-hop-ingress"] },
+    "verdict": { "enum": ["ok", "throttled", "blocked", "unknown", "error"] },
+    "control": {
+      "type": "object", "required": ["tick", "timestamp_unix_ms", "verdict", "sweep_duration_ms", "overrun_ms"], "additionalProperties": false,
+      "properties": {
+        "tick": { "type": "integer", "minimum": 0 }, "timestamp_unix_ms": { "type": "integer", "minimum": 0 },
+        "verdict": { "$ref": "#/$defs/verdict" }, "rtt_ms": { "type": "integer", "minimum": 0 },
+        "error_kind": { "type": "string" }, "sweep_duration_ms": { "type": "integer", "minimum": 0 }, "overrun_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "cell": {
+      "type": "object", "required": ["tick", "timestamp_unix_ms", "protocol", "target_id", "comparison_set", "destination_class", "topology", "verdict"], "additionalProperties": false,
+      "properties": {
+        "tick": { "type": "integer", "minimum": 0 }, "timestamp_unix_ms": { "type": "integer", "minimum": 0 },
+        "protocol": { "$ref": "#/$defs/protocol" }, "target_id": { "$ref": "#/$defs/technical_id" },
+        "comparison_set": { "$ref": "#/$defs/technical_id" }, "destination_class": { "$ref": "#/$defs/class" },
+        "topology": { "$ref": "#/$defs/topology" }, "verdict": { "$ref": "#/$defs/verdict" },
+        "rtt_ms": { "type": "integer", "minimum": 0 }, "error_kind": { "type": "string" }
+      }
+    },
+    "window": {
+      "type": "object", "required": ["protocol", "target_id", "comparison_set", "destination_class", "topology", "onset_unix_ms", "recovery_unix_ms"], "additionalProperties": false,
+      "properties": {
+        "protocol": { "$ref": "#/$defs/protocol" }, "target_id": { "$ref": "#/$defs/technical_id" },
+        "comparison_set": { "$ref": "#/$defs/technical_id" }, "destination_class": { "$ref": "#/$defs/class" }, "topology": { "$ref": "#/$defs/topology" },
+        "onset_unix_ms": { "type": ["integer", "null"], "minimum": 0 }, "recovery_unix_ms": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "observation": {
+      "type": "object", "required": ["tick", "kind", "comparison_sets", "evidence_target_ids", "reason"], "additionalProperties": false,
+      "properties": {
+        "tick": { "type": "integer", "minimum": 0 },
+        "kind": { "enum": ["protocol-specific", "destination-class-wide-collateral", "dual-role-targeting-candidate", "indeterminate"] },
+        "protocol": { "$ref": "#/$defs/protocol" }, "destination_class": { "$ref": "#/$defs/class" },
+        "comparison_sets": { "type": "array", "items": { "$ref": "#/$defs/technical_id" } },
+        "evidence_target_ids": { "type": "array", "items": { "$ref": "#/$defs/technical_id" } }, "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
