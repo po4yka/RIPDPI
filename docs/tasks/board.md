@@ -2,10 +2,11 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (23)
+## Doing (24)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
+| critical | epic | [Fix July 2026 native Rust P1 audit findings](issues/epic-native-rust-p1-remediation-july-2026.md) | Codex | 2026-07-14 |
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-06-11 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
