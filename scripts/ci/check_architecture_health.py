@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager, nullcontext
 import json
 import re
 import subprocess
 import sys
+import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -161,13 +163,53 @@ def normalize_id(value: str) -> str:
 
 def git_staged_paths(repo_root: Path) -> list[str]:
     completed = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
         cwd=repo_root,
         check=True,
         capture_output=True,
         text=True,
     )
     return [line for line in completed.stdout.splitlines() if line]
+
+
+def git_index_manifest_paths(repo_root: Path) -> list[str]:
+    completed = subprocess.run(
+        ["git", "ls-files", "--cached", "--", ":(glob)native/rust/crates/*/Cargo.toml"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return [line for line in completed.stdout.splitlines() if line]
+
+
+def read_git_index_file(repo_root: Path, relative_path: str) -> bytes:
+    completed = subprocess.run(
+        ["git", "show", f":{relative_path}"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    return completed.stdout
+
+
+@contextmanager
+def materialize_git_index_snapshot(
+    repo_root: Path,
+    tracked_paths: Sequence[str],
+) -> Iterable[Path]:
+    snapshot_paths = set(git_index_manifest_paths(repo_root))
+    snapshot_paths.update(tracked_paths)
+    with tempfile.TemporaryDirectory(prefix="ripdpi-architecture-index-") as temp_dir:
+        snapshot_root = Path(temp_dir)
+        for relative_path in sorted(snapshot_paths):
+            relative = Path(relative_path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError(f"Unsafe path in Git index: {relative_path}")
+            destination = snapshot_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(read_git_index_file(repo_root, relative_path))
+        yield snapshot_root
 
 
 def read_toml(path: Path) -> dict:
@@ -923,24 +965,30 @@ def main() -> int:
     elif args.paths is not None:
         enforce_stale = False
 
-    source_metrics = collect_source_metrics(repo_root, tracked_paths)
-    indicators = collect_dependency_indicators(repo_root, tracked_paths)
-    indicators.extend(source_indicators_from_metrics(source_metrics))
-    indicators = sorted(
-        indicators,
-        key=lambda indicator: (indicator.priority, indicator.rule, indicator.path, indicator.id),
+    scan_context = (
+        materialize_git_index_snapshot(repo_root, tracked_paths)
+        if args.staged
+        else nullcontext(repo_root)
     )
+    with scan_context as scan_root:
+        source_metrics = collect_source_metrics(scan_root, tracked_paths)
+        indicators = collect_dependency_indicators(scan_root, tracked_paths)
+        indicators.extend(source_indicators_from_metrics(source_metrics))
+        indicators = sorted(
+            indicators,
+            key=lambda indicator: (indicator.priority, indicator.rule, indicator.path, indicator.id),
+        )
 
-    if args.dump_baseline:
-        print(json.dumps(baseline_payload(indicators), indent=2))
-        return 0
+        if args.dump_baseline:
+            print(json.dumps(baseline_payload(indicators), indent=2))
+            return 0
 
-    baseline_path = (repo_root / args.baseline).resolve()
-    if not baseline_path.is_file():
-        raise ValueError(f"Architecture baseline not found: {baseline_path}")
+        baseline_path = (repo_root / args.baseline).resolve()
+        if not baseline_path.is_file():
+            raise ValueError(f"Architecture baseline not found: {baseline_path}")
 
-    results = evaluate_indicators(indicators, read_baseline(baseline_path), enforce_stale=enforce_stale)
-    results["metrics"] = collect_metrics(repo_root, tracked_paths, source_metrics=source_metrics)
+        results = evaluate_indicators(indicators, read_baseline(baseline_path), enforce_stale=enforce_stale)
+        results["metrics"] = collect_metrics(scan_root, tracked_paths, source_metrics=source_metrics)
     write_reports((repo_root / args.report_dir).resolve(), results)
     print(format_summary(results))
     return 1 if should_fail(results) else 0
