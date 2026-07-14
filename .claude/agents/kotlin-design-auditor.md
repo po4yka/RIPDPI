@@ -108,11 +108,11 @@ rg 'interface \w+' --type kotlin -l
 
 Read each and check if clients use all methods or only subsets. Flag candidates for splitting.
 
-## Known Issues to Track
+## Baselines to Recompute
 
-- MainViewModel: 14 constructor params, ~548 lines -- track growth/shrinkage
-- All 71+ Hilt modules in SingletonComponent -- track if scoping is introduced
-- `:core:diagnostics` coupling to `:core:service` -- track reduction efforts
+- Measure `MainViewModel` constructor parameters and source lines from the current checkout; do not reuse a stored count.
+- Enumerate every Hilt module and group it by `@InstallIn` component before judging scope concentration.
+- Inspect the current Gradle dependency graph before claiming that `:core:diagnostics` couples to `:core:service`.
 
 ## Response Protocol
 
@@ -122,6 +122,6 @@ Return to main context ONLY:
 3. Compose findings: anti-patterns found with file:line
 4. Coroutine safety findings with file:line
 5. DIP/ISP violations with file:line and suggested fix
-6. Trend vs known issues: better, same, or worse since last audit?
+6. Trend against a prior persisted audit when one is available; otherwise report a current baseline without inventing a delta.
 
 You are read-only. Do not modify any files. Only report findings.

@@ -114,22 +114,9 @@ Used in tests to convert a raw `JNIEnv` pointer. The resulting `EnvUnowned` must
 unsafe { EnvUnowned::from_raw(env.get_raw()) }
 ```
 
-### JavaVM::from_raw — liveness invariant
+### JavaVM::from_raw — centralized liveness invariant
 
-`JavaVM::from_raw(vm.get_raw())` clones the VM handle without incrementing a refcount. The resulting handle is a plain pointer copy; the JVM retains ownership.
-
-Every call MUST have a `// SAFETY:` comment documenting:
-1. **Liveness** — the JVM is guaranteed alive for the full lifetime of the clone (typically: the original `JavaVM` is held by a `'static OnceCell`, so the pointer is valid for program lifetime).
-2. **Non-aliasing** — the clone is used only to call `attach_current_thread`, which is thread-safe on the JVM side. No mutation of VM state occurs through the clone.
-
-```rust
-// SAFETY: `vm` is held by the static `JVM: OnceCell<JavaVM>` in lib.rs, so its
-// raw pointer is valid for program lifetime. `JavaVM::from_raw` copies the
-// pointer only; the JVM manages its own lifetime.
-let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
-```
-
-Anchor: `native/rust/crates/ripdpi-android/src/vpn_protect.rs:58-60` (currently lacks a formal `SAFETY:` block — flag in review).
+Adapter crates MUST use `android_support::SharedJvm::new(&vm)` and clone `SharedJvm`; they must not call `JavaVM::from_raw` directly. The single raw duplication site is `SharedJvm::new` in `native/rust/crates/android-support/src/shared_jvm.rs`, where the `SAFETY` rationale documents process-lifetime JVM liveness, non-owning handle duplication, and thread-safe attachment. Any new `JavaVM::from_raw` hit outside that module is a regression.
 
 ### Raw fd across JNI
 
@@ -224,10 +211,9 @@ unsafe fn getsockopt_raw<T>(
 4. Check the syscall return value and convert `io::Error::last_os_error()` — never discard `errno`.
 5. Refresh the relevant module-level audit note when adding new wrappers. The note signals a human has reconciled the kernel-ABI-vs-socket2 boundary.
 
-Anchors:
-- `native/rust/crates/ripdpi-privileged-ops/src/linux/socket_options.rs:24-38` — `setsockopt_raw` reference
-- `native/rust/crates/ripdpi-privileged-ops/src/linux/socket_options.rs:48-65` — `getsockopt_raw` reference
-- `native/rust/crates/ripdpi-root-helper-protocol/src/scm_rights.rs` — SCM_RIGHTS `recvmsg` / control-message traversal
+Canonical symbols:
+- `setsockopt_raw` and `getsockopt_raw` in `native/rust/crates/ripdpi-privileged-ops/src/linux/socket_options.rs`
+- SCM_RIGHTS `recvmsg` and control-message traversal in `native/rust/crates/ripdpi-root-helper-protocol/src/scm_rights.rs`
 
 ## Signal handling (android-support)
 

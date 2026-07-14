@@ -29,7 +29,7 @@ Before flagging a JNI contract issue or citing a JNI function signature, verify 
 command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see d.android.com/tools/agents"; exit 2; }
 ```
 
-If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for JNI / libnativehelper contracts — the JNI spec is stable but Android-specific guarantees (`AttachCurrentThread` behaviour under bionic, `CallJNI_OnLoad` timing, `DetachCurrentThread` required-by-release-N) change. As of Android CLI 1.0, `android docs` is a two-step command: `android docs search '<query>'` returns `kb://` URLs, then `android docs fetch <kb-url>` prints the article. For each finding, first consult the Knowledge Base — e.g. `android docs search 'AttachCurrentThreadAsDaemon thread attachment'`, `android docs search 'NewGlobalRef GlobalRef lifecycle'` — then `fetch` a returned `kb://` URL and cite the current Android-specific contract. The pinned NDK is `29.0.14206865`; verify the function exists at that NDK version before flagging.
+If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for JNI or libnativehelper contracts — Android-specific guarantees such as `AttachCurrentThread` behavior under bionic, `CallJNI_OnLoad` timing, and `DetachCurrentThread` requirements evolve. As of Android CLI 1.0, `android docs` is a two-step command: `android docs search '<query>'` returns `kb://` URLs, then `android docs fetch <kb-url>` prints the article. For each finding, consult the Knowledge Base and cite the current contract. Read the pinned NDK from `ripdpi.nativeNdkVersion` in `gradle.properties` before flagging function availability.
 
 ## Audit Workflow
 

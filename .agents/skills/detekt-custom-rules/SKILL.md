@@ -1,11 +1,11 @@
 ---
 name: detekt-custom-rules
-description: Custom detekt rules, DI guardrails, detekt.yml configuration, and false-positive triage.
+description: Custom detekt rules, DI/privacy/suppression guardrails, detekt.yml configuration, and false-positive triage.
 ---
 
 # Custom Detekt Rules
 
-Custom rule set `diGuardrails` in module `:quality:detekt-rules`. Enforces DI and Hilt conventions at compile time.
+Custom rule set `diGuardrails` in module `:quality:detekt-rules`. Enforces DI, Hilt, suppression, and resolver-log privacy conventions at compile time.
 
 ## Existing Rules
 
@@ -13,6 +13,8 @@ Custom rule set `diGuardrails` in module `:quality:detekt-rules`. Enforces DI an
 |------|-----------------|-----|
 | `InjectConstructorDefaultParameter` | Default values on `@Inject` constructor params | Hilt ignores defaults, causing silent behavior mismatch |
 | `HiltViewModelApplicationContext` | `@ApplicationContext` in `@HiltViewModel` constructors | Forces narrower abstractions, improves testability |
+| `DisallowNewSuppression` | `@Suppress` without an adjacent `ROADMAP-architecture-refactor` allowlist comment | Prevents new lint debt from becoming invisible |
+| `NoResolverIpInLogs` | Resolver or upstream IP identifiers interpolated into log calls | Keeps user-visible network state out of logs |
 
 ## Module Structure
 
@@ -23,9 +25,13 @@ quality/detekt-rules/
     AnnotationMatchers.kt              -- Shared helpers: hasAnnotation(), findAnnotation()
     InjectConstructorDefaultParameter.kt
     HiltViewModelApplicationContext.kt
+    DisallowNewSuppression.kt
+    NoResolverIpInLogs.kt
   src/test/kotlin/com/poyka/ripdpi/quality/detekt/
     InjectConstructorDefaultParameterTest.kt
     HiltViewModelApplicationContextTest.kt
+    DisallowNewSuppressionTest.kt
+    NoResolverIpInLogsTest.kt
 ```
 
 ## Creating a New Rule
@@ -83,6 +89,8 @@ override fun instance(config: Config): RuleSet =
         listOf(
             InjectConstructorDefaultParameter(config),
             HiltViewModelApplicationContext(config),
+            DisallowNewSuppression(config),
+            NoResolverIpInLogs(config),
             YourRuleName(config),  // <-- add here
         ),
     )
@@ -99,9 +107,13 @@ diGuardrails:
     active: true
   HiltViewModelApplicationContext:
     active: true
+  NoResolverIpInLogs:
+    active: true
   YourRuleName:               # <-- add here
     active: true
 ```
+
+`DisallowNewSuppression` is registered in `RipDpiRuleSetProvider` and inherits the active `diGuardrails` rule-set setting; it has no per-rule override in the current config.
 
 ### Step 4: Write Tests
 

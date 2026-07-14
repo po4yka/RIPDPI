@@ -33,13 +33,7 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) 
 }
 ```
 
-Anchors:
-- `native/rust/crates/ripdpi-android/src/lib.rs:32-40` — canonical
-- `native/rust/crates/ripdpi-tunnel-android/src/lib.rs:20-27`
-- `native/rust/crates/ripdpi-warp-android/src/lib.rs:21-27`
-- `native/rust/crates/ripdpi-relay-android/src/lib.rs:17-27`
-
-**Rule**: `install_panic_hook()` must run inside `catch_unwind` so panic hooks are installed even if earlier initialisation fails. Do not move hook installation outside the closure.
+Locate `JNI_OnLoad` by symbol in `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, and `ripdpi-amneziawg-android`; do not retain line-number anchors. The entire loader initialization must remain inside `catch_unwind` so a panic returns `JNI_ERR` instead of crossing the FFI boundary. A panic that happens before `install_panic_hook()` runs is still contained by `catch_unwind`, but it cannot be reported by the custom hook; do not claim otherwise.
 
 ## Per-method JNI entry-point pattern
 

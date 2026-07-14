@@ -49,11 +49,9 @@ Rule: state must be persisted on every significant state transition, NOT on a pe
 
 ### Signal handling
 
-SIGPIPE is masked in JVM-spawned threads. Tokio threads created via `pthread_create` directly do NOT inherit the mask. Either:
-- Use `tokio::net::TcpStream` which sets `MSG_NOSIGNAL` on writes (Linux) or `SO_NOSIGPIPE` (BSD/macOS — not applicable).
-- Install a process-wide SIGPIPE handler via `nix::sys::signal::signal(Signal::SIGPIPE, SigHandler::SigIgn)` in `JNI_OnLoad`.
+Signal disposition and per-thread signal masks are different contracts: a new pthread inherits the creating thread's signal mask, while setting `SIGPIPE` to `SIG_IGN` changes the process-wide disposition. RIPDPI does not depend on whichever mask a JVM or runtime thread happens to inherit. Every Android JNI cdylib calls `android_support::ignore_sigpipe()` from `JNI_OnLoad`, which installs the process-wide ignored disposition through `nix::sys::signal::signal(Signal::SIGPIPE, SigHandler::SigIgn)` before worker runtimes start. Keep that call in every loader entry point and treat per-write `MSG_NOSIGNAL` as defense in depth, not as the lifecycle contract.
 
-A panic that originates from an unhandled SIGPIPE crashes the entire process and is invisible in logcat past the JNI_OnUnload boundary.
+An unhandled SIGPIPE terminates the process by signal; it is not a Rust panic and does not unwind through JNI. Diagnose it as a native signal death rather than looking for a panic or `JNI_OnUnload` event.
 
 ### Process death simulation in tests
 

@@ -20,7 +20,7 @@ Before flagging a JNI contract issue or citing a JNI function signature, verify 
 
     command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see d.android.com/tools/agents"; exit 2; }
 
-If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for Android-specific JNI guarantees. Use `android docs search '<query>'`, then `android docs fetch <kb-url>` and cite the result. The pinned NDK is 29.0.14206865; verify availability before flagging.
+If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for Android-specific JNI guarantees. Use `android docs search '<query>'`, then `android docs fetch <kb-url>` and cite the result. Read the pinned NDK from `ripdpi.nativeNdkVersion` in `gradle.properties` before flagging availability.
 
 ## Audit Workflow
 - rg 'extern "system" fn (Java_|JNI_OnLoad)' native/rust/crates/ripdpi-*android* --type rust -n

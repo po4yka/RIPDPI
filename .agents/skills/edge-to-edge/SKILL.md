@@ -5,11 +5,11 @@ description: Edge-to-edge and window-inset handling for Compose screens, scaffol
 
 # Edge-to-Edge on RIPDPI
 
-RIPDPI targets `targetSdk = 35` on `compileSdk = 36`. On Android 15+ (API 35+) the system **enforces** edge-to-edge regardless of theme flags — any screen that wraps content without inset handling will clip under the status / navigation bars.
+Read `ripdpi.targetSdk` and `ripdpi.compileSdk` from `gradle.properties` before auditing. When the live target is API 35 or newer, Android 15+ enforces edge-to-edge regardless of theme flags — any screen that wraps content without inset handling will clip under the status or navigation bars.
 
 ## The single entry point
 
-`app/src/main/kotlin/com/poyka/ripdpi/activities/MainActivity.kt:74-76` is the only call site:
+`app/src/main/kotlin/com/poyka/ripdpi/activities/MainActivity.kt` is the only call site; locate `onCreate` by symbol rather than retaining a line-number snapshot:
 
 ```kotlin
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,7 +20,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
 }
 ```
 
-**Rule:** `installSplashScreen()` must run before `enableEdgeToEdge()`, and both must run before `super.onCreate(...)`. The `androidx.core.splashscreen:1.2.0` (pinned in `gradle/libs.versions.toml:33`) contract assumes the splash overlay lifecycle is attached before the activity's window decoration switches to edge-to-edge mode; reversing the order produces a one-frame flash of the default system background at cold launch.
+**Rule:** `installSplashScreen()` must run before `enableEdgeToEdge()`, and both must run before `super.onCreate(...)`. Read the active splashscreen version from `gradle/libs.versions.toml`; the splash overlay lifecycle must attach before the activity window switches to edge-to-edge mode.
 
 Do **not** call `enableEdgeToEdge()` from a second activity, a Compose entry, or a `@Composable` effect. The activity owns the window.
 
@@ -57,7 +57,7 @@ Modifier.safeDrawingPadding()                               // safeDrawing short
 
 ## Scaffold caveats
 
-Material 3 `Scaffold` in the Compose BOM `2026.03.01` (pinned in `libs.versions.toml:13`) handles insets for its own top bar, bottom bar, and FAB slots. If you put a custom bar outside a `Scaffold` slot and provide a `topBar`/`bottomBar` at the same time, you are inset-padding twice. Pick one:
+Material 3 `Scaffold` handles insets for its own top bar, bottom bar, and FAB slots. Read the active Compose BOM from `gradle/libs.versions.toml` before making version-specific claims. If you put a custom bar outside a `Scaffold` slot and provide a `topBar` or `bottomBar` at the same time, you are inset-padding twice. Pick one:
 
 - Use `Scaffold` slots and let it handle insets → don't add padding modifiers to the slot content.
 - Don't use `Scaffold` slots and handle insets manually on your custom bars.
@@ -66,7 +66,7 @@ Mixing produces the classic "my bottom bar sits 48dp too high" regression.
 
 ## Splash screen handoff
 
-`androidx.core.splashscreen:1.2.0` keeps the splash visible until `setKeepOnScreenCondition { ... }` returns false. `MainActivity.kt:92` wires this to `viewModel.startupState.value.isReady`. The splash overlay sits on top of the activity window, so edge-to-edge enforcement on `MainActivityContent` doesn't affect what the user sees during splash.
+The splashscreen library keeps the splash visible until `setKeepOnScreenCondition { ... }` returns false. In `MainActivity.onCreate`, locate the current condition and verify that it follows `viewModel.startupState.value.isReady`; do not rely on a stored line number. The splash overlay sits on top of the activity window, so edge-to-edge enforcement on `MainActivityContent` does not affect what the user sees during splash.
 
 Gotcha: if you ever migrate away from `installSplashScreen()` to a custom splash composable, you must add inset handling to the custom composable yourself — it no longer has the splash library's overlay to hide behind.
 

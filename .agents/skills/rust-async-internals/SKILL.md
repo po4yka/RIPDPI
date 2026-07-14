@@ -114,7 +114,7 @@ This is NOT a typical "spawn per connection" design. One task owns the entire
 smoltcp stack. Individual TCP/UDP sessions ARE spawned as separate tokio tasks
 that communicate back via `mpsc` channels and `tokio::io::duplex` pairs.
 
-**The smoltcp ↔ duplex bridge uses a `NoopWaker`-based manual poll pattern**: see the `## io_loop event-driven architecture` section above for the full treatment of `try_read_duplex` / `try_write_duplex` in `io_loop/bridge.rs:19-45`. The short version: the bridge calls `poll_read` / `poll_write` directly from the io_loop tick with a discarded waker. Consequence: the `try_*_duplex` family must NEVER be called from inside an async `await` — a `Poll::Pending` under the NoopWaker stalls the task permanently. If you find yourself writing `async fn` wrappers around duplex streams in this crate, stop and consult the io_loop architecture notes.
+**The smoltcp ↔ duplex bridge uses a `NoopWaker`-based manual poll pattern**: see `native/rust/crates/ripdpi-tunnel-core/src/io_loop/bridge/duplex.rs` and locate `try_read_duplex` / `try_write_duplex` by symbol. The bridge calls `poll_read` / `poll_write` directly from the io_loop tick with a discarded waker. Consequence: the `try_*_duplex` family must NEVER be called from inside an async `await` — a `Poll::Pending` under the NoopWaker stalls the task permanently. If you find yourself writing `async fn` wrappers around duplex streams in this crate, stop and consult the io_loop architecture notes.
 
 ### CancellationToken pattern (used throughout RIPDPI)
 

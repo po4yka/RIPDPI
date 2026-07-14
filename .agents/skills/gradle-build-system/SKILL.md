@@ -7,7 +7,7 @@ description: Gradle dependencies, modules, convention plugins, and Android build
 
 ## Overview
 
-RIPDPI uses Gradle 9.4 with convention plugins in `build-logic/convention/` and a version catalog at `gradle/libs.versions.toml`. All build configuration flows through convention plugins -- never add raw plugin config to module build files.
+RIPDPI uses the Gradle version pinned by `gradle/wrapper/gradle-wrapper.properties`, convention plugins in `build-logic/convention/`, and the version catalog at `gradle/libs.versions.toml`. Read those source files before reporting versions; all module build configuration flows through convention plugins.
 
 ## Convention Plugins
 
@@ -57,22 +57,21 @@ Never hardcode versions in `build.gradle.kts` files.
 
 All in `gradle.properties`:
 
-| Property | Current Value |
-|----------|---------------|
-| `ripdpi.compileSdk` | 36 |
-| `ripdpi.minSdk` | 27 |
-| `ripdpi.targetSdk` | 35 |
-| `ripdpi.nativeNdkVersion` | 29.0.14206865 |
-| `ripdpi.nativeAbis` | armeabi-v7a,arm64-v8a,x86,x86_64 |
-| `ripdpi.localNativeAbisDefault` | arm64-v8a |
+| Property | Meaning |
+|----------|---------|
+| `ripdpi.compileSdk` | Android compile SDK; read the live value before selecting SDK packages or APIs |
+| `ripdpi.minSdk` | Minimum supported Android API |
+| `ripdpi.targetSdk` | Runtime-behavior target; changes require separate compatibility testing |
+| `ripdpi.nativeNdkVersion` | Pinned Android NDK version |
+| `ripdpi.nativeAbis` | Full CI/release ABI set |
+| `ripdpi.localNativeAbisDefault` | Local ABI policy; `host` derives the ABI from the workstation architecture |
 
 ## Gotchas
 
-- **`android.newDsl=false`**: Workaround for protobuf-gradle-plugin 0.9.6 + AGP 9 incompatibility. Do not remove.
 - **build-logic is an included build** (`includeBuild("build-logic")` in settings). Changes to convention plugins require re-sync.
 - **Static analysis**: Run `./gradlew staticAnalysis` -- it aggregates detekt, ktlint, and Android lint for the quality-enabled Android modules.
 - **Native build order**: `:core:engine:buildRustNativeLibs` runs before `preBuild`. If native build fails, check NDK installation path, Rust target availability, and the `ripdpi.android.rust-native` convention plugin under `build-logic/convention/`.
-- **Local ABI fast path**: local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`; use `-Pripdpi.localNativeAbis=x86_64` for emulator-focused iteration.
+- **Local ABI fast path**: local non-release builds follow `ripdpi.localNativeAbisDefault`; when it is `host`, Apple Silicon resolves to `arm64-v8a` and Intel hosts resolve to `x86_64`. Use `-Pripdpi.localNativeAbis=x86_64` for emulator-focused iteration.
 
 ## Common Mistakes
 

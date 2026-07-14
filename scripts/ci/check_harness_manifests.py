@@ -248,6 +248,90 @@ def validate_skill_portability() -> None:
             )
 
 
+def validate_factual_ground_truth() -> None:
+    instructions = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    if "declared by `ripdpi.compileSdk` in `gradle.properties`" not in instructions:
+        raise ValueError("AGENTS.md must derive compileSdk from gradle.properties")
+    if instructions.count("libripdpi-amneziawg.so") != 1:
+        raise ValueError("AGENTS.md must list the AmneziaWG artifact exactly once")
+
+    factual_paths = (
+        CANONICAL_SKILLS / "gradle-build-system" / "SKILL.md",
+        CANONICAL_SKILLS / "edge-to-edge" / "SKILL.md",
+        CANONICAL_SKILLS / "r8-jni-keep-rules" / "SKILL.md",
+        CANONICAL_SKILLS / "rust-async-internals" / "SKILL.md",
+        CANONICAL_SKILLS / "rust-io-loop" / "SKILL.md",
+        CANONICAL_SKILLS / "rust-panic-safety" / "SKILL.md",
+        CANONICAL_SKILLS / "rust-unsafe" / "SKILL.md",
+        REPO_ROOT / ".claude" / "agents" / "kotlin-design-auditor.md",
+        REPO_ROOT / ".claude" / "agents" / "rust-api-auditor.md",
+        REPO_ROOT / ".claude" / "agents" / "async-cancel-safety.md",
+        REPO_ROOT / ".claude" / "agents" / "jni-bridge-verifier.md",
+        REPO_ROOT / ".claude" / "agents" / "native-verifier.md",
+        REPO_ROOT / ".codex" / "agents" / "kotlin-design-auditor.toml",
+        REPO_ROOT / ".codex" / "agents" / "async-cancel-safety.toml",
+        REPO_ROOT / ".codex" / "agents" / "jni-bridge-verifier.toml",
+        REPO_ROOT / ".codex" / "agents" / "native-verifier.toml",
+        REPO_ROOT / ".claude" / "rules" / "android-app-and-rust-concurrency-gotchas.md",
+    )
+    factual_content = "\n".join(path.read_text(encoding="utf-8") for path in factual_paths)
+    for stale in (
+        "compileSdk = 36",
+        "Gradle 9.4",
+        "14 constructor params",
+        "71+ Hilt modules",
+        "~548 lines",
+        "2 crates currently use anyhow",
+        "io_loop.rs:122",
+        "session.rs:88",
+    ):
+        if stale in factual_content:
+            raise ValueError(f"harness contains stale factual snapshot {stale!r}")
+    if re.search(r"(?:MainActivity\.kt|RipDpiNavHost\.kt|libs\.versions\.toml):\d+", factual_content):
+        raise ValueError("harness contains brittle Android source line anchors")
+    if re.search(
+        r"(?:native/rust|app/src)/[^`\s]+\.(?:rs|kt|kts):\d+(?:-\d+)?",
+        factual_content,
+    ):
+        raise ValueError("harness contains brittle project source line anchors")
+
+    provider_path = (
+        REPO_ROOT
+        / "quality"
+        / "detekt-rules"
+        / "src"
+        / "main"
+        / "kotlin"
+        / "com"
+        / "poyka"
+        / "ripdpi"
+        / "quality"
+        / "detekt"
+        / "RipDpiRuleSetProvider.kt"
+    )
+    provider_content = provider_path.read_text(encoding="utf-8")
+    registered_rules = set(re.findall(r"^\s+([A-Z][A-Za-z0-9]+)\(config\),$", provider_content, re.MULTILINE))
+    if not registered_rules:
+        raise ValueError("RipDpiRuleSetProvider.kt contains no discoverable registered rules")
+    skill_content = (CANONICAL_SKILLS / "detekt-custom-rules" / "SKILL.md").read_text(encoding="utf-8")
+    missing_rules = sorted(rule for rule in registered_rules if rule not in skill_content)
+    if missing_rules:
+        raise ValueError(f"detekt-custom-rules skill omits registered rules {missing_rules}")
+
+    lifecycle = (REPO_ROOT / ".claude" / "rules" / "android-vpn-lifecycle.md").read_text(encoding="utf-8")
+    for required in (
+        "inherits the creating thread's signal mask",
+        "process-wide disposition",
+        "android_support::ignore_sigpipe()",
+        "it is not a Rust panic",
+    ):
+        if required not in lifecycle:
+            raise ValueError(f"android-vpn-lifecycle.md missing SIGPIPE contract {required!r}")
+    for stale in ("do NOT inherit the mask", "panic that originates from an unhandled SIGPIPE"):
+        if stale in lifecycle:
+            raise ValueError(f"android-vpn-lifecycle.md contains stale SIGPIPE claim {stale!r}")
+
+
 def main() -> int:
     try:
         names = skill_names()
@@ -260,6 +344,7 @@ def main() -> int:
         validate_worktree_integration_contract()
         validate_specialist_ground_truth()
         validate_skill_portability()
+        validate_factual_ground_truth()
     except (OSError, ValueError, tomllib.TOMLDecodeError, yaml.YAMLError) as exc:
         print(f"HARNESS MANIFEST ERROR: {exc}", file=sys.stderr)
         return 1

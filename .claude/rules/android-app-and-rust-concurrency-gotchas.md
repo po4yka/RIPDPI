@@ -37,7 +37,7 @@ Hilt/Dagger ignores Kotlin default parameter values on `@Inject` constructors, w
 
 ### Navigation: keep the bottom-bar fallback set in sync with the nav graph
 
-`RipDpiNavHost.kt`'s `selectedTopLevel` (`app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt:140`) picks the highlighted bottom-tab via an exact stable-route match plus an explicit `configSubRouteStableKeys` fallback set (`RipDpiNavHost.kt:896`) — it does not walk `NavDestination.hierarchy`. Whenever a new sub-destination is added inside a nested nav graph (for example, a new screen under the Config tab), add its stable route key to `configSubRouteStableKeys` in the same change, or the parent tab goes unselected the moment a user navigates into that sub-screen.
+`RipDpiNavHost.kt`'s `selectedTopLevel` picks the highlighted bottom tab via an exact stable-route match plus the explicit `configSubRouteStableKeys` fallback set — it does not walk `NavDestination.hierarchy`. Locate both symbols by name instead of relying on line-number snapshots. Whenever a new sub-destination is added inside a nested nav graph (for example, a new screen under the Config tab), add its stable route key to `configSubRouteStableKeys` in the same change, or the parent tab goes unselected when a user navigates into that sub-screen.
 
 ### Cross-references
 

@@ -46,7 +46,7 @@ When you add a class with `external fun` members called from Rust:
 
 ### Adding a new `@Serializable` navigation route
 
-Navigation Compose 2.9.7 type-safe routes (used in `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt:67-72` — `ConfigGraph`, `SettingsGraph`) encode/decode via `kotlinx.serialization` at runtime. R8 can strip the generated `$$serializer` companion.
+Navigation Compose type-safe routes use `kotlinx.serialization` at runtime. Read the active Navigation Compose version from `gradle/libs.versions.toml`, and locate `ConfigGraph` / `SettingsGraph` by symbol in `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt`. R8 can strip a generated `$$serializer` companion.
 
 **Current state:** the project has no app-level `-keep` rule for serializable routes today. It works because the routes are `data object`s (stateless) and the Compose/Kotlin serialization Gradle plugin emits a consumer rule. Verify this remains true when adding a `@Serializable data class` route with fields.
 

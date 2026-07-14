@@ -55,7 +55,7 @@ rg 'panic!\(|todo!\(|unimplemented!\(' native/rust/crates/<name>/src/ --type rus
 
 - Check if a crate-level error type exists (e.g., `Error` enum in `error.rs`).
 - Flag crates that use `anyhow::Error` or `Box<dyn Error>` in public APIs (should use typed errors).
-- **Flag `anyhow::Result` appearing in `lib.rs` public API** — library crates MUST use `thiserror`-derived typed errors; `anyhow` is for application/CLI crates only. Per `rust-discipline` skill: 2 crates currently use anyhow (`ripdpi-warp-core`, `ripdpi-dns-resolver`) — verify each is actually an application-tier crate, not a library.
+- **Flag `anyhow::Result` appearing in `lib.rs` public API** — library crates MUST use `thiserror`-derived typed errors; `anyhow` is for application/CLI crates only. Enumerate current non-test public uses during the audit instead of carrying a crate-count snapshot.
 - **Flag `Result<_, String>` as a code smell** — a `String` error type discards structure and prevents exhaustive match on the caller side. Propose a `thiserror` enum for the crate.
 - Count `.unwrap()` and `.expect()` in non-test code. Flag if > 5 per crate.
 - Flag `panic!()`, `todo!()`, `unimplemented!()` in non-test code.

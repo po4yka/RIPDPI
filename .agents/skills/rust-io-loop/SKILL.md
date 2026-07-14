@@ -32,7 +32,7 @@ pub(super) fn try_read_duplex(
 }
 ```
 
-Anchor: `native/rust/crates/ripdpi-tunnel-core/src/io_loop/bridge.rs:19-45`
+Canonical implementation: `native/rust/crates/ripdpi-tunnel-core/src/io_loop/bridge/duplex.rs`; locate `try_read_duplex` and `try_write_duplex` by symbol.
 
 ## Why the waker is a no-op
 
@@ -55,15 +55,15 @@ The trade-off: **`Poll::Pending` yields no progress information**. The io_loop d
 If you add a new `tokio::io::DuplexStream`-like type to the bridge:
 
 - It must implement `AsyncRead + AsyncWrite + Unpin`.
-- The `try_*` wrapper must handle `Poll::Ready(Ok(0))` as a write-zero / read-zero condition and translate it to `WriteZero` / `UnexpectedEof` (see `flush_pending_to_session` at `bridge.rs:47-60` for the canonical handling).
+- The `try_*` wrapper must handle `Poll::Ready(Ok(0))` as a write-zero or read-zero condition and translate it to `WriteZero` or `UnexpectedEof`; use `flush_pending_to_session` in `bridge/duplex.rs` as the canonical handling.
 - Do NOT add an `async fn` wrapper that awaits the stream — it will stall under the NoopWaker.
 
 ### Adding a new socket channel
 
 New smoltcp sockets (TCP, UDP, raw) must plug into:
-- `native/rust/crates/ripdpi-tunnel-core/src/session/tcp.rs` (19 async primitives)
-- `native/rust/crates/ripdpi-tunnel-core/src/session/udp.rs` (22 async primitives)
-- `native/rust/crates/ripdpi-tunnel-core/src/io_loop/udp_assoc.rs` (16 async primitives)
+- `native/rust/crates/ripdpi-tunnel-core/src/session/tcp.rs`
+- `native/rust/crates/ripdpi-tunnel-core/src/session/udp.rs`
+- `native/rust/crates/ripdpi-tunnel-core/src/io_loop/udp_assoc.rs`
 
 Follow the `try_*_duplex` convention and call from io_loop tick code, not from async tasks.
 
