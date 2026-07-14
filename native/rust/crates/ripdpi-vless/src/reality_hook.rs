@@ -151,6 +151,9 @@ use miri_stubs::{SSL_CTX_set_client_hello_cb, SSL_get_SSL_CTX, SSL_handshake_get
 pub(crate) struct RealityCallbackState {
     pub server_pubkey: [u8; 32],
     pub short_id: Vec<u8>,
+    /// Set only after the callback has successfully written the
+    /// sealed session id into the serialized ClientHello.
+    pub succeeded: AtomicBool,
     /// Latches `true` the first time a callback invocation observes
     /// a hard error (panic, missing X25519 key share, seal failure).
     /// Inspected by [`RealityHookGuard::was_successful`] after the
@@ -190,7 +193,7 @@ impl RealityHookGuard {
         // SAFETY: state_ptr is owned by this guard and the callback
         // only borrows through it.
         let state = unsafe { &*self.state_ptr };
-        !state.failed.load(Ordering::Acquire)
+        state.succeeded.load(Ordering::Acquire) && !state.failed.load(Ordering::Acquire)
     }
 }
 
@@ -220,7 +223,7 @@ impl Drop for RealityHookGuard {
 //      exactly once, so there is no double-free across threads.
 //   2. No aliasing while the guard lives: the only other reader is the
 //      C `client_hello_cb`, which dereferences the pointer (stored in
-//      the SSL `ex_data`) and mutates *only* the `AtomicBool` flag via
+//      the SSL `ex_data`) and mutates *only* the `AtomicBool` flags via
 //      atomic ops — no `&mut` aliasing of the Rust-owned `Box`, and the
 //      guard never hands out a `&mut` to the state.
 //   3. Lifetime tied to the guard: the pointee outlives every callback
@@ -251,6 +254,7 @@ pub(crate) unsafe fn install_reality_client_hello_hook(
     let state = Box::new(RealityCallbackState {
         server_pubkey,
         short_id,
+        succeeded: AtomicBool::new(false),
         failed: AtomicBool::new(false),
         #[cfg(test)]
         fixed_now_secs: None,
@@ -273,6 +277,7 @@ unsafe fn install_reality_client_hello_hook_for_test(
     let state = Box::new(RealityCallbackState {
         server_pubkey,
         short_id,
+        succeeded: AtomicBool::new(false),
         failed: AtomicBool::new(false),
         fixed_now_secs: Some(fixed_now_secs),
         trace: Some(trace),
@@ -380,6 +385,8 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
         trace.callback_count += 1;
     }
 
+    state.succeeded.store(true, Ordering::Release);
+
     // Best-effort wipe of the priv_key local before returning.
     priv_key.fill(0);
     1
@@ -406,6 +413,7 @@ mod tests {
         Box::new(RealityCallbackState {
             server_pubkey,
             short_id,
+            succeeded: AtomicBool::new(false),
             failed: AtomicBool::new(false),
             fixed_now_secs: None,
             trace: None,
@@ -420,7 +428,7 @@ mod tests {
         let state = test_state([0u8; 32], vec![0xAA]);
         let raw = Box::into_raw(state);
         let guard = RealityHookGuard { state_ptr: raw };
-        assert!(guard.was_successful());
+        assert!(!guard.was_successful(), "a callback that never ran must not report success");
         drop(guard);
         // Touching `raw` here would be UB; we trust Miri/asan to
         // catch a double-free if the drop logic regresses.
@@ -435,6 +443,22 @@ mod tests {
         // (the guard drops it at end).
         unsafe { (*raw).failed.store(true, Ordering::Release) };
         let guard = RealityHookGuard { state_ptr: raw };
+        assert!(!guard.was_successful());
+    }
+
+    #[test]
+    fn guard_reports_success_only_after_callback_completion() {
+        let state = test_state([0u8; 32], vec![]);
+        let raw = Box::into_raw(state);
+        let guard = RealityHookGuard { state_ptr: raw };
+        assert!(!guard.was_successful());
+        // SAFETY: the guard owns this live state for the duration of the test.
+        unsafe { (*raw).succeeded.store(true, Ordering::Release) };
+        assert!(guard.was_successful());
+        // A later HRR callback failure must remain observable even after an
+        // earlier callback completed successfully.
+        // SAFETY: the guard still owns this live state.
+        unsafe { (*raw).failed.store(true, Ordering::Release) };
         assert!(!guard.was_successful());
     }
 
@@ -612,11 +636,10 @@ mod tests {
             let state = test_state([0xAB; 32], vec![0xCD, 0xEF]);
             let raw = Box::into_raw(state);
             let guard = RealityHookGuard { state_ptr: raw };
-            // Synthesize a successful-handshake observation each
-            // cycle — was_successful reads through the box, so a
-            // regression that decoupled the guard from its state
-            // would surface here as a wrong value or UAF.
-            assert!(guard.was_successful());
+            // No callback fires in this allocation-only test, so a
+            // cycle must remain unsuccessful while the guard still
+            // owns and can safely inspect its state.
+            assert!(!guard.was_successful());
             drop(guard);
             // Box::from_raw inside Drop reclaims — no leak.
         }
