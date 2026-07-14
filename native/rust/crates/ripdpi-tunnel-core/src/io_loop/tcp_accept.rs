@@ -371,7 +371,7 @@ mod tests {
             remote: SocketAddr::new(IpAddr::V4(target_ip), target_port),
         };
         let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("TCP flow job");
-        ripdpi_flow_app_attribution::store_uid_resolution(job, Some(10_123));
+        ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
         spawn_new_tcp_sessions(
             &mut socket_set,
             &mut sessions,

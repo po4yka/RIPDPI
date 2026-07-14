@@ -24,6 +24,8 @@ const DRIVER_SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(250);
 /// Drop signals shutdown without blocking on the submission queue and waits a
 /// bounded interval for the worker. If kernel teardown exceeds that interval,
 /// the worker is detached while retaining its own pool/registry guards.
+// Drop order: shutdown/tx signal and join thread before pool/registry drop; the
+// worker owns cloned guards until it exits or is deliberately detached.
 pub struct IoUringDriver {
     tx: flume::Sender<Submission>,
     registry: Arc<CompletionRegistry>,

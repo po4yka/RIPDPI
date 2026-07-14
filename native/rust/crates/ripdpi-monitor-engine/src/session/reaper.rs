@@ -9,6 +9,8 @@ const REAPER_WORKERS: usize = 4;
 const REAPER_QUEUE_CAPACITY: usize = 64;
 const REAPER_ENQUEUE_BUDGET: Duration = Duration::from_millis(5);
 
+// Drop order: sender drops before workers are joined, closing their receiver
+// loops so every worker can exit before WorkerReaper releases shared pending state.
 pub(super) struct WorkerReaper {
     sender: Option<SyncSender<JoinHandle<()>>>,
     workers: Vec<JoinHandle<()>>,

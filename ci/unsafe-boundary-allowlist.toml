@@ -402,6 +402,15 @@ enforcement = "Move-only `BufferHandle` + `Mutex`-guarded free list + `&mut self
 owner = "io-uring"
 review_date = "2026-11-15"
 
+[[entries]]
+file = "native/rust/crates/ripdpi-io-uring/src/bufpool.rs"
+pattern = "raw pointer in public fn"
+reason = "Expose the stable registered buffer address only to crate-private io_uring opcode construction"
+preconditions = "The caller retains the move-only BufferHandle in InFlight until the matching CQE; the Arc-owned boxed allocation is not reallocated or released while that handle exists"
+enforcement = "Both as_ptr and as_mut_ptr are pub(crate) and called only by ring::driver_loop; BufferHandle is !Copy/!Clone, its free-list slot is exclusive, and InFlight owns the handle through completion"
+owner = "io-uring-runtime"
+review_date = "2026-11-15"
+
 # ---------------------------------------------------------------------------
 # `unsafe impl Send / unsafe impl Sync` — each manual auto-trait impl in
 # production carries a SAFETY comment and a `const _: fn() = || { … }`

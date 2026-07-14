@@ -117,10 +117,10 @@ fn drain_once(notifier: &dyn FlowNotifier, generation: AttributionGeneration) ->
         Some(job) => {
             let request = job.request();
             let uid = notifier.note(request);
-            store_uid_resolution(job, uid);
+            store_uid_resolution(&job, uid);
             // Mark the destination "notified". The authoritative attribution lives
             // in the Kotlin map; the native cache only needs the dedupe marker.
-            store_flow_resolution(job, None);
+            store_flow_resolution(&job, None);
             true
         }
         None => false,

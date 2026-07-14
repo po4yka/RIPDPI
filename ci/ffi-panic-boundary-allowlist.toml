@@ -52,6 +52,18 @@ owner = "infra"
 review_date = "2026-11-17"
 
 [[entries]]
+file = "native/rust/crates/ripdpi-runtime-platform/src/process.rs"
+function = "handle_shutdown_signal"
+reason = """\
+Body is one `SHUTDOWN_REQUESTED.store(true, Ordering::Release)`. AtomicBool::store \
+cannot panic or allocate. This is a POSIX signal handler installed through \
+`nix::sys::signal::signal`; the handler must remain async-signal-safe, so \
+catch_unwind/ffi_boundary is not valid in this context.\
+"""
+owner = "runtime-platform"
+review_date = "2026-11-17"
+
+[[entries]]
 file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
 function = "SSL_handshake_get_x25519_private_key"
 reason = """\

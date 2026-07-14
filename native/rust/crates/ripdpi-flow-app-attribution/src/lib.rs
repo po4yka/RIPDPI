@@ -141,7 +141,7 @@ impl FlowResolveRequest {
 /// Opaque identity of one exact flow registration.
 ///
 /// The generation prevents a delayed cleanup from removing a later flow that reused the same protocol/local/remote tuple.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct FlowAttributionToken {
     request: FlowResolveRequest,
     generation: u64,
@@ -150,14 +150,14 @@ pub struct FlowAttributionToken {
 impl FlowAttributionToken {
     /// Exact tuple owned by this registration.
     #[must_use]
-    pub const fn request(self) -> FlowResolveRequest {
+    pub const fn request(&self) -> FlowResolveRequest {
         self.request
     }
 }
 
 /// Result of recording a flow, including the token its owner must release.
 #[must_use = "the flow token must be retained and released with evict_flow"]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FlowObservation {
     /// Destination-level app context already cached when the flow was noted.
     pub context: Option<FlowAppContext>,
@@ -166,15 +166,15 @@ pub struct FlowObservation {
 }
 
 /// Generation-stamped unit of work drained by the asynchronous UID resolver.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FlowResolutionJob {
     request: FlowResolveRequest,
-    token: FlowAttributionToken,
+    generation: u64,
 }
 
 impl FlowResolutionJob {
     #[must_use]
-    pub const fn request(self) -> FlowResolveRequest {
+    pub const fn request(&self) -> FlowResolveRequest {
         self.request
     }
 }
@@ -274,11 +274,11 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
     guard.uid_cache.put(request, UidResolution { generation, state: UidResolutionState::Pending });
     if guard.pending.len() >= PENDING_CAPACITY
         && let Some(dropped) = guard.pending.pop_front()
-        && guard.uid_cache.peek(&dropped.request).is_some_and(|entry| entry.generation == dropped.token.generation)
+        && guard.uid_cache.peek(&dropped.request).is_some_and(|entry| entry.generation == dropped.generation)
     {
         guard.uid_cache.pop(&dropped.request);
     }
-    guard.pending.push_back(FlowResolutionJob { request, token });
+    guard.pending.push_back(FlowResolutionJob { request, generation });
     drop(guard);
     pending_signal().notify_one();
     FlowObservation { context, token }
@@ -296,24 +296,23 @@ pub fn lookup_flow_uid(protocol: u8, local: SocketAddr, remote: SocketAddr) -> F
 }
 
 /// Store the UID result produced by the background JNI worker.
-pub fn store_uid_resolution(job: FlowResolutionJob, uid: Option<u32>) {
+pub fn store_uid_resolution(job: &FlowResolutionJob, uid: Option<u32>) {
     let mut guard = lock();
     if guard
         .uid_cache
         .peek(&job.request)
-        .is_some_and(|entry| entry.generation == job.token.generation && entry.state == UidResolutionState::Pending)
+        .is_some_and(|entry| entry.generation == job.generation && entry.state == UidResolutionState::Pending)
     {
-        guard.uid_cache.put(
-            job.request,
-            UidResolution { generation: job.token.generation, state: UidResolutionState::Resolved(uid) },
-        );
+        guard
+            .uid_cache
+            .put(job.request, UidResolution { generation: job.generation, state: UidResolutionState::Resolved(uid) });
     }
 }
 
 /// Store destination attribution only while the originating flow generation is current.
-pub fn store_flow_resolution(job: FlowResolutionJob, context: Option<FlowAppContext>) {
+pub fn store_flow_resolution(job: &FlowResolutionJob, context: Option<FlowAppContext>) {
     let mut guard = lock();
-    if guard.uid_cache.peek(&job.request).is_some_and(|entry| entry.generation == job.token.generation) {
+    if guard.uid_cache.peek(&job.request).is_some_and(|entry| entry.generation == job.generation) {
         guard.cache.put(job.request.key(), Resolution::Resolved(context));
     }
 }
@@ -355,7 +354,7 @@ pub fn evict_flow(token: FlowAttributionToken) -> bool {
         return false;
     }
     guard.uid_cache.pop(&token.request);
-    guard.pending.retain(|job| job.token != token);
+    guard.pending.retain(|job| job.request != token.request || job.generation != token.generation);
     let dest_ip = token.request.key();
     if !guard.uid_cache.iter().any(|(request, _)| request.key() == dest_ip) {
         guard.cache.pop(&dest_ip);
@@ -487,7 +486,7 @@ mod tests {
         assert_eq!(lookup_flow_uid(6, first_local, remote), FlowUidLookup::Pending);
 
         let first = pop_pending_request(Duration::from_millis(10)).expect("first request");
-        store_uid_resolution(first, Some(10_123));
+        store_uid_resolution(&first, Some(10_123));
         assert_eq!(lookup_flow_uid(6, first_local, remote), FlowUidLookup::Resolved(Some(10_123)));
         assert_eq!(lookup_flow_uid(6, second_local, remote), FlowUidLookup::Pending);
     }
@@ -502,8 +501,8 @@ mod tests {
         let job = pop_pending_request(Duration::from_millis(10)).expect("pending job");
         assert!(evict_flow(observation.token));
         let current = note_flow(6, local, remote);
-        store_uid_resolution(job, Some(10_123));
-        store_flow_resolution(job, Some(FlowAppContext::new("com.stale", 1)));
+        store_uid_resolution(&job, Some(10_123));
+        store_flow_resolution(&job, Some(FlowAppContext::new("com.stale", 1)));
 
         assert_eq!(lookup_flow_uid(6, local, remote), FlowUidLookup::Pending);
         assert!(lookup_flow(remote.ip()).is_none());
@@ -531,10 +530,13 @@ mod tests {
         let local = sock(10, 0, 0, 2, 50000);
         let remote = sock(203, 0, 113, 7, 443);
         let stale = note_flow(6, local, remote).token;
+        let stale_request = stale.request;
+        let stale_generation = stale.generation;
         assert!(evict_flow(stale));
         let current = note_flow(6, local, remote).token;
 
-        assert!(!evict_flow(stale));
+        let replayed_stale = FlowAttributionToken { request: stale_request, generation: stale_generation };
+        assert!(!evict_flow(replayed_stale));
         assert_eq!(lookup_flow_uid(6, local, remote), FlowUidLookup::Pending);
         assert!(evict_flow(current));
     }

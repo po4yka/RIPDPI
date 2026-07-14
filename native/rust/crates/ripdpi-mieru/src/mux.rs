@@ -146,7 +146,7 @@ impl MuxWriter {
 }
 
 #[derive(Clone)]
-struct MuxWriteHandle {
+struct MuxWriteQueue {
     tx: mpsc::Sender<WriterCommand>,
 }
 
@@ -162,7 +162,7 @@ struct WriterCommand {
     done: oneshot::Sender<Result<()>>,
 }
 
-impl MuxWriteHandle {
+impl MuxWriteQueue {
     async fn send_open(&self, session_id: u32) -> Result<()> {
         self.send(session_id, WriterCommandKind::Open).await
     }
@@ -224,13 +224,13 @@ struct MuxReader {
 
 struct SessionRegistration {
     table: DemuxTable,
-    writer: MuxWriteHandle,
+    writer: MuxWriteQueue,
     session_id: u32,
     armed: bool,
 }
 
 impl SessionRegistration {
-    fn new(table: DemuxTable, writer: MuxWriteHandle, session_id: u32) -> Self {
+    fn new(table: DemuxTable, writer: MuxWriteQueue, session_id: u32) -> Self {
         Self { table, writer, session_id, armed: true }
     }
 
@@ -288,8 +288,10 @@ impl MuxReader {
 /// A multiplexed Mieru carrier: reusable across many [`open_stream`] calls.
 ///
 /// [`open_stream`]: MieruMuxConnection::open_stream
+// Drop order: abort reader_task and writer_task before clearing table; mailbox
+// receivers must observe EOF only after both carrier halves begin teardown.
 pub struct MieruMuxConnection {
-    writer: MuxWriteHandle,
+    writer: MuxWriteQueue,
     table: DemuxTable,
     limit: Arc<Semaphore>,
     rng: SystemRandom,
@@ -333,7 +335,7 @@ impl MieruMuxConnection {
         let dec = Decryptor::new(key);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (writer_tx, writer_rx) = mpsc::channel(WRITER_QUEUE_DEPTH);
-        let writer = MuxWriteHandle { tx: writer_tx };
+        let writer = MuxWriteQueue { tx: writer_tx };
         let writer_task = tokio::spawn(run_writer(
             MuxWriter { enc, writer: Box::new(write_half), time: Arc::clone(&time) },
             writer_rx,
@@ -493,7 +495,7 @@ async fn run_reader(
 /// writing through the shared serialized writer and reading from the sub-
 /// session's mailbox.
 async fn mux_socks5_connect(
-    writer: &MuxWriteHandle,
+    writer: &MuxWriteQueue,
     reader: &mut MuxReader,
     session_id: u32,
     target: &str,
@@ -893,7 +895,7 @@ mod tests {
         let transport = BlockingTransport { state: Arc::clone(&state), blocked: Arc::clone(&blocked) };
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (tx, rx) = mpsc::channel(WRITER_QUEUE_DEPTH);
-        let handle = MuxWriteHandle { tx };
+        let handle = MuxWriteQueue { tx };
         let writer = tokio::spawn(run_writer(
             MuxWriter {
                 enc: Encryptor::new(key, USERNAME.as_bytes().to_vec()),

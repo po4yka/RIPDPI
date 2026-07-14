@@ -208,30 +208,29 @@ where
 #[cfg(test)]
 mod tests {
     use super::DropOrdered;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     struct DropProbe {
         name: &'static str,
-        events: Rc<RefCell<Vec<&'static str>>>,
+        events: Arc<Mutex<Vec<&'static str>>>,
     }
 
     impl Drop for DropProbe {
         fn drop(&mut self) {
-            self.events.borrow_mut().push(self.name);
+            self.events.lock().expect("drop probe events mutex poisoned").push(self.name);
         }
     }
 
     #[test]
     fn owned_tls_stream_drops_ssl_before_callback_state() {
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
         let owned = DropOrdered {
-            resource: DropProbe { name: "ssl", events: Rc::clone(&events) },
-            guard: DropProbe { name: "callback_state", events: Rc::clone(&events) },
+            resource: DropProbe { name: "ssl", events: Arc::clone(&events) },
+            guard: DropProbe { name: "callback_state", events: Arc::clone(&events) },
         };
 
         drop(owned);
 
-        assert_eq!(*events.borrow(), ["ssl", "callback_state"]);
+        assert_eq!(*events.lock().expect("drop probe events mutex poisoned"), ["ssl", "callback_state"]);
     }
 }
