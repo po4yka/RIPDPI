@@ -166,16 +166,16 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 
 ## 10 — Extended outbound relay protocols (Mieru / SSH / AnyTLS)
 
-> **2026-06-01 — VMess, Trojan-Go, and Hysteria v1 were removed entirely** per [ADR 0004](../adr/0004-protocol-support-policy.md). The `ripdpi-vmess`/`ripdpi-trojan-go`/`ripdpi-hysteria-v1` crates, their `RelayKind`/builder/descriptor/flat-config surface, the Kotlin `ProxyProfile.Vmess`/`TrojanGo`/`HysteriaV1` types + editors + URI-codec arms, the proto fields (reserved), and all locale strings are gone. The relay native-config schema ceiling is now `8`. A persisted config or share-link naming a removed kind is rejected (native `Unsupported` catch-all / URI codec returns `null`); a subscription node naming one is skipped. The rows below cover only the relays that still exist.
+> **Refreshed 2026-07-14.** VMess, Trojan-Go, and Hysteria v1 remain removed per [ADR 0004](../adr/0004-protocol-support-policy.md). The current relay native-config schema is exclusively `10`; schemas `6` through `9` are retired. A persisted config or share-link naming a removed kind is rejected, and a subscription node naming one is skipped. The rows below cover only relays that still exist.
 
-The remaining extended-outbound relays still carry the full config parse/validate, typed error rejection, secret redaction, `RelayKind`/`RelayBackend`/transport-descriptor registration (drift-matched Kotlin↔Rust), wire DTO + section codec, URI codec + round-trip tests, Compose editor, and localized strings. Of them, only **AnyTLS** has a live wire engine; **Mieru** and **SSH** remain stubbed behind typed `Unimplemented` errors (backlog work, not legacy).
+The remaining extended-outbound relays carry the full config parse/validate, typed error rejection, secret redaction, `RelayKind`/`RelayBackend`/transport registration, wire DTO + section codec, URI codec + round-trip tests, Compose editor, and localized strings. AnyTLS, Mieru, and SSH all have live in-process wire engines; Mieru and SSH are intentionally TCP-only in the current capability table.
 
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
 | `RelayKind` registration for the remaining kinds | (undocumented) | **full** | `ripdpi-relay-core/src/config/kind.rs` (`Mieru`/`Ssh`/`AnyTls`, alongside the shipped Hysteria2/TUIC/VLESS/etc.) | Config/enum surface complete; removed kinds fall through to the `Unsupported` catch-all. |
-| Mieru wire engine | (undocumented) | **absent (stub)** | `builders/mieru.rs` | Session/replay engine not wired. Backlog. |
-| SSH wire engine | (undocumented) | **absent (stub — protect-invariant)** | `builders/ssh.rs` ("`russh` … stubbed because the relay layer exposes no protected outbound connector … fails … `Unimplemented` rather than opening an unprotected socket"); `ripdpi-ssh/Cargo.toml` has a real `russh` dep | The `russh` engine is cryptographically real but unreachable from relay until a `VpnService.protect()`-honoring connector exists. A faithful application of `vpnservice-protect-invariant.md`. |
-| AnyTLS wire engine | (undocumented) | **full** | `builders/anytls.rs` (builds live `AnyTlsSessionFactory`/`AnyTlsClientConfig`; no `Unimplemented`) | Carries traffic — the only one of the remaining set that does. |
+| Mieru wire engine | (undocumented) | **full (TCP)** | `builders/mieru.rs` builds `MieruSessionFactory`; `ripdpi-mieru` loopback tests carry traffic | UDP capability remains disabled. |
+| SSH wire engine | (undocumented) | **full (TCP)** | `builders/ssh.rs` builds `SshSessionFactory`; `ripdpi-ssh` uses `russh` and loopback `direct-tcpip` tests | TCP-only by protocol capability. |
+| AnyTLS wire engine | (undocumented) | **full** | `builders/anytls.rs` builds live `AnyTlsSessionFactory`/`AnyTlsClientConfig` | Carries traffic. |
 | Upstream SOCKS5 chaining forwards ASSOCIATE | docs: n/a | **absent** | `ripdpi-socks5-core/src/client/outbound.rs:14` ("out of scope (v1)") | Unchanged by the extended-outbound work — ASSOCIATE still not forwarded upstream. |
 
 ## 11 — Xray provider (libXray — VLESS / REALITY / XHTTP)
@@ -190,7 +190,7 @@ The remaining extended-outbound relays still carry the full config parse/validat
 
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
-| Ordered chain of 2–4 hops over the flat wire (schema v8) | `CONFIG_CONTRACTS.md` | **full (wire)** | `core/engine-api/.../RelayNativeConfig.kt` (`RelayNativeConfigSchemaVersion = 8`, `RelayChainMinHops=2`/`RelayChainMaxHops=4`); validation `RelaySectionsDto.kt:57`; Rust `config/flat.rs:9` (`= 8`, accepts `6..=8`) | Schema version is **8** (v6 base → v7 chain hop-list → v8 legacy-kind removal per ADR 0004). CLAUDE.md/AGENTS.md/CONFIG_CONTRACTS prose synced to 8. |
+| Ordered chain of 2–4 hops over the flat wire (schema v10) | `CONFIG_CONTRACTS.md` | **full (wire)** | `core/engine-api/.../RelayNativeConfig.kt` (`RelayNativeConfigSchemaVersion = 10`, `RelayChainMinHops=2`/`RelayChainMaxHops=4`); validation `RelaySectionsDto.kt`; Rust `config/flat.rs` (`SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION = 10`) | Schema `10` is current-only; older and future versions fail closed. |
 | Per-hop bind/protect; entry-only outbound bind | `CONFIG_CONTRACTS.md` | **full** | `ripdpi-relay-core` chain backend/builder (entry hop carries the outbound bind IP; later hops tunnel `connect_over` the prior stream) | none verified-contradictory. |
 | QUIC-only kinds rejected at non-entry positions | `CONFIG_CONTRACTS.md` | **full** | explicit standalone rule `reject_quic_non_entry()` at `native/rust/crates/ripdpi-relay-core/src/backend/builder/builders/chain_relay.rs:114`, called for Hysteria2 (`:98`) and TUIC (`:102`) before connector construction; test `chain_relay_rejects_quic_kind_as_non_entry_hop` (`relay-core src/tests.rs:643`) | none — confirmed explicit. |
 

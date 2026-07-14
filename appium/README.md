@@ -4,7 +4,7 @@ Python + pytest test suite targeting the RIPDPI debug automation contract via Ap
 
 ## Prerequisites
 
-- Debug APK installed on an emulator or device (`./gradlew :app:assembleGithubDebug` or `./gradlew assembleDebug`).
+- Debug APK installed on an emulator or device (`./gradlew :app:assembleGithubFullDebug` or `./gradlew assembleDebug`).
 - Appium 2.x/3.x with the UiAutomator2 driver:
   ```bash
   npm install -g appium
@@ -36,7 +36,7 @@ Set `PYTHON_BIN` when using a virtual environment, and set `APPIUM_APK_PATH` whe
 
 ```bash
 PYTHON_BIN=/tmp/ripdpi-appium-venv/bin/python \
-APPIUM_APK_PATH="$PWD/app/build/outputs/apk/github/debug/app-github-universal-debug.apk" \
+APPIUM_APK_PATH="$(find "$PWD/app/build/outputs/apk/githubFull/debug" -name '*.apk' -print -quit)" \
 bash scripts/ci/run-appium-smoke.sh tests/test_01_cold_launch.py
 ```
 

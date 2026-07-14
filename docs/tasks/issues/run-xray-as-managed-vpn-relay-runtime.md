@@ -1,7 +1,7 @@
 ---
 title: Run Xray as managed VPN relay runtime
 type: task
-status: device-smoke-pending
+status: blocked
 area: outbound
 priority: high
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-06-15
+updated: 2026-07-14
 ---
 
 ## Summary

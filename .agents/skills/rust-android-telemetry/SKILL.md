@@ -1,6 +1,6 @@
 ---
 name: rust-android-telemetry
-description: Telemetry and observability discipline for the RIPDPI Android Rust stack — control-plane vs data-plane channel selection (android_logger vs tracing), bounded event ring choice (broadcast vs ArrayQueue), atomic counters, pull-model 1Hz polling, deterministic JSON serialization for goldens. Use when authoring or modifying telemetry emission code, the bounded event ring, the Kotlin-side telemetry consumer, or any per-packet logging.
+description: Telemetry and observability discipline for the RIPDPI Android Rust stack — control-plane vs data-plane logging, bounded flume event queues, atomic counters, snapshot polling, readiness callbacks, and deterministic JSON contracts. Use when authoring or modifying telemetry emission code, the bounded event ring, the Kotlin-side telemetry consumer, or any per-packet logging.
 ---
 
 # Rust Android Telemetry -- RIPDPI
@@ -36,37 +36,9 @@ rg "tracing::|log::" native/rust/crates/ripdpi-proxy-runtime/src/ --type rust -n
 
 ## Bounded event ring
 
-For control-plane events that multiple consumers must read (Kotlin UI, golden harness, CSV exporter), pick a primitive:
+The live implementation is `android-support/src/events.rs`: each `EventRingLayer` owns a bounded `flume` queue. Emission is non-blocking. When the queue is full, the oldest record is removed and the new record is retried; the dropped-event counter is incremented explicitly. Proxy, relay, WARP/AmneziaWG, tunnel, and diagnostics domains use separate rings, with accepted aliases normalized at the boundary.
 
-| Primitive | Topology | Backpressure on lag | Memory | RIPDPI use |
-|-----------|----------|---------------------|--------|-------------|
-| `tokio::sync::broadcast` | SPMC or MPSC; multiple receivers see every message | `Lagged(n)` error returned to slow receivers; fast receivers unaffected | Fixed ring × N receivers | **Recommended for control events.** |
-| `crossbeam-queue::ArrayQueue` | MPMC; one receiver pulls one message | Producer's `push` returns `Err` when full; data lost silently if not checked | Fixed ring | Acceptable for single-consumer counters. |
-| `tokio::sync::mpsc` | MPSC; single receiver | Producer awaits when full | Bounded with size hint | Useful when ordering across producers must be preserved. |
-| `RwLock<VecDeque>` | Any | Blocks hot path on reader | Unbounded | REJECTED. |
-
-The `Lagged(n)` from `broadcast` is the signal you need: explicit count of dropped events per slow receiver. Pattern:
-
-```rust
-let (tx, _) = tokio::sync::broadcast::channel::<TelemetryEvent>(1024);
-
-// Producer (in io_loop or session task):
-let _ = tx.send(TelemetryEvent::ClientAccepted { ... });
-
-// Consumer (Kotlin polling via JNI, golden harness, etc.):
-loop {
-    match rx.recv().await {
-        Ok(event) => process(event),
-        Err(RecvError::Lagged(n)) => {
-            // Slow consumer dropped n events; surface via metric.
-            metrics::dropped_telemetry_events.fetch_add(n, Ordering::Relaxed);
-        }
-        Err(RecvError::Closed) => break,
-    }
-}
-```
-
-Forbidden: `while let Ok(event) = rx.recv().await { ... }`. This swallows `Lagged` silently. See `rust-async-internals` skill for the broader anti-pattern.
+Do not replace this with `tokio::sync::broadcast`, an unbounded queue, or a blocking mutex-backed buffer. Consumers drain a single domain ring into the polled runtime snapshot; they are not independent subscribers that must each receive every event. Preserve capacity bounds, FIFO order among retained events, drop-oldest behavior, and the observable dropped count.
 
 ## Data-plane counters
 
@@ -91,9 +63,9 @@ impl DataPlaneCounters {
 
 Ordering: `Relaxed` is correct for counters (atomicity, no happens-before required). See `memory-model` skill for the rationale.
 
-## Pull-model 1 Hz polling from Kotlin
+## Snapshot polling and readiness push
 
-A push-model where Rust calls back into Java per event creates JNI back-pressure (5–15 µs per `attach_current_thread + call_method`). Pull-model:
+Runtime telemetry remains a coarse-grained pull surface: Kotlin polls a JSON snapshot that contains counters and drained bounded events. Never call into Java per packet or per telemetry event.
 
 ```rust
 #[unsafe(no_mangle)]
@@ -116,7 +88,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_TelemetryNative_jniSnapshot(
 }
 ```
 
-Kotlin polls at 1 Hz from a coroutine, parses the JSON, updates UI. Single JNI call per second regardless of event rate.
+Runtime readiness is the deliberate exception: ADR 0003 replaced readiness polling with a one-shot `onRuntimeReady()` JNI callback. Keep readiness callback registration/generation tokens separate from the periodic telemetry snapshot and never reintroduce a readiness sentinel that depends on the next poll.
 
 ## Deterministic JSON for goldens
 

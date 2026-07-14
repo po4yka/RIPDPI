@@ -17,7 +17,7 @@ All stable IDs live in [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka
 
 ## Selector Families
 
-- Screen roots (generated via `RipDpiTestTags.screen(Route)` as `"${route.stableRoute}-screen"`; tracks `Route.all` in `Route.kt`): `about-screen`, `advanced_settings-screen`, `app_customization-screen`, `asset_provider-screen`, `backup_restore-screen`, `biometric_prompt-screen`, `blockcheck-screen`, `config-screen`, `config/local_bypass-screen`, `config/vpn-screen`, `data_transparency-screen`, `detection_check-screen`, `detection_settings-screen`, `diagnostics-screen`, `dns_settings-screen`, `domain_bypass_list-screen`, `history-screen`, `home-screen`, `import/profile_confirm-screen`, `import/subscription_confirm-screen`, `logs-screen`, `mode_editor-screen`, `onboarding-screen`, `owned_stack_browser-screen`, `pcap_capture_list-screen`, `pcap_viewer-screen`, `profile/amneziawg-screen`, `profile/anytls-screen`, `profile/mieru-screen`, `profile/ssh-screen`, `replay_history-screen`, `routes-screen`, `rule_editor-screen`, `scanner-screen`, `settings-screen`, `shared_diagnostic_result-screen`, `split_tunnel-screen`, `strategy_config-screen`, `xray/import-screen`. Static audit-only presentation screens also expose `profile_variants-screen` and `strategy_import-screen`.
+- Screen roots are generated from every entry in `Route.all` via `RipDpiTestTags.screen(route)`; each result is the stable route plus the `-screen` suffix. Do not duplicate the route inventory in this document.
 - Bottom navigation: `bottom-nav-home`, `bottom-nav-config`, `bottom-nav-diagnostics`, `bottom-nav-settings`
 - Permission and repair actions: `settings-permission-<kind>`, `home-permission-issue-banner`, `home-permission-recommendation-banner`
 - Settings navigation: `settings-dns-settings`, `settings-advanced-settings`, `settings-support-bundle`, `settings-data-transparency`, `settings-about`
@@ -29,8 +29,8 @@ All stable IDs live in [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka
 ## Key Examples
 
 - Home root: `home-screen`
-- Home mode cards: `home-mode-card-vpn`, `home-mode-card-proxy`
-- Home mode primary actions: `home-mode-primary-vpn`, `home-mode-primary-proxy`
+- Home mode cards: `home-mode-card-local-dpi-bypass`, `home-mode-card-remote-vpn`, `home-mode-card-diagnostic`
+- Home mode primary actions: `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`, `home-mode-primary-diagnostic`
 - Home connection actuator stages: `home-connection-stage-network`, `home-connection-stage-dns`, `home-connection-stage-handshake`, `home-connection-stage-tunnel`, `home-connection-stage-route`
 - Secure route design-system samples: `route-profile-{id}`, `route-capability-{kind}`, `route-stack`, `route-opportunity-panel`
 - Open advanced settings: `settings-advanced-settings`

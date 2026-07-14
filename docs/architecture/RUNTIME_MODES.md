@@ -217,7 +217,7 @@ relay (`app_settings.proto`: `relay_enabled`, `relay_kind`, `relay_profile_id`).
   created by hand or imported (QR scan, clipboard, share-sheet, subscription).
 - `relay_kind` selects the transport (`off`, `vless`, `vless_reality`,
   `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`,
-  `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`,
+  `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `mieru`, `ssh`, `naiveproxy`, `tor`,
   `google_apps_script`, `snowflake`, `webtunnel`, `obfs4`). Kotlin resolves it through the
   `*RelayKindResolver` classes + `RelayKindResolverRegistry` in
   `core/service/.../services/`.

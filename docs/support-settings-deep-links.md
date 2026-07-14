@@ -75,6 +75,6 @@ Owners:
 Focused tests:
 
 - `./gradlew :core:data:settings:testDebugUnitTest --tests 'com.poyka.ripdpi.data.support.*'`
-- `./gradlew :app:testGithubDebugUnitTest --tests com.poyka.ripdpi.activities.MainActivityShellControllerTest --tests com.poyka.ripdpi.ui.navigation.RipDpiNavHostLogicTest`
+- `./gradlew :app:testGithubFullDebugUnitTest --tests com.poyka.ripdpi.activities.MainActivityShellControllerTest --tests com.poyka.ripdpi.ui.navigation.RipDpiNavHostLogicTest`
 
 The registry coverage test asserts that every generated top-level `AppSettings.Builder` setter has a support path. Keep that test as the guardrail when adding or removing settings.

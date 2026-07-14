@@ -1,7 +1,7 @@
 ---
 title: "Annotate and harden async cancel-safety in relay-core and tunnel-core"
 type: task
-status: in-review
+status: review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-june-2026-audit-remediation
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-06-14
+updated: 2026-07-14
 source_wiki_pages: []
 linked_task: null
 ---

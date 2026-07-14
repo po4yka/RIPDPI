@@ -21,7 +21,7 @@ RIPDPI ships 4 Android ABIs (arm64-v8a, armeabi-v7a, x86_64, x86) cross-compiled
 
 ### Status quo
 
-Play Store has required 16 KiB-aligned `.so` files for new and updated apps targeting Android 15+ since 1 November 2025. NDK r28+ (RIPDPI pins NDK r29 = `29.0.14206865`) compiles 16 KiB-aligned by default. `.cargo/config.toml` per-target rustflags reinforce this for `cargo build --locked` invocations that do not go through cargo-ndk.
+Play Store has required 16 KiB-aligned `.so` files for new and updated apps targeting Android 15+ since 1 November 2025. NDK r28+ (RIPDPI pins NDK r29 = `29.0.14206865`) compiles 16 KiB-aligned by default. `.cargo/config.toml` reinforces this for every Android Cargo target.
 
 ### Per-ABI rustflags
 
@@ -172,7 +172,6 @@ cargo bloat --locked --profile android-jni --target aarch64-linux-android -n 30 
 Common culprits:
 - A new monomorphized generic explosion. Use the inner-function pattern (see `rust-performance` skill).
 - A new transitive dependency. Check `cargo tree --locked -p ripdpi-android` diff.
-- Loss of `--icf=all` / `--gc-sections` from RUSTFLAGS.
 - LTO regression — verify `lto = "fat"` is still active.
 
 ## NDK 29 specifics

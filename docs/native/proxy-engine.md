@@ -26,8 +26,8 @@ Not every RIPDPI-managed request now goes through the local SOCKS5 proxy.
 The CLI binary (`ripdpi`) wraps the same `ripdpi-proxy-runtime` and `ripdpi-config` used by Android, with no JNI. Signal handling (SIGINT/SIGTERM/SIGHUP) uses the existing `ProcessGuard`. Telemetry is emitted via `tracing` to stderr.
 
 ```bash
-cargo run -p ripdpi-cli -- -p 1080 -x 1      # info logging
-RUST_LOG=debug cargo run -p ripdpi-cli       # override via env
+(cd native/rust && cargo run -p ripdpi-cli -- -p 1080 -x 1)      # info logging
+(cd native/rust && RUST_LOG=debug cargo run -p ripdpi-cli)       # override via env
 ```
 
 Relevant sources:
@@ -939,9 +939,7 @@ mislinking and producing runtime UB. To keep that guarantee load-bearing,
 construction. A `boring-sys` bump must either carry the H1 patch forward or the
 link will fail loudly.
 
-See `docs/design/reality-boringssl-patch.md` for the patch detail and
-`docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md`
-for the full rationale.
+See `docs/design/reality-boringssl-patch.md` for the patch detail and rationale.
 
 ## Current Test Coverage
 

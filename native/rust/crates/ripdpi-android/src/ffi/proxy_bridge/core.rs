@@ -81,9 +81,9 @@ export_jni!(
 // Native readiness push (ADR 0003): a one-shot onRuntimeReady() callback that
 // replaces the 50 ms Kotlin telemetry poll. Register after jniCreate and before
 // jniStart; the listener is released on jniUnregisterReadinessListener or when
-// the session is destroyed. NOTE: the two new symbols below must be added to
-// `jni-symbols.baseline` by a human reviewer (hook-blocked, human-gated per
-// JNI_CONTRACT) before the CI ELF symbol-allowlist check will pass.
+// the session is destroyed. Both exports are pinned in `jni-symbols.baseline`
+// and checked by the JNI symbol-diff workflow; any future export change
+// requires an intentional baseline update.
 export_jni!(
     Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniRegisterReadinessListener,
     (handle: jlong, listener: JObject),

@@ -352,7 +352,7 @@ The design contract is enforced by:
 
 - `npx --yes @google/design.md lint DESIGN.md`
 - `python3 scripts/ci/verify_design_md.py`
-- `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.DesignSystemSourceRulesTest`
+- `./gradlew :app:testGithubFullDebugUnitTest --tests com.poyka.ripdpi.ui.DesignSystemSourceRulesTest`
 
 These checks cover:
 

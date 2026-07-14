@@ -183,8 +183,7 @@ approximation or be inert when root is unavailable. `multidisorder` is
 
 ### Current extension path
 
-1. `relay_kind` is a **string** enum in proto (current values listed inline in
-   `app_settings.proto:248`). Add the new string.
+1. `relay_kind` is a **string** enum in proto (current values are documented next to the field in `app_settings.proto`). Add the new string.
 2. Add a transport crate (or extend one) and register it in `ripdpi-relay-core`,
    which is the shared backend/capability surface (`ripdpi-relay-mux` provides
    pooling). `ripdpi-relay-core` rejects unsupported relay/mode combinations
@@ -429,12 +428,12 @@ validated recommendations drive remembered-policy persistence.
 | Kotlin settings | `:core:data:model` / `:core:data:settings` settings models; DataStore mapping |
 | Kotlin → native | `core/engine/.../core/RipDpiProxyJsonCodec.kt`, the `core/engine/.../core/codec/*Codec.kt` section codecs, and the `NativeProxy*PreferencesMapper.kt` mappers |
 | Rust | `ripdpi-config` / `ripdpi-proxy-config` (config model the JSON deserializes into) → consumed by `ripdpi-proxy-runtime` / `ripdpi-runtime-*` |
-| UI | `:app` Compose screens + `strings.xml` (all 7 locales) |
+| UI | `:app` Compose screens + localized resources (all 9 locales) |
 
 ### Current extension path
 
 1. Add a field to `AppSettings`. **Pick the next free field number** — the
-   highest in use today is `296`; the `reserved` block at the top of the
+   highest in use today is `410`; the `reserved` block at the top of the
    message lists numbers and names that must **never** be reused.
 2. All cross-boundary fields must be defaulted/optional or `@Transient` with a
    default (proto3 scalar defaults are implicit; document the "unset" sentinel,

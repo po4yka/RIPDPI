@@ -1,13 +1,13 @@
 # Localization glossary
 
-Canonical terminology guidance for RIPDPI translators. The app ships **7 locales**
-(en, ru, es, de, fr, fa, zh-CN). This glossary exists so that terminology stays
+Canonical terminology guidance for RIPDPI translators. The app ships **9 locales**
+(en, ru, es, de, fr, fa, ar, zh-CN, hi). This glossary exists so that terminology stays
 consistent across every locale and so translators know which tokens must **never**
 be translated.
 
 Source strings live in `app/src/main/res/values/strings.xml` and
-`core/service/src/main/res/values/strings.xml`. Every key must land in all seven
-matching `values-XX/strings.xml` files in the same commit — `lint.xml` sets
+`core/service/src/main/res/values/strings.xml`. Every key must land in all eight
+matching locale resource directories in the same commit — `lint.xml` sets
 `MissingTranslation severity="error"`, so a missing key fails CI.
 
 > Scope note: this glossary is reference documentation only. It does **not** add,

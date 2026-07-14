@@ -315,7 +315,7 @@ and transport, never on the runner or the monitor engine.
 ## Wire contract & golden discipline
 
 `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` (`ripdpi-diagnostics-contracts/src/wire.rs`,
-currently `1`) versions the `ScanRequest`/`ScanReport`/progress payloads. The
+currently `5`) versions the `ScanRequest`/`ScanReport`/progress payloads. The
 JVM `DiagnosticsContractGovernanceTest` and `ripdpi-monitor-engine`'s
 `tests/contract_fixtures.rs` are golden contracts — a payload-shape change
 requires a schema bump and a supervised re-bless. See

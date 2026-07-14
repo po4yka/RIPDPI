@@ -50,7 +50,7 @@ ripdpi-telemetry recorder (counters/gauges/histograms) ─┤
 
 ---
 
-## The two telemetry surfaces
+## The three telemetry surfaces
 
 ### 1. Runtime snapshot — `NativeRuntimeSnapshot`
 
@@ -91,7 +91,7 @@ values, never rename or repurpose an existing one** (mirrors
 
 | Identifier class | Values / source of truth |
 |------------------|--------------------------|
-| **Event domain** (`source`) | `proxy`, `relay`, `warp`, `tunnel`, `diagnostics` — `EventDomain` in `android-support/src/events.rs`. `monitor` is accepted as an input alias normalized to `diagnostics`. |
+| **Event domain** (`source`) | `proxy`, `relay`, `warp`, `tunnel`, `diagnostics` — `EventDomain` in `android-support/src/events.rs`. `monitor` is accepted as an input alias normalized to `diagnostics`; `amneziawg` is accepted and normalized to the WARP-family event ring. |
 | **Event `kind`** | Optional and sparse — most events carry no `kind`. Defined today: `runtime_ready`, `runtime_stopped` (`ripdpi-android-telemetry-adapter/src/lifecycle.rs`). Read by Kotlin via `nativeEvents.any { it.kind == "runtime_ready" }`. |
 | **Event `level`** | `info`, `warn`, `error` — log-level strings. |
 | **Direct-path learning event** | `QUIC_SUCCESS`, `QUIC_BLOCKED_TCP_OK`, `TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK`, `ALL_IPS_FAILED`, `NO_TCP_FALLBACK_DETECTED` — Rust `DirectPathLearningSignal.event: String`, decoded Kotlin-side into the `DirectPathLearningEvent` **wire-preserving value class** (known events are companion constants; an unknown name decodes verbatim). See the forward-compatibility note below. |
@@ -116,7 +116,7 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
 - **Additive and defaulted.** A new telemetry field is safe only if it is an
   `Option<T>`/`skip_serializing_if` (or otherwise omittable) on the Rust side
   **and** a defaulted field on the Kotlin side.
-- **Schema version.** Every payload must carry `schemaVersion: 2`. Each Rust
+- **Schema version.** Every payload must carry `schemaVersion: 3`. Each Rust
   snapshot producer owns a matching `SNAPSHOT_SCHEMA_VERSION` constant, and
   Kotlin marks the field `@Required`. All five engine wrappers decode through
   `decodeNativeRuntimeSnapshot`, which rejects missing, older, and future

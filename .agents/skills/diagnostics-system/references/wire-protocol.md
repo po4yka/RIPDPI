@@ -6,11 +6,11 @@ The wire protocol version is a single integer constant maintained in two places:
 
 | Location | Constant | Language |
 |----------|----------|----------|
-| `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` | `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1` | Rust |
+| `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` | `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 5` | Rust |
 | `native/rust/crates/ripdpi-monitor-engine/src/wire.rs` | Re-export of the diagnostics contract constant | Rust |
-| `core/diagnostics/src/main/kotlin/.../contract/engine/EngineContract.kt` | `DiagnosticsEngineSchemaVersion = 1` | Kotlin |
+| `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt` | `DiagnosticsEngineSchemaVersion = 5` | Kotlin |
 
-These must always be equal. The contract governance test
+These must always be equal. Schema `5` is current-only: missing, older, and future versions are rejected. The contract governance test
 `DiagnosticsContractGovernanceTest::engine schema version matches rust contract constant`
 reads the Rust source file directly and asserts equality with the Kotlin constant.
 
@@ -23,13 +23,15 @@ compatible and does not require a version bump.
 
 ## Wire Types
 
+The tables below are an orientation aid, not a field manifest. Before changing the wire, inspect the current Kotlin DTOs, Rust serde types, and `contract-fixtures/` together; the fixtures and governance tests are authoritative.
+
 ### EngineScanRequestWire (Kotlin -> Rust)
 
 Serialized as JSON by Kotlin, deserialized by Rust via `serde_json`.
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| `schemaVersion` | int/u32 | Yes (default: current) | Used for future migration |
+| `schemaVersion` | int/u32 | Yes | Must equal the current schema |
 | `profileId` | string | Yes | |
 | `displayName` | string | Yes | |
 | `pathMode` | enum | Yes | `RAW_PATH` or `IN_PATH` |
@@ -135,8 +137,7 @@ Retrieved by Kotlin via `MonitorSession::take_report_json()`.
 
 1. **Adding optional fields** with `#[serde(default)]` / Kotlin defaults is
    always safe. No version bump needed.
-2. **Removing fields** requires a schema version bump. Both sides must handle
-   the old version.
+2. **Removing fields** requires a schema version bump. This contract is current-only, so both producers and consumers move together and older payloads fail closed.
 3. **Renaming fields** is a breaking change. Prefer adding the new name and
    deprecating the old.
 4. **Changing enum variants** (adding is safe with `default` fallback;
@@ -187,9 +188,7 @@ Retrieved by Kotlin via `MonitorSession::take_report_json()`.
 
 ### Blessing goldens
 
-Set `RIPDPI_BLESS_GOLDENS=1` environment variable when running Kotlin tests
-to regenerate golden files. Rust fixtures use the `golden_test_support` crate
-with `assert_contract_fixture()` which also supports blessing.
+Do not set `RIPDPI_BLESS_GOLDENS=1` during an ordinary test run. Follow `.claude/rules/golden-bless-discipline.md`: inspect the semantic diff, obtain the required approval, bless only the intended fixtures, and rerun the non-bless contract tests. Rust fixtures use `golden_test_support::assert_contract_fixture()` under the same discipline.
 
 ### Diff artifacts
 

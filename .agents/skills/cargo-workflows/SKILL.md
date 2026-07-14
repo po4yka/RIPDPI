@@ -201,47 +201,9 @@ cargo deny --locked check                        # Run full deny policy
 cargo audit                             # Security advisories only
 ```
 
-## Rust Edition 2024 migration
+## Rust edition
 
-Edition 2024 stabilized in Rust 1.85.0 (Feb 2025) — see <https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/>. The workspace is currently on edition 2021 (check `rustfmt.toml:edition` and per-crate `Cargo.toml`). Migrate **one leaf crate at a time** — do not bump the workspace-wide edition in a single commit.
-
-### Per-crate migration workflow
-
-```bash
-cd native/rust
-# Pick a leaf crate (no other workspace crate depends on it, e.g. ripdpi-cli or ripdpi-bench).
-cd crates/<leaf-crate>
-cargo fix --edition
-# Inspect diff: cargo fix may edit .rs files in place.
-git diff
-# Bump the crate's Cargo.toml:
-#   edition = "2024"
-# Run per-crate lint + test to verify:
-cargo clippy --locked -p <leaf-crate> --all-targets -- -D warnings
-cargo nextest run --locked -p <leaf-crate>
-```
-
-### Breaking changes that bite
-
-- **Stricter `unsafe` in `extern` blocks.** Every item declared in `extern "C" { ... }` or `extern "system" { ... }` now requires explicit `unsafe {}` at the declaration site. `ripdpi-runtime-platform`, `ripdpi-privileged-ops`, and the JNI adapter crates must be reviewed carefully. The `#[unsafe(no_mangle)]` syntax (used in JNI entry points) is already 2024-style.
-- **`gen` keyword reserved.** Any identifier named `gen` needs renaming before migration. Check for `let gen = …`, `fn gen(…)`, `mod gen`.
-- **Precise-capturing `impl Trait`.** Functions returning `impl Trait` that should capture only a subset of input lifetimes now need `use<'a, T>` syntax. Most affected: tokio task spawners in runtime crates that return `impl Future + Send + 'static`. `cargo fix --edition` usually handles this but check the diff.
-- **`if let` / `while let` chains stabilize.** No breaking change, but existing nested `if let Some(…) = … { if let Some(…) = … { … } }` patterns can be collapsed to `if let Some(…) = … && let Some(…) = … { … }`. Do not do this in the migration commit — keep the migration diff surgical.
-- **`async || {}` closures** are now stable. You don't have to rewrite `|| async { … }` patterns, but new code should prefer the closure form. Do not mass-rewrite — violates `rust-unsafe` surgical-changes discipline.
-
-### Migration order
-
-Leaf crates first (no internal dependents). Suggested order:
-
-1. `ripdpi-bench`, `ripdpi-cli` — host-only, low blast radius.
-2. `ripdpi-desync`, `ripdpi-packets`, `ripdpi-ipfrag` — pure-logic crates under `#![forbid(unsafe_code)]`.
-3. `ripdpi-tls-profiles`, `ripdpi-config`, `ripdpi-failure-classifier` — cross-crate consumers but still leaf-ish.
-4. `ripdpi-proxy-runtime`, `ripdpi-runtime-platform`, and `ripdpi-privileged-ops` — larger runtime/platform crates; allocate time for the `extern` block and unsafe-wrapper review.
-5. JNI adapter crates (`ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-warp-android`, `ripdpi-relay-android`) — last, because they depend on everything else and most affected by the stricter `extern` rules.
-
-### Don't bump rustfmt edition
-
-`rustfmt.toml:edition = "2021"` controls how rustfmt formats code. Bump it only AFTER every crate is on edition 2024 and the workspace builds. Bumping it early re-formats edition-2021 code with edition-2024 rules, producing spurious diffs.
+The workspace and `rustfmt.toml` already use edition 2024. New crates must inherit `edition.workspace = true`; do not pin an older edition in an individual crate. Treat any future edition migration as a workspace-wide contract change with `cargo fix --edition`, formatting, clippy, and test evidence captured in a dedicated change.
 
 ## Feature unification silently enables features in `no_std` crates
 

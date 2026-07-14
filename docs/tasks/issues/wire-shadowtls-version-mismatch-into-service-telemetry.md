@@ -1,7 +1,7 @@
 ---
 title: Wire ShadowTLS version-mismatch into service telemetry
 type: task
-status: in-review
+status: review
 area: rust-native
 priority: low
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-11
-updated: 2026-06-14
+updated: 2026-07-14
 ---
 
 ## Summary

@@ -1,6 +1,6 @@
 # Localization
 
-RIPDPI ships **8 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, `ar`, and `zh-CN`. Source strings live in `app/src/main/res/values/strings.xml` (~3030 strings) and `core/service/src/main/res/values/strings.xml` (6 strings; 4 translatable, 2 `translatable="false"`). Each locale has a matching `values-<qualifier>/strings.xml` resource directory, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`.
+RIPDPI ships **9 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`, and `hi`. Source strings live across `app/src/main/res/values/*.xml` and `core/service/src/main/res/values/strings.xml`. Each locale has matching `values-<qualifier>/` resources, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`. A locale may split resources across multiple XML files in its directory; Hindi currently uses both `strings.xml` and `strings2.xml`.
 
 This document records how translations are managed, why, and exactly how a new contributor adds one.
 
@@ -50,24 +50,13 @@ Everything is done through a normal GitHub fork and pull request — no account 
 
 4. **Register the locale.** Add the locale to `app/src/main/res/xml/locales_config.xml` as a `<locale android:name="…" />` entry. Use the **BCP-47 tag** here (e.g. `pt-BR`, `zh-CN`), which uses a hyphen and no `r` prefix — distinct from the resource directory qualifier in step 1.
 
-5. **Run the parity check** for both modules. For each new locale directory, the count of string `name`s present in the source but missing from your locale must be **0**:
+5. **Run Android lint for both resource owners.** `MissingTranslation` is configured as an error, understands every XML file in a locale directory, and ignores source entries marked `translatable="false"`:
 
    ```bash
-   comm -23 \
-     <(grep -oE 'name="[^"]+"' app/src/main/res/values/strings.xml | sort -u) \
-     <(grep -oE 'name="[^"]+"' app/src/main/res/values-XX/strings.xml | sort -u) \
-     | wc -l
+   ./gradlew :app:lintGithubFullDebug :core:service:lintDebug
    ```
 
-   Replace `values-XX` with your directory (e.g. `values-pt-rBR`). Run the same command against `core/service/src/main/res/values/strings.xml` and its locale file. Both must print `0`.
-
-6. **Run lint.** `MissingTranslation` is configured as an **error** in `lint.xml`, so any gap fails the build:
-
-   ```bash
-   ./gradlew :app:lintDebug
-   ```
-
-7. **Open a pull request** with all of the above in a single commit/PR: the new `values-<qualifier>/strings.xml` for both `:app` and `:core:service`, plus the `locales_config.xml` entry. CI runs the parity and lint gates automatically.
+6. **Open a pull request** with all of the above in a single commit/PR: the new `values-<qualifier>/` resources for both `:app` and `:core:service`, plus the `locales_config.xml` entry. CI runs the parity and lint gates automatically.
 
 ## String freeze
 
@@ -90,7 +79,7 @@ The bundled brand font family is **Geist** (`Geist Sans`, `Geist Mono`, and the 
 Geist does **not** ship Arabic-script or CJK glyphs. RIPDPI does **not** bundle a CJK or Arabic font:
 
 - **Persian (`fa`)** and **Arabic (`ar`)** glyphs fall back automatically to the Android platform's **Noto Naskh Arabic** chain. Compose's font stack resolves unmapped code points through the platform fallback chain, so Persian renders correctly without any bundled Arabic face.
-- **Simplified Chinese (`zh-CN`)** similarly resolves through the platform Noto CJK fallback.
+- **Simplified Chinese (`zh-CN`)** and **Hindi (`hi`)** similarly resolve through the platform Noto CJK and Devanagari fallback chains.
 
 The practical rule: adding a Latin- or Cyrillic-script locale needs no font work. A new script that the platform fallback chain does not cover would need investigation, but for the currently shipped and near-term locales the platform fallback is sufficient — no bundled CJK/Arabic font is required.
 
