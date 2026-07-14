@@ -19,7 +19,7 @@ class HistoryConnectionDetailUiFactoryTest {
         HistoryConnectionDetailUiFactory(
             context = ApplicationProvider.getApplicationContext(),
             stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
-            coreSupport = DiagnosticsUiCoreSupport(),
+            coreSupport = testDiagnosticsUiCoreSupport(),
         )
 
     @Test

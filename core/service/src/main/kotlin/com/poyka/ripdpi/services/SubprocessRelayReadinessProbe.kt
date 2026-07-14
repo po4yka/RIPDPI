@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -50,18 +51,21 @@ internal class SubprocessRelayReadinessProbe(
         isRunning: () -> Boolean,
         onFailure: (String) -> Unit,
     ) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < deadline) {
-            if (!isRunning()) {
-                val message = "Subprocess relay exited before readiness"
-                onFailure(message)
-                error(message)
+        var ready = false
+        withTimeoutOrNull<Unit>(timeoutMs) {
+            while (!ready) {
+                if (!isRunning()) {
+                    val message = "Subprocess relay exited before readiness"
+                    onFailure(message)
+                    error(message)
+                }
+                ready = connector.canConnect(config.localSocksHost, config.localSocksPort)
+                if (!ready) {
+                    delay(pollIntervalMs)
+                }
             }
-            if (connector.canConnect(config.localSocksHost, config.localSocksPort)) {
-                return
-            }
-            delay(pollIntervalMs)
         }
+        if (ready) return
         val message = "Subprocess relay readiness timed out"
         onFailure(message)
         error(message)
@@ -73,16 +77,21 @@ internal class SubprocessRelayReadinessProbe(
         isRunning: () -> Boolean,
         onFailure: (String) -> Unit,
     ): InetSocketAddress {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < deadline) {
-            currentListener()?.let { return it }
-            if (!isRunning()) {
-                val message = "Managed PT exited before advertising a SOCKS listener"
-                onFailure(message)
-                error(message)
+        var listener: InetSocketAddress? = null
+        withTimeoutOrNull<Unit>(timeoutMs) {
+            while (listener == null) {
+                listener = currentListener()
+                if (listener == null) {
+                    if (!isRunning()) {
+                        val message = "Managed PT exited before advertising a SOCKS listener"
+                        onFailure(message)
+                        error(message)
+                    }
+                    delay(pollIntervalMs)
+                }
             }
-            delay(pollIntervalMs)
         }
+        listener?.let { return it }
         val message = "Managed PT listener readiness timed out for ${bridgeSpec.methodName}"
         onFailure(message)
         error(message)

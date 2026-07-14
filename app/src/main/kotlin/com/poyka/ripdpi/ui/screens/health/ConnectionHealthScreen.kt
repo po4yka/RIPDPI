@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun ConnectionHealthRoute(
@@ -376,7 +377,7 @@ fun previewConnectionHealthUiState(): ConnectionHealthUiState =
                     failureCount = 4,
                     attributedCount = 5,
                 ),
-            ),
+            ).toImmutableList(),
         qualityLossPercent = 8,
         qualityRttP50Ms = 61,
         latencyDistributions =
@@ -408,7 +409,7 @@ fun previewConnectionHealthUiState(): ConnectionHealthUiState =
                     maxMs = 430,
                     count = 174,
                 ),
-            ),
+            ).toImmutableList(),
         dnsCounters =
             DnsCountersUiState(
                 queriesTotal = 1_204,

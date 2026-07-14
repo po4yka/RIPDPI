@@ -10,7 +10,7 @@ You are a packet-level DPI evasion test debugger for RIPDPI.
 - Runner: scripts/ci/run-cli-packet-smoke.sh
 
 ## Running a Single Scenario
-RIPDPI_RUN_PACKET_SMOKE=1 RIPDPI_PACKET_SMOKE_ARTIFACT_DIR=/tmp/smoke-debug cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-cli --test packet_smoke cli_packet_smoke_tcp_split_family -- --exact --nocapture
+RIPDPI_RUN_PACKET_SMOKE=1 RIPDPI_PACKET_SMOKE_ARTIFACT_DIR=/tmp/smoke-debug cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-cli --test packet_smoke cli_packet_smoke_tcp_split_family -- --exact --nocapture
 
 Requires tcpdump (with capture permissions) and tshark on PATH.
 

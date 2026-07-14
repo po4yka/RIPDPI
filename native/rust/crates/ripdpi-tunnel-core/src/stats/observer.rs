@@ -75,6 +75,14 @@ pub(crate) fn set_packet_observer(stats: &Stats, observer: Arc<dyn PacketObserve
     }
 }
 
+pub(crate) fn clear_packet_observer(stats: &Stats) {
+    if let Ok(mut guard) = stats.packet_observer.lock() {
+        *guard = None;
+        // Ordering: the mutex publishes removal of the observer; this flag is only a fast-path hint for readers that subsequently acquire the same mutex.
+        stats.packet_observer_present.store(false, Ordering::Relaxed);
+    }
+}
+
 pub(crate) fn notify_inbound_packet(stats: &Stats, packet: &[u8]) {
     // Fast path: when no PCAP observer is installed (the overwhelmingly
     // common case), a single `Relaxed` atomic load lets us skip the

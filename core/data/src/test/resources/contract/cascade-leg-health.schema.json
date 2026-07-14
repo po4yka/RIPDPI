@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vpn-deploy/cascade-leg-health.schema.json",
+  "title": "Cascade ingress-to-egress leg health evidence",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "host_id",
+    "leg_id",
+    "checked_at",
+    "signal_class",
+    "status",
+    "consecutive_failures",
+    "ingress_local_control",
+    "protocol_completed",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "host_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+    "leg_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+    "checked_at": {"type": "string", "format": "date-time"},
+    "signal_class": {"const": "authenticated-protocol-completion"},
+    "status": {"enum": ["healthy", "degraded", "far-leg-down"]},
+    "consecutive_failures": {"type": "integer", "minimum": 0},
+    "ingress_local_control": {"enum": ["healthy", "unhealthy"]},
+    "protocol_completed": {"type": "boolean"},
+    "evidence": {
+      "type": "object",
+      "required": ["report_id", "report_sha256"],
+      "properties": {
+        "report_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,127}$"},
+        "report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "healthy"}}},
+      "then": {"properties": {"consecutive_failures": {"const": 0}, "protocol_completed": {"const": true}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "degraded"}}},
+      "then": {"properties": {"consecutive_failures": {"minimum": 1, "maximum": 2}, "protocol_completed": {"const": false}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "far-leg-down"}}},
+      "then": {"properties": {"consecutive_failures": {"minimum": 3}, "protocol_completed": {"const": false}, "ingress_local_control": {"const": "healthy"}}}
+    }
+  ],
+  "additionalProperties": false
+}

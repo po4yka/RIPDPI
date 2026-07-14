@@ -16,7 +16,7 @@ class HistoryDetailLoaderTest {
         HistoryConnectionDetailUiFactory(
             context = ApplicationProvider.getApplicationContext(),
             stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
-            coreSupport = DiagnosticsUiCoreSupport(),
+            coreSupport = testDiagnosticsUiCoreSupport(),
         )
 
     @Test

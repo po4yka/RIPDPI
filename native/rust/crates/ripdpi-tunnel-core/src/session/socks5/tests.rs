@@ -199,6 +199,17 @@ async fn connect_domain_sends_correct_bytes() {
     connect(&mut mock, &addr).await.unwrap();
 }
 
+#[tokio::test]
+async fn connect_rejects_domain_longer_than_wire_field_before_write() {
+    let mut mock = Builder::new().build();
+    let addr = TargetAddr::Domain("x".repeat(256), 443);
+
+    let error = connect(&mut mock, &addr).await.expect_err("oversized domain must fail");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(error.to_string().contains("256 bytes, max 255"));
+}
+
 /// Server replying with REP != 0x00 must return an error.
 ///
 /// REP=0x05 means "Connection refused".

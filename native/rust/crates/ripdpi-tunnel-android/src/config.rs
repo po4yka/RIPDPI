@@ -19,10 +19,12 @@ pub(crate) use payload::{TunnelConfigPayload, parse_tunnel_config_json};
 
 pub(crate) fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config, String> {
     validation::validate_payload(&payload)?;
-    Ok(Config {
+    let config = Config {
         tunnel: tunnel::tunnel_config_from_payload(&payload),
         socks5: socks::socks5_config_from_payload(&payload),
         mapdns: dns::mapdns_config_from_payload(&payload),
         misc: limits::misc_config_from_payload(&payload),
-    })
+    };
+    config.validate().map_err(|err| err.to_string())?;
+    Ok(config)
 }

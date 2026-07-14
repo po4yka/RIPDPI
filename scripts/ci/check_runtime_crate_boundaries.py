@@ -270,7 +270,7 @@ def parse_args() -> argparse.Namespace:
         "--metadata-file",
         type=Path,
         default=None,
-        help="Read cargo metadata JSON from a file instead of invoking cargo metadata.",
+        help="Read locked Cargo metadata JSON from a file instead of invoking cargo metadata --locked.",
     )
     return parser.parse_args()
 

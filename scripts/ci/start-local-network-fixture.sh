@@ -12,7 +12,7 @@ control_port="${RIPDPI_FIXTURE_CONTROL_PORT:-46090}"
 mkdir -p "$(dirname "$log_file")" "$(dirname "$manifest_file")" "$(dirname "$pid_file")"
 rm -f "$log_file" "$manifest_file" "$pid_file"
 
-nohup cargo run \
+nohup cargo run --locked \
     --manifest-path "$workspace_manifest" \
     -p local-network-fixture \
     --quiet \

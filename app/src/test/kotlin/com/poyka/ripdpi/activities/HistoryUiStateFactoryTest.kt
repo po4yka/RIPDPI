@@ -12,12 +12,12 @@ import org.robolectric.RobolectricTestRunner
 class HistoryUiStateFactoryTest {
     private val factory =
         HistoryUiStateFactory(
-            coreSupport = DiagnosticsUiCoreSupport(),
+            coreSupport = testDiagnosticsUiCoreSupport(),
             connectionDetailUiFactory =
                 HistoryConnectionDetailUiFactory(
                     context = ApplicationProvider.getApplicationContext(),
                     stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
-                    coreSupport = DiagnosticsUiCoreSupport(),
+                    coreSupport = testDiagnosticsUiCoreSupport(),
                 ),
         )
 

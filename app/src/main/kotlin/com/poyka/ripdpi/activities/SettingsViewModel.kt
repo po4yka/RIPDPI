@@ -6,15 +6,14 @@ import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -46,7 +45,7 @@ class SettingsViewModel
                 _effects,
             )
 
-        val effects: SharedFlow<SettingsEffect> = _effects.asSharedFlow()
+        val effects = _effects.bufferForUiLifecycle(viewModelScope)
         val hostPackCatalog: StateFlow<HostPackCatalogUiState> =
             settingsActionDependencies.hostPackCatalogUiStateStore.state
         val strategyPackCatalog: StateFlow<StrategyPackCatalogUiState> = strategyPackCatalogState

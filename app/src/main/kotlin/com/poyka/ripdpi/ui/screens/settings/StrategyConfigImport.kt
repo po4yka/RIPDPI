@@ -10,6 +10,24 @@ import java.nio.charset.CodingErrorAction
 
 internal const val StrategyConfigMaxImportBytes = 64 * 1024
 
+internal fun String.boundedUtf8(maxBytes: Int): String {
+    require(maxBytes >= 0)
+    if (toByteArray(Charsets.UTF_8).size <= maxBytes) return this
+    val result = StringBuilder(length.coerceAtMost(maxBytes))
+    var offset = 0
+    var bytes = 0
+    while (offset < length) {
+        val codePoint = codePointAt(offset)
+        val chars = String(Character.toChars(codePoint))
+        val encodedBytes = chars.toByteArray(Charsets.UTF_8).size
+        if (bytes + encodedBytes > maxBytes) break
+        result.append(chars)
+        bytes += encodedBytes
+        offset += Character.charCount(codePoint)
+    }
+    return result.toString()
+}
+
 internal sealed class StrategyConfigImportException(
     message: String,
 ) : Exception(message) {

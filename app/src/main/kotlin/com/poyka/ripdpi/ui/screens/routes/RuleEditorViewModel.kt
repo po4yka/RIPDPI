@@ -10,6 +10,12 @@ import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleRepository
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,10 +42,10 @@ data class RuleEditorUiState(
     val sourcePorts: String = "",
     val network: RuleNetwork = RuleNetwork.BOTH,
     val processName: String = "",
-    val packages: Set<String> = emptySet(),
+    val packages: ImmutableSet<String> = persistentSetOf(),
     val outboundTag: OutboundTag = OutboundTag.Proxy,
-    val outboundTargets: List<OutboundTarget> = emptyList(),
-    val installedApps: List<InstalledAppItem> = emptyList(),
+    val outboundTargets: ImmutableList<OutboundTarget> = persistentListOf(),
+    val installedApps: ImmutableList<InstalledAppItem> = persistentListOf(),
     val loaded: Boolean = false,
 ) {
     /**
@@ -102,17 +108,17 @@ class RuleEditorViewModel
                             sourcePorts = loadedRule.sourcePorts,
                             network = loadedRule.network,
                             processName = loadedRule.processName,
-                            packages = loadedRule.packages,
+                            packages = loadedRule.packages.toImmutableSet(),
                             outboundTag = loadedRule.outboundTag,
-                            outboundTargets = targets,
-                            installedApps = apps,
+                            outboundTargets = targets.toImmutableList(),
+                            installedApps = apps.toImmutableList(),
                             loaded = true,
                         )
                     } else {
                         current.copy(
                             userOrder = nextOrder,
-                            outboundTargets = targets,
-                            installedApps = apps,
+                            outboundTargets = targets.toImmutableList(),
+                            installedApps = apps.toImmutableList(),
                             loaded = true,
                         )
                     }
@@ -136,7 +142,7 @@ class RuleEditorViewModel
 
         fun setProcessName(value: String) = state.update { it.copy(processName = value) }
 
-        fun setPackages(value: Set<String>) = state.update { it.copy(packages = value) }
+        fun setPackages(value: Set<String>) = state.update { it.copy(packages = value.toImmutableSet()) }
 
         fun setOutboundTag(value: OutboundTag) = state.update { it.copy(outboundTag = value) }
 

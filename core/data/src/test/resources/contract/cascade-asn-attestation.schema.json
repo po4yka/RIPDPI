@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vpn-deploy/cascade-asn-attestation.schema.json",
+  "title": "RU cascade candidate ASN attestation",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "host_id",
+    "asn_id",
+    "attestation_date",
+    "verified_not_brand_inferred",
+    "attested_by_role",
+    "verification_method",
+    "next_recheck_date"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "host_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "asn_id": { "type": "string", "pattern": "^AS[1-9][0-9]*$" },
+    "attestation_date": { "type": "string", "format": "date" },
+    "verified_not_brand_inferred": { "type": "boolean" },
+    "attested_by_role": { "const": "cascade-attestation-operator" },
+    "verification_method": {
+      "type": "object",
+      "required": ["class", "report_id", "report_sha256"],
+      "properties": {
+        "class": { "const": "ru-side-active-comparison" },
+        "report_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,127}$" },
+        "report_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "next_recheck_date": { "type": "string", "format": "date" }
+  },
+  "additionalProperties": false
+}

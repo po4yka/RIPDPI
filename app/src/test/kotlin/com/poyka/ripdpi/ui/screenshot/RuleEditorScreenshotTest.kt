@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.ui.screens.routes.OutboundTarget
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorScreen
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorUiState
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -39,7 +41,7 @@ class RuleEditorScreenshotTest {
                 sourcePorts = "1024-65535",
                 network = RuleNetwork.BOTH,
                 processName = "com.netflix.mediaclient",
-                packages = setOf("com.netflix.mediaclient", "com.google.android.youtube"),
+                packages = setOf("com.netflix.mediaclient", "com.google.android.youtube").toImmutableSet(),
                 outboundTag = OutboundTag.Bypass,
                 outboundTargets = OUTBOUND_TARGETS,
                 loaded = true,
@@ -78,6 +80,6 @@ class RuleEditorScreenshotTest {
                 OutboundTarget(OutboundTag.Proxy, "Proxy"),
                 OutboundTarget(OutboundTag.Bypass, "Bypass (direct)"),
                 OutboundTarget(OutboundTag.Block, "Block"),
-            )
+            ).toImmutableList()
     }
 }

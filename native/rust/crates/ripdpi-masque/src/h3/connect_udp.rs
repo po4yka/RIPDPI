@@ -83,5 +83,5 @@ pub(crate) async fn attempt_h3_connect_udp(
         tracing::debug!(error = %error, "MASQUE H3 UDP driver closed");
     });
 
-    Ok(MasqueUdpFlow { sender: MasqueUdpSender::H3(datagram_sender), driver_task, reader_task })
+    Ok(MasqueUdpFlow::new(MasqueUdpSender::H3(datagram_sender), driver_task, reader_task))
 }

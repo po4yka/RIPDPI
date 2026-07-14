@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">Сравните прямые ответы UDP/53 с контрольными ответами DoH для встроенных DPI-доменов.</string>
+    <string name="diagnostics_dns_availability_idle_summary">Проверьте доступность и задержку публичных UDP- и DoH-резолверов.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">Проверьте доступность TLS 1.3, TLS 1.2 и HTTP для встроенных DPI-доменов.</string>
+    <string name="diagnostics_rkn_idle_headline">Диагностика блокировок РКН</string>
+    <string name="diagnostics_rkn_idle_confidence_note">Сравните контрольные и тестовые группы целей, прежде чем делать вывод о блокировке.</string>
+    <string name="diagnostics_rkn_idle_summary">Запустите встроенные проверки контрольных и заблокированных целей с защитой агрегированного вердикта.</string>
+    <string name="diagnostics_compression_idle_summary">Проверьте поддержку HTTP gzip, deflate, Brotli и необязательного Zstd для встроенной цели.</string>
+    <string name="diagnostics_tcp16_idle_summary">Проверьте поведение TCP16 fat-header для встроенных сетевых целей.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">Проверьте совместимость SNI для ASN, отмеченных TCP16.</string>
+    <string name="diagnostics_byoh_idle_summary">Расширенный режим — требуется управляемый вами HTTPS-сервер.</string>
+    <string name="diagnostics_byoh_requirements_summary">Настройте управляемый вами узел для ответа по HTTPS на IP-адресе назначения и передачи не менее 128 КиБ.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">Сравните разрешённые и обычные группы URL для выявления грубых ограничений маршрутизации.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">Получите подсети провайдеров и проверьте сохранённые диапазоны /24 на поведение белого списка.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">Запустите выбранные DPI-проверки как единый набор.</string>
+</resources>

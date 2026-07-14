@@ -3,6 +3,7 @@ package com.poyka.ripdpi.backup
 import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupVariant
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.OutputStream
@@ -40,41 +41,59 @@ internal class BackupExportCoordinator(
         variant: BackupVariant,
         openOutput: () -> OutputStream?,
         onWriteFailed: () -> Unit,
+        passphrase: CharArray? = null,
     ) {
         if (currentState().exporting || exportDisabledByPolicy()) return
+        val ownedPassphrase = passphrase?.copyOf()
+        passphrase?.fill('\u0000')
         updateState { it.copy(exporting = true) }
         scope.launch {
-            val output = openOutput()
-            if (output == null) {
-                updateState { it.copy(exporting = false) }
-                emitExportEffect(BackupExportEffect.Cancelled)
-                return@launch
-            }
-            val result =
-                output.use { stream ->
-                    exportUseCase.export(
-                        variant = variant,
-                        output = stream,
-                        appVersion = appVersion,
-                    )
+            var outputOpened = false
+            try {
+                if (variant == BackupVariant.FULL && ownedPassphrase == null) {
+                    emitExportEffect(BackupExportEffect.WriteFailed)
+                    return@launch
                 }
-            updateState { it.copy(exporting = false) }
-            emitExportEffect(
-                when (result) {
-                    is BackupExportResult.Success -> {
-                        BackupExportEffect.Success(
-                            variant = result.variant,
-                            byteCount = result.byteCount,
-                            offerShare = result.variant == BackupVariant.SHARE,
+                val output = openOutput()
+                if (output == null) {
+                    emitExportEffect(BackupExportEffect.Cancelled)
+                    return@launch
+                }
+                outputOpened = true
+                val result =
+                    output.use { stream ->
+                        exportUseCase.export(
+                            variant = variant,
+                            output = stream,
+                            appVersion = appVersion,
+                            passphrase = ownedPassphrase,
                         )
                     }
+                emitExportEffect(
+                    when (result) {
+                        is BackupExportResult.Success -> {
+                            BackupExportEffect.Success(
+                                variant = result.variant,
+                                byteCount = result.byteCount,
+                                offerShare = result.variant == BackupVariant.SHARE,
+                            )
+                        }
 
-                    is BackupExportResult.WriteFailed -> {
-                        onWriteFailed()
-                        BackupExportEffect.WriteFailed
-                    }
-                },
-            )
+                        is BackupExportResult.WriteFailed -> {
+                            onWriteFailed()
+                            BackupExportEffect.WriteFailed
+                        }
+                    },
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (outputOpened) onWriteFailed()
+                emitExportEffect(BackupExportEffect.WriteFailed)
+            } finally {
+                ownedPassphrase?.fill('\u0000')
+                updateState { it.copy(exporting = false) }
+            }
         }
     }
 

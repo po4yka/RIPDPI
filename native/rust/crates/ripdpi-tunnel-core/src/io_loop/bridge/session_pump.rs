@@ -5,8 +5,8 @@ use crate::ActiveSessions;
 use crate::dns_cache::DnsCache;
 
 use super::duplex::{flush_pending_to_session, flush_pending_to_smoltcp, try_read_duplex, try_write_duplex};
-use super::session_cleanup::{TaskDrain, remove_session};
-use crate::io_loop::PUMP_CHUNK;
+use super::session_cleanup::remove_session;
+use crate::io_loop::{IO_PHASE_WORK_BUDGET, PUMP_CHUNK};
 
 pub(in crate::io_loop) async fn pump_active_sessions(
     socket_set: &mut SocketSet<'static>,
@@ -14,8 +14,12 @@ pub(in crate::io_loop) async fn pump_active_sessions(
     dns_cache: &mut Option<DnsCache>,
 ) {
     let mut to_remove: Vec<_> = Vec::new();
+    let work_batch = sessions.next_work_batch(IO_PHASE_WORK_BUDGET);
 
-    for (handle, session) in sessions.iter_mut() {
+    for handle in work_batch {
+        let Some(session) = sessions.get_mut(handle) else {
+            continue;
+        };
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
 
         if let Some(Err(_err)) = flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session) {
@@ -86,16 +90,12 @@ pub(in crate::io_loop) async fn pump_active_sessions(
             }
         }
 
-        if !tcp.is_active()
-            && session.pending_to_session.is_empty()
-            && session.pending_to_smoltcp.is_empty()
-            && !to_remove.contains(&handle)
-        {
+        if !tcp.is_active() && session.pending_to_session.is_empty() && session.pending_to_smoltcp.is_empty() {
             to_remove.push(handle);
         }
     }
 
     for handle in to_remove.drain(..) {
-        remove_session(handle, sessions, socket_set, dns_cache, TaskDrain::Abort).await;
+        remove_session(handle, sessions, socket_set, dns_cache).await;
     }
 }

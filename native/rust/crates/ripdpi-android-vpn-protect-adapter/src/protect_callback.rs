@@ -1,8 +1,9 @@
 use std::io;
+use std::net::IpAddr;
 use std::os::fd::RawFd;
 
 use android_support::SharedJvm;
-use jni::objects::{JObject, JValue};
+use jni::objects::{JObject, JObjectArray, JString, JValue};
 use jni::refs::Global;
 use ripdpi_native_protect::ProtectCallback;
 
@@ -41,5 +42,28 @@ impl ProtectCallback for JniProtectCallback {
             Ok(false) => Err(io::Error::new(io::ErrorKind::PermissionDenied, "VpnService.protect() returned false")),
             Err(e) => Err(io::Error::other(e.to_string())),
         }
+    }
+
+    fn resolve_host(&self, host: &str) -> io::Result<Vec<IpAddr>> {
+        let result: Result<Vec<IpAddr>, jni::errors::Error> = self.vm.attach_current_thread_for_scope(|env| {
+            let host = env.new_string(host)?;
+            let value = env.call_method(
+                &self.vpn_service,
+                jni::jni_str!("resolveHost"),
+                jni::jni_sig!("(Ljava/lang/String;)[Ljava/lang/String;"),
+                &[JValue::Object(&host)],
+            )?;
+            let array = JObjectArray::<JString>::cast_local(env, value.l()?)?;
+            let mut addresses = Vec::with_capacity(array.len(env)?);
+            for index in 0..array.len(env)? {
+                let value = array.get_element(env, index)?;
+                let text = value.mutf8_chars(env)?.to_str().into_owned();
+                if let Ok(ip) = text.parse() {
+                    addresses.push(ip);
+                }
+            }
+            Ok(addresses)
+        });
+        result.map_err(|error| io::Error::other(format!("resolve relay hostname via Android network: {error}")))
     }
 }

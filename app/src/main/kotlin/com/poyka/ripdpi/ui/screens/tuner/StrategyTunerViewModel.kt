@@ -21,7 +21,9 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.components.SingletonComponent
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -42,7 +44,7 @@ private const val DefaultProbeIntervalMs = 750L
 private const val DefaultProbeTimeoutMs = 10_000L
 
 private val DefaultStrategyTunerDomains =
-    listOf(
+    persistentListOf(
         "www.youtube.com",
         "t.me",
         "vk.com",
@@ -66,9 +68,9 @@ data class StrategyTunerBudget(
 data class StrategyTunerUiState(
     val runState: StrategyTunerRunState = StrategyTunerRunState.Idle,
     val domainsText: String = DefaultStrategyTunerDomains.joinToString("\n"),
-    val activeDomains: List<String> = DefaultStrategyTunerDomains,
-    val results: List<StrategyProbeResult> = emptyList(),
-    val rankedStrategies: List<RankedStrategyProbeResult> = emptyList(),
+    val activeDomains: ImmutableList<String> = DefaultStrategyTunerDomains,
+    val results: ImmutableList<StrategyProbeResult> = persistentListOf(),
+    val rankedStrategies: ImmutableList<RankedStrategyProbeResult> = persistentListOf(),
     val budget: StrategyTunerBudget = StrategyTunerBudget(),
     val totalExpectedResults: Int = 0,
     val message: String? = null,
@@ -121,7 +123,10 @@ class StrategyTunerViewModel
 
         fun updateDomainsText(value: String) {
             mutableUiState.update { state ->
-                state.copy(domainsText = value, activeDomains = value.normalizedDomains(state.budget.maxDomains))
+                state.copy(
+                    domainsText = value,
+                    activeDomains = value.normalizedDomains(state.budget.maxDomains).toImmutableList(),
+                )
             }
         }
 
@@ -167,7 +172,7 @@ class StrategyTunerViewModel
                                     mutableUiState.update {
                                         it.copy(
                                             results = collected,
-                                            rankedStrategies = rankingAccumulator.rankedStrategies(),
+                                            rankedStrategies = rankingAccumulator.rankedStrategies().toImmutableList(),
                                         )
                                     }
                                 }
@@ -176,9 +181,9 @@ class StrategyTunerViewModel
                                     mutableUiState.update {
                                         it.copy(
                                             runState = StrategyTunerRunState.Running,
-                                            activeDomains = event.domains,
-                                            results = emptyList(),
-                                            rankedStrategies = emptyList(),
+                                            activeDomains = event.domains.toImmutableList(),
+                                            results = persistentListOf(),
+                                            rankedStrategies = persistentListOf(),
                                             totalExpectedResults = event.totalExpectedResults,
                                             message = null,
                                             appliedStrategyId = null,

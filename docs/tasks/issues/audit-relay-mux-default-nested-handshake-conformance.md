@@ -1,7 +1,7 @@
 ---
 title: Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture
 type: task
-status: in-progress
+status: doing
 area: transport
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-protocol-conformance-tests
 blocks: []
 blocked_by: []
 created: 2026-06-15
-updated: 2026-06-17
+updated: 2026-07-14
 source_wiki_pages:
   - "encapsulated-tls-handshake-fingerprinting"
   - "stream-multiplexing-tunnels"

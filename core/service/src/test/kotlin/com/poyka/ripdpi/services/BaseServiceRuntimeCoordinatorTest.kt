@@ -75,6 +75,21 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun runtimeStopFailureKeepsRuntimeRegisteredAndDoesNotStopService() =
+        runTest {
+            val env = newEnv().also { it.coordinator.failOnStop = true }
+            env.coordinator.start()
+            runCurrent()
+
+            val failure = runCatching { env.coordinator.stop(stopSelfStartId = 7) }
+
+            assertTrue(failure.isFailure)
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(listOf(ServiceStatus.Connected, ServiceStatus.Failed), env.coordinator.statusTransitions)
+        }
+
+    @Test
     fun nonActionableAndCooldownHandoverEventsAreIgnored() =
         runTest {
             val initialFingerprint = sampleFingerprint()
@@ -328,6 +343,7 @@ private class TestCoordinator(
         clock = clock,
     ) {
     var failOnStart: Boolean = false
+    var failOnStop: Boolean = false
     var stopGate: CompletableDeferred<Unit>? = null
     var startCalls: Int = 0
     var stopCalls: Int = 0
@@ -410,6 +426,7 @@ private class TestCoordinator(
     @Suppress("UnusedParameter")
     private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         stopCalls += 1
+        if (failOnStop) error("stop failed")
         stopGate?.await()
     }
 

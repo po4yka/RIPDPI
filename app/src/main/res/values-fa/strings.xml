@@ -3320,6 +3320,7 @@ fakeddisorder endhost</string>
     <string name="backup_restore_success">پشتیبان بازیابی شد</string>
     <string name="backup_restore_unsupported_version">این پشتیبان (نسخه %1$d) جدیدتر از چیزی است که این برنامه پشتیبانی می‌کند (نسخه %2$d)</string>
     <string name="backup_restore_malformed">این فایل یک پشتیبان معتبر نیست</string>
+    <string name="backup_restore_integrity_failure">یکپارچگی داده‌ها پس از بازیابی تضمین نشد. برنامه را دوباره راه‌اندازی کنید و نمایه‌ها را بررسی کنید.</string>
     <string name="backup_restore_nothing_selected">حداقل یک دسته برای بازیابی انتخاب کنید</string>
     <string name="backup_import_preview_title">بررسی پشتیبان</string>
     <string name="backup_import_preview_schema">پشتیبان نسخه %1$d، ساخته‌شده توسط برنامه %2$s</string>
@@ -4119,4 +4120,21 @@ fakeddisorder endhost</string>
     <string name="subscription_home_expired_body">%1$s دیگر به‌روزرسانی نمی‌شود. نمایه‌های موجود همچنان در دسترس‌اند.</string>
     <string name="subscription_home_invalidated_title">اشتراک در دسترس نیست</string>
     <string name="subscription_home_invalidated_body">%1$s منقضی یا لغو شده است. نمایه‌های موجود همچنان در دسترس‌اند.</string>
+    <string name="diagnostics_sparkline_chart_description">روند %1$s، %2$d نمونه</string>
+    <string name="diagnostics_sparkline_selected_state">نمونه %1$d از %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">آخرین مقدار: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">نمونه قبلی</string>
+    <string name="diagnostics_sparkline_next_sample">نمونه بعدی</string>
+    <string name="diagnostics_sparkline_clear_selection">پاک کردن انتخاب</string>
+    <string name="backup_encryption_create_title">رمزگذاری پشتیبان کامل</string>
+    <string name="backup_encryption_create_body">یک عبارت عبور با حداقل ۸ نویسه بسازید. برای بازیابی این پشتیبان در هر دستگاهی به آن نیاز دارید.</string>
+    <string name="backup_encryption_create_action">رمزگذاری و ذخیره</string>
+    <string name="backup_encryption_unlock_title">باز کردن پشتیبان رمزگذاری‌شده</string>
+    <string name="backup_encryption_unlock_body">عبارت عبوری را که هنگام ساخت این پشتیبان کامل استفاده شد وارد کنید.</string>
+    <string name="backup_encryption_unlock_action">باز کردن</string>
+    <string name="backup_encryption_unlock_failed">عبارت عبور نادرست است یا پشتیبان تغییر کرده است.</string>
+    <string name="backup_encryption_passphrase">عبارت عبور پشتیبان</string>
+    <string name="backup_encryption_confirm_passphrase">تأیید عبارت عبور</string>
+    <string name="backup_encryption_passphrase_mismatch">عبارت‌های عبور یکسان نیستند</string>
+    <string name="backup_import_legacy_full_warning">این پشتیبان کامل قدیمی رمزگذاری نشده است. آن را فقط از منبع مورد اعتماد بازیابی کنید و سپس یک پشتیبان رمزگذاری‌شده جدید بگیرید.</string>
 </resources>

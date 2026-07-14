@@ -20,7 +20,7 @@ internal class DiagnosticsCidrWhitelistController(
     private val detector: CidrWhitelistDetector,
     private val stringResolver: StringResolver,
 ) {
-    private val _tool = MutableStateFlow(DiagnosticsCidrWhitelistToolUiModel())
+    private val _tool = MutableStateFlow(initialDiagnosticsCidrWhitelistUiModel(stringResolver))
     val tool: StateFlow<DiagnosticsCidrWhitelistToolUiModel> = _tool.asStateFlow()
 
     fun run() {

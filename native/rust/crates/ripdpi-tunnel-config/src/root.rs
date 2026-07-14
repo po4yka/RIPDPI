@@ -26,9 +26,16 @@ impl Config {
     }
 
     fn from_raw(raw: RawConfig) -> Result<Self, ConfigError> {
-        validation::validate(&raw)?;
+        validation::validate_envelope(&raw)?;
 
-        Ok(Self { tunnel: raw.tunnel, socks5: raw.socks5, mapdns: raw.mapdns, misc: raw.misc })
+        let config = Self { tunnel: raw.tunnel, socks5: raw.socks5, mapdns: raw.mapdns, misc: raw.misc };
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Validate values before the runtime adopts file descriptors or allocates buffers.
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        validation::validate_values(self)
     }
 }
 

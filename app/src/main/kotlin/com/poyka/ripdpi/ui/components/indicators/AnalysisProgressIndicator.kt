@@ -26,10 +26,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -65,6 +68,11 @@ private const val ParallelColumnWeight = 3f
 private const val OuterColumnWeight = 2f
 private const val FillOriginY = 0.5f
 
+private data class PipelineAlphas(
+    val pulse: State<Float>,
+    val shimmer: State<Float>,
+)
+
 @Composable
 fun AnalysisProgressIndicator(
     stages: ImmutableList<AnalysisStageUiState>,
@@ -77,7 +85,7 @@ fun AnalysisProgressIndicator(
     val spacing = RipDpiThemeTokens.spacing
     val typeScale = RipDpiThemeTokens.type
     val containerShape = RipDpiThemeTokens.shapes.lg
-    val (pulseAlpha, shimmerAlpha) = rememberPipelineAlphas(motion)
+    val pipelineAlphas = rememberPipelineAlphas(motion)
     val resources = LocalContext.current.resources
     val description = buildStageDescription(resources, stages)
 
@@ -96,8 +104,7 @@ fun AnalysisProgressIndicator(
         PipelineRow(
             stages = stages,
             activeStageIndex = activeStageIndex,
-            pulseAlpha = pulseAlpha,
-            shimmerAlpha = shimmerAlpha,
+            pipelineAlphas = pipelineAlphas,
         )
         val twoLineHeight =
             with(LocalDensity.current) {
@@ -146,32 +153,36 @@ private fun buildStageDescription(
 }
 
 @Composable
-private fun rememberPipelineAlphas(motion: com.poyka.ripdpi.ui.theme.RipDpiMotion): Pair<Float, Float> {
+private fun rememberPipelineAlphas(motion: com.poyka.ripdpi.ui.theme.RipDpiMotion): PipelineAlphas {
     if (LocalInspectionMode.current || !motion.allowsInfiniteMotion) {
-        return Pair(1f, ShimmerMaxAlpha)
+        return PipelineAlphas(
+            pulse = rememberUpdatedState(1f),
+            shimmer = rememberUpdatedState(ShimmerMaxAlpha),
+        )
     }
     val infiniteTransition = rememberInfiniteTransition(label = "analysisPulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = PulseTargetAlpha,
-        animationSpec = motion.smoothPulseSpec(PulseDurationMs),
-        label = "activeSegmentPulse",
-    )
-    val shimmerAlpha by infiniteTransition.animateFloat(
-        initialValue = ShimmerMinAlpha,
-        targetValue = ShimmerMaxAlpha,
-        animationSpec = motion.smoothPulseSpec(ShimmerDurationMs),
-        label = "pendingShimmer",
-    )
-    return Pair(pulseAlpha, shimmerAlpha)
+    val pulseAlpha =
+        infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = PulseTargetAlpha,
+            animationSpec = motion.smoothPulseSpec(PulseDurationMs),
+            label = "activeSegmentPulse",
+        )
+    val shimmerAlpha =
+        infiniteTransition.animateFloat(
+            initialValue = ShimmerMinAlpha,
+            targetValue = ShimmerMaxAlpha,
+            animationSpec = motion.smoothPulseSpec(ShimmerDurationMs),
+            label = "pendingShimmer",
+        )
+    return PipelineAlphas(pulse = pulseAlpha, shimmer = shimmerAlpha)
 }
 
 @Composable
 private fun PipelineRow(
     stages: ImmutableList<AnalysisStageUiState>,
     activeStageIndex: Int?,
-    pulseAlpha: Float,
-    shimmerAlpha: Float,
+    pipelineAlphas: PipelineAlphas,
 ) {
     val colors = RipDpiThemeTokens.colors
     val typeScale = RipDpiThemeTokens.type
@@ -188,8 +199,7 @@ private fun PipelineRow(
                 stage = stages[0],
                 index = 0,
                 activeStageIndex = activeStageIndex,
-                pulseAlpha = pulseAlpha,
-                shimmerAlpha = shimmerAlpha,
+                pipelineAlphas = pipelineAlphas,
                 modifier = Modifier.weight(OuterColumnWeight),
             )
         }
@@ -209,16 +219,14 @@ private fun PipelineRow(
                     stage = stages[1],
                     index = 1,
                     activeStageIndex = activeStageIndex,
-                    pulseAlpha = pulseAlpha,
-                    shimmerAlpha = shimmerAlpha,
+                    pipelineAlphas = pipelineAlphas,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 PipelineSegment(
                     stage = stages[2],
                     index = 2,
                     activeStageIndex = activeStageIndex,
-                    pulseAlpha = pulseAlpha,
-                    shimmerAlpha = shimmerAlpha,
+                    pipelineAlphas = pipelineAlphas,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -235,8 +243,7 @@ private fun PipelineRow(
                 stage = stages[3],
                 index = 3,
                 activeStageIndex = activeStageIndex,
-                pulseAlpha = pulseAlpha,
-                shimmerAlpha = shimmerAlpha,
+                pipelineAlphas = pipelineAlphas,
                 modifier = Modifier.weight(OuterColumnWeight),
             )
         }
@@ -248,8 +255,7 @@ private fun PipelineSegment(
     stage: AnalysisStageUiState,
     index: Int,
     activeStageIndex: Int?,
-    pulseAlpha: Float,
-    shimmerAlpha: Float,
+    pipelineAlphas: PipelineAlphas,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -262,11 +268,12 @@ private fun PipelineSegment(
             AnalysisStageStatus.RUNNING -> colors.info
             AnalysisStageStatus.PENDING -> colors.muted
         }
-    val animatedColor by animateColorAsState(
-        targetValue = targetColor,
-        animationSpec = motion.stateTween(),
-        label = "segmentColor$index",
-    )
+    val animatedColor =
+        animateColorAsState(
+            targetValue = targetColor,
+            animationSpec = motion.stateTween(),
+            label = "segmentColor$index",
+        )
     val isActive = index == activeStageIndex
     val isPending = stage.status == AnalysisStageStatus.PENDING
     val isCompleted = stage.status == AnalysisStageStatus.COMPLETED
@@ -285,16 +292,17 @@ private fun PipelineSegment(
             }
         }
     }
-    val fillFraction by animateFloatAsState(
-        targetValue =
-            when {
-                isCompleted || stage.status == AnalysisStageStatus.FAILED -> 1f
-                isActive -> stage.progress.coerceIn(0f, 1f)
-                else -> 0f
-            },
-        animationSpec = motion.stateTween(),
-        label = "segmentFill$index",
-    )
+    val fillFraction =
+        animateFloatAsState(
+            targetValue =
+                when {
+                    isCompleted || stage.status == AnalysisStageStatus.FAILED -> 1f
+                    isActive -> stage.progress.coerceIn(0f, 1f)
+                    else -> 0f
+                },
+            animationSpec = motion.stateTween(),
+            label = "segmentFill$index",
+        )
     Box(
         modifier =
             modifier
@@ -309,22 +317,22 @@ private fun PipelineSegment(
             modifier =
                 Modifier
                     .matchParentSize()
-                    .then(if (isPending) Modifier.alpha(shimmerAlpha) else Modifier)
-                    .background(colors.muted, segmentShape),
+                    .graphicsLayer {
+                        alpha = if (isPending) pipelineAlphas.shimmer.value else 1f
+                    }.background(colors.muted, segmentShape),
         )
         // Animated fill overlay
-        if (fillFraction > 0f) {
-            Box(
-                modifier =
-                    Modifier
-                        .matchParentSize()
-                        .graphicsLayer {
-                            scaleX = fillFraction
-                            transformOrigin = TransformOrigin(0f, FillOriginY)
-                        }.then(if (isActive) Modifier.alpha(pulseAlpha) else Modifier)
-                        .background(animatedColor, segmentShape),
-            )
-        }
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        scaleX = fillFraction.value
+                        alpha = if (isActive) pipelineAlphas.pulse.value else 1f
+                        transformOrigin = TransformOrigin(0f, FillOriginY)
+                    }.clip(segmentShape)
+                    .drawBehind { drawRect(animatedColor.value) },
+        )
     }
 }
 

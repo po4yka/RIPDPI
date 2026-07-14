@@ -6,9 +6,10 @@ pub const MAX_SESSION_NONCE_BYTES: usize = 128;
 /// Wire-protocol version stamped by the helper on every response.
 ///
 /// Bumped only on a backward-incompatible protocol change. Clients may use it
-/// to gate features they need a known-recent helper for; missing on responses
-/// from a pre-versioned helper, so consumers MUST tolerate `None`.
-pub const PROTOCOL_VERSION: u32 = 1;
+/// to gate features they need a known-recent helper for. Deserialization keeps
+/// accepting missing values so clients can report a precise compatibility
+/// error, but privileged operations must not trust an unversioned response.
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// Capability-set version stamped by the helper on every response.
 ///
@@ -45,6 +46,25 @@ pub struct HelperResponse {
     pub capability_version: Option<u32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProtocolVersionError {
+    Missing,
+    Mismatch { expected: u32, actual: u32 },
+}
+
+impl std::fmt::Display for ProtocolVersionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Missing => formatter.write_str("root-helper response is missing protocol_version"),
+            Self::Mismatch { expected, actual } => {
+                write!(formatter, "root-helper protocol version mismatch: expected {expected}, received {actual}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ProtocolVersionError {}
+
 impl HelperResponse {
     pub fn success(data: serde_json::Value) -> Self {
         Self { ok: true, error: None, data, protocol_version: None, capability_version: None }
@@ -69,6 +89,15 @@ impl HelperResponse {
         self.protocol_version = Some(protocol_version);
         self.capability_version = Some(capability_version);
         self
+    }
+
+    /// Require an exact wire-protocol match before trusting response data or fds.
+    pub fn validate_protocol_version(&self) -> Result<(), ProtocolVersionError> {
+        match self.protocol_version {
+            Some(PROTOCOL_VERSION) => Ok(()),
+            Some(actual) => Err(ProtocolVersionError::Mismatch { expected: PROTOCOL_VERSION, actual }),
+            None => Err(ProtocolVersionError::Missing),
+        }
     }
 }
 
@@ -206,5 +235,25 @@ mod tests {
         assert!(decoded.ok);
         assert_eq!(decoded.protocol_version, Some(PROTOCOL_VERSION));
         assert_eq!(decoded.capability_version, Some(CAPABILITY_VERSION));
+    }
+
+    #[test]
+    fn response_protocol_validation_rejects_legacy_and_mismatched_helpers() {
+        assert_eq!(
+            HelperResponse::success(Value::Null).validate_protocol_version(),
+            Err(super::ProtocolVersionError::Missing)
+        );
+        assert_eq!(
+            HelperResponse::success(Value::Null)
+                .with_versions(PROTOCOL_VERSION + 1, CAPABILITY_VERSION)
+                .validate_protocol_version(),
+            Err(super::ProtocolVersionError::Mismatch { expected: PROTOCOL_VERSION, actual: PROTOCOL_VERSION + 1 })
+        );
+        assert!(
+            HelperResponse::success(Value::Null)
+                .with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION)
+                .validate_protocol_version()
+                .is_ok()
+        );
     }
 }

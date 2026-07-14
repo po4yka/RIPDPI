@@ -413,10 +413,6 @@
       "maxProductionLoc": 52
     },
     {
-      "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime_coordinator.rs",
-      "maxProductionLoc": 92
-    },
-    {
       "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runtime_tests.rs",
       "maxProductionLoc": 83
     },

@@ -22,8 +22,9 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
+import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.navigation.decodeImportedProfile
 import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -40,6 +41,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     internal lateinit var selectorSelectionStore: SelectorSelectionStore
+
+    @Inject
+    internal lateinit var selectorShortcutCapability: SelectorShortcutCapability
 
     private val viewModel: MainViewModel by viewModels()
     private val shellController by lazy(LazyThreadSafetyMode.NONE) { MainActivityShellController(intent) }
@@ -113,18 +117,43 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applySelectorSelection(intent: Intent?) {
-        val groupId = selectorGroupIdFrom(intent) ?: return
-        val profileId = selectorProfileIdFrom(intent) ?: return
-        runCatching { selectorSelectionStore.select(groupId, profileId) }
+        val groupId = selectorGroupIdFrom(intent)
+        val profileId = selectorProfileIdFrom(intent)
+        if (groupId != null || profileId != null) {
+            if (!applySelectorSelectionIntent(
+                    intent = intent,
+                    verifies = selectorShortcutCapability::verifies,
+                    select = selectorSelectionStore::select,
+                )
+            ) {
+                Logger.w { "Rejected selector selection without a valid shortcut capability" }
+            }
+        }
+    }
+}
+
+internal fun applySelectorSelectionIntent(
+    intent: Intent?,
+    verifies: (Intent?) -> Boolean,
+    select: (String, String) -> Unit,
+): Boolean {
+    val groupId = selectorGroupIdFrom(intent)
+    val profileId = selectorProfileIdFrom(intent)
+    return if (groupId == null || profileId == null || !verifies(intent)) {
+        false
+    } else {
+        runCatching { select(groupId, profileId) }
             .onFailure { error ->
                 Logger.w(error) { "Failed to apply selector selection from shortcut intent" }
-            }
+            }.isSuccess
     }
 }
 
 private const val extraOpenHome = "com.poyka.ripdpi.extra.OPEN_HOME"
 private const val extraStartConfiguredMode = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
 private const val extraStopConfiguredMode = "com.poyka.ripdpi.extra.STOP_CONFIGURED_MODE"
+internal const val internalVpnControlActivityClassName =
+    "com.poyka.ripdpi.activities.InternalVpnControlActivity"
 
 internal fun createMainActivityLaunchIntent(
     context: Context,
@@ -132,7 +161,7 @@ internal fun createMainActivityLaunchIntent(
     requestStartConfiguredMode: Boolean = false,
     requestStopConfiguredMode: Boolean = false,
 ): Intent =
-    Intent(context, MainActivity::class.java).apply {
+    Intent().setClassName(context.packageName, internalVpnControlActivityClassName).apply {
         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         if (openHome) {
             putExtra(extraOpenHome, true)
@@ -148,11 +177,13 @@ internal fun createMainActivityLaunchIntent(
 internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(extraOpenHome, false) == true
 
 internal fun requestsConfiguredStart(intent: Intent?): Boolean =
-    intent?.getBooleanExtra(extraStartConfiguredMode, false) == true
+    isInternalVpnControlIntent(intent) && intent?.getBooleanExtra(extraStartConfiguredMode, false) == true
 
 internal fun requestsConfiguredStop(intent: Intent?): Boolean =
-    intent?.getBooleanExtra(extraStopConfiguredMode, false) == true ||
-        intent?.data?.toString() == "ripdpi://disconnect"
+    isInternalVpnControlIntent(intent) && intent?.getBooleanExtra(extraStopConfiguredMode, false) == true
+
+private fun isInternalVpnControlIntent(intent: Intent?): Boolean =
+    intent?.component?.className == internalVpnControlActivityClassName
 
 internal fun selectorGroupIdFrom(intent: Intent?): String? =
     intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectGroupId)
@@ -174,25 +205,17 @@ internal fun importRouteFrom(intent: Intent?): Route? {
     val route = intent?.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE) ?: return null
     return when (route) {
         ImportLaunchRoute.PROFILE_CONFIRM -> {
-            val profileJson =
-                intent.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_JSON) ?: return null
-            // Validate the payload up front so navigation never lands on a broken screen.
-            if (decodeImportedProfile(profileJson) == null) return null
-            Route.ProfileImportConfirm(profileJson = profileJson)
+            val importToken =
+                intent.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_IMPORT_TOKEN) ?: return null
+            if (!PendingProxyImportStore.process.contains(importToken)) return null
+            Route.ProfileImportConfirm(importToken = importToken)
         }
 
         ImportLaunchRoute.SUBSCRIPTION_CONFIRM -> {
-            val url =
-                intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_URL) ?: return null
-            Route.SubscriptionImportConfirm(
-                url = url,
-                name = intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_NAME).orEmpty(),
-                bootstrap =
-                    intent.getBooleanExtra(
-                        ImportHandlerActivity.EXTRA_SUBSCRIPTION_BOOTSTRAP,
-                        false,
-                    ),
-            )
+            val importToken =
+                intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_IMPORT_TOKEN) ?: return null
+            if (!PendingProxyImportStore.process.contains(importToken)) return null
+            Route.SubscriptionImportConfirm(importToken = importToken)
         }
 
         else -> {

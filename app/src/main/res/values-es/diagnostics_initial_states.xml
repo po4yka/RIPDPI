@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">Compara las respuestas UDP/53 directas con los controles DoH para los dominios DPI incluidos.</string>
+    <string name="diagnostics_dns_availability_idle_summary">Comprueba la disponibilidad y latencia de resolutores UDP y DoH públicos.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">Comprueba el acceso mediante TLS 1.3, TLS 1.2 y HTTP a los dominios DPI incluidos.</string>
+    <string name="diagnostics_rkn_idle_headline">Diagnóstico de bloqueo de RKN</string>
+    <string name="diagnostics_rkn_idle_confidence_note">Compara los grupos de objetivos de control y prueba antes de afirmar que existe un bloqueo.</string>
+    <string name="diagnostics_rkn_idle_summary">Ejecuta las pruebas incluidas de control y lista negra con protecciones para el veredicto agregado.</string>
+    <string name="diagnostics_compression_idle_summary">Comprueba la compatibilidad con HTTP gzip, deflate, Brotli y Zstd opcional para un objetivo incluido.</string>
+    <string name="diagnostics_tcp16_idle_summary">Comprueba el comportamiento de cabeceras grandes TCP16 en los objetivos de red incluidos.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">Ejecuta comprobaciones de compatibilidad SNI para los ASN marcados por TCP16.</string>
+    <string name="diagnostics_byoh_idle_summary">Avanzado: requiere un servidor HTTPS controlado por el usuario.</string>
+    <string name="diagnostics_byoh_requirements_summary">Configura un host bajo tu control para responder por HTTPS en la IP de destino y servir al menos 128 KiB.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">Compara grupos de URL permitidos y normales para detectar restricciones generales de enrutamiento.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">Obtén subredes de proveedores y prueba rangos /24 almacenados para detectar el comportamiento de lista blanca.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">Ejecuta las pruebas DPI seleccionadas como un único conjunto.</string>
+</resources>

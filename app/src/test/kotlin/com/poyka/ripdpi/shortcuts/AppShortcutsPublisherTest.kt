@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
-import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,13 +35,14 @@ class AppShortcutsPublisherTest {
                 )
             val selectorStore = FakeSelectorSelectionStore()
             repeat(6) { selectorStore.set("group-$it", "profile-$it") }
+            val capability = SelectorShortcutCapability(application)
 
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = selectorStore,
+                    selectorShortcutCapability = capability,
                     applicationScope = backgroundScope,
                 )
 
@@ -51,6 +51,7 @@ class AppShortcutsPublisherTest {
 
             val dynamic = ShortcutManagerCompat.getDynamicShortcuts(application)
             assertTrue("expected at most 4 dynamic shortcuts, got ${dynamic.size}", dynamic.size <= 4)
+            assertTrue(dynamic.all { shortcut -> capability.verifies(shortcut.intent) })
         }
 
     @Test
@@ -59,9 +60,9 @@ class AppShortcutsPublisherTest {
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(MutableStateFlow(emptyList())),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
+                    selectorShortcutCapability = SelectorShortcutCapability(application),
                     applicationScope = backgroundScope,
                 )
 
@@ -85,9 +86,9 @@ class AppShortcutsPublisherTest {
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
+                    selectorShortcutCapability = SelectorShortcutCapability(application),
                     applicationScope = backgroundScope,
                 )
 
@@ -109,9 +110,9 @@ class AppShortcutsPublisherTest {
             val publisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = FlowBackedProxyGroupRepository(groups),
                     selectorSelectionStore = FakeSelectorSelectionStore(),
+                    selectorShortcutCapability = SelectorShortcutCapability(application),
                     applicationScope = backgroundScope,
                 )
 

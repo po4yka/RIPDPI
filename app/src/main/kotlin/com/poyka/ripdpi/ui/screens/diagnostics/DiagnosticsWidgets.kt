@@ -4,9 +4,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -37,7 +39,10 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -270,21 +275,23 @@ internal fun TelemetrySparkline(trend: DiagnosticsSparklineUiModel) {
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
     val metricStyle = ripDpiMetricToneStyle(metricTone(trend.tone))
-    val animatedStrokeColor by animateColorAsState(
-        targetValue = metricStyle.content,
-        animationSpec = motion.stateTween(),
-        label = "telemetrySparklineStroke",
-    )
-    var previousValues by remember(trend.label) { mutableStateOf(trend.values) }
-    var currentValues by remember(trend.label) { mutableStateOf(trend.values) }
+    val animatedStrokeColor =
+        animateColorAsState(
+            targetValue = metricStyle.content,
+            animationSpec = motion.stateTween(),
+            label = "telemetrySparklineStroke",
+        )
+    val targetSeries = remember(trend.values) { SparklineSeries.from(trend.values) }
+    var previousSeries by remember(trend.label) { mutableStateOf(targetSeries) }
+    var currentSeries by remember(trend.label) { mutableStateOf(targetSeries) }
     val transitionProgress = remember(trend.label) { Animatable(1f) }
 
     var selectedIndex by remember(trend.label) { mutableIntStateOf(-1) }
 
-    LaunchedEffect(trend.label, trend.values) {
+    LaunchedEffect(trend.label, targetSeries) {
         selectedIndex = -1
-        previousValues = currentValues.ifEmpty { trend.values }
-        currentValues = trend.values
+        previousSeries = currentSeries.takeUnless { it.values.isEmpty() } ?: targetSeries
+        currentSeries = targetSeries
         transitionProgress.snapTo(0f)
         transitionProgress.animateTo(
             targetValue = 1f,
@@ -292,7 +299,14 @@ internal fun TelemetrySparkline(trend: DiagnosticsSparklineUiModel) {
         )
     }
 
-    val sparklineState = rememberSparklineState(trend = trend, selectedIndex = selectedIndex)
+    val sparklineState = rememberSparklineState(series = targetSeries, selectedIndex = selectedIndex)
+    val accessibility = sparklineAccessibility(trend, sparklineState, selectedIndex)
+    val transition =
+        SparklineTransition(
+            previousSeries = previousSeries,
+            currentSeries = currentSeries,
+            progress = transitionProgress.asState(),
+        )
 
     RipDpiCard {
         SparklineHeader(
@@ -306,7 +320,7 @@ internal fun TelemetrySparkline(trend: DiagnosticsSparklineUiModel) {
             maxValue = sparklineState.maxValue,
             spacing = spacing.sm,
             labelColor = colors.mutedForeground,
-            values = interpolatedSeries(previousValues, currentValues, transitionProgress.value),
+            transition = transition,
             selectedIndex = selectedIndex,
             onSelectedIndexChange = { index -> selectedIndex = index },
             strokeColor = animatedStrokeColor,
@@ -314,11 +328,43 @@ internal fun TelemetrySparkline(trend: DiagnosticsSparklineUiModel) {
             selectionColor = colors.mutedForeground,
             cardColor = colors.card,
             selectedValue = sparklineState.selectedValue,
-            chipContainerColor = metricStyle.container,
-            chipContentColor = metricStyle.content,
+            chipColors = SparklineChipColors(metricStyle.container, metricStyle.content),
+            accessibility = accessibility,
         )
     }
 }
+
+@Composable
+private fun sparklineAccessibility(
+    trend: DiagnosticsSparklineUiModel,
+    state: SparklineState,
+    selectedIndex: Int,
+): SparklineAccessibility =
+    SparklineAccessibility(
+        description =
+            stringResource(
+                R.string.diagnostics_sparkline_chart_description,
+                trend.label,
+                trend.values.size,
+            ),
+        stateDescription =
+            if (selectedIndex in trend.values.indices) {
+                stringResource(
+                    R.string.diagnostics_sparkline_selected_state,
+                    selectedIndex + 1,
+                    trend.values.size,
+                    formatSparklineValue(state.selectedValue ?: 0f),
+                )
+            } else {
+                stringResource(
+                    R.string.diagnostics_sparkline_latest_state,
+                    formatSparklineValue(state.displayValue),
+                )
+            },
+        previousSampleLabel = stringResource(R.string.diagnostics_sparkline_previous_sample),
+        nextSampleLabel = stringResource(R.string.diagnostics_sparkline_next_sample),
+        clearSelectionLabel = stringResource(R.string.diagnostics_sparkline_clear_selection),
+    )
 
 @Composable
 private fun SparklineHeader(
@@ -351,16 +397,16 @@ private fun SparklineChartRow(
     maxValue: Float,
     spacing: Dp,
     labelColor: Color,
-    values: List<Float>,
+    transition: SparklineTransition,
     selectedIndex: Int,
     onSelectedIndexChange: (Int) -> Unit,
-    strokeColor: Color,
+    strokeColor: State<Color>,
     dividerColor: Color,
     selectionColor: Color,
     cardColor: Color,
     selectedValue: Float?,
-    chipContainerColor: Color,
-    chipContentColor: Color,
+    chipColors: SparklineChipColors,
+    accessibility: SparklineAccessibility,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -378,21 +424,22 @@ private fun SparklineChartRow(
                     .height(SparklineChartHeight),
         ) {
             SparklineCanvas(
-                values = values,
+                transition = transition,
                 selectedIndex = selectedIndex,
                 onSelectedIndexChange = onSelectedIndexChange,
                 strokeColor = strokeColor,
                 dividerColor = dividerColor,
                 selectionColor = selectionColor,
                 cardColor = cardColor,
+                accessibility = accessibility,
             )
             SparklineSelectionChip(
                 selectedIndex = selectedIndex,
                 selectedValue = selectedValue,
-                pointCount = values.size,
+                pointCount = transition.currentSeries.values.size,
                 maxWidth = maxWidth,
-                containerColor = chipContainerColor,
-                contentColor = chipContentColor,
+                containerColor = chipColors.container,
+                contentColor = chipColors.content,
             )
         }
     }
@@ -423,21 +470,33 @@ private fun SparklineAxisLabels(
 
 @Composable
 private fun SparklineCanvas(
-    values: List<Float>,
+    transition: SparklineTransition,
     selectedIndex: Int,
     onSelectedIndexChange: (Int) -> Unit,
-    strokeColor: Color,
+    strokeColor: State<Color>,
     dividerColor: Color,
     selectionColor: Color,
     cardColor: Color,
+    accessibility: SparklineAccessibility,
 ) {
-    Canvas(
+    val accessibilityActions =
+        sparklineAccessibilityActions(
+            pointCount = transition.currentSeries.values.size,
+            selectedIndex = selectedIndex,
+            accessibility = accessibility,
+            onSelectedIndexChange = onSelectedIndexChange,
+        )
+    Box(
         modifier =
             Modifier
                 .fillMaxSize()
-                .pointerInput(values.size, selectedIndex) {
+                .semantics {
+                    contentDescription = accessibility.description
+                    stateDescription = accessibility.stateDescription
+                    customActions = accessibilityActions
+                }.pointerInput(transition.currentSeries.values.size, selectedIndex) {
                     detectTapGestures { offset ->
-                        val pointCount = values.size
+                        val pointCount = transition.currentSeries.values.size
                         if (pointCount <= 1) return@detectTapGestures
                         val index =
                             ((offset.x / size.width) * (pointCount - 1))
@@ -445,32 +504,145 @@ private fun SparklineCanvas(
                                 .coerceIn(0, pointCount - 1)
                         onSelectedIndexChange(if (selectedIndex == index) -1 else index)
                     }
-                },
-    ) {
-        if (values.isEmpty()) {
-            return@Canvas
+                }.sparklineDrawing(
+                    transition = transition,
+                    selectedIndex = selectedIndex,
+                    strokeColor = strokeColor,
+                    dividerColor = dividerColor,
+                    selectionColor = selectionColor,
+                    cardColor = cardColor,
+                ),
+    )
+}
+
+private fun Modifier.sparklineDrawing(
+    transition: SparklineTransition,
+    selectedIndex: Int,
+    strokeColor: State<Color>,
+    dividerColor: Color,
+    selectionColor: Color,
+    cardColor: Color,
+): Modifier =
+    drawWithCache {
+        val previousGeometry =
+            transition.previousSeries
+                .takeUnless { it.values.isEmpty() }
+                ?.let { SparklineGeometry.from(it, size.width, size.height) }
+        val currentGeometry =
+            transition.currentSeries
+                .takeUnless { it.values.isEmpty() }
+                ?.let { SparklineGeometry.from(it, size.width, size.height) }
+        val animateBetweenSeries = transition.previousSeries != transition.currentSeries
+        val lineStyle = Stroke(width = SparklineStrokeWidth, cap = StrokeCap.Round)
+
+        onDrawBehind {
+            val progress = transition.progress.value.coerceIn(0f, 1f)
+            val currentStrokeColor = strokeColor.value
+            drawSparklinePaths(
+                previousGeometry = previousGeometry,
+                currentGeometry = currentGeometry,
+                animateBetweenSeries = animateBetweenSeries,
+                progress = progress,
+                strokeColor = currentStrokeColor,
+                lineStyle = lineStyle,
+            )
+            drawLine(
+                color = dividerColor,
+                start = Offset(0f, size.height),
+                end = Offset(size.width, size.height),
+                strokeWidth = SparklineDividerStrokeWidth,
+            )
+            currentGeometry?.let { geometry ->
+                drawSparklineSelection(
+                    geometry = geometry,
+                    selectedIndex = selectedIndex,
+                    selectionColor = selectionColor,
+                    strokeColor = currentStrokeColor,
+                    cardColor = cardColor,
+                )
+            }
         }
-        val geometry = SparklineGeometry.from(values, size.width, size.height)
-        drawPath(
-            path = geometry.path,
-            color = strokeColor,
-            style = Stroke(width = SparklineStrokeWidth, cap = StrokeCap.Round),
-        )
-        drawLine(
-            color = dividerColor,
-            start = Offset(0f, size.height),
-            end = Offset(size.width, size.height),
-            strokeWidth = SparklineDividerStrokeWidth,
-        )
-        drawSparklineSelection(
-            geometry = geometry,
-            selectedIndex = selectedIndex,
-            selectionColor = selectionColor,
-            strokeColor = strokeColor,
-            cardColor = cardColor,
-        )
+    }
+
+private fun DrawScope.drawSparklinePaths(
+    previousGeometry: SparklineGeometry?,
+    currentGeometry: SparklineGeometry?,
+    animateBetweenSeries: Boolean,
+    progress: Float,
+    strokeColor: Color,
+    lineStyle: Stroke,
+) {
+    if (!animateBetweenSeries) {
+        currentGeometry?.let { drawPath(it.path, strokeColor, style = lineStyle) }
+        return
+    }
+    if (progress < 1f) {
+        previousGeometry?.let {
+            drawPath(
+                path = it.path,
+                color = strokeColor.copy(alpha = strokeColor.alpha * (1f - progress)),
+                style = lineStyle,
+            )
+        }
+    }
+    if (progress > 0f) {
+        currentGeometry?.let {
+            drawPath(
+                path = it.path,
+                color = strokeColor.copy(alpha = strokeColor.alpha * progress),
+                style = lineStyle,
+            )
+        }
     }
 }
+
+private fun sparklineAccessibilityActions(
+    pointCount: Int,
+    selectedIndex: Int,
+    accessibility: SparklineAccessibility,
+    onSelectedIndexChange: (Int) -> Unit,
+): List<CustomAccessibilityAction> =
+    buildList {
+        val selected = selectedIndex in 0 until pointCount
+        val previousIndex =
+            when {
+                pointCount == 0 -> null
+                selected && selectedIndex > 0 -> selectedIndex - 1
+                !selected -> pointCount - 1
+                else -> null
+            }
+        val nextIndex =
+            when {
+                pointCount == 0 -> null
+                selected && selectedIndex < pointCount - 1 -> selectedIndex + 1
+                !selected -> 0
+                else -> null
+            }
+        previousIndex?.let { index ->
+            add(
+                CustomAccessibilityAction(accessibility.previousSampleLabel) {
+                    onSelectedIndexChange(index)
+                    true
+                },
+            )
+        }
+        nextIndex?.let { index ->
+            add(
+                CustomAccessibilityAction(accessibility.nextSampleLabel) {
+                    onSelectedIndexChange(index)
+                    true
+                },
+            )
+        }
+        if (selected) {
+            add(
+                CustomAccessibilityAction(accessibility.clearSelectionLabel) {
+                    onSelectedIndexChange(-1)
+                    true
+                },
+            )
+        }
+    }
 
 @Composable
 private fun SparklineSelectionChip(
@@ -503,7 +675,7 @@ private fun DrawScope.drawSparklineSelection(
     strokeColor: Color,
     cardColor: Color,
 ) {
-    if (selectedIndex !in geometry.values.indices || geometry.values.size <= 1) {
+    if (selectedIndex !in geometry.series.values.indices || geometry.series.values.size <= 1) {
         return
     }
     val x = geometry.xFor(selectedIndex)
@@ -526,6 +698,25 @@ private fun DrawScope.drawSparklineSelection(
     )
 }
 
+private data class SparklineAccessibility(
+    val description: String,
+    val stateDescription: String,
+    val previousSampleLabel: String,
+    val nextSampleLabel: String,
+    val clearSelectionLabel: String,
+)
+
+private data class SparklineChipColors(
+    val container: Color,
+    val content: Color,
+)
+
+private data class SparklineTransition(
+    val previousSeries: SparklineSeries,
+    val currentSeries: SparklineSeries,
+    val progress: State<Float>,
+)
+
 private data class SparklineState(
     val minValue: Float,
     val maxValue: Float,
@@ -534,41 +725,38 @@ private data class SparklineState(
 )
 
 private data class SparklineGeometry(
-    val values: List<Float>,
-    val min: Float,
-    val range: Float,
+    val series: SparklineSeries,
     val width: Float,
     val height: Float,
     val path: Path,
 ) {
     fun xFor(index: Int): Float =
-        if (values.size == 1) {
+        if (series.values.size == 1) {
             0f
         } else {
-            width * index.toFloat() / values.lastIndex.toFloat()
+            width * index.toFloat() / series.values.lastIndex.toFloat()
         }
 
-    fun yFor(index: Int): Float = height - ((values[index] - min) / range) * height
+    fun yFor(index: Int): Float = height - ((series.values[index] - series.minValue) / series.range) * height
 
     companion object {
         fun from(
-            values: List<Float>,
+            series: SparklineSeries,
             width: Float,
             height: Float,
         ): SparklineGeometry {
-            val min = values.minOrNull() ?: 0f
-            val max = values.maxOrNull() ?: 0f
-            val range = (max - min).takeIf { it > 0f } ?: 1f
             val path =
                 Path().apply {
-                    values.forEachIndexed { index, _ ->
+                    series.values.forEachIndexed { index, _ ->
                         val x =
-                            if (values.size == 1) {
+                            if (series.values.size == 1) {
                                 0f
                             } else {
-                                width * index.toFloat() / values.lastIndex.toFloat()
+                                width * index.toFloat() / series.values.lastIndex.toFloat()
                             }
-                        val y = height - ((values[index] - min) / range) * height
+                        val y =
+                            height -
+                                ((series.values[index] - series.minValue) / series.range) * height
                         if (index == 0) {
                             moveTo(x, y)
                         } else {
@@ -577,9 +765,7 @@ private data class SparklineGeometry(
                     }
                 }
             return SparklineGeometry(
-                values = values,
-                min = min,
-                range = range,
+                series = series,
                 width = width,
                 height = height,
                 path = path,
@@ -588,19 +774,21 @@ private data class SparklineGeometry(
     }
 }
 
+@Composable
 private fun rememberSparklineState(
-    trend: DiagnosticsSparklineUiModel,
+    series: SparklineSeries,
     selectedIndex: Int,
-): SparklineState {
-    val latestValue = trend.values.lastOrNull() ?: 0f
-    val selectedValue = trend.values.getOrNull(selectedIndex)
-    return SparklineState(
-        minValue = trend.values.minOrNull() ?: 0f,
-        maxValue = trend.values.maxOrNull() ?: 0f,
-        displayValue = selectedValue ?: latestValue,
-        selectedValue = selectedValue,
-    )
-}
+): SparklineState =
+    remember(series, selectedIndex) {
+        val latestValue = series.values.lastOrNull() ?: 0f
+        val selectedValue = series.values.getOrNull(selectedIndex)
+        SparklineState(
+            minValue = series.minValue,
+            maxValue = series.maxValue,
+            displayValue = selectedValue ?: latestValue,
+            selectedValue = selectedValue,
+        )
+    }
 
 @Composable
 private fun SparklineValueChip(

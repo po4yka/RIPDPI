@@ -23,14 +23,14 @@ cargo +nightly miri setup >/dev/null
 # Miri-friendly stubs, so the Box::into_raw / RealityHookGuard
 # drop / extern "C" callback panic-trap dance is also exercised
 # under Miri (issue #15 / #18 production code path).
-cargo +nightly miri test -p ripdpi-vless --features miri-stubs scoped_handle
+cargo +nightly miri test --locked -p ripdpi-vless --features miri-stubs scoped_handle
 
 # Issue #15 / #18 reality_hook regression under Miri with the
 # `miri-stubs` feature substituting the three BoringSSL FFI calls.
 # Exercises `install_reality_client_hello_hook` → `Box::into_raw`
 # → simulated callback dispatch → `RealityHookGuard::Drop` →
 # `Box::from_raw` round-trip against strict-provenance.
-cargo +nightly miri test -p ripdpi-vless --features miri-stubs reality_hook
+cargo +nightly miri test --locked -p ripdpi-vless --features miri-stubs reality_hook
 
 # Issue #21 zero-init validity regression: `ripdpi-privileged-ops`
 # holds the workspace's only `ptr::write_bytes` site (mmap_region.rs)
@@ -39,7 +39,7 @@ cargo +nightly miri test -p ripdpi-vless --features miri-stubs reality_hook
 # audited zero-init code paths against the strict-provenance machine
 # so a future regression that swaps the u8 destination for a
 # non-zero-valid element type fails CI.
-cargo +nightly miri test -p ripdpi-privileged-ops experimental_tier3
+cargo +nightly miri test --locked -p ripdpi-privileged-ops experimental_tier3
 
 # TODO(M9): extend Miri coverage toward the full unsafe-gap set.
 #

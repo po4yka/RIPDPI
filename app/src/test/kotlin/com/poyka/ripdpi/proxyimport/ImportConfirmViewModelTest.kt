@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -21,6 +22,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
@@ -32,6 +34,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -82,7 +86,6 @@ class ImportConfirmViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse("a relay link that activates nothing must not report imported", state.imported)
             assertFalse(state.importing)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
             assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
@@ -118,7 +121,6 @@ class ImportConfirmViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse("a tuic link that activates nothing must not report imported", state.imported)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
             assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
         }
@@ -156,7 +158,6 @@ class ImportConfirmViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse("an invalid profile must not be imported", state.imported)
             assertFalse(state.importing)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
             assertTrue("no group is persisted for an invalid import", repository.list().isEmpty())
@@ -187,15 +188,20 @@ class ImportConfirmViewModelTest {
                 )
 
             viewModel.setProfile(profile)
-            viewModel.confirm()
-            advanceUntilIdle()
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                advanceUntilIdle()
+                awaitItem()
+                viewModel.confirm()
+                advanceUntilIdle()
+                expectNoEvents()
+            }
 
             val settings = settingsRepository.snapshot()
             val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
             val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
             // A genuinely relay-activatable kind reports honest success and keeps
             // the persisted group (the positive counterpart to the P1-4 dead-end).
-            assertTrue("a relay that activates must report imported", viewModel.uiState.value.imported)
             assertEquals(1, repository.list().size)
             assertEquals(ProxyGroupType.BASIC, repository.list().single().type)
             assertEquals(RelayKindTrojan, settings.relayKind)
@@ -516,8 +522,12 @@ class ImportConfirmViewModelTest {
             val viewModel = SubscriptionImportConfirmViewModel(repository)
 
             viewModel.setRequest(url = "https://sub.example.com/c", name = "Fleet", bootstrap = false)
-            viewModel.confirm()
-            advanceUntilIdle()
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                advanceUntilIdle()
+                awaitItem()
+                expectNoEvents()
+            }
 
             val groups = repository.list()
             assertEquals(1, groups.size)
@@ -525,7 +535,6 @@ class ImportConfirmViewModelTest {
             assertEquals(ProxyGroupType.SUBSCRIPTION, group.type)
             assertEquals("Fleet", group.name)
             assertEquals("https://sub.example.com/c", group.subscription?.link)
-            assertTrue(viewModel.uiState.value.imported)
         }
 
     @Test
@@ -557,27 +566,64 @@ class ImportConfirmViewModelTest {
         }
 
     @Test
-    fun `confirming a bootstrap import persists a bootstrap-kind subscription`() =
+    fun `confirming a bootstrap import consumes and persists members before success`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
-            val viewModel = SubscriptionImportConfirmViewModel(repository)
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body("trojan://secret@example.com:443#bootstrap")
+                        .build(),
+                )
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
+                        groupIdFactory = { "bootstrap-group" },
+                    )
 
-            viewModel.setRequest(
-                url = "https://sub.example.com/bootstrap/tok",
-                name = "Boot",
-                bootstrap = true,
-            )
-            viewModel.confirm()
-            advanceUntilIdle()
+                viewModel.setRequest(
+                    url = server.url("/bootstrap/tok").toString(),
+                    name = "Boot",
+                    bootstrap = true,
+                )
+                viewModel.importedEvents.test {
+                    viewModel.confirm()
+                    advanceUntilIdle()
+                    awaitItem()
+                }
 
-            assertEquals(
-                SubscriptionKind.BOOTSTRAP,
-                repository
-                    .list()
-                    .single()
-                    .subscription
-                    ?.kind,
-            )
+                val group = repository.list().single()
+                assertEquals(SubscriptionKind.BOOTSTRAP, group.subscription?.kind)
+                assertEquals(42L, group.subscription?.consumedAt)
+                assertEquals(1, group.members.size)
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
+    fun `failed bootstrap consume does not persist an empty group`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(MockResponse.Builder().code(410).build())
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(),
+                    )
+
+                viewModel.setRequest(server.url("/bootstrap/spent").toString(), "Boot", bootstrap = true)
+                viewModel.confirm()
+                viewModel.uiState.first { it.importFailed }
+
+                assertTrue(repository.list().isEmpty())
+                assertTrue(viewModel.uiState.value.importFailed)
+            }
         }
 
     @Test

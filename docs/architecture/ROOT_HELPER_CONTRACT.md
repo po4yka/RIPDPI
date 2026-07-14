@@ -54,9 +54,11 @@ cannot.
   (owner read/write only), and runs `restorecon` so the SELinux label allows
   the app uid to connect (`ripdpi-root-helper/src/main.rs`,
   `prepare_socket_for_app`).
-- **Framing:** one JSON object per message, `\n`-terminated, **8192-byte cap**
-  (`MAX_MESSAGE_BYTES`, `ripdpi-root-helper-protocol/src/scm_rights.rs`).
-  Oversized or unterminated max-length messages are rejected.
+- **Framing (protocol v2):** each JSON object is prefixed by a 4-byte big-endian
+  payload length with an **8192-byte cap** (`MAX_MESSAGE_BYTES`,
+  `ripdpi-root-helper-protocol/src/scm_rights.rs`). Exact-size `recvmsg` loops
+  preserve frame boundaries and SCM_RIGHTS data across `SOCK_STREAM` short
+  reads; `send_message` completes short writes without resending the fd.
 - **Request** — `HelperRequest { command: String, params: Value,
   session_nonce: Option<String> }`. **Response** — `HelperResponse { ok: bool,
   error: Option<String>, data: Value, protocol_version: Option<u32>,
@@ -64,7 +66,8 @@ cannot.
   outgoing response with `PROTOCOL_VERSION` / `CAPABILITY_VERSION` from
   `wire.rs`. Both version fields are `#[serde(skip_serializing_if =
   "Option::is_none")]` and `#[serde(default)]` — a legacy client reads them
-  as `None` and a legacy helper response decodes cleanly on a new client.
+  as `None` and a legacy response JSON remains serde-compatible. The v2 stream
+  framing itself requires the bundled client and helper binary to match.
 - The client connects **per operation**, sends one JSON command plus, for the
   socket-bound commands, the relevant socket file descriptor via **`SCM_RIGHTS`**
   ancillary data. The helper replies with a JSON response and, for

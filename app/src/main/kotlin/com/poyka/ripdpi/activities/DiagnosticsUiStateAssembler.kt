@@ -55,7 +55,7 @@ internal class DiagnosticsUiStateAssembler
             }.stateIn(
                 scope = scope,
                 started = SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                initialValue = DiagnosticsUiState(),
+                initialValue = uiStateFactory.initialUiState(),
             )
         }
 

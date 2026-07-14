@@ -12,9 +12,9 @@ and the `native/rust/crates/` tree.
 
 ## Workspace facts
 
-- **115 crates**, all under `native/rust/crates/`. Every directory is a declared
+- **116 crates**, all under `native/rust/crates/`. Every directory is a declared
   `[workspace] members` entry — **no orphan directories, no missing members.**
-- `edition = "2021"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
+- `edition = "2024"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
   `android-jni` (inherits `release`, **fat LTO**, `opt-level = "z"`,
   `panic = "unwind"`), `android-jni-dev`, `bench`.
@@ -29,8 +29,7 @@ and the `native/rust/crates/` tree.
 
 ## 1. Production artifacts
 
-Nine crates are artifact roots. Everything else is a library crate compiled
-**into** one of them. Artifacts are produced by the `ripdpi.android.rust-native`
+Ten crates are artifact roots: nine Android-packaged artifacts plus the desktop-only `ripdpi` CLI. Everything else is a library crate compiled **into** one of them. Android artifacts are produced by the `ripdpi.android.rust-native`
 convention plugin
 ([`build-logic/.../ripdpi.android.rust-native.gradle.kts`](../../build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts)).
 
@@ -84,17 +83,17 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | # | Layer | Count | Crates |
 |---|-------|-------|--------|
 | L0 | **support / test / dev** | 7 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `quic-mtu-test-util`, `ripdpi-bench`, `ripdpi-cli` |
-| L1 | **protocol / core** | 13 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-tls-spoof`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
+| L1 | **protocol / core** | 14 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-tls-spoof`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-network-time`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
 | L3 | **domain logic** | 17 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
-| L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
+| L5 | **platform / privileged** | 9 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-subprocess-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 17 | 13 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
 | L7 | **relay transports** | 22 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-wireguard-ws`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
 | L8 | **Android / JNI adapters** | 13 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, `ripdpi-amneziawg-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
-other 14 `ripdpi-diagnostics-*` crates are L6.
+other 13 `ripdpi-diagnostics-*` crates are L6.
 
 ---
 
@@ -118,7 +117,7 @@ Rules, all of which **hold today** in `Cargo.toml`:
    on an L3+ crate; no L3 crate may depend on L4/L6/L7/L8. The artifact roots
    (L8 cdylibs, the bin crates) are sinks — nothing depends on them.
 2. **JNI containment.** Only the 13 L8 crates may depend on the `jni` crate or
-   on `android-support`. Today exactly 11 crates pull `jni`
+   on `android-support`. Today exactly 12 crates pull `jni`
    (`ripdpi-android-telemetry-adapter` is the one L8 crate without it), and
    `android-support` is consumed by L8 crates *only*. Every other crate must
    stay JNI-free — see [§5](#5-crates-that-must-stay-androidjni-free).
@@ -172,6 +171,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `feature-contract-harness` | Cross-layer feature-contract manifests + drift tests | Test harness | `serde`, `serde_json`; dev-deps on registry crates | Test-only; no production consumer | Keep |
 | `local-network-fixture` | In-process network fixture (also builds a fixture binary) | Test fixtures + `bin` | `ripdpi-shadowsocks` | `kind=bin`; dev-only | Keep |
 | `native-soak-support` | Soak-test scaffolding | Test helpers | — | Dev-only | Keep |
+| `quic-mtu-test-util` | QUIC MTU test helpers | Test helpers | — | Dev-only | Keep |
 | `ripdpi-bench` | Criterion benchmark harness | Bench harness | — (dev-deps on runtime crates) | No workspace consumer (expected) | Keep |
 | `ripdpi-cli` | Desktop CLI (`ripdpi`) for proxy runtime dev | `bin` | `ripdpi-config`, `ripdpi-proxy-runtime`, `ripdpi-runtime-api`, `ripdpi-failure-classifier`, `ripdpi-telemetry` | Desktop-only; not in APK | Keep — never make it an Android dep |
 
@@ -181,14 +181,18 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `ripdpi-packets` | Protocol classification + field extraction (TLS/HTTP/QUIC), mutation markers | Traits + registry + types | — (leaf) | Fan-in 21 | Keep — treat as core API |
 | `ripdpi-tls-profiles` | TLS fingerprint / ClientHello profile catalog | Profile constants + types | `ripdpi-packets` | Fan-in 16; pulls `boring` | Keep |
+| `ripdpi-tls-spoof` | Relay-only TLS pre-handshake SNI desynchronization | TLS stream wrapper | `ripdpi-packets`, `ripdpi-tls-profiles` | Security-sensitive handshake path | Keep |
 | `ripdpi-socks5-core` | SOCKS5 / SOCKS4 protocol primitives | Codec types | — (leaf) | Shared by relay + tunnel + dns | Keep |
 | `ripdpi-ipfrag` | IP-level fragmentation (TCP + UDP/QUIC, v4/v6) | Functions + types | — (leaf) | Fan-in 6 | Keep |
 | `ripdpi-collections` | Generic data structures | Container types | — (leaf) | Low | Keep |
 | `ripdpi-geo` | Geo / IP database lookup (maxminddb) | Lookup API | — (leaf) | Used by `ripdpi-proxy-runtime` | Keep |
 | `ripdpi-protocol-detect` | Stream protocol detection | Detector types | `ripdpi-strategy-trait` | No runtime consumer; crate-local regression tests only | Keep only if the standalone detector test surface remains useful |
-| `ripdpi-protocol-loopback` | Loopback protocol test harness | Harness API | — (leaf) | Harness-only crate; no runtime consumer | Keep as the scaffold tracked by `protocol-loopback-harness-design.md` |
+| `ripdpi-protocol-loopback` | TCP and QUIC loopback test harness | Harness API | — (leaf) | Dev-dependency of `ripdpi-hysteria2`; never linked into production | Keep as shared test infrastructure tracked by `protocol-loopback-harness-design.md` |
 | `ripdpi-dns-resolver` | Encrypted DNS client (DoH/DoT/DNSCrypt/DoQ) | Resolver API (async) | `ripdpi-socks5-core` | Fan-in 8; heavy ext deps (`quinn`, `boring`, `reqwest`) | Keep |
+| `ripdpi-ech-dns` | ECH configuration discovery and DNS record handling | Resolver helpers | `ripdpi-dns-resolver` | Feeds owned TLS paths | Keep |
+| `ripdpi-network-time` | Network-derived time abstraction | Time API | — (leaf) | Shared clock seam | Keep |
 | `ripdpi-pcap` | Classic pcap writer/reader + endpoint redaction | Pcap I/O API | — (leaf) | Used by tunnel Android capture/export paths | Keep |
+| `ripdpi-flow-app-attribution` | Maps captured flows to Android application identities | Attribution API | — | Privacy-sensitive metadata boundary | Keep |
 
 ### L2 — contracts / config
 
@@ -234,7 +238,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-proxy-runtime-adapter` | Composition/wiring for the proxy runtime | Builder/wiring API | 10 internal deps | High fan-out — wiring crate | Keep thin; resist absorbing logic |
 | `ripdpi-proxy-runtime-desync-adapter` | Wires desync pipeline into the proxy runtime | Adapter API | **12 internal deps** | Highest fan-out in workspace — god-adapter risk | Watch — keep wiring-only |
 | `ripdpi-runtime-services` | Runtime service composition | Service API | `ripdpi-runtime-{adaptive,api,policy,strategy}`, … | Mid | Keep |
-| `ripdpi-runtime-dns-cache` | Runtime DNS cache | Cache API | — (leaf) | No runtime consumer; crate-local route-aware cache tests only | Prune candidate unless runtime DNS routing adopts it |
+| `ripdpi-runtime-dns-cache` | Runtime DNS cache | Cache API | — (leaf) | Consumed by `ripdpi-ws-bootstrap` | Keep |
 | `ripdpi-tunnel-core` | TUN-to-SOCKS bridge runtime | Runtime entrypoint | `ripdpi-tun-driver`, `ripdpi-tunnel-intercept`, `ripdpi-dns-resolver`, … | Core of `libripdpi-tunnel.so`; `smoltcp` | Keep |
 | `ripdpi-tunnel-intercept` | TUN-egress packet interception + mutation | Intercept API | `ripdpi-strategy-registry`, `ripdpi-runtime-platform`, … | Mid | Keep |
 | `ripdpi-ws-bootstrap` | WebSocket-tunnel bootstrap orchestration | Bootstrap API | `ripdpi-ws-tunnel`, `ripdpi-dns-resolver`, `ripdpi-runtime-platform`, … | Mid | Keep |
@@ -245,6 +249,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `ripdpi-runtime-platform` | Platform port — OS-primitive facade + non-root/root-helper adaptation | Facade modules + types | `ripdpi-capabilities`, `ripdpi-native-protect`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, … | Fan-in 10; platform hub | Keep — keep JNI-free |
 | `ripdpi-native-protect` | `VpnService.protect` socket-protection mechanism (port) | Protect-callback API | — (leaf) | Fan-in 3 | Keep — keep JNI-free |
+| `ripdpi-subprocess-protect` | Socket protection helpers for managed subprocesses | Async socket API | — | Used by subprocess relay paths | Keep — keep JNI-free |
 | `ripdpi-tun-driver` | Raw TUN device socket handling | Driver API | — (leaf) | `tun-rs` | Keep |
 | `ripdpi-io-uring` | io_uring async I/O (Linux) | I/O API | — (leaf) | Linux-only path | Keep |
 | `ripdpi-capabilities` | Device capability model + detection | Capability types | — (leaf) | Feeds privileged-ops + platform | Keep |
@@ -287,6 +292,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-shadowsocks` | Shadowsocks transport | Transport client | — (leaf) | Used by `relay-core`; TCP + UDP capable | Keep |
 | `ripdpi-trojan` | Trojan transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
 | `ripdpi-anytls` | AnyTLS transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
+| `ripdpi-mieru` | Mieru TCP relay transport | Transport client | — | UDP capability intentionally disabled | Keep |
+| `ripdpi-ssh` | SSH `direct-tcpip` relay transport | Transport client | — | TCP-only | Keep |
 | `ripdpi-tor` | Arti-backed Tor relay backend | Transport client | `ripdpi-relay-tls-transports` | Opt-in TCP-only anonymity backend with bridge/PT bootstrap | Keep |
 | `ripdpi-vless` | VLESS Reality / xHTTP transport | Transport client | `ripdpi-relay-mux`, `ripdpi-tls-profiles` | `boring`; used by `xhttp`, `cloudflare-origin` | Keep |
 | `ripdpi-xhttp` | xHTTP transport (VLESS xHTTP, CF Tunnel) | Transport client | `ripdpi-vless`, `ripdpi-tls-profiles` | — | Keep |
@@ -322,7 +329,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 ## 5. Crates that must stay Android/JNI-free
 
 Every crate **except the 13 L8 crates** must not depend on `jni`,
-`android-support`, `android_logger`, or any `ndk-*` crate. That is **102 crates**
+`android-support`, `android_logger`, or any `ndk-*` crate. That is **103 crates**
 — all of L0–L7:
 
 > `feature-contract-harness`, `golden-test-support`, `local-network-fixture`,
@@ -355,7 +362,7 @@ the L8 adapters can implement them. `ripdpi-proxy-runtime`, `ripdpi-tunnel-core`
 `ripdpi-monitor-engine`, and `ripdpi-relay-core` are the runtime cores compiled
 into the `.so` files but must themselves contain no JNI.
 
-This invariant holds in `Cargo.toml` today: only the 11 JNI-bearing L8 crates
+This invariant holds in `Cargo.toml` today: only the 12 JNI-bearing L8 crates
 pull `jni`, and `android-support` is consumed by L8 crates only.
 
 `scripts/ci/check_native_architecture_contracts.py` enforces it: a crate
@@ -372,7 +379,7 @@ and the only `cdylib` roots:
 
 **Artifact roots (`cdylib` → `.so`):**
 `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`,
-`ripdpi-warp-android`.
+`ripdpi-warp-android`, `ripdpi-amneziawg-android`.
 
 **Adapter libraries (linked into the roots above):**
 `android-support`, `ripdpi-android-bridge-support`,
@@ -422,7 +429,7 @@ declared in `[workspace.metadata.ripdpi]`:
 - `feature-contract-harness` is also L0 test infrastructure, but it is a
   workspace member rather than part of the metadata allowlist above.
 
-When reasoning about what ships, exclude these six L0 crates. `local-network-fixture`
+When reasoning about what ships, exclude all seven L0 crates. `local-network-fixture`
 also builds a fixture `bin`, `feature-contract-harness` is test-only, and
 `ripdpi-bench` is a Criterion harness — none is a runtime artifact.
 
@@ -435,13 +442,7 @@ These are current source-state notes for triage. None block the build.
 - **`ripdpi-relay-android` Kotlin counterpart exists** — `RipDpiRelayNativeBindings`
   is in `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and
   `RipDpiRelayNativeLoader` loads `"ripdpi-relay"`.
-- **Library crates with no runtime consumer** — `ripdpi-protocol-detect`,
-  `ripdpi-runtime-dns-cache`, and `ripdpi-diagnostics-parsers` still have no
-  workspace consumer beyond their own crate entry. They remain prune candidates
-  unless a feature or test plan wires them. `ripdpi-protocol-loopback` is also
-  standalone today, but it is the scaffold tracked by
-  `protocol-loopback-harness-design.md`, so it is not part of this
-  prune-candidate set.
+- **Library crates with no runtime consumer** — `ripdpi-protocol-detect` and `ripdpi-diagnostics-parsers` still have no workspace consumer beyond their own crate entry. They remain prune candidates unless a feature or test plan wires them. `ripdpi-runtime-dns-cache` is consumed by `ripdpi-ws-bootstrap`. `ripdpi-protocol-loopback` is test infrastructure consumed by `ripdpi-hysteria2`, so it is not part of this prune-candidate set.
 - **Relay transport crates are wired** — `ripdpi-shadowsocks` and
   `ripdpi-trojan` are consumed by `ripdpi-relay-tls-transports`, which is
   consumed by `ripdpi-relay-core`; they are not prune candidates.

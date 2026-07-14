@@ -11,7 +11,7 @@ pub struct MiscConfig {
     pub udp_recv_buffer_size: u32,
     #[serde(default = "default_udp_copy_buffer_nums")]
     pub udp_copy_buffer_nums: u32,
-    #[serde(default)]
+    #[serde(default = "default_max_session_count")]
     pub max_session_count: u32,
     #[serde(default = "default_connect_timeout")]
     pub connect_timeout: u32,
@@ -27,6 +27,10 @@ pub struct MiscConfig {
     pub limit_nofile: u32,
     #[serde(default)]
     pub filter_injected_resets: bool,
+    #[serde(default = "default_uid_policy_mode")]
+    pub uid_policy_mode: String,
+    #[serde(default)]
+    pub uid_policy_uids: Vec<u32>,
     pub strategy_chain_yaml: Option<String>,
     pub protect_path: Option<String>,
     pub root_helper_socket_path: Option<String>,
@@ -44,7 +48,7 @@ impl Default for MiscConfig {
             tcp_buffer_size: default_tcp_buffer_size(),
             udp_recv_buffer_size: default_udp_recv_buffer_size(),
             udp_copy_buffer_nums: default_udp_copy_buffer_nums(),
-            max_session_count: 0,
+            max_session_count: default_max_session_count(),
             connect_timeout: default_connect_timeout(),
             tcp_read_write_timeout: default_tcp_rw_timeout(),
             udp_read_write_timeout: default_udp_rw_timeout(),
@@ -53,6 +57,8 @@ impl Default for MiscConfig {
             pid_file: None,
             limit_nofile: default_limit_nofile(),
             filter_injected_resets: false,
+            uid_policy_mode: default_uid_policy_mode(),
+            uid_policy_uids: Vec::new(),
             strategy_chain_yaml: None,
             protect_path: None,
             root_helper_socket_path: None,
@@ -77,6 +83,10 @@ fn default_udp_copy_buffer_nums() -> u32 {
     10
 }
 
+fn default_max_session_count() -> u32 {
+    2048
+}
+
 fn default_connect_timeout() -> u32 {
     10000
 }
@@ -95,4 +105,8 @@ fn default_limit_nofile() -> u32 {
 
 fn default_log_level() -> String {
     "warn".to_string()
+}
+
+fn default_uid_policy_mode() -> String {
+    "disarmed".to_string()
 }

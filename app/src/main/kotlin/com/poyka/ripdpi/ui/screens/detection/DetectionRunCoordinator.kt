@@ -8,6 +8,8 @@ import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -115,8 +117,8 @@ internal class DetectionRunCoordinator(
             narrative = null,
             stealthScore = null,
             stealthLabel = null,
-            recommendations = emptyList(),
-            suggestedFixes = emptyList(),
+            recommendations = persistentListOf(),
+            suggestedFixes = persistentListOf(),
             reportText = null,
             debugReportText = null,
             error = null,
@@ -138,8 +140,8 @@ internal class DetectionRunCoordinator(
             narrative = result.verdictNarrative,
             stealthScore = score,
             stealthLabel = label,
-            recommendations = recommendations,
-            suggestedFixes = fixes,
+            recommendations = recommendations.toImmutableList(),
+            suggestedFixes = fixes.toImmutableList(),
             reportText = reportText,
             debugReportText = debugReportText,
         )

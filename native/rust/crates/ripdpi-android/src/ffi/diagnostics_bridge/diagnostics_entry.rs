@@ -18,7 +18,9 @@
 //! (not idempotent); `jniCancelScan` is idempotent (a no-op when idle);
 //! `jniTakeReport` consumes the report (take semantics). Diagnostics adopts no
 //! externally supplied fds and registers no callbacks — the Kotlin side polls.
-//! No entry blocks: `jniStartScan` spawns a native worker and returns. Failures
+//! No entry blocks: `jniStartScan` spawns a native worker and returns, while
+//! `jniDestroy` cancels the scan and hands any unfinished worker to a native
+//! reaper thread. Failures
 //! surface as Java exceptions (`IllegalArgumentException`,
 //! `IllegalStateException`, `RuntimeException`); a contained panic yields the
 //! panic-default sentinel (`0` handle or null `jstring`).

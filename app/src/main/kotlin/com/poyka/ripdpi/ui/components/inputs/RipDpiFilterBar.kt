@@ -22,6 +22,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 data class RipDpiFilter(
     val key: String,
@@ -38,8 +42,8 @@ data class RipDpiFilter(
  */
 @Composable
 fun RipDpiFilterBar(
-    filters: List<RipDpiFilter>,
-    selectedKeys: Set<String>,
+    filters: ImmutableList<RipDpiFilter>,
+    selectedKeys: ImmutableSet<String>,
     onToggle: (String) -> Unit,
     onClearAll: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -72,11 +76,11 @@ fun RipDpiFilterBar(
 @Composable
 private fun RipDpiFilterBarLightPreview() {
     RipDpiComponentPreview {
-        var sel by remember { mutableStateOf(setOf("errors")) }
+        var sel by remember { mutableStateOf(persistentSetOf("errors")) }
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiFilterBar(
                 filters =
-                    listOf(
+                    persistentListOf(
                         RipDpiFilter("all", "All"),
                         RipDpiFilter("errors", "Errors"),
                         RipDpiFilter("warnings", "Warnings"),
@@ -84,8 +88,8 @@ private fun RipDpiFilterBarLightPreview() {
                         RipDpiFilter("debug", "Debug"),
                     ),
                 selectedKeys = sel,
-                onToggle = { k -> sel = if (k in sel) sel - k else sel + k },
-                onClearAll = { sel = emptySet() },
+                onToggle = { k -> sel = if (k in sel) sel.removing(k) else sel.adding(k) },
+                onClearAll = { sel = persistentSetOf() },
             )
             Text(
                 "selected: ${sel.joinToString(", ")}",
@@ -100,8 +104,8 @@ private fun RipDpiFilterBarLightPreview() {
 private fun RipDpiFilterBarDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiFilterBar(
-            filters = listOf(RipDpiFilter("a", "Recent"), RipDpiFilter("b", "Connected")),
-            selectedKeys = setOf("a"),
+            filters = persistentListOf(RipDpiFilter("a", "Recent"), RipDpiFilter("b", "Connected")),
+            selectedKeys = persistentSetOf("a"),
             onToggle = {},
         )
     }

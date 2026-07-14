@@ -27,13 +27,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -98,14 +99,15 @@ fun RipDpiConnectionActuator(
         RipDpiThemeTokens.state.actuator.resolve(
             role = state.status.toThemeRole(),
         )
-    val railColor by animateColorAsState(stateStyle.rail, motion.stateTween(), label = "actuatorRail")
-    val carriageColor by animateColorAsState(stateStyle.carriage, motion.stateTween(), label = "actuatorCarriage")
-    val terminalColor by animateColorAsState(stateStyle.terminal, motion.stateTween(), label = "actuatorTerminal")
-    val baseFraction by animateFloatAsState(
-        targetValue = state.carriageFraction.coerceIn(0f, 1f),
-        animationSpec = motion.stateTween(),
-        label = "actuatorCarriageFraction",
-    )
+    val railColor = animateColorAsState(stateStyle.rail, motion.stateTween(), label = "actuatorRail")
+    val carriageColor = animateColorAsState(stateStyle.carriage, motion.stateTween(), label = "actuatorCarriage")
+    val terminalColor = animateColorAsState(stateStyle.terminal, motion.stateTween(), label = "actuatorTerminal")
+    val baseFraction =
+        animateFloatAsState(
+            targetValue = state.carriageFraction.coerceIn(0f, 1f),
+            animationSpec = motion.stateTween(),
+            label = "actuatorCarriageFraction",
+        )
     val interactionModifier =
         rememberActuatorInteractionModifier(
             state = state,
@@ -130,9 +132,6 @@ fun RipDpiConnectionActuator(
         ) {
             val carriageWidthPx = with(density) { metrics.carriageWidth.toPx() }
             val travelPx = (constraints.maxWidth - carriageWidthPx).coerceAtLeast(0f)
-            val dragFraction = if (travelPx > 0f) interactionModifier.dragDeltaPx / travelPx else 0f
-            val effectiveFraction = (baseFraction + dragFraction).coerceIn(0f, 1f)
-            val carriageOffset = (effectiveFraction * travelPx).roundToInt()
 
             ActuatorRail(
                 modifier = Modifier.align(Alignment.Center),
@@ -145,7 +144,12 @@ fun RipDpiConnectionActuator(
                 modifier =
                     Modifier
                         .align(Alignment.CenterStart)
-                        .offset { IntOffset(x = carriageOffset, y = 0) },
+                        .offset {
+                            val dragFraction =
+                                if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
+                            val effectiveFraction = (baseFraction.value + dragFraction).coerceIn(0f, 1f)
+                            IntOffset(x = (effectiveFraction * travelPx).roundToInt(), y = 0)
+                        },
                 state = state,
                 carriageColor = carriageColor,
                 carriageContentColor = stateStyle.carriageContent,
@@ -162,14 +166,15 @@ private fun rememberActuatorInteractionModifier(
     onDeactivate: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ): ActuatorInteractionModifier {
-    var dragDeltaPx by remember(state.status) { mutableFloatStateOf(0f) }
-    var railWidthPx by remember { mutableFloatStateOf(0f) }
+    val dragDeltaPx = remember(state.status) { mutableFloatStateOf(0f) }
+    val railWidthPx = remember { mutableFloatStateOf(0f) }
     val dragEnabled = state.isActivationAvailable || state.isDeactivationAvailable
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val draggableState =
         rememberDraggableState { delta ->
             val orientedDelta = if (isRtl) -delta else delta
-            dragDeltaPx = (dragDeltaPx + orientedDelta).coerceIn(-railWidthPx, railWidthPx)
+            dragDeltaPx.floatValue =
+                (dragDeltaPx.floatValue + orientedDelta).coerceIn(-railWidthPx.floatValue, railWidthPx.floatValue)
         }
     val modifier =
         Modifier
@@ -191,20 +196,20 @@ private fun rememberActuatorInteractionModifier(
                 onDragStopped = {
                     handleActuatorDragStop(
                         state = state,
-                        dragDeltaPx = dragDeltaPx,
-                        railWidthPx = railWidthPx,
+                        dragDeltaPx = dragDeltaPx.floatValue,
+                        railWidthPx = railWidthPx.floatValue,
                         performHaptic = performHaptic,
                         onActivate = onActivate,
                         onDeactivate = onDeactivate,
                     )
-                    dragDeltaPx = 0f
+                    dragDeltaPx.floatValue = 0f
                 },
             )
 
     return ActuatorInteractionModifier(
         modifier = modifier,
         dragDeltaPx = dragDeltaPx,
-        onRailWidthChanged = { widthPx -> railWidthPx = widthPx },
+        onRailWidthChanged = { widthPx -> railWidthPx.floatValue = widthPx },
     )
 }
 
@@ -262,15 +267,15 @@ private fun handleActuatorDragStop(
 
 private class ActuatorInteractionModifier(
     val modifier: Modifier,
-    val dragDeltaPx: Float,
+    val dragDeltaPx: State<Float>,
     val onRailWidthChanged: (Float) -> Unit,
 )
 
 @Composable
 private fun ActuatorRail(
     state: HomeConnectionActuatorUiState,
-    railColor: Color,
-    terminalColor: Color,
+    railColor: State<Color>,
+    terminalColor: State<Color>,
     stateStyle: com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle,
     modifier: Modifier = Modifier,
 ) {
@@ -285,7 +290,7 @@ private fun ActuatorRail(
                 .fillMaxWidth()
                 .height(metrics.railHeight)
                 .clip(shape)
-                .background(railColor)
+                .drawBehind { drawRect(railColor.value) }
                 .border(RipDpiStroke.Thin, stateStyle.railBorder, shape)
                 .padding(horizontal = spacing.md),
         contentAlignment = Alignment.Center,
@@ -327,7 +332,7 @@ private fun ActuatorRail(
 @Composable
 private fun TerminalSlot(
     label: String,
-    container: Color,
+    container: State<Color>,
     content: Color,
     border: Color,
 ) {
@@ -340,7 +345,7 @@ private fun TerminalSlot(
             Modifier
                 .size(width = metrics.terminalSlotWidth, height = metrics.terminalSlotHeight)
                 .clip(shape)
-                .background(container)
+                .drawBehind { drawRect(container.value) }
                 .border(RipDpiStroke.Thin, border, shape)
                 .padding(horizontal = RipDpiThemeTokens.spacing.sm),
         horizontalArrangement = Arrangement.Center,
@@ -366,7 +371,7 @@ private fun TerminalSlot(
 @Composable
 private fun ActuatorCarriage(
     state: HomeConnectionActuatorUiState,
-    carriageColor: Color,
+    carriageColor: State<Color>,
     carriageContentColor: Color,
     modifier: Modifier = Modifier,
 ) {
@@ -379,7 +384,7 @@ private fun ActuatorCarriage(
             modifier
                 .size(width = metrics.carriageWidth, height = metrics.carriageHeight)
                 .clip(shape)
-                .background(carriageColor)
+                .drawBehind { drawRect(carriageColor.value) }
                 .border(RipDpiStroke.Thin, carriageContentColor.copy(alpha = 0.38f), shape)
                 .padding(horizontal = spacing.md),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -430,24 +435,22 @@ private fun StageSegment(
         RipDpiThemeTokens.state.actuator.resolveStage(
             role = stage.state.toThemeRole(),
         )
-    val pulse =
+    val pulseAlpha =
         if (style.pulsing && !staticMotion) {
             val transition = rememberInfiniteTransition(label = "actuatorStagePulse")
-            val pulseAlpha =
-                transition.animateFloat(
-                    initialValue = 1f,
-                    targetValue =
-                        if (stage.state == HomeConnectionActuatorStageState.Warning) {
-                            WarningStagePulseAlpha
-                        } else {
-                            ActiveStagePulseAlpha
-                        },
-                    animationSpec = infiniteRepeatable(animation = motion.stateTween()),
-                    label = "actuatorStagePulseAlpha",
-                )
-            pulseAlpha.value
+            transition.animateFloat(
+                initialValue = 1f,
+                targetValue =
+                    if (stage.state == HomeConnectionActuatorStageState.Warning) {
+                        WarningStagePulseAlpha
+                    } else {
+                        ActiveStagePulseAlpha
+                    },
+                animationSpec = infiniteRepeatable(animation = motion.stateTween()),
+                label = "actuatorStagePulseAlpha",
+            )
         } else {
-            1f
+            rememberUpdatedState(1f)
         }
     val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
     val stageStateDescription = stringResource(stage.state.stateDescriptionRes())
@@ -458,7 +461,7 @@ private fun StageSegment(
                 .ripDpiTestTag(RipDpiTestTags.homeConnectionStage(stage.stage.stableKey))
                 .height(metrics.pipelineHeight)
                 .clip(shape)
-                .background(style.container.copy(alpha = pulse))
+                .drawBehind { drawRect(style.container.copy(alpha = pulseAlpha.value)) }
                 .stripedFill(enabled = style.striped, color = style.content.copy(alpha = 0.34f))
                 .border(RipDpiStroke.Thin, style.border, shape)
                 .semantics {

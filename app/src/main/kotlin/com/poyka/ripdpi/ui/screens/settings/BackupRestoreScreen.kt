@@ -6,7 +6,6 @@ import android.net.Uri
 import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +15,12 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -27,9 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.backup.BackupExportEffect
@@ -39,7 +42,6 @@ import com.poyka.ripdpi.backup.BackupRestoreUiState
 import com.poyka.ripdpi.backup.BackupRestoreViewModel
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.security.BiometricAuthManager
-import com.poyka.ripdpi.security.BiometricAuthResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -58,13 +60,14 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 private const val BackupMimeType = "application/json"
+private const val EncryptedBackupMimeType = "application/vnd.poyka.ripdpi.backup"
 
 /** Builds the default export filename, e.g. `ripdpi-backup-2026-05-29T14-30.json`. */
 internal fun defaultBackupFilename(now: Date = Date()): String {
@@ -81,6 +84,7 @@ fun BackupRestoreRoute(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var importPassphrase by remember { mutableStateOf("") }
 
     // Export wiring (launcher + effect + variant sheet) lives in its own composable
     // so this route stays small; it returns the click handler for the export button.
@@ -121,8 +125,9 @@ fun BackupRestoreRoute(
         onBack = onBack,
         onExportClick = onExportClick,
         onShareRedactedClick = onShareRedactedClick,
-        // SAF picker restricted to JSON documents.
-        onImportClick = { openDocumentLauncher.launch(arrayOf(BackupMimeType)) },
+        onImportClick = {
+            openDocumentLauncher.launch(arrayOf(BackupMimeType, EncryptedBackupMimeType, "application/octet-stream"))
+        },
         onResetClick = { viewModel.setResetDialogVisible(true) },
         modifier = modifier,
     )
@@ -135,6 +140,24 @@ fun BackupRestoreRoute(
             onInputChange = viewModel::onResetConfirmationInputChange,
             onConfirm = viewModel::confirmReset,
             onDismiss = { viewModel.setResetDialogVisible(false) },
+        )
+    }
+
+    if (uiState.encryptedImportPending) {
+        BackupPassphraseDialog(
+            title = stringResource(R.string.backup_encryption_unlock_title),
+            message = stringResource(R.string.backup_encryption_unlock_body),
+            passphrase = importPassphrase,
+            onPassphraseChange = { importPassphrase = it },
+            confirmLabel = stringResource(R.string.backup_encryption_unlock_action),
+            onConfirm = {
+                viewModel.unlockEncryptedImport(importPassphrase.toCharArray())
+                importPassphrase = ""
+            },
+            onDismiss = {
+                importPassphrase = ""
+                viewModel.cancelEncryptedImport()
+            },
         )
     }
 
@@ -169,72 +192,56 @@ private fun rememberBackupExportController(
     var showVariantPicker by rememberSaveable { mutableStateOf(false) }
     // The variant chosen in the picker, carried across the SAF document-create round-trip.
     var pendingVariant by rememberSaveable { mutableStateOf<BackupVariant?>(null) }
+    var pendingPassphrase by remember { mutableStateOf<String?>(null) }
+    var showPassphraseDialog by remember { mutableStateOf(false) }
     // The Uri written by the last successful export, used for the SHARE follow-up.
     var lastWrittenUri by remember { mutableStateOf<Uri?>(null) }
 
-    val biometricTitle = stringResource(R.string.backup_export_biometric_title)
-    val biometricSubtitle = stringResource(R.string.backup_export_biometric_subtitle)
-    val biometricCancel = stringResource(R.string.backup_export_biometric_cancel)
-    val biometricFailedMessage = stringResource(R.string.backup_export_biometric_failed)
-    val biometricUnavailableMessage = stringResource(R.string.backup_export_biometric_unavailable)
-
-    val createDocumentLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupMimeType)) { uri ->
-            val variant = pendingVariant
-            if (uri == null || variant == null) {
-                pendingVariant = null
-                return@rememberLauncherForActivityResult
-            }
+    val onDocumentCreated: (Uri?) -> Unit = { uri ->
+        val variant = pendingVariant
+        if (uri == null || variant == null) {
+            pendingPassphrase = null
+            pendingVariant = null
+        } else {
             lastWrittenUri = uri
             viewModel.export(
                 variant = variant,
                 openOutput = { context.contentResolver.openOutputStream(uri, "wt") },
                 // Delete the partial document so a half-written backup is never left behind.
                 onWriteFailed = { deletePartialDocument(context, uri) },
+                passphrase = pendingPassphrase?.toCharArray(),
             )
+            pendingPassphrase = null
             pendingVariant = null
         }
+    }
+
+    val createShareDocumentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupMimeType), onDocumentCreated)
+    val createEncryptedDocumentLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(EncryptedBackupMimeType),
+            onDocumentCreated,
+        )
 
     val launchPicker: (BackupVariant) -> Unit = { variant ->
         pendingVariant = variant
-        createDocumentLauncher.launch(defaultBackupFilename())
-    }
-
-    val onVariantChosen: (BackupVariant) -> Unit = { variant ->
-        showVariantPicker = false
-        if (variant == BackupVariant.FULL) {
-            // FULL carries credentials, so it is gated by biometric auth. Every
-            // non-success outcome must give the user feedback rather than silently
-            // doing nothing (the previous behaviour, which left FULL export dead on
-            // devices with no enrolled biometric).
-            if (biometricAuthManager.canAuthenticate(context) != BiometricManager.BIOMETRIC_SUCCESS) {
-                coroutineScope.launch { snackbarHostState.showSnackbar(biometricUnavailableMessage) }
-            } else {
-                coroutineScope.launch {
-                    when (
-                        biometricAuthManager.authenticate(
-                            context as FragmentActivity,
-                            biometricTitle,
-                            biometricSubtitle,
-                            biometricCancel,
-                        )
-                    ) {
-                        is BiometricAuthResult.Success -> launchPicker(BackupVariant.FULL)
-
-                        // User backed out deliberately: no export, no noise.
-                        is BiometricAuthResult.Cancelled -> Unit
-
-                        // Error / Failed: tell the user the gate did not pass.
-                        is BiometricAuthResult.Error,
-                        is BiometricAuthResult.Failed,
-                        -> snackbarHostState.showSnackbar(biometricFailedMessage)
-                    }
-                }
-            }
-        } else {
-            launchPicker(variant)
+        when (variant) {
+            BackupVariant.SHARE -> createShareDocumentLauncher.launch(defaultBackupFilename())
+            BackupVariant.FULL -> createEncryptedDocumentLauncher.launch(defaultEncryptedBackupFilename())
         }
     }
+
+    val onVariantChosen =
+        rememberBackupVariantChosen(
+            context = context,
+            coroutineScope = coroutineScope,
+            biometricAuthManager = biometricAuthManager,
+            snackbarHostState = snackbarHostState,
+            launchPicker = launchPicker,
+            onFullAuthenticated = { showPassphraseDialog = true },
+            onPickerDismissed = { showVariantPicker = false },
+        )
 
     BackupExportEffectHandler(
         flow = viewModel.effects,
@@ -243,12 +250,18 @@ private fun rememberBackupExportController(
         onShare = { lastWrittenUri?.let { uri -> shareBackup(context, uri) } },
     )
 
-    if (showVariantPicker) {
-        BackupVariantPickerSheet(
-            onDismiss = { showVariantPicker = false },
-            onVariantChosen = onVariantChosen,
-        )
-    }
+    BackupExportOverlays(
+        showVariantPicker = showVariantPicker,
+        showPassphraseDialog = showPassphraseDialog,
+        onVariantPickerDismiss = { showVariantPicker = false },
+        onVariantChosen = onVariantChosen,
+        onPassphraseDismiss = { showPassphraseDialog = false },
+        onPassphraseConfirmed = { confirmedPassphrase ->
+            pendingPassphrase = confirmedPassphrase
+            showPassphraseDialog = false
+            launchPicker(BackupVariant.FULL)
+        },
+    )
 
     return { showVariantPicker = true }
 }
@@ -271,21 +284,18 @@ private fun rememberBackupShareController(
     snackbarHostState: SnackbarHostState,
 ): () -> Unit {
     val context = LocalContext.current
-    // The temp cache file backing the in-flight share; deleted on the activity result.
-    var pendingShareFile by remember { mutableStateOf<java.io.File?>(null) }
     var showReminder by rememberSaveable { mutableStateOf(false) }
 
     val shareLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             // Regardless of result (shared, cancelled, or dismissed) the redacted temp
             // file has served its purpose — delete it.
-            deleteShareTempFile(pendingShareFile)
-            pendingShareFile = null
+            viewModel.shareTempFiles.clear()
         }
 
     val generateAndShare: () -> Unit = {
         val shareFile = newShareTempFile(context)
-        pendingShareFile = shareFile
+        viewModel.shareTempFiles.replace(shareFile)
         viewModel.prepareShareBackup {
             runCatching { java.io.FileOutputStream(shareFile) }.getOrNull()
         }
@@ -298,7 +308,7 @@ private fun rememberBackupShareController(
         flow = viewModel.shareEffects,
         snackbarHostState = snackbarHostState,
         onReady = {
-            val file = pendingShareFile
+            val file = viewModel.shareTempFiles.current()
             if (file == null) {
                 return@BackupShareEffectHandler
             }
@@ -312,13 +322,11 @@ private fun rememberBackupShareController(
                 )
             if (!launched) {
                 // No share target / launch failure: clean up the temp file now.
-                deleteShareTempFile(file)
-                pendingShareFile = null
+                viewModel.shareTempFiles.clear()
             }
         },
         onFailed = {
-            deleteShareTempFile(pendingShareFile)
-            pendingShareFile = null
+            viewModel.shareTempFiles.clear()
         },
     )
 
@@ -343,52 +351,82 @@ private fun rememberBackupShareController(
 }
 
 @Composable
+internal fun <T> BackupEffectCollector(
+    flow: Flow<T>,
+    onEffect: suspend (T) -> Unit,
+) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnEffect by rememberUpdatedState(onEffect)
+    LaunchedEffect(flow, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            flow.collect { effect -> currentOnEffect(effect) }
+        }
+    }
+}
+
+@Composable
 private fun BackupRestoreEffectHandler(
-    flow: SharedFlow<BackupRestoreEffect>,
+    flow: Flow<BackupRestoreEffect>,
     snackbarHostState: SnackbarHostState,
     onRestart: () -> Unit,
 ) {
     val restoredMessage = stringResource(R.string.backup_restore_success)
     val malformedMessage = stringResource(R.string.backup_restore_malformed)
+    val integrityFailureMessage = stringResource(R.string.backup_restore_integrity_failure)
+    val decryptionFailedMessage = stringResource(R.string.backup_encryption_unlock_failed)
     val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
     val unsupportedVersionTemplate = stringResource(R.string.backup_restore_unsupported_version)
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        flow.collect { effect ->
-            when (effect) {
-                BackupRestoreEffect.Restored -> {
-                    // Surface the message, then restart. The snackbar is best-effort —
-                    // the rebirth may pre-empt it, which is acceptable.
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = restoredMessage,
-                        tone = RipDpiSnackbarTone.Info,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
-                    )
-                    onRestart()
-                }
+    BackupEffectCollector(flow) { effect ->
+        when (effect) {
+            BackupRestoreEffect.Restored -> {
+                // Surface the message, then restart. The snackbar is best-effort —
+                // the rebirth may pre-empt it, which is acceptable.
+                snackbarHostState.showRipDpiSnackbar(
+                    message = restoredMessage,
+                    tone = RipDpiSnackbarTone.Info,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+                onRestart()
+            }
 
-                is BackupRestoreEffect.UnsupportedVersion -> {
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = String.format(unsupportedVersionTemplate, effect.found, effect.supported),
-                        tone = RipDpiSnackbarTone.Error,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
-                    )
-                }
+            is BackupRestoreEffect.UnsupportedVersion -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = String.format(unsupportedVersionTemplate, effect.found, effect.supported),
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+            }
 
-                BackupRestoreEffect.Malformed -> {
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = malformedMessage,
-                        tone = RipDpiSnackbarTone.Error,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
-                    )
-                }
+            BackupRestoreEffect.Malformed -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = malformedMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+            }
 
-                BackupRestoreEffect.NothingSelected -> {
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = nothingSelectedMessage,
-                        tone = RipDpiSnackbarTone.Warning,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
-                    )
-                }
+            BackupRestoreEffect.IntegrityFailure -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = integrityFailureMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+            }
+
+            BackupRestoreEffect.DecryptionFailed -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = decryptionFailedMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+            }
+
+            BackupRestoreEffect.NothingSelected -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = nothingSelectedMessage,
+                    tone = RipDpiSnackbarTone.Warning,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
             }
         }
     }
@@ -396,15 +434,13 @@ private fun BackupRestoreEffectHandler(
 
 @Composable
 private fun BackupResetEffectHandler(
-    flow: SharedFlow<com.poyka.ripdpi.backup.BackupResetEffect>,
+    flow: Flow<com.poyka.ripdpi.backup.BackupResetEffect>,
     onRestart: () -> Unit,
 ) {
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        flow.collect { effect ->
-            when (effect) {
-                com.poyka.ripdpi.backup.BackupResetEffect.Wiped -> {
-                    onRestart()
-                }
+    BackupEffectCollector(flow) { effect ->
+        when (effect) {
+            com.poyka.ripdpi.backup.BackupResetEffect.Wiped -> {
+                onRestart()
             }
         }
     }
@@ -518,12 +554,6 @@ private fun newShareTempFile(context: android.content.Context): java.io.File {
     return java.io.File(dir, defaultBackupFilename())
 }
 
-/** Deletes the redacted-share temp file once the share intent has returned. */
-private fun deleteShareTempFile(file: java.io.File?) {
-    if (file == null) return
-    runCatching { file.delete() }
-}
-
 /**
  * Launches the share sheet for [file] via [ShareCompat] backed by the backup
  * FileProvider. Uses `StartActivityForResult` so the caller can clean up the temp
@@ -562,27 +592,25 @@ private fun launchShareIntent(
 
 @Composable
 private fun BackupShareEffectHandler(
-    flow: SharedFlow<com.poyka.ripdpi.backup.BackupShareEffect>,
+    flow: Flow<com.poyka.ripdpi.backup.BackupShareEffect>,
     snackbarHostState: SnackbarHostState,
     onReady: () -> Unit,
     onFailed: () -> Unit,
 ) {
     val failedMessage = stringResource(R.string.backup_export_failed)
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        flow.collect { effect ->
-            when (effect) {
-                com.poyka.ripdpi.backup.BackupShareEffect.Ready -> {
-                    onReady()
-                }
+    BackupEffectCollector(flow) { effect ->
+        when (effect) {
+            com.poyka.ripdpi.backup.BackupShareEffect.Ready -> {
+                onReady()
+            }
 
-                com.poyka.ripdpi.backup.BackupShareEffect.Failed -> {
-                    onFailed()
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = failedMessage,
-                        tone = RipDpiSnackbarTone.Error,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
-                    )
-                }
+            com.poyka.ripdpi.backup.BackupShareEffect.Failed -> {
+                onFailed()
+                snackbarHostState.showRipDpiSnackbar(
+                    message = failedMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
             }
         }
     }
@@ -617,7 +645,7 @@ private fun BackupShareReminderDialog(
 
 @Composable
 private fun BackupExportEffectHandler(
-    flow: SharedFlow<BackupExportEffect>,
+    flow: Flow<BackupExportEffect>,
     snackbarHostState: SnackbarHostState,
     context: Context,
     onShare: () -> Unit,
@@ -625,41 +653,39 @@ private fun BackupExportEffectHandler(
     val exportSuccessTemplate = stringResource(R.string.backup_export_success)
     val shareActionLabel = stringResource(R.string.backup_export_share_action)
     val failedMessage = stringResource(R.string.backup_export_failed)
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        flow.collect { effect ->
-            when (effect) {
-                is BackupExportEffect.Success -> {
-                    val message =
-                        String.format(exportSuccessTemplate, Formatter.formatShortFileSize(context, effect.byteCount))
-                    if (effect.offerShare) {
-                        val result =
-                            snackbarHostState.showRipDpiSnackbar(
-                                message = message,
-                                tone = RipDpiSnackbarTone.Info,
-                                actionLabel = shareActionLabel,
-                                testTag = RipDpiTestTags.BackupExportSnackbar,
-                            )
-                        if (result == SnackbarResult.ActionPerformed) onShare()
-                    } else {
+    BackupEffectCollector(flow) { effect ->
+        when (effect) {
+            is BackupExportEffect.Success -> {
+                val message =
+                    String.format(exportSuccessTemplate, Formatter.formatShortFileSize(context, effect.byteCount))
+                if (effect.offerShare) {
+                    val result =
                         snackbarHostState.showRipDpiSnackbar(
                             message = message,
                             tone = RipDpiSnackbarTone.Info,
+                            actionLabel = shareActionLabel,
                             testTag = RipDpiTestTags.BackupExportSnackbar,
                         )
-                    }
-                }
-
-                BackupExportEffect.WriteFailed -> {
+                    if (result == SnackbarResult.ActionPerformed) onShare()
+                } else {
                     snackbarHostState.showRipDpiSnackbar(
-                        message = failedMessage,
-                        tone = RipDpiSnackbarTone.Error,
+                        message = message,
+                        tone = RipDpiSnackbarTone.Info,
                         testTag = RipDpiTestTags.BackupExportSnackbar,
                     )
                 }
+            }
 
-                BackupExportEffect.Cancelled -> {
-                    // No feedback for a cancelled picker; the snackbar stays silent.
-                }
+            BackupExportEffect.WriteFailed -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = failedMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+            }
+
+            BackupExportEffect.Cancelled -> {
+                // No feedback for a cancelled picker; the snackbar stays silent.
             }
         }
     }
@@ -871,6 +897,13 @@ private fun BackupImportPreviewSheet(
                     tone = WarningBannerTone.Restricted,
                 )
             }
+            if (summary.containsCredentials && !preview.encrypted) {
+                WarningBanner(
+                    title = stringResource(R.string.backup_variant_full_warning_title),
+                    message = stringResource(R.string.backup_import_legacy_full_warning),
+                    tone = WarningBannerTone.Restricted,
+                )
+            }
             // Profiles + groups category.
             RipDpiSwitch(
                 checked = selection.profilesAndGroups,
@@ -919,7 +952,7 @@ private fun BackupImportPreviewSheet(
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun BackupVariantPickerSheet(
+internal fun BackupVariantPickerSheet(
     onDismiss: () -> Unit,
     onVariantChosen: (BackupVariant) -> Unit,
 ) {

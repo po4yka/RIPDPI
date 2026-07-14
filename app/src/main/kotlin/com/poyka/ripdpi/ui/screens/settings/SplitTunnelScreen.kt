@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 
 /** Immutable render state for [SplitTunnelScreen]. */
 internal data class SplitTunnelScreenState(
@@ -170,7 +171,7 @@ private fun SplitTunnelEditorCard(
             )
             RipDpiSegmentedButton(
                 options =
-                    listOf(
+                    persistentListOf(
                         stringResource(R.string.split_tunnel_mode_off),
                         stringResource(R.string.split_tunnel_mode_exclude),
                         stringResource(R.string.split_tunnel_mode_include),

@@ -27,6 +27,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
 internal const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
@@ -144,7 +145,7 @@ data class DiagnosticsDohBootstrapUiModel(
 @Stable
 data class DiagnosticsDnsIntegrityToolUiModel(
     val state: DiagnosticsDnsIntegrityState = DiagnosticsDnsIntegrityState.Idle,
-    val summary: String = "Compare direct UDP/53 answers against DoH controls for the bundled DPI domains.",
+    val summary: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsDnsIntegrityDomainUiModel> = persistentListOf(),
     val doqRows: ImmutableList<DiagnosticsDnsIntegrityDoqUiModel> = persistentListOf(),
@@ -164,7 +165,7 @@ data class DiagnosticsDnsAvailabilityServerUiModel(
 @Stable
 data class DiagnosticsDnsAvailabilityToolUiModel(
     val state: DiagnosticsDnsAvailabilityState = DiagnosticsDnsAvailabilityState.Idle,
-    val summary: String = "Survey public UDP and DoH resolvers for reachability and latency.",
+    val summary: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsDnsAvailabilityServerUiModel> = persistentListOf(),
     val errorMessage: String? = null,
@@ -184,7 +185,7 @@ data class DiagnosticsDomainReachabilityDomainUiModel(
 @Stable
 data class DiagnosticsDomainReachabilityToolUiModel(
     val state: DiagnosticsDomainReachabilityState = DiagnosticsDomainReachabilityState.Idle,
-    val summary: String = "Probe TLS 1.3, TLS 1.2, and HTTP reachability for bundled DPI domains.",
+    val summary: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsDomainReachabilityDomainUiModel> = persistentListOf(),
     val errorMessage: String? = null,
@@ -219,9 +220,9 @@ data class DiagnosticsRknSelfInfoUiModel(
 @Stable
 data class DiagnosticsRknBlockDiagnosisToolUiModel(
     val state: DiagnosticsRknBlockDiagnosisState = DiagnosticsRknBlockDiagnosisState.Idle,
-    val headline: String = "RKN block diagnosis",
-    val confidenceNote: String = "Compare control and test target groups before claiming a block.",
-    val summary: String = "Run the bundled control and blacklist probes with aggregate verdict safeguards.",
+    val headline: String = "",
+    val confidenceNote: String = "",
+    val summary: String = "",
     val fetchSelfInfoEnabled: Boolean = false,
     val selfInfoPrivacyOverridden: Boolean = false,
     val selfInfo: DiagnosticsRknSelfInfoUiModel? = null,
@@ -244,7 +245,7 @@ data class DiagnosticsCompressionCodecUiModel(
 data class DiagnosticsCompressionProbeToolUiModel(
     val state: DiagnosticsCompressionProbeState = DiagnosticsCompressionProbeState.Idle,
     val targetUrl: String? = null,
-    val summary: String = "Probe HTTP gzip, deflate, Brotli, and optional Zstd support for a bundled target.",
+    val summary: String = "",
     val includeZstd: Boolean = false,
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsCompressionCodecUiModel> = persistentListOf(),
@@ -265,7 +266,7 @@ data class DiagnosticsTcp16AsnUiModel(
 @Stable
 data class DiagnosticsTcp16FatHeaderToolUiModel(
     val state: DiagnosticsTcp16FatHeaderState = DiagnosticsTcp16FatHeaderState.Idle,
-    val summary: String = "Probe TCP16 fat-header behavior across bundled network targets.",
+    val summary: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsTcp16AsnUiModel> = persistentListOf(),
     val detectedResults: ImmutableList<DiagnosticsTcp16DetectedTargetUiModel> = persistentListOf(),
@@ -299,7 +300,7 @@ data class DiagnosticsAllowlistSniAsnUiModel(
 @Stable
 data class DiagnosticsAllowlistSniToolUiModel(
     val state: DiagnosticsAllowlistSniState = DiagnosticsAllowlistSniState.Idle,
-    val summary: String = "Run SNI compatibility checks for TCP16-flagged ASNs.",
+    val summary: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsAllowlistSniAsnUiModel> = persistentListOf(),
     val errorMessage: String? = null,
@@ -343,22 +344,22 @@ data class DiagnosticsFieldUiModel(
 @Immutable
 data class DiagnosticsFieldGroupUiModel(
     val header: String,
-    val fields: List<DiagnosticsFieldUiModel>,
+    val fields: ImmutableList<DiagnosticsFieldUiModel>,
 )
 
 @Stable
 data class DiagnosticsNetworkSnapshotUiModel(
     val title: String,
     val subtitle: String,
-    val fieldGroups: List<DiagnosticsFieldGroupUiModel>,
+    val fieldGroups: ImmutableList<DiagnosticsFieldGroupUiModel>,
 ) {
-    val fields: List<DiagnosticsFieldUiModel> get() = fieldGroups.flatMap { it.fields }
+    val fields: ImmutableList<DiagnosticsFieldUiModel> get() = fieldGroups.flatMap { it.fields }.toImmutableList()
 }
 
 @Stable
 data class DiagnosticsContextGroupUiModel(
     val title: String,
-    val fields: List<DiagnosticsFieldUiModel>,
+    val fields: ImmutableList<DiagnosticsFieldUiModel>,
 )
 
 @Immutable
@@ -372,7 +373,7 @@ data class DiagnosticsProfileOptionUiModel(
     val regionTag: String? = null,
     val executionPolicy: DiagnosticsExecutionPolicyUiModel = DiagnosticsExecutionPolicyUiModel(),
     val manualOnly: Boolean = false,
-    val packRefs: List<String> = emptyList(),
+    val packRefs: ImmutableList<String> = persistentListOf(),
     val policyAccess: DiagnosticsJurisdictionProfileAccess = DiagnosticsJurisdictionProfileAccess.ALLOWED,
     val requiresExplicitConsent: Boolean = false,
 )
@@ -506,14 +507,14 @@ data class DiagnosticsProgressUiModel(
     val isFullAudit: Boolean,
     val elapsedLabel: String,
     val etaLabel: String?,
-    val phaseSteps: List<PhaseStepUiModel>,
+    val phaseSteps: ImmutableList<PhaseStepUiModel>,
     val currentProbeLabel: String,
     val strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel? = null,
     val dnsBaselineStatus: DnsBaselineStatus? = null,
     val dpiFailureClass: DpiFailureClass? = null,
     val networkContext: ScanNetworkContextUiModel? = null,
-    val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
-    val completedProbes: List<CompletedProbeUiModel> = emptyList(),
+    val candidateTimeline: ImmutableList<StrategyCandidateTimelineEntryUiModel> = persistentListOf(),
+    val completedProbes: ImmutableList<CompletedProbeUiModel> = persistentListOf(),
 )
 
 @Stable
@@ -524,13 +525,13 @@ data class DiagnosticsProbeResultUiModel(
     val outcome: String,
     val probeRetryCount: Int? = null,
     val tone: DiagnosticsTone,
-    val details: List<DiagnosticsFieldUiModel>,
+    val details: ImmutableList<DiagnosticsFieldUiModel>,
 )
 
 @Stable
 data class DiagnosticsProbeGroupUiModel(
     val title: String,
-    val items: List<DiagnosticsProbeResultUiModel>,
+    val items: ImmutableList<DiagnosticsProbeResultUiModel>,
 )
 
 @Immutable
@@ -540,7 +541,7 @@ data class DiagnosticsDiagnosisUiModel(
     val severity: String,
     val target: String? = null,
     val tone: DiagnosticsTone,
-    val evidence: List<String> = emptyList(),
+    val evidence: ImmutableList<String> = persistentListOf(),
     val recommendation: String? = null,
 )
 
@@ -557,7 +558,7 @@ data class DiagnosticsEventUiModel(
 @Immutable
 data class DiagnosticsSparklineUiModel(
     val label: String,
-    val values: List<Float>,
+    val values: ImmutableList<Float>,
     val tone: DiagnosticsTone = DiagnosticsTone.Info,
 )
 
@@ -621,13 +622,13 @@ data class SensitiveProfileConsentDialogState(
 @Stable
 data class DiagnosticsSessionDetailUiModel(
     val session: DiagnosticsSessionRowUiModel,
-    val diagnoses: List<DiagnosticsDiagnosisUiModel> = emptyList(),
-    val reportMetadata: List<DiagnosticsFieldUiModel> = emptyList(),
-    val capabilityEvidence: List<DiagnosticsCapabilityEvidenceUiModel> = emptyList(),
-    val probeGroups: List<DiagnosticsProbeGroupUiModel>,
-    val snapshots: List<DiagnosticsNetworkSnapshotUiModel>,
-    val events: List<DiagnosticsEventUiModel>,
-    val contextGroups: List<DiagnosticsContextGroupUiModel>,
+    val diagnoses: ImmutableList<DiagnosticsDiagnosisUiModel> = persistentListOf(),
+    val reportMetadata: ImmutableList<DiagnosticsFieldUiModel> = persistentListOf(),
+    val capabilityEvidence: ImmutableList<DiagnosticsCapabilityEvidenceUiModel> = persistentListOf(),
+    val probeGroups: ImmutableList<DiagnosticsProbeGroupUiModel>,
+    val snapshots: ImmutableList<DiagnosticsNetworkSnapshotUiModel>,
+    val events: ImmutableList<DiagnosticsEventUiModel>,
+    val contextGroups: ImmutableList<DiagnosticsContextGroupUiModel>,
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val hasSensitiveDetails: Boolean,
     val sensitiveDetailsVisible: Boolean,
@@ -637,7 +638,7 @@ data class DiagnosticsSessionDetailUiModel(
 data class DiagnosticsCapabilityEvidenceUiModel(
     val authority: String,
     val summary: String,
-    val fields: List<DiagnosticsFieldUiModel>,
+    val fields: ImmutableList<DiagnosticsFieldUiModel>,
 )
 
 @Stable
@@ -697,8 +698,8 @@ data class DiagnosticsStrategyProbeFamilyUiModel(
 data class DiagnosticsStrategyProbeRecommendationUiModel(
     val headline: String,
     val rationale: String,
-    val fields: List<DiagnosticsFieldUiModel>,
-    val signature: List<DiagnosticsFieldUiModel>,
+    val fields: ImmutableList<DiagnosticsFieldUiModel>,
+    val signature: ImmutableList<DiagnosticsFieldUiModel>,
 )
 
 @Immutable
@@ -733,7 +734,7 @@ data class DiagnosticsStrategyProbeReportUiModel(
 data class DiagnosticsResolverRecommendationUiModel(
     val headline: String,
     val rationale: String,
-    val fields: List<DiagnosticsFieldUiModel>,
+    val fields: ImmutableList<DiagnosticsFieldUiModel>,
     val appliedTemporarily: Boolean,
     val persistable: Boolean,
 )
@@ -757,8 +758,8 @@ data class DiagnosticsScanWorkflowPresentationUiModel(
 @Stable
 data class DiagnosticsOverviewUiModel(
     val health: DiagnosticsHealth = DiagnosticsHealth.Idle,
-    val headline: String = "Idle",
-    val body: String = "No diagnostics activity yet.",
+    val headline: String = "",
+    val body: String = "",
     val activeProfile: DiagnosticsProfileOptionUiModel? = null,
     val recentAutomaticProbe: DiagnosticsAutomaticProbeCalloutUiModel? = null,
     val latestSnapshot: DiagnosticsNetworkSnapshotUiModel? = null,
@@ -787,14 +788,14 @@ data class DiagnosticsRememberedNetworkUiModel(
 
 @Stable
 data class DiagnosticsScanUiModel(
-    val profiles: List<DiagnosticsProfileOptionUiModel> = emptyList(),
+    val profiles: ImmutableList<DiagnosticsProfileOptionUiModel> = persistentListOf(),
     val selectedProfileId: String? = null,
     val selectedProfile: DiagnosticsProfileOptionUiModel? = null,
     val activePathMode: com.poyka.ripdpi.diagnostics.ScanPathMode = com.poyka.ripdpi.diagnostics.ScanPathMode.RAW_PATH,
     val activeProgress: DiagnosticsProgressUiModel? = null,
     val latestSession: DiagnosticsSessionRowUiModel? = null,
-    val diagnoses: List<DiagnosticsDiagnosisUiModel> = emptyList(),
-    val latestResults: List<DiagnosticsProbeResultUiModel> = emptyList(),
+    val diagnoses: ImmutableList<DiagnosticsDiagnosisUiModel> = persistentListOf(),
+    val latestResults: ImmutableList<DiagnosticsProbeResultUiModel> = persistentListOf(),
     val selectedProfileScopeLabel: String? = null,
     val runRawEnabled: Boolean = true,
     val runInPathEnabled: Boolean = true,
@@ -815,9 +816,9 @@ data class DiagnosticsScanUiModel(
 @Stable
 data class DiagnosticsLiveUiModel(
     val health: DiagnosticsHealth = DiagnosticsHealth.Idle,
-    val statusLabel: String = "Idle",
+    val statusLabel: String = "",
     val statusTone: DiagnosticsTone = DiagnosticsTone.Neutral,
-    val freshnessLabel: String = "No live telemetry",
+    val freshnessLabel: String = "",
     /**
      * Wall-clock timestamp (epoch ms) of the snapshot behind [freshnessLabel], or
      * null when no live telemetry exists yet. The live panel uses it to compute a
@@ -825,12 +826,12 @@ data class DiagnosticsLiveUiModel(
      * the formatted [freshnessLabel] because staleness needs the raw age.
      */
     val currentTelemetryTimestampMs: Long? = null,
-    val headline: String = "Live monitor standing by",
-    val body: String = "Continuous monitor is waiting for an active RIPDPI session.",
+    val headline: String = "",
+    val body: String = "",
     val networkLabel: String? = null,
     val modeLabel: String? = null,
-    val signalLabel: String = "No transfer observed yet",
-    val eventSummaryLabel: String = "Runtime feed is quiet",
+    val signalLabel: String = "",
+    val eventSummaryLabel: String = "",
     val highlights: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val trends: ImmutableList<DiagnosticsSparklineUiModel> = persistentListOf(),
@@ -906,8 +907,8 @@ data class DiagnosticsEventsUiModel(
 @Stable
 data class DiagnosticsShareUiModel(
     val targetSessionId: String? = null,
-    val previewTitle: String = "RIPDPI diagnostics",
-    val previewBody: String = "Select a session or use the latest diagnostics state.",
+    val previewTitle: String = "",
+    val previewBody: String = "",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val latestArchiveFileName: String? = null,
     val archiveStateMessage: String? = null,

@@ -8,6 +8,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,6 +50,11 @@ interface AwgCredentialStore {
 
     /** Removes the secrets for [profileId]; a no-op when none exist. */
     suspend fun clear(profileId: String)
+
+    /** Removes every standalone-AWG secret, including orphaned entries. */
+    suspend fun clearAll() {
+        error("Bulk clear is not implemented")
+    }
 }
 
 /**
@@ -77,14 +84,20 @@ class KeystoreAwgCredentialStore
             profileId: String,
             secrets: AwgSecrets,
         ) {
-            blobStore.putString(
-                prefKey(profileId),
-                json.encodeToString(AwgSecrets.serializer(), secrets),
-            )
+            withContext(Dispatchers.IO) {
+                blobStore.putString(
+                    prefKey(profileId),
+                    json.encodeToString(AwgSecrets.serializer(), secrets),
+                )
+            }
         }
 
         override suspend fun clear(profileId: String) {
-            blobStore.remove(prefKey(profileId))
+            withContext(Dispatchers.IO) { blobStore.remove(prefKey(profileId)) }
+        }
+
+        override suspend fun clearAll() {
+            withContext(Dispatchers.IO) { blobStore.clear() }
         }
 
         private fun prefKey(profileId: String): String = "$CredentialsEntryPrefix$profileId"

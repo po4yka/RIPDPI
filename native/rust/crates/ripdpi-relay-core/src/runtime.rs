@@ -17,7 +17,7 @@ use crate::bootstrap::bootstrap_relay_endpoints;
 use crate::config::ResolvedRelayRuntimeConfig;
 use crate::runtime::events::{emit_runtime_ready, emit_runtime_stopped};
 use crate::runtime::listener::run_accept_loop;
-use crate::runtime::state::RuntimeState;
+use crate::runtime::state::{RuntimeState, SessionDrainOutcome};
 use crate::runtime_validation::validate_runtime_config;
 use crate::socks::SocksTelemetry;
 use crate::telemetry::{RelayTelemetry, TcpConnectObservation};
@@ -128,9 +128,20 @@ impl RelayRuntime {
         // cancelled the shutdown token. Drain in-flight sessions within a
         // bounded window so shutdown is deterministic and no session leaks its
         // upstream connection until the runtime is dropped.
-        let drained = self.state.drain_sessions(SESSION_DRAIN_GRACE).await;
-        if !drained {
-            self.state.record_error("relay session drain exceeded grace window".to_string());
+        match self.state.drain_sessions(SESSION_DRAIN_GRACE).await {
+            SessionDrainOutcome::Graceful => {}
+            SessionDrainOutcome::Aborted => {
+                self.state
+                    .record_error("relay session drain exceeded grace window; remaining tasks aborted".to_string());
+            }
+            SessionDrainOutcome::AbortTimedOut => {
+                self.state.set_running(false);
+                emit_runtime_stopped();
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "relay session tasks did not terminate after forced abort",
+                ));
+            }
         }
 
         self.state.set_running(false);

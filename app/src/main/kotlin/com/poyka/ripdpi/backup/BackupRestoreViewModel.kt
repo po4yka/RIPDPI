@@ -6,13 +6,12 @@ import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupVariant
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import java.io.InputStream
 import java.io.OutputStream
@@ -36,27 +35,19 @@ class BackupRestoreViewModel
             )
         val uiState: StateFlow<BackupRestoreUiState> = _uiState.asStateFlow()
 
-        private val _effects =
-            MutableSharedFlow<BackupExportEffect>(
-                extraBufferCapacity = 1,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
-        val effects: SharedFlow<BackupExportEffect> = _effects.asSharedFlow()
+        private val exportEffectChannel = Channel<BackupExportEffect>(Channel.BUFFERED)
+        val effects: Flow<BackupExportEffect> = exportEffectChannel.receiveAsFlow()
 
-        private val _restoreEffects =
-            MutableSharedFlow<BackupRestoreEffect>(
-                extraBufferCapacity = 1,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
-        val restoreEffects: SharedFlow<BackupRestoreEffect> = _restoreEffects.asSharedFlow()
+        private val restoreEffectChannel = Channel<BackupRestoreEffect>(Channel.BUFFERED)
+        val restoreEffects: Flow<BackupRestoreEffect> = restoreEffectChannel.receiveAsFlow()
 
-        private val _shareEffects =
-            MutableSharedFlow<BackupShareEffect>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-        val shareEffects: SharedFlow<BackupShareEffect> = _shareEffects.asSharedFlow()
+        private val shareEffectChannel = Channel<BackupShareEffect>(Channel.BUFFERED)
+        val shareEffects: Flow<BackupShareEffect> = shareEffectChannel.receiveAsFlow()
 
-        private val _resetEffects =
-            MutableSharedFlow<BackupResetEffect>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-        val resetEffects: SharedFlow<BackupResetEffect> = _resetEffects.asSharedFlow()
+        private val resetEffectChannel = Channel<BackupResetEffect>(Channel.BUFFERED)
+        val resetEffects: Flow<BackupResetEffect> = resetEffectChannel.receiveAsFlow()
+
+        internal val shareTempFiles = BackupShareTempFileOwner()
 
         private val exportCoordinator =
             BackupExportCoordinator(
@@ -66,8 +57,8 @@ class BackupRestoreViewModel
                 exportDisabledByPolicy = { _uiState.value.exportDisabledByPolicy },
                 currentState = _uiState::value,
                 updateState = _uiState::update,
-                emitExportEffect = _effects::tryEmit,
-                emitShareEffect = _shareEffects::tryEmit,
+                emitExportEffect = { exportEffectChannel.trySend(it) },
+                emitShareEffect = { shareEffectChannel.trySend(it) },
             )
 
         private val importCoordinator =
@@ -76,7 +67,7 @@ class BackupRestoreViewModel
                 restoreUseCase = restoreUseCase,
                 currentState = _uiState::value,
                 updateState = _uiState::update,
-                emitRestoreEffect = _restoreEffects::tryEmit,
+                emitRestoreEffect = { restoreEffectChannel.trySend(it) },
             )
 
         private val resetCoordinator =
@@ -85,7 +76,7 @@ class BackupRestoreViewModel
                 resetAllSettingsUseCase = resetAllSettingsUseCase,
                 currentState = _uiState::value,
                 updateState = _uiState::update,
-                emitResetEffect = _resetEffects::tryEmit,
+                emitResetEffect = { resetEffectChannel.trySend(it) },
             )
 
         /** Re-evaluates the MDM suppression knob (called on screen resume). */
@@ -105,7 +96,8 @@ class BackupRestoreViewModel
             variant: BackupVariant,
             openOutput: () -> OutputStream?,
             onWriteFailed: () -> Unit,
-        ) = exportCoordinator.export(variant, openOutput, onWriteFailed)
+            passphrase: CharArray? = null,
+        ) = exportCoordinator.export(variant, openOutput, onWriteFailed, passphrase)
 
         /**
          * Writes a FRESH [BackupVariant.SHARE] backup into the stream produced by
@@ -139,6 +131,10 @@ class BackupRestoreViewModel
          * stream is fully read and closed here.
          */
         fun openImport(openInput: () -> InputStream?) = importCoordinator.openImport(openInput)
+
+        fun unlockEncryptedImport(passphrase: CharArray) = importCoordinator.unlockEncryptedImport(passphrase)
+
+        fun cancelEncryptedImport() = importCoordinator.cancelEncryptedImport()
 
         /** Toggles one restore category in the active preview. */
         fun setProfilesAndGroupsSelected(selected: Boolean) = importCoordinator.setProfilesAndGroupsSelected(selected)
@@ -177,4 +173,9 @@ class BackupRestoreViewModel
          * the process. A mismatched token is a no-op.
          */
         fun confirmReset() = resetCoordinator.confirmReset()
+
+        override fun onCleared() {
+            shareTempFiles.close()
+            super.onCleared()
+        }
     }

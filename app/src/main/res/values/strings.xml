@@ -3481,6 +3481,7 @@ Source: %2$s</string>
     <string name="backup_restore_success">Backup restored</string>
     <string name="backup_restore_unsupported_version">This backup (version %1$d) is newer than this app supports (version %2$d)</string>
     <string name="backup_restore_malformed">This file is not a valid backup</string>
+    <string name="backup_restore_integrity_failure">Restore could not guarantee data integrity. Restart the app and review your profiles.</string>
     <string name="backup_restore_nothing_selected">Select at least one category to restore</string>
     <string name="backup_import_preview_title">Review backup</string>
     <string name="backup_import_preview_schema">Backup version %1$d, created by app %2$s</string>
@@ -4244,4 +4245,21 @@ Source: %2$s</string>
     <string name="subscription_home_expired_body">%1$s can no longer refresh. Existing profiles remain available.</string>
     <string name="subscription_home_invalidated_title">Subscription unavailable</string>
     <string name="subscription_home_invalidated_body">%1$s expired or was revoked. Existing profiles remain available.</string>
+    <string name="diagnostics_sparkline_chart_description">%1$s trend, %2$d samples</string>
+    <string name="diagnostics_sparkline_selected_state">Sample %1$d of %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">Latest value: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">Previous sample</string>
+    <string name="diagnostics_sparkline_next_sample">Next sample</string>
+    <string name="diagnostics_sparkline_clear_selection">Clear selection</string>
+    <string name="backup_encryption_create_title">Encrypt full backup</string>
+    <string name="backup_encryption_create_body">Create a passphrase with at least 8 characters. You will need it to restore this backup on any device.</string>
+    <string name="backup_encryption_create_action">Encrypt and save</string>
+    <string name="backup_encryption_unlock_title">Unlock encrypted backup</string>
+    <string name="backup_encryption_unlock_body">Enter the passphrase that was used when this full backup was created.</string>
+    <string name="backup_encryption_unlock_action">Unlock</string>
+    <string name="backup_encryption_unlock_failed">The passphrase is incorrect or the backup was modified.</string>
+    <string name="backup_encryption_passphrase">Backup passphrase</string>
+    <string name="backup_encryption_confirm_passphrase">Confirm passphrase</string>
+    <string name="backup_encryption_passphrase_mismatch">Passphrases do not match</string>
+    <string name="backup_import_legacy_full_warning">This legacy full backup is not encrypted. Restore it only from a trusted source, then export a new encrypted backup.</string>
 </resources>

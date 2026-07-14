@@ -177,7 +177,8 @@ class XrayImportParserTest {
         val xhttpHost = "carrier.secret.example"
         val echoedLink =
             "vless://$uuid@edge.secret.example:443" +
-                "?type=xhttp&security=reality&pbk=$pbk&sni=decoy.secret.example&sid=deadbeef&path=$xhttpPath&host=$xhttpHost#x"
+                "?type=xhttp&security=reality&pbk=$pbk&sni=decoy.secret.example" +
+                "&sid=deadbeef&path=$xhttpPath&host=$xhttpHost#x"
         val parser =
             XrayImportParser(
                 renderer =

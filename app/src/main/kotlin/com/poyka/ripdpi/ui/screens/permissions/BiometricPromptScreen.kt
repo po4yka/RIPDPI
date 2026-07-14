@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.permissions
 
-import android.view.WindowManager
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -42,6 +40,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -65,7 +64,7 @@ fun BiometricPromptRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    SecureWindowEffect(context)
+    SecureWindowEffect()
     val biometricAuthManager = remember { BiometricAuthManager() }
     val coroutineScope = rememberCoroutineScope()
     val pinErrorText = stringResource(R.string.biometric_prompt_pin_error)
@@ -144,18 +143,6 @@ fun BiometricPromptRoute(
             }
         },
     )
-}
-
-@Composable
-private fun SecureWindowEffect(context: android.content.Context) {
-    if (System.getProperty("ripdpi.staticMotion").toBoolean()) {
-        return
-    }
-    val window = (context as? android.app.Activity)?.window
-    DisposableEffect(Unit) {
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-    }
 }
 
 private fun launchBiometricCallback(

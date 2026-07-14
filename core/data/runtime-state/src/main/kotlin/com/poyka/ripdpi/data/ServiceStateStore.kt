@@ -6,8 +6,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -15,11 +16,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import javax.inject.Singleton
+
+internal const val WidgetTelemetryUpdateIntervalMillis = 30_000L
 
 sealed class ServiceEvent {
     data class Failed(
@@ -130,6 +137,7 @@ interface ServiceStateStore {
     fun updateTelemetry(snapshot: ServiceTelemetrySnapshot)
 }
 
+@OptIn(FlowPreview::class)
 @Singleton
 class DefaultServiceStateStore
     @Inject
@@ -149,13 +157,8 @@ class DefaultServiceStateStore
         private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
         override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
 
-        // DROP_OLDEST: the newest event must always be delivered; older queued events are superseded.
-        private val _events =
-            MutableSharedFlow<ServiceEvent>(
-                replay = 0,
-                extraBufferCapacity = 64,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
+        private val eventIngress = Channel<ServiceEvent>(capacity = Channel.UNLIMITED)
+        private val _events = MutableSharedFlow<ServiceEvent>()
         override val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
 
         private val _telemetry = MutableStateFlow(ServiceTelemetrySnapshot())
@@ -163,26 +166,25 @@ class DefaultServiceStateStore
 
         init {
             applicationScope.launch {
-                combine(_status, _telemetry) { statusPair, telemetry ->
-                    val startedAt = telemetry.serviceStartedAt
-                    val uptimeMs =
-                        if (statusPair.first == AppStatus.Running && startedAt != null) {
-                            System.currentTimeMillis() - startedAt
-                        } else {
-                            0L
-                        }
-                    WidgetSnapshot(
-                        status = statusPair.first,
-                        mode = statusPair.second,
-                        uptimeMs = uptimeMs,
-                        bytesUp = telemetry.tunnelStats.txBytes,
-                        bytesDown = telemetry.tunnelStats.rxBytes,
-                        restartCount = telemetry.restartCount,
-                    )
-                }.conflate().collect { widgetSnapshot ->
-                    widgetStateRepository.write(widgetSnapshot)
-                    widgetNotifier.pushUpdate()
+                for (event in eventIngress) {
+                    _events.subscriptionCount.first { subscriberCount -> subscriberCount > 0 }
+                    _events.emit(event)
                 }
+            }
+            applicationScope.launch {
+                val snapshots = combine(_status, _telemetry, ::toWidgetSnapshot)
+                merge(
+                    snapshots
+                        .distinctUntilChangedBy(WidgetSnapshot::controlState)
+                        .map { WidgetPublication(it, WidgetUpdateTarget.All) },
+                    snapshots
+                        .sample(WidgetTelemetryUpdateIntervalMillis)
+                        .map { WidgetPublication(it, WidgetUpdateTarget.Telemetry) },
+                ).distinctUntilChangedBy(WidgetPublication::snapshot)
+                    .collect { publication ->
+                        widgetStateRepository.write(publication.snapshot)
+                        widgetNotifier.pushUpdate(publication.target)
+                    }
             }
         }
 
@@ -261,7 +263,9 @@ class DefaultServiceStateStore
                         updatedAt = now,
                     )
             }
-            _events.tryEmit(ServiceEvent.Failed(sender, reason))
+            check(eventIngress.trySend(ServiceEvent.Failed(sender, reason)).isSuccess) {
+                "Service event ingress is unavailable"
+            }
         }
 
         override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
@@ -277,6 +281,45 @@ class DefaultServiceStateStore
             }
         }
     }
+
+private data class WidgetPublication(
+    val snapshot: WidgetSnapshot,
+    val target: WidgetUpdateTarget,
+)
+
+private data class WidgetControlState(
+    val status: AppStatus,
+    val mode: Mode?,
+    val restartCount: Int,
+)
+
+private fun WidgetSnapshot.controlState(): WidgetControlState =
+    WidgetControlState(
+        status = status,
+        mode = mode,
+        restartCount = restartCount,
+    )
+
+private fun toWidgetSnapshot(
+    statusPair: Pair<AppStatus, Mode>,
+    telemetry: ServiceTelemetrySnapshot,
+): WidgetSnapshot {
+    val startedAt = telemetry.serviceStartedAt
+    val uptimeMs =
+        if (statusPair.first == AppStatus.Running && startedAt != null) {
+            System.currentTimeMillis() - startedAt
+        } else {
+            0L
+        }
+    return WidgetSnapshot(
+        status = statusPair.first,
+        mode = statusPair.second,
+        uptimeMs = uptimeMs,
+        bytesUp = telemetry.tunnelStats.txBytes,
+        bytesDown = telemetry.tunnelStats.rxBytes,
+        restartCount = telemetry.restartCount,
+    )
+}
 
 private object NoopWidgetStateRepository : WidgetStateRepository {
     private val snapshot = MutableStateFlow(WidgetSnapshot())

@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.services
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -16,31 +17,38 @@ internal open class CloudflarePublishReadinessPoller
     @Inject
     constructor() {
         open suspend fun waitForOriginReady(state: RunningCloudflarePublish) {
-            val deadline = System.currentTimeMillis() + CloudflarePublishReadyTimeoutMs
-            while (System.currentTimeMillis() < deadline) {
-                if (!isCloudflareProcessAlive(state.originProcess.process)) {
-                    throw IOException(state.lastError ?: "Cloudflare origin helper exited before readiness")
+            var ready = false
+            withTimeoutOrNull<Unit>(CloudflarePublishReadyTimeoutMs) {
+                while (!ready) {
+                    if (!isCloudflareProcessAlive(state.originProcess.process)) {
+                        throw IOException(state.lastError ?: "Cloudflare origin helper exited before readiness")
+                    }
+                    if (state.originReadySignal.isCompleted) {
+                        state.originListenerAddress = state.originReadySignal.await()
+                        ready = true
+                    } else {
+                        delay(CloudflarePublishReadyPollIntervalMs)
+                    }
                 }
-                if (state.originReadySignal.isCompleted) {
-                    state.originListenerAddress = state.originReadySignal.await()
-                    return
-                }
-                delay(CloudflarePublishReadyPollIntervalMs)
             }
+            if (ready) return
             throw IOException("Cloudflare origin helper readiness timed out")
         }
 
         open suspend fun waitForCloudflaredReady(state: RunningCloudflarePublish) {
-            val deadline = System.currentTimeMillis() + CloudflarePublishReadyTimeoutMs
-            while (System.currentTimeMillis() < deadline) {
-                if (!isCloudflareProcessAlive(state.cloudflaredProcess.process)) {
-                    throw IOException(state.lastError ?: "cloudflared exited before readiness")
+            var ready = false
+            withTimeoutOrNull<Unit>(CloudflarePublishReadyTimeoutMs) {
+                while (!ready) {
+                    if (!isCloudflareProcessAlive(state.cloudflaredProcess.process)) {
+                        throw IOException(state.lastError ?: "cloudflared exited before readiness")
+                    }
+                    ready = cloudflaredReady(state.metricsAddress)
+                    if (!ready) {
+                        delay(CloudflarePublishReadyPollIntervalMs)
+                    }
                 }
-                if (cloudflaredReady(state.metricsAddress)) {
-                    return
-                }
-                delay(CloudflarePublishReadyPollIntervalMs)
             }
+            if (ready) return
             throw IOException("cloudflared readiness timed out")
         }
 

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupImporter
+import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.backup.BackupSerializer
 import com.poyka.ripdpi.data.backup.BackupVariant
 import org.junit.Assert.assertEquals
@@ -69,6 +70,30 @@ class BackupSerializerTest {
         val restored = BackupImporter.import(out.toString("UTF-8"))
         assertEquals(original.appVersion, restored.appVersion)
         assertEquals(original.profiles, restored.profiles)
+    }
+
+    @Test
+    fun `FULL private profile credentials survive serialization`() {
+        val privateData =
+            BackupPrivateDataV1(
+                relayProfiles = listOf(RelayProfileRecord(id = "relay-1")),
+                relayCredentials = listOf(RelayCredentialRecord(profileId = "relay-1", vlessUuid = "secret")),
+            )
+        val original =
+            BackupExporter.export(
+                variant = BackupVariant.FULL,
+                profiles = emptyList(),
+                groups = emptyList(),
+                rules = emptyList(),
+                settings = emptyMap(),
+                createdAtEpochMillis = 0L,
+                appVersion = "1.0.0",
+                privateData = privateData,
+            )
+
+        val restored = BackupImporter.import(BackupSerializer.encodeToString(original))
+
+        assertEquals(privateData, restored.privateData)
     }
 
     @Test

@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 enum class RipDpiKbdSize {
     /** Inline within prose; no shadow, 14dp min width. */
@@ -110,7 +112,7 @@ fun RipDpiKbd(
 /** Composed shortcut: keycap atoms joined by a muted "+" separator. */
 @Composable
 fun RipDpiKbdShortcut(
-    keys: List<String>,
+    keys: ImmutableList<String>,
     modifier: Modifier = Modifier,
     size: RipDpiKbdSize = RipDpiKbdSize.Standard,
 ) {
@@ -136,9 +138,9 @@ fun RipDpiKbdShortcut(
 private fun RipDpiKbdShortcutLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            RipDpiKbdShortcut(keys = listOf("⌘", "K"), size = RipDpiKbdSize.Small)
-            RipDpiKbdShortcut(keys = listOf("⌘", "K"))
-            RipDpiKbdShortcut(keys = listOf("⌘", "⇧", "D"), size = RipDpiKbdSize.Large)
+            RipDpiKbdShortcut(keys = persistentListOf("⌘", "K"), size = RipDpiKbdSize.Small)
+            RipDpiKbdShortcut(keys = persistentListOf("⌘", "K"))
+            RipDpiKbdShortcut(keys = persistentListOf("⌘", "⇧", "D"), size = RipDpiKbdSize.Large)
             RipDpiKbd(label = "esc")
         }
     }
@@ -149,8 +151,8 @@ private fun RipDpiKbdShortcutLightPreview() {
 private fun RipDpiKbdShortcutDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            RipDpiKbdShortcut(keys = listOf("⌘", "K"))
-            RipDpiKbdShortcut(keys = listOf("⌘", "⌥", "→"), size = RipDpiKbdSize.Large)
+            RipDpiKbdShortcut(keys = persistentListOf("⌘", "K"))
+            RipDpiKbdShortcut(keys = persistentListOf("⌘", "⌥", "→"), size = RipDpiKbdSize.Large)
         }
     }
 }

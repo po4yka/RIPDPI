@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -33,24 +35,20 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
  */
 @Composable
 fun SubscriptionImportConfirmRoute(
-    url: String,
-    name: String,
-    bootstrap: Boolean,
+    importToken: String,
     onBack: () -> Unit,
     onImported: () -> Unit,
+    onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SubscriptionImportConfirmViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel, url, name, bootstrap) {
-        viewModel.setRequest(url = url, name = name, bootstrap = bootstrap)
+    val latestOnUnavailable by rememberUpdatedState(onUnavailable)
+    LaunchedEffect(viewModel, importToken) {
+        if (!viewModel.claimRequest(importToken)) latestOnUnavailable()
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.imported) {
-        if (uiState.imported) {
-            onImported()
-        }
-    }
+    LifecycleEventEffect(viewModel.importedEvents) { onImported() }
 
     SubscriptionImportConfirmScreen(
         uiState = uiState,
@@ -81,6 +79,13 @@ internal fun SubscriptionImportConfirmScreen(
                 tone = WarningBannerTone.Info,
             )
         }
+        if (uiState.importFailed) {
+            WarningBanner(
+                title = stringResource(R.string.strategy_config_import_failed_title),
+                message = stringResource(R.string.import_profile_confirm_error),
+                tone = WarningBannerTone.Error,
+            )
+        }
         RipDpiCard {
             RipDpiPanelHeader(
                 title =
@@ -90,14 +95,9 @@ internal fun SubscriptionImportConfirmScreen(
             )
         }
         RipDpiButton(
-            text =
-                if (uiState.imported) {
-                    stringResource(R.string.import_confirm_done_action)
-                } else {
-                    stringResource(R.string.import_confirm_add_action)
-                },
+            text = stringResource(R.string.import_confirm_add_action),
             onClick = onConfirm,
-            enabled = !uiState.importing && !uiState.imported && uiState.url.isNotBlank(),
+            enabled = !uiState.importing && uiState.url.isNotBlank(),
             loading = uiState.importing,
             modifier = Modifier.fillMaxWidth(),
         )

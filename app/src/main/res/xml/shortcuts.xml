@@ -23,17 +23,6 @@
             android:data="ripdpi://diagnostics" />
     </shortcut>
     <shortcut
-        android:shortcutId="stop_vpn"
-        android:enabled="false"
-        android:icon="@drawable/ic_stop_outline"
-        android:shortcutShortLabel="@string/shortcut_stop_vpn_short"
-        android:shortcutLongLabel="@string/shortcut_stop_vpn"
-        android:shortcutDisabledMessage="@string/shortcut_stop_vpn_disabled">
-        <intent
-            android:action="android.intent.action.VIEW"
-            android:data="ripdpi://disconnect" />
-    </shortcut>
-    <shortcut
         android:shortcutId="open_config"
         android:enabled="true"
         android:icon="@drawable/ic_tune_outline"

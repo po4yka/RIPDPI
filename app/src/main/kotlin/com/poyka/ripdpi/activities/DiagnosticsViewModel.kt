@@ -11,14 +11,13 @@ import com.poyka.ripdpi.data.xray.XrayProviderProbeReport
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -55,7 +54,7 @@ class DiagnosticsViewModel
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
 
-        val effects: SharedFlow<DiagnosticsEffect> = _effects.asSharedFlow()
+        val effects = _effects.bufferForUiLifecycle(viewModelScope)
         private val dpiToolsController =
             DiagnosticsDpiToolsController(
                 scope = viewModelScope,

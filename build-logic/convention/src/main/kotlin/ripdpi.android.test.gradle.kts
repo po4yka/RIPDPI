@@ -8,5 +8,5 @@ plugins {
 }
 
 extensions.configure<TestExtension> {
-    configureRipDpiManagedDevices()
+    configureRipDpiManagedDevices(includeCiDevices = false)
 }

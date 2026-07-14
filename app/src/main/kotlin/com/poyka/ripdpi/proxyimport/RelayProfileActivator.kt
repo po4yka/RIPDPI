@@ -2,6 +2,7 @@ package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -45,10 +46,14 @@ import javax.inject.Singleton
 class RelayProfileActivator
     @Inject
     constructor(
-        private val relayProfileStore: RelayProfileStore,
-        private val relayCredentialStore: RelayCredentialStore,
-        private val settingsRepository: AppSettingsRepository,
+        private val profileMutations: ProfileMutationCoordinator,
     ) {
+        constructor(
+            relayProfileStore: RelayProfileStore,
+            relayCredentialStore: RelayCredentialStore,
+            settingsRepository: AppSettingsRepository,
+        ) : this(DirectRelayProfileMutationCoordinator(relayProfileStore, relayCredentialStore, settingsRepository))
+
         suspend fun activate(
             profile: ProxyProfile,
             profileId: String = DefaultRelayProfileId,
@@ -82,7 +87,7 @@ class RelayProfileActivator
                 } else {
                     RelayVlessTransportRealityTcp
                 }
-            relayProfileStore.save(
+            val relayProfile =
                 RelayProfileRecord(
                     id = profileId,
                     kind = relayKind,
@@ -103,52 +108,21 @@ class RelayProfileActivator
                     xhttpPath = profile.vlessXhttpPath(),
                     xhttpHost = profile.vlessXhttpHost(),
                     xhttpMode = profile.vlessXhttpMode(),
+                    mieruProtocol = if (profile is ProxyProfile.Mieru) profile.protocol else "tcp",
+                    mieruMultiplexing = if (profile is ProxyProfile.Mieru) profile.multiplexing else "middle",
+                    mieruMtu = if (profile is ProxyProfile.Mieru) profile.mtu else 1400,
                     sshAuthType = if (profile is ProxyProfile.Ssh) profile.authType else RelaySshAuthTypePassword,
                     sshHostKeyFingerprint =
                         if (profile is ProxyProfile.Ssh) profile.hostKeyFingerprint.orEmpty() else "",
                     sshStrictHostKey = profile is ProxyProfile.Ssh && profile.strictHostKey,
                     udpEnabled = udpEnabled,
-                ),
+                )
+            profileMutations.upsertRelay(
+                profile = relayProfile,
+                credentials = relayCredentials(profileId, profile),
+                enabled = true,
+                select = true,
             )
-            relayCredentialStore.save(relayCredentials(profileId, profile))
-            settingsRepository.update {
-                setRelayEnabled(true)
-                setRelayKind(relayKind)
-                setRelayProfileId(profileId)
-                setRelayServer(endpoint.server)
-                setRelayServerPort(endpoint.serverPort)
-                setRelayServerName(endpoint.serverName)
-                setRelayUdpEnabled(udpEnabled)
-                when (profile) {
-                    is ProxyProfile.VlessReality -> {
-                        setRelayRealityPublicKey(profile.realityPublicKey)
-                        setRelayRealityShortId(profile.realityShortId)
-                        setRelayVlessTransport(vlessTransport)
-                        setRelayXhttpPath(profile.xhttpPath.orEmpty())
-                        setRelayXhttpHost(profile.xhttpHost.orEmpty())
-                    }
-
-                    is ProxyProfile.Vless -> {
-                        setRelayVlessTransport(vlessTransport)
-                        setRelayXhttpPath(profile.xhttpPath.orEmpty())
-                        setRelayXhttpHost(profile.xhttpHost.orEmpty())
-                    }
-
-                    is ProxyProfile.Ssh -> {
-                        setRelaySshAuthType(profile.authType)
-                        setRelaySshHostKeyFingerprint(profile.hostKeyFingerprint.orEmpty())
-                        setRelaySshStrictHostKey(profile.strictHostKey)
-                    }
-
-                    is ProxyProfile.Mieru -> {
-                        setRelayMieruProtocol(profile.protocol)
-                        setRelayMieruMultiplexing(profile.multiplexing)
-                        setRelayMieruMtu(profile.mtu)
-                    }
-
-                    else -> {}
-                }
-            }
         }
 
         /** Relay-kind id for a relay-activatable [profile], or `null` for non-relay kinds. */
@@ -328,3 +302,78 @@ private data class RelayActivationEndpoint(
     val serverPort: Int,
     val serverName: String,
 )
+
+private class DirectRelayProfileMutationCoordinator(
+    private val profiles: RelayProfileStore,
+    private val credentials: RelayCredentialStore,
+    private val settings: AppSettingsRepository,
+) : ProfileMutationCoordinator {
+    override suspend fun recover() = Unit
+
+    override suspend fun runReset(block: suspend () -> Unit) = block()
+
+    override suspend fun upsertRelay(
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        select: Boolean,
+        settingsAfterImage: com.poyka.ripdpi.proto.AppSettings?,
+    ) {
+        profiles.save(profile)
+        this.credentials.save(credentials)
+        if (settingsAfterImage != null) {
+            settings.replace(settingsAfterImage)
+        } else if (select) {
+            settings.update {
+                setRelayEnabled(enabled)
+                setRelayKind(profile.kind)
+                setRelayProfileId(profile.id)
+                setRelayServer(profile.server)
+                setRelayServerPort(profile.serverPort)
+                setRelayServerName(profile.serverName)
+                setRelayRealityPublicKey(profile.realityPublicKey)
+                setRelayRealityShortId(profile.realityShortId)
+                setRelayVlessTransport(profile.vlessTransport)
+                setRelayXhttpPath(profile.xhttpPath)
+                setRelayXhttpHost(profile.xhttpHost)
+                setRelayXhttpMode(profile.xhttpMode)
+                setRelayUdpEnabled(profile.udpEnabled)
+                setRelayMieruProtocol(profile.mieruProtocol)
+                setRelayMieruMultiplexing(profile.mieruMultiplexing)
+                setRelayMieruMtu(profile.mieruMtu)
+                setRelaySshAuthType(profile.sshAuthType)
+                setRelaySshHostKeyFingerprint(profile.sshHostKeyFingerprint)
+                setRelaySshStrictHostKey(profile.sshStrictHostKey)
+            }
+        }
+    }
+
+    override suspend fun upsertAwg(
+        profile: com.poyka.ripdpi.data.awg.AwgProfileEntity,
+        secrets: com.poyka.ripdpi.data.awg.AwgSecrets,
+    ) = unsupported()
+
+    override suspend fun deleteAwg(profileId: String) = unsupported()
+
+    override suspend fun upsertWarp(
+        profile: com.poyka.ripdpi.data.WarpProfile,
+        credentials: com.poyka.ripdpi.data.WarpCredentials,
+        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
+        activate: Boolean,
+        scannerMode: String,
+    ) = unsupported()
+
+    override suspend fun deleteWarp(
+        profileId: String,
+        clearActive: Boolean,
+    ) = unsupported()
+
+    override suspend fun deactivateWarp(profileId: String) = unsupported()
+
+    override suspend fun replacePrivateBackup(
+        data: com.poyka.ripdpi.data.backup.BackupPrivateDataV1,
+        rollbackData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
+    ) = unsupported()
+
+    private fun unsupported(): Nothing = error("Only Relay mutations are supported")
+}

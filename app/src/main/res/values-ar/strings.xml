@@ -3196,6 +3196,7 @@ fakeddisorder endhost</string>
     <string name="backup_restore_success">تمت استعادة النسخة الاحتياطية</string>
     <string name="backup_restore_unsupported_version">هذه النسخة الاحتياطية (الإصدار %1$d) أحدث مما يدعمه هذا التطبيق (الإصدار %2$d)</string>
     <string name="backup_restore_malformed">هذا الملف ليس نسخة احتياطية صالحة</string>
+    <string name="backup_restore_integrity_failure">تعذّر ضمان سلامة البيانات بعد الاستعادة. أعد تشغيل التطبيق وراجع ملفاتك الشخصية.</string>
     <string name="backup_restore_nothing_selected">حدد فئة واحدة على الأقل للاستعادة</string>
     <string name="backup_import_preview_title">مراجعة النسخة الاحتياطية</string>
     <string name="backup_import_preview_schema">نسخة احتياطية الإصدار %1$d، أنشأها التطبيق %2$s</string>
@@ -4146,4 +4147,21 @@ fakeddisorder endhost</string>
     <string name="subscription_home_expired_body">لم يعد بالإمكان تحديث %1$s. تبقى الملفات الحالية متاحة.</string>
     <string name="subscription_home_invalidated_title">الاشتراك غير متاح</string>
     <string name="subscription_home_invalidated_body">انتهى %1$s أو أُلغي. تبقى الملفات الحالية متاحة.</string>
+    <string name="diagnostics_sparkline_chart_description">اتجاه %1$s، %2$d عينة</string>
+    <string name="diagnostics_sparkline_selected_state">العينة %1$d من %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">أحدث قيمة: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">العينة السابقة</string>
+    <string name="diagnostics_sparkline_next_sample">العينة التالية</string>
+    <string name="diagnostics_sparkline_clear_selection">مسح التحديد</string>
+    <string name="backup_encryption_create_title">تشفير النسخة الاحتياطية الكاملة</string>
+    <string name="backup_encryption_create_body">أنشئ عبارة مرور من 8 أحرف على الأقل. ستحتاج إليها لاستعادة هذه النسخة على أي جهاز.</string>
+    <string name="backup_encryption_create_action">تشفير وحفظ</string>
+    <string name="backup_encryption_unlock_title">فتح النسخة الاحتياطية المشفرة</string>
+    <string name="backup_encryption_unlock_body">أدخل عبارة المرور المستخدمة عند إنشاء هذه النسخة الاحتياطية الكاملة.</string>
+    <string name="backup_encryption_unlock_action">فتح</string>
+    <string name="backup_encryption_unlock_failed">عبارة المرور غير صحيحة أو تم تعديل النسخة الاحتياطية.</string>
+    <string name="backup_encryption_passphrase">عبارة مرور النسخة الاحتياطية</string>
+    <string name="backup_encryption_confirm_passphrase">تأكيد عبارة المرور</string>
+    <string name="backup_encryption_passphrase_mismatch">عبارتا المرور غير متطابقتين</string>
+    <string name="backup_import_legacy_full_warning">هذه النسخة الاحتياطية الكاملة القديمة غير مشفرة. استعدها فقط من مصدر موثوق، ثم صدّر نسخة مشفرة جديدة.</string>
 </resources>

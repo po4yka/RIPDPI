@@ -15,6 +15,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 private const val diffUnifiedLineNumberWidth = 4
 private const val diffSideBySideLineNumberWidth = 3
@@ -57,7 +59,7 @@ private fun lineStyle(kind: RipDpiDiffKind): DiffLineStyle {
  */
 @Composable
 fun RipDpiDiffViewer(
-    lines: List<RipDpiDiffLine>,
+    lines: ImmutableList<RipDpiDiffLine>,
     modifier: Modifier = Modifier,
     layout: RipDpiDiffLayout = RipDpiDiffLayout.Unified,
 ) {
@@ -197,7 +199,7 @@ private fun RipDpiDiffViewerLightPreview() {
     RipDpiComponentPreview {
         RipDpiDiffViewer(
             lines =
-                listOf(
+                persistentListOf(
                     RipDpiDiffLine(RipDpiDiffKind.Header, "@@ -1,5 +1,6 @@"),
                     RipDpiDiffLine(
                         RipDpiDiffKind.Unchanged,
@@ -220,7 +222,7 @@ private fun RipDpiDiffViewerDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiDiffViewer(
             lines =
-                listOf(
+                persistentListOf(
                     RipDpiDiffLine(RipDpiDiffKind.Removed, "old.example.com", oldLineNumber = 1, newLineNumber = null),
                     RipDpiDiffLine(RipDpiDiffKind.Added, "new.example.com", oldLineNumber = null, newLineNumber = 1),
                 ),
@@ -234,7 +236,7 @@ private fun RipDpiDiffViewerSideBySidePreview() {
     RipDpiComponentPreview {
         RipDpiDiffViewer(
             lines =
-                listOf(
+                persistentListOf(
                     RipDpiDiffLine(RipDpiDiffKind.Header, "@@ -1,5 +1,6 @@"),
                     RipDpiDiffLine(
                         RipDpiDiffKind.Unchanged,

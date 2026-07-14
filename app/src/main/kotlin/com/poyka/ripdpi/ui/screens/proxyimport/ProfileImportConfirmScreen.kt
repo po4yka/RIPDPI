@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -32,22 +34,22 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
  */
 @Composable
 fun ProfileImportConfirmRoute(
-    profile: ProxyProfile,
+    importToken: String,
     onBack: () -> Unit,
     onImported: () -> Unit,
+    onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileImportConfirmViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel, profile) {
-        viewModel.setProfile(profile)
+    val latestOnUnavailable by rememberUpdatedState(onUnavailable)
+    LaunchedEffect(viewModel, importToken) {
+        if (!viewModel.loadProfile(importToken)) {
+            latestOnUnavailable()
+        }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.imported) {
-        if (uiState.imported) {
-            onImported()
-        }
-    }
+    LifecycleEventEffect(viewModel.importedEvents) { onImported() }
 
     ProfileImportConfirmScreen(
         uiState = uiState,
@@ -94,14 +96,9 @@ internal fun ProfileImportConfirmScreen(
             }
         }
         RipDpiButton(
-            text =
-                if (uiState.imported) {
-                    stringResource(R.string.import_confirm_done_action)
-                } else {
-                    stringResource(R.string.import_confirm_add_action)
-                },
+            text = stringResource(R.string.import_confirm_add_action),
             onClick = onConfirm,
-            enabled = !uiState.importing && !uiState.imported,
+            enabled = !uiState.importing,
             loading = uiState.importing,
             modifier = Modifier.fillMaxWidth(),
         )

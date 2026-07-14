@@ -33,6 +33,8 @@ interface VpnTunnelBuilderHost {
     ): VpnTunnelBuilder
 
     fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()
+
+    fun currentAppRoutingPlan(): VpnAppRoutingPlan = VpnAppRoutingPlan.Disallow(emptySet())
 }
 
 internal interface VpnServiceHost :

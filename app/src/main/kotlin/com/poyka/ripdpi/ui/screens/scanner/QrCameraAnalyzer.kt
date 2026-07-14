@@ -19,7 +19,8 @@ import com.google.mlkit.vision.common.InputImage
  */
 class QrCameraAnalyzer(
     private val onQrDecoded: (String) -> Unit,
-) : ImageAnalysis.Analyzer {
+) : ImageAnalysis.Analyzer,
+    AutoCloseable {
     private val scanner: BarcodeScanner =
         BarcodeScanning.getClient(
             BarcodeScannerOptions
@@ -47,5 +48,9 @@ class QrCameraAnalyzer(
             }.addOnCompleteListener {
                 imageProxy.close()
             }
+    }
+
+    override fun close() {
+        scanner.close()
     }
 }

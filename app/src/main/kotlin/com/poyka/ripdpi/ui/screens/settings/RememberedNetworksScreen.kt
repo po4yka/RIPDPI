@@ -41,6 +41,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun RememberedNetworksRoute(
@@ -390,7 +392,11 @@ private fun rememberedStrategyLabel(entry: RememberedNetworkUiModel): String? {
 private fun previewRememberedNetworksScreen() {
     RipDpiTheme(themePreference = "light") {
         RememberedNetworksScreen(
-            uiState = RememberedNetworksUiState(loading = false, entries = rememberedNetworksPreviewEntries()),
+            uiState =
+                RememberedNetworksUiState(
+                    loading = false,
+                    entries = rememberedNetworksPreviewEntries().toImmutableList(),
+                ),
             onBack = {},
             onDeleteEntry = {},
             onClearAll = {},
@@ -403,7 +409,11 @@ private fun previewRememberedNetworksScreen() {
 private fun previewRememberedNetworksScreenDark() {
     RipDpiTheme(themePreference = "dark") {
         RememberedNetworksScreen(
-            uiState = RememberedNetworksUiState(loading = false, entries = rememberedNetworksPreviewEntries()),
+            uiState =
+                RememberedNetworksUiState(
+                    loading = false,
+                    entries = rememberedNetworksPreviewEntries().toImmutableList(),
+                ),
             onBack = {},
             onDeleteEntry = {},
             onClearAll = {},
@@ -416,7 +426,7 @@ private fun previewRememberedNetworksScreenDark() {
 private fun previewRememberedNetworksScreenEmpty() {
     RipDpiTheme(themePreference = "light") {
         RememberedNetworksScreen(
-            uiState = RememberedNetworksUiState(loading = false, entries = emptyList()),
+            uiState = RememberedNetworksUiState(loading = false, entries = persistentListOf()),
             onBack = {},
             onDeleteEntry = {},
             onClearAll = {},

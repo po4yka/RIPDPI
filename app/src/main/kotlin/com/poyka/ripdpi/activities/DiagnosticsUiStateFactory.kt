@@ -21,6 +21,8 @@ internal class DiagnosticsUiStateFactory
         private val shareFactory: DiagnosticsShareUiStateFactory,
         private val performanceFactory: DiagnosticsPerformanceUiStateFactory,
     ) {
+        fun initialUiState(): DiagnosticsUiState = initialDiagnosticsUiState(support.context)
+
         fun buildUiState(input: DiagnosticsUiStateInput): DiagnosticsUiState {
             val timer = performanceFactory.startTimer()
             val eventModels =

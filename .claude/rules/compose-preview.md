@@ -1,3 +1,10 @@
+---
+paths:
+  - "app/**/*.kt"
+  - "build-logic/**/*.kt"
+  - "**/build.gradle.kts"
+---
+
 ## Compose Preview rendering — agent contract
 
 [`yschimke/compose-ai-tools`](https://github.com/yschimke/compose-ai-tools) is wired into RIPDPI so AI agents (and humans) can see every `@Preview` composable as a PNG without booting Android Studio or an emulator. It is a **build-time-only** Gradle plugin (`ee.schimke.composeai.preview`, Apache-2.0, Maven Central, pinned in `gradle/libs.versions.toml`). Zero runtime impact, zero permissions, zero outbound network calls from the app or the plugin itself.

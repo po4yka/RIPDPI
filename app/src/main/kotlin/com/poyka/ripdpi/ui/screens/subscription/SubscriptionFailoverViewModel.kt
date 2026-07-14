@@ -15,6 +15,9 @@ import com.poyka.ripdpi.data.SubscriptionClientSignal
 import com.poyka.ripdpi.data.actionableSubscriptionSignals
 import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,8 +34,8 @@ data class SubscriptionFailoverUiState(
     val lastCheck: String = "",
     val activeServerLabel: String = "",
     val subscriptionAlert: SubscriptionAlertUiState? = null,
-    val servers: List<SubscriptionServerUiState> = emptyList(),
-    val events: List<SubscriptionFailoverEventUiState> = emptyList(),
+    val servers: ImmutableList<SubscriptionServerUiState> = persistentListOf(),
+    val events: ImmutableList<SubscriptionFailoverEventUiState> = persistentListOf(),
 ) {
     val hasServers: Boolean
         get() = servers.isNotEmpty()
@@ -169,17 +172,18 @@ internal object SubscriptionFailoverMapper {
                 ),
             subscriptionAlert = subscriptionAlert,
             servers =
-                orderedProfiles.mapIndexed { index, profile ->
-                    val isActive = index == activeIndex
-                    profile.toServerUiState(
-                        index = index,
-                        total = orderedProfiles.size,
-                        status = if (isActive) activeStatus else SubscriptionServerStatus.Unknown,
-                        isActive = isActive,
-                        strings = strings,
-                    )
-                },
-            events = events,
+                orderedProfiles
+                    .mapIndexed { index, profile ->
+                        val isActive = index == activeIndex
+                        profile.toServerUiState(
+                            index = index,
+                            total = orderedProfiles.size,
+                            status = if (isActive) activeStatus else SubscriptionServerStatus.Unknown,
+                            isActive = isActive,
+                            strings = strings,
+                        )
+                    }.toImmutableList(),
+            events = events.toImmutableList(),
         )
     }
 

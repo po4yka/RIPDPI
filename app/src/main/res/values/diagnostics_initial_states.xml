@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">Compare direct UDP/53 answers against DoH controls for the bundled DPI domains.</string>
+    <string name="diagnostics_dns_availability_idle_summary">Survey public UDP and DoH resolvers for reachability and latency.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">Probe TLS 1.3, TLS 1.2, and HTTP reachability for bundled DPI domains.</string>
+    <string name="diagnostics_rkn_idle_headline">RKN block diagnosis</string>
+    <string name="diagnostics_rkn_idle_confidence_note">Compare control and test target groups before claiming a block.</string>
+    <string name="diagnostics_rkn_idle_summary">Run the bundled control and blacklist probes with aggregate verdict safeguards.</string>
+    <string name="diagnostics_compression_idle_summary">Probe HTTP gzip, deflate, Brotli, and optional Zstd support for a bundled target.</string>
+    <string name="diagnostics_tcp16_idle_summary">Probe TCP16 fat-header behavior across bundled network targets.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">Run SNI compatibility checks for TCP16-flagged ASNs.</string>
+    <string name="diagnostics_byoh_idle_summary">Advanced - requires a user-controlled HTTPS server.</string>
+    <string name="diagnostics_byoh_requirements_summary">Configure a host you control to answer HTTPS on the destination IP and serve at least 128 KiB.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">Compare whitelisted and regular URL groups for coarse routing restrictions.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">Fetch provider subnets and sample cached /24 ranges for whitelist behavior.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">Run selected DPI probes as one aggregate suite.</string>
+</resources>

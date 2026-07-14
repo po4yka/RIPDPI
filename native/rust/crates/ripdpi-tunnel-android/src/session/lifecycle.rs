@@ -6,6 +6,7 @@ use jni::sys::{jint, jlong};
 use ripdpi_tunnel_core::Stats;
 use tokio_util::sync::CancellationToken;
 
+use super::pcap;
 use super::registry::{TunnelSessionState, lookup_tunnel_session, remove_tunnel_session};
 
 mod create;
@@ -111,6 +112,7 @@ pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
     };
 
     running.0.cancel();
+    pcap::pcap_retire_entry(handle);
     session.telemetry.mark_stop_requested();
     if running.1.join().is_err() {
         session.telemetry.log_line("worker", "error", "tunnel worker panicked during shutdown");
@@ -132,5 +134,6 @@ pub(crate) fn destroy_session(env: &mut Env<'_>, handle: jlong) {
     }
     *state = TunnelSessionState::Destroyed;
     drop(state);
+    pcap::pcap_retire_entry(handle);
     let _ = remove_tunnel_session(handle);
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # rust-postedit-check.sh — PostToolUse hook
 #
-# Fires after Edit/Write/MultiEdit. For *.rs files in native/rust/crates/,
-# runs `cargo check` on the touched crate. Exits 2 with stderr piped on
+# Fires after Edit/Write/MultiEdit/apply_patch. For *.rs files in native/rust/crates/,
+# runs `cargo check --locked` on the touched crate. Exits 2 with stderr piped on
 # compile error so Claude Code injects the error back into model context
 # for the next iteration. Skips silently for non-Rust files and for files
 # outside the workspace.
@@ -13,8 +13,11 @@ set -uo pipefail
 
 [[ "${RIPDPI_RUST_HOOKS:-on}" == "off" ]] && exit 0
 
-f=$(jq -r '.tool_input.file_path // empty' 2>/dev/null) || exit 0
-[[ -z "$f" || "$f" != *.rs ]] && exit 0
+input=$(cat 2>/dev/null) || exit 0
+root=$(git -c core.fsmonitor=false rev-parse --show-toplevel 2>/dev/null || pwd)
+f=$(printf '%s' "$input" | python3 "$root/.agents/hooks/extract_hook_paths.py" 2>/dev/null | grep -E '\.rs$' | head -1) || true
+[[ -z "$f" ]] && exit 0
+[[ "$f" = /* ]] || f="$root/$f"
 
 # Locate enclosing Cargo.toml.
 dir=$(dirname "$f")
@@ -29,7 +32,6 @@ done
 [[ -z "$crate" ]] && exit 0
 
 # RIPDPI workspace lives at native/rust/.
-root=$(git -c core.fsmonitor=false rev-parse --show-toplevel 2>/dev/null || pwd)
 ws="$root/native/rust"
 [[ ! -f "$ws/Cargo.toml" ]] && exit 0
 

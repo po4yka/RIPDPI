@@ -88,7 +88,7 @@ where
     greet_and_authenticate(stream, credentials.as_ref()).await?;
 
     // ── 4. CONNECT request ────────────────────────────────────────────────────
-    let request = build_connect_request(&target)?;
+    let request = encode_connect_request(&target)?;
     stream.write_all(&request).await?;
 
     // ── 5. Reply ──────────────────────────────────────────────────────────────
@@ -236,7 +236,12 @@ where
     Ok(())
 }
 
-fn build_connect_request(target: &OutboundTarget) -> Result<Vec<u8>, OutboundError> {
+/// Encode a canonical RFC 1928 CONNECT request without performing I/O.
+///
+/// Keeping address-length validation here lets tunnel and relay callers share
+/// the same typed `DomainTooLong` contract instead of reimplementing the
+/// one-byte domain field with lossy casts.
+pub fn encode_connect_request(target: &OutboundTarget) -> Result<Vec<u8>, OutboundError> {
     // Header: VER CMD RSV ATYP
     let mut req = vec![consts::SOCKS5_VERSION, consts::SOCKS5_CMD_TCP_CONNECT, 0x00];
 
@@ -497,7 +502,7 @@ mod tests {
     #[tokio::test]
     async fn connect_request_ipv4_encoded_correctly() {
         let ip = Ipv4Addr::new(1, 2, 3, 4);
-        let req = build_connect_request(&OutboundTarget::Ipv4(ip, 8080)).unwrap();
+        let req = encode_connect_request(&OutboundTarget::Ipv4(ip, 8080)).unwrap();
         // VER CMD RSV ATYP [4 octets] [2 port]
         assert_eq!(req[0], consts::SOCKS5_VERSION);
         assert_eq!(req[1], consts::SOCKS5_CMD_TCP_CONNECT);
@@ -510,7 +515,7 @@ mod tests {
     #[tokio::test]
     async fn connect_request_ipv6_encoded_correctly() {
         let ip = Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1);
-        let req = build_connect_request(&OutboundTarget::Ipv6(ip, 443)).unwrap();
+        let req = encode_connect_request(&OutboundTarget::Ipv6(ip, 443)).unwrap();
         assert_eq!(req[3], consts::SOCKS5_ADDR_TYPE_IPV6);
         assert_eq!(&req[4..20], &ip.octets());
         assert_eq!(&req[20..22], &443u16.to_be_bytes());
@@ -519,7 +524,7 @@ mod tests {
     #[tokio::test]
     async fn connect_request_domain_encoded_correctly() {
         let domain = "example.com".to_string();
-        let req = build_connect_request(&OutboundTarget::Domain(domain.clone(), 80)).unwrap();
+        let req = encode_connect_request(&OutboundTarget::Domain(domain.clone(), 80)).unwrap();
         assert_eq!(req[3], consts::SOCKS5_ADDR_TYPE_DOMAIN_NAME);
         assert_eq!(req[4] as usize, domain.len());
         assert_eq!(&req[5..5 + domain.len()], domain.as_bytes());
@@ -573,7 +578,7 @@ mod tests {
     #[tokio::test]
     async fn domain_too_long_returns_error() {
         let long = "a".repeat(256);
-        let result = build_connect_request(&OutboundTarget::Domain(long.clone(), 80));
+        let result = encode_connect_request(&OutboundTarget::Domain(long.clone(), 80));
         assert!(matches!(result, Err(OutboundError::DomainTooLong(256))), "got {result:?}");
     }
 

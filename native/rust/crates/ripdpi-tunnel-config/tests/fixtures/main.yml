@@ -57,7 +57,7 @@ socks5:
   # number of udp buffers in splice, 1500 bytes per buffer.
 # udp-copy-buffer-nums: 10
   # maximum session count (0: unlimited)
-# max-session-count: 0
+# max-session-count: 2048
   # connect timeout (ms)
 # connect-timeout: 10000
   # TCP read-write timeout (ms)

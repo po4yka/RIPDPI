@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -38,6 +39,7 @@ import org.robolectric.annotation.Config
 class AwgProfileRepositoryRoomTest {
     private lateinit var db: RipDpiDatabase
     private lateinit var dao: AwgProfileDao
+    private lateinit var failingDao: FailingAwgProfileDao
     private lateinit var credentialStore: FakeAwgCredentialStore
     private lateinit var repository: AwgProfileRepository
 
@@ -49,7 +51,8 @@ class AwgProfileRepositoryRoomTest {
                 .inMemoryDatabaseBuilder(context, RipDpiDatabase::class.java)
                 .allowMainThreadQueries()
                 .build()
-        dao = db.awgProfileDao()
+        failingDao = FailingAwgProfileDao(db.awgProfileDao())
+        dao = failingDao
         credentialStore = FakeAwgCredentialStore()
         repository = AwgProfileRepository(dao, credentialStore)
     }
@@ -123,6 +126,50 @@ class AwgProfileRepositoryRoomTest {
         }
 
     @Test
+    fun `failed credential update restores the previous profile snapshot`() =
+        runTest {
+            val id = repository.save(name = "home", request = sampleRequest())
+            credentialStore.failNextSaveAfterWrite = true
+
+            val error =
+                runCatching {
+                    repository.save(
+                        name = "changed",
+                        request = sampleRequest().copy(privateKey = "changed-private-key", endpointPort = 4443),
+                        existingId = id,
+                    )
+                }.exceptionOrNull()
+
+            assertNotNull(error)
+            val restored = repository.load(id)!!
+            assertEquals("home", restored.name)
+            assertEquals(51820, restored.request.endpointPort)
+            assertEquals("privkey==", restored.request.privateKey)
+        }
+
+    @Test
+    fun `failed Room update restores the previous profile snapshot`() =
+        runTest {
+            val id = repository.save(name = "home", request = sampleRequest())
+            failingDao.failNextUpsertAfterWrite = true
+
+            val error =
+                runCatching {
+                    repository.save(
+                        name = "changed",
+                        request = sampleRequest().copy(privateKey = "changed-private-key", endpointPort = 4443),
+                        existingId = id,
+                    )
+                }.exceptionOrNull()
+
+            assertNotNull(error)
+            val restored = repository.load(id)!!
+            assertEquals("home", restored.name)
+            assertEquals(51820, restored.request.endpointPort)
+            assertEquals("privkey==", restored.request.privateKey)
+        }
+
+    @Test
     fun `the persisted blob never pins a specific activation id`() =
         runTest {
             val id = repository.save(name = "home", request = sampleRequest(profileId = "awg-should-be-blanked"))
@@ -164,6 +211,17 @@ class AwgProfileRepositoryRoomTest {
             repository.delete(id)
 
             assertNull("delete must also clear the sealed secrets", credentialStore.load(id))
+        }
+
+    @Test
+    fun `deleteAll removes every persisted profile row`() =
+        runTest {
+            repository.save(name = "home", request = sampleRequest())
+            repository.save(name = "work", request = sampleRequest().copy(endpointPort = 443))
+
+            dao.deleteAll()
+
+            assertTrue(repository.observeProfiles().first().isEmpty())
         }
 
     @Test
@@ -229,6 +287,7 @@ class AwgProfileRepositoryRoomTest {
  */
 private class FakeAwgCredentialStore : AwgCredentialStore {
     private val secrets = mutableMapOf<String, AwgSecrets>()
+    var failNextSaveAfterWrite: Boolean = false
 
     override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
 
@@ -237,6 +296,10 @@ private class FakeAwgCredentialStore : AwgCredentialStore {
         secrets: AwgSecrets,
     ) {
         this.secrets[profileId] = secrets
+        if (failNextSaveAfterWrite) {
+            failNextSaveAfterWrite = false
+            error("credential save failed after write")
+        }
     }
 
     override suspend fun clear(profileId: String) {
@@ -244,4 +307,32 @@ private class FakeAwgCredentialStore : AwgCredentialStore {
     }
 
     fun isEmpty(): Boolean = secrets.isEmpty()
+}
+
+private class FailingAwgProfileDao(
+    private val delegate: AwgProfileDao,
+) : AwgProfileDao {
+    var failNextUpsertAfterWrite = false
+
+    override fun observeProfiles(): Flow<List<com.poyka.ripdpi.data.awg.AwgProfileEntity>> = delegate.observeProfiles()
+
+    override suspend fun allProfiles(): List<com.poyka.ripdpi.data.awg.AwgProfileEntity> = delegate.allProfiles()
+
+    override suspend fun getProfile(id: String): com.poyka.ripdpi.data.awg.AwgProfileEntity? = delegate.getProfile(id)
+
+    override suspend fun upsertProfile(profile: com.poyka.ripdpi.data.awg.AwgProfileEntity) {
+        delegate.upsertProfile(profile)
+        if (failNextUpsertAfterWrite) {
+            failNextUpsertAfterWrite = false
+            error("Room upsert failed after write")
+        }
+    }
+
+    override suspend fun deleteProfile(profile: com.poyka.ripdpi.data.awg.AwgProfileEntity) {
+        delegate.deleteProfile(profile)
+    }
+
+    override suspend fun deleteAll() {
+        delegate.deleteAll()
+    }
 }

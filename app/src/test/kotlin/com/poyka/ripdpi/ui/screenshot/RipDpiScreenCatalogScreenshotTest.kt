@@ -42,6 +42,7 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareScreen
 import com.poyka.ripdpi.ui.screens.proxyimport.previewProfileShareUiState
+import com.poyka.ripdpi.ui.screens.proxyimport.renderShareQrBitmap
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverScreen
 import com.poyka.ripdpi.ui.screens.subscription.previewSubscriptionFailoverUiState
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerScreen
@@ -206,10 +207,14 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun profileShareScreen() {
+        val uiState = previewProfileShareUiState()
+        val qrBitmap = renderShareQrBitmap(requireNotNull(uiState.shareUri))
         captureRipDpiScreenshot(widthDp = 420, heightDp = 1400) {
             RipDpiTheme {
                 ProfileShareScreen(
-                    uiState = previewProfileShareUiState(),
+                    uiState = uiState,
+                    qrBitmap = qrBitmap,
+                    qrLoading = false,
                     onBack = {},
                     onCopyLink = {},
                     onShareLink = {},

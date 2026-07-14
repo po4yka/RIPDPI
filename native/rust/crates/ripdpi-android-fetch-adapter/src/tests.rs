@@ -16,6 +16,7 @@ use url::Url;
 use super::dto::RawHttpResponse;
 use super::execute;
 use super::redirect::redirect_target;
+use super::request::MAX_RESPONSE_BODY_BYTES;
 
 static PROTECT_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
@@ -41,6 +42,41 @@ fn execute_fetches_plain_http_response() {
     assert_eq!(response["tlsBrowserTrack"], "android-stable");
     assert_eq!(response["tlsTemplateAlpn"], "h2_http11");
     assert_eq!(response["clientHelloInvariantStatus"], "avoids_blocked_517_byte_client_hello");
+}
+
+#[test]
+fn execute_rejects_oversized_response_before_reading_body() {
+    let response = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", MAX_RESPONSE_BODY_BYTES + 1).into_bytes();
+    let server = spawn_http_server(vec![response]);
+    let port = server.local_addr().expect("local addr").port();
+    let request = serde_json::json!({
+        "url": format!("http://127.0.0.1:{port}/oversized.bin"),
+        "tlsProfileId": "chrome_stable",
+    });
+
+    let payload = execute(&request.to_string()).expect("execute");
+    let response: Value = serde_json::from_str(&payload).expect("json response");
+
+    assert_eq!(response["bodyBase64"], Value::Null);
+    assert!(response["error"].as_str().expect("error").contains(&format!("exceeds {MAX_RESPONSE_BODY_BYTES} bytes")));
+}
+
+#[test]
+fn execute_rejects_unsupported_scheme_before_connect() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+    listener.set_nonblocking(true).expect("set nonblocking");
+    let port = listener.local_addr().expect("local addr").port();
+    let request = serde_json::json!({
+        "url": format!("ftp://127.0.0.1:{port}/manifest.json"),
+        "tlsProfileId": "chrome_stable",
+    });
+
+    let payload = execute(&request.to_string()).expect("execute");
+    let response: Value = serde_json::from_str(&payload).expect("json response");
+
+    assert!(response["error"].as_str().expect("error").contains("unsupported scheme"));
+    let accept_error = listener.accept().expect_err("unsupported scheme must not open a connection");
+    assert_eq!(accept_error.kind(), io::ErrorKind::WouldBlock);
 }
 
 #[test]

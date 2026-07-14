@@ -56,6 +56,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 private const val ProbeRowMinHeightDp = 52
 private const val MonospaceThresholdChars = 18
@@ -128,13 +129,14 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
             RipDpiTelemetryRows(
                 entries =
                     remember(visibleFields) {
-                        visibleFields.map { field ->
-                            RipDpiTelemetryEntry(
-                                label = field.label,
-                                value = field.value,
-                                monospaceValue = field.value.length > MonospaceThresholdChars,
-                            )
-                        }
+                        visibleFields
+                            .map { field ->
+                                RipDpiTelemetryEntry(
+                                    label = field.label,
+                                    value = field.value,
+                                    monospaceValue = field.value.length > MonospaceThresholdChars,
+                                )
+                            }.toImmutableList()
                     },
             )
         }
@@ -153,13 +155,14 @@ internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
         RipDpiTelemetryRows(
             entries =
                 remember(visibleFields) {
-                    visibleFields.map { field ->
-                        RipDpiTelemetryEntry(
-                            label = field.label,
-                            value = field.value,
-                            monospaceValue = field.value.length > MonospaceThresholdChars,
-                        )
-                    }
+                    visibleFields
+                        .map { field ->
+                            RipDpiTelemetryEntry(
+                                label = field.label,
+                                value = field.value,
+                                monospaceValue = field.value.length > MonospaceThresholdChars,
+                            )
+                        }.toImmutableList()
                 },
         )
     }

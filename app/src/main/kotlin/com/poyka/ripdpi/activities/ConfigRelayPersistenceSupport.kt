@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
 import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayKindChainRelay
@@ -142,9 +143,10 @@ internal suspend fun prepareRelayDraftForPersistence(
     draft: ConfigDraft,
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialRepository,
+    profileMutations: ProfileMutationCoordinator? = null,
 ): ConfigDraft =
     if (draft.relayKind == RelayKindChainRelay) {
-        migrateLegacyChainRelayDraft(draft, relayProfileStore, relayCredentialStore)
+        migrateLegacyChainRelayDraft(draft, relayProfileStore, relayCredentialStore, profileMutations)
     } else {
         draft
     }
@@ -153,6 +155,7 @@ internal suspend fun migrateLegacyChainRelayDraft(
     draft: ConfigDraft,
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialRepository,
+    profileMutations: ProfileMutationCoordinator? = null,
 ): ConfigDraft {
     if (draft.relayKind != RelayKindChainRelay) {
         return draft
@@ -170,6 +173,7 @@ internal suspend fun migrateLegacyChainRelayDraft(
                 realityPublicKey = draft.relayChainEntryPublicKey,
                 realityShortId = draft.relayChainEntryShortId,
                 vlessUuid = draft.relayChainEntryUuid,
+                profileMutations = profileMutations,
             )
         }
     val exitProfileId =
@@ -184,6 +188,7 @@ internal suspend fun migrateLegacyChainRelayDraft(
                 realityPublicKey = draft.relayChainExitPublicKey,
                 realityShortId = draft.relayChainExitShortId,
                 vlessUuid = draft.relayChainExitUuid,
+                profileMutations = profileMutations,
             )
         }
     return draft.copy(
@@ -214,11 +219,12 @@ internal suspend fun migrateLegacyChainHopProfile(
     realityPublicKey: String,
     realityShortId: String,
     vlessUuid: String,
+    profileMutations: ProfileMutationCoordinator? = null,
 ): String {
     if (server.isBlank()) {
         return ""
     }
-    relayProfileStore.save(
+    val profile =
         RelayProfileRecord(
             id = profileId,
             kind = RelayKindVlessReality,
@@ -229,13 +235,17 @@ internal suspend fun migrateLegacyChainHopProfile(
             realityShortId = realityShortId,
             vlessTransport = RelayVlessTransportRealityTcp,
             udpEnabled = false,
-        ),
-    )
-    relayCredentialStore.save(
+        )
+    val credentials =
         RelayCredentialRecord(
             profileId = profileId,
             vlessUuid = vlessUuid.ifBlank { null },
-        ),
-    )
+        )
+    if (profileMutations == null) {
+        relayProfileStore.save(profile)
+        relayCredentialStore.save(credentials)
+    } else {
+        profileMutations.upsertRelay(profile, credentials, enabled = false, select = false)
+    }
     return profileId
 }

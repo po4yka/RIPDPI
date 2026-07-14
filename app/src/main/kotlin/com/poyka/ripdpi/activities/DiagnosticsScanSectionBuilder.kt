@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.ui.diagnostics.toScopeLabel
+import kotlinx.collections.immutable.toImmutableList
 
 internal data class BuildScanUiModelParams(
     val profiles: List<DiagnosticProfile>,
@@ -66,7 +67,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
     val activeProgress = buildActiveScanProgress(params, selectedProfile)
 
     return DiagnosticsScanUiModel(
-        profiles = params.profiles.map(::toProfileOptionUiModel),
+        profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,
         selectedProfile = selectedProfile,
         activePathMode =
@@ -80,8 +81,9 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
                 ?.report
                 ?.diagnoses
                 ?.map(::toDiagnosisUiModel)
-                .orEmpty(),
-        latestResults = params.latestReportResults,
+                .orEmpty()
+                .toImmutableList(),
+        latestResults = params.latestReportResults.toImmutableList(),
         selectedProfileScopeLabel = toScopeLabel(params.activeProfileRequest, params.rawArgsEnabled),
         runRawEnabled = runRawEnabled,
         runInPathEnabled = runInPathEnabled,

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ripdpi-vpn-deploy/probe-matrix-config.schema.json",
+  "title": "Probe matrix configuration",
+  "type": "object",
+  "required": ["schema_version", "vantage", "control", "protocols", "targets"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 2 },
+    "vantage": { "$ref": "#/$defs/technical_id" },
+    "poll_interval_seconds": { "type": "integer", "minimum": 1 },
+    "control": {
+      "type": "object",
+      "required": ["url", "expected_status", "timeout_seconds", "degraded_after_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "pattern": "^https://" },
+        "expected_status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 60 },
+        "degraded_after_ms": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "protocols": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/protocol" }
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "comparison_set", "destination_class", "topology", "profile_file"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/technical_id" },
+          "comparison_set": { "$ref": "#/$defs/technical_id" },
+          "destination_class": { "enum": ["allowlist-pattern", "neutral-pattern", "non-allowlist-pattern"] },
+          "topology": { "enum": ["single-ip-dual-role", "split-hop-ingress"] },
+          "profile_file": { "type": "string", "pattern": "^/" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "technical_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "protocol": { "enum": ["mtproto", "xhttp-vless", "xhttp-trojan", "tcp-trojan", "tls-non-443"] }
+  }
+}

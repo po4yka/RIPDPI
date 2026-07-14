@@ -5,7 +5,10 @@ pub use ripdpi_runtime_platform::capability::CapabilityUnavailable
 pub use ripdpi_runtime_platform::capability::RuntimeCapability
 pub use ripdpi_runtime_platform::capability::detect_default_ttl
 pub fn ripdpi_runtime_platform::capability::detected_parallelism(usize) -> usize
-pub fn ripdpi_runtime_platform::capability::install_shutdown_signal_handlers(fn(std::os::raw::c_int)) -> std::io::error::Result<()>
+pub fn ripdpi_runtime_platform::capability::install_shutdown_signal_handlers() -> std::io::error::Result<()>
+pub fn ripdpi_runtime_platform::capability::request_shutdown()
+pub fn ripdpi_runtime_platform::capability::reset_shutdown_request()
+pub fn ripdpi_runtime_platform::capability::shutdown_requested() -> bool
 pub fn ripdpi_runtime_platform::capability::try_set_stream_ttl_with_outcome(&std::net::tcp::TcpStream, u8) -> ripdpi_capabilities::CapabilityOutcome<()>
 pub mod ripdpi_runtime_platform::experimental
 pub use ripdpi_runtime_platform::experimental::IcmpWrappedUdpRecvFilter

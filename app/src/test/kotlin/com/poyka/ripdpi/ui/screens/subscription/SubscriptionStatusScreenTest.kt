@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.subscription.subscriptionDetailUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -146,11 +147,12 @@ class SubscriptionStatusScreenTest {
             summary =
                 summary.copy(
                     items =
-                        summary.items.map { item ->
-                            item.copy(
-                                details = subscriptionDetailUiState(subscription, revealSecrets),
-                            )
-                        },
+                        summary.items
+                            .map { item ->
+                                item.copy(
+                                    details = subscriptionDetailUiState(subscription, revealSecrets),
+                                )
+                            }.toImmutableList(),
                 ),
             secretsRevealed = revealSecrets,
         )

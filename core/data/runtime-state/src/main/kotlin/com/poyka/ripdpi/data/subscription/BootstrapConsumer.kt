@@ -186,7 +186,13 @@ class BootstrapConsumer(
                         }
 
                         else -> {
-                            parseBody(response.body.string(), groupId)
+                            val body =
+                                try {
+                                    response.body.readBoundedSubscriptionPayload()
+                                } catch (_: SubscriptionPayloadTooLargeException) {
+                                    return@use BootstrapConsumeResult.ParseError("bootstrap payload exceeds limit")
+                                }
+                            parseBody(body, groupId)
                         }
                     }
                 }
@@ -206,11 +212,14 @@ class BootstrapConsumer(
         // Try sing-box JSON first, then fall back to the base64 / plain URI list
         // parser — the same precedence the long-lived subscription path uses.
         val singBox = SingBoxSubscriptionParser.parse(body, groupId)
-        if (singBox is SingBoxParseResult.Success && singBox.profiles.isNotEmpty()) {
+        if (singBox is SingBoxParseResult.Success &&
+            singBox.profiles.isNotEmpty() &&
+            singBox.profiles.fitsSubscriptionLimits()
+        ) {
             return BootstrapConsumeResult.Consumed(singBox.profiles, clockMillis())
         }
         val base64 = Base64SubscriptionParser.parse(body, groupId)
-        if (base64.profiles.isNotEmpty()) {
+        if (base64.profiles.isNotEmpty() && base64.profiles.fitsSubscriptionLimits()) {
             return BootstrapConsumeResult.Consumed(base64.profiles, clockMillis())
         }
         return BootstrapConsumeResult.ParseError("no profiles in bootstrap payload")

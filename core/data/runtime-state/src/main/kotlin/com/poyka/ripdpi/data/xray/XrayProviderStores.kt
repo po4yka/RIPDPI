@@ -104,6 +104,10 @@ interface XrayProfileMetadataStore {
     suspend fun save(record: XrayProfileMetadataRecord)
 
     suspend fun clear(profileId: String)
+
+    suspend fun clearAll() {
+        error("Bulk clear is not implemented")
+    }
 }
 
 /** Keystore-backed secret persistence for an Xray profile. */
@@ -113,6 +117,10 @@ interface XrayProfileSecretStore {
     suspend fun save(record: XrayProfileSecretRecord)
 
     suspend fun clear(profileId: String)
+
+    suspend fun clearAll() {
+        error("Bulk clear is not implemented")
+    }
 }
 
 @Singleton
@@ -155,6 +163,10 @@ class SharedPreferencesXrayProfileMetadataStore
             preferences.edit().remove(prefKey(profileId)).apply()
         }
 
+        override suspend fun clearAll() {
+            preferences.edit().clear().commit()
+        }
+
         private fun prefKey(profileId: String): String = "$MetadataKeyPrefix$profileId"
 
         private companion object {
@@ -190,6 +202,10 @@ class KeystoreXrayProfileSecretStore
 
         override suspend fun clear(profileId: String) {
             blobStore.remove(prefKey(profileId))
+        }
+
+        override suspend fun clearAll() {
+            blobStore.clear()
         }
 
         private fun prefKey(profileId: String): String = "$SecretsKeyPrefix$profileId"
@@ -460,6 +476,10 @@ class SharedPreferencesXrayProviderSelectionStore
                 .edit()
                 .putString(SelectionKey, json.encodeToString(XrayProviderSelectionRecord.serializer(), record))
                 .apply()
+        }
+
+        suspend fun clear() {
+            preferences.edit().clear().commit()
         }
 
         private companion object {

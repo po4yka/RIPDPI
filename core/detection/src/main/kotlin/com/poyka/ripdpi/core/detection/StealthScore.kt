@@ -229,23 +229,23 @@ object ExposureVerdictBuilder {
 
     private fun MutableList<ExposureSignal>.addFallbackCategorySignals(result: DetectionCheckResult) {
         if (result.bypassResult.detected || result.bypassResult.needsReview) {
-            add(ExposureSignal.bypassProbe())
+            add(ExposureSignal.bypassProbe)
         }
-        addCategorySignal(result.geoIp, ExposureSignal.geoIp())
-        addCategorySignal(result.directSigns, ExposureSignal.directSigns())
-        addCategorySignal(result.indirectSigns, ExposureSignal.indirectSigns())
-        addCategorySignal(result.locationSignals, ExposureSignal.locationSignals())
-        addCategorySignal(result.dnsLeak, ExposureSignal.dnsLeak())
-        addCategorySignal(result.webRtcLeak, ExposureSignal.webRtc())
-        addCategorySignal(result.tlsFingerprint, ExposureSignal.tlsFingerprint())
-        addCategorySignal(result.timingAnalysis, ExposureSignal.timing())
-        addCategorySignal(result.icmpSpoofing?.category, ExposureSignal.icmp())
-        addCategorySignal(result.ipComparison?.category, ExposureSignal.ipComparison())
-        addCategorySignal(result.rttTriangulation?.category, ExposureSignal.rtt())
-        addCategorySignal(result.cdnPulling?.category, ExposureSignal.cdn())
-        addCategorySignal(result.nativeSigns?.category, ExposureSignal.nativeSigns())
-        addCategorySignal(result.callTransport?.category, ExposureSignal.callTransport())
-        addCategorySignal(result.ipConsensus?.toCategoryResult(), ExposureSignal.ipConsensus())
+        addCategorySignal(result.geoIp, ExposureSignal.geoIp)
+        addCategorySignal(result.directSigns, ExposureSignal.directSigns)
+        addCategorySignal(result.indirectSigns, ExposureSignal.indirectSigns)
+        addCategorySignal(result.locationSignals, ExposureSignal.locationSignals)
+        addCategorySignal(result.dnsLeak, ExposureSignal.dnsLeak)
+        addCategorySignal(result.webRtcLeak, ExposureSignal.webRtc)
+        addCategorySignal(result.tlsFingerprint, ExposureSignal.tlsFingerprint)
+        addCategorySignal(result.timingAnalysis, ExposureSignal.timing)
+        addCategorySignal(result.icmpSpoofing?.category, ExposureSignal.icmp)
+        addCategorySignal(result.ipComparison?.category, ExposureSignal.ipComparison)
+        addCategorySignal(result.rttTriangulation?.category, ExposureSignal.rtt)
+        addCategorySignal(result.cdnPulling?.category, ExposureSignal.cdn)
+        addCategorySignal(result.nativeSigns?.category, ExposureSignal.nativeSigns)
+        addCategorySignal(result.callTransport?.category, ExposureSignal.callTransport)
+        addCategorySignal(result.ipConsensus?.toCategoryResult(), ExposureSignal.ipConsensus)
     }
 
     private fun MutableList<ExposureSignal>.addCategorySignal(
@@ -259,22 +259,22 @@ object ExposureVerdictBuilder {
 
     private fun EvidenceSource.toExposureSignal(): ExposureSignal =
         when (this) {
-            EvidenceSource.SPLIT_TUNNEL_BYPASS -> ExposureSignal.splitTunnel()
-            EvidenceSource.XRAY_API -> ExposureSignal.xrayApi()
-            EvidenceSource.LOCAL_PROXY, EvidenceSource.SYSTEM_PROXY -> ExposureSignal.localProxy()
-            EvidenceSource.NETWORK_CAPABILITIES, EvidenceSource.ACTIVE_VPN -> ExposureSignal.vpnBinding()
-            EvidenceSource.INSTALLED_APP, EvidenceSource.VPN_SERVICE_DECLARATION -> ExposureSignal.appArtifact()
-            EvidenceSource.IP_COMPARISON -> ExposureSignal.ipComparison()
-            EvidenceSource.IP_CONSENSUS -> ExposureSignal.ipConsensus()
-            EvidenceSource.GEO_IP, EvidenceSource.LOCATION_SIGNALS -> ExposureSignal.geoIp()
-            EvidenceSource.DNS -> ExposureSignal.dnsLeak()
-            EvidenceSource.NETWORK_INTERFACE, EvidenceSource.ROUTING -> ExposureSignal.networkObservability()
-            EvidenceSource.NATIVE_SIGNS -> ExposureSignal.nativeSigns()
-            EvidenceSource.CALL_TRANSPORT -> ExposureSignal.callTransport()
-            EvidenceSource.ICMP_SPOOFING -> ExposureSignal.icmp()
-            EvidenceSource.RTT_TRIANGULATION -> ExposureSignal.rtt()
-            EvidenceSource.CDN_PULLING -> ExposureSignal.cdn()
-            EvidenceSource.DUMPSYS -> ExposureSignal.nativeSigns()
+            EvidenceSource.SPLIT_TUNNEL_BYPASS -> ExposureSignal.splitTunnel
+            EvidenceSource.XRAY_API -> ExposureSignal.xrayApi
+            EvidenceSource.LOCAL_PROXY, EvidenceSource.SYSTEM_PROXY -> ExposureSignal.localProxy
+            EvidenceSource.NETWORK_CAPABILITIES, EvidenceSource.ACTIVE_VPN -> ExposureSignal.vpnBinding
+            EvidenceSource.INSTALLED_APP, EvidenceSource.VPN_SERVICE_DECLARATION -> ExposureSignal.appArtifact
+            EvidenceSource.IP_COMPARISON -> ExposureSignal.ipComparison
+            EvidenceSource.IP_CONSENSUS -> ExposureSignal.ipConsensus
+            EvidenceSource.GEO_IP, EvidenceSource.LOCATION_SIGNALS -> ExposureSignal.geoIp
+            EvidenceSource.DNS -> ExposureSignal.dnsLeak
+            EvidenceSource.NETWORK_INTERFACE, EvidenceSource.ROUTING -> ExposureSignal.networkObservability
+            EvidenceSource.NATIVE_SIGNS -> ExposureSignal.nativeSigns
+            EvidenceSource.CALL_TRANSPORT -> ExposureSignal.callTransport
+            EvidenceSource.ICMP_SPOOFING -> ExposureSignal.icmp
+            EvidenceSource.RTT_TRIANGULATION -> ExposureSignal.rtt
+            EvidenceSource.CDN_PULLING -> ExposureSignal.cdn
+            EvidenceSource.DUMPSYS -> ExposureSignal.nativeSigns
         }
 
     private const val CLEAN_STEALTH_THRESHOLD = 90
@@ -287,7 +287,7 @@ private data class ExposureSignal(
     val priority: Int,
 ) {
     companion object {
-        fun splitTunnel() =
+        val splitTunnel =
             ExposureSignal(
                 label = "split tunnel bypass",
                 reason = "Direct and proxied paths do not present the same network identity.",
@@ -295,7 +295,7 @@ private data class ExposureSignal(
                 priority = 0,
             )
 
-        fun xrayApi() =
+        val xrayApi =
             ExposureSignal(
                 label = "Xray API access",
                 reason = "A local API or outbound configuration was reachable from the device.",
@@ -303,7 +303,7 @@ private data class ExposureSignal(
                 priority = 1,
             )
 
-        fun ipConsensus() =
+        val ipConsensus =
             ExposureSignal(
                 label = "IP consensus mismatch",
                 reason = "Observed public IPs diverge across detection channels.",
@@ -311,7 +311,7 @@ private data class ExposureSignal(
                 priority = 2,
             )
 
-        fun ipComparison() =
+        val ipComparison =
             ExposureSignal(
                 label = "IP comparison mismatch",
                 reason = "Regional IP comparison probes saw inconsistent public identities.",
@@ -319,7 +319,7 @@ private data class ExposureSignal(
                 priority = 3,
             )
 
-        fun geoIp() =
+        val geoIp =
             ExposureSignal(
                 label = "GeoIP or location conflict",
                 reason = "GeoIP, SIM, or network-country signals do not agree.",
@@ -327,7 +327,7 @@ private data class ExposureSignal(
                 priority = 4,
             )
 
-        fun vpnBinding() =
+        val vpnBinding =
             ExposureSignal(
                 label = "Android VPN binding",
                 reason = "Android network capabilities expose VPN routing to local observers.",
@@ -335,7 +335,7 @@ private data class ExposureSignal(
                 priority = 5,
             )
 
-        fun localProxy() =
+        val localProxy =
             ExposureSignal(
                 label = "local proxy",
                 reason = "A local proxy endpoint is visible to detection probes.",
@@ -343,7 +343,7 @@ private data class ExposureSignal(
                 priority = 6,
             )
 
-        fun appArtifact() =
+        val appArtifact =
             ExposureSignal(
                 label = "installed or active app artifact",
                 reason = "Installed package or active service metadata matches VPN or bypass tooling.",
@@ -351,7 +351,7 @@ private data class ExposureSignal(
                 priority = 7,
             )
 
-        fun dnsLeak() =
+        val dnsLeak =
             ExposureSignal(
                 label = "DNS observability",
                 reason = "DNS resolver behavior differs from the expected encrypted or routed path.",
@@ -359,7 +359,7 @@ private data class ExposureSignal(
                 priority = 8,
             )
 
-        fun tlsFingerprint() =
+        val tlsFingerprint =
             ExposureSignal(
                 label = "TLS fingerprint",
                 reason = "TLS handshake traits differ from the expected browser-like profile.",
@@ -367,7 +367,7 @@ private data class ExposureSignal(
                 priority = 9,
             )
 
-        fun networkObservability() =
+        val networkObservability =
             ExposureSignal(
                 label = "network observability",
                 reason = "Network interface or routing metadata exposes a tunnel-shaped path.",
@@ -375,7 +375,7 @@ private data class ExposureSignal(
                 priority = 10,
             )
 
-        fun timing() =
+        val timing =
             ExposureSignal(
                 label = "timing anomaly",
                 reason = "Latency or timing patterns differ from ordinary direct HTTPS traffic.",
@@ -383,7 +383,7 @@ private data class ExposureSignal(
                 priority = 11,
             )
 
-        fun nativeSigns() =
+        val nativeSigns =
             ExposureSignal(
                 label = "native runtime signal",
                 reason = "Native checks found hook, root, or hidden-interface artifacts.",
@@ -391,7 +391,7 @@ private data class ExposureSignal(
                 priority = 12,
             )
 
-        fun callTransport() =
+        val callTransport =
             ExposureSignal(
                 label = "call transport leak",
                 reason = "Call or STUN transport probes reveal a different path than expected.",
@@ -399,7 +399,7 @@ private data class ExposureSignal(
                 priority = 13,
             )
 
-        fun icmp() =
+        val icmp =
             ExposureSignal(
                 label = "ICMP observability",
                 reason = "ICMP probes need review for path or spoofing behavior.",
@@ -407,7 +407,7 @@ private data class ExposureSignal(
                 priority = 14,
             )
 
-        fun rtt() =
+        val rtt =
             ExposureSignal(
                 label = "RTT triangulation",
                 reason = "Round-trip timing suggests a route inconsistent with the claimed location.",
@@ -415,7 +415,7 @@ private data class ExposureSignal(
                 priority = 15,
             )
 
-        fun cdn() =
+        val cdn =
             ExposureSignal(
                 label = "CDN pull signal",
                 reason = "CDN pull probes observed address or TLS traits that need review.",
@@ -423,7 +423,7 @@ private data class ExposureSignal(
                 priority = 16,
             )
 
-        fun webRtc() =
+        val webRtc =
             ExposureSignal(
                 label = "WebRTC leak",
                 reason = "WebRTC behavior exposes an address or path outside the expected route.",
@@ -431,7 +431,7 @@ private data class ExposureSignal(
                 priority = 17,
             )
 
-        fun directSigns() =
+        val directSigns =
             ExposureSignal(
                 label = "direct device signal",
                 reason = "Local direct checks found proxy or VPN artifacts.",
@@ -439,7 +439,7 @@ private data class ExposureSignal(
                 priority = 18,
             )
 
-        fun indirectSigns() =
+        val indirectSigns =
             ExposureSignal(
                 label = "indirect device signal",
                 reason = "Installed-app or service signals make the setup recognizable.",
@@ -447,7 +447,7 @@ private data class ExposureSignal(
                 priority = 19,
             )
 
-        fun locationSignals() =
+        val locationSignals =
             ExposureSignal(
                 label = "location signal",
                 reason = "SIM, roaming, or network-country metadata needs review.",
@@ -455,7 +455,7 @@ private data class ExposureSignal(
                 priority = 20,
             )
 
-        fun bypassProbe() =
+        val bypassProbe =
             ExposureSignal(
                 label = "bypass probe",
                 reason = "Bypass-specific probes found a visible local or remote path.",

@@ -141,6 +141,8 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 udp_read_write_timeout_ms,
                 log_level,
                 limit_nofile,
+                uid_policy_mode: None,
+                uid_policy_uids: Vec::new(),
                 log_context: None,
                 filter_injected_resets: None,
             },
@@ -273,10 +275,15 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 udp_read_write_timeout_ms,
                 log_level,
                 limit_nofile,
+                uid_policy_mode: None,
+                uid_policy_uids: Vec::new(),
                 log_context: None,
                 filter_injected_resets: None,
             },
         )
+        .prop_filter("credentials must be both present or both absent", |payload| {
+            payload.username.is_some() == payload.password.is_some()
+        })
 }
 
 #[test]
@@ -604,6 +611,8 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "udpReadWriteTimeoutMs": 7000,
         "logLevel": "info",
         "limitNofile": 4096,
+        "uidPolicyMode": "allowlist",
+        "uidPolicyUids": [10123, 10124],
         "filterInjectedResets": true,
         "logContext": {
             "runtimeId": "rt-1",

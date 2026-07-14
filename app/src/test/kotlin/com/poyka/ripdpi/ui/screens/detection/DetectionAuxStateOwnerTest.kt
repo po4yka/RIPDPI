@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRefreshResult
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -314,7 +315,7 @@ class DetectionAuxStateOwnerTest {
     fun `applyAllFixes clears suggested fixes`() =
         runTest {
             val (flow, red) =
-                reducer(DetectionCheckUiState(suggestedFixes = emptyList()))
+                reducer(DetectionCheckUiState(suggestedFixes = persistentListOf()))
             val owner =
                 DetectionAuxStateOwner(
                     scope = testScope,

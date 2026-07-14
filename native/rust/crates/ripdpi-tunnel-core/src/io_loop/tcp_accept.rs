@@ -52,9 +52,10 @@ pub(super) fn proxy_addr(config: &Config) -> io::Result<SocketAddr> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::sync::Arc;
+    use std::time::Duration;
 
     use smoltcp::iface::{Interface, SocketSet};
     use smoltcp::socket::tcp::{self, Socket as TcpSocket};
@@ -65,7 +66,9 @@ mod tests {
     use crate::{ActiveSessions, Stats, TunDevice};
 
     use super::super::TCP_SOCKET_BUF;
-    use super::super::packet::{build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr};
+    use super::super::packet::{
+        build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr, tcp_syn_flow_key,
+    };
     use super::{
         ensure_pending_listen_for_syn, socketaddr_to_listen_endpoint, spawn_new_tcp_sessions, tcp_session_target_addr,
     };
@@ -118,6 +121,28 @@ mod tests {
         assert_eq!(ipv4.port, 443);
         assert_eq!(ipv6.addr, Some(IpAddress::v6(0, 0, 0, 0, 0, 0, 0, 1)));
         assert_eq!(ipv6.port, 8443);
+    }
+
+    #[test]
+    fn pending_syn_admission_evicts_oldest_at_capacity() {
+        let mut pending_listens = HashMap::new();
+        let mut socket_set = SocketSet::new(vec![]);
+        let client_ip = Ipv4Addr::new(10, 0, 0, 99);
+        let target_ip = Ipv4Addr::new(203, 0, 113, 20);
+
+        for offset in 0..=128u16 {
+            let syn = build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_000 + offset, 443);
+            ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+        }
+
+        let oldest = tcp_syn_flow_key(&build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_000, 443))
+            .expect("valid oldest SYN flow");
+        let newest = tcp_syn_flow_key(&build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_128, 443))
+            .expect("valid newest SYN flow");
+        assert_eq!(pending_listens.len(), 128, "pending handshakes must stay within the memory budget");
+        assert_eq!(socket_set.iter().count(), 128, "eviction must remove the matching smoltcp socket");
+        assert!(!pending_listens.contains_key(&oldest), "the oldest pending handshake must be evicted first");
+        assert!(pending_listens.contains_key(&newest), "the newest pending handshake must be admitted");
     }
 
     #[test]
@@ -266,7 +291,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_new_tcp_sessions_waits_for_established_handshake() {
+    async fn spawn_new_tcp_sessions_waits_for_handshake_and_uid_resolution() {
         let mut device = TunDevice::new(1500);
         let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
         let mut iface = Interface::new(config, &mut device, Instant::now());
@@ -281,12 +306,14 @@ mod tests {
 
         let mut socket_set = SocketSet::new(vec![]);
         let mut pending_listens = HashMap::new();
+        let mut admission_cursor = 0;
         let mut sessions = ActiveSessions::new(8);
         let cancel = CancellationToken::new();
         let stats = Arc::new(Stats::default());
         let mut dns_cache = None;
         let auth = super::Auth::NoAuth;
         let proxy_sockaddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9);
+        let uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
 
         let client_ip = Ipv4Addr::new(10, 0, 0, 99);
         let target_ip = Ipv4Addr::new(127, 0, 0, 1);
@@ -302,12 +329,16 @@ mod tests {
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
+            &mut admission_cursor,
             proxy_sockaddr,
             &auth,
             None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
             &cancel,
             &stats,
             &mut dns_cache,
+            &uid_policy,
         );
         assert!(sessions.is_empty(), "half-open SYN-RECEIVED sockets must not spawn upstream sessions");
 
@@ -321,14 +352,42 @@ mod tests {
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
+            &mut admission_cursor,
             proxy_sockaddr,
             &auth,
             None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
             &cancel,
             &stats,
             &mut dns_cache,
+            &uid_policy,
         );
-        assert_eq!(sessions.len(), 1, "established sockets must spawn upstream sessions exactly once");
+        assert!(sessions.is_empty(), "established sockets must remain parked while UID resolution is pending");
+
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_TCP,
+            local: SocketAddr::new(IpAddr::V4(client_ip), client_port),
+            remote: SocketAddr::new(IpAddr::V4(target_ip), target_port),
+        };
+        let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("TCP flow job");
+        ripdpi_flow_app_attribution::store_uid_resolution(job, Some(10_123));
+        spawn_new_tcp_sessions(
+            &mut socket_set,
+            &mut sessions,
+            &mut pending_listens,
+            &mut admission_cursor,
+            proxy_sockaddr,
+            &auth,
+            None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+            &cancel,
+            &stats,
+            &mut dns_cache,
+            &uid_policy,
+        );
+        assert_eq!(sessions.len(), 1, "an authorized resolved UID must open one upstream session");
 
         let handles: Vec<_> = sessions.iter_mut().map(|(handle, _)| handle).collect();
         for handle in handles {

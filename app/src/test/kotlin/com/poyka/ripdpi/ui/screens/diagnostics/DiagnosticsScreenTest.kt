@@ -7,8 +7,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -16,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.poyka.ripdpi.activities.CompletedProbeUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
@@ -220,7 +223,7 @@ class DiagnosticsScreenTest {
                                         DiagnosticsResolverRecommendationUiModel(
                                             headline = "Switch DNS to Cloudflare",
                                             rationale = "UDP DNS showed substitution while DoH matched.",
-                                            fields = emptyList(),
+                                            fields = persistentListOf(),
                                             appliedTemporarily = true,
                                             persistable = true,
                                         ),
@@ -1288,6 +1291,33 @@ class DiagnosticsScreenTest {
     }
 
     @Test
+    fun duplicateCompletedProbeLabelsRenderWithoutLazyListKeyCollision() {
+        val duplicateProbe = CompletedProbeUiModel("example.org", "ok", DiagnosticsTone.Positive)
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    activeProgress =
+                        strategyProbeProgressUiModel(
+                            scanKind = ScanKind.CONNECTIVITY,
+                            strategyProbeProgress = null,
+                        ).copy(
+                            completedProbes =
+                                persistentListOf(
+                                    duplicateProbe,
+                                    CompletedProbeUiModel("other.example", "failed", DiagnosticsTone.Negative),
+                                    duplicateProbe,
+                                ),
+                        ),
+                ),
+        )
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.diagnosticsLiveProbe("example.org-ok"))
+            .assertCountEquals(2)
+    }
+
+    @Test
     fun blockedAutomaticAuditRendersExactRemediationAndOpensAdvancedSettings() {
         var openAdvancedSettingsCalls = 0
 
@@ -1534,7 +1564,7 @@ class DiagnosticsScreenTest {
                         "Best combined recovery across TCP and QUIC."
                     },
                 fields =
-                    listOf(
+                    persistentListOf(
                         DiagnosticsFieldUiModel(
                             if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
                                 "TCP fallback"
@@ -1680,12 +1710,12 @@ class DiagnosticsScreenTest {
         etaLabel = "~1m 30s remaining",
         phaseSteps =
             if (scanKind == ScanKind.STRATEGY_PROBE) {
-                listOf(
+                persistentListOf(
                     PhaseStepUiModel(label = "TCP", state = PhaseState.Active, tone = DiagnosticsTone.Warning),
                     PhaseStepUiModel(label = "QUIC", state = PhaseState.Pending, tone = DiagnosticsTone.Neutral),
                 )
             } else {
-                listOf(
+                persistentListOf(
                     PhaseStepUiModel(label = "DNS", state = PhaseState.Active, tone = DiagnosticsTone.Warning),
                     PhaseStepUiModel(label = "Reach", state = PhaseState.Pending, tone = DiagnosticsTone.Neutral),
                 )
@@ -2097,10 +2127,10 @@ class DiagnosticsScreenTest {
                                             metrics = persistentListOf(),
                                             tone = DiagnosticsTone.Neutral,
                                         ),
-                                    probeGroups = emptyList(),
-                                    snapshots = emptyList(),
-                                    events = emptyList(),
-                                    contextGroups = emptyList(),
+                                    probeGroups = persistentListOf(),
+                                    snapshots = persistentListOf(),
+                                    events = persistentListOf(),
+                                    contextGroups = persistentListOf(),
                                     hasSensitiveDetails = false,
                                     sensitiveDetailsVisible = false,
                                 ),
@@ -2164,7 +2194,7 @@ class DiagnosticsScreenTest {
                                     outcome = "substituted",
                                     tone = DiagnosticsTone.Warning,
                                     details =
-                                        listOf(
+                                        persistentListOf(
                                             DiagnosticsFieldUiModel("resolver", "cloudflare"),
                                         ),
                                 ),
@@ -2243,7 +2273,7 @@ class DiagnosticsScreenTest {
                     DiagnosticsProbeGroupUiModel(
                         title = "HTTPS results",
                         items =
-                            listOf(
+                            persistentListOf(
                                 DiagnosticsProbeResultUiModel(
                                     id = "probe-https",
                                     probeType = "https",
@@ -2251,7 +2281,7 @@ class DiagnosticsScreenTest {
                                     outcome = "ok",
                                     tone = DiagnosticsTone.Positive,
                                     details =
-                                        listOf(
+                                        persistentListOf(
                                             DiagnosticsFieldUiModel("protocol", "https"),
                                             DiagnosticsFieldUiModel("latencyMs", "180"),
                                         ),
@@ -2296,7 +2326,7 @@ class DiagnosticsScreenTest {
                     DiagnosticsProbeGroupUiModel(
                         title = "QUIC results",
                         items =
-                            listOf(
+                            persistentListOf(
                                 DiagnosticsProbeResultUiModel(
                                     id = "probe-quic",
                                     probeType = "quic",
@@ -2304,7 +2334,7 @@ class DiagnosticsScreenTest {
                                     outcome = "ok",
                                     tone = DiagnosticsTone.Positive,
                                     details =
-                                        listOf(
+                                        persistentListOf(
                                             DiagnosticsFieldUiModel("protocol", "quic"),
                                             DiagnosticsFieldUiModel("latencyMs", "95"),
                                         ),

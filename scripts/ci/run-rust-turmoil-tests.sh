@@ -9,19 +9,19 @@ NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
 
 if cargo nextest --version >/dev/null 2>&1; then
     run_tunnel_tests() {
-        cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --no-capture "${NEXTEST_ARGS[@]}"
+        cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --no-capture "${NEXTEST_ARGS[@]}"
     }
 
     run_resolver_tests() {
-        cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver --no-capture "${NEXTEST_ARGS[@]}"
+        cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver --no-capture "${NEXTEST_ARGS[@]}"
     }
 else
     run_tunnel_tests() {
-        cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core -- --nocapture
+        cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core -- --nocapture
     }
 
     run_resolver_tests() {
-        cargo test --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver -- --nocapture
+        cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver -- --nocapture
     }
 fi
 

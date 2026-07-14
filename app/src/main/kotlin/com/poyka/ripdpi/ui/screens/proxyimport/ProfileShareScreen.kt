@@ -1,14 +1,17 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
@@ -21,6 +24,8 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -35,6 +40,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 fun ProfileShareScreen(
     uiState: ProfileShareRouteUiState,
+    qrBitmap: Bitmap?,
+    qrLoading: Boolean,
     onBack: () -> Unit,
     onCopyLink: (String) -> Unit,
     onShareLink: (String) -> Unit,
@@ -73,6 +80,8 @@ fun ProfileShareScreen(
                     uiState = uiState,
                     shareUri = uiState.shareUri,
                     setupSheet = uiState.setupSheet,
+                    qrBitmap = qrBitmap,
+                    qrLoading = qrLoading,
                     onCopyLink = onCopyLink,
                     onShareLink = onShareLink,
                     onCopySheet = onCopySheet,
@@ -88,6 +97,8 @@ private fun ProfileShareContent(
     uiState: ProfileShareRouteUiState,
     shareUri: String,
     setupSheet: String,
+    qrBitmap: Bitmap?,
+    qrLoading: Boolean,
     onCopyLink: (String) -> Unit,
     onShareLink: (String) -> Unit,
     onCopySheet: (String) -> Unit,
@@ -99,7 +110,11 @@ private fun ProfileShareContent(
         tone = WarningBannerTone.Warning,
         icon = RipDpiIcons.Warning,
     )
-    ProfileShareQrCard(uiState = uiState, shareUri = shareUri)
+    ProfileShareQrCard(
+        uiState = uiState,
+        qrBitmap = qrBitmap,
+        qrLoading = qrLoading,
+    )
     ProfileShareLinkCard(
         shareUri = shareUri,
         onCopyLink = onCopyLink,
@@ -115,24 +130,45 @@ private fun ProfileShareContent(
 @Composable
 private fun ProfileShareQrCard(
     uiState: ProfileShareRouteUiState,
-    shareUri: String,
+    qrBitmap: Bitmap?,
+    qrLoading: Boolean,
 ) {
     RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ProfileShareQrCard)) {
         RipDpiPanelHeader(
             title = uiState.profile?.displayName ?: stringResource(R.string.profile_share_title),
             supporting = stringResource(R.string.profile_share_qr_body),
         )
-        val qrBitmap = remember(shareUri) { renderShareQrBitmap(shareUri) }
-        qrBitmap?.let { bitmap ->
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = stringResource(R.string.profile_share_qr_content_description),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .ripDpiTestTag(RipDpiTestTags.ProfileShareQrImage),
-            )
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                qrBitmap != null -> {
+                    Image(
+                        bitmap = qrBitmap.asImageBitmap(),
+                        contentDescription = stringResource(R.string.profile_share_qr_content_description),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .ripDpiTestTag(RipDpiTestTags.ProfileShareQrImage),
+                    )
+                }
+
+                qrLoading -> {
+                    RipDpiSpinner(size = RipDpiSpinnerSize.Large)
+                }
+
+                else -> {
+                    Text(
+                        text = stringResource(R.string.profile_share_unshareable_body),
+                        style = RipDpiThemeTokens.type.body,
+                        color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                }
+            }
         }
     }
 }
@@ -283,6 +319,8 @@ private fun ProfileShareScreenPreview() {
     RipDpiTheme {
         ProfileShareScreen(
             uiState = previewProfileShareUiState(),
+            qrBitmap = null,
+            qrLoading = true,
             onBack = {},
             onCopyLink = {},
             onShareLink = {},

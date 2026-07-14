@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Free-text input with a dropdown of suggested completions. Typing
@@ -31,7 +33,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 fun RipDpiCombobox(
     value: String,
     onValueChange: (String) -> Unit,
-    suggestions: List<String>,
+    suggestions: ImmutableList<String>,
     modifier: Modifier = Modifier,
     label: String? = null,
 ) {
@@ -84,7 +86,7 @@ private fun RipDpiComboboxLightPreview() {
             RipDpiCombobox(
                 value = v,
                 onValueChange = { v = it },
-                suggestions = listOf("relay.example.com", "relay-eu.example.com", "relay-us.example.com"),
+                suggestions = persistentListOf("relay.example.com", "relay-eu.example.com", "relay-us.example.com"),
                 label = "Relay host",
             )
         }
@@ -98,7 +100,7 @@ private fun RipDpiComboboxDarkPreview() {
         RipDpiCombobox(
             value = "tls",
             onValueChange = {},
-            suggestions = listOf("tlsrec", "tlsrec_split_host", "fake_tls"),
+            suggestions = persistentListOf("tlsrec", "tlsrec_split_host", "fake_tls"),
         )
     }
 }

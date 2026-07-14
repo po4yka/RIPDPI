@@ -2,15 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 
-use tokio::net::lookup_host;
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
-use crate::migration::QuicMigrationState;
+use crate::migration::QuicMigration;
 use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
-use crate::tls_quic::{ClientSocketSpec, authenticate_connection, build_endpoint, build_tls_config};
+use crate::tls_quic::{ClientSocketSpec, H3ConnectionGuard, authenticate_connection, build_endpoint, build_tls_config};
 use crate::udp::{UdpPacket, UdpSession, dispatch_udp_datagrams};
 
 /// Aborts the contained task when the last owner is dropped.
@@ -31,8 +30,11 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         tracing::warn!("hysteria2 session starting with certificate verification DISABLED (insecure=true profile)");
     }
 
-    let server_addr = lookup_host(config.server_addr.as_str())
+    let server_addr = config
+        .socket_protection
+        .resolve_authority(&config.server_addr)
         .await?
+        .into_iter()
         .next()
         .ok_or_else(|| HysteriaError::InvalidAddress(config.server_addr.clone()))?;
 
@@ -46,20 +48,20 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
     let (endpoint, current_socket) = build_endpoint(config, tls_config, socket_spec.clone())?;
     let connection = endpoint.connect(server_addr, &config.server_name)?.await?;
 
-    let udp_supported = authenticate_connection(config, &connection).await?;
+    let (udp_supported, h3_guard) = authenticate_connection(config, &connection).await?;
     let max_datagram_size = connection.max_datagram_size();
 
     let inner = Arc::new(ClientInner {
         endpoint,
         connection,
+        _h3_guard: h3_guard,
         next_session_id: AtomicU32::new(1),
         registrations: Mutex::new(HashMap::new()),
         udp_supported,
         max_datagram_size,
         socket_spec,
         migrate_after_handshake: config.quic_migrate_after_handshake,
-        current_socket: Mutex::new(current_socket),
-        migration: Mutex::new(QuicMigrationState::new_not_attempted()),
+        migration: QuicMigration::new_not_attempted(current_socket),
     });
 
     let dispatch_guard = if udp_supported {
@@ -82,19 +84,21 @@ pub struct HysteriaClient {
 
 impl HysteriaClient {
     pub async fn tcp_connect(&self, address: &str) -> Result<DuplexStream> {
-        let migrated = self.inner.begin_quic_migration().await?;
+        let migration = self.inner.begin_quic_migration()?;
         match self.open_tcp_stream(address).await {
             Ok(stream) => {
-                if migrated {
-                    self.inner.complete_quic_migration("path_validated_after_stream_open").await;
+                if let Some(migration) = migration {
+                    migration.complete("path_validated_after_stream_open");
                 }
                 Ok(stream)
             }
-            Err(_error) if migrated => {
-                let _ = self.inner.rollback_quic_migration("stream_open_failed_after_rebind").await;
-                self.open_tcp_stream(address).await
-            }
-            Err(error) => Err(error),
+            Err(error) => match migration {
+                Some(migration) => {
+                    migration.rollback("stream_open_failed_after_rebind")?;
+                    self.open_tcp_stream(address).await
+                }
+                None => Err(error),
+            },
         }
     }
 
@@ -130,12 +134,12 @@ impl HysteriaClient {
 pub(crate) struct ClientInner {
     pub(crate) endpoint: quinn::Endpoint,
     pub(crate) connection: quinn::Connection,
+    _h3_guard: H3ConnectionGuard,
     pub(crate) next_session_id: AtomicU32,
     pub(crate) registrations: Mutex<HashMap<u32, mpsc::Sender<UdpPacket>>>,
     pub(crate) udp_supported: bool,
     pub(crate) max_datagram_size: Option<usize>,
     pub(crate) socket_spec: ClientSocketSpec,
     pub(crate) migrate_after_handshake: bool,
-    pub(crate) current_socket: Mutex<std::net::UdpSocket>,
-    pub(crate) migration: Mutex<QuicMigrationState>,
+    pub(crate) migration: QuicMigration,
 }

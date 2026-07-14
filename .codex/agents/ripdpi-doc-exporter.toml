@@ -1,5 +1,5 @@
 name = "ripdpi-doc-exporter"
-description = "Create a timestamped ZIP of all RIPDPI documentation: vault wiki pages (mobile-platform-enforcement, tspu-dpi-internals, transport-protocols) + source repo docs (README, DESIGN, AGENTS, CLAUDE, ROADMAP, docs/*.md, docs/architecture/*.md)"
+description = "Create a timestamped ZIP of RIPDPI and vault documentation under the workspace-local agent export directory."
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
@@ -13,17 +13,20 @@ The export script lives in the censorship-bypass vault:
 
 ## What to run
 
-Execute the following command exactly:
+Resolve the current checkout and write only beneath its ignored `.tmp/agent-exports/` directory:
 
 ```bash
-python3 ~/GitRep/censorship-bypass/scripts/ripdpi-export.py \
-  --vault-path ~/GitRep/censorship-bypass \
-  --ripdpi-path ~/GitRep/RIPDPI \
-  --output-dir ~/Desktop
+REPO_ROOT=$(git rev-parse --show-toplevel)
+VAULT_ROOT=${RIPDPI_VAULT_ROOT:-$HOME/GitRep/censorship-bypass}
+OUTPUT_DIR="$REPO_ROOT/.tmp/agent-exports/ripdpi-docs"
+mkdir -p "$OUTPUT_DIR"
+python3 "$VAULT_ROOT/scripts/ripdpi-export.py" \
+  --vault-path "$VAULT_ROOT" \
+  --ripdpi-path "$REPO_ROOT" \
+  --output-dir "$OUTPUT_DIR"
 ```
 
-If the user supplies alternate paths (e.g. a different output directory), substitute them
-as the corresponding --vault-path / --ripdpi-path / --output-dir arguments.
+The user may override the readable vault path with `RIPDPI_VAULT_ROOT`. Do not accept an output directory outside `$REPO_ROOT/.tmp/agent-exports/` while this profile uses `workspace-write`; instead report that an externally located copy requires a separate, explicitly authorized step.
 
 ## What to report
 
@@ -58,8 +61,8 @@ source-docs/
 
 ## Guardrails
 
-- Do NOT modify any files in the vault or RIPDPI repo.
+- Do NOT modify any files in the vault or tracked RIPDPI sources.
 - Do NOT include ops/live-infra/ content (the script enforces this).
-- Write output ONLY to the specified output_dir.
+- Write output ONLY below `$REPO_ROOT/.tmp/agent-exports/`.
 - If the script exits non-zero, surface the full error and stop.
 """

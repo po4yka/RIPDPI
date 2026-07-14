@@ -9,6 +9,7 @@ import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.subscriptionDetailUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -47,16 +48,21 @@ class SubscriptionStatusViewModel
                     summary =
                         base.copy(
                             items =
-                                base.items.map { item ->
-                                    val subscription = byId[item.groupId]?.subscription
-                                    if (subscription == null) {
-                                        item
-                                    } else {
-                                        item.copy(
-                                            details = subscriptionDetailUiState(subscription, revealSecrets = revealed),
-                                        )
-                                    }
-                                },
+                                base.items
+                                    .map { item ->
+                                        val subscription = byId[item.groupId]?.subscription
+                                        if (subscription == null) {
+                                            item
+                                        } else {
+                                            item.copy(
+                                                details =
+                                                    subscriptionDetailUiState(
+                                                        subscription,
+                                                        revealSecrets = revealed,
+                                                    ),
+                                            )
+                                        }
+                                    }.toImmutableList(),
                         ),
                     secretsRevealed = revealed,
                     refreshingGroupId = refreshing,

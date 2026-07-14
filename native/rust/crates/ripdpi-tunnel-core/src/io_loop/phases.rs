@@ -5,18 +5,26 @@ use smoltcp::time::Instant;
 use tracing::warn;
 use tun_rs::AsyncDevice;
 
-use super::bridge::{flush_device_tx_queue, pump_active_sessions};
+use super::bridge::{TunFlushOutcome, flush_device_tx_queue, pump_active_sessions};
 use super::dns_intercept::drain_dns_responses;
 use super::routing::route_tun_packet;
 use super::state::LoopState;
 use super::tcp_accept::{gc_stale_pending_listens, spawn_new_tcp_sessions};
-use super::{LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
+use super::{IO_PHASE_WORK_BUDGET, LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
 
+/// Keep one busy TUN producer from monopolising the single-owner io loop. The
+/// cap matches the existing maximum TUN write batch, keeping packet work
+/// symmetric while guaranteeing every tick reaches timers and cancellation.
 pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopState) {
-    let mut tun_read_buf = std::mem::take(&mut state.tun_read_buf);
+    drain_tun_with(state, |buffer| tun.try_recv(buffer));
+}
 
-    loop {
-        let n = match tun.try_recv(&mut tun_read_buf) {
+fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::Result<usize>) -> usize {
+    let mut tun_read_buf = std::mem::take(&mut state.tun_read_buf);
+    let mut drained = 0;
+
+    while drained < IO_PHASE_WORK_BUDGET {
+        let n = match recv(&mut tun_read_buf) {
             Ok(0) => break,
             Ok(n) => n,
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
@@ -28,6 +36,7 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
 
         state.stats.tx_packets.fetch_add(1, Ordering::Relaxed);
         state.stats.tx_bytes.fetch_add(n as u64, Ordering::Relaxed);
+        drained += 1;
 
         let packet = &tun_read_buf[..n];
         // Feed the inbound (TUN -> userspace) packet to the optional
@@ -38,10 +47,11 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
         // Observe TCP retransmits for loss-percentage tracking.
         // O(1) amortised; no logging on the hot path.
         state.retransmit_tracker.observe(packet);
-        route_tun_packet(packet, state).await;
+        route_tun_packet(packet, state);
     }
 
     state.tun_read_buf = tun_read_buf;
+    drained
 }
 
 pub(in crate::io_loop) fn drain_dns(state: &mut LoopState) {
@@ -87,12 +97,16 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
         &mut state.socket_set,
         &mut state.sessions,
         &mut state.pending_listens,
+        &mut state.tcp_admission_cursor,
         state.runtime.proxy_sockaddr,
         &state.runtime.auth,
         state.runtime.protect_path.as_deref(),
+        state.runtime.tcp_connect_timeout,
+        state.runtime.tcp_read_write_timeout,
         &state.cancel,
         &state.stats,
         &mut state.dns_cache,
+        &state.runtime.uid_policy,
     );
 }
 
@@ -100,15 +114,21 @@ pub(in crate::io_loop) async fn pump_bridges(state: &mut LoopState) {
     pump_active_sessions(&mut state.socket_set, &mut state.sessions, &mut state.dns_cache).await;
 }
 
-pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopState) -> io::Result<()> {
-    flush_device_tx_queue(tun, &state.stats, &mut state.device, &mut state.runtime.tun_ingress_interceptor)
-        .await
-        .map_err(|e| io::Error::other(format!("flush TUN tx queue: {e}")))
+pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopState) -> io::Result<TunFlushOutcome> {
+    flush_device_tx_queue(
+        tun,
+        &state.stats,
+        &mut state.device,
+        &mut state.runtime.tun_ingress_interceptor,
+        &state.cancel,
+    )
+    .await
+    .map_err(|e| io::Error::other(format!("flush TUN tx queue: {e}")))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::net::SocketAddr;
     use std::sync::atomic::Ordering;
     use std::sync::{Arc, Mutex};
@@ -118,6 +138,7 @@ mod tests {
     use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
     use smoltcp::time::Instant;
     use smoltcp::wire::HardwareAddress;
+    use tokio::net::TcpListener;
     use tokio::sync::mpsc;
     use tokio_util::sync::CancellationToken;
 
@@ -128,7 +149,7 @@ mod tests {
 
     use super::super::retransmit::RetransmitTracker;
     use super::super::state::{LoopRuntime, LoopState};
-    use super::super::udp_assoc::{DEFAULT_MAX_UDP_ASSOCIATIONS, UdpEvictionEntry};
+    use super::super::udp_assoc::{UDP_EVICTION_HEAP_CAPACITY, UdpEvictionEntry};
     use super::*;
 
     #[tokio::test]
@@ -137,7 +158,7 @@ mod tests {
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(true, Arc::clone(&seen_packets))));
         let packet = ipv4_udp_packet(55000, 443, b"quic");
 
-        route_tun_packet(&packet, &mut state).await;
+        route_tun_packet(&packet, &mut state);
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.stats.dht_trigger_observations.load(Ordering::Relaxed), 0);
@@ -150,10 +171,80 @@ mod tests {
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
         let packet = ipv4_tcp_packet(55000, 443);
 
-        route_tun_packet(&packet, &mut state).await;
+        route_tun_packet(&packet, &mut state);
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+    }
+
+    #[test]
+    fn tun_drain_stops_at_per_tick_packet_budget() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        let packet = ipv4_tcp_packet(55000, 443);
+        let mut reads = 0;
+
+        let drained = drain_tun_with(&mut state, |buffer| {
+            reads += 1;
+            buffer[..packet.len()].copy_from_slice(&packet);
+            Ok(packet.len())
+        });
+
+        assert_eq!(drained, IO_PHASE_WORK_BUDGET);
+        assert_eq!(reads, IO_PHASE_WORK_BUDGET);
+        assert_eq!(state.stats.tx_packets.load(Ordering::Relaxed), IO_PHASE_WORK_BUDGET as u64);
+    }
+
+    #[tokio::test]
+    async fn udp_association_setup_does_not_block_packet_routing() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind stalled proxy");
+        let proxy_addr = listener.local_addr().expect("proxy address");
+        let stalled_proxy = tokio::spawn(async move {
+            let (_stream, _) = listener.accept().await.expect("accept association setup");
+            std::future::pending::<()>().await;
+        });
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.proxy_sockaddr = proxy_addr;
+        let packet = ipv4_udp_packet(55000, 443, b"quic");
+
+        route_tun_packet(&packet, &mut state);
+        let tcp_packet = ipv4_tcp_packet(55001, 443);
+        route_tun_packet(&tcp_packet, &mut state);
+
+        assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &tcp_packet);
+        stalled_proxy.abort();
+    }
+
+    #[tokio::test]
+    async fn udp_admission_waits_for_cached_uid_and_drops_denied_flow() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        let packet = ipv4_udp_packet(55_123, 443, b"uid-gated");
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:55123".parse().expect("local endpoint"),
+            remote: "93.184.216.34:443".parse().expect("remote endpoint"),
+        };
+
+        route_tun_packet(&packet, &mut state);
+        assert!(state.udp_associations.is_empty(), "pending UID must not create an association");
+
+        let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("denied flow job");
+        ripdpi_flow_app_attribution::store_uid_resolution(job, Some(20_000));
+        route_tun_packet(&packet, &mut state);
+        assert!(state.udp_associations.is_empty(), "denied UID must remain dropped");
+
+        let allowed_packet = ipv4_udp_packet(55_124, 443, b"uid-allowed");
+        let allowed_request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:55124".parse().expect("local endpoint"),
+            remote: "93.184.216.34:443".parse().expect("remote endpoint"),
+        };
+        route_tun_packet(&allowed_packet, &mut state);
+        let job = ripdpi_flow_app_attribution::take_pending_request(allowed_request).expect("allowed flow job");
+        ripdpi_flow_app_attribution::store_uid_resolution(job, Some(10_123));
+        route_tun_packet(&allowed_packet, &mut state);
+        assert_eq!(state.udp_associations.len(), 1, "allowed UID may create the association");
+        state.shutdown().await;
     }
 
     struct RecordingEgressHandler {
@@ -194,17 +285,22 @@ mod tests {
                 mapdns_runtime: None,
                 mapdns_classify: None,
                 filter_injected_resets: false,
+                uid_policy: crate::uid_policy::UidFlowPolicy::disarmed(),
                 tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
                 tun_egress_interceptor,
                 udp_idle_timeout: Duration::from_secs(1),
+                tcp_connect_timeout: Duration::from_secs(10),
+                tcp_read_write_timeout: Duration::from_secs(300),
                 protect_path: None,
             },
             pending_listens: HashMap::new(),
+            tcp_admission_cursor: 0,
             loop_iteration: 0,
             udp_tx,
             udp_rx,
             udp_associations: HashMap::new(),
-            udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(DEFAULT_MAX_UDP_ASSOCIATIONS),
+            udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(UDP_EVICTION_HEAP_CAPACITY),
+            udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,
             dns_req_tx: None,
             dns_resp_rx: None,

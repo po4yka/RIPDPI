@@ -170,3 +170,43 @@ fn drain_dns_responses_processes_pending() {
     assert_eq!(device.tx_queue.len(), 1, "response should have been processed and queued");
     assert!(dns_req_tx.is_some(), "channels should remain open");
 }
+
+#[test]
+fn drain_dns_responses_yields_after_one_phase_budget() {
+    use crate::io_loop::IO_PHASE_WORK_BUDGET;
+
+    let mapdns = test_mapdns();
+    let mut cache = test_dns_cache();
+    let mut device = TunDevice::new(1500);
+    let stats = Arc::new(Stats::default());
+    let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(IO_PHASE_WORK_BUDGET + 1);
+    let (req_tx, _req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(8);
+    let mut dns_resp_rx = Some(resp_rx);
+    let mut dns_req_tx = Some(req_tx);
+
+    for index in 0..=IO_PHASE_WORK_BUDGET {
+        let host = format!("drain-{index}.test");
+        resp_tx
+            .try_send(DnsResponse {
+                src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+                query: build_query(&host),
+                host: Some(host.clone()),
+                upstream: Ok(EncryptedDnsExchangeSuccess {
+                    response_bytes: build_response(&host, Ipv4Addr::new(1, 2, 3, 4)),
+                    endpoint_label: "test".to_string(),
+                    latency_ms: 5,
+                }),
+                resolver_error_kind: None,
+                resolver_endpoint_label: Some("test".to_string()),
+            })
+            .expect("queue response");
+    }
+
+    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx);
+
+    assert_eq!(device.tx_queue.len(), IO_PHASE_WORK_BUDGET, "one io-loop phase must process only its bounded batch");
+    assert!(
+        dns_resp_rx.as_mut().expect("response receiver").try_recv().is_ok(),
+        "the next response must remain queued for the following loop tick",
+    );
+}

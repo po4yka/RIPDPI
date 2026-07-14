@@ -1,77 +1,16 @@
-//! Batch TUN fd I/O helpers using io_uring.
+//! Bounded TUN write helpers using io_uring.
 //!
-//! Provides functions that submit batched read/write operations on a TUN file
-//! descriptor through the [`IoUringDriver`], reducing per-packet system call
-//! overhead compared to the default `try_recv`/`try_send` path.
+//! Phase 1 reads remain on the readiness-driven `try_recv` path. Submitting a
+//! fixed number of blocking reads and waiting for every CQE can stall forever
+//! when fewer packets than the requested batch arrive.
 
-use std::os::fd::RawFd;
+use std::os::fd::BorrowedFd;
 
-use crate::bufpool::{BufferHandle, RegisteredBufferPool};
+use crate::bufpool::BufferHandle;
 use crate::ring::IoUringDriver;
-
-/// Maximum number of packets to read in a single batch.
-pub const TUN_READ_BATCH_SIZE: usize = 32;
 
 /// Maximum number of packets to write in a single batch.
 pub const TUN_WRITE_BATCH_SIZE: usize = 64;
-
-/// Result of a batched TUN read operation.
-pub struct TunReadBatch {
-    /// (buffer_index, bytes_read) for each successfully read packet.
-    pub packets: Vec<(u16, usize)>,
-}
-
-/// Submit a batch of reads on the TUN fd and collect results.
-///
-/// Acquires up to `TUN_READ_BATCH_SIZE` buffers from the pool, submits them
-/// as fixed reads to the io_uring driver, and returns the completed reads.
-///
-/// Buffers for failed or zero-length reads are returned to the pool. The
-/// caller is responsible for returning successful buffers after consuming
-/// their contents.
-///
-/// This is a blocking function intended to be called from an async context
-/// via `tokio::task::spawn_blocking` or similar.
-pub fn batch_tun_read(
-    uring: &IoUringDriver,
-    pool: &RegisteredBufferPool,
-    tun_fd: RawFd,
-) -> std::io::Result<TunReadBatch> {
-    let mut buf_indices = Vec::with_capacity(TUN_READ_BATCH_SIZE);
-
-    // Acquire buffers.
-    for _ in 0..TUN_READ_BATCH_SIZE {
-        match pool.acquire() {
-            Some(handle) => {
-                let idx = handle.buf_index();
-                // Convert to pending so the buffer isn't returned on drop.
-                handle.into_pending();
-                buf_indices.push(idx);
-            }
-            None => break,
-        }
-    }
-
-    if buf_indices.is_empty() {
-        return Ok(TunReadBatch { packets: Vec::new() });
-    }
-
-    // Submit reads and collect completions.
-    let mut packets = Vec::with_capacity(buf_indices.len());
-    for &buf_idx in &buf_indices {
-        let future = uring.recv_fixed(tun_fd, buf_idx);
-        let result = crate::ring::block_on_completion(future);
-
-        if result.result > 0 {
-            packets.push((buf_idx, result.result as usize));
-        } else {
-            // Read failed or returned 0 bytes -- return buffer to pool.
-            pool.release_by_index(buf_idx);
-        }
-    }
-
-    Ok(TunReadBatch { packets })
-}
 
 /// Submit a batch of writes to the TUN fd from the smoltcp tx_queue.
 ///
@@ -83,24 +22,15 @@ pub fn batch_tun_read(
 /// matching completion is reaped.
 ///
 /// This is a blocking function.
-pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]) -> std::io::Result<usize> {
+pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: BorrowedFd<'_>, packets: &[Vec<u8>]) -> std::io::Result<usize> {
     let mut written = 0;
-    let pool = uring.pool();
-
     for pkt in packets.iter().take(TUN_WRITE_BATCH_SIZE) {
-        let result = match try_acquire_for_packet(pool, pkt) {
+        let result = match try_acquire_for_packet(uring, pkt) {
             Some(mut handle) => {
                 let len = pkt.len();
                 handle.as_mut_buf()[..len].copy_from_slice(pkt);
-                handle.set_len(len);
-                let buf_index = handle.buf_index();
-                // Hand the slot off to the in-flight tracking; we will
-                // explicitly release it below once the kernel is done.
-                let pending = handle.into_pending();
-                let future = uring.write_fixed(tun_fd, buf_index, len as u32);
-                let result = crate::ring::block_on_completion(future);
-                pending.complete();
-                result
+                debug_assert!(handle.set_len(len), "packet was checked against the registered buffer size");
+                crate::ring::block_on_completion(uring.write_fixed(tun_fd, handle))
             }
             None => {
                 // Pool exhausted or packet larger than buffer_size; fall
@@ -110,8 +40,11 @@ pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]
             }
         };
 
-        if result.result >= 0 {
+        if is_complete_packet_write(result.result, pkt.len()) {
             written += 1;
+        } else if result.result >= 0 {
+            log::warn!("io_uring TUN short write: wrote {} of {} bytes", result.result, pkt.len());
+            break;
         } else {
             log::warn!("io_uring TUN write failed: errno={}", -result.result);
             break;
@@ -121,64 +54,68 @@ pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]
     Ok(written)
 }
 
+fn is_complete_packet_write(result: i32, packet_len: usize) -> bool {
+    usize::try_from(result).is_ok_and(|written| written == packet_len)
+}
+
 /// Try to acquire a buffer slot large enough to hold `pkt`. Returns `None`
 /// when the pool is exhausted or `pkt` is larger than `pool.buffer_size()`,
 /// in which case the caller should use the plain `Write` fallback path.
-fn try_acquire_for_packet<'a>(pool: &'a RegisteredBufferPool, pkt: &[u8]) -> Option<BufferHandle<'a>> {
-    if pkt.len() > pool.buffer_size() {
+fn try_acquire_for_packet(uring: &IoUringDriver, pkt: &[u8]) -> Option<BufferHandle> {
+    if pkt.len() > uring.buffer_size() {
         return None;
     }
-    pool.acquire()
+    uring.acquire_buffer()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use io_uring::IoUring;
-
-    /// Helper to construct a small registered-buffer pool. Returns `None` if
-    /// the kernel does not support io_uring (e.g. CI runners where the ring
-    /// cannot be created), so the test gracefully skips.
-    fn try_pool(capacity: u16, buffer_size: usize) -> Option<(IoUring, RegisteredBufferPool)> {
-        let ring = IoUring::new(8).ok()?;
-        let pool = RegisteredBufferPool::new(&ring, capacity, buffer_size).ok()?;
-        Some((ring, pool))
+    fn try_driver(capacity: u16, buffer_size: usize) -> Option<IoUringDriver> {
+        IoUringDriver::start(capacity, buffer_size).ok()
     }
 
     #[test]
     fn try_acquire_for_packet_returns_none_when_packet_too_large() {
-        let Some((_ring, pool)) = try_pool(2, 1024) else {
+        let Some(driver) = try_driver(2, 1024) else {
             eprintln!("io_uring unavailable; skipping");
             return;
         };
         let oversize = vec![0u8; 2048];
-        assert!(try_acquire_for_packet(&pool, &oversize).is_none());
+        assert!(try_acquire_for_packet(&driver, &oversize).is_none());
         // Pool still has all slots since acquire was never called.
-        assert_eq!(pool.available(), 2);
+        assert_eq!(driver.available_buffers(), 2);
     }
 
     #[test]
     fn try_acquire_for_packet_returns_handle_for_fitting_packet() {
-        let Some((_ring, pool)) = try_pool(2, 1024) else {
+        let Some(driver) = try_driver(2, 1024) else {
             eprintln!("io_uring unavailable; skipping");
             return;
         };
         let pkt = vec![0u8; 256];
-        let handle = try_acquire_for_packet(&pool, &pkt).expect("must acquire");
-        assert_eq!(pool.available(), 1);
+        let handle = try_acquire_for_packet(&driver, &pkt).expect("must acquire");
+        assert_eq!(driver.available_buffers(), 1);
         drop(handle);
-        assert_eq!(pool.available(), 2);
+        assert_eq!(driver.available_buffers(), 2);
     }
 
     #[test]
     fn try_acquire_for_packet_returns_none_when_pool_exhausted() {
-        let Some((_ring, pool)) = try_pool(1, 1024) else {
+        let Some(driver) = try_driver(1, 1024) else {
             eprintln!("io_uring unavailable; skipping");
             return;
         };
         let pkt = vec![0u8; 64];
-        let _first = try_acquire_for_packet(&pool, &pkt).expect("first acquire");
-        assert_eq!(pool.available(), 0);
-        assert!(try_acquire_for_packet(&pool, &pkt).is_none());
+        let _first = try_acquire_for_packet(&driver, &pkt).expect("first acquire");
+        assert_eq!(driver.available_buffers(), 0);
+        assert!(try_acquire_for_packet(&driver, &pkt).is_none());
+    }
+
+    #[test]
+    fn packet_write_requires_exact_completion_length() {
+        assert!(is_complete_packet_write(1500, 1500));
+        assert!(!is_complete_packet_write(1499, 1500));
+        assert!(!is_complete_packet_write(-libc::EIO, 1500));
     }
 }

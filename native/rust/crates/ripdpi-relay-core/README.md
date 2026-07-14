@@ -60,21 +60,13 @@ capability profile: one row per `relay_kind`, carrying the static facts — kind
 string, label, SOCKS capability profile (TCP / UDP / connection reuse), and
 outbound-bind-IP support.
 
-`runtime_validation` resolves the generic capability decisions through this
-table: `planned_backend_capabilities` reads TCP / UDP / reuse from it, and the
-outbound-bind-IP validation gate reads `supports_outbound_bind_ip`. Relay
-selection, config parsing, and runtime dispatch still flow through the `match
-RelayKind` statements in `runtime_validation.rs` and the `BUILDERS` slice. The
+`runtime_validation` resolves the generic capability decisions through this table: `planned_backend_capabilities` reads TCP / UDP / reuse from it, and the outbound-bind-IP validation gate reads `supports_outbound_bind_ip`. Runtime construction dispatches through `RELAY_TRANSPORT_REGISTRATIONS`; each registration binds a descriptor to its builder. The
 `relay_transport_descriptors_cover_every_kind_exactly_once` and
 `relay_planned_capabilities_are_pinned_for_every_kind` crate tests pin the
 table against every `RelayKind`. Finalmask support, pool tuning, chain-relay
 upstream description, and the NaiveProxy subprocess fallback are intentionally
 **excluded** from the descriptor — they vary with a transport sub-mode (VLESS
-Reality's `xhttp`) or are backend-specific, not keyed by the `relay_kind`
-string alone. Migrating those remaining matches onto the descriptor is the
-tracked future refactor in
-[`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md)
-§2, "The transport-descriptor seam".
+Reality's `xhttp`) or are backend-specific, not keyed by the `relay_kind` string alone.
 
 ---
 See [`NATIVE_RUST.md`](../../../../docs/architecture/NATIVE_RUST.md),

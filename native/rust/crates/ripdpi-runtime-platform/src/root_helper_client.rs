@@ -1,6 +1,6 @@
 //! Runtime-adaptation — IPC client for the privileged root helper process.
 //!
-//! Communicates over a Unix domain socket using JSON-line framing with
+//! Communicates over a Unix domain socket using length-prefixed JSON frames with
 //! SCM_RIGHTS for file descriptor passing. Framing is owned by
 //! `ripdpi-root-helper-protocol`. The runtime-adaptation modules
 //! (`fake_send`, `ip_fragmentation`, `experimental_tier3`) reach a live

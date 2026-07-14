@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">Comparez les réponses UDP/53 directes aux contrôles DoH pour les domaines DPI inclus.</string>
+    <string name="diagnostics_dns_availability_idle_summary">Vérifiez la disponibilité et la latence des résolveurs UDP et DoH publics.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">Vérifiez l’accès TLS 1.3, TLS 1.2 et HTTP aux domaines DPI inclus.</string>
+    <string name="diagnostics_rkn_idle_headline">Diagnostic de blocage RKN</string>
+    <string name="diagnostics_rkn_idle_confidence_note">Comparez les groupes de cibles de contrôle et de test avant de conclure à un blocage.</string>
+    <string name="diagnostics_rkn_idle_summary">Exécutez les tests de contrôle et de liste noire inclus avec des protections pour le verdict global.</string>
+    <string name="diagnostics_compression_idle_summary">Vérifiez la prise en charge HTTP gzip, deflate, Brotli et Zstd facultative pour une cible incluse.</string>
+    <string name="diagnostics_tcp16_idle_summary">Vérifiez le comportement des en-têtes étendus TCP16 sur les cibles réseau incluses.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">Exécutez les tests de compatibilité SNI pour les ASN signalés par TCP16.</string>
+    <string name="diagnostics_byoh_idle_summary">Avancé — nécessite un serveur HTTPS contrôlé par l’utilisateur.</string>
+    <string name="diagnostics_byoh_requirements_summary">Configurez un hôte que vous contrôlez pour répondre en HTTPS sur l’adresse IP de destination et servir au moins 128 Kio.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">Comparez les groupes d’URL autorisés et normaux pour détecter les restrictions générales de routage.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">Récupérez les sous-réseaux des fournisseurs et testez les plages /24 en cache pour détecter le comportement de liste blanche.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">Exécutez les tests DPI sélectionnés dans une seule suite.</string>
+</resources>

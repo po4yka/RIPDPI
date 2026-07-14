@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.backup.BackupImporter
 import com.poyka.ripdpi.data.backup.BackupSchemaVersion
 import com.poyka.ripdpi.data.backup.UnsupportedBackupVersion
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -26,9 +27,17 @@ class BackupVersionMigrationTest {
         """.trimIndent()
 
     @Test
-    fun `deserializing schema version 1 succeeds`() {
+    fun `deserializing current schema succeeds`() {
         val doc = BackupImporter.import(minimalJson(BackupSchemaVersion))
         assertEquals(BackupSchemaVersion, doc.schemaVersion)
+    }
+
+    @Test
+    fun `deserializing schema version 1 preserves absent private section`() {
+        val doc = BackupImporter.import(minimalJson(1))
+
+        assertEquals(1, doc.schemaVersion)
+        assertNull(doc.privateData)
     }
 
     @Test

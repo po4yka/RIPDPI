@@ -23,6 +23,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 enum class RipDpiLogLevel { Trace, Debug, Info, Warn, Error }
 
@@ -46,11 +50,11 @@ data class RipDpiLogEntry(
  */
 @Composable
 fun RipDpiLogStream(
-    entries: List<RipDpiLogEntry>,
+    entries: ImmutableList<RipDpiLogEntry>,
     modifier: Modifier = Modifier,
     height: Dp = 240.dp,
     autoScroll: Boolean = true,
-    levelFilter: Set<RipDpiLogLevel>? = null,
+    levelFilter: ImmutableSet<RipDpiLogLevel>? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val shape = RoundedCornerShape(RipDpiThemeTokens.spacing.sm)
@@ -126,7 +130,7 @@ private fun RipDpiLogStreamLightPreview() {
     RipDpiComponentPreview {
         RipDpiLogStream(
             entries =
-                listOf(
+                persistentListOf(
                     RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "core", "tunnel up"),
                     RipDpiLogEntry(RipDpiLogLevel.Debug, "12:00:02", "dns", "resolved 1.1.1.1"),
                     RipDpiLogEntry(RipDpiLogLevel.Warn, "12:00:03", "net", "rtt 380ms"),
@@ -143,7 +147,7 @@ private fun RipDpiLogStreamDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiLogStream(
             entries =
-                listOf(
+                persistentListOf(
                     RipDpiLogEntry(RipDpiLogLevel.Trace, "12:00:00", "vpn", "init"),
                     RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "vpn", "ready"),
                 ),
@@ -157,14 +161,14 @@ private fun RipDpiLogStreamFilteredPreview() {
     RipDpiComponentPreview {
         RipDpiLogStream(
             entries =
-                listOf(
+                persistentListOf(
                     RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "core", "tunnel up"),
                     RipDpiLogEntry(RipDpiLogLevel.Debug, "12:00:02", "dns", "resolved 1.1.1.1"),
                     RipDpiLogEntry(RipDpiLogLevel.Warn, "12:00:03", "net", "rtt 380ms"),
                     RipDpiLogEntry(RipDpiLogLevel.Error, "12:00:04", "net", "TLS handshake failed"),
                     RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:05", "core", "reconnect scheduled"),
                 ),
-            levelFilter = setOf(RipDpiLogLevel.Warn, RipDpiLogLevel.Error),
+            levelFilter = persistentSetOf(RipDpiLogLevel.Warn, RipDpiLogLevel.Error),
         )
     }
 }

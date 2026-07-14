@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.support.RestartPolicyAsk
 import com.poyka.ripdpi.data.support.RestartPolicyNever
 import com.poyka.ripdpi.data.support.RestartPolicyRequired
 import com.poyka.ripdpi.data.support.SupportSettingsFieldChange
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -42,11 +43,7 @@ fun SupportSettingsRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.applied) {
-        if (uiState.applied) {
-            onApplied()
-        }
-    }
+    LifecycleEventEffect(viewModel.appliedEvents) { onApplied() }
 
     SupportSettingsScreen(
         uiState = uiState,
@@ -133,14 +130,9 @@ private fun SupportSettingsPreviewContent(
         }
     }
     RipDpiButton(
-        text =
-            if (uiState.applied) {
-                stringResource(R.string.support_settings_applied_action)
-            } else {
-                stringResource(R.string.support_settings_apply_action)
-            },
+        text = stringResource(R.string.support_settings_apply_action),
         onClick = onApply,
-        enabled = !uiState.applying && !uiState.applied,
+        enabled = !uiState.applying,
         loading = uiState.applying,
         modifier = Modifier.fillMaxWidth(),
     )

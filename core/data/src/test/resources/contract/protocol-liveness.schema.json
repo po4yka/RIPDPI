@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ripdpi-vpn-deploy/protocol-liveness.schema.json",
+  "title": "Protocol liveness sentinel policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "probe_url",
+    "expected_status",
+    "expected_runtime",
+    "policies",
+    "sentinels"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "probe_url": { "type": "string", "pattern": "^https://" },
+    "expected_status": { "type": "integer", "minimum": 100, "maximum": 599 },
+    "probe_timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 60, "default": 15 },
+    "degraded_after_ms": { "type": "integer", "minimum": 1, "default": 3000 },
+    "stale_after_seconds": { "type": "integer", "minimum": 30, "default": 120 },
+    "evaluation_interval_seconds": { "type": "integer", "minimum": 30, "default": 120 },
+    "failure_threshold": { "type": "integer", "minimum": 1, "default": 3 },
+    "otp_ttl_seconds": { "type": "integer", "minimum": 60, "default": 3600 },
+    "expected_runtime": {
+      "type": "object",
+      "required": ["sing_box", "awg"],
+      "properties": {
+        "sing_box": { "type": "string", "minLength": 1 },
+        "awg": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "required_profiles"],
+        "properties": {
+          "id": { "$ref": "#/$defs/technical_id" },
+          "required_profiles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/profile" }
+          },
+          "min_failed_vantages": { "type": "integer", "minimum": 1, "default": 2 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sentinels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "ssh_target", "policy"],
+        "properties": {
+          "id": { "$ref": "#/$defs/technical_id" },
+          "ssh_target": { "type": "string", "pattern": "^[A-Za-z0-9_.@-]+$" },
+          "policy": { "$ref": "#/$defs/technical_id" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "technical_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "profile": {
+      "enum": ["p0-reality", "p1-xhttp", "p2-hysteria2", "p2-amneziawg"]
+    }
+  }
+}

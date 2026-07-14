@@ -3,6 +3,9 @@ package com.poyka.ripdpi.subscription
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -45,7 +48,7 @@ data class SubscriptionExpiryItemUiState(
 )
 
 data class SubscriptionExpirySummaryUiState(
-    val items: List<SubscriptionExpiryItemUiState> = emptyList(),
+    val items: ImmutableList<SubscriptionExpiryItemUiState> = persistentListOf(),
     val attention: SubscriptionExpiryItemUiState? = null,
     val affectedCount: Int = 0,
 )
@@ -60,7 +63,7 @@ fun subscriptionExpiryUiState(
             .map { group -> group.toExpiryItem(nowMillis) }
     val affected = items.filter { it.status.needsAttention }
     return SubscriptionExpirySummaryUiState(
-        items = items,
+        items = items.toImmutableList(),
         attention =
             affected.minWithOrNull(
                 compareBy({ it.status.priority }, { it.details.tokenExpiryMillis ?: Long.MAX_VALUE }),

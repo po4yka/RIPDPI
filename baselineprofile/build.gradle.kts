@@ -23,7 +23,7 @@ android {
 
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
-    // Managed devices (pixel6Api34Atd, pixel6Api34Google) come from ripdpi.android.test.
+    // Managed devices, including the pinned pixel6Api34Atd benchmark image, come from ripdpi.android.test.
 }
 
 kotlin {

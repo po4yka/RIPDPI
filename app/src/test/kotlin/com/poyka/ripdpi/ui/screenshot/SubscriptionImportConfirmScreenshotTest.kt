@@ -44,7 +44,6 @@ class SubscriptionImportConfirmScreenshotTest {
                 url = "https://sub.example.com/subscribe/abcdef0123456789",
                 name = "Example Subscription",
                 bootstrap = false,
-                imported = true,
             ),
         )
     }

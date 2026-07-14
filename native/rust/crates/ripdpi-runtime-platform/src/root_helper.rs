@@ -24,8 +24,8 @@
 //! session (single active session — the common case — is unaffected: the
 //! generation increments and always matches on release).
 
-use std::sync::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 
 use super::root_helper_client::RootHelperClient;
 
@@ -41,7 +41,7 @@ pub struct RootHelperGeneration(u64);
 /// The registered client plus the generation that registered it.
 struct RegisteredRootHelper {
     generation: RootHelperGeneration,
-    client: RootHelperClient,
+    client: Arc<RootHelperClient>,
 }
 
 static ROOT_HELPER: RwLock<Option<RegisteredRootHelper>> = RwLock::new(None);
@@ -56,7 +56,7 @@ static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 pub fn register_root_helper_versioned(socket_path: String) -> RootHelperGeneration {
     let generation = RootHelperGeneration(NEXT_GENERATION.fetch_add(1, Ordering::Relaxed));
     let mut guard = ROOT_HELPER.write().expect("root helper lock poisoned");
-    *guard = Some(RegisteredRootHelper { generation, client: RootHelperClient::new(socket_path) });
+    *guard = Some(RegisteredRootHelper { generation, client: Arc::new(RootHelperClient::new(socket_path)) });
     tracing::info!(generation = generation.0, "root helper client registered");
     generation
 }
@@ -116,13 +116,18 @@ pub fn has_root_helper() -> bool {
 
 /// Execute a closure with a reference to the root helper client.
 ///
-/// Returns `None` if no helper is registered.
+/// Returns `None` if no helper is registered. The registry lock is released
+/// before `f` runs; an `Arc` snapshot keeps an in-flight client alive across a
+/// concurrent unregister without blocking registry lifecycle operations.
 pub fn with_root_helper<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&RootHelperClient) -> R,
 {
-    let guard = ROOT_HELPER.read().ok()?;
-    guard.as_ref().map(|registered| f(&registered.client))
+    let client = {
+        let guard = ROOT_HELPER.read().ok()?;
+        Arc::clone(&guard.as_ref()?.client)
+    };
+    Some(f(client.as_ref()))
 }
 
 #[cfg(test)]
@@ -150,6 +155,17 @@ mod tests {
         assert_eq!(result, Some("/tmp/test_root_helper.sock".to_string()));
         unregister_root_helper();
         assert!(!has_root_helper());
+    }
+
+    #[test]
+    fn callback_runs_without_holding_registry_lock() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        register_root_helper("/tmp/test_root_helper.sock".into());
+
+        let lock_available = with_root_helper(|_| ROOT_HELPER.try_write().is_ok());
+
+        assert_eq!(lock_available, Some(true));
+        unregister_root_helper();
     }
 
     #[test]

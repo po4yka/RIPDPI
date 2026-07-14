@@ -8,6 +8,8 @@ use tracing::debug;
 use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
 
+use super::super::IO_PHASE_WORK_BUDGET;
+
 use super::super::send_dns_servfail;
 use super::{DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_result};
 
@@ -130,7 +132,7 @@ pub(in crate::io_loop) fn route_dns_packet(
     }
 }
 
-/// Drain all pending DNS responses from the receiver channel and process them.
+/// Process one bounded batch of pending DNS responses from the receiver channel.
 ///
 /// When the channel is disconnected, `dns_req_tx` and `dns_resp_rx` are set
 /// to `None`.
@@ -142,7 +144,7 @@ pub(in crate::io_loop) fn drain_dns_responses(
     dns_resp_rx: &mut Option<tokio::sync::mpsc::Receiver<DnsResponse>>,
     dns_req_tx: &mut Option<tokio::sync::mpsc::Sender<DnsRequest>>,
 ) {
-    loop {
+    for _ in 0..IO_PHASE_WORK_BUDGET {
         let dns_response = match dns_resp_rx.as_mut() {
             Some(receiver) => match receiver.try_recv() {
                 Ok(response) => Some(response),

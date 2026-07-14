@@ -13,8 +13,7 @@ struct SelectedTlsFields {
     tls_handshake_ms: Option<u64>,
     cert_chain_length: Option<usize>,
     cert_issuer: Option<String>,
-    observed_server_ttl: Option<u8>,
-    estimated_hop_count: Option<u8>,
+    local_socket_ttl: Option<u8>,
     ja3_fingerprint: Option<String>,
     tls_alert_code: Option<u8>,
     tls_alert_description: Option<String>,
@@ -113,8 +112,7 @@ fn select_tls_fields(tls13: &TlsObservation, tls12: &TlsObservation, tls_ech: &T
         tls_handshake_ms: preferred.tls_handshake_ms,
         cert_chain_length: preferred.cert_chain_length.or(tls12.cert_chain_length),
         cert_issuer: preferred.cert_issuer.clone().or_else(|| tls12.cert_issuer.clone()),
-        observed_server_ttl: preferred.observed_server_ttl,
-        estimated_hop_count: preferred.estimated_hop_count,
+        local_socket_ttl: preferred.local_socket_ttl,
         ja3_fingerprint: preferred.ja3_fingerprint.clone().or_else(|| tls12.ja3_fingerprint.clone()),
         tls_alert_code: tls13.tls_alert_code.or(tls12.tls_alert_code),
         tls_alert_description: tls13.tls_alert_description.clone().or_else(|| tls12.tls_alert_description.clone()),
@@ -182,11 +180,8 @@ fn push_selected_tls_details(details: &mut Vec<ProbeDetail>, selected: &Selected
     if let Some(issuer) = selected.cert_issuer.clone() {
         details.push(ProbeDetail { key: "tlsCertIssuer".to_string(), value: issuer });
     }
-    if let Some(ttl) = selected.observed_server_ttl {
-        details.push(ProbeDetail { key: "observedServerTtl".to_string(), value: ttl.to_string() });
-    }
-    if let Some(hops) = selected.estimated_hop_count {
-        details.push(ProbeDetail { key: "estimatedHopCount".to_string(), value: hops.to_string() });
+    if let Some(ttl) = selected.local_socket_ttl {
+        details.push(ProbeDetail { key: "localSocketTtl".to_string(), value: ttl.to_string() });
     }
     if let Some(ja3) = selected.ja3_fingerprint.clone() {
         details.push(ProbeDetail { key: "ja3Fingerprint".to_string(), value: ja3 });
@@ -205,5 +200,36 @@ fn push_selected_tls_details(details: &mut Vec<ProbeDetail>, selected: &Selected
     }
     if let Some(sig) = selected.tls_dpi_signature.clone() {
         details.push(ProbeDetail { key: "tlsDpiSignature".to_string(), value: sig });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn outbound_socket_ttl_is_not_labeled_as_server_observation() {
+        let selected = SelectedTlsFields {
+            tcp_connect_ms: None,
+            tls_handshake_ms: None,
+            cert_chain_length: None,
+            cert_issuer: None,
+            local_socket_ttl: Some(64),
+            ja3_fingerprint: None,
+            tls_alert_code: None,
+            tls_alert_description: None,
+            tls_server_hello_received: None,
+            tls_dpi_signature: None,
+            tls_negotiated_version: None,
+            connected_addr: None,
+            cdn_provider: None,
+        };
+        let mut details = Vec::new();
+
+        push_selected_tls_details(&mut details, &selected);
+
+        assert!(details.iter().any(|detail| detail.key == "localSocketTtl" && detail.value == "64"));
+        assert!(!details.iter().any(|detail| detail.key == "observedServerTtl"));
+        assert!(!details.iter().any(|detail| detail.key == "estimatedHopCount"));
     }
 }

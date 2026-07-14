@@ -128,6 +128,37 @@ class MainActivityShellControllerTest {
         }
 
     @Test
+    fun `handled host command is not replayed after lifecycle collector restarts`() =
+        runTest {
+            val controller = MainActivityShellController()
+
+            controller.hostCommands.test {
+                controller.requestSaveLogs()
+                assertEquals(MainActivityHostCommand.SaveLogs, awaitItem())
+            }
+
+            controller.hostCommands.test {
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `host commands wait for lifecycle collector without collapsing`() =
+        runTest {
+            val controller = MainActivityShellController()
+
+            controller.requestSaveLogs()
+            controller.requestShareDebugBundle()
+
+            controller.hostCommands.test {
+                assertEquals(MainActivityHostCommand.SaveLogs, awaitItem())
+                assertEquals(MainActivityHostCommand.ShareDebugBundle, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `show vpn dialog effect updates shell state`() {
         val controller = MainActivityShellController()
 
@@ -140,11 +171,14 @@ class MainActivityShellControllerTest {
     fun `show error effect emits snackbar event`() =
         runTest {
             val controller = MainActivityShellController()
+            controller.onEffect(MainEffect.ShowError("boom"))
 
             controller.uiEvents.test {
-                controller.onEffect(MainEffect.ShowError("boom"))
-
                 assertEquals(MainActivityUiEvent.ShowErrorSnackbar("boom"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            controller.uiEvents.test {
+                expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -199,12 +233,12 @@ class MainActivityShellControllerTest {
     }
 
     @Test
-    fun `disconnect deep link uri populates stop request`() {
+    fun `disconnect deep link uri does not populate stop request`() {
         val intent =
             Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect"))
         val controller = MainActivityShellController(intent)
 
-        assertTrue(controller.state.value.stopConfiguredModeRequested)
+        assertFalse(controller.state.value.stopConfiguredModeRequested)
     }
 
     @Test
@@ -254,7 +288,10 @@ class MainActivityShellControllerTest {
         val controller = MainActivityShellController()
 
         controller.onNewIntent(
-            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect")),
+            MainActivity.createLaunchIntent(
+                context = RuntimeEnvironment.getApplication(),
+                requestStopConfiguredMode = true,
+            ),
         )
 
         assertTrue(controller.state.value.stopConfiguredModeRequested)

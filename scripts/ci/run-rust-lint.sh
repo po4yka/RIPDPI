@@ -83,12 +83,12 @@ echo "==> PhantomData / variance guard (issues 45-46)"
 python3 "$repo_root/scripts/ci/check_phantomdata_variance.py"
 
 echo "==> clippy"
-cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
+cargo clippy --locked --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
 echo "==> rustdoc"
-# `cargo doc` is run without `-D warnings` because the workspace has a small
+# `cargo doc --locked` is run without `-D warnings` because the workspace has a small
 # tail of pre-existing intra-doc-link warnings in legacy crates; turning them
 # into errors would block this guard from landing. The rustdoc build still
 # fails on real compile errors and on `#[doc(deny(...))]` directives, so it
 # is meaningful as a CI gate even at the default warn level.
-cargo doc --manifest-path "$workspace_manifest" --workspace --all-features --no-deps
+cargo doc --locked --manifest-path "$workspace_manifest" --workspace --all-features --no-deps

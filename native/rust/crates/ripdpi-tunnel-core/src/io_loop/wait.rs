@@ -5,9 +5,13 @@ use tracing::info;
 use tun_rs::AsyncDevice;
 
 use super::DEFAULT_POLL_DELAY_MS;
-use super::dns_intercept::{DnsResponse, handle_dns_result};
+use super::dns_intercept::DnsResponse;
 use super::state::LoopState;
 use super::udp_assoc::{UdpEvent, handle_udp_event};
+
+mod drain;
+
+use drain::{drain_udp_events, handle_dns_wait_response, recv_dns_response};
 
 pub(in crate::io_loop) enum WaitOutcome {
     Continue,
@@ -22,7 +26,11 @@ enum WaitEvent {
     Cancelled,
 }
 
-pub(in crate::io_loop) async fn wait_for_next_event(tun: &AsyncDevice, state: &mut LoopState) -> WaitOutcome {
+pub(in crate::io_loop) async fn wait_for_next_event(
+    tun: &AsyncDevice,
+    state: &mut LoopState,
+    work_pending: bool,
+) -> WaitOutcome {
     let smol_delay = state
         .iface
         .poll_delay(Instant::now(), &state.socket_set)
@@ -37,6 +45,7 @@ pub(in crate::io_loop) async fn wait_for_next_event(tun: &AsyncDevice, state: &m
     let event = tokio::select! {
         biased;
         _ = state.cancel.cancelled() => WaitEvent::Cancelled,
+        _ = std::future::ready(()), if work_pending => WaitEvent::PollTimer,
         _ = tun.readable() => WaitEvent::TunReadable,
         _ = tokio::time::sleep(smol_delay) => WaitEvent::PollTimer,
         udp_event = state.udp_rx.recv() => WaitEvent::Udp(udp_event),
@@ -47,7 +56,13 @@ pub(in crate::io_loop) async fn wait_for_next_event(tun: &AsyncDevice, state: &m
     match event {
         WaitEvent::TunReadable | WaitEvent::PollTimer => WaitOutcome::Continue,
         WaitEvent::Udp(Some(event)) => {
-            handle_udp_event(&mut state.device, &mut state.udp_associations, event);
+            handle_udp_event(
+                &mut state.device,
+                &mut state.udp_associations,
+                &mut state.udp_eviction_heap,
+                &mut state.dns_cache,
+                event,
+            );
             WaitOutcome::Continue
         }
         WaitEvent::Udp(None) => WaitOutcome::Continue,
@@ -65,21 +80,5 @@ pub(in crate::io_loop) async fn wait_for_next_event(tun: &AsyncDevice, state: &m
             info!("io_loop cancelled -- shutting down");
             WaitOutcome::Cancelled
         }
-    }
-}
-
-fn drain_udp_events(state: &mut LoopState) {
-    while let Ok(event) = state.udp_rx.try_recv() {
-        handle_udp_event(&mut state.device, &mut state.udp_associations, event);
-    }
-}
-
-async fn recv_dns_response(receiver: &mut Option<tokio::sync::mpsc::Receiver<DnsResponse>>) -> Option<DnsResponse> {
-    receiver.as_mut()?.recv().await
-}
-
-fn handle_dns_wait_response(state: &mut LoopState, response: DnsResponse) {
-    if let (Some(mapdns), Some(cache)) = (state.runtime.mapdns_runtime, state.dns_cache.as_mut()) {
-        handle_dns_result(&mut state.device, &state.stats, mapdns, cache, response);
     }
 }

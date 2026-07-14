@@ -1,5 +1,6 @@
 use std::io;
 
+use ripdpi_socks5_core::client::outbound::{OutboundTarget, encode_connect_request};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use super::TargetAddr;
@@ -27,29 +28,13 @@ pub async fn connect<S>(stream: &mut S, target: &TargetAddr) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    // Build CONNECT request: VER=5, CMD=1(CONNECT), RSV=0, ATYP, addr, port
-    let mut req = vec![0x05u8, 0x01, 0x00];
-
-    match target {
-        TargetAddr::Ip(addr) => match addr {
-            std::net::SocketAddr::V4(v4) => {
-                req.push(0x01);
-                req.extend_from_slice(&v4.ip().octets());
-                req.extend_from_slice(&v4.port().to_be_bytes());
-            }
-            std::net::SocketAddr::V6(v6) => {
-                req.push(0x04);
-                req.extend_from_slice(&v6.ip().octets());
-                req.extend_from_slice(&v6.port().to_be_bytes());
-            }
-        },
-        TargetAddr::Domain(domain, port) => {
-            req.push(0x03);
-            req.push(domain.len() as u8);
-            req.extend_from_slice(domain.as_bytes());
-            req.extend_from_slice(&port.to_be_bytes());
-        }
-    }
+    let outbound_target = match target {
+        TargetAddr::Ip(std::net::SocketAddr::V4(addr)) => OutboundTarget::Ipv4(*addr.ip(), addr.port()),
+        TargetAddr::Ip(std::net::SocketAddr::V6(addr)) => OutboundTarget::Ipv6(*addr.ip(), addr.port()),
+        TargetAddr::Domain(domain, port) => OutboundTarget::Domain(domain.clone(), *port),
+    };
+    let req =
+        encode_connect_request(&outbound_target).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
 
     stream.write_all(&req).await?;
 

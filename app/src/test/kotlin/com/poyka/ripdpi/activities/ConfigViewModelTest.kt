@@ -586,6 +586,7 @@ class ConfigViewModelTest {
                     appSettingsRepository = appSettingsRepository,
                     relayArtifacts =
                         ConfigRelayArtifactRepository(
+                            appSettingsRepository = appSettingsRepository,
                             relayProfileStore = relayProfileStore,
                             relayCredentialStore = relayCredentialStore,
                         ),

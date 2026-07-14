@@ -8,10 +8,8 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.net.toUri
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +28,6 @@ import kotlin.math.min
 const val ExtraSelectGroupId = "com.poyka.ripdpi.extra.SELECT_GROUP_ID"
 const val ExtraSelectProfileId = "com.poyka.ripdpi.extra.SELECT_PROFILE_ID"
 
-private const val StopVpnShortcutId = "stop_vpn"
 private const val MaxDynamicShortcuts = 4
 private const val ShortcutShortLabelLength = 10
 
@@ -45,9 +42,9 @@ class AppShortcutsPublisher
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-        private val serviceStateStore: ServiceStateStore,
         private val proxyGroupRepository: ProxyGroupRepository,
         private val selectorSelectionStore: SelectorSelectionStore,
+        private val selectorShortcutCapability: SelectorShortcutCapability,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         private val started = AtomicBoolean(false)
@@ -55,41 +52,6 @@ class AppShortcutsPublisher
         @OptIn(ExperimentalCoroutinesApi::class)
         fun start() {
             if (!started.compareAndSet(false, true)) return
-
-            applicationScope.launch {
-                serviceStateStore.status
-                    .map { it.first }
-                    .distinctUntilChanged()
-                    .collect { status ->
-                        runCatching {
-                            when (status) {
-                                // Reconnecting is an active session bringing itself back up:
-                                // keep the stop shortcut available, same as Running.
-                                AppStatus.Running,
-                                AppStatus.Reconnecting,
-                                -> {
-                                    val manifestShortcut =
-                                        ShortcutManagerCompat
-                                            .getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_MANIFEST)
-                                            .firstOrNull { it.id == StopVpnShortcutId }
-                                    if (manifestShortcut != null) {
-                                        ShortcutManagerCompat.enableShortcuts(context, listOf(manifestShortcut))
-                                    }
-                                }
-
-                                AppStatus.Halted -> {
-                                    ShortcutManagerCompat.disableShortcuts(
-                                        context,
-                                        listOf(StopVpnShortcutId),
-                                        context.getString(R.string.shortcut_stop_vpn_disabled),
-                                    )
-                                }
-                            }
-                        }.onFailure { err ->
-                            Logger.w(err) { "AppShortcutsPublisher: failed to toggle stop_vpn shortcut" }
-                        }
-                    }
-            }
 
             applicationScope.launch {
                 proxyGroupRepository
@@ -149,5 +111,6 @@ class AppShortcutsPublisher
                 setPackage(context.packageName)
                 putExtra(ExtraSelectGroupId, entry.groupId)
                 putExtra(ExtraSelectProfileId, entry.profileId)
+                putExtra(ExtraSelectorCapability, selectorShortcutCapability.sign(entry.groupId, entry.profileId))
             }
     }

@@ -57,7 +57,9 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
 
       - name: Cache cargo registry and target
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -76,7 +78,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p artifacts
-          cargo test --manifest-path native/rust/Cargo.toml \
+          cargo test --locked --manifest-path native/rust/Cargo.toml \
             -p ripdpi-diagnostics-probes \
             -- --ignored --nocapture --test-threads=1 \
             2>&1 | tee artifacts/cargo-test-output.log

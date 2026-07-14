@@ -49,9 +49,10 @@ impl ShadowTlsClient {
         let port = u16::try_from(server_port).map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ShadowTLS port {server_port}"))
         })?;
-        let address = tokio::net::lookup_host((server, port)).await?.next().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
-        })?;
+        let address =
+            self.config.socket_protection.resolve_host(server, port).await?.into_iter().next().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
+            })?;
         // PROTECT INVARIANT: the carrier socket is protected before connect via the
         // in-process VpnService.protect registry (loopback-skipped, fail-closed under
         // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard

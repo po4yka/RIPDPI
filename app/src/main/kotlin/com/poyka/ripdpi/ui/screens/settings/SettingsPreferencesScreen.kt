@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +28,7 @@ import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StartOnBootController
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderSettingsStatusRow
@@ -82,12 +82,10 @@ fun SettingsRoute(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(viewModel, startOnBootController) {
-        viewModel.effects.collect { effect ->
-            if (effect is SettingsEffect.RequestDisableBatteryOptimization) {
-                launchBatteryOptimizationExemption(context, startOnBootController)
-                batteryOptimizationIgnored = startOnBootController.isBatteryOptimizationIgnored()
-            }
+    LifecycleEventEffect(viewModel.effects) { effect ->
+        if (effect is SettingsEffect.RequestDisableBatteryOptimization) {
+            launchBatteryOptimizationExemption(context, startOnBootController)
+            batteryOptimizationIgnored = startOnBootController.isBatteryOptimizationIgnored()
         }
     }
     SettingsScreen(

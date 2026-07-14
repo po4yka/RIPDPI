@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 private const val PercentScale = 100
 private const val PreviewWidthDp = 420
@@ -296,7 +297,7 @@ fun previewStrategyTunerUiState(): StrategyTunerUiState =
                     PreviewFastLatencyMs,
                 ),
                 strategyTunerProbeResult("split", "Split", "www.youtube.com", false, PreviewSlowLatencyMs),
-            ),
+            ).toImmutableList(),
         rankedStrategies =
             listOf(
                 RankedStrategyProbeResult(
@@ -317,7 +318,7 @@ fun previewStrategyTunerUiState(): StrategyTunerUiState =
                     PreviewSlowAverageLatencyMs,
                     PreviewDnsTamperedCount,
                 ),
-            ),
+            ).toImmutableList(),
         totalExpectedResults = PreviewTotalExpectedResults,
     )
 

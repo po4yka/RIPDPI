@@ -11,6 +11,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.nio.ByteBuffer
@@ -150,35 +152,39 @@ class SharedPreferencesWarpProfileStore
                     accountKind = normalizeWarpAccountKind(profile.accountKind),
                     setupState = normalizeWarpSetupState(profile.setupState),
                 )
-            preferences
-                .edit()
-                .putString(
-                    prefKey(normalized.id),
-                    json.encodeToString(WarpProfile.serializer(), normalized),
-                ).apply()
+            withContext(Dispatchers.IO) {
+                preferences
+                    .edit()
+                    .putString(
+                        prefKey(normalized.id),
+                        json.encodeToString(WarpProfile.serializer(), normalized),
+                    ).commitOrThrow()
+            }
         }
 
         override suspend fun remove(profileId: String) {
-            preferences.edit().remove(prefKey(profileId)).apply()
+            withContext(Dispatchers.IO) { preferences.edit().remove(prefKey(profileId)).commitOrThrow() }
         }
 
         override suspend fun activeProfileId(): String? =
             preferences.getString(ActiveProfileKey, null)?.takeIf(String::isNotBlank)
 
         override suspend fun setActiveProfileId(profileId: String?) {
-            preferences
-                .edit()
-                .also { editor ->
-                    if (profileId.isNullOrBlank()) {
-                        editor.remove(ActiveProfileKey)
-                    } else {
-                        editor.putString(ActiveProfileKey, profileId)
-                    }
-                }.apply()
+            withContext(Dispatchers.IO) {
+                preferences
+                    .edit()
+                    .also { editor ->
+                        if (profileId.isNullOrBlank()) {
+                            editor.remove(ActiveProfileKey)
+                        } else {
+                            editor.putString(ActiveProfileKey, profileId)
+                        }
+                    }.commitOrThrow()
+            }
         }
 
         override suspend fun clearAll() {
-            preferences.edit().clear().apply()
+            withContext(Dispatchers.IO) { preferences.edit().clear().commitOrThrow() }
         }
 
         private fun prefKey(profileId: String): String = "$ProfileKeyPrefix$profileId"
@@ -231,30 +237,31 @@ class KeystoreWarpCredentialStore
             profileId: String,
             credentials: WarpCredentials,
         ) {
-            blobStore.putString(
-                prefKey(profileId),
-                json.encodeToString(
-                    WarpCredentials.serializer(),
-                    credentials.copy(
-                        profileId = profileId,
-                        accountKind = normalizeWarpAccountKind(credentials.accountKind),
+            withContext(Dispatchers.IO) {
+                blobStore.putString(
+                    prefKey(profileId),
+                    json.encodeToString(
+                        WarpCredentials.serializer(),
+                        credentials.copy(
+                            profileId = profileId,
+                            accountKind = normalizeWarpAccountKind(credentials.accountKind),
+                        ),
                     ),
-                ),
-            )
+                )
+            }
         }
 
         override suspend fun clear(profileId: String) {
-            blobStore.remove(prefKey(profileId))
-            if (profileId == DefaultWarpProfileId) {
-                blobStore.remove(LegacyCredentialsEntryKey)
+            withContext(Dispatchers.IO) {
+                blobStore.remove(prefKey(profileId))
+                if (profileId == DefaultWarpProfileId) {
+                    blobStore.remove(LegacyCredentialsEntryKey)
+                }
             }
         }
 
         override suspend fun clearAll() {
-            blobStore
-                .keys()
-                .filter { it == LegacyCredentialsEntryKey || it.startsWith(CredentialsEntryPrefix) }
-                .forEach(blobStore::remove)
+            withContext(Dispatchers.IO) { blobStore.clear() }
         }
 
         private fun loadLegacy(profileId: String): WarpCredentials? {
@@ -307,37 +314,43 @@ class SharedPreferencesWarpEndpointStore
         override suspend fun save(entry: WarpEndpointCacheEntry) {
             val profileId = entry.profileId.ifBlank { DefaultWarpProfileId }
             val networkScopeKey = normalizeScopeKey(entry.networkScopeKey)
-            preferences
-                .edit()
-                .putString(
-                    prefKey(profileId, networkScopeKey),
-                    json.encodeToString(
-                        WarpEndpointCacheEntry.serializer(),
-                        entry.copy(
-                            profileId = profileId,
-                            networkScopeKey = networkScopeKey,
+            withContext(Dispatchers.IO) {
+                preferences
+                    .edit()
+                    .putString(
+                        prefKey(profileId, networkScopeKey),
+                        json.encodeToString(
+                            WarpEndpointCacheEntry.serializer(),
+                            entry.copy(
+                                profileId = profileId,
+                                networkScopeKey = networkScopeKey,
+                            ),
                         ),
-                    ),
-                ).apply()
+                    ).commitOrThrow()
+            }
         }
 
         override suspend fun clear(
             profileId: String,
             networkScopeKey: String,
         ) {
-            preferences.edit().remove(prefKey(profileId, normalizeScopeKey(networkScopeKey))).apply()
+            withContext(Dispatchers.IO) {
+                preferences.edit().remove(prefKey(profileId, normalizeScopeKey(networkScopeKey))).commitOrThrow()
+            }
         }
 
         override suspend fun clearProfile(profileId: String) {
-            preferences
-                .all
-                .keys
-                .filter { it.startsWith("endpoint:$profileId:") }
-                .forEach { key -> preferences.edit().remove(key).apply() }
+            withContext(Dispatchers.IO) {
+                val editor = preferences.edit()
+                preferences.all.keys
+                    .filter { it.startsWith("endpoint:$profileId:") }
+                    .forEach(editor::remove)
+                editor.commitOrThrow()
+            }
         }
 
         override suspend fun clearAll() {
-            preferences.edit().clear().apply()
+            withContext(Dispatchers.IO) { preferences.edit().clear().commitOrThrow() }
         }
 
         private fun loadLegacy(
@@ -376,15 +389,24 @@ internal class KeystoreEncryptedPreferences(
         return runCatching { decrypt(payload) }.getOrNull()
     }
 
+    fun getStringStrict(key: String): String? {
+        val payload = preferences.getString(key, null) ?: return null
+        return decrypt(payload)
+    }
+
     fun putString(
         key: String,
         value: String,
     ) {
-        preferences.edit().putString(key, encrypt(value)).apply()
+        preferences.edit().putString(key, encrypt(value)).commitOrThrow()
     }
 
     fun remove(key: String) {
-        preferences.edit().remove(key).apply()
+        preferences.edit().remove(key).commitOrThrow()
+    }
+
+    fun clear() {
+        preferences.edit().clear().commitOrThrow()
     }
 
     fun keys(): Set<String> = preferences.all.keys
@@ -445,6 +467,10 @@ internal class KeystoreEncryptedPreferences(
         const val GcmTagLengthBits = 128
         const val AesKeySizeBits = 256
     }
+}
+
+internal fun SharedPreferences.Editor.commitOrThrow() {
+    check(commit()) { "Could not durably persist profile state" }
 }
 
 @Module

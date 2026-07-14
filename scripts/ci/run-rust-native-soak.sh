@@ -12,7 +12,7 @@ export RIPDPI_SOAK_PROFILE="${RIPDPI_SOAK_PROFILE:-smoke}"
 export RIPDPI_SOAK_ARTIFACT_DIR="$artifact_dir"
 
 echo "==> ripdpi-proxy-runtime soak"
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_soak -- --ignored --nocapture --test-threads=1
+cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_soak -- --ignored --nocapture --test-threads=1
 
 echo "==> ripdpi-monitor-engine soak"
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor-engine --test soak -- --ignored --nocapture --test-threads=1
+cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-monitor-engine --test soak -- --ignored --nocapture --test-threads=1

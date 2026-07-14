@@ -43,31 +43,49 @@ internal object VpnNativeProtectRegistration {
     @Synchronized
     fun register(service: VpnService) {
         if ((proxyToken or relayToken or warpToken or awgToken) != 0L) {
-            // Double-registration guard: unregister stale tokens before registering anew.
-            proxyUnregister(proxyToken)
-            relayUnregister(relayToken)
-            warpUnregister(warpToken)
-            awgUnregister(awgToken)
-            proxyToken = 0L
-            relayToken = 0L
-            warpToken = 0L
-            awgToken = 0L
+            unregister()
         }
-        proxyToken = proxyRegister(service)
-        relayToken = relayRegister(service)
-        warpToken = warpRegister(service)
-        awgToken = awgRegister(service)
+        val registrationFailure =
+            runCatching {
+                proxyToken = registerToken("proxy") { proxyRegister(service) }
+                relayToken = registerToken("relay") { relayRegister(service) }
+                warpToken = registerToken("WARP") { warpRegister(service) }
+                awgToken = registerToken("AmneziaWG") { awgRegister(service) }
+            }.exceptionOrNull()
+        if (registrationFailure != null) {
+            runCatching { unregister() }
+                .exceptionOrNull()
+                ?.let(registrationFailure::addSuppressed)
+            throw registrationFailure
+        }
     }
 
     @Synchronized
     fun unregister() {
-        proxyUnregister(proxyToken)
-        relayUnregister(relayToken)
-        warpUnregister(warpToken)
-        awgUnregister(awgToken)
-        proxyToken = 0L
-        relayToken = 0L
-        warpToken = 0L
-        awgToken = 0L
+        var failure: Throwable? = null
+
+        fun release(
+            token: Long,
+            unregister: (Long) -> Unit,
+            clear: () -> Unit,
+        ) {
+            if (token == 0L) return
+            runCatching { unregister(token) }
+                .onSuccess { clear() }
+                .onFailure { current ->
+                    failure?.addSuppressed(current) ?: run { failure = current }
+                }
+        }
+
+        release(proxyToken, proxyUnregister) { proxyToken = 0L }
+        release(relayToken, relayUnregister) { relayToken = 0L }
+        release(warpToken, warpUnregister) { warpToken = 0L }
+        release(awgToken, awgUnregister) { awgToken = 0L }
+        failure?.let { throw it }
     }
+
+    private inline fun registerToken(
+        owner: String,
+        register: () -> Long,
+    ): Long = register().also { token -> check(token != 0L) { "$owner VPN protect registration failed" } }
 }

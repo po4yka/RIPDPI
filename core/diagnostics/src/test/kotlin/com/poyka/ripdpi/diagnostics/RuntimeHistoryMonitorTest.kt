@@ -34,6 +34,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class RuntimeHistoryMonitorTest {
     @Test
@@ -732,8 +733,9 @@ private fun waitUntil(
     timeoutMillis: Long = 2_000,
     predicate: () -> Boolean,
 ) {
-    val deadline = System.currentTimeMillis() + timeoutMillis
-    while (System.currentTimeMillis() < deadline) {
+    val startedAt = System.nanoTime()
+    val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
+    while (System.nanoTime() - startedAt < timeoutNanos) {
         if (predicate()) {
             return
         }

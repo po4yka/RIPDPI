@@ -47,7 +47,7 @@ Current focused Rust and Kotlin coverage is:
 - CLI/config contract: `config_parses_final_cli_contract`, `config_rejects_partial_auth`, Kotlin `NaiveProxyRuntimePolicyTest.manager command arguments do not expose credentials in argv`, Kotlin `NaiveProxyRuntimePolicyTest.manager writes naive credentials to stdin payload`, and the native `probe_line_*` tests in `main.rs`.
 - Android service-side parser and runtime policy: `NaiveProxyProbeParserTest` covers the `RIPDPI-PROBE` JSON parser and schema-range helper; `NaiveProxyRuntimePolicyTest` covers restart decisions for clean exits, terminal auth/config failures, DNS backoff, and retryable connect/runtime/helper failures.
 
-The remaining service integration gap is intentional and tracked in `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`: `NaiveProxyManager` still launches with `--version` and does not yet run `--probe` as a mandatory schema gate before start.
+The remaining service integration gap is explicit: `NaiveProxyManager` still launches with `--version` and does not yet run `--probe` as a mandatory schema gate before start.
 
 ## Verification Gates
 

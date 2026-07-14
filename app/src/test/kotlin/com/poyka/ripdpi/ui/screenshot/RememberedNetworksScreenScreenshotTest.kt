@@ -4,6 +4,8 @@ import com.poyka.ripdpi.activities.RememberedNetworksUiState
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksScreen
 import com.poyka.ripdpi.ui.screens.settings.rememberedNetworksPreviewEntries
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -17,13 +19,13 @@ class RememberedNetworksScreenScreenshotTest {
     @Test
     fun populatedRememberedNetworksScreen() {
         captureScreen(
-            RememberedNetworksUiState(loading = false, entries = rememberedNetworksPreviewEntries()),
+            RememberedNetworksUiState(loading = false, entries = rememberedNetworksPreviewEntries().toImmutableList()),
         )
     }
 
     @Test
     fun emptyRememberedNetworksScreen() {
-        captureScreen(RememberedNetworksUiState(loading = false, entries = emptyList()))
+        captureScreen(RememberedNetworksUiState(loading = false, entries = persistentListOf()))
     }
 
     private fun captureScreen(state: RememberedNetworksUiState) {

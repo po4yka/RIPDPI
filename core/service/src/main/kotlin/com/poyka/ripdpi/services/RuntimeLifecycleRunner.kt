@@ -49,10 +49,10 @@ internal class RuntimeLifecycleRunner(
             setStopping(true)
             try {
                 stopBlock()
+                lifecycleState.markStopped()
                 true
             } finally {
                 setStopping(false)
-                lifecycleState.markStopped()
             }
         }
     }

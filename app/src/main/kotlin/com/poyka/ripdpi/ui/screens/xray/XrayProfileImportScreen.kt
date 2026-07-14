@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,6 +22,7 @@ import com.poyka.ripdpi.data.subscription.XraySkipReason
 import com.poyka.ripdpi.data.subscription.XraySkippedNode
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -60,9 +60,7 @@ fun XrayProfileImportRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.imported) {
-        if (uiState.imported) onFinished()
-    }
+    LifecycleEventEffect(viewModel.importedEvents) { onFinished() }
 
     XrayProfileImportScreen(
         uiState = uiState,
@@ -115,14 +113,9 @@ internal fun XrayProfileImportScreen(
         }
 
         RipDpiButton(
-            text =
-                if (uiState.imported) {
-                    stringResource(R.string.xray_import_done_action)
-                } else {
-                    stringResource(R.string.xray_import_finish_action)
-                },
+            text = stringResource(R.string.xray_import_finish_action),
             onClick = onConfirm,
-            enabled = uiState.canFinish && !uiState.imported,
+            enabled = uiState.canFinish,
             modifier = Modifier.fillMaxWidth(),
         )
     }

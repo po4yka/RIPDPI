@@ -26,8 +26,8 @@ You are a performance regression analyst for RIPDPI (Rust workspace at native/ru
 
 ## Tracing the Cause
 1. git log --oneline --since="1 week ago" -- native/rust/
-2. cargo bloat --release --profile android-jni -p ripdpi-android -n 30
-3. cargo llvm-lines -p <crate> for monomorphization hotspots
+2. cargo bloat --locked --release --profile android-jni -p ripdpi-android -n 30
+3. cargo llvm-lines --locked -p <crate> for monomorphization hotspots
 
 ## Response Protocol
 Return:

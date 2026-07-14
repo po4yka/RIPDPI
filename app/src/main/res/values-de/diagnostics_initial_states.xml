@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">Vergleiche direkte UDP/53-Antworten mit DoH-Kontrollen für die enthaltenen DPI-Domains.</string>
+    <string name="diagnostics_dns_availability_idle_summary">Prüfe öffentliche UDP- und DoH-Resolver auf Erreichbarkeit und Latenz.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">Prüfe die Erreichbarkeit der enthaltenen DPI-Domains über TLS 1.3, TLS 1.2 und HTTP.</string>
+    <string name="diagnostics_rkn_idle_headline">RKN-Blockierungsdiagnose</string>
+    <string name="diagnostics_rkn_idle_confidence_note">Vergleiche Kontroll- und Testzielgruppen, bevor eine Blockierung festgestellt wird.</string>
+    <string name="diagnostics_rkn_idle_summary">Führe die enthaltenen Kontroll- und Sperrlistentests mit Schutzmechanismen für das Gesamturteil aus.</string>
+    <string name="diagnostics_compression_idle_summary">Prüfe HTTP gzip, deflate, Brotli und optional Zstd für ein enthaltenes Ziel.</string>
+    <string name="diagnostics_tcp16_idle_summary">Prüfe das TCP16-Fat-Header-Verhalten für die enthaltenen Netzwerkziele.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">Führe SNI-Kompatibilitätsprüfungen für von TCP16 markierte ASNs aus.</string>
+    <string name="diagnostics_byoh_idle_summary">Erweitert – erfordert einen selbst verwalteten HTTPS-Server.</string>
+    <string name="diagnostics_byoh_requirements_summary">Konfiguriere einen selbst verwalteten Host, der an der Ziel-IP per HTTPS antwortet und mindestens 128 KiB bereitstellt.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">Vergleiche freigegebene und reguläre URL-Gruppen auf grobe Routing-Einschränkungen.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">Lade Provider-Subnetze und prüfe gespeicherte /24-Bereiche auf Whitelist-Verhalten.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">Führe die ausgewählten DPI-Prüfungen als gemeinsame Suite aus.</string>
+</resources>

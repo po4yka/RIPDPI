@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,7 +52,7 @@ enum class AwgActivationStatus { Idle, Connecting, Failed }
  */
 data class AmneziaWgProfileUiState(
     val editor: AmneziaWgEditorState,
-    val cohortOptions: List<AwgCohortOption>,
+    val cohortOptions: ImmutableList<AwgCohortOption>,
     val privateKeyRevealed: Boolean = false,
     val presharedKeyRevealed: Boolean = false,
     /**
@@ -107,7 +109,7 @@ class AmneziaWgProfileViewModel
             MutableStateFlow(
                 AmneziaWgProfileUiState(
                     editor = AmneziaWgEditorState.initial(),
-                    cohortOptions = buildCohortOptions(catalog),
+                    cohortOptions = buildCohortOptions(catalog).toImmutableList(),
                     canActivate = AmneziaWgEditorState.initial().isActivatable(),
                 ),
             )

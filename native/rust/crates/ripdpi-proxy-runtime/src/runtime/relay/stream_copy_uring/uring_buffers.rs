@@ -1,7 +1,7 @@
-use ripdpi_io_uring::{BufferHandle, CompletionFuture, CompletionResult, RegisteredBufferPool};
+use ripdpi_io_uring::{BufferHandle, CompletionFuture, CompletionResult, IoUringDriver};
 
-pub(super) fn acquire_registered_buffer(pool: &RegisteredBufferPool) -> Option<BufferHandle<'_>> {
-    pool.acquire()
+pub(super) fn acquire_registered_buffer(driver: &IoUringDriver) -> Option<BufferHandle> {
+    driver.acquire_buffer()
 }
 
 /// Block the current thread on a `CompletionFuture`.

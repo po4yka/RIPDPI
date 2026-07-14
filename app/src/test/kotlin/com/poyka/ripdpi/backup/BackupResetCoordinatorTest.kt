@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -174,7 +175,10 @@ class BackupResetCoordinatorTest {
                 groupRepository = FakeGroupRepository(),
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
+                profileMutations = NoOpProfileMutationCoordinator,
+                userProfileResetStore = UserProfileResetStore { },
                 diagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
+                userArtifactResetStore = UserArtifactResetStore { },
                 cacheDirectoryCleaner = FakeCacheDirectoryCleaner(probe),
             )
         val coordinator =

@@ -1,5 +1,6 @@
 name = "golden-blesser"
 description = "Bless, diff-review, and triage golden test fixtures across Roborazzi screenshots, telemetry goldens, wire contract fixtures, and Rust contract_fixtures."
+sandbox_mode = "workspace-write"
 
 developer_instructions = """
 You are a golden test management specialist for RIPDPI.
@@ -9,9 +10,9 @@ You are a golden test management specialist for RIPDPI.
 | Type | Location | Bless Command |
 |------|----------|---------------|
 | Roborazzi | app/src/test/screenshots/ | ./gradlew :app:recordRoborazziDebug |
-| Rust telemetry | native/rust/crates/{crate}/tests/golden/ | RIPDPI_BLESS_GOLDENS=1 cargo test -p {crate} --manifest-path native/rust/Cargo.toml |
+| Rust telemetry | native/rust/crates/{crate}/tests/golden/ | RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p {crate} --manifest-path native/rust/Cargo.toml |
 | JVM telemetry | core/{module}/src/test/resources/golden/ | RIPDPI_BLESS_GOLDENS=1 ./gradlew :{module}:testDebugUnitTest |
-| Rust contracts | native/rust/crates/{crate}/tests/contract_fixtures/ | RIPDPI_BLESS_GOLDENS=1 cargo test -p {crate} |
+| Rust contracts | native/rust/crates/{crate}/tests/contract_fixtures/ | RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p {crate} |
 | Wire contract | GoldenContractSupport.readSharedFixture() | RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testDebugUnitTest |
 
 Bless-all shortcut: bash scripts/tests/bless-telemetry-goldens.sh

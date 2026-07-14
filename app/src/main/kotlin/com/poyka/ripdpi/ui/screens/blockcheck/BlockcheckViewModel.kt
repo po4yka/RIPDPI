@@ -16,6 +16,9 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +31,7 @@ import javax.inject.Inject
 import kotlin.math.min
 
 private val DefaultBlockcheckDomains =
-    listOf(
+    persistentListOf(
         "www.youtube.com",
         "www.facebook.com",
         "t.me",
@@ -51,10 +54,10 @@ data class BlockcheckSiteDiagnosis(
 
 data class BlockcheckUiState(
     val runState: BlockcheckRunState = BlockcheckRunState.Idle,
-    val domains: List<String> = DefaultBlockcheckDomains,
-    val results: List<StrategyProbeResult> = emptyList(),
-    val rankedStrategies: List<RankedStrategyProbeResult> = emptyList(),
-    val diagnoses: List<BlockcheckSiteDiagnosis> = emptyList(),
+    val domains: ImmutableList<String> = DefaultBlockcheckDomains,
+    val results: ImmutableList<StrategyProbeResult> = persistentListOf(),
+    val rankedStrategies: ImmutableList<RankedStrategyProbeResult> = persistentListOf(),
+    val diagnoses: ImmutableList<BlockcheckSiteDiagnosis> = persistentListOf(),
     val recommendedStrategyId: String? = null,
     val recommendedStrategyLabel: String? = null,
     val totalExpectedResults: Int = 0,
@@ -99,7 +102,7 @@ class BlockcheckViewModel
                     .filter(String::isNotEmpty)
                     .distinct()
             mutableUiState.update { state ->
-                state.copy(domains = domains)
+                state.copy(domains = domains.toImmutableList())
             }
         }
 

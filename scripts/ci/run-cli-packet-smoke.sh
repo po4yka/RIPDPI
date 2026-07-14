@@ -98,7 +98,7 @@ run_scenario() {
         RIPDPI_PACKET_SMOKE_TCPDUMP_BIN="$tcpdump_bin" \
         RIPDPI_PACKET_SMOKE_TSHARK_BIN="$tshark_bin" \
         RIPDPI_PACKET_SMOKE_GENERATOR_METADATA="$generator_metadata" \
-        cargo test \
+        cargo test --locked \
             --manifest-path "$workspace_manifest" \
             -p ripdpi-cli \
             --test packet_smoke \
@@ -112,7 +112,7 @@ run_scenario() {
         RIPDPI_PACKET_SMOKE_ARTIFACT_DIR="$scenario_dir" \
         RIPDPI_PACKET_SMOKE_TCPDUMP_BIN="$tcpdump_bin" \
         RIPDPI_PACKET_SMOKE_TSHARK_BIN="$tshark_bin" \
-        cargo test \
+        cargo test --locked \
             --manifest-path "$workspace_manifest" \
             -p ripdpi-cli \
             --test packet_smoke \

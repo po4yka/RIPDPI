@@ -55,13 +55,17 @@ pre-commit:
       run: python3 scripts/ci/check_architecture_health.py --staged
 
     cargo-deny:
-      glob: "native/rust/Cargo*.toml"
-      run: command -v cargo-deny >/dev/null || exit 0; cargo deny --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
+      glob: "{native/rust/Cargo*.toml,native/rust/deny.toml}"
+      run: command -v cargo-deny >/dev/null || exit 0; cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
+
+    advisory-waivers:
+      glob: "{native/rust/deny.toml,native/rust/advisory-waivers.toml,scripts/ci/check_rust_advisory_waivers.py,scripts/ci/test_rust_advisory_waivers.py}"
+      run: python3 scripts/ci/check_rust_advisory_waivers.py && python3 -m unittest scripts.ci.test_rust_advisory_waivers
 
     rust-clippy:
       glob: "*.rs"
       root: "native/rust/"
-      run: cargo clippy --workspace --no-deps --all-targets -- -D warnings
+      run: cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings
 
     design-md:
       glob: "DESIGN.md"
@@ -81,6 +85,9 @@ pre-commit:
 
     rules-drift-check:
       run: bash scripts/ci/check-rules-drift.sh
+
+    harness-cargo-locked:
+      run: python3 scripts/ci/check_harness_cargo_locked.py
 
 commit-msg:
   commands:

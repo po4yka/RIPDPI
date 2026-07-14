@@ -40,12 +40,9 @@ object BackupSettingsConverter {
     /**
      * Reconstructs an [AppSettings] from a backup `settings` map.
      *
-     * Returns the proto default instance when the snapshot key is absent (e.g. an
-     * older or partial backup) rather than throwing, so a restore degrades to
-     * "settings unchanged" instead of failing the whole import.
+     * Returns `null` when the snapshot key is absent (e.g. a SHARE, older, or partial
+     * backup). Absence is not a request to install protobuf zero-values: restore must
+     * leave the live settings category untouched.
      */
-    fun fromMap(map: Map<String, String>): AppSettings {
-        val snapshot = map[SnapshotKey] ?: return AppSettings.getDefaultInstance()
-        return appSettingsFromJson(snapshot)
-    }
+    fun fromMap(map: Map<String, String>): AppSettings? = map[SnapshotKey]?.let(::appSettingsFromJson)
 }

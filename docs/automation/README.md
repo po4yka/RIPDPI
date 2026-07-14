@@ -81,7 +81,7 @@ Install the app and generate the full report:
 
 ```bash
 SERIAL="$(adb devices | awk '/device$/{print $1; exit}')"
-./gradlew :app:installGithubDebug -Pandroid.injected.device.serial="$SERIAL" --console=plain
+./gradlew :app:installGithubFullDebug -Pandroid.injected.device.serial="$SERIAL" --console=plain
 python3 -m venv build/guide-test-venv
 build/guide-test-venv/bin/python -m pip install -r scripts/guide/requirements.txt
 build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --device "$SERIAL" --output build/guide/ripdpi-ui-ux-audit.pdf
@@ -114,7 +114,7 @@ Before committing generator or spec changes, run:
 
 ```bash
 build/guide-test-venv/bin/python -m unittest scripts.tests.test_generate_guide
-./gradlew :app:testGithubDebugUnitTest --tests com.poyka.ripdpi.automation.AutomationLaunchContractTest --tests com.poyka.ripdpi.automation.DebugAutomationControllerTest --console=plain
+./gradlew :app:testGithubFullDebugUnitTest --tests com.poyka.ripdpi.automation.AutomationLaunchContractTest --tests com.poyka.ripdpi.automation.DebugAutomationControllerTest --console=plain
 ```
 
 ## Debug Network Probe

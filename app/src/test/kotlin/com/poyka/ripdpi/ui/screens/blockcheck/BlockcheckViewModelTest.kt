@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
 import com.poyka.ripdpi.diagnostics.summarizeStrategyProbeResults
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -250,8 +251,8 @@ class BlockcheckViewModelTest {
                                 layer = BlockLayer.DNS_POISONING,
                                 bypassClass = BypassStrategyClass.ENCRYPTED_DNS,
                             ),
-                        ),
-                    results = listOf(result("fake", success = true, latencyMs = 90)),
+                        ).toImmutableList(),
+                    results = listOf(result("fake", success = true, latencyMs = 90)).toImmutableList(),
                     rankedStrategies =
                         listOf(
                             com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult(
@@ -263,7 +264,7 @@ class BlockcheckViewModelTest {
                                 averageLatencyMs = 90,
                                 dnsTamperedCount = 0,
                             ),
-                        ),
+                        ).toImmutableList(),
                 ),
             )
 

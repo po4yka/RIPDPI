@@ -11,3 +11,11 @@ pub(super) fn native_log_level_from_str(value: &str) -> Option<LevelFilter> {
         _ => None,
     }
 }
+
+pub(super) fn parse_native_log_level(value: Option<&str>) -> Result<Option<LevelFilter>, String> {
+    value
+        .map(|value| {
+            native_log_level_from_str(value).ok_or_else(|| format!("Unsupported diagnostics nativeLogLevel: {value}"))
+        })
+        .transpose()
+}

@@ -6,7 +6,6 @@ model: haiku
 maxTurns: 30
 skills:
   - rust-performance
-  - rust-build-times
 ---
 
 You are a performance regression analyst for the RIPDPI project (`native/rust/` workspace).
@@ -46,10 +45,10 @@ You are a performance regression analyst for the RIPDPI project (`native/rust/` 
 ## Tracing the Cause
 
 1. `git log --oneline --since="1 week ago" -- native/rust/` to find recent native changes.
-2. `cargo bloat --release --profile android-jni -p ripdpi-android -n 30` to see top functions.
+2. `cargo bloat --locked --release --profile android-jni -p ripdpi-android -n 30` to see top functions.
 3. Compare function lists: diff current `--dump-current` output against `scripts/ci/native-bloat-baseline.json`.
 4. For Criterion: look at `native/rust/target/criterion/<bench>/new/estimates.json` vs baseline entries.
-5. Use `cargo llvm-lines -p <crate>` to find monomorphization hotspots if .text grew unexpectedly.
+5. Use `cargo llvm-lines --locked -p <crate>` to find monomorphization hotspots if .text grew unexpectedly.
 
 ## Updating Baselines Safely
 

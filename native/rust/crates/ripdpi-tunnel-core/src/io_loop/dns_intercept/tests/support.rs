@@ -70,7 +70,7 @@ pub(super) fn test_mapdns() -> MapDnsRuntime {
 
 pub(super) fn test_dns_cache() -> crate::dns_cache::DnsCache {
     let mapdns = test_mapdns();
-    crate::dns_cache::DnsCache::new(mapdns.synthetic_net, mapdns.synthetic_mask, 8)
+    crate::dns_cache::DnsCache::new(mapdns.synthetic_net, mapdns.synthetic_mask, 8).expect("valid cache")
 }
 
 pub(super) fn build_query(name: &str) -> Vec<u8> {

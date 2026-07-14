@@ -1,5 +1,5 @@
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, OwnedFd};
 
 use ripdpi_root_helper_protocol::{CMD_SEND_MULTI_DISORDER_TCP, MultiDisorderParams, SegmentSpec};
 
@@ -12,7 +12,7 @@ impl RootHelperClient {
     #[allow(clippy::too_many_arguments)]
     pub fn send_multi_disorder_tcp(
         &self,
-        stream_fd: RawFd,
+        stream_fd: BorrowedFd<'_>,
         payload: &[u8],
         segments: &[TcpPayloadSegment],
         default_ttl: u8,
@@ -20,7 +20,7 @@ impl RootHelperClient {
         md5sig: bool,
         flags: TcpFlagOverrides,
         ipv4_identifications: &[u16],
-    ) -> io::Result<Option<RawFd>> {
+    ) -> io::Result<Option<OwnedFd>> {
         let segments = segments.iter().map(|s| SegmentSpec { start: s.start, end: s.end }).collect();
         let params = command_params(MultiDisorderParams {
             payload: payload.to_vec(),
