@@ -391,10 +391,10 @@ async fn run_reader(
                 }
                 let sender = { table.lock().unwrap_or_else(PoisonError::into_inner).get(&session_id).cloned() };
                 if let Some(sender) = sender {
-                    // Bounded mailbox: awaiting applies backpressure to this
-                    // sub-session. The send only fails if the sub-session was
-                    // already torn down, in which case the segment is dropped.
-                    let _ = sender.send(data).await;
+                    // The carrier reader must never await one stream's bounded mailbox: doing so head-of-line blocks every other multiplexed stream. A full mailbox isolates the slow stream by closing its local receive path; carrier demux continues immediately.
+                    if sender.try_send(data).is_err() {
+                        deregister(&table, session_id);
+                    }
                 }
             }
             ProtocolType::CloseSessionRequest | ProtocolType::CloseSessionResponse | ProtocolType::CloseConnRequest => {
@@ -623,6 +623,45 @@ mod tests {
 
         drop(conn);
         let _ = server.await;
+    }
+
+    #[tokio::test]
+    async fn saturated_stream_mailbox_does_not_block_other_streams() {
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
+        let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
+        let (slow_tx, _slow_rx) = mpsc::channel(MAILBOX_DEPTH);
+        let (fast_tx, mut fast_rx) = mpsc::channel(MAILBOX_DEPTH);
+        let slow_id = 11;
+        let fast_id = 22;
+        {
+            let mut guard = table.lock().expect("demux table");
+            guard.insert(slow_id, slow_tx);
+            guard.insert(fast_id, fast_tx);
+        }
+        let reader = tokio::spawn(run_reader(
+            Decryptor::new(key),
+            Box::new(reader_side),
+            Arc::clone(&table),
+            Arc::new(NetworkTimeProvider::fixed(NOW)),
+        ));
+        let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
+        let mut seqs = HashMap::new();
+
+        for _ in 0..=MAILBOX_DEPTH {
+            server_send(&mut enc, &mut writer_side, &mut seqs, slow_id, b"slow").await.expect("slow segment");
+        }
+        server_send(&mut enc, &mut writer_side, &mut seqs, fast_id, b"fast").await.expect("fast segment");
+
+        let fast = timeout(Duration::from_millis(100), fast_rx.recv())
+            .await
+            .expect("a saturated stream must not stall carrier demux")
+            .expect("fast mailbox remains open");
+        assert_eq!(fast, b"fast");
+        assert!(!table.lock().expect("demux table").contains_key(&slow_id), "saturated stream must be isolated");
+
+        drop(writer_side);
+        reader.await.expect("reader task");
     }
 
     #[tokio::test]
