@@ -1019,17 +1019,36 @@ jobs:
       - name: Generate Kotlin coverage reports
         run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
 
+      - name: Preserve Kotlin reports and reclaim disk
+        run: |
+          coverage_root="$RUNNER_TEMP/kotlin-coverage"
+          mkdir -p "$coverage_root/root" "$coverage_root/app"
+          mv build/reports "$coverage_root/root/"
+          mv app/build/reports "$coverage_root/app/"
+          for module in core/*; do
+            if [[ -d "$module/build/reports" ]]; then
+              mkdir -p "$coverage_root/$module"
+              mv "$module/build/reports" "$coverage_root/$module/"
+            fi
+          done
+          rm -rf build app/build core/*/build native/rust/target
+          if [[ -n "${GRADLE_USER_HOME:-}" ]]; then
+            rm -rf "$GRADLE_USER_HOME/caches" "$GRADLE_USER_HOME/daemon"
+          fi
+          df -h
+
       - name: Generate Rust coverage reports
         run: bash scripts/ci/run-rust-coverage.sh
 
       - name: Summarize coverage
         run: |
+          coverage_root="$RUNNER_TEMP/kotlin-coverage"
           python3 scripts/ci/summarize_coverage.py \
-            --aggregate-xml build/reports/jacoco/kotlinCoverageReport/kotlinCoverageReport.xml \
-            --module core:data=core/data/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
-            --module core:diagnostics=core/diagnostics/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
-            --module core:engine=core/engine/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
-            --module core:service=core/service/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
+            --aggregate-xml "$coverage_root/root/reports/jacoco/kotlinCoverageReport/kotlinCoverageReport.xml" \
+            --module "core:data=$coverage_root/core/data/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml" \
+            --module "core:diagnostics=$coverage_root/core/diagnostics/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml" \
+            --module "core:engine=$coverage_root/core/engine/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml" \
+            --module "core:service=$coverage_root/core/service/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml" \
             --rust-metrics-env native/rust/target/coverage/metrics.env \
             --markdown-output "$RUNNER_TEMP/coverage-summary.md"
           cat "$RUNNER_TEMP/coverage-summary.md" >> "$GITHUB_STEP_SUMMARY"
@@ -1040,9 +1059,9 @@ jobs:
         with:
           name: coverage-artifacts
           path: |
-            build/reports/jacoco/
-            app/build/reports/jacoco/
-            core/**/build/reports/jacoco/
+            ${{ runner.temp }}/kotlin-coverage/root/reports/jacoco/
+            ${{ runner.temp }}/kotlin-coverage/app/reports/jacoco/
+            ${{ runner.temp }}/kotlin-coverage/core/**/reports/jacoco/
             native/rust/target/coverage/
           retention-days: 7
 
