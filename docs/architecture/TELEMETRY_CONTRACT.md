@@ -8,7 +8,7 @@ Scope: the **runtime telemetry** surface — the proxy / relay / warp / AmneziaW
 snapshots and native events Kotlin polls while a session runs. The diagnostics
 **scan** wire contract (`ScanRequest` / `ScanReport`) is a separate, explicitly
 versioned contract — see [`DIAGNOSTICS_ARCHITECTURE.md`](DIAGNOSTICS_ARCHITECTURE.md)
-and [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §8.
+and [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §9.
 
 Companion docs: [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) (the sibling
 config-JSON contract), [`JNI_CONTRACT.md`](JNI_CONTRACT.md) (the boundary the

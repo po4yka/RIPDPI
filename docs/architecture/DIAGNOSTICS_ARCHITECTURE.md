@@ -319,7 +319,7 @@ currently `5`) versions the `ScanRequest`/`ScanReport`/progress payloads. The
 JVM `DiagnosticsContractGovernanceTest` and `ripdpi-monitor-engine`'s
 `tests/contract_fixtures.rs` are golden contracts — a payload-shape change
 requires a schema bump and a supervised re-bless. See
-[`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §8 and
+[`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §9 and
 [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md).
 
 ## Adding a probe
