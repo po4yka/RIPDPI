@@ -46,7 +46,7 @@ fun StrategyConfigRoute(
     val runtime = remember(runtimeFactory) { runCatching { runtimeFactory() }.getOrNull() }
     val coroutineScope = rememberCoroutineScope()
     var source by rememberSaveable { mutableStateOf(StrategyConfigSource.BuiltIn) }
-    var configText by rememberSaveable { mutableStateOf(uiState.desync.chainDsl) }
+    var configText by remember { mutableStateOf(uiState.desync.chainDsl.boundedUtf8(StrategyConfigMaxImportBytes)) }
     var luaPath by rememberSaveable { mutableStateOf("") }
     var luaFunction by rememberSaveable { mutableStateOf("") }
     var banner by rememberSaveable { mutableStateOf<StrategyConfigBanner?>(null) }
@@ -86,7 +86,7 @@ fun StrategyConfigRoute(
             source = it
             banner = null
         },
-        onConfigTextChanged = { configText = it },
+        onConfigTextChanged = { configText = it.boundedUtf8(StrategyConfigMaxImportBytes) },
         onLuaPathChanged = { luaPath = it },
         onLuaFunctionChanged = { luaFunction = it },
         onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
