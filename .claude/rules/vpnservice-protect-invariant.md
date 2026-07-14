@@ -5,38 +5,32 @@ paths:
   - "native/rust/**/*.rs"
 ---
 
-## VpnService.protect() invariant — the highest-leverage Android networking rule
+## VpnService.protect() invariant
 
-`android.net.VpnService.protect(int socketFd)` is the only way to prevent the kernel from routing a socket's traffic back into the TUN device that the VPN itself owns. Without it, every outbound socket the Rust core creates is captured by its own TUN route, producing an infinite packet loop with exponential traffic growth. This is the single most common LLM-class bug in Android Rust networking.
+`android.net.VpnService.protect(int socketFd)` prevents an app-owned outbound socket from being routed back into the TUN device owned by the active VPN. Apply this invariant to sockets created while the VPN service has registered a protection callback.
 
-### Rule
+### Contract
 
-Every `TcpStream::connect`, `UdpSocket::bind`, or `mio::net::*` construction in Rust code, whose target address is NOT `127.0.0.1` / `[::1]`, MUST be preceded by a successful call to a `protect_socket(fd)` helper that talks to Kotlin's `VpnService.protect()`. The helper must be invoked BEFORE `connect()` / `bind()` returns control to the caller. The protect call must return success; on failure the socket must be closed and the connection failed — NEVER silently proceed.
+- For a non-loopback direct-path socket created while a protection callback is registered, protect the fd before `connect()` or before outbound use. If protection fails, close the socket and propagate the failure.
+- Loopback targets do not require protection.
+- When no callback is registered because the VPN is stopped, tests run on a host, or diagnostics intentionally execute a RAW_PATH scan after stopping the service, protection is a no-op by design. RAW_PATH must not be changed to require a callback.
+- Through-proxy/SOCKS paths intentionally traverse the configured tunnel and must not be rewritten as direct protected paths.
 
-No exceptions for "internal" sockets, "test" sockets, or "control-plane only" sockets. The kernel does not distinguish; the loop fires for all of them.
-
-### Two valid implementations
-
-1. **UDS + SCM_RIGHTS (preferred — shadowsocks-android pattern).** Kotlin holds a Unix Domain Socket listener; Rust sends `SCM_RIGHTS` carrying the socket fd; Kotlin invokes `VpnService.protect(int)` and responds. Survives `JNIEnv` non-Send issues because no JNI call happens on the Rust hot path.
-
-2. **Direct JNI callback to a stored `GlobalRef<VpnService>`.** Rust holds an `Arc<JavaVM>` plus a `GlobalRef` to the service, attaches the current thread, and invokes `protect(int)` directly. Simpler but requires `JavaVM::attach_current_thread()` on every protect call — measure the overhead on the hot path.
-
-### Forbidden alternative
-
-`NetdClient.h::protectFromVpn` is NOT part of the NDK ABI. It changes between Android releases and was removed in some AOSP forks. Never use it.
+The repository provides two supported active-VPN mechanisms: the direct JNI callback in `ripdpi-android-vpn-protect-adapter` and the Unix-socket/SCM_RIGHTS fallback owned by `VpnProtectSocketServer`. Runtime selection lives in `ripdpi-runtime-platform/src/vpn_protect.rs`. `NetdClient.h::protectFromVpn` is not a supported NDK API and must not be introduced.
 
 ### Audit
 
-`jni-bridge-verifier` (and any future `vpn-invariant-checker`) MUST grep for `TcpStream::connect`, `UdpSocket::bind`, `mio::net::TcpSocket::connect`, `tokio::net::TcpStream::connect` across all RIPDPI Rust crates and verify each non-loopback call site is preceded by `protect_socket(fd)`.
+Audit a socket in its lifecycle context rather than classifying every constructor globally:
 
 ```bash
-rg "TcpStream::connect|UdpSocket::bind|mio::net::TcpSocket::connect" native/rust/ --type rust -n
+rg -n "TcpStream::connect|UdpSocket::bind|TcpSocket::connect|Socket::new" native/rust --type rust
+rg -n "has_protect_callback|protect_socket|runRawPathScan|RAW_PATH" native/rust core --type rust --type kotlin
 ```
 
-Any call site without a paired protect is a CRITICAL finding.
+A non-loopback direct socket that can run while the VPN callback is active and bypasses protection is critical. A loopback socket or deliberate callback-free RAW_PATH socket is not a finding.
 
 ### Cross-references
 
-- `rust-android-jni` skill — how to wire the JNI callback path.
-- `jni-bridge-verifier` agent — automated audit.
-- `llm-rust-prompts.md` — sentinel pattern entry for AI-generated diffs.
+- `rust-android-jni` skill for JNI callback safety.
+- `jni-bridge-verifier` agent for Kotlin/Rust bridge verification.
+- `llm-rust-prompts.md` for review sentinels.

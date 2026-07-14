@@ -7,57 +7,37 @@ paths:
   - "native/rust/**/*.rs"
 ---
 
-## Network fingerprint privacy
+## Remembered-network fingerprint contract
 
-RIPDPI uses a per-network policy cache keyed by a SHA-256 hash of network identity. The hash inputs MUST stay within strict privacy bounds — Play Store Data Safety, GDPR, and downstream user trust all hinge on this.
+`NetworkFingerprint.scopeKey()` in `core/data/model/.../NetworkStrategyMemory.kt` is the source of truth for the persisted remembered-network key. The current unversioned recipe normalizes each string, joins the canonical parts with `|`, and stores only the SHA-256 hex digest.
 
-### Canonical hash recipe
+### Current canonical parts
 
-```
-network_scope_key = SHA-256(
-    transport_kind         ||  // "wifi" | "cellular" | "ethernet" | "other"
-    validation_state       ||  // "validated" | "captive" | "none"
-    private_dns_mode       ||  // "off" | "opportunistic" | "strict:<host>"
-    sorted_join(dns_servers, ",") ||  // ascending lexicographic, IPv4/IPv6
-    network_identity              // BSSID for wifi, carrier_id_tuple for cellular
-)
-```
+Every key begins with transport, validation state, captive-portal state, private-DNS mode, and sorted normalized DNS servers. The identity suffix is:
 
-`network_identity` per transport:
-- Wi-Fi: `BSSID` lowercased. If `ACCESS_FINE_LOCATION` was denied (Android 10+), `BSSID` is `02:00:00:00:00:00` (Android-provided sentinel) — do NOT include this sentinel in the hash; substitute the SSID hash instead, or skip the identity component entirely. A constant sentinel BSSID would collapse all consent-denied users into one scope key.
-- Cellular: `SubscriptionInfo.getCarrierId()` (numeric, locale-stable, Android 10+) joined with `MCC` + `MNC`. NEVER use `CarrierName` — it's localized; same carrier in different locales produces different scope keys.
-- Ethernet: interface MAC if available; otherwise skip identity.
+- Wi-Fi: `wifi`, SSID, BSSID, and gateway.
+- Cellular: `cellular`, operator code, SIM operator code, carrier ID, data-network type, and roaming state.
+- Other transports: `other`, normalized transport, normalized DNS list, and private-DNS mode.
 
-### Forbidden inputs
+SSID, BSSID, gateway, operator fields, and DNS addresses are raw in-memory hash material in the current implementation. They must not be logged or persisted separately; only `scopeKey()` and the non-identifying `NetworkFingerprintSummary` may cross the remembered-policy persistence boundary. Do not describe the implementation as pre-hashing SSID or excluding these fields unless the code and migration contract change together.
 
-The following MUST NEVER appear in the hash, in logs, in telemetry, in goldens, or in any persisted artifact under any encoding (plain, base64, hex):
+### Compatibility and privacy
 
-- IMEI / IMSI / MEID / ESN — under any path, including derived values.
-- IPv4 / IPv6 addresses of user devices (LAN or WAN — anything other than the canonical DNS server IPs allowed above).
-- WiFi SSID (the user-visible network name) in plain form. If you must include it, hash it FIRST then include the hash.
-- Raw BSSID strings in logs — only the contribution to the scope hash. Use `tracing::debug!(scope=%scope_hash, "matched policy")`, not `tracing::debug!(bssid=%bssid, ...)`.
-- User account identifiers from any installed app.
+Changing field order, normalization, sentinel handling, or included fields changes every affected key and orphans existing remembered policies. Treat such a change as a versioned storage migration: update the implementation, tests, compatibility policy, and user-visible privacy documentation in one change. Do not silently replace the current recipe from this rule file.
 
-### GDPR / Play Data Safety implications
-
-If RIPDPI's telemetry / persistent stores contain only `SHA-256` hashes of network identity (and no raw identifiers), the Data Safety declaration does NOT need to list "Device identifiers." If any raw BSSID / IMEI / cellular numeric ID leaks into a stored artifact, the declaration becomes mandatory and the user-facing data-safety surface expands. Audit `host-autolearn-v2.json`, telemetry exports, and crash logs before each release.
-
-### Two-level scope (recommended refactor)
-
-A single-level scope key including DNS servers collapses to a different value when the user changes Private DNS mode in system settings. All per-host policy for that physical network is orphaned. Mitigation:
-
-- `network_scope` = hash over `(transport, validation, network_identity)`. Stable across DNS changes.
-- `dns_scope` = hash over `(private_dns_mode, sorted dns_servers)`. Captures the DNS substrate.
-- Policy lookup is a partial-match join: prefer exact `(network_scope, dns_scope)` match; fall back to `network_scope`-only if no DNS-match exists.
-
-This survives Private DNS toggles without losing per-host learning.
+Never add IMEI, IMSI, MEID, ESN, user-account identifiers, or raw identifiers to logs, telemetry, crash reports, goldens, or persisted records. Logs should use the scope hash or the redacted summary. Audit raw identifier collection and export behavior against the actual data flow; a hash alone does not justify categorical GDPR or Play Data Safety claims.
 
 ### Audit
 
-`grep -rE 'imei|imsi|bssid|carrier_name' native/rust/ app/src/ --type rust --type kotlin | grep -v "// allow:"` should return only the intentional uses (the hashing helper itself, the network-callback parser). Any other hit is a privacy bug.
+```bash
+rg -n "scopeKey|canonicalParts|WifiNetworkIdentityTuple|CellularNetworkIdentityTuple" core/data --type kotlin
+rg -n -i "imei|imsi|meid|bssid|ssid|operatorCode|carrierId" app core native/rust
+```
+
+Classify hits by whether they remain transient hash inputs, are reduced to `NetworkFingerprintSummary`, or escape into persistence/logging. Only the last category is a privacy defect.
 
 ### Cross-references
 
-- `rust-android-telemetry` skill — telemetry channel selection.
-- `android-vpn-lifecycle.md` rule — per-network policy survives process death.
-- `llm-rust-prompts.md` — sentinel pattern entry for forbidden identifiers in AI-generated logs.
+- `rust-android-telemetry` skill for telemetry channel selection.
+- `android-vpn-lifecycle.md` for remembered state lifecycle.
+- `llm-rust-prompts.md` for raw-identifier review sentinels.
