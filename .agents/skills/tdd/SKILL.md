@@ -114,7 +114,7 @@ bindings.faults.enqueue(
 
 For non-trivial features, use context isolation:
 
-1. **Subagent writes the test** -- Launch an `Explore` or `general-purpose` agent to write the failing test. This keeps test design independent of implementation bias.
+1. **Subagent writes the test** -- Launch Claude Code's built-in Explore or general-purpose subagent to write the failing test. This keeps test design independent of implementation bias.
 2. **Main context implements** -- Read the test the subagent wrote, then implement the minimum code to pass it.
 3. **Main context refactors** -- Clean up both test and implementation in the same context.
 

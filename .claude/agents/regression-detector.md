@@ -6,7 +6,6 @@ model: haiku
 maxTurns: 30
 skills:
   - rust-performance
-  - rust-build-times
 ---
 
 You are a performance regression analyst for the RIPDPI project (`native/rust/` workspace).

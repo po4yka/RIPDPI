@@ -8,7 +8,7 @@ skills:
   - cargo-workflows
   - rust-async-internals
   - rust-security
-  - rust-api-design
+  - rust-discipline
 memory: project
 ---
 

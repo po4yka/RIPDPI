@@ -6,8 +6,6 @@ model: sonnet
 maxTurns: 30
 skills:
   - rust-performance
-  - rust-build-times
-  - flamegraphs
   - cargo-workflows
 memory: project
 ---

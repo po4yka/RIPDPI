@@ -6,7 +6,6 @@ model: haiku
 maxTurns: 30
 skills:
   - cargo-workflows
-  - rust-build-times
   - rust-performance
 memory: project
 ---

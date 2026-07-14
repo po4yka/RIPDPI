@@ -116,7 +116,7 @@ Shared-file ownership for parallel work must be recorded before writers start.
 
 ## Skills and subagents
 
-Use only skills and agents present in the active tool's catalog. Read the selected `SKILL.md` completely before acting. Do not infer that a skill is available merely because its name appears in prose.
+Portable project skills are canonical under `.agents/skills/`. `.claude/skills/`, `.codex/skills/`, and `.github/skills/` contain compatibility symlinks to the same directories; never maintain copied skill bodies. Use only skills and agents present in the active tool's catalog, and read the selected `SKILL.md` completely before acting.
 
 Claude subagents live in `.claude/agents/`; Codex subagents live in `.codex/agents/`. Prefer the narrowest specialist matching the task. Audit/review/verifier agents must be technically read-only; write-capable agents must use worktree isolation.
 

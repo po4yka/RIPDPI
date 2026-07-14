@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: opus
 maxTurns: 30
 skills:
-  - jetpack-compose-expert-skill
+  - jetpack-compose-api
 memory: project
 ---
 
