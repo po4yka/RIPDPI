@@ -5,9 +5,11 @@ use std::thread::{self, JoinHandle};
 use log::LevelFilter;
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::engine::{build_report, panic_payload_message, run_engine_scan};
-use crate::types::{ProbeDetail, ProbeResult, ScanProgress, ScanRequest, SharedState};
+use crate::engine::run_engine_scan;
+use crate::types::{ScanRequest, SharedState};
 use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
+
+use super::panic_state::record_panic_terminal_state;
 
 pub(super) fn spawn_scan_worker(
     shared: Arc<Mutex<SharedState>>,
@@ -70,61 +72,11 @@ fn run_scan(
     run_engine_scan(shared, cancel, session_id, request, tls_verifier, candidate_runtime_launcher);
 }
 
-fn record_panic_terminal_state(
-    shared: Arc<Mutex<SharedState>>,
-    session_id: String,
-    request: ScanRequest,
-    started_at: u64,
-    panic_payload: Box<dyn std::any::Any + Send>,
-) {
-    let msg = panic_payload_message(&*panic_payload);
-    let panic_result = ProbeResult {
-        probe_type: "diagnostics_engine".to_string(),
-        target: request.profile_id.clone(),
-        outcome: "worker_panicked".to_string(),
-        details: vec![ProbeDetail { key: "error".to_string(), value: msg.clone() }],
-    };
-    let panic_report = build_report(
-        session_id.clone(),
-        request,
-        started_at,
-        "Diagnostics failed: internal worker error".to_string(),
-        vec![panic_result.clone()],
-        Vec::new(),
-        None,
-        None,
-    );
-    let Ok(mut state) = shared.lock() else {
-        return;
-    };
-    if let Some(report) = state.report.as_mut() {
-        if !report.results.iter().any(|result| result.outcome == "worker_panicked") {
-            report.results.push(panic_result);
-        }
-        report.finished_at = crate::util::now_ms();
-        report.summary = "Diagnostics failed: internal worker error".to_string();
-    } else {
-        state.report = Some(panic_report);
-    }
-    let (completed_steps, total_steps) =
-        state.progress.as_ref().map_or((1, 1), |progress| (progress.completed_steps, progress.total_steps.max(1)));
-    state.progress = Some(ScanProgress {
-        session_id,
-        phase: "error".to_string(),
-        completed_steps,
-        total_steps,
-        message: format!("Internal error: {msg}"),
-        is_finished: true,
-        latest_probe_target: None,
-        latest_probe_outcome: Some("worker_panicked".to_string()),
-        strategy_probe_progress: None,
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{DiagnosticProfileFamily, ScanKind, ScanPathMode};
+    use crate::engine::build_report;
+    use crate::types::{DiagnosticProfileFamily, ProbeResult, ScanKind, ScanPathMode, ScanProgress};
 
     #[test]
     fn worker_panic_publishes_terminal_report() {

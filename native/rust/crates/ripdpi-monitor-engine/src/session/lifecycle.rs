@@ -24,12 +24,6 @@ pub struct MonitorSession {
     pub(super) candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
 }
 
-impl Default for MonitorSession {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl MonitorSession {
     pub fn new() -> Self {
         Self::with_parts(None, Arc::new(NoopMonitorPlatformBridge), Arc::new(UnavailableCandidateRuntimeLauncher))
