@@ -61,30 +61,27 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     ) {
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
 
-        try {
-            dependencies.lifecycleRunner.stop {
-                dependencies.handoverProcessor.cancel()
-                dependencies.loopOwner.cancelPermissionWatchdog()
-                callbacks.stopModeRuntime(skipRuntimeShutdown)
-
-                val session = callbacks.currentSession()
-                callbacks.updateStatus(ServiceStatus.Disconnected, null)
-                dependencies.loopOwner.cancelTelemetry()
-                callbacks.onAfterStopCleanup(session)
-                session?.clearActiveConnectionPolicy()
-                session?.let {
-                    dependencies.serviceRuntimeRegistry.unregister(
-                        mode = dependencies.mode,
-                        runtimeId = it.runtimeId,
-                    )
+        dependencies.lifecycleRunner.stop {
+            dependencies.handoverProcessor.cancel()
+            dependencies.loopOwner.cancelPermissionWatchdog()
+            runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
+                .onFailure { failure ->
+                    Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
                 }
-                callbacks.setRuntimeSession(null)
-                dependencies.host.requestStopSelf(stopSelfStartId)
+
+            val session = callbacks.currentSession()
+            callbacks.updateStatus(ServiceStatus.Disconnected, null)
+            dependencies.loopOwner.cancelTelemetry()
+            callbacks.onAfterStopCleanup(session)
+            session?.clearActiveConnectionPolicy()
+            session?.let {
+                dependencies.serviceRuntimeRegistry.unregister(
+                    mode = dependencies.mode,
+                    runtimeId = it.runtimeId,
+                )
             }
-        } catch (failure: Exception) {
-            Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()}" }
-            callbacks.updateStatus(ServiceStatus.Failed, FailureReason.Unexpected(failure))
-            throw failure
+            callbacks.setRuntimeSession(null)
+            dependencies.host.requestStopSelf(stopSelfStartId)
         }
     }
 }

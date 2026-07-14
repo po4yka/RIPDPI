@@ -75,18 +75,17 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun runtimeStopFailureKeepsRuntimeRegisteredAndDoesNotStopService() =
+    fun runtimeStopFailureStillFinalizesAndStopsService() =
         runTest {
             val env = newEnv().also { it.coordinator.failOnStop = true }
             env.coordinator.start()
             runCurrent()
 
-            val failure = runCatching { env.coordinator.stop(stopSelfStartId = 7) }
+            env.coordinator.stop(stopSelfStartId = 7)
 
-            assertTrue(failure.isFailure)
-            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
-            assertEquals(emptyList<Int?>(), env.host.stopRequests)
-            assertEquals(listOf(ServiceStatus.Connected, ServiceStatus.Failed), env.coordinator.statusTransitions)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(listOf(7), env.host.stopRequests)
+            assertEquals(listOf(ServiceStatus.Connected, ServiceStatus.Disconnected), env.coordinator.statusTransitions)
         }
 
     @Test
