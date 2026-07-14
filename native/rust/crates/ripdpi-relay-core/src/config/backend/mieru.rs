@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct MieruRelayConfig {
     pub server: String,
     pub port: i32,
@@ -8,3 +8,11 @@ pub struct MieruRelayConfig {
     pub multiplexing: String,
     pub mtu: i32,
 }
+
+impl_redacted_debug!(MieruRelayConfig {
+    server,
+    port,
+    protocol,
+    multiplexing,
+    mtu,
+});

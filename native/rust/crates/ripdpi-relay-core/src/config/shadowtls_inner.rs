@@ -10,7 +10,7 @@ fn default_shadowtls_inner_xhttp_mode() -> String {
     "auto".to_string()
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedShadowTlsInnerRelayConfig {
     pub kind: String,
@@ -29,3 +29,16 @@ pub struct ResolvedShadowTlsInnerRelayConfig {
     pub vless_uuid: Option<String>,
     pub tls_fingerprint_profile: String,
 }
+
+
+impl_redacted_debug!(ResolvedShadowTlsInnerRelayConfig {
+    kind,
+    profile_id,
+    server,
+    server_port,
+    server_name,
+    vless_flow,
+    vless_transport,
+    xhttp_mode,
+    tls_fingerprint_profile,
+});

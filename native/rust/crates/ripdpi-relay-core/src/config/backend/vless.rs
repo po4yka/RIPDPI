@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct VlessRelayConfig {
     pub vless_flow: String,
     pub vless_transport: String,
@@ -8,7 +8,13 @@ pub struct VlessRelayConfig {
     pub uuid: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+impl_redacted_debug!(VlessRelayConfig {
+    vless_flow,
+    vless_transport,
+    xhttp_mode,
+});
+
+#[derive(Clone, Default)]
 pub struct VlessRealityRelayConfig {
     pub reality_public_key: String,
     pub reality_short_id: String,
@@ -23,3 +29,13 @@ pub struct VlessRealityRelayConfig {
     pub vless_mux_padding_max: u32,
     pub uuid: Option<String>,
 }
+
+impl_redacted_debug!(VlessRealityRelayConfig {
+    vless_flow,
+    vless_transport,
+    xhttp_mode,
+    vless_mux_protocol,
+    vless_mux_max_concurrent_streams,
+    vless_mux_per_connection_kbps,
+    vless_mux_padding_max,
+});
