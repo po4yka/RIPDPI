@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant as StdInstant;
 
 use smoltcp::iface::{SocketHandle, SocketSet};
@@ -30,6 +31,8 @@ pub(crate) fn spawn_new_tcp_sessions(
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
     protect_path: Option<&str>,
+    connect_timeout: Duration,
+    read_write_timeout: Duration,
     cancel: &CancellationToken,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
@@ -46,6 +49,8 @@ pub(crate) fn spawn_new_tcp_sessions(
             proxy_sockaddr,
             auth,
             protect_path,
+            connect_timeout,
+            read_write_timeout,
             cancel,
             stats,
             dns_cache,

@@ -2,8 +2,8 @@ use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Instant;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use std::time::{Duration, Instant};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpSocket;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
@@ -11,6 +11,9 @@ use tracing::debug;
 use super::protect::protect_socket_if_available;
 use super::socks5::{Auth, TargetAddr};
 use crate::stats::{Stats, TcpConnectObservation};
+
+const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const DEFAULT_READ_WRITE_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// High-level TCP session: connect to SOCKS5 proxy, perform handshake,
 /// issue CONNECT to the target, then bidirectionally relay bytes until
@@ -28,11 +31,28 @@ pub struct TcpSession {
     /// tests that exercise the splice / handshake paths can construct a
     /// session without standing up a full `Stats` plumb-through.
     stats: Option<Arc<Stats>>,
+    connect_timeout: Duration,
+    read_write_timeout: Duration,
 }
 
 impl TcpSession {
     pub fn new(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr) -> Self {
-        Self { proxy_addr, auth, target, protect_path: None, stats: None }
+        Self {
+            proxy_addr,
+            auth,
+            target,
+            protect_path: None,
+            stats: None,
+            connect_timeout: DEFAULT_CONNECT_TIMEOUT,
+            read_write_timeout: DEFAULT_READ_WRITE_TIMEOUT,
+        }
+    }
+
+    #[cfg(test)]
+    fn with_timeouts(mut self, connect_timeout: Duration, read_write_timeout: Duration) -> Self {
+        self.connect_timeout = connect_timeout;
+        self.read_write_timeout = read_write_timeout;
+        self
     }
 
     /// Construct a session that will emit `TcpConnectObservation`s into
@@ -46,9 +66,11 @@ impl TcpSession {
         auth: Auth,
         target: TargetAddr,
         protect_path: Option<String>,
+        connect_timeout: Duration,
+        read_write_timeout: Duration,
         stats: Arc<Stats>,
     ) -> Self {
-        Self { proxy_addr, auth, target, protect_path, stats: Some(stats) }
+        Self { proxy_addr, auth, target, protect_path, stats: Some(stats), connect_timeout, read_write_timeout }
     }
 
     /// Run the session to completion.
@@ -115,7 +137,11 @@ impl TcpSession {
         P: AsyncRead + AsyncWrite + Unpin,
     {
         debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session connecting to proxy");
-        let mut proxy = connect(self.proxy_addr).await?;
+        let connect_result = tokio::select! {
+            result = tokio::time::timeout(self.connect_timeout, connect(self.proxy_addr)) => result,
+            _ = cancel.cancelled() => return Ok(()),
+        };
+        let mut proxy = connect_result.map_err(|_| timed_out("TCP proxy connect"))??;
         debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session connected to proxy");
         self.run_with_proxy(local, cancel, &mut proxy).await
     }
@@ -140,37 +166,40 @@ impl TcpSession {
         L: AsyncRead + AsyncWrite + Unpin,
         P: AsyncRead + AsyncWrite + Unpin,
     {
-        super::socks5::handshake(proxy, &self.auth).await?;
-        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 handshake complete");
-        // cancel-safe: the SOCKS5 connect future is awaited exactly once;
-        // `started` is captured BEFORE the await and the observer is
-        // invoked synchronously on each arm of the match — no `.await`
-        // separates the `Instant` capture from emission. Cancellation
-        // mid-await aborts both the connect and the emit (the task
-        // never resumes after cancel), losing at most one observation.
-        let started = Instant::now();
-        match super::socks5::connect(proxy, &self.target).await {
-            Ok(()) => {
-                if let Some(stats) = self.stats.as_deref() {
-                    stats.emit_tcp_connect_observation(TcpConnectObservation {
-                        rtt_ms: started.elapsed().as_millis() as u64,
-                        succeeded: true,
-                    });
+        let setup = async {
+            super::socks5::handshake(proxy, &self.auth).await?;
+            debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 handshake complete");
+            let started = Instant::now();
+            match super::socks5::connect(proxy, &self.target).await {
+                Ok(()) => {
+                    if let Some(stats) = self.stats.as_deref() {
+                        stats.emit_tcp_connect_observation(TcpConnectObservation {
+                            rtt_ms: started.elapsed().as_millis() as u64,
+                            succeeded: true,
+                        });
+                    }
+                }
+                Err(err) => {
+                    if let Some(stats) = self.stats.as_deref() {
+                        stats.emit_tcp_connect_observation(TcpConnectObservation {
+                            rtt_ms: started.elapsed().as_millis() as u64,
+                            succeeded: false,
+                        });
+                    }
+                    return Err(err);
                 }
             }
-            Err(err) => {
-                if let Some(stats) = self.stats.as_deref() {
-                    stats.emit_tcp_connect_observation(TcpConnectObservation {
-                        rtt_ms: started.elapsed().as_millis() as u64,
-                        succeeded: false,
-                    });
-                }
-                return Err(err);
+            Ok::<(), io::Error>(())
+        };
+        tokio::select! {
+            result = tokio::time::timeout(self.connect_timeout, setup) => {
+                result.map_err(|_| timed_out("SOCKS5 connect"))??;
             }
+            _ = cancel.cancelled() => return Ok(()),
         }
         debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 CONNECT complete");
         tokio::select! {
-            result = splice(local, proxy) => {
+            result = splice_with_idle_timeout(local, proxy, self.read_write_timeout) => {
                 match &result {
                     Ok((forward, backward)) => {
                         debug!(
@@ -189,6 +218,70 @@ impl TcpSession {
             },
             _ = cancel.cancelled() => Ok(()),
         }
+    }
+}
+
+fn timed_out(operation: &'static str) -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, format!("{operation} timed out"))
+}
+
+async fn splice_with_idle_timeout<L, P>(local: &mut L, proxy: &mut P, idle_timeout: Duration) -> io::Result<(u64, u64)>
+where
+    L: AsyncRead + AsyncWrite + Unpin,
+    P: AsyncRead + AsyncWrite + Unpin,
+{
+    let (mut local_read, mut local_write) = tokio::io::split(local);
+    let (mut proxy_read, mut proxy_write) = tokio::io::split(proxy);
+    let (activity, mut activity_rx) = tokio::sync::watch::channel(0u64);
+    let forward_activity = activity.clone();
+    let transfer = async move {
+        let forward = copy_with_activity(&mut local_read, &mut proxy_write, forward_activity);
+        let backward = copy_with_activity(&mut proxy_read, &mut local_write, activity);
+        tokio::try_join!(forward, backward)
+    };
+    let idle = async move {
+        loop {
+            match tokio::time::timeout(idle_timeout, activity_rx.changed()).await {
+                Ok(Ok(())) => {}
+                Ok(Err(_)) | Err(_) => return,
+            }
+        }
+    };
+    tokio::select! {
+        biased;
+        result = transfer => result,
+        () = idle => Err(timed_out("TCP relay idle")),
+    }
+}
+
+async fn copy_with_activity<R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    activity: tokio::sync::watch::Sender<u64>,
+) -> io::Result<u64>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut copied = 0u64;
+    let mut buffer = [0u8; 16 * 1024];
+    loop {
+        let read = reader.read(&mut buffer).await?;
+        if read == 0 {
+            writer.shutdown().await?;
+            return Ok(copied);
+        }
+        activity.send_modify(|sequence| *sequence = sequence.wrapping_add(1));
+        let mut written = 0;
+        while written < read {
+            let count = writer.write(&buffer[written..read]).await?;
+            if count == 0 {
+                return Err(io::Error::new(io::ErrorKind::WriteZero, "TCP relay write returned zero"));
+            }
+            written += count;
+            activity.send_modify(|sequence| *sequence = sequence.wrapping_add(1));
+        }
+        copied = copied.saturating_add(read as u64);
     }
 }
 
@@ -668,6 +761,64 @@ mod tests {
         drop(peer);
         let _ = join.await.expect("join echo splice");
         server.join().expect("join echo server");
+    }
+
+    #[tokio::test]
+    async fn tcp_session_connect_path_enforces_configured_deadline() {
+        let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1080);
+        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(proxy_addr))
+            .with_timeouts(Duration::from_millis(25), Duration::from_secs(1));
+        let (mut local, _peer) = tokio::io::duplex(128);
+
+        let result = timeout(
+            Duration::from_secs(1),
+            session.run_with_connector(&mut local, CancellationToken::new(), |_| {
+                std::future::pending::<io::Result<tokio::io::DuplexStream>>()
+            }),
+        )
+        .await
+        .expect("session must enforce its own connect deadline")
+        .expect_err("stalled connect must time out");
+
+        assert_eq!(result.kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[tokio::test]
+    async fn tcp_splice_enforces_idle_read_write_deadline() {
+        let (mut local, _local_peer) = tokio::io::duplex(128);
+        let (mut proxy, _proxy_peer) = tokio::io::duplex(128);
+
+        let result = timeout(
+            Duration::from_secs(1),
+            splice_with_idle_timeout(&mut local, &mut proxy, Duration::from_millis(25)),
+        )
+        .await
+        .expect("splice must enforce its own idle deadline")
+        .expect_err("idle splice must time out");
+
+        assert_eq!(result.kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[tokio::test]
+    async fn tcp_splice_activity_in_either_direction_resets_idle_deadline() {
+        let (mut local, mut local_peer) = tokio::io::duplex(128);
+        let (mut proxy, mut proxy_peer) = tokio::io::duplex(128);
+        let splice =
+            tokio::spawn(
+                async move { splice_with_idle_timeout(&mut local, &mut proxy, Duration::from_millis(75)).await },
+            );
+
+        for byte in 0..4u8 {
+            sleep(Duration::from_millis(25)).await;
+            local_peer.write_all(&[byte]).await.expect("write one-way activity");
+            let mut received = [0u8; 1];
+            proxy_peer.read_exact(&mut received).await.expect("receive one-way activity");
+            assert_eq!(received, [byte]);
+        }
+        drop(local_peer);
+        drop(proxy_peer);
+
+        splice.await.expect("join active splice").expect("one-way activity must keep the session alive");
     }
 
     #[test]

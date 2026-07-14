@@ -37,9 +37,7 @@ pub(crate) fn validate_values(config: &Config) -> Result<(), ConfigError> {
     in_range("misc.tcp-buffer-size", config.misc.tcp_buffer_size, 1, MAX_ALLOCATION_SIZE)?;
     in_range("misc.udp-recv-buffer-size", config.misc.udp_recv_buffer_size, 1, MAX_ALLOCATION_SIZE)?;
     in_range("misc.udp-copy-buffer-nums", config.misc.udp_copy_buffer_nums, 1, 4_096)?;
-    if config.misc.max_session_count != 0 {
-        in_range("misc.max-session-count", config.misc.max_session_count, 1, 100_000)?;
-    }
+    in_range("misc.max-session-count", config.misc.max_session_count, 1, 100_000)?;
     in_range("misc.connect-timeout", config.misc.connect_timeout, 1, MAX_TIMEOUT_MS)?;
     in_range("misc.tcp-read-write-timeout", config.misc.tcp_read_write_timeout, 1, MAX_TIMEOUT_MS)?;
     in_range("misc.udp-read-write-timeout", config.misc.udp_read_write_timeout, 1, MAX_TIMEOUT_MS)?;

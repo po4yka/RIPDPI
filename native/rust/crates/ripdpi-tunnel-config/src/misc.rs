@@ -11,7 +11,7 @@ pub struct MiscConfig {
     pub udp_recv_buffer_size: u32,
     #[serde(default = "default_udp_copy_buffer_nums")]
     pub udp_copy_buffer_nums: u32,
-    #[serde(default)]
+    #[serde(default = "default_max_session_count")]
     pub max_session_count: u32,
     #[serde(default = "default_connect_timeout")]
     pub connect_timeout: u32,
@@ -48,7 +48,7 @@ impl Default for MiscConfig {
             tcp_buffer_size: default_tcp_buffer_size(),
             udp_recv_buffer_size: default_udp_recv_buffer_size(),
             udp_copy_buffer_nums: default_udp_copy_buffer_nums(),
-            max_session_count: 0,
+            max_session_count: default_max_session_count(),
             connect_timeout: default_connect_timeout(),
             tcp_read_write_timeout: default_tcp_rw_timeout(),
             udp_read_write_timeout: default_udp_rw_timeout(),
@@ -81,6 +81,10 @@ fn default_udp_recv_buffer_size() -> u32 {
 
 fn default_udp_copy_buffer_nums() -> u32 {
     10
+}
+
+fn default_max_session_count() -> u32 {
+    2048
 }
 
 fn default_connect_timeout() -> u32 {

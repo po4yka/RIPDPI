@@ -55,6 +55,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::sync::Arc;
+    use std::time::Duration;
 
     use smoltcp::iface::{Interface, SocketSet};
     use smoltcp::socket::tcp::{self, Socket as TcpSocket};
@@ -330,6 +331,8 @@ mod tests {
             proxy_sockaddr,
             &auth,
             None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
             &cancel,
             &stats,
             &mut dns_cache,
@@ -350,6 +353,8 @@ mod tests {
             proxy_sockaddr,
             &auth,
             None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
             &cancel,
             &stats,
             &mut dns_cache,
@@ -370,6 +375,8 @@ mod tests {
             proxy_sockaddr,
             &auth,
             None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
             &cancel,
             &stats,
             &mut dns_cache,

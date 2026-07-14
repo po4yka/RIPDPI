@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant as StdInstant;
 
 use smoltcp::iface::{SocketHandle, SocketSet};
@@ -26,6 +27,8 @@ pub(super) fn admit_session(
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
     protect_path: Option<&str>,
+    connect_timeout: Duration,
+    read_write_timeout: Duration,
     cancel: &CancellationToken,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
@@ -34,7 +37,16 @@ pub(super) fn admit_session(
     remove_pending_listen(pending_listens, pending.handle);
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
 
-    let session = create_session_duplex(proxy_sockaddr, auth, pending.target_addr, protect_path, cancel, stats);
+    let session = create_session_duplex(
+        proxy_sockaddr,
+        auth,
+        pending.target_addr,
+        protect_path,
+        connect_timeout,
+        read_write_timeout,
+        cancel,
+        stats,
+    );
     let entry = SessionEntry {
         smoltcp_side: session.smoltcp_side,
         cancel: session.cancel,

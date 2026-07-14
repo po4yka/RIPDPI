@@ -136,6 +136,13 @@ fn rejects_zero_runtime_timeout() {
 }
 
 #[test]
+fn rejects_unbounded_session_limit() {
+    let yaml = format!("{MINIMAL_VALID}\nmisc:\n  max-session-count: 0\n");
+
+    assert!(Config::from_str(&yaml).is_err(), "zero session limit must not enable unbounded production sessions");
+}
+
+#[test]
 fn rejects_mapdns_cache_larger_than_validated_limit() {
     let yaml =
         format!("{MINIMAL_VALID}\nmapdns:\n  address: 198.18.0.2\n  netmask: 255.254.0.0\n  cache-size: 4294967295\n");
@@ -159,6 +166,7 @@ fn test_defaults_when_optional_sections_absent() {
     assert_eq!(cfg.misc.tcp_buffer_size, 65536);
     assert_eq!(cfg.misc.udp_recv_buffer_size, 524288);
     assert_eq!(cfg.misc.udp_copy_buffer_nums, 10);
+    assert_eq!(cfg.misc.max_session_count, 2048);
     assert_eq!(cfg.misc.connect_timeout, 10000);
     assert_eq!(cfg.misc.tcp_read_write_timeout, 300000);
     assert_eq!(cfg.misc.udp_read_write_timeout, 60000);
