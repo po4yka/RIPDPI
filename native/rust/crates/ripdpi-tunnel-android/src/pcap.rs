@@ -88,6 +88,9 @@ pub struct PcapCaptureSet {
     writer_thread: Option<JoinHandle<WriterResult>>,
 }
 
+const WRITER_STOP_TIMEOUT: Duration = Duration::from_secs(2);
+const WRITER_JOIN_POLL: Duration = Duration::from_millis(10);
+
 #[derive(Debug, Default)]
 struct WriterResult {
     files: Vec<PcapCaptureMetadata>,
@@ -153,7 +156,7 @@ impl PcapCaptureSet {
             total_drops: self.drops.load(Ordering::Relaxed),
         };
         if let Some(handle) = self.writer_thread.take()
-            && let Ok(writer_result) = handle.join()
+            && let Some(writer_result) = join_writer_bounded(handle, WRITER_STOP_TIMEOUT)
         {
             result.files = writer_result.files;
             // Annotate the drops on the last file (most informative
@@ -192,12 +195,23 @@ impl PcapCaptureSet {
 
 impl Drop for PcapCaptureSet {
     fn drop(&mut self) {
-        // Cleanup order: publish stop first, then join the sole writer before queue and counters are released.
+        // Cleanup order: publish stop first, then detach the writer. The worker
+        // owns Arc clones of every shared input, so Drop never needs to block.
         self.request_stop();
-        if let Some(handle) = self.writer_thread.take() {
-            let _ = handle.join();
-        }
+        drop(self.writer_thread.take());
     }
+}
+
+fn join_writer_bounded(handle: JoinHandle<WriterResult>, timeout: Duration) -> Option<WriterResult> {
+    let deadline = Instant::now() + timeout;
+    while !handle.is_finished() && Instant::now() < deadline {
+        thread::sleep(WRITER_JOIN_POLL.min(deadline.saturating_duration_since(Instant::now())));
+    }
+    if handle.is_finished() {
+        return handle.join().ok();
+    }
+    tracing::warn!(timeout_ms = timeout.as_millis(), "pcap writer did not stop before deadline; detaching worker");
+    None
 }
 
 /// Independent observer that owns clone-able handles to the
@@ -418,6 +432,22 @@ mod tests {
         drop(capture);
 
         wait_for_live_writers(live_before);
+    }
+
+    #[test]
+    fn bounded_join_detaches_blocked_writer() {
+        let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+        let handle = thread::spawn(move || {
+            let _ = release_rx.recv();
+            WriterResult::default()
+        });
+        let started = Instant::now();
+
+        let result = join_writer_bounded(handle, Duration::from_millis(25));
+
+        assert!(result.is_none());
+        assert!(started.elapsed() < Duration::from_millis(250));
+        let _ = release_tx.send(());
     }
 
     #[test]
