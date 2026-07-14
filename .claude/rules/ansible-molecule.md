@@ -1,3 +1,10 @@
+---
+paths:
+  - "ansible/**/*.yml"
+  - "ansible/**/*.yaml"
+  - "ansible/**/*.j2"
+---
+
 ## Ansible molecule + xray template authoring
 
 Three failure modes ate hours of converge time during the May 2026

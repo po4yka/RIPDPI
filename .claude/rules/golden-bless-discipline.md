@@ -1,3 +1,11 @@
+---
+paths:
+  - "**/tests/golden/**"
+  - "**/src/test/resources/golden/**"
+  - "**/src/test/screenshots/**"
+  - "**/*golden*"
+---
+
 ## Golden test bless discipline
 
 Golden tests (under `tests/golden/`, `src/test/resources/golden/`, and the `golden-test-support` crate) capture the contract between Rust core, Kotlin layer, and instrumentation. The bless command (`RIPDPI_BLESS_GOLDENS=1`) regenerates them. LLM agents reflexively bless to "fix" failing tests, which silently destroys regression coverage. This rule blocks that pattern.

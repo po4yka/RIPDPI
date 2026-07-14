@@ -1,3 +1,11 @@
+---
+paths:
+  - "app/**/*.kt"
+  - "app/src/main/res/**"
+  - "docs/design/**"
+  - "DESIGN.md"
+---
+
 ## RIPDPI Design System (RDS) — visual contract
 
 The persisted spec deck at `docs/design/rds/` is the **read-only visual contract** for every UI surface in the app. It is generated from the Compose token tree under `app/src/main/kotlin/com/poyka/ripdpi/ui/theme/` plus the brand assets in `app/src/main/res/`. The deck includes 146 preview HTMLs (`docs/design/rds/preview/`), three full-screen mockups (`docs/design/rds/mobile-*.html`), the token CSS export (`colors_and_type.css`), the agent contract (`SKILL.md`), and the deck README (`README.md`). The coverage roadmap lives at `docs/design/rds/COVERAGE.md`.

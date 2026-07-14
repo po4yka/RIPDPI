@@ -1,3 +1,10 @@
+---
+paths:
+  - "core/service/**/*.kt"
+  - "core/engine/**/*.kt"
+  - "native/rust/**/*.rs"
+---
+
 ## VpnService.protect() invariant — the highest-leverage Android networking rule
 
 `android.net.VpnService.protect(int socketFd)` is the only way to prevent the kernel from routing a socket's traffic back into the TUN device that the VPN itself owns. Without it, every outbound socket the Rust core creates is captured by its own TUN route, producing an infinite packet loop with exponential traffic growth. This is the single most common LLM-class bug in Android Rust networking.

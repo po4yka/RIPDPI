@@ -1,3 +1,12 @@
+---
+paths:
+  - "app/**/*.kt"
+  - "core/service/**/*.kt"
+  - "core/engine/**/*.kt"
+  - "native/rust/crates/ripdpi-*-android/**/*.rs"
+  - "native/rust/crates/ripdpi-tunnel-*/**/*.rs"
+---
+
 ## Android VPN Service lifecycle invariants
 
 Android's process model imposes constraints that Rust code rarely encounters elsewhere: `SIGKILL` from LMK with no Drop running, Doze freezer-cgroup suspension, App Standby Buckets demoting Foreground Services, JNI-shutdown deadlocks. This rule documents the invariants that Rust code MUST honor.

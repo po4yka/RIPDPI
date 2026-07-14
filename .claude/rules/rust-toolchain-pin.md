@@ -1,3 +1,10 @@
+---
+paths:
+  - "native/rust/**"
+  - ".github/workflows/**/*.yml"
+  - ".github/workflows/**/*.yaml"
+---
+
 ## Rust toolchain pin and `--locked` discipline
 
 RIPDPI pins its Rust toolchain at `native/rust/rust-toolchain.toml`. The pin is **load-bearing**: it eliminates a class of LLM failure where the model writes code targeting a feature stabilized in a newer rustc than the workspace allows. Agentic flows that resolve dependencies without `--locked` are equally hazardous.

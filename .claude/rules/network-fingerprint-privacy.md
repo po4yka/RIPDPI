@@ -1,3 +1,12 @@
+---
+paths:
+  - "app/**/*.kt"
+  - "core/data/**/*.kt"
+  - "core/diagnostics/**/*.kt"
+  - "core/service/**/*.kt"
+  - "native/rust/**/*.rs"
+---
+
 ## Network fingerprint privacy
 
 RIPDPI uses a per-network policy cache keyed by a SHA-256 hash of network identity. The hash inputs MUST stay within strict privacy bounds — Play Store Data Safety, GDPR, and downstream user trust all hinge on this.
