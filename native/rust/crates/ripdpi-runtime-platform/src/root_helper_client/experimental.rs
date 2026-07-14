@@ -49,7 +49,8 @@ mod tests {
     use std::thread;
 
     use ripdpi_root_helper_protocol::{
-        CMD_SEND_RAW_IP_PACKET, HelperRequest, HelperResponse, recv_message, send_message,
+        CAPABILITY_VERSION, CMD_SEND_RAW_IP_PACKET, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message,
+        send_message,
     };
 
     use super::RootHelperClient;
@@ -74,8 +75,10 @@ mod tests {
             assert_eq!(request.session_nonce.as_deref(), Some(test_session_nonce()));
             assert_eq!(request.params["target_addr"], "203.0.113.10:443");
             assert_eq!(request.params["packet"], serde_json::json!([69, 0, 0, 20]));
-            let response =
-                serde_json::to_vec(&HelperResponse::success(serde_json::Value::Null)).expect("response JSON");
+            let response = serde_json::to_vec(
+                &HelperResponse::success(serde_json::Value::Null).with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION),
+            )
+            .expect("response JSON");
             send_message(&stream, &response, None).expect("response");
         });
 
