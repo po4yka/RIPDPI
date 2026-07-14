@@ -4,6 +4,7 @@ description: Bless, diff-review, and triage golden test fixtures across Roborazz
 tools: Bash, Read, Grep, Glob
 model: haiku
 maxTurns: 30
+isolation: worktree
 skills:
   - protobuf-schema-evolution
   - kotlin-test-patterns

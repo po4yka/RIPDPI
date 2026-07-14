@@ -1,5 +1,6 @@
 name = "golden-blesser"
 description = "Bless, diff-review, and triage golden test fixtures across Roborazzi screenshots, telemetry goldens, wire contract fixtures, and Rust contract_fixtures."
+sandbox_mode = "workspace-write"
 
 developer_instructions = """
 You are a golden test management specialist for RIPDPI.

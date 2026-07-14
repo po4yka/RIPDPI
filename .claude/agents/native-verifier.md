@@ -4,6 +4,7 @@ description: Native build verification specialist. Use when checking .so library
 tools: Read, Grep, Glob, Bash
 model: haiku
 maxTurns: 30
+isolation: worktree
 skills:
   - cargo-workflows
   - rust-performance

@@ -1,5 +1,6 @@
 name = "native-verifier"
 description = "Native build verification specialist. Checks .so library sizes, ELF metadata, cargo-bloat regressions, and updates native baselines."
+sandbox_mode = "workspace-write"
 
 developer_instructions = """
 You are a native build verification specialist for the RIPDPI Android project.
