@@ -3,6 +3,8 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.boot.BootSessionPointer
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -20,9 +22,12 @@ class StandaloneAmneziaWgActivatorTest {
     fun `activate selects request and starts vpn service`() =
         runTest {
             val serviceController = RecordingServiceController()
+            val store = RecordingBootSessionStateStore()
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
                     serviceController = serviceController,
+                    bootSessionStateStore = store,
+                    loadProfile = { null },
                 )
             val request = sampleRequest("awg-uuid-A")
 
@@ -30,15 +35,19 @@ class StandaloneAmneziaWgActivatorTest {
 
             assertEquals(listOf(Mode.VPN), serviceController.startCalls)
             assertEquals(request, activator.selectedAwgEgress())
+            assertEquals(request.profileId, store.activeAwgProfileId())
         }
 
     @Test
     fun `re-activating replaces selected request and restarts vpn`() =
         runTest {
             val serviceController = RecordingServiceController()
+            val store = RecordingBootSessionStateStore()
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
                     serviceController = serviceController,
+                    bootSessionStateStore = store,
+                    loadProfile = { null },
                 )
 
             activator.activate(sampleRequest("awg-uuid-A"))
@@ -53,15 +62,19 @@ class StandaloneAmneziaWgActivatorTest {
     fun `deactivate clears selection and stops owned vpn session`() =
         runTest {
             val serviceController = RecordingServiceController()
+            val store = RecordingBootSessionStateStore()
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
                     serviceController = serviceController,
+                    bootSessionStateStore = store,
+                    loadProfile = { null },
                 )
 
             activator.activate(sampleRequest("awg-uuid-A"))
             activator.deactivate()
 
             assertNull(activator.selectedAwgEgress())
+            assertNull(store.activeAwgProfileId())
             assertEquals(1, serviceController.stopCalls)
         }
 
@@ -72,6 +85,8 @@ class StandaloneAmneziaWgActivatorTest {
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
                     serviceController = serviceController,
+                    bootSessionStateStore = RecordingBootSessionStateStore(),
+                    loadProfile = { null },
                 )
 
             activator.deactivate()
@@ -90,6 +105,8 @@ class StandaloneAmneziaWgActivatorTest {
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
                     serviceController = serviceController,
+                    bootSessionStateStore = RecordingBootSessionStateStore(),
+                    loadProfile = { null },
                 )
 
             try {
@@ -100,6 +117,38 @@ class StandaloneAmneziaWgActivatorTest {
 
             assertNull(activator.selectedAwgEgress())
             assertEquals(listOf(Mode.VPN), serviceController.startCalls)
+        }
+
+    @Test
+    fun `selection rehydrates after process recreation`() =
+        runTest {
+            val request = sampleRequest("awg-uuid-A")
+            val store = RecordingBootSessionStateStore(activeAwgId = request.profileId)
+            val activator =
+                DefaultStandaloneAmneziaWgActivator(
+                    serviceController = RecordingServiceController(),
+                    bootSessionStateStore = store,
+                    loadProfile = { profileId -> request.takeIf { it.profileId == profileId } },
+                )
+
+            assertEquals(request, activator.selectedAwgEgress())
+        }
+
+    @Test
+    fun `missing persisted selection fails closed`() =
+        runTest {
+            val activator =
+                DefaultStandaloneAmneziaWgActivator(
+                    serviceController = RecordingServiceController(),
+                    bootSessionStateStore = RecordingBootSessionStateStore(activeAwgId = "missing"),
+                    loadProfile = { null },
+                )
+
+            try {
+                activator.selectedAwgEgress()
+                fail("Expected missing AWG profile to fail closed")
+            } catch (_: IllegalStateException) {
+            }
         }
 
     private fun sampleRequest(profileId: String): AwgActivationRequest =
@@ -127,5 +176,28 @@ class StandaloneAmneziaWgActivatorTest {
         override fun stop() {
             stopCalls++
         }
+    }
+
+    private class RecordingBootSessionStateStore(
+        private var activeAwgId: String? = null,
+    ) : BootSessionStateStore {
+        override fun lastSession(): BootSessionPointer? = null
+
+        override fun recordSession(
+            profileId: String,
+            mode: Mode,
+        ) = Unit
+
+        override fun activeAwgProfileId(): String? = activeAwgId
+
+        override fun setActiveAwgProfileId(profileId: String?) {
+            activeAwgId = profileId
+        }
+
+        override fun clear() = Unit
+
+        override fun wasRunningAtUpdate(): Boolean = false
+
+        override fun setWasRunningAtUpdate(value: Boolean) = Unit
     }
 }
