@@ -58,7 +58,7 @@ fn next_handle_after(handle: u64) -> u64 {
     if handle >= MAX_JLONG_HANDLE { 1 } else { handle + 1 }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
 
