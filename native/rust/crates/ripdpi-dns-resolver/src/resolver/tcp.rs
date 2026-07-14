@@ -15,7 +15,7 @@ impl EncryptedDnsResolver {
     pub(super) async fn connect_plain_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
         match &self.inner.transport {
             EncryptedDnsTransport::Direct => self.connect_direct_tcp().await,
-            EncryptedDnsTransport::Socks5 { host, port } => self.connect_socks5_tcp(host, *port).await,
+            EncryptedDnsTransport::Socks5 { host, port, .. } => self.connect_socks5_tcp(host, *port).await,
         }
     }
 
@@ -40,7 +40,7 @@ impl EncryptedDnsResolver {
                     self.connect_direct_tcp().await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
                 }
             }
-            EncryptedDnsTransport::Socks5 { host, port } => {
+            EncryptedDnsTransport::Socks5 { host, port, .. } => {
                 self.connect_socks5_tcp(host, *port).await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
             }
         }
@@ -87,7 +87,10 @@ mod tests {
     use tokio_rustls::TlsAcceptor;
 
     use super::*;
-    use crate::types::{BoxedDnsTcpStream, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsProtocol};
+    use crate::types::{
+        BoxedDnsTcpStream, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsProtocol,
+        EncryptedDnsSocks5Credentials,
+    };
 
     fn turmoil_test_endpoint(host: &str, port: u16, bootstrap_ips: Vec<IpAddr>) -> EncryptedDnsEndpoint {
         EncryptedDnsEndpoint {
@@ -313,7 +316,7 @@ mod tests {
             let proxy_ip = turmoil::lookup("proxy");
             let resolver = EncryptedDnsResolver::with_timeout(
                 turmoil_test_endpoint("fixture.test", 853, vec![IpAddr::V4(Ipv4Addr::new(198, 18, 0, 30))]),
-                EncryptedDnsTransport::Socks5 { host: proxy_ip.to_string(), port: 1080 },
+                EncryptedDnsTransport::Socks5 { host: proxy_ip.to_string(), port: 1080, credentials: None },
                 Duration::from_millis(50),
             )
             .expect("resolver builds");
@@ -329,6 +332,72 @@ mod tests {
                 }
                 other => panic!("expected SOCKS5 timeout, got {other:?}"),
             }
+            Ok(())
+        });
+
+        sim.run()
+    }
+
+    #[test]
+    fn turmoil_socks5_connection_authenticates_with_configured_credentials() -> turmoil::Result {
+        const USERNAME: &str = "resolver-fixture";
+        const PASSWORD: &str = "resolver-secret";
+        let mut sim = turmoil::Builder::new().build();
+
+        sim.host("proxy", || async move {
+            let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1080)).await?;
+            let (mut stream, _) = listener.accept().await?;
+
+            let mut greeting = [0u8; 2];
+            stream.read_exact(&mut greeting).await?;
+            assert_eq!(greeting[0], 5);
+            let mut methods = vec![0u8; usize::from(greeting[1])];
+            stream.read_exact(&mut methods).await?;
+            assert!(methods.contains(&2), "client must advertise username/password authentication");
+            stream.write_all(&[5, 2]).await?;
+
+            let mut auth_header = [0u8; 2];
+            stream.read_exact(&mut auth_header).await?;
+            assert_eq!(auth_header[0], 1);
+            let mut username = vec![0u8; usize::from(auth_header[1])];
+            stream.read_exact(&mut username).await?;
+            let mut password_len = [0u8; 1];
+            stream.read_exact(&mut password_len).await?;
+            let mut password = vec![0u8; usize::from(password_len[0])];
+            stream.read_exact(&mut password).await?;
+            assert_eq!(username, USERNAME.as_bytes());
+            assert_eq!(password, PASSWORD.as_bytes());
+            stream.write_all(&[1, 0]).await?;
+
+            let mut request_header = [0u8; 5];
+            stream.read_exact(&mut request_header).await?;
+            assert_eq!(&request_header[..4], &[5, 1, 0, 3]);
+            let mut request_tail = vec![0u8; usize::from(request_header[4]) + 2];
+            stream.read_exact(&mut request_tail).await?;
+            stream.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, 0, 0]).await?;
+            Ok(())
+        });
+
+        sim.client("client", async move {
+            let proxy_ip = turmoil::lookup("proxy");
+            let resolver = EncryptedDnsResolver::with_timeout(
+                turmoil_test_endpoint("fixture.test", 853, Vec::new()),
+                EncryptedDnsTransport::Socks5 {
+                    host: proxy_ip.to_string(),
+                    port: 1080,
+                    credentials: Some(EncryptedDnsSocks5Credentials {
+                        username: USERNAME.to_string(),
+                        password: PASSWORD.to_string(),
+                    }),
+                },
+                Duration::from_millis(250),
+            )
+            .expect("resolver builds");
+
+            resolver
+                .connect_socks5_tcp_with(SocketAddr::new(proxy_ip, 1080), turmoil::net::TcpStream::connect)
+                .await
+                .expect("authenticated SOCKS5 connection");
             Ok(())
         });
 

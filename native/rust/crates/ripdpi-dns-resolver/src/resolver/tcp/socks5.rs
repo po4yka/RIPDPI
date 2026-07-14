@@ -2,14 +2,14 @@ use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_socks5_core::Socks5Command;
 use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
 use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
+use ripdpi_socks5_core::{AuthenticationMethod, Socks5Command};
 
 use super::super::connection::TcpClientStream;
 use super::super::state::ResolverInner;
 use super::timeouts;
-use crate::types::EncryptedDnsError;
+use crate::types::{EncryptedDnsError, EncryptedDnsTransport};
 
 pub(super) async fn connect_socks5_tcp_with<S, C, F>(
     inner: &ResolverInner,
@@ -25,7 +25,16 @@ where
     let _ = proxy_stream.set_nodelay_if_supported(true);
 
     let target = Socks5TargetAddr::Domain(inner.endpoint.host.clone(), inner.endpoint.port);
-    let mut socks_stream = Socks5Stream::use_stream(proxy_stream, None, Socks5Config::default())
+    let auth = match &inner.transport {
+        EncryptedDnsTransport::Direct => None,
+        EncryptedDnsTransport::Socks5 { credentials, .. } => {
+            credentials.as_ref().map(|credentials| AuthenticationMethod::Password {
+                username: credentials.username.clone(),
+                password: credentials.password.clone(),
+            })
+        }
+    };
+    let mut socks_stream = Socks5Stream::use_stream(proxy_stream, auth, Socks5Config::default())
         .await
         .map_err(|err| socks5_auth_error(proxy_target, err))?;
     timeouts::socks5_handshake(inner.timeout, async {

@@ -170,7 +170,9 @@ fn exchange_encrypted_dns_query_with_bind(
 ) -> Result<Vec<u8>, String> {
     let transport = match transport {
         TransportConfig::Direct { .. } => EncryptedDnsTransport::Direct,
-        TransportConfig::Socks5 { host, port } => EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port },
+        TransportConfig::Socks5 { host, port } => {
+            EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port, credentials: None }
+        }
     };
     let resolver = EncryptedDnsResolver::with_connect_hooks(
         endpoint,

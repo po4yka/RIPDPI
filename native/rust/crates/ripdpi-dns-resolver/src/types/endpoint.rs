@@ -1,3 +1,4 @@
+use std::fmt;
 use std::net::IpAddr;
 
 use crate::odoh::OdohConfigSource;
@@ -60,8 +61,44 @@ pub struct EncryptedDnsEndpoint {
     pub odoh: Option<OdohEndpointConfig>,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+pub struct EncryptedDnsSocks5Credentials {
+    pub username: String,
+    pub password: String,
+}
+
+impl fmt::Debug for EncryptedDnsSocks5Credentials {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("EncryptedDnsSocks5Credentials")
+            .field("username", &"<redacted>")
+            .field("password", &"<redacted>")
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EncryptedDnsTransport {
     Direct,
-    Socks5 { host: String, port: u16 },
+    Socks5 { host: String, port: u16, credentials: Option<EncryptedDnsSocks5Credentials> },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EncryptedDnsSocks5Credentials;
+
+    #[test]
+    fn socks5_credentials_debug_output_is_redacted() {
+        let credentials = EncryptedDnsSocks5Credentials {
+            username: "fixture-user".to_string(),
+            password: "fixture-password".to_string(),
+        };
+
+        let debug = format!("{credentials:?}");
+
+        assert!(!debug.contains("fixture-user"));
+        assert!(!debug.contains("fixture-password"));
+        assert!(debug.contains("<redacted>"));
+    }
 }

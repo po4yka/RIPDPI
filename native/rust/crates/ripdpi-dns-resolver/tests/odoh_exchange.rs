@@ -42,7 +42,11 @@ fn odoh_exchange_uses_socks_transport_for_proxy_leg_when_configured() {
 
     let resolver = EncryptedDnsResolver::with_timeout(
         odoh_endpoint(manifest.bind_host.as_str(), manifest.dns_odoh_proxy_port, manifest.dns_odoh_target_port),
-        EncryptedDnsTransport::Socks5 { host: manifest.bind_host.clone(), port: manifest.socks5_port },
+        EncryptedDnsTransport::Socks5 {
+            host: manifest.bind_host.clone(),
+            port: manifest.socks5_port,
+            credentials: None,
+        },
         Duration::from_secs(2),
     )
     .expect("build ODoH resolver");

@@ -9,8 +9,8 @@ mod tls_pin;
 pub(crate) use cache::DnsCryptCachedCertificate;
 #[allow(unused_imports)]
 pub use endpoint::{
-    DOQ_DEFAULT_PORT, DOT_DEFAULT_PORT, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsTransport,
-    OdohEndpointConfig,
+    DOQ_DEFAULT_PORT, DOT_DEFAULT_PORT, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsSocks5Credentials,
+    EncryptedDnsTransport, OdohEndpointConfig,
 };
 pub use error::{EncryptedDnsError, EncryptedDnsErrorKind};
 pub use exchange::EncryptedDnsExchangeSuccess;

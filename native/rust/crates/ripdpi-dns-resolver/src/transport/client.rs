@@ -118,7 +118,9 @@ fn configure_transport(
 ) -> Result<reqwest::ClientBuilder, EncryptedDnsError> {
     match transport {
         EncryptedDnsTransport::Direct => Ok(configure_direct_transport(builder, endpoint, health, network_scope)),
-        EncryptedDnsTransport::Socks5 { host, port } => configure_socks5_transport(builder, host, *port),
+        EncryptedDnsTransport::Socks5 { host, port, credentials } => {
+            configure_socks5_transport(builder, host, *port, credentials.as_ref())
+        }
     }
 }
 
@@ -141,9 +143,15 @@ fn configure_socks5_transport(
     builder: reqwest::ClientBuilder,
     host: &str,
     port: u16,
+    credentials: Option<&crate::types::EncryptedDnsSocks5Credentials>,
 ) -> Result<reqwest::ClientBuilder, EncryptedDnsError> {
     let proxy = Proxy::all(format!("socks5h://{host}:{port}"))
         .map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))?;
+    let proxy = if let Some(credentials) = credentials {
+        proxy.basic_auth(&credentials.username, &credentials.password)
+    } else {
+        proxy
+    };
     Ok(builder.proxy(proxy))
 }
 

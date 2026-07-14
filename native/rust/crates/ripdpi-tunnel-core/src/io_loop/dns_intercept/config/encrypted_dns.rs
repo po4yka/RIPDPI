@@ -4,8 +4,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use ripdpi_dns_resolver::{
-    EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport, OdohConfigSource,
-    OdohEndpointConfig,
+    EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsSocks5Credentials,
+    EncryptedDnsTransport, OdohConfigSource, OdohEndpointConfig,
 };
 use ripdpi_tunnel_config::{Config, MapDnsConfig};
 use rustls::RootCertStore;
@@ -74,7 +74,11 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
 
 pub(in crate::io_loop) fn mapdns_resolver_transport(config: &Config, mapdns: &MapDnsConfig) -> EncryptedDnsTransport {
     if mapdns.route_dns_through_socks5 {
-        EncryptedDnsTransport::Socks5 { host: config.socks5.address.clone(), port: config.socks5.port }
+        let credentials =
+            config.socks5.username.as_ref().zip(config.socks5.password.as_ref()).map(|(username, password)| {
+                EncryptedDnsSocks5Credentials { username: username.clone(), password: password.clone() }
+            });
+        EncryptedDnsTransport::Socks5 { host: config.socks5.address.clone(), port: config.socks5.port, credentials }
     } else {
         EncryptedDnsTransport::Direct
     }

@@ -362,7 +362,7 @@ async fn doh_exchange_supports_socks_transport() {
             dnscrypt_public_key: None,
             odoh: None,
         },
-        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
+        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port, credentials: None },
         DEFAULT_TIMEOUT,
         vec![certificate_der],
     )
@@ -643,7 +643,7 @@ fn dot_exchange_supports_socks_transport() {
             dnscrypt_public_key: None,
             odoh: None,
         },
-        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
+        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port, credentials: None },
         DEFAULT_TIMEOUT,
         vec![certificate_der],
     )
@@ -926,7 +926,7 @@ fn dnscrypt_exchange_supports_socks_transport() {
             dnscrypt_public_key: Some(server.provider_public_key_hex.clone()),
             odoh: None,
         },
-        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
+        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port, credentials: None },
     )
     .expect("resolver builds");
 

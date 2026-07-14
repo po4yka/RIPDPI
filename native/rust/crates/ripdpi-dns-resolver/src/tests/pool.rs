@@ -265,7 +265,7 @@ mod hickory_backend_tests {
                 dnscrypt_public_key: None,
                 odoh: None,
             },
-            EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
+            EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port, credentials: None },
             DEFAULT_TIMEOUT,
             vec![certificate_der],
         )

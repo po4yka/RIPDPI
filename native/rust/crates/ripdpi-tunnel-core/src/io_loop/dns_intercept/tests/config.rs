@@ -1,6 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use ripdpi_dns_resolver::{EncryptedDnsProtocol, EncryptedDnsTransport};
+use ripdpi_dns_resolver::{EncryptedDnsProtocol, EncryptedDnsSocks5Credentials, EncryptedDnsTransport};
 
 use super::super::protect_hooks::encrypted_dns_connect_hooks;
 use super::super::{build_encrypted_dns_resolver, mapdns_resolver_transport, parse_dns_cache, parse_mapdns_runtime};
@@ -73,11 +73,23 @@ fn build_encrypted_dns_resolver_uses_doh_url_defaults() {
 fn mapdns_resolver_transport_uses_local_socks5_when_relay_dns_is_active() {
     let mut mapdns = mapdns_config(16);
     mapdns.route_dns_through_socks5 = true;
-    let config = tunnel_config_with_mapdns(Some(mapdns.clone()));
+    let mut config = tunnel_config_with_mapdns(Some(mapdns.clone()));
+    config.socks5.username = Some("ripdpi".to_string());
+    config.socks5.password = Some("session-secret".to_string());
 
     let transport = mapdns_resolver_transport(&config, &mapdns);
 
-    assert_eq!(transport, EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: 1080 },);
+    assert_eq!(
+        transport,
+        EncryptedDnsTransport::Socks5 {
+            host: "127.0.0.1".to_string(),
+            port: 1080,
+            credentials: Some(EncryptedDnsSocks5Credentials {
+                username: "ripdpi".to_string(),
+                password: "session-secret".to_string(),
+            }),
+        },
+    );
 }
 
 #[test]
@@ -113,7 +125,7 @@ fn build_encrypted_dns_resolver_uses_odoh_config_and_socks_transport() {
     assert_eq!(odoh.target_operator_id, "TargetNet");
     assert_eq!(
         mapdns_resolver_transport(&config, config.mapdns.as_ref().expect("mapdns")),
-        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: 1080 }
+        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: 1080, credentials: None }
     );
 }
 
