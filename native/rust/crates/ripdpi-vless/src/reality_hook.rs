@@ -68,7 +68,7 @@ const _: () = {
 pub(crate) type RealityHelloCb =
     extern "C" fn(ssl: *mut SslHandle, msg: *mut u8, msg_len: usize, arg: *mut c_void) -> c_int;
 
-#[cfg(not(feature = "miri-stubs"))]
+#[cfg(not(all(miri, feature = "miri-stubs")))]
 unsafe extern "C" {
     /// Patched BoringSSL accessor. Returns 1 if it copied 32 bytes
     /// into `out`, 0 otherwise. Valid only between
@@ -95,7 +95,7 @@ unsafe extern "C" {
 /// cleanly under Miri.
 ///
 /// Enable via `cargo +nightly miri test -p ripdpi-vless --features miri-stubs`.
-#[cfg(feature = "miri-stubs")]
+#[cfg(all(miri, feature = "miri-stubs"))]
 mod miri_stubs {
     use super::{RealityHelloCb, SslCtxHandle, SslHandle, c_int, c_void};
 
@@ -145,7 +145,7 @@ mod miri_stubs {
     }
 }
 
-#[cfg(feature = "miri-stubs")]
+#[cfg(all(miri, feature = "miri-stubs"))]
 use miri_stubs::{SSL_CTX_set_client_hello_cb, SSL_get_SSL_CTX, SSL_handshake_get_x25519_private_key};
 
 pub(crate) struct RealityCallbackState {
