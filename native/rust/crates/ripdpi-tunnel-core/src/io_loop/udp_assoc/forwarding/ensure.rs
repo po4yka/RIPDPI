@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use ripdpi_collections::bounded_heap::BoundedHeap;
@@ -14,7 +13,7 @@ use crate::session::udp::UdpMemoryBudget;
 
 use super::super::association_state::UdpAssociation;
 use super::super::event_handling::UdpEvent;
-use super::super::eviction::{UdpEvictionEntry, evict_if_over_capacity};
+use super::super::eviction::{UdpEvictionEntry, evict_if_over_capacity, record_udp_activity};
 use super::allocation::alloc_association;
 use super::quic_sni::record_quic_sni_if_present;
 
@@ -42,9 +41,7 @@ pub(super) fn ensure_udp_association(
     }
 
     record_quic_sni_if_present(stats, payload);
-    if eviction_heap.is_full() {
-        evict_if_over_capacity(associations, eviction_heap, dns_cache);
-    }
+    evict_if_over_capacity(associations, eviction_heap, dns_cache);
     let association = alloc_association(
         next_id,
         memory_budget,
@@ -57,7 +54,6 @@ pub(super) fn ensure_udp_association(
         cancel,
         udp_tx,
     );
-    eviction_heap
-        .push(UdpEvictionEntry { addr: src, last_activity_epoch: association.last_activity.load(Ordering::Relaxed) });
     associations.insert(src, association);
+    record_udp_activity(associations, eviction_heap, src);
 }

@@ -23,9 +23,9 @@ pub(in crate::io_loop) use quic_sni::record_quic_sni_if_present;
 use tokio::sync::mpsc::error::TrySendError;
 
 use super::association_removal::remove_association;
-use super::association_state::{OutboundDatagram, UdpAssociation, touch_udp_activity};
+use super::association_state::{OutboundDatagram, UdpAssociation};
 use super::event_handling::UdpEvent;
-use super::eviction::UdpEvictionEntry;
+use super::eviction::{UdpEvictionEntry, record_udp_activity};
 
 #[allow(clippy::too_many_arguments)]
 pub(in crate::io_loop) fn forward_udp_payload(
@@ -74,12 +74,11 @@ pub(in crate::io_loop) fn forward_udp_payload(
     lease_udp_attribution(associations, src, observation.token);
     lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
 
-    let Some(association) = associations.get(&src) else {
+    let Some(outbound) = associations.get(&src).map(|association| association.outbound.clone()) else {
         return;
     };
-    let outbound = association.outbound.clone();
 
-    touch_udp_activity(&association.last_activity);
+    record_udp_activity(associations, eviction_heap, src);
     let Some(datagram) = OutboundDatagram::try_new(resolved_dst, payload, memory_budget) else {
         debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
         return;

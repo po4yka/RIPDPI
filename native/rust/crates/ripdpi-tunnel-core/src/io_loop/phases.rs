@@ -149,7 +149,7 @@ mod tests {
 
     use super::super::retransmit::RetransmitTracker;
     use super::super::state::{LoopRuntime, LoopState};
-    use super::super::udp_assoc::{DEFAULT_MAX_UDP_ASSOCIATIONS, UdpEvictionEntry};
+    use super::super::udp_assoc::{UDP_EVICTION_HEAP_CAPACITY, UdpEvictionEntry};
     use super::*;
 
     #[tokio::test]
@@ -299,7 +299,7 @@ mod tests {
             udp_tx,
             udp_rx,
             udp_associations: HashMap::new(),
-            udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(DEFAULT_MAX_UDP_ASSOCIATIONS),
+            udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(UDP_EVICTION_HEAP_CAPACITY),
             udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,
             dns_req_tx: None,

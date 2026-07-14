@@ -30,6 +30,7 @@ pub(super) fn now_millis() -> u64 {
 
 pub(in crate::io_loop) struct UdpAssociation {
     pub(super) id: u64,
+    pub(super) activity_generation: u64,
     pub(super) outbound: tokio::sync::mpsc::Sender<OutboundDatagram>,
     pub(super) cancel: CancellationToken,
     pub(super) last_activity: Arc<AtomicU64>,

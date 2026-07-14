@@ -53,7 +53,13 @@ pub(in crate::io_loop) async fn wait_for_next_event(
     match event {
         WaitEvent::TunReadable | WaitEvent::PollTimer => WaitOutcome::Continue,
         WaitEvent::Udp(Some(event)) => {
-            handle_udp_event(&mut state.device, &mut state.udp_associations, &mut state.dns_cache, event);
+            handle_udp_event(
+                &mut state.device,
+                &mut state.udp_associations,
+                &mut state.udp_eviction_heap,
+                &mut state.dns_cache,
+                event,
+            );
             WaitOutcome::Continue
         }
         WaitEvent::Udp(None) => WaitOutcome::Continue,
@@ -78,7 +84,15 @@ fn drain_udp_events(state: &mut LoopState) {
     drain_ready_with_budget(
         IO_PHASE_WORK_BUDGET,
         || state.udp_rx.try_recv(),
-        |event| handle_udp_event(&mut state.device, &mut state.udp_associations, &mut state.dns_cache, event),
+        |event| {
+            handle_udp_event(
+                &mut state.device,
+                &mut state.udp_associations,
+                &mut state.udp_eviction_heap,
+                &mut state.dns_cache,
+                event,
+            );
+        },
     );
 }
 

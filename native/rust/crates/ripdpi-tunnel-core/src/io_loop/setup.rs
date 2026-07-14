@@ -24,7 +24,7 @@ use super::retransmit::RetransmitTracker;
 use super::setup_dns::{build_dns_worker, configure_resolver_fallback};
 use super::state::{LoopRuntime, LoopState};
 use super::tcp_accept::{make_auth, proxy_addr};
-use super::udp_assoc::DEFAULT_MAX_UDP_ASSOCIATIONS;
+use super::udp_assoc::UDP_EVICTION_HEAP_CAPACITY;
 
 pub(in crate::io_loop) fn setup_io_loop(
     device: TunDevice,
@@ -108,7 +108,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         udp_tx,
         udp_rx,
         udp_associations: HashMap::new(),
-        udp_eviction_heap: BoundedHeap::new(DEFAULT_MAX_UDP_ASSOCIATIONS),
+        udp_eviction_heap: BoundedHeap::new(UDP_EVICTION_HEAP_CAPACITY),
         udp_memory_budget: UdpMemoryBudget::for_tunnel_mtu(mtu),
         next_udp_association_id: 1,
         dns_req_tx,
