@@ -95,6 +95,9 @@ pub(crate) fn tunnel_pcap_list_captures_entry(mut env: EnvUnowned<'_>, capture_d
 }
 
 pub(crate) fn tunnel_pcap_redact_entry(mut env: EnvUnowned<'_>, source_path: JString, dest_fd: jint) -> jlong {
+    let Some(dest_fd) = pcap::adopt_pcap_dest_fd(dest_fd) else {
+        return 0;
+    };
     android_support::init_android_logging("ripdpi-tunnel-native");
     match env
         .with_env(move |env| -> jni::errors::Result<jlong> {

@@ -107,18 +107,25 @@ pub(crate) fn pcap_list_captures_entry(capture_dir: PathBuf) -> String {
     })
 }
 
+/// Adopt the destination fd transferred by `ParcelFileDescriptor.detachFd()`.
+/// This must be called before any fallible JNI or filesystem work so every
+/// exit path closes the transferred descriptor.
+pub(crate) fn adopt_pcap_dest_fd(dest_fd: i32) -> Option<OwnedFd> {
+    if dest_fd < 0 {
+        return None;
+    }
+    // SAFETY: Kotlin transfers exclusive ownership via
+    // `ParcelFileDescriptor.detachFd()`. The returned `OwnedFd` is therefore
+    // the sole owner and closes the descriptor exactly once on drop.
+    Some(unsafe { OwnedFd::from_raw_fd(dest_fd) })
+}
+
 /// Inner entry: read `source_path`, redact endpoint addresses + zero
 /// transport checksums, write the rewritten pcap stream to `dest_fd`.
 /// Returns bytes-written on success or 0 on any failure (source open
 /// failure, invalid fd, IO error during rewrite).
 ///
-/// Caller (Kotlin via `jniPcapRedactToFile`) MUST have transferred
-/// ownership of the dest fd via `ParcelFileDescriptor.detachFd()`,
-/// NOT a `.fd()` peek. See SAFETY block below.
-pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_fd: i32) -> u64 {
-    if dest_fd < 0 {
-        return 0;
-    }
+pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_owned: OwnedFd) -> u64 {
     let source = match File::open(&source_path) {
         Ok(f) => BufReader::new(f),
         Err(err) => {
@@ -126,17 +133,6 @@ pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_fd: i32) -> u64 {
             return 0;
         }
     };
-    // SAFETY: dest_fd ownership is transferred from Kotlin via
-    // `ParcelFileDescriptor.detachFd()` (NOT `.fd()`, which peeks).
-    // We immediately wrap it in `OwnedFd`, which uniquely owns the
-    // descriptor and closes it on drop. The `File::from(OwnedFd)`
-    // conversion transfers ownership to the File; the BufWriter -> File
-    // -> OwnedFd chain closes the fd exactly once when the BufWriter
-    // is dropped at function return. If Kotlin called `.fd()` instead
-    // of `detachFd()`, both sides would close the fd, producing an
-    // EBADF or a future-fd reuse race -- this is enforced by the
-    // single-call-site contract on the Kotlin `PcapController` class.
-    let dest_owned = unsafe { OwnedFd::from_raw_fd(dest_fd) };
     let dest_file = File::from(dest_owned);
     let dest = BufWriter::new(dest_file);
     rewrite_endpoints(source, dest).unwrap_or_else(|err| {
@@ -264,14 +260,18 @@ mod tests {
         // IntoRawFd transfers ownership; the entry function takes
         // responsibility for closing.
         let dest_fd = file.into_raw_fd();
-        let bytes = pcap_redact_entry(dir.path().join("does-not-exist.pcap"), dest_fd);
+        let dest_owned = adopt_pcap_dest_fd(dest_fd).expect("adopt destination fd");
+        let bytes = pcap_redact_entry(dir.path().join("does-not-exist.pcap"), dest_owned);
         assert_eq!(bytes, 0);
+        // SAFETY: `dest_fd` is used only as an integer probe after ownership
+        // was consumed; F_GETFD does not dereference memory or take ownership.
+        assert_eq!(unsafe { libc::fcntl(dest_fd, libc::F_GETFD) }, -1);
+        assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(libc::EBADF));
     }
 
     #[test]
     fn pcap_redact_entry_negative_fd_returns_zero() {
-        let bytes = pcap_redact_entry(PathBuf::from("/tmp/whatever.pcap"), -1);
-        assert_eq!(bytes, 0);
+        assert!(adopt_pcap_dest_fd(-1).is_none());
     }
 
     #[test]
@@ -290,7 +290,8 @@ mod tests {
         let dest_path = dir.path().join("dest.pcap");
         let dest_file = OpenOptions::new().write(true).create(true).truncate(true).open(&dest_path).expect("dest");
         let dest_fd = dest_file.into_raw_fd();
-        let bytes = pcap_redact_entry(src_path, dest_fd);
+        let dest_owned = adopt_pcap_dest_fd(dest_fd).expect("adopt destination fd");
+        let bytes = pcap_redact_entry(src_path, dest_owned);
         // 24-byte pcap global header must be present.
         assert!(bytes >= 24, "expected >=24 bytes (pcap global header), got {bytes}");
     }
