@@ -5,15 +5,19 @@ pub ripdpi_native_protect::SocketProtectionPolicy::VpnRequired
 impl ripdpi_native_protect::SocketProtectionPolicy
 pub fn ripdpi_native_protect::SocketProtectionPolicy::protect(self, std::os::fd::raw::RawFd) -> std::io::error::Result<()>
 pub fn ripdpi_native_protect::SocketProtectionPolicy::protect_non_loopback(self, std::os::fd::raw::RawFd, core::net::socket_addr::SocketAddr) -> std::io::error::Result<()>
+pub async fn ripdpi_native_protect::SocketProtectionPolicy::resolve_authority(self, &str) -> std::io::error::Result<alloc::vec::Vec<core::net::socket_addr::SocketAddr>>
+pub async fn ripdpi_native_protect::SocketProtectionPolicy::resolve_host(self, &str, u16) -> std::io::error::Result<alloc::vec::Vec<core::net::socket_addr::SocketAddr>>
 pub struct ripdpi_native_protect::ProtectGeneration(_)
 impl ripdpi_native_protect::ProtectGeneration
 pub const fn ripdpi_native_protect::ProtectGeneration::from_token(u64) -> Self
 pub const fn ripdpi_native_protect::ProtectGeneration::token(self) -> u64
 pub trait ripdpi_native_protect::ProtectCallback: core::marker::Send + core::marker::Sync
 pub fn ripdpi_native_protect::ProtectCallback::protect(&self, std::os::fd::raw::RawFd) -> std::io::error::Result<()>
+pub fn ripdpi_native_protect::ProtectCallback::resolve_host(&self, &str) -> std::io::error::Result<alloc::vec::Vec<core::net::ip_addr::IpAddr>>
 pub fn ripdpi_native_protect::has_protect_callback() -> bool
 pub fn ripdpi_native_protect::protect_socket_via_callback(std::os::fd::raw::RawFd) -> std::io::error::Result<()>
 pub fn ripdpi_native_protect::register_protect_callback(alloc::sync::Arc<dyn ripdpi_native_protect::ProtectCallback>)
 pub fn ripdpi_native_protect::register_protect_callback_versioned(alloc::sync::Arc<dyn ripdpi_native_protect::ProtectCallback>) -> ripdpi_native_protect::ProtectGeneration
+pub fn ripdpi_native_protect::resolve_host_via_callback(&str) -> std::io::error::Result<alloc::vec::Vec<core::net::ip_addr::IpAddr>>
 pub fn ripdpi_native_protect::unregister_protect_callback()
 pub fn ripdpi_native_protect::unregister_protect_callback_if(ripdpi_native_protect::ProtectGeneration) -> bool

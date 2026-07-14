@@ -89,6 +89,7 @@ fn load_session_nonce(path: &str) -> io::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::{ClientTransport, load_session_nonce, session_nonce_path};
+    use std::io;
     use std::io::Write;
     use std::os::fd::AsFd;
     use std::os::unix::net::UnixListener;
