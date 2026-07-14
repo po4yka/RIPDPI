@@ -76,11 +76,23 @@ class SubscriptionImportConfirmViewModel
             importToken: String,
             pendingImports: PendingProxyImportStore = PendingProxyImportStore.process,
         ): Boolean {
-            if (claimedImportToken == importToken && _uiState.value.url.isNotBlank()) return true
-            val request = pendingImports.claimSubscription(importToken) ?: return false
-            claimedImportToken = importToken
-            setRequest(request.url, request.name, request.bootstrap)
-            return true
+            val alreadyClaimed = claimedImportToken == importToken && _uiState.value.url.isNotBlank()
+            val request = if (alreadyClaimed) null else pendingImports.claimSubscription(importToken)
+            return when {
+                alreadyClaimed -> {
+                    true
+                }
+
+                request == null -> {
+                    false
+                }
+
+                else -> {
+                    claimedImportToken = importToken
+                    setRequest(request.url, request.name, request.bootstrap)
+                    true
+                }
+            }
         }
 
         /** Seeds the screen with the deep link's pre-filled fields. */
