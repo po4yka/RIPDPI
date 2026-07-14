@@ -81,6 +81,13 @@ internal fun SubscriptionImportConfirmScreen(
                 tone = WarningBannerTone.Info,
             )
         }
+        if (uiState.importFailed) {
+            WarningBanner(
+                title = stringResource(R.string.strategy_config_import_failed_title),
+                message = stringResource(R.string.import_profile_confirm_error),
+                tone = WarningBannerTone.Error,
+            )
+        }
         RipDpiCard {
             RipDpiPanelHeader(
                 title =

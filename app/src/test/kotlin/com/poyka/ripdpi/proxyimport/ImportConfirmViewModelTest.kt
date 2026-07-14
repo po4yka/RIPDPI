@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
@@ -33,6 +34,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -563,27 +566,64 @@ class ImportConfirmViewModelTest {
         }
 
     @Test
-    fun `confirming a bootstrap import persists a bootstrap-kind subscription`() =
+    fun `confirming a bootstrap import consumes and persists members before success`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
-            val viewModel = SubscriptionImportConfirmViewModel(repository)
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body("trojan://secret@example.com:443#bootstrap")
+                        .build(),
+                )
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
+                        groupIdFactory = { "bootstrap-group" },
+                    )
 
-            viewModel.setRequest(
-                url = "https://sub.example.com/bootstrap/tok",
-                name = "Boot",
-                bootstrap = true,
-            )
-            viewModel.confirm()
-            advanceUntilIdle()
+                viewModel.setRequest(
+                    url = server.url("/bootstrap/tok").toString(),
+                    name = "Boot",
+                    bootstrap = true,
+                )
+                viewModel.importedEvents.test {
+                    viewModel.confirm()
+                    advanceUntilIdle()
+                    awaitItem()
+                }
 
-            assertEquals(
-                SubscriptionKind.BOOTSTRAP,
-                repository
-                    .list()
-                    .single()
-                    .subscription
-                    ?.kind,
-            )
+                val group = repository.list().single()
+                assertEquals(SubscriptionKind.BOOTSTRAP, group.subscription?.kind)
+                assertEquals(42L, group.subscription?.consumedAt)
+                assertEquals(1, group.members.size)
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
+    fun `failed bootstrap consume does not persist an empty group`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(MockResponse.Builder().code(410).build())
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(),
+                    )
+
+                viewModel.setRequest(server.url("/bootstrap/spent").toString(), "Boot", bootstrap = true)
+                viewModel.confirm()
+                viewModel.uiState.first { it.importFailed }
+
+                assertTrue(repository.list().isEmpty())
+                assertTrue(viewModel.uiState.value.importFailed)
+            }
         }
 
     @Test
