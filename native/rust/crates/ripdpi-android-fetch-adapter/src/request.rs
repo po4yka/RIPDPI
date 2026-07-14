@@ -14,14 +14,9 @@ use crate::dto::{NativeOwnedTlsHttpRequest, RawHttpResponse};
 use crate::request_builder::build_request;
 use crate::socket_protection::connect_transport;
 use crate::tls_profile::connect_tls;
+use crate::url_endpoint::{UrlEndpoint, parse_url_endpoint};
 
 pub(crate) const MAX_RESPONSE_BODY_BYTES: usize = 8 * 1024 * 1024;
-
-pub(crate) struct UrlEndpoint {
-    pub(crate) host: String,
-    pub(crate) port: u16,
-    pub(crate) target_path: String,
-}
 
 pub(crate) async fn execute_once(
     method: &Method,
@@ -48,18 +43,6 @@ pub(crate) async fn execute_once(
         send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, false, request, TokioIo::new(tcp))
             .await
     }
-}
-
-#[inline(never)]
-fn parse_url_endpoint(url: &Url) -> io::Result<UrlEndpoint> {
-    let host = url
-        .host_str()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "native TLS fetch URL has no host"))?
-        .to_string();
-    let port = url.port_or_known_default().unwrap_or(default_port(url.scheme()));
-    let path = url.path().to_string();
-    let query_suffix = url.query().map(|query| format!("?{query}")).unwrap_or_default();
-    Ok(UrlEndpoint { host, port, target_path: format!("{path}{query_suffix}") })
 }
 
 #[inline(never)]
@@ -140,13 +123,6 @@ where
 
 fn response_body_too_large(max_bytes: usize) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, format!("native TLS fetch response body exceeds {max_bytes} bytes"))
-}
-
-fn default_port(scheme: &str) -> u16 {
-    match scheme {
-        "http" => 80,
-        _ => 443,
-    }
 }
 
 #[cfg(test)]
