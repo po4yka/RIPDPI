@@ -88,6 +88,13 @@ impl TargetAddr {
         !self.is_ip()
     }
 
+    pub(crate) fn socket_addr(&self) -> Option<SocketAddr> {
+        match self {
+            TargetAddr::Ip(addr) => Some(*addr),
+            TargetAddr::Domain(_, _) => None,
+        }
+    }
+
     pub fn to_be_bytes(&self) -> Result<Vec<u8>, AddrError> {
         let mut buf = vec![];
         match self {
@@ -269,4 +276,19 @@ pub async fn read_address<T: AsyncRead + Unpin>(stream: &mut T, atyp: u8) -> Res
     };
 
     Ok(addr)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    use super::TargetAddr;
+
+    #[test]
+    fn socket_addr_requires_an_already_resolved_target() {
+        let resolved = SocketAddr::from((Ipv4Addr::LOCALHOST, 1080));
+
+        assert_eq!(TargetAddr::Ip(resolved).socket_addr(), Some(resolved));
+        assert_eq!(TargetAddr::Domain("example.com".to_owned(), 443).socket_addr(), None);
+    }
 }

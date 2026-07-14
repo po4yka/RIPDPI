@@ -9,7 +9,7 @@ use socket2::{Domain, Socket, Type};
 use std::future::Future;
 use std::io;
 use std::marker::PhantomData;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs as StdToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::ops::Deref;
 use std::pin::Pin;
 use std::string::FromUtf8Error;
