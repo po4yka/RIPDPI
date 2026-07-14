@@ -1,6 +1,6 @@
 use std::io;
 use std::io::{IoSlice, IoSliceMut, Write};
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 
 use nix::sys::socket::{self, ControlMessage, ControlMessageOwned, MsgFlags};
@@ -21,7 +21,7 @@ fn recv_flags() -> MsgFlags {
 
 /// Write one length-prefixed JSON frame, optionally sending one fd via
 /// SCM_RIGHTS on the first bytes of the frame.
-pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<RawFd>) -> io::Result<()> {
+pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>) -> io::Result<()> {
     if json.len() > MAX_MESSAGE_BYTES {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -38,7 +38,7 @@ pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<RawFd>) -> io::
 
     let sent = loop {
         let result = if let Some(fd) = fd {
-            let fds = [fd];
+            let fds = [fd.as_raw_fd()];
             let cmsg = [ControlMessage::ScmRights(&fds)];
             socket::sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None)
         } else {
@@ -61,7 +61,7 @@ pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<RawFd>) -> io::
 /// Read one length-prefixed JSON frame, optionally receiving one fd via
 /// SCM_RIGHTS. Exact-size recvmsg loops preserve both stream frame boundaries
 /// and ancillary data across arbitrary kernel short reads.
-pub fn recv_message(stream: &UnixStream, eof_message: &'static str) -> io::Result<(Vec<u8>, Option<RawFd>)> {
+pub fn recv_message(stream: &UnixStream, eof_message: &'static str) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
     let fd = stream.as_raw_fd();
     let mut received_fds = Vec::new();
     let mut header = [0u8; FRAME_HEADER_BYTES];
@@ -77,7 +77,7 @@ pub fn recv_message(stream: &UnixStream, eof_message: &'static str) -> io::Resul
 
     let mut payload = vec![0u8; length];
     recv_exact_with_optional_fd(fd, &mut payload, &mut received_fds, eof_message)?;
-    let received_fd = received_fds.pop().map(IntoRawFd::into_raw_fd);
+    let received_fd = received_fds.pop();
     Ok((payload, received_fd))
 }
 
@@ -134,7 +134,7 @@ fn extract_scm_rights_fds(msg: &socket::RecvMsg<'_, '_, ()>) -> io::Result<Vec<O
 #[cfg(test)]
 mod tests {
     use std::io::{IoSlice, Write};
-    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::fd::{AsFd, AsRawFd};
     use std::os::unix::net::UnixStream;
 
     use super::{MAX_MESSAGE_BYTES, recv_message, send_message};
@@ -147,18 +147,13 @@ mod tests {
     #[test]
     fn send_and_recv_message_transfers_json_frame_and_fd() {
         let (sender, receiver) = UnixStream::pair().expect("socket pair");
-        let fd = sender.as_raw_fd();
-
-        send_message(&sender, br#"{"ok":true}"#, Some(fd)).expect("send message");
+        send_message(&sender, br#"{"ok":true}"#, Some(sender.as_fd())).expect("send message");
         let (payload, received_fd) = recv_message(&receiver, "closed").expect("recv message");
 
         assert_eq!(payload, br#"{"ok":true}"#);
         let received_fd = received_fd.expect("received fd");
 
-        // SAFETY: ownership of this descriptor was transferred via SCM_RIGHTS;
-        // wrapping it closes the duplicated fd at the end of the test.
-        let owned_fd = unsafe { OwnedFd::from_raw_fd(received_fd) };
-        assert!(owned_fd.as_raw_fd() >= 0);
+        assert!(received_fd.as_raw_fd() >= 0);
     }
 
     #[test]
@@ -207,9 +202,6 @@ mod tests {
 
         let (payload, received_fd) = recv_message(&receiver, "closed").expect("fragmented frame");
         let received_fd = received_fd.expect("SCM_RIGHTS fd must survive fragmented header");
-        // SAFETY: recv_message transferred unique ownership of the received
-        // SCM_RIGHTS descriptor to this test.
-        let received_fd = unsafe { OwnedFd::from_raw_fd(received_fd) };
 
         assert_eq!(payload, br#"{"fragmented":true}"#);
         assert!(received_fd.as_raw_fd() >= 0);
@@ -236,9 +228,6 @@ mod tests {
 
         let (received_payload, received_fd) = recv_message(&receiver, "closed").expect("fragmented frame");
         let received_fd = received_fd.expect("fd attached to payload must not be discarded");
-        // SAFETY: recv_message transferred unique ownership of the received
-        // SCM_RIGHTS descriptor to this test.
-        let received_fd = unsafe { OwnedFd::from_raw_fd(received_fd) };
 
         assert_eq!(received_payload, payload);
         assert!(received_fd.as_raw_fd() >= 0);

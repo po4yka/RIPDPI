@@ -1,6 +1,6 @@
 use std::io;
 use std::net::SocketAddr;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, OwnedFd};
 
 use ripdpi_root_helper_protocol::{
     CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, IpFragTcpParams, IpFragUdpParams,
@@ -13,14 +13,14 @@ impl RootHelperClient {
     /// Send IP-fragmented TCP via the helper. Returns replacement fd.
     pub fn send_ip_fragmented_tcp(
         &self,
-        stream_fd: RawFd,
+        stream_fd: BorrowedFd<'_>,
         payload: &[u8],
         split_offset: usize,
         default_ttl: u8,
         disorder: bool,
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,
-    ) -> io::Result<Option<RawFd>> {
+    ) -> io::Result<Option<OwnedFd>> {
         let params = command_params(IpFragTcpParams {
             payload: payload.to_vec(),
             split_offset,
@@ -37,7 +37,7 @@ impl RootHelperClient {
     /// Send IP-fragmented UDP via the helper.
     pub fn send_ip_fragmented_udp(
         &self,
-        socket_fd: RawFd,
+        socket_fd: BorrowedFd<'_>,
         target: SocketAddr,
         payload: &[u8],
         split_offset: usize,

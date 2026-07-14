@@ -10,7 +10,7 @@
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use std::os::fd::AsRawFd;
+use std::os::fd::AsFd;
 
 use ripdpi_config::IpIdMode;
 
@@ -34,7 +34,7 @@ pub fn send_ip_fragmented_udp_reserved(
 ) -> io::Result<()> {
     if let Some(result) = root_helper::with_root_helper(|h| {
         h.send_ip_fragmented_udp(
-            upstream.as_raw_fd(),
+            upstream.as_fd(),
             target,
             payload,
             split_offset,

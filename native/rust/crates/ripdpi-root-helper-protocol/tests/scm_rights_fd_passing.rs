@@ -25,7 +25,7 @@
 #![cfg(unix)]
 
 use std::io::{Read, Write};
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 
 use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_RST, HelperRequest, recv_message, send_message};
@@ -49,19 +49,15 @@ fn sample_request() -> HelperRequest {
 /// Run one `send_message` -> `recv_message` round trip over a fresh IPC socket
 /// pair, exactly as the root-helper client and helper exchange one message.
 /// Returns the JSON frame bytes and whichever fd (if any) arrived out-of-band.
-fn ipc_round_trip(json: &[u8], fd: Option<RawFd>) -> (Vec<u8>, Option<RawFd>) {
+fn ipc_round_trip(json: &[u8], fd: Option<BorrowedFd<'_>>) -> (Vec<u8>, Option<OwnedFd>) {
     let (client, helper) = UnixStream::pair().expect("ipc socket pair");
     send_message(&client, json, fd).expect("send_message");
     recv_message(&helper, "ipc channel closed before a message arrived").expect("recv_message")
 }
 
 /// Take ownership of an optionally-delivered descriptor so it is closed once.
-fn close_received_fd(fd: Option<RawFd>) {
-    let Some(fd) = fd else { return };
-    // SAFETY: `fd` was delivered to this process as `SCM_RIGHTS` ancillary
-    // data and is owned by no other handle; `OwnedFd` takes sole ownership and
-    // closes it exactly once when dropped here.
-    drop(unsafe { OwnedFd::from_raw_fd(fd) });
+fn close_received_fd(fd: Option<OwnedFd>) {
+    drop(fd);
 }
 
 /// Recursively report whether any object key anywhere in `value` looks like a
@@ -93,7 +89,7 @@ fn passed_fd_round_trips_as_a_working_descriptor() {
     let (mut app_end, passed_end) = UnixStream::pair().expect("payload socket pair");
 
     let json = serde_json::to_vec(&sample_request()).expect("serialize request");
-    let (received_json, received_fd) = ipc_round_trip(&json, Some(passed_end.as_raw_fd()));
+    let (received_json, received_fd) = ipc_round_trip(&json, Some(passed_end.as_fd()));
     // The helper now owns an independent `SCM_RIGHTS` duplicate; dropping the
     // test's original handle proves the surviving fd is the kernel's duplicate.
     drop(passed_end);
@@ -103,10 +99,7 @@ fn passed_fd_round_trips_as_a_working_descriptor() {
     assert_eq!(decoded.command, CMD_SEND_FAKE_RST);
     let received_fd = received_fd.expect("an fd must arrive as SCM_RIGHTS ancillary data");
 
-    // SAFETY: `received_fd` is a descriptor the kernel installed for this
-    // process via `SCM_RIGHTS`; `UnixStream::from_raw_fd` takes sole ownership
-    // so the descriptor is closed exactly once when `helper_view` is dropped.
-    let mut helper_view = unsafe { UnixStream::from_raw_fd(received_fd) };
+    let mut helper_view = UnixStream::from(received_fd);
 
     // Readable: bytes written on the retained app end arrive through the fd
     // that crossed the IPC boundary.
@@ -132,7 +125,7 @@ fn command_json_carries_no_file_descriptor_field() {
     let (_app_end, passed_end) = UnixStream::pair().expect("payload socket pair");
 
     let json = serde_json::to_vec(&sample_request()).expect("serialize request");
-    let (received_json, received_fd) = ipc_round_trip(&json, Some(passed_end.as_raw_fd()));
+    let (received_json, received_fd) = ipc_round_trip(&json, Some(passed_end.as_fd()));
 
     // The fd still travels -- but only out of band.
     assert!(received_fd.is_some(), "the fd must be delivered as ancillary data");
@@ -154,7 +147,7 @@ fn fd_channel_is_independent_of_the_json_params() {
     // A fully-populated params payload still delivers the fd.
     let (_full_app, full_passed) = UnixStream::pair().expect("payload socket pair");
     let full_json = serde_json::to_vec(&sample_request()).expect("serialize full request");
-    let (full_received, full_fd) = ipc_round_trip(&full_json, Some(full_passed.as_raw_fd()));
+    let (full_received, full_fd) = ipc_round_trip(&full_json, Some(full_passed.as_fd()));
     assert!(full_fd.is_some(), "fd must arrive alongside a full params payload");
     close_received_fd(full_fd);
     let full_decoded: HelperRequest = serde_json::from_slice(&full_received).expect("deserialize full");
@@ -164,7 +157,7 @@ fn fd_channel_is_independent_of_the_json_params() {
     let bare = HelperRequest { command: CMD_SEND_FAKE_RST.to_string(), params: Value::Null, session_nonce: None };
     let (_bare_app, bare_passed) = UnixStream::pair().expect("payload socket pair");
     let bare_json = serde_json::to_vec(&bare).expect("serialize bare request");
-    let (bare_received, bare_fd) = ipc_round_trip(&bare_json, Some(bare_passed.as_raw_fd()));
+    let (bare_received, bare_fd) = ipc_round_trip(&bare_json, Some(bare_passed.as_fd()));
     assert!(bare_fd.is_some(), "fd must arrive even when the request has no params");
     close_received_fd(bare_fd);
     let bare_value: Value = serde_json::from_slice(&bare_received).expect("parse bare json");

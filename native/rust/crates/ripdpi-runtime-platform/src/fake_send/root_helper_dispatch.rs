@@ -18,7 +18,7 @@
 
 use std::io;
 use std::net::TcpStream;
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, IntoRawFd, OwnedFd};
 
 use crate::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait, root_helper};
 
@@ -28,7 +28,7 @@ pub(crate) fn send_fake_rst(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> Option<io::Result<()>> {
-    root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_raw_fd(), default_ttl, flags, ipv4_identification))
+    root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_fd(), default_ttl, flags, ipv4_identification))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -44,7 +44,7 @@ pub(crate) fn send_fake_tcp(
 ) -> Option<io::Result<()>> {
     root_helper::with_root_helper(|h| {
         let res =
-            h.send_fake_tcp(stream.as_raw_fd(), original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)?;
+            h.send_fake_tcp(stream.as_fd(), original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)?;
         swap_stream_replacement_fd(stream, res)?;
         Ok(())
     })
@@ -63,7 +63,7 @@ pub(crate) fn send_ordered_tcp_segments(
 ) -> Option<io::Result<()>> {
     root_helper::with_root_helper(|h| {
         let res = h.send_ordered_tcp_segments(
-            stream.as_raw_fd(),
+            stream.as_fd(),
             segments,
             original_payload_len,
             default_ttl,
@@ -87,7 +87,7 @@ pub(crate) fn send_flagged_tcp_payload(
 ) -> Option<io::Result<()>> {
     root_helper::with_root_helper(|h| {
         let res =
-            h.send_flagged_tcp_payload(stream.as_raw_fd(), payload, default_ttl, md5sig, flags, ipv4_identification)?;
+            h.send_flagged_tcp_payload(stream.as_fd(), payload, default_ttl, md5sig, flags, ipv4_identification)?;
         swap_stream_replacement_fd(stream, res)?;
         Ok(())
     })
@@ -104,7 +104,7 @@ pub(crate) fn send_seqovl_tcp(
 ) -> Option<io::Result<()>> {
     root_helper::with_root_helper(|h| {
         let res = h.send_seqovl_tcp(
-            stream.as_raw_fd(),
+            stream.as_fd(),
             real_chunk,
             fake_prefix,
             default_ttl,
@@ -117,13 +117,13 @@ pub(crate) fn send_seqovl_tcp(
     })
 }
 
-fn swap_stream_replacement_fd(stream: &TcpStream, replacement_fd: Option<RawFd>) -> io::Result<()> {
+fn swap_stream_replacement_fd(stream: &TcpStream, replacement_fd: Option<OwnedFd>) -> io::Result<()> {
     if let Some(replacement_fd) = replacement_fd {
         // SAFETY: `replacement_fd` was just returned by the privileged-ops
         // root helper as a freshly created socket descriptor; no other code
         // path retains it. `stream` borrows its descriptor for the duration
         // of this call.
-        unsafe { ripdpi_privileged_ops::swap_replacement_fd(stream.as_raw_fd(), replacement_fd) }?;
+        unsafe { ripdpi_privileged_ops::swap_replacement_fd(stream.as_raw_fd(), replacement_fd.into_raw_fd()) }?;
     }
     Ok(())
 }
