@@ -171,11 +171,14 @@ class MainActivityShellControllerTest {
     fun `show error effect emits snackbar event`() =
         runTest {
             val controller = MainActivityShellController()
+            controller.onEffect(MainEffect.ShowError("boom"))
 
             controller.uiEvents.test {
-                controller.onEffect(MainEffect.ShowError("boom"))
-
                 assertEquals(MainActivityUiEvent.ShowErrorSnackbar("boom"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            controller.uiEvents.test {
+                expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
         }

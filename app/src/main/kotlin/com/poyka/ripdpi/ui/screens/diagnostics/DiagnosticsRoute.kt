@@ -30,6 +30,7 @@ import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
@@ -109,10 +110,8 @@ private fun DiagnosticsRouteEffects(
     val currentCallbacks by rememberUpdatedState(callbacks)
     val performHaptic = rememberRipDpiHapticPerformer()
 
-    LaunchedEffect(viewModel) {
-        viewModel.effects.collect { effect ->
-            handleDiagnosticsEffect(effect, currentCallbacks, snackbarHostState, performHaptic)
-        }
+    LifecycleEventEffect(viewModel.effects) { effect ->
+        handleDiagnosticsEffect(effect, currentCallbacks, snackbarHostState, performHaptic)
     }
 
     LaunchedEffect(initialSection) {

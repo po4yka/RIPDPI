@@ -2,14 +2,10 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import com.poyka.ripdpi.ui.navigation.Route
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -51,18 +47,13 @@ internal class MainActivityShellController(
                 selectorSelectionRequested = selectorRequestFrom(initialIntent),
             ),
         )
-    private val _uiEvents =
-        MutableSharedFlow<MainActivityUiEvent>(
-            replay = 1,
-            extraBufferCapacity = 1,
-            onBufferOverflow = BufferOverflow.DROP_OLDEST,
-        )
+    private val _uiEvents = Channel<MainActivityUiEvent>(capacity = Channel.BUFFERED)
 
     // Queue commands while collection is stopped and consume each exactly once.
     private val _hostCommands = Channel<MainActivityHostCommand>(capacity = Channel.BUFFERED)
 
     val state: StateFlow<MainActivityShellState> = _state.asStateFlow()
-    val uiEvents: SharedFlow<MainActivityUiEvent> = _uiEvents.asSharedFlow()
+    val uiEvents: Flow<MainActivityUiEvent> = _uiEvents.receiveAsFlow()
     val hostCommands: Flow<MainActivityHostCommand> = _hostCommands.receiveAsFlow()
 
     fun onNewIntent(intent: Intent?) {
@@ -133,7 +124,7 @@ internal class MainActivityShellController(
             }
 
             is MainEffect.ShowError -> {
-                _uiEvents.tryEmit(MainActivityUiEvent.ShowErrorSnackbar(effect.message))
+                _uiEvents.trySend(MainActivityUiEvent.ShowErrorSnackbar(effect.message))
             }
 
             is MainEffect.ShareDiagnosticsArchive -> {

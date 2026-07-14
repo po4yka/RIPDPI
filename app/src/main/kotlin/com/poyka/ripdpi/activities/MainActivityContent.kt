@@ -11,6 +11,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
@@ -86,26 +87,20 @@ private fun MainActivityEffects(
         viewModel.initialize()
     }
 
-    LaunchedEffect(viewModel, controller) {
-        viewModel.effects.collect { effect ->
-            controller.onEffect(effect)
-        }
-    }
+    LifecycleEventEffect(viewModel.effects, controller::onEffect)
 
     val performHaptic = rememberRipDpiHapticPerformer()
 
-    LaunchedEffect(controller) {
-        controller.uiEvents.collect { event ->
-            when (event) {
-                is MainActivityUiEvent.ShowErrorSnackbar -> {
-                    performHaptic(RipDpiHapticFeedback.Error)
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = event.message,
-                        tone = RipDpiSnackbarTone.Error,
-                        duration = SnackbarDuration.Short,
-                        testTag = RipDpiTestTags.MainErrorSnackbar,
-                    )
-                }
+    LifecycleEventEffect(controller.uiEvents) { event ->
+        when (event) {
+            is MainActivityUiEvent.ShowErrorSnackbar -> {
+                performHaptic(RipDpiHapticFeedback.Error)
+                snackbarHostState.showRipDpiSnackbar(
+                    message = event.message,
+                    tone = RipDpiSnackbarTone.Error,
+                    duration = SnackbarDuration.Short,
+                    testTag = RipDpiTestTags.MainErrorSnackbar,
+                )
             }
         }
     }

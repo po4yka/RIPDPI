@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -14,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
@@ -91,12 +91,10 @@ private fun ObserveSettingsEffects(
 ) {
     val performHaptic = rememberRipDpiHapticPerformer()
 
-    LaunchedEffect(viewModel) {
-        viewModel.effects.collect { effect ->
-            if (effect is SettingsEffect.Notice) {
-                performHaptic(settingsNoticeHaptic(effect))
-                onNotice(mapNoticeEffect(effect))
-            }
+    LifecycleEventEffect(viewModel.effects) { effect ->
+        if (effect is SettingsEffect.Notice) {
+            performHaptic(settingsNoticeHaptic(effect))
+            onNotice(mapNoticeEffect(effect))
         }
     }
 }

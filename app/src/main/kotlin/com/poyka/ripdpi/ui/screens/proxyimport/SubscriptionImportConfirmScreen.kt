@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -47,10 +48,7 @@ fun SubscriptionImportConfirmRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val latestOnImported by rememberUpdatedState(onImported)
-    LaunchedEffect(viewModel) {
-        viewModel.importedEvents.collect { latestOnImported() }
-    }
+    LifecycleEventEffect(viewModel.importedEvents) { onImported() }
 
     SubscriptionImportConfirmScreen(
         uiState = uiState,

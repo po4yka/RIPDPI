@@ -3,9 +3,7 @@ package com.poyka.ripdpi.ui.screens.ssh
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -16,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -69,10 +68,7 @@ fun SshProfileRoute(
     onRequestPassphraseReveal: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val latestOnBack by rememberUpdatedState(onBack)
-    LaunchedEffect(viewModel) {
-        viewModel.savedEvents.collect { latestOnBack() }
-    }
+    LifecycleEventEffect(viewModel.savedEvents) { onBack() }
     SshProfileScreen(
         uiState = uiState,
         onBack = onBack,

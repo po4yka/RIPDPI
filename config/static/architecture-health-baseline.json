@@ -35,17 +35,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-config-modeeditorroute.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorRoute.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorRoute.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsbottomsheets.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
