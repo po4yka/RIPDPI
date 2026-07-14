@@ -471,8 +471,20 @@ pub mod process {
         }
     }
 
-    pub fn install_shutdown_signal_handlers(handler: extern "C" fn(std::os::raw::c_int)) -> io::Result<()> {
-        ripdpi_runtime_platform::capability::install_shutdown_signal_handlers(handler)
+    pub fn install_shutdown_signal_handlers() -> io::Result<()> {
+        ripdpi_runtime_platform::capability::install_shutdown_signal_handlers()
+    }
+
+    pub fn shutdown_requested() -> bool {
+        ripdpi_runtime_platform::capability::shutdown_requested()
+    }
+
+    pub fn reset_shutdown_request() {
+        ripdpi_runtime_platform::capability::reset_shutdown_request();
+    }
+
+    pub fn request_shutdown() {
+        ripdpi_runtime_platform::capability::request_shutdown();
     }
 
     pub fn detected_parallelism(fallback: usize) -> usize {
