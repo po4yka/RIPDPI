@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-check_harness_links.py -- CI guard for dead cross-references in .claude harness files.
+check_harness_links.py -- CI guard for dead cross-references in harness files.
 
-Walks .claude/skills/*/SKILL.md, .claude/rules/*.md, .claude/agents/*.md and
+Walks canonical .agents/skills/*/SKILL.md, .claude/rules/*.md,
+.claude/agents/*.md, AGENTS.md, and CLAUDE.md and
 verifies that every extractable cross-reference resolves to a real file on disk.
 
 EXIT CODES
@@ -77,7 +78,7 @@ class HarnessLinkAuditor:
 
     def _collect_files(self) -> list[Path]:
         files: list[Path] = []
-        skills_dir = self.claude_root / "skills"
+        skills_dir = self.root / ".agents" / "skills"
         if skills_dir.is_dir():
             files.extend(sorted(skills_dir.glob("*/SKILL.md")))
         rules_dir = self.claude_root / "rules"
@@ -86,6 +87,10 @@ class HarnessLinkAuditor:
         agents_dir = self.claude_root / "agents"
         if agents_dir.is_dir():
             files.extend(sorted(agents_dir.glob("*.md")))
+        for name in ("AGENTS.md", "CLAUDE.md"):
+            path = self.root / name
+            if path.is_file():
+                files.append(path)
         return files
 
     # ------------------------------------------------------------------
@@ -118,11 +123,11 @@ class HarnessLinkAuditor:
     def _check_skill_refs(self, line: str, src: str, lineno: int) -> None:
         for m in _RE_SKILL_NAME.finditer(line):
             skill_name = m.group(1)
-            local_path = self.claude_root / "skills" / skill_name / "SKILL.md"
-            rel = f".claude/skills/{skill_name}/SKILL.md"
+            local_path = self.root / ".agents" / "skills" / skill_name / "SKILL.md"
+            rel = f".agents/skills/{skill_name}/SKILL.md"
             if local_path.exists():
                 continue
-            # Skill not in local .claude/skills/ — treat as global (WARN, not DEAD)
+            # Skill not in canonical project skills — treat as global (WARN, not DEAD)
             self.findings.append(Finding(
                 level="WARN",
                 source_file=src,
@@ -189,7 +194,7 @@ class HarnessLinkAuditor:
 
         print("HARNESS LINK AUDIT")
         print("==================")
-        print(f"Walked: {self.walked} files in .claude/{{skills,rules,agents}}")
+        print(f"Walked: {self.walked} canonical harness files")
         print()
 
         if warns:
@@ -198,7 +203,7 @@ class HarnessLinkAuditor:
                 print(f"  {f.source_file}:{f.line_no}")
                 print(f"    reference: {f.reference}")
                 print(f"    expected:  {f.expected_path}")
-                print("    status:    NOT IN LOCAL .claude/skills/ (may be a global skill)")
+                print("    status:    NOT IN LOCAL .agents/skills/ (may be a global skill)")
                 print()
 
         if not dead and (not warns or not self.strict):

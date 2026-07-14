@@ -260,8 +260,8 @@ fn parse_proxy_origin_derives_connect_udp_base_path() {
     assert_eq!("/.well-known/masque", origin.udp_base_path);
 }
 
-#[test]
-fn proxy_socket_addr_prefers_bootstrapped_endpoint_without_rewriting_origin_host() {
+#[tokio::test]
+async fn proxy_socket_addr_prefers_bootstrapped_endpoint_without_rewriting_origin_host() {
     let bootstrapped_addr: SocketAddr = "203.0.113.8:8443".parse().expect("socket addr");
     let config = MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
@@ -286,7 +286,7 @@ fn proxy_socket_addr_prefers_bootstrapped_endpoint_without_rewriting_origin_host
     let origin = parse_proxy_origin(&config).expect("proxy origin");
 
     assert_eq!(origin.host, "masque.example");
-    assert_eq!(resolve_proxy_socket_addr(&config, &origin).expect("proxy socket addr"), bootstrapped_addr);
+    assert_eq!(resolve_proxy_socket_addr(&config, &origin).await.expect("proxy socket addr"), bootstrapped_addr);
 }
 
 #[test]
@@ -725,7 +725,7 @@ async fn connect_over_h2_transport_tunnels_tcp_to_target() {
     };
     let proxy_origin = parse_proxy_origin(&config).expect("proxy origin");
     let transport =
-        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).expect("proxy addr"))
+        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).await.expect("proxy addr"))
             .await
             .expect("connect proxy transport");
 
@@ -886,7 +886,7 @@ async fn connect_over_h2_with_pinned_root_certificate_verifies_and_tunnels() {
     };
     let proxy_origin = parse_proxy_origin(&config).expect("proxy origin");
     let transport =
-        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).expect("proxy addr"))
+        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).await.expect("proxy addr"))
             .await
             .expect("connect proxy transport");
 
@@ -928,7 +928,7 @@ async fn connect_over_h2_with_unrelated_root_certificate_fails_verification() {
     };
     let proxy_origin = parse_proxy_origin(&config).expect("proxy origin");
     let transport =
-        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).expect("proxy addr"))
+        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).await.expect("proxy addr"))
             .await
             .expect("connect proxy transport");
 

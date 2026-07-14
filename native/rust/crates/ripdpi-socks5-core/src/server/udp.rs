@@ -114,10 +114,8 @@ async fn handle_udp_request(
     let mut target_addr = target_addr
         .resolve_dns()
         .await?
-        .to_socket_addrs()
-        .err_when("udp target to socket addrs")?
-        .next()
-        .ok_or(SocksServerError::Bug("no socket addrs"))?;
+        .socket_addr()
+        .ok_or(SocksServerError::Bug("unresolved UDP target address"))?;
 
     if outbound_v6 {
         target_addr.set_ip(match target_addr.ip() {

@@ -36,10 +36,11 @@ The target is percent-decoded and must be `https://`. Malformed or non-https inp
 | Whole fleet (P0 + P1 + P2) | no | yes | yes |
 | Selector + urltest failover | no | yes | yes |
 | Background auto-update | no (single line) | yes (via subscription URL) | yes (via subscription URL) |
-| Hysteria salamander obfs / insecure / port-hop | no | no | yes |
+| Hysteria salamander obfs / insecure | yes (`hysteria2://`) | yes | yes |
+| Hysteria port-hop | no | no | model-only bundle extension |
 | AmneziaWG device-VPN | via `amneziawg://` only | no | yes |
 
-VLESS REALITY parameters round-trip in full from a `vless://…?security=reality&pbk=…&sid=…&sni=…&flow=…` link and from a sing-box `tls.reality` outbound. Hysteria obfs and the AmneziaWG device-VPN are **only** carried by the RIPDPI bundle (see below) or by their own dedicated channels; a plain sing-box subscription does not include them. See [Relay profile examples — Import Coverage vs Relay Settings](relay-profile-examples.md) for the per-protocol detail.
+VLESS REALITY parameters round-trip in full from a `vless://…?security=reality&pbk=…&sid=…&sni=…&flow=…` link and from a sing-box `tls.reality` outbound. Hysteria2 salamander obfuscation and insecure TLS flags import from `hysteria2://`, Clash.Meta, sing-box, and RIPDPI bundles; port-hopping remains a model-only bundle extension. The AmneziaWG device-VPN is carried by `amneziawg://` or the RIPDPI bundle. See [Relay profile examples — Import Coverage vs Relay Settings](relay-profile-examples.md) for the per-protocol detail.
 
 ## The RIPDPI bundle
 
@@ -97,8 +98,8 @@ sequenceDiagram
     Op->>App: hand over deep link / QR / subscription URL
     App->>Srv: fetch sub/bundle (https)
     Srv-->>App: sing-box JSON (+ ripdpi extension)
-    App->>App: import fleet + AmneziaWG; prompt for AWG private key
-    Note over App: auto-updates the subscription thereafter
+    App->>App: import fleet + AmneziaWG and prompt for AWG private key
+    Note right of App: auto-updates the subscription thereafter
 ```
 
 ## Troubleshooting
@@ -106,7 +107,7 @@ sequenceDiagram
 - **Tapping the link does nothing** — confirm RIPDPI is installed and the link is `ripdpi://import?...` with an `https` target; an `http` target is rejected.
 - **REALITY profile imports but will not connect** — verify the server's `serverName`/`pbk`/`sid` match; these now travel with the profile, so a mismatch means the server pin changed (re-emit and re-import, or rely on subscription auto-update).
 - **AmneziaWG shows "no private key"** — paste the device private key from client creation; it is intentionally not in the bundle.
-- **Hysteria connects without obfuscation** — a plain sing-box subscription does not carry obfs; import the RIPDPI bundle instead.
+- **Hysteria connects without obfuscation** — confirm the source contains `obfs=salamander` plus `obfs-password` for a URI, `obfs-password` for Clash.Meta, or `obfs.password` for sing-box; then re-import and inspect the profile.
 
 ## See also
 

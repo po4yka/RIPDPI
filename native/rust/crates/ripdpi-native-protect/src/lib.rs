@@ -36,13 +36,18 @@
 #![forbid(unsafe_code)]
 
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::os::fd::RawFd;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 pub trait ProtectCallback: Send + Sync {
     fn protect(&self, fd: RawFd) -> io::Result<()>;
+
+    /// Resolve `host` on the network that owns the protected socket path.
+    fn resolve_host(&self, _host: &str) -> io::Result<Vec<IpAddr>> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "protected hostname resolution is unavailable"))
+    }
 }
 
 /// Per-runtime policy for outbound sockets created by a relay dialer.
@@ -74,6 +79,47 @@ impl SocketProtectionPolicy {
             return Ok(());
         }
         self.protect(fd)
+    }
+
+    /// Resolve a relay hostname without sending a DNS query through the app TUN.
+    /// VPN mode delegates to the registered Android underlying-network callback;
+    /// non-VPN mode retains the ordinary system resolver.
+    pub async fn resolve_host(self, host: &str, port: u16) -> io::Result<Vec<SocketAddr>> {
+        if let Ok(ip) = host.parse::<IpAddr>() {
+            return Ok(vec![SocketAddr::new(ip, port)]);
+        }
+        let addresses = match self {
+            Self::Inactive => tokio::net::lookup_host((host, port)).await?.collect::<Vec<_>>(),
+            Self::VpnRequired => {
+                let host = host.to_owned();
+                tokio::task::spawn_blocking(move || resolve_host_via_callback(&host))
+                    .await
+                    .map_err(|error| io::Error::other(format!("protected DNS task failed: {error}")))??
+                    .into_iter()
+                    .map(|ip| SocketAddr::new(ip, port))
+                    .collect()
+            }
+        };
+        if addresses.is_empty() {
+            Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "relay hostname resolved to no addresses"))
+        } else {
+            Ok(addresses)
+        }
+    }
+
+    /// Resolve a `host:port` authority through the policy-aware resolver.
+    pub async fn resolve_authority(self, authority: &str) -> io::Result<Vec<SocketAddr>> {
+        if let Ok(address) = authority.parse::<SocketAddr>() {
+            return Ok(vec![address]);
+        }
+        let (host, port) = authority
+            .rsplit_once(':')
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay authority must contain a port"))?;
+        let host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
+        let port = port
+            .parse::<u16>()
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "relay authority has an invalid port"))?;
+        self.resolve_host(host, port).await
     }
 }
 
@@ -175,13 +221,23 @@ pub fn unregister_protect_callback() {
 /// Invoke a snapshot of the registered callback without holding the registry
 /// lock across JNI or other blocking callback work.
 pub fn protect_socket_via_callback(fd: RawFd) -> io::Result<()> {
-    let callback = {
-        let guard = PROTECT_CB.read().expect("protect callback lock poisoned");
-        guard.as_ref().map(|registered| Arc::clone(&registered.callback))
-    };
+    let callback = protect_callback_snapshot();
     callback
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "VPN protect callback not registered"))?
         .protect(fd)
+}
+
+/// Resolve through a snapshot of the registered callback without holding the
+/// registry lock across JNI or blocking network work.
+pub fn resolve_host_via_callback(host: &str) -> io::Result<Vec<IpAddr>> {
+    protect_callback_snapshot()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "VPN protect callback not registered"))?
+        .resolve_host(host)
+}
+
+fn protect_callback_snapshot() -> Option<Arc<dyn ProtectCallback>> {
+    let guard = PROTECT_CB.read().expect("protect callback lock poisoned");
+    guard.as_ref().map(|registered| Arc::clone(&registered.callback))
 }
 
 /// Returns whether a protect callback is registered.
@@ -216,11 +272,12 @@ mod tests {
 
     struct TestCallback {
         last_fd: AtomicI32,
+        resolved: Vec<IpAddr>,
     }
 
     impl TestCallback {
         fn new() -> Self {
-            Self { last_fd: AtomicI32::new(-1) }
+            Self { last_fd: AtomicI32::new(-1), resolved: vec![IpAddr::V4(std::net::Ipv4Addr::new(203, 0, 113, 7))] }
         }
     }
 
@@ -229,6 +286,10 @@ mod tests {
             // Release pairs with Acquire in the test assertion below.
             self.last_fd.store(fd, Ordering::Release);
             Ok(())
+        }
+
+        fn resolve_host(&self, _host: &str) -> io::Result<Vec<IpAddr>> {
+            Ok(self.resolved.clone())
         }
     }
 
@@ -255,6 +316,34 @@ mod tests {
         unregister_protect_callback();
 
         let error = SocketProtectionPolicy::VpnRequired.protect(42).expect_err("must fail closed");
+        assert_eq!(error.kind(), io::ErrorKind::NotConnected);
+    }
+
+    #[test]
+    fn vpn_required_resolution_uses_registered_callback() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        unregister_protect_callback();
+        register_protect_callback(Arc::new(TestCallback::new()));
+
+        let runtime = tokio::runtime::Builder::new_current_thread().build().expect("runtime");
+        let addresses = runtime
+            .block_on(SocketProtectionPolicy::VpnRequired.resolve_host("relay.example", 443))
+            .expect("protected resolution");
+
+        assert_eq!(addresses, vec!["203.0.113.7:443".parse().expect("address")]);
+        unregister_protect_callback();
+    }
+
+    #[test]
+    fn vpn_required_resolution_without_callback_fails_closed() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        unregister_protect_callback();
+
+        let runtime = tokio::runtime::Builder::new_current_thread().build().expect("runtime");
+        let error = runtime
+            .block_on(SocketProtectionPolicy::VpnRequired.resolve_host("relay.example", 443))
+            .expect_err("missing resolver callback must fail closed");
+
         assert_eq!(error.kind(), io::ErrorKind::NotConnected);
     }
 

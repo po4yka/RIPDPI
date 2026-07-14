@@ -13,13 +13,14 @@ enum class SubscriptionRefreshFailure {
     SERVER_ERROR,
     NETWORK_ERROR,
     INVALID_PAYLOAD,
+    PAYLOAD_TOO_LARGE,
     UNREACHABLE,
     PARSE_ERROR,
     ;
 
     /** Terminal failures must not trigger another automatic refresh attempt. */
     val isTerminal: Boolean
-        get() = this == EXPIRED || this == INVALIDATED || this == REVOKED
+        get() = this == EXPIRED || this == INVALIDATED || this == REVOKED || this == PAYLOAD_TOO_LARGE
 }
 
 /** Actionable client-facing state derived from persisted subscription metadata. */

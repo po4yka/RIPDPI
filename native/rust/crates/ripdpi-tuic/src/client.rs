@@ -14,7 +14,7 @@ use crate::config::Config;
 use crate::endpoint::{
     ClientSocketSpec, build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config,
 };
-use crate::migration::QuicMigrationState;
+use crate::migration::QuicMigration;
 use crate::protocol::{TuicAddress, authenticate_connection, classify_handshake_failure};
 use crate::tcp::{DuplexStream, encode_connect_header};
 use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
@@ -49,7 +49,7 @@ impl TuicClient {
 
     pub(crate) async fn connect_with_tls(config: Config, tls_config: RustlsClientConfig) -> io::Result<Self> {
         validate_config(&config)?;
-        let server_addr = resolve_server_addr(&config.server, config.server_port)?;
+        let server_addr = resolve_server_addr(&config.server, config.server_port, config.socket_protection).await?;
         let socket_spec = ClientSocketSpec {
             ipv6: server_addr.is_ipv6(),
             bind_low_port: config.quic_bind_low_port,
@@ -68,19 +68,13 @@ impl TuicClient {
         let inner = Arc::new(ClientInner {
             endpoint,
             connection,
+            udp_enabled: config.udp_enabled,
             next_assoc_id: AtomicU16::new(1),
             registrations: Mutex::new(HashMap::new()),
             max_datagram_size,
             socket_spec,
             migrate_after_handshake: config.quic_migrate_after_handshake,
-            current_socket: Mutex::new(current_socket),
-            migration: Mutex::new(QuicMigrationState {
-                status: Some("not_attempted".to_string()),
-                reason: None,
-                validated: false,
-                cooldown_until: None,
-                previous_socket: None,
-            }),
+            migration: QuicMigration::new_not_attempted(current_socket),
         });
 
         let dispatch_guard = if config.udp_enabled && max_datagram_size.is_some() {
@@ -95,23 +89,28 @@ impl TuicClient {
 
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
         let target = TuicAddress::from_authority(authority)?;
-        let migrated = self.inner.begin_quic_migration().await?;
+        let migration = self.inner.begin_quic_migration()?;
         match self.open_tcp_stream(&target).await {
             Ok(stream) => {
-                if migrated {
-                    self.inner.complete_quic_migration("path_validated_after_stream_open").await;
+                if let Some(migration) = migration {
+                    migration.complete("path_validated_after_stream_open");
                 }
                 Ok(stream)
             }
-            Err(_error) if migrated => {
-                let _ = self.inner.rollback_quic_migration("stream_open_failed_after_rebind").await;
-                self.open_tcp_stream(&target).await
-            }
-            Err(error) => Err(error),
+            Err(error) => match migration {
+                Some(migration) => {
+                    migration.rollback("stream_open_failed_after_rebind")?;
+                    self.open_tcp_stream(&target).await
+                }
+                None => Err(error),
+            },
         }
     }
 
     pub async fn udp_session(&self) -> io::Result<UdpSession> {
+        if !self.inner.udp_enabled {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "TUIC UDP relay is disabled by configuration"));
+        }
         if self.inner.max_datagram_size.is_none() {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
@@ -162,11 +161,11 @@ fn additional_roots_from_pem(pem: Option<&str>) -> io::Result<Option<Vec<Certifi
 pub(crate) struct ClientInner {
     pub(crate) endpoint: Endpoint,
     pub(crate) connection: quinn::Connection,
+    pub(crate) udp_enabled: bool,
     pub(crate) next_assoc_id: AtomicU16,
     pub(crate) registrations: Mutex<HashMap<u16, tokio::sync::mpsc::Sender<UdpPacket>>>,
     pub(crate) max_datagram_size: Option<usize>,
     pub(crate) socket_spec: ClientSocketSpec,
     pub(crate) migrate_after_handshake: bool,
-    pub(crate) current_socket: Mutex<std::net::UdpSocket>,
-    pub(crate) migration: Mutex<QuicMigrationState>,
+    pub(crate) migration: QuicMigration,
 }

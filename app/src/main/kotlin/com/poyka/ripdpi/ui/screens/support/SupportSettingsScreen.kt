@@ -8,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -18,6 +17,7 @@ import com.poyka.ripdpi.data.support.RestartPolicyAsk
 import com.poyka.ripdpi.data.support.RestartPolicyNever
 import com.poyka.ripdpi.data.support.RestartPolicyRequired
 import com.poyka.ripdpi.data.support.SupportSettingsFieldChange
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -43,10 +43,7 @@ fun SupportSettingsRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val latestOnApplied by rememberUpdatedState(onApplied)
-    LaunchedEffect(viewModel) {
-        viewModel.appliedEvents.collect { latestOnApplied() }
-    }
+    LifecycleEventEffect(viewModel.appliedEvents) { onApplied() }
 
     SupportSettingsScreen(
         uiState = uiState,

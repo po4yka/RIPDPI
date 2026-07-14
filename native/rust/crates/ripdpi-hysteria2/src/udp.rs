@@ -14,6 +14,8 @@ use crate::varint::{decode_varint, encode_varint};
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
+const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
+const MAX_DESTINATIONS_PER_UDP_SESSION: usize = 256;
 
 /// Maximum number of wrap-around retry attempts before declaring session-id space exhausted.
 /// u32 has 4 billion values so exhaustion is not a practical concern, but we still check
@@ -24,38 +26,56 @@ pub struct UdpSession {
     client: Arc<ClientInner>,
     incoming_rx: mpsc::Receiver<UdpPacket>,
     incoming_tx: mpsc::Sender<UdpPacket>,
-    session_ids: Mutex<HashMap<String, u32>>,
-    packet_ids: Mutex<HashMap<u32, u16>>,
+    destinations: Mutex<DestinationState>,
+}
+
+#[derive(Default)]
+struct DestinationState {
+    entries: HashMap<String, DestinationEntry>,
+    access_sequence: u64,
+}
+
+struct DestinationEntry {
+    session_id: u32,
+    next_packet_id: u16,
+    last_used: u64,
+}
+
+impl DestinationState {
+    fn route_for_existing(&mut self, address: &str) -> Option<(u32, u16)> {
+        self.access_sequence = self.access_sequence.saturating_add(1);
+        let last_used = self.access_sequence;
+        let entry = self.entries.get_mut(address)?;
+        let packet_id = entry.next_packet_id;
+        entry.next_packet_id = entry.next_packet_id.wrapping_add(1);
+        entry.last_used = last_used;
+        Some((entry.session_id, packet_id))
+    }
 }
 
 impl UdpSession {
     pub(crate) fn new(client: Arc<ClientInner>) -> Self {
         let (incoming_tx, incoming_rx) = mpsc::channel(64);
-        Self {
-            client,
-            incoming_rx,
-            incoming_tx,
-            session_ids: Mutex::new(HashMap::new()),
-            packet_ids: Mutex::new(HashMap::new()),
-        }
+        Self { client, incoming_rx, incoming_tx, destinations: Mutex::new(DestinationState::default()) }
     }
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> Result<()> {
-        let session_id = self.session_id_for(address).await?;
-        let packet_id = self.next_packet_id(session_id).await;
-        let migrated = self.client.begin_quic_migration().await?;
+        let (session_id, packet_id) = self.route_for(address).await?;
+        let migration = self.client.begin_quic_migration()?;
         match send_udp_payload(&self.client, session_id, packet_id, address, payload).await {
             Ok(()) => {
-                if migrated {
-                    self.client.complete_quic_migration("path_validated_after_datagram_send").await;
+                if let Some(migration) = migration {
+                    migration.complete("path_validated_after_datagram_send");
                 }
                 Ok(())
             }
-            Err(_error) if migrated => {
-                let _ = self.client.rollback_quic_migration("datagram_send_failed_after_rebind").await;
-                send_udp_payload(&self.client, session_id, packet_id, address, payload).await
-            }
-            Err(error) => Err(error),
+            Err(error) => match migration {
+                Some(migration) => {
+                    migration.rollback("datagram_send_failed_after_rebind")?;
+                    send_udp_payload(&self.client, session_id, packet_id, address, payload).await
+                }
+                None => Err(error),
+            },
         }
     }
 
@@ -67,35 +87,25 @@ impl UdpSession {
             .map(|packet| (packet.address, packet.payload))
     }
 
-    // NOT cancel-safe: holds session_ids lock and registrations lock across await points;
-    // dropping the future mid-way leaves the id allocated in session_ids but not registered,
-    // or vice versa, resulting in an inconsistent state.
-    async fn session_id_for(&self, address: &str) -> Result<u32> {
-        let mut session_ids = self.session_ids.lock().await;
-        if let Some(session_id) = session_ids.get(address).copied() {
-            return Ok(session_id);
+    async fn route_for(&self, address: &str) -> Result<(u32, u16)> {
+        let mut destinations = self.destinations.lock().await;
+        if let Some(route) = destinations.route_for_existing(address) {
+            return Ok(route);
         }
-
-        // Allocate via the shared helper (also exercised by unit tests).
         let mut regs = self.client.registrations.lock().await;
-        let id = allocate_session_id(&self.client.next_session_id, &mut regs, self.incoming_tx.clone()).ok_or_else(
-            || {
-                HysteriaError::Io(io::Error::new(
-                    io::ErrorKind::ResourceBusy,
-                    "Hysteria2 UDP session-id space exhausted: too many concurrent sessions",
-                ))
-            },
-        )?;
-        session_ids.insert(address.to_string(), id);
-        Ok(id)
-    }
-
-    async fn next_packet_id(&self, session_id: u32) -> u16 {
-        let mut packet_ids = self.packet_ids.lock().await;
-        let next = packet_ids.entry(session_id).or_insert(0);
-        let packet_id = *next;
-        *next = next.wrapping_add(1);
-        packet_id
+        allocate_new_destination_route(
+            &mut destinations,
+            &self.client.next_session_id,
+            &mut regs,
+            self.incoming_tx.clone(),
+            address,
+        )
+        .ok_or_else(|| {
+            HysteriaError::Io(io::Error::new(
+                io::ErrorKind::ResourceBusy,
+                "Hysteria2 UDP session-id space exhausted: too many concurrent sessions",
+            ))
+        })
     }
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
@@ -106,11 +116,11 @@ impl UdpSession {
 impl Drop for UdpSession {
     fn drop(&mut self) {
         // NEVER panic in Drop.
-        // Collect the session-ids this session registered. session_ids is a per-session
+        // Collect the session-ids this session registered. destinations is a per-session
         // Mutex, so try_lock() will always succeed in practice (no other holder once
         // drop() runs), but we treat the Err path gracefully.
-        let ids: Vec<u32> = match self.session_ids.try_lock() {
-            Ok(map) => map.values().copied().collect(),
+        let ids: Vec<u32> = match self.destinations.try_lock() {
+            Ok(state) => state.entries.values().map(|entry| entry.session_id).collect(),
             Err(_) => {
                 // Could not acquire; entries will be cleaned up by
                 // dispatch_udp_datagrams's clear() when the connection closes.
@@ -144,6 +154,28 @@ impl Drop for UdpSession {
     }
 }
 
+fn allocate_new_destination_route(
+    destinations: &mut DestinationState,
+    counter: &std::sync::atomic::AtomicU32,
+    registrations: &mut HashMap<u32, mpsc::Sender<UdpPacket>>,
+    sender: mpsc::Sender<UdpPacket>,
+    address: &str,
+) -> Option<(u32, u16)> {
+    destinations.access_sequence = destinations.access_sequence.saturating_add(1);
+    let last_used = destinations.access_sequence;
+    if destinations.entries.len() >= MAX_DESTINATIONS_PER_UDP_SESSION
+        && let Some(oldest_address) =
+            destinations.entries.iter().min_by_key(|(_, entry)| entry.last_used).map(|(address, _)| address.clone())
+        && let Some(evicted) = destinations.entries.remove(&oldest_address)
+    {
+        registrations.remove(&evicted.session_id);
+    }
+
+    let session_id = allocate_session_id(counter, registrations, sender)?;
+    destinations.entries.insert(address.to_string(), DestinationEntry { session_id, next_packet_id: 1, last_used });
+    Some((session_id, 0))
+}
+
 #[derive(Debug)]
 pub(crate) struct UdpPacket {
     address: String,
@@ -156,6 +188,13 @@ struct PartialPacket {
     address: String,
     fragments: Vec<Option<Vec<u8>>>,
     received: usize,
+    buffered_bytes: usize,
+}
+
+enum ReassemblyResult {
+    Pending,
+    Complete(UdpPacket),
+    Rejected,
 }
 
 // NOT cancel-safe: maintains mutable partials map across multiple await points.
@@ -196,35 +235,14 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
                 };
 
                 if fragment_count <= 1 {
-                    let _ = sender.send(UdpPacket { address, payload }).await;
+                    try_deliver(&sender, UdpPacket { address, payload });
                     continue;
                 }
 
                 let key = (session_id, packet_id);
-                let partial = partials.entry(key).or_insert_with(|| PartialPacket {
-                    started_at: Instant::now(),
-                    address: address.clone(),
-                    fragments: vec![None; usize::from(fragment_count)],
-                    received: 0,
-                });
-                let index = usize::from(fragment_id);
-                if index >= partial.fragments.len() {
-                    continue;
-                }
-                if partial.fragments[index].is_none() {
-                    partial.fragments[index] = Some(payload);
-                    partial.received += 1;
-                    partial.address = address;
-                }
-
-                if partial.received == partial.fragments.len() {
-                    let mut assembled = Vec::new();
-                    for fragment in partial.fragments.iter().flatten() {
-                        assembled.extend_from_slice(fragment);
-                    }
-                    let packet = UdpPacket { address: partial.address.clone(), payload: assembled };
-                    partials.remove(&key);
-                    let _ = sender.send(packet).await;
+                match reassemble_fragment(&mut partials, key, fragment_id, fragment_count, address, payload) {
+                    ReassemblyResult::Complete(packet) => try_deliver(&sender, packet),
+                    ReassemblyResult::Pending | ReassemblyResult::Rejected => {}
                 }
             }
             Err(error) => {
@@ -234,6 +252,77 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
     }
 
     client.registrations.lock().await.clear();
+}
+
+fn try_deliver(sender: &mpsc::Sender<UdpPacket>, packet: UdpPacket) {
+    if let Err(error) = sender.try_send(packet) {
+        tracing::trace!(error = %error, "Dropping Hysteria UDP packet for unavailable consumer");
+    }
+}
+
+fn reassemble_fragment(
+    partials: &mut HashMap<(u32, u16), PartialPacket>,
+    key: (u32, u16),
+    fragment_id: u8,
+    fragment_count: u8,
+    address: String,
+    payload: Vec<u8>,
+) -> ReassemblyResult {
+    if !partials.contains_key(&key) {
+        while partials.len() >= MAX_REASSEMBLY_SLOTS {
+            evict_oldest_partial(partials);
+        }
+        partials.insert(
+            key,
+            PartialPacket {
+                started_at: Instant::now(),
+                address: address.clone(),
+                fragments: vec![None; usize::from(fragment_count)],
+                received: 0,
+                buffered_bytes: 0,
+            },
+        );
+    }
+
+    let Some(partial) = partials.get_mut(&key) else {
+        return ReassemblyResult::Rejected;
+    };
+    let index = usize::from(fragment_id);
+    if index >= partial.fragments.len() {
+        return ReassemblyResult::Rejected;
+    }
+    if partial.fragments[index].is_none() {
+        let Some(buffered_bytes) = partial.buffered_bytes.checked_add(payload.len()) else {
+            partials.remove(&key);
+            return ReassemblyResult::Rejected;
+        };
+        if buffered_bytes > MAX_REASSEMBLED_PAYLOAD_SIZE {
+            partials.remove(&key);
+            return ReassemblyResult::Rejected;
+        }
+        partial.fragments[index] = Some(payload);
+        partial.received += 1;
+        partial.buffered_bytes = buffered_bytes;
+        partial.address = address;
+    }
+    if partial.received != partial.fragments.len() {
+        return ReassemblyResult::Pending;
+    }
+
+    let Some(partial) = partials.remove(&key) else {
+        return ReassemblyResult::Rejected;
+    };
+    let mut assembled = Vec::with_capacity(partial.buffered_bytes);
+    for fragment in partial.fragments.iter().flatten() {
+        assembled.extend_from_slice(fragment);
+    }
+    ReassemblyResult::Complete(UdpPacket { address: partial.address, payload: assembled })
+}
+
+fn evict_oldest_partial(partials: &mut HashMap<(u32, u16), PartialPacket>) {
+    if let Some(oldest_key) = partials.iter().min_by_key(|(_, partial)| partial.started_at).map(|(key, _)| *key) {
+        partials.remove(&oldest_key);
+    }
 }
 
 async fn send_udp_payload(
@@ -422,5 +511,103 @@ mod tests {
         assert_eq!(id, Some(1));
         assert!(regs.contains_key(&0)); // original intact
         assert!(regs.contains_key(&1)); // new entry present
+    }
+
+    #[test]
+    fn destination_state_is_bounded_and_evicts_least_recently_used_route() {
+        let counter = std::sync::atomic::AtomicU32::new(0);
+        let (sender, _receiver) = mpsc::channel(1);
+        let mut registrations = HashMap::new();
+        let mut destinations = DestinationState::default();
+        for index in 0..MAX_DESTINATIONS_PER_UDP_SESSION {
+            let address = format!("host-{index}.example:53");
+            allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender.clone(), &address)
+                .expect("allocate destination route");
+        }
+        destinations.route_for_existing("host-0.example:53").expect("refresh oldest route");
+        allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender, "new.example:53")
+            .expect("allocate replacement route");
+
+        assert_eq!(destinations.entries.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
+        assert_eq!(registrations.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
+        assert!(destinations.entries.contains_key("host-0.example:53"));
+        assert!(!destinations.entries.contains_key("host-1.example:53"));
+        assert!(destinations.entries.contains_key("new.example:53"));
+    }
+
+    #[test]
+    fn existing_destination_reuses_id_and_advances_packet_id() {
+        let counter = std::sync::atomic::AtomicU32::new(7);
+        let (sender, _receiver) = mpsc::channel(1);
+        let mut registrations = HashMap::new();
+        let mut destinations = DestinationState::default();
+
+        let first = allocate_new_destination_route(
+            &mut destinations,
+            &counter,
+            &mut registrations,
+            sender.clone(),
+            "example.com:53",
+        )
+        .expect("first route");
+        let second = destinations.route_for_existing("example.com:53").expect("second route");
+
+        assert_eq!(first, (7, 0));
+        assert_eq!(second, (7, 1));
+        assert_eq!(registrations.len(), 1);
+    }
+
+    #[test]
+    fn saturated_session_does_not_block_other_udp_sessions() {
+        let packet = |address: &str| UdpPacket { address: address.to_string(), payload: vec![1] };
+        let (slow_tx, mut slow_rx) = mpsc::channel(1);
+        let (fast_tx, mut fast_rx) = mpsc::channel(1);
+
+        slow_tx.try_send(packet("slow.example:53")).expect("fill slow consumer queue");
+        try_deliver(&slow_tx, packet("dropped.example:53"));
+        try_deliver(&fast_tx, packet("fast.example:53"));
+
+        assert_eq!(fast_rx.try_recv().expect("fast consumer receives packet").address, "fast.example:53");
+        assert_eq!(slow_rx.try_recv().expect("queued slow packet remains").address, "slow.example:53");
+        assert!(slow_rx.try_recv().is_err(), "overflow packet must be dropped");
+    }
+
+    #[test]
+    fn reassembly_evicts_oldest_packet_at_slot_limit() {
+        let mut partials = HashMap::new();
+        let oldest_key = (0, 0);
+        for index in 0..MAX_REASSEMBLY_SLOTS {
+            partials.insert(
+                (index as u32, 0),
+                PartialPacket {
+                    started_at: Instant::now() + Duration::from_millis(index as u64),
+                    address: "example.com:53".to_string(),
+                    fragments: vec![Some(vec![1]), None],
+                    received: 1,
+                    buffered_bytes: 1,
+                },
+            );
+        }
+
+        let result = reassemble_fragment(&mut partials, (u32::MAX, 0), 0, 2, "new.example:53".to_string(), vec![1]);
+
+        assert!(matches!(result, ReassemblyResult::Pending));
+        assert_eq!(partials.len(), MAX_REASSEMBLY_SLOTS);
+        assert!(!partials.contains_key(&oldest_key));
+    }
+
+    #[test]
+    fn reassembly_rejects_payload_above_udp_limit() {
+        let mut partials = HashMap::new();
+        let key = (1, 1);
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 0, 2, "example.com:53".to_string(), vec![0; 40_000]),
+            ReassemblyResult::Pending
+        ));
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 1, 2, "example.com:53".to_string(), vec![0; 30_000]),
+            ReassemblyResult::Rejected
+        ));
+        assert!(!partials.contains_key(&key));
     }
 }

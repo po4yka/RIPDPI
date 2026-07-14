@@ -19,7 +19,7 @@ Pick suites based on what changed:
 - **Any crate**: `scripts/ci/run-rust-workspace-tests.sh` (unit + arch contracts, excludes E2E/turmoil binaries)
 - **ripdpi-proxy-runtime network paths**: `scripts/ci/run-rust-network-e2e.sh` (proxy E2E via `local-network-fixture`)
 - **ripdpi-tunnel-core or ripdpi-dns-resolver**: `scripts/ci/run-rust-turmoil-tests.sh` (deterministic network sim)
-- **Concurrency / atomics / lock-free**: loom tests: `cd native/rust && cargo test --features loom -- loom` (env: `LOOM_MAX_PREEMPTIONS=3`)
+- **Concurrency / atomics / lock-free**: loom tests: `cd native/rust && cargo test --locked --features loom -- loom` (env: `LOOM_MAX_PREEMPTIONS=3`)
 - **Stability regressions**: `scripts/ci/run-rust-native-soak.sh <artifact-dir>` (env: `RIPDPI_SOAK_PROFILE=smoke|full`)
 - **Throughput regressions**: `scripts/ci/run-rust-native-load.sh <artifact-dir>` (env: `RIPDPI_SOAK_PROFILE=smoke|full`)
 - **Coverage**: `scripts/ci/run-rust-coverage.sh` (requires `cargo-llvm-cov`; min line coverage 78%)
@@ -28,7 +28,7 @@ Pick suites based on what changed:
 ## Running a Single Crate
 
 ```bash
-cargo nextest run --manifest-path native/rust/Cargo.toml -p <crate-name>
+cargo nextest run --locked --manifest-path native/rust/Cargo.toml -p <crate-name>
 ```
 Add `--no-capture` for stdout. Add `--profile ci` for CI retry behavior (2 retries, no fail-fast).
 

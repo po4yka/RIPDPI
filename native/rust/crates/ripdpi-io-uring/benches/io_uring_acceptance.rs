@@ -98,8 +98,6 @@ fn bench_registered_buffer_tx(c: &mut Criterion) {
         }
     };
     let fd = dev_null.as_fd();
-    let pool = driver.pool().clone();
-
     let mut group = c.benchmark_group("io_uring/park_unpark/write_fixed");
     group.measurement_time(Duration::from_secs(5));
     group.sample_size(50);
@@ -108,13 +106,11 @@ fn bench_registered_buffer_tx(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &payload, |b, payload| {
             b.iter(|| {
-                let mut handle = pool.acquire().expect("pool acquire");
+                let mut handle = driver.acquire_buffer().expect("pool acquire");
                 handle.as_mut_buf()[..payload.len()].copy_from_slice(payload);
-                let buf_index = handle.buf_index();
-                let pending = handle.into_pending();
-                let future = driver.write_fixed(fd, buf_index, payload.len() as u32);
+                assert!(handle.set_len(payload.len()));
+                let future = driver.write_fixed(fd, handle);
                 let result = block_on_completion(future);
-                pending.complete();
                 black_box(result);
             });
         });

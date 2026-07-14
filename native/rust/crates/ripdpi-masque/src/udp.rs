@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use bytes::Bytes;
 use h3_datagram::datagram_handler::DatagramSender;
@@ -14,6 +15,9 @@ use crate::h3::attempt_h3_connect_udp;
 use crate::response::{AttemptError, classify_attempt_failure};
 
 type H3DatagramSender = DatagramSender<h3_quinn::datagram::SendDatagramHandler, Bytes>;
+
+const MAX_UDP_FLOWS: usize = 64;
+const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
 pub(crate) enum MasqueUdpSender {
     H3(H3DatagramSender),
@@ -40,11 +44,13 @@ pub(crate) struct MasqueUdpFlow {
     pub(crate) sender: MasqueUdpSender,
     pub(crate) driver_task: JoinHandle<()>,
     pub(crate) reader_task: JoinHandle<()>,
+    last_used: Instant,
 }
 
 impl MasqueUdpRelay {
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
         if !self.flows.contains_key(target) {
+            make_room_for_flow(&mut self.flows, Instant::now(), MAX_UDP_FLOWS);
             let flow = self.open_flow(target).await?;
             self.flows.insert(target.to_string(), flow);
         }
@@ -145,9 +151,23 @@ impl MasqueUdpRelay {
     }
 }
 
+fn make_room_for_flow(flows: &mut HashMap<String, MasqueUdpFlow>, now: Instant, max_flows: usize) {
+    flows.retain(|_, flow| now.saturating_duration_since(flow.last_used) < UDP_FLOW_IDLE_TIMEOUT);
+    while flows.len() >= max_flows {
+        let Some(oldest) = flows.iter().min_by_key(|(_, flow)| flow.last_used).map(|(target, _)| target.clone()) else {
+            break;
+        };
+        flows.remove(&oldest);
+    }
+}
+
 impl MasqueUdpFlow {
+    pub(crate) fn new(sender: MasqueUdpSender, driver_task: JoinHandle<()>, reader_task: JoinHandle<()>) -> Self {
+        Self { sender, driver_task, reader_task, last_used: Instant::now() }
+    }
+
     fn send(&mut self, payload: &[u8]) -> io::Result<()> {
-        match &mut self.sender {
+        let result = match &mut self.sender {
             MasqueUdpSender::H3(sender) => {
                 let datagram = encode_connect_udp_payload(0, payload)
                     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
@@ -158,7 +178,11 @@ impl MasqueUdpFlow {
             MasqueUdpSender::H2(sender) => sender.try_send(payload.to_vec()).map_err(|error| {
                 io::Error::new(io::ErrorKind::BrokenPipe, format!("failed to queue MASQUE H2 UDP payload: {error}"))
             }),
+        };
+        if result.is_ok() {
+            self.last_used = Instant::now();
         }
+        result
     }
 }
 
@@ -166,5 +190,46 @@ impl Drop for MasqueUdpFlow {
     fn drop(&mut self) {
         self.driver_task.abort();
         self.reader_task.abort();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_flow(last_used: Instant) -> MasqueUdpFlow {
+        let (sender, _receiver) = mpsc::channel(1);
+        let driver_task = tokio::spawn(std::future::pending());
+        let reader_task = tokio::spawn(std::future::pending());
+        let mut flow = MasqueUdpFlow::new(MasqueUdpSender::H2(sender), driver_task, reader_task);
+        flow.last_used = last_used;
+        flow
+    }
+
+    #[tokio::test]
+    async fn flow_limit_evicts_idle_then_least_recently_used_targets() {
+        let mut flows = HashMap::new();
+        let now = Instant::now();
+        flows.insert("idle".to_string(), test_flow(now - UDP_FLOW_IDLE_TIMEOUT));
+        flows.insert("old".to_string(), test_flow(now - Duration::from_secs(2)));
+        flows.insert("recent".to_string(), test_flow(now - Duration::from_secs(1)));
+
+        make_room_for_flow(&mut flows, now, 2);
+
+        assert_eq!(flows.len(), 1);
+        assert!(flows.contains_key("recent"));
+    }
+
+    #[tokio::test]
+    async fn flow_limit_never_retains_more_than_the_configured_capacity() {
+        let mut flows = HashMap::new();
+        let now = Instant::now();
+        for index in 0..=MAX_UDP_FLOWS {
+            flows.insert(index.to_string(), test_flow(now));
+        }
+
+        make_room_for_flow(&mut flows, now, MAX_UDP_FLOWS);
+
+        assert!(flows.len() < MAX_UDP_FLOWS);
     }
 }

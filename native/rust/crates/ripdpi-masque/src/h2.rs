@@ -112,7 +112,8 @@ pub(crate) async fn attempt_h2_connect_tcp(
     auth_header: Option<&AuthHeader>,
 ) -> Result<impl AsyncIo + use<>, AttemptError> {
     let proxy_origin = parse_proxy_origin(config)?;
-    let tcp = connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin)?, config.socket_protection).await?;
+    let tcp =
+        connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin).await?, config.socket_protection).await?;
     attempt_h2_connect_tcp_over_transport(config, tcp, target, auth_header).await
 }
 
@@ -185,7 +186,8 @@ pub(crate) async fn attempt_h2_connect_udp(
     let target = crate::url::parse_target(target)?;
     let target_label = target.authority();
     let proxy_origin = parse_proxy_origin(config)?;
-    let tcp = connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin)?, config.socket_protection).await?;
+    let tcp =
+        connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin).await?, config.socket_protection).await?;
 
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
@@ -293,7 +295,7 @@ pub(crate) async fn attempt_h2_connect_udp(
         }
     });
 
-    Ok(MasqueUdpFlow { sender: MasqueUdpSender::H2(outgoing_tx), driver_task: writer_task, reader_task })
+    Ok(MasqueUdpFlow::new(MasqueUdpSender::H2(outgoing_tx), writer_task, reader_task))
 }
 
 #[cfg(test)]

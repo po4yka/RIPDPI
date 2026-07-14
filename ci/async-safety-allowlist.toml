@@ -96,21 +96,3 @@ executor_strategy = "review-needed: SOCKS5 client session-establishment, called 
 reason = "SOCKS5 client resolves the SOCKS server address."
 owner = "transport-team"
 review_date = "2026-11-17"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-socks5-core/src/server/tcp.rs"
-pattern = "to_socket_addrs"
-line = 10
-executor_strategy = "review-needed: SOCKS5 SERVER hot path -- runs on the proxy runtime worker pool, one call per inbound TCP CONNECT command. The `addr: &TargetAddr` here may or may not require DNS depending on the address kind. Highest-priority follow-up of the eight entries; replace with `lookup_host` and a domain/socket-addr dispatch."
-reason = "SOCKS5 server handles CONNECT command address resolution."
-owner = "transport-team"
-review_date = "2026-08-17"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-socks5-core/src/server/udp.rs"
-pattern = "to_socket_addrs"
-line = 117
-executor_strategy = "documented-safe: `target_addr.resolve_dns().await?` precedes this call. `resolve_dns` returns a `TargetAddr` that is already a `SocketAddr` variant; `<TargetAddr as ToSocketAddrs>::to_socket_addrs` then returns `std::option::IntoIter<SocketAddr>` with no syscall. The blocking-in-async lint fires on the syntactic `to_socket_addrs` call; the runtime behaviour is non-blocking."
-reason = "Post-resolve_dns iterator unwrap, not a DNS call."
-owner = "transport-team"
-review_date = "2026-11-17"

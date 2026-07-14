@@ -1,21 +1,16 @@
 # Protocol Loopback Harness — Design
 
-> Status: **scaffold + `QuicLoopback` landed; remaining per-protocol loopbacks pending**. Authored: 2026-05-15, refreshed 2026-06-05. The crate now ships `EchoLoopback` (plain TCP) and `QuicLoopback` (generic QUIC echo: self-signed cert, `ring` provider, `AcceptAnyServerCert` client verifier, `QUIC_LOOPBACK_ALPN`, plus a one-call `connect()` client helper). The QUIC primitive unblocks the QUIC-dependent consumers (port-hopping soak, QUIC PMTU regression, the Hysteria 2 / TUIC slices of the per-transport benches). The ShadowTLS loopback now lives in `ripdpi-shadowtls` (its `test-server` feature reuses the crate's `pub(crate)` framing), and the VLESS-Reality loopback (`VlessRealityLoopback`, a boring `SslAcceptor` proxying server with REALITY auth disabled per the risk note below) landed in `local-network-fixture` alongside the other chain-hop fixtures and drives the VLESS-over-VLESS chain e2e tests in `ripdpi-relay-core`. The xHTTP loopback (`XhttpRealityLoopback`) also landed in `local-network-fixture` — a boring Reality `SslAcceptor` plus a hyper HTTP/2 server speaking the xray-core stream-up wire shape (GET download body + POST upload body correlated by URL path, VLESS handshake in the H2 bodies) — and drives the VLESS-over-xHTTP-over-Reality cross-stack test. All per-protocol loopback servers now exist.
+> Status: **active shared test infrastructure**. Authored: 2026-05-15, refreshed 2026-07-14. `ripdpi-protocol-loopback` ships `EchoLoopback` (plain TCP) and `QuicLoopback` (generic QUIC echo with a self-signed certificate, `QUIC_LOOPBACK_ALPN`, and a one-call client helper). `ripdpi-hysteria2` consumes the QUIC harness for its port-hopping soak. Protocol-specific fixtures intentionally remain next to the code they exercise: ShadowTLS uses its `test-server` feature, while `local-network-fixture` owns the VLESS Reality, xHTTP Reality, AnyTLS, Trojan, Shadowsocks, Naive H2 padding, and MASQUE fixtures. The shared crate is therefore not intended to become a registry of every transport.
 
 ## Why this design exists
 
-Four backlog tasks all need the same piece of infrastructure: an in-process loopback server for each of the eight protocol crates so tests can run client + server back-to-back without any network or upstream dependency.
+The harness was introduced so transport tests could run client and server back-to-back without an external network or upstream service. The original plan assumed one shared server per protocol; implementation showed that only generic TCP and QUIC primitives benefit from centralization, while wire-specific fixtures are easier to maintain beside their protocol implementation.
 
-- `docs/tasks/issues/add-shadowtls-loopback-test-server-for-soak-runs.md`
 - `docs/tasks/issues/add-quic-path-mtu-discovery-regression-test.md`
-- `docs/tasks/issues/add-protocol-throughput-benchmarks-for-each-transport.md`
-- `docs/tasks/issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md`
-
-Building one harness shared across these four tasks is much cheaper than building four bespoke ones.
 
 ## Shape
 
-The dev-only crate `ripdpi-protocol-loopback` now exists under `native/rust/crates/`. It is a workspace crate marked `publish = false`; it currently provides the shared `ProtocolLoopbackServer` trait and a plain-TCP `EchoLoopback` test fixture. Protocol-specific loopbacks are still pending in this crate, and the crate has no in-tree consumers today.
+The dev-only crate `ripdpi-protocol-loopback` is a workspace crate marked `publish = false`. It provides the shared `ProtocolLoopbackServer` trait, `EchoLoopback`, and `QuicLoopback`; `ripdpi-hysteria2` consumes it as a dev-dependency.
 
 Do not confuse this scaffold with `local-network-fixture`: that crate now carries several protocol-specific fixtures used by current tests, including `AnyTlsLoopback`, `TrojanLoopback`, `ShadowsocksLoopback`, `NaiveH2PaddingFixture`, and MASQUE HTTP/2 CONNECT-UDP fixtures. New work should either extend those existing fixtures or deliberately move shared loopback code into `ripdpi-protocol-loopback`; do not assume this design doc's 2026-05-15 plan is the only active harness path.
 
@@ -23,7 +18,8 @@ Do not confuse this scaffold with `local-network-fixture`: that crate now carrie
 ripdpi-protocol-loopback/
 ├── Cargo.toml
 └── src/
-    └── lib.rs             # ProtocolLoopbackServer + EchoLoopback
+    ├── lib.rs             # ProtocolLoopbackServer + EchoLoopback
+    └── quic.rs            # QuicLoopback + test-only TLS verifier
 ```
 
 The current trait exposes:
@@ -37,14 +33,15 @@ pub trait ProtocolLoopbackServer: Send {
 
 `EchoLoopback::start(max_bytes_per_connection)` starts the plain-TCP echo fixture and owns shutdown via an explicit `shutdown()` method or `Drop`.
 
-## What this unblocks
+## Current fixture ownership
 
-| Task | What it needs from the harness |
+| Surface | Fixture owner |
 |---|---|
-| ShadowTLS test server | `ShadowTlsLoopback::start()` + framed echo |
-| QUIC PMTU regression | `QuicLoopback::start()` + UDP socket capture for MTU injection |
-| Per-transport benchmarks | `{Vless,Xhttp,Hysteria2,Tuic,Masque,WsTunnel}Loopback::start()` driving Criterion `bench_function` cases |
-| Cross-stack chain tests | Compose two loopback servers (e.g. xHTTP fronting VLESS) |
+| Generic TCP echo | `ripdpi-protocol-loopback::EchoLoopback` |
+| Generic QUIC echo / Hysteria2 port-hopping soak | `ripdpi-protocol-loopback::QuicLoopback` |
+| ShadowTLS framing | `ripdpi-shadowtls` with its `test-server` feature |
+| VLESS Reality and xHTTP Reality chains | `local-network-fixture` |
+| AnyTLS, Trojan, Shadowsocks, Naive H2 padding, MASQUE | `local-network-fixture` or the owning transport crate |
 
 ## What stays out of scope
 
@@ -54,19 +51,13 @@ pub trait ProtocolLoopbackServer: Send {
 
 ## Risks
 
-- The harness must NOT ship in production builds. Use a `[features]` flag and `[dev-dependencies]` linkage so any accidental release-build reference fails compilation.
+- The harness must NOT ship in production builds. Consumers must link it only through `[dev-dependencies]`.
 - BoringSSL: the VLESS loopback must use a self-signed cert with REALITY auth disabled in the loopback mode (or use a stub `SslStream` shim). A real REALITY handshake against a real server-side BoringSSL is too brittle for unit-test scope.
 - TUIC and Hysteria 2 share Quinn; the loopback should reuse the in-process Quinn `Endpoint` rather than spinning up two binds.
 
-## Sequencing
+## Extension rule
 
-1. ~~Land the `ripdpi-protocol-loopback` crate scaffold~~ — done; the crate contains `ProtocolLoopbackServer` and `EchoLoopback`.
-2. Add the first protocol module, likely `tuic.rs`, to drive the QUIC PMTU task.
-3. Then `hysteria2.rs` to share the Quinn endpoint.
-4. Then the higher-cover-handshake protocols (VLESS, xHTTP, ShadowTLS).
-5. Finally MASQUE and ws-tunnel which need additional middleware (h3, fake-SNI gating).
-
-Each step is a separate task with its own acceptance criteria.
+Add a primitive to `ripdpi-protocol-loopback` only when at least two consumers need the same protocol-agnostic server behavior. Keep wire-specific fixtures in the owning crate or `local-network-fixture`; do not move them merely to make this crate appear comprehensive.
 
 ## Owner
 

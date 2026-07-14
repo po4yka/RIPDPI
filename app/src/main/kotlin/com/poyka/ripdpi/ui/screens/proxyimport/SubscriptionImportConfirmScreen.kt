@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -34,23 +35,20 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
  */
 @Composable
 fun SubscriptionImportConfirmRoute(
-    url: String,
-    name: String,
-    bootstrap: Boolean,
+    importToken: String,
     onBack: () -> Unit,
     onImported: () -> Unit,
+    onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SubscriptionImportConfirmViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel, url, name, bootstrap) {
-        viewModel.setRequest(url = url, name = name, bootstrap = bootstrap)
+    val latestOnUnavailable by rememberUpdatedState(onUnavailable)
+    LaunchedEffect(viewModel, importToken) {
+        if (!viewModel.claimRequest(importToken)) latestOnUnavailable()
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val latestOnImported by rememberUpdatedState(onImported)
-    LaunchedEffect(viewModel) {
-        viewModel.importedEvents.collect { latestOnImported() }
-    }
+    LifecycleEventEffect(viewModel.importedEvents) { onImported() }
 
     SubscriptionImportConfirmScreen(
         uiState = uiState,
@@ -79,6 +77,13 @@ internal fun SubscriptionImportConfirmScreen(
                 title = stringResource(R.string.import_subscription_bootstrap_title),
                 message = stringResource(R.string.import_subscription_bootstrap_body),
                 tone = WarningBannerTone.Info,
+            )
+        }
+        if (uiState.importFailed) {
+            WarningBanner(
+                title = stringResource(R.string.strategy_config_import_failed_title),
+                message = stringResource(R.string.import_profile_confirm_error),
+                tone = WarningBannerTone.Error,
             )
         }
         RipDpiCard {

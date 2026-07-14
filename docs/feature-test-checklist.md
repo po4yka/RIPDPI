@@ -26,12 +26,12 @@ Every feature should be tested against the dimensions that can affect it.
 | Runtime mode | Stopped app, proxy service, VPN service, VPN plus relay, diagnostics-only debug probe |
 | Network | Wi-Fi, cellular, dual-stack, IPv4-only, IPv6-only, private DNS enabled, metered, network handover, captive or limited path |
 | DNS mode | System DNS, plain resolver override, DoH, DoT, DNSCrypt, DoQ, fallback resolver loop |
-| Relay path | None, mock relay, VLESS Reality TCP, VLESS xHTTP, chain relay, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy subprocess, Google Apps Script path, in-repository WebTunnel PT helper, external PT paths (Snowflake Go binary, obfs4), separate WARP/AmneziaWG tunnel profiles |
+| Relay path | None, mock relay, VLESS Reality TCP, VLESS xHTTP, chain relay, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Mieru TCP, SSH TCP, Tor, NaiveProxy subprocess, Google Apps Script path, in-repository WebTunnel PT helper, external PT paths (Snowflake Go binary, obfs4), separate WARP/AmneziaWG tunnel profiles |
 | Packet strategy | None, split, disorder, fake, TLS record, TLS random record, hostfake, OOB, delayed split, parser variants, QUIC, DTLS, UDP length, IPv6 extension headers, Lua rawsend, root-only FakeRst, root-only MultiDisorder, root-only IpFrag2, root-only SeqOverlap, adaptive marker offsets |
 | Diagnostics profile | Connectivity, quick strategy probe, full matrix audit, home composite run, RAW_PATH run |
 | Data state | Fresh install, migrated install, cleared app data, imported profile, remembered network, full history |
-| UI state | Light theme, dark theme, dynamic color, compact width, expanded width, large font, TalkBack, RTL locale |
-| Locale | en, ru, es, de, fr, fa, ar, zh-CN |
+| UI state | Light theme, dark theme, compact width, expanded width, large font, TalkBack, RTL locale |
+| Locale | en, ru, es, de, fr, fa, ar, zh-CN, hi |
 
 ## Core Smoke Matrix
 
@@ -39,7 +39,7 @@ Run this matrix before considering a build broadly healthy.
 
 | Area | Checklist | Primary evidence | Required combinations |
 | --- | --- | --- | --- |
-| Startup | App launches, theme loads, navigation root renders, no startup crash | `./gradlew :app:testDebugUnitTest` plus manual/emulator launch | Fresh install, migrated install, light/dark |
+| Startup | App launches, theme loads, navigation root renders, no startup crash | `./gradlew :app:testGithubFullDebugUnitTest` plus manual/emulator launch | Fresh install, migrated install, light/dark |
 | Permissions | VPN consent, notification permission, foreground-service notification, battery optimization guidance | Device run log and UI check | API 27, API 31+, API 35/36 |
 | Proxy service | Service starts, exposes local SOCKS5 endpoint, handles stop/restart, rejects port conflict cleanly | Unit tests, device curl through proxy, service logs | System DNS, encrypted DNS, relay off/on |
 | VPN service | TUN starts, traffic routes, upstream sockets are protected, service stops cleanly | Device smoke, service logs, debug probe | Wi-Fi, cellular, handover |
@@ -48,7 +48,7 @@ Run this matrix before considering a build broadly healthy.
 | Packet strategies | Candidate is serialized, applied, logged, and either succeeds or degrades with clear reason | Packet smoke, native tests, diagnostics report | IPv4, IPv6, TCP, UDP, QUIC where relevant |
 | Settings | Changes persist, migrate, export/import, and reset without stale state | DataStore tests, manual settings pass | Fresh install, migrated install, locale switch |
 | Logging/export | Logs and archives redact sensitive values and omit traffic payloads | Redaction tests, archive inspection | Diagnostics export, support archive, failure path |
-| Localization | All locale keys exist, strings fit, RTL renders, native language names stay stable | lint, locale key diff, Roborazzi | Eight locales, large font, RTL |
+| Localization | All locale keys exist, strings fit, RTL renders, native language names stay stable | lint, locale key diff, Roborazzi | Nine locales, large font, RTL |
 | CI release gates | Static analysis, native lint/tests, packet smoke, coverage, release verification | GitHub Actions run | Push, pull request, manual/nightly |
 
 ## App Shell, Navigation, and Settings
@@ -60,7 +60,7 @@ Run this matrix before considering a build broadly healthy.
 - [ ] Settings screens render with all optional relay and root features disabled.
 - [ ] Search, filtering, or section expansion state survives rotation when the screen owns that state.
 - [ ] Theme selection applies immediately and persists across restart.
-- [ ] Dynamic color does not reduce contrast below accessibility requirements.
+- [ ] Fixed RIPDPI color tokens preserve contrast in both light and dark themes; platform dynamic color remains disabled.
 - [ ] Large font mode keeps controls usable and does not overlap important text.
 - [ ] TalkBack reads interactive controls with useful labels.
 - [ ] RTL layout renders for Persian without clipping or reversed semantics.

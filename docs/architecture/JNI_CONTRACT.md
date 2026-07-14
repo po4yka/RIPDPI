@@ -277,12 +277,10 @@ a deliberate follow-up rather than a mechanical refactor:
   consumer ProGuard rule (`core/engine/consumer-rules.pro`). The 50 ms poll in
   `RuntimeReadiness.awaitRuntimeReady` / `RipDpiWarp.awaitReady` stays as a
   graceful-degradation fallback (the register returns `0` when unsupported —
-  e.g. the Apps Script relay backend, or an `.so` built before the exports
-  land). **Baseline note:** the two new proxy symbols
-  (`Java_..._RipDpiProxyNativeBindings_jniRegisterReadinessListener` /
-  `_jniUnregisterReadinessListener`) must be added to
-  `native/rust/crates/ripdpi-android/jni-symbols.baseline` by a human reviewer
-  before the ELF symbol-allowlist check passes (relay/warp have no per-cdylib
+  e.g. the Apps Script relay backend, or an older `.so`). The two proxy exports
+  are present in `native/rust/crates/ripdpi-android/jni-symbols.baseline`; the
+  `jni-symbol-diff.yml` workflow verifies the built ELF against that baseline
+  with `.github/scripts/check-jni-symbols.sh` (relay/warp have no per-cdylib
   allowlist).
 - **Telemetry recorder** — installed process-wide once, in `libripdpi.so`
   `JNI_OnLoad` via `ripdpi_android_telemetry_adapter::install_recorder()`. Not

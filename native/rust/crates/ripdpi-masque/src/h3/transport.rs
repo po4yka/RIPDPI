@@ -53,7 +53,7 @@ pub(super) async fn connect_h3_transport(
             .map_err(|error| io::Error::other(format!("failed to build QUIC TLS config: {error}")))?,
     ));
 
-    let proxy_addr = resolve_proxy_socket_addr(config, &proxy_origin)?;
+    let proxy_addr = resolve_proxy_socket_addr(config, &proxy_origin).await?;
     let socket = build_client_udp_socket(proxy_addr.is_ipv6(), config.quic_bind_low_port, config.socket_protection)
         .map_err(|error| io::Error::other(format!("failed to bind QUIC client socket: {error}")))?;
     let mut endpoint =

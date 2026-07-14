@@ -14,15 +14,14 @@ import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -59,7 +58,7 @@ class ConfigViewModel
                 extraBufferCapacity = 1,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
-        val effects: SharedFlow<ConfigEffect> = _effects.asSharedFlow()
+        val effects = _effects.bufferForUiLifecycle(viewModelScope)
 
         init {
             observeCapabilityEvidence()

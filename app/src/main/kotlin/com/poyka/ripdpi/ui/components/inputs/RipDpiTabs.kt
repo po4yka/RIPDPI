@@ -12,6 +12,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 data class RipDpiTab(
     val key: String,
@@ -27,7 +29,7 @@ data class RipDpiTab(
  */
 @Composable
 fun RipDpiTabs(
-    tabs: List<RipDpiTab>,
+    tabs: ImmutableList<RipDpiTab>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -82,7 +84,7 @@ private fun RipDpiTabsLightPreview() {
     RipDpiComponentPreview {
         RipDpiTabs(
             tabs =
-                listOf(
+                persistentListOf(
                     RipDpiTab("home", "Home"),
                     RipDpiTab("logs", "Logs"),
                     RipDpiTab("settings", "Settings"),
@@ -98,7 +100,7 @@ private fun RipDpiTabsLightPreview() {
 private fun RipDpiTabsDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiTabs(
-            tabs = listOf(RipDpiTab("a", "Live"), RipDpiTab("b", "History")),
+            tabs = persistentListOf(RipDpiTab("a", "Live"), RipDpiTab("b", "History")),
             selectedIndex = 0,
             onSelect = {},
         )

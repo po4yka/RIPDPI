@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use tokio::io::duplex;
 use tokio::sync::Notify;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 
 use crate::{RelayCapabilities, RelayMux, RelayPoolConfig, RelaySession, RelaySessionFactory};
 
@@ -38,6 +38,14 @@ struct PendingOpenFactory {
 
 struct PendingOpenSession {
     entered_open: Arc<Notify>,
+}
+
+#[derive(Clone)]
+struct ControlledCreateFactory {
+    creations: Arc<AtomicUsize>,
+    first_entered: Arc<Notify>,
+    release_first: Arc<Notify>,
+    first_never_completes: bool,
 }
 
 impl RelaySession for PendingOpenSession {
@@ -82,6 +90,28 @@ impl RelaySessionFactory for TestFactory {
     }
 }
 
+impl RelaySessionFactory for ControlledCreateFactory {
+    type Session = TestSession;
+    type Error = Infallible;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        let creation = self.creations.fetch_add(1, Ordering::SeqCst);
+        if creation == 0 {
+            self.first_entered.notify_one();
+            if self.first_never_completes {
+                std::future::pending::<()>().await;
+            } else {
+                self.release_first.notified().await;
+            }
+        }
+        Ok(Arc::new(TestSession))
+    }
+}
+
 #[tokio::test]
 async fn reusable_mux_reuses_cached_session() {
     let creations = Arc::new(AtomicUsize::new(0));
@@ -93,6 +123,72 @@ async fn reusable_mux_reuses_cached_session() {
 
     assert_eq!(1, creations.load(Ordering::SeqCst));
     assert_eq!(1, mux.health().idle_streams);
+}
+
+#[tokio::test]
+async fn concurrent_cache_misses_share_one_session_creation() {
+    let creations = Arc::new(AtomicUsize::new(0));
+    let first_entered = Arc::new(Notify::new());
+    let release_first = Arc::new(Notify::new());
+    let mux = RelayMux::new(
+        ControlledCreateFactory {
+            creations: Arc::clone(&creations),
+            first_entered: Arc::clone(&first_entered),
+            release_first: Arc::clone(&release_first),
+            first_never_completes: false,
+        },
+        RelayPoolConfig::default(),
+    );
+
+    let first_mux = mux.clone();
+    let first = tokio::spawn(async move { first_mux.open_stream("first.example:443").await });
+    first_entered.notified().await;
+    let second_mux = mux.clone();
+    let second = tokio::spawn(async move { second_mux.open_stream("second.example:443").await });
+    tokio::task::yield_now().await;
+    assert_eq!(creations.load(Ordering::SeqCst), 1);
+
+    release_first.notify_one();
+    drop(first.await.expect("first opener task").expect("first stream"));
+    drop(second.await.expect("second opener task").expect("second stream"));
+
+    assert_eq!(creations.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn cancelling_cache_miss_owner_unblocks_next_creator() {
+    let creations = Arc::new(AtomicUsize::new(0));
+    let first_entered = Arc::new(Notify::new());
+    let mux = RelayMux::new(
+        ControlledCreateFactory {
+            creations: Arc::clone(&creations),
+            first_entered: Arc::clone(&first_entered),
+            release_first: Arc::new(Notify::new()),
+            first_never_completes: true,
+        },
+        RelayPoolConfig::default(),
+    );
+
+    let owner_mux = mux.clone();
+    let owner = tokio::spawn(async move { owner_mux.open_stream("owner.example:443").await });
+    first_entered.notified().await;
+    let waiter_mux = mux.clone();
+    let waiter = tokio::spawn(async move { waiter_mux.open_stream("waiter.example:443").await });
+    tokio::task::yield_now().await;
+
+    owner.abort();
+    let Err(error) = owner.await else {
+        panic!("owner must be cancelled");
+    };
+    assert!(error.is_cancelled());
+    let stream = timeout(Duration::from_secs(1), waiter)
+        .await
+        .expect("waiter must acquire released creation gate")
+        .expect("waiter task")
+        .expect("waiter stream");
+    drop(stream);
+
+    assert_eq!(creations.load(Ordering::SeqCst), 2);
 }
 
 #[tokio::test]

@@ -452,31 +452,17 @@ detect it and prompt the user to supply the real key.
 
 ### Hysteria2 import coverage
 
-Standard importers (`hysteria2://` URI, Clash.Meta, sing-box) capture only:
-
-- `server`, `serverPort`
-- `password`
+Standard importers capture `server`, `serverPort`, and `password`. They also carry the common optional fields: `hysteria2://` supports `obfs=salamander`, `obfs-password`, and `insecure`; Clash.Meta supports `obfs-password` and `skip-cert-verify`; sing-box supports `obfs.password` and `tls.insecure`.
 
 When the payload is a **RIPDPI extended bundle** (`ripdpi.schema_version: 1`), the
 `ripdpi.hysteria_extras` map can carry additional fields onto the matching
 `ProxyProfile.Hysteria2` by outbound tag:
 
-- **Salamander obfuscation** — `obfs.type == "salamander"` populates `obfsPassword` on
-  the profile. For all other import paths this remains `null` and must be configured in
-  the relay editor.
-- **`insecure`** — carried in the model (`ProxyProfile.Hysteria2.insecure`); wire-to-runtime
-  mapping is best-effort / follow-up if the relay DTO does not expose it.
-- **Port-hopping** (`port_hopping.ports` / `port_hopping.interval`) — likewise carried in
-  the model (`portHopPorts` / `portHopInterval`); wire-to-runtime mapping is best-effort /
-  follow-up.
+- **Salamander obfuscation** — `obfs.type == "salamander"` populates `obfsPassword` on the profile.
+- **`insecure`** — populates `ProxyProfile.Hysteria2.insecure` and is carried through activation and the native runtime config.
+- **Port-hopping** (`port_hopping.ports` / `port_hopping.interval`) — carried in the model (`portHopPorts` / `portHopInterval`) but not wired into the native runtime.
 
-For non-RIPDPI import paths (share links, Clash.Meta, plain sing-box) these three
-parameters remain **settings-only** — set them in the relay editor after import.
-
-This boundary is deliberate: threading every transport knob through the import models would
-duplicate the relay-editor surface and the v6 wire schema. If a Hysteria2 server requires
-salamander, insecure, or port-hopping without a RIPDPI bundle, distribute it as a
-relay-editor configuration rather than relying on a share link.
+Salamander and insecure settings therefore do not require a RIPDPI bundle. Port-hopping is the only listed extra that remains model-only; do not promise that it affects the active native session until the runtime mapping lands.
 
 ## Validation Reminders
 

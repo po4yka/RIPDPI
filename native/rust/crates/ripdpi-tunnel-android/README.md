@@ -27,8 +27,7 @@ the TUN-to-SOCKS bridge behind `jniCreate` / `jniStart(handle, tunFd)` /
   cancels via `CancellationToken` and joins the worker.
 - Sessions are `jlong` handles; every export goes through `ffi_boundary`
   (`jstring`→null, `jlong`→0 sentinels).
-- `libripdpi-tunnel.so` requires `libripdpi.so` already active — the tunnel
-  forwards into that library's local SOCKS endpoint.
+- `libripdpi-tunnel.so` forwards to the selected local SOCKS egress. That egress may be the proxy engine, relay runtime, WARP, or AmneziaWG composition; it is not inherently tied to `libripdpi.so`.
 
 ## Plane
 

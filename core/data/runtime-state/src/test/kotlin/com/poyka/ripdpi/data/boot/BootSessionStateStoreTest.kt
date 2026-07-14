@@ -38,6 +38,17 @@ class BootSessionStateStoreTest {
     }
 
     @Test
+    fun `active awg pointer survives recreation without secret material`() {
+        store.setActiveAwgProfileId("awg-profile-42")
+
+        val afterKill = SharedPreferencesBootSessionStateStore(prefs)
+
+        assertEquals("awg-profile-42", afterKill.activeAwgProfileId())
+        afterKill.setActiveAwgProfileId(null)
+        assertNull(store.activeAwgProfileId())
+    }
+
+    @Test
     fun `recordSession persists proxy mode distinctly from vpn`() {
         store.recordSession(profileId = "p", mode = Mode.Proxy)
 

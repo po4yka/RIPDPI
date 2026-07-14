@@ -15,6 +15,7 @@ mod socket_protection;
 #[cfg(test)]
 mod tests;
 mod tls_profile;
+mod url_endpoint;
 
 use std::io;
 

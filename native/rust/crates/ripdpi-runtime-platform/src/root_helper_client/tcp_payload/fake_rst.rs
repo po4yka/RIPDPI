@@ -1,5 +1,5 @@
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::BorrowedFd;
 
 use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_RST, FakeRstParams};
 
@@ -11,7 +11,7 @@ impl RootHelperClient {
     /// Send a fake RST packet via the helper.
     pub fn send_fake_rst(
         &self,
-        stream_fd: RawFd,
+        stream_fd: BorrowedFd<'_>,
         default_ttl: u8,
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,

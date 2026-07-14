@@ -28,7 +28,7 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It appli
 
 Applies configurable packet-level transformations on-device without routing traffic to a relay server. No root is required for the core path.
 
-Supported techniques: TCP segment splitting and disorder, fake packet injection, OOB (urgent pointer), TLS record fragmentation, fake TLS first-flight, QUIC handshake variation, DTLS fingerprint normalization, UDP length-field variation, IPv6 extension-header insertion, Lua-defined raw packet sends, and adaptive semantic markers that resolve position against live `TCP_INFO`. Strategy chains are built from Rust crates in this repository with no external strategy binary.
+Supported techniques: TCP segment splitting and disorder, fake packet injection, OOB (urgent pointer), TLS record fragmentation, fake TLS first-flight, QUIC handshake variation, UDP length-field variation, IPv6 extension-header insertion, Lua-defined raw packet sends, and adaptive semantic markers that resolve position against live `TCP_INFO`. Strategy chains are built from Rust crates in this repository with no external strategy binary.
 
 When no relay is configured, traffic exits the device directly — on-device mutations are the only change to the path.
 
@@ -83,7 +83,7 @@ Modern Android networks regularly apply L7 fingerprinting (TLS JA3/JA4, QUIC), a
 RIPDPI's design principle: classify each target and each network separately, apply the lightest fix that works, and remember it.
 
 1. **Per-target, per-network answer** — not one global policy. Diagnostics classify each authority and store the verdict keyed to a network fingerprint hash.
-2. **Mutate the local path when the network is the problem.** Semantic markers, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, QUIC and DTLS fingerprint variation — assembled from in-repo Rust crates.
+2. **Mutate the local path when the network is the problem.** Semantic markers, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, QUIC fingerprint variation — assembled from in-repo Rust crates.
 3. **Fall back to a tunneled relay when the direct path is degraded.** The relay matrix above distinguishes native relay-core backends, helper subprocesses, external pluggable transports, and separate VPN/tunnel profile surfaces so unsupported or opt-in paths are not hidden behind one feature label.
 4. **Honest reporting.** Verdicts are typed and displayed; failure classifier results are surfaced rather than suppressed; diagnostic export bundles redact secrets.
 
@@ -112,7 +112,7 @@ RIPDPI's design principle: classify each target and each network separately, app
 - **Support settings links**: `ripdpi://support-config` and verified HTTPS support links can preview and apply a support-provided patch for any persisted app setting after user confirmation.
 - **Subscriptions**: base64, Clash / Clash.Meta YAML, sing-box JSON, and WireGuard-INI subscription formats with background auto-update, duplicate-profile detection, selector/urltest groups, and multi-mirror delivery.
 - **Encrypted DNS**: DoH, DoT, DNSCrypt, and DoQ resolver support in VPN-related paths.
-- **Strategy controls**: TCP split/disorder/fake families, TLS record fragmentation and fake profiles, QUIC and DTLS handshake variation, UDP length-field variation, IPv6 extension headers, Lua `rawsend`, per-step activation filters, IPv4 ID control, and OOB injection.
+- **Strategy controls**: TCP split/disorder/fake families, TLS record fragmentation and fake profiles, QUIC handshake variation, UDP length-field variation, IPv6 extension headers, Lua `rawsend`, per-step activation filters, IPv4 ID control, and OOB injection.
 - **Per-network policy memory**: validated per-authority verdicts keyed to a network fingerprint; automatically replayed on reconnect.
 - **Adaptive probing**: automatic strategy probing for first-seen networks; background `quick_v1` recheck on network handover.
 - **Handover-aware restart**: live policy re-evaluation on transitions between Wi-Fi, cellular, and roaming.
@@ -134,10 +134,7 @@ Uses Android `VpnService` to redirect device traffic through RIPDPI's local engi
 
 RIPDPI records operational metadata for diagnostics and troubleshooting: network snapshots, resolver status, route decisions, scan results, service state, and native runtime events.
 
-RIPDPI does not record:
-- Full packet captures
-- Traffic payloads
-- TLS secrets
+Normal operation does not capture packets, persist traffic payloads, or record TLS secrets. Advanced packet capture is an explicit opt-in diagnostic tool: it stores raw packet bytes locally under bounded retention and includes them in an archive only when the user deliberately shares that archive.
 
 Relay traffic privacy depends on the relay endpoint and profile you configure.
 
@@ -155,7 +152,7 @@ cd RIPDPI
 
 Local builds default to `host` (`ripdpi.localNativeAbisDefault`), which resolves to the host architecture (e.g. `arm64-v8a` on Apple Silicon). For emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-APK output: `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`.
+APK output is flavor-specific, for example `app/build/outputs/apk/githubFull/debug/`; see [distribution.md](docs/distribution.md) for release tasks and paths.
 
 ## Testing
 
@@ -196,4 +193,4 @@ Details: [docs/testing.md](docs/testing.md)
 
 ## Translate RIPDPI
 
-Translations are community-contributed through GitHub pull requests. See [docs/localization.md](docs/localization.md) for how to add or improve a locale. Every string is reviewed by a human before it merges; machine translation is only a starting point, never the final copy.
+Translations are community-contributed through GitHub pull requests. See [docs/localization.md](docs/localization.md) for how to add or improve a locale and [the provenance ledger](docs/localization-provenance.md) for each locale's machine-translation and review status.

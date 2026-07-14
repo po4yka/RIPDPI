@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -5,6 +6,7 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use crate::session::Auth;
+use crate::session::udp::UdpMemoryBudget;
 
 mod spawn;
 
@@ -26,10 +28,11 @@ pub(super) fn spawn_udp_association(
     proxy_addr: SocketAddr,
     auth: Auth,
     src: SocketAddr,
-    dest: SocketAddr,
+    _dest: SocketAddr,
     association_id: u64,
     idle_timeout: Duration,
     protect_path: Option<&str>,
+    memory_budget: UdpMemoryBudget,
     cancel: CancellationToken,
     udp_tx: tokio::sync::mpsc::Sender<UdpEvent>,
 ) -> UdpAssociation {
@@ -43,6 +46,7 @@ pub(super) fn spawn_udp_association(
             src,
             association_id,
             idle_timeout,
+            memory_budget,
         },
         outbound_rx,
         Arc::clone(&last_activity),
@@ -50,5 +54,14 @@ pub(super) fn spawn_udp_association(
         udp_tx.clone(),
     );
 
-    UdpAssociation { id: association_id, outbound, cancel, last_activity, worker, dest }
+    UdpAssociation {
+        id: association_id,
+        activity_generation: 0,
+        outbound,
+        cancel,
+        last_activity,
+        worker,
+        leased_synthetic_ips: HashSet::new(),
+        attribution_tokens: HashSet::new(),
+    }
 }

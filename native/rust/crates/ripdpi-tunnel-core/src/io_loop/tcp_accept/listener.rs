@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::{Duration, Instant as StdInstant};
+use std::time::Instant as StdInstant;
 
 use smoltcp::iface::{SocketHandle, SocketSet};
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
@@ -10,6 +10,10 @@ use crate::io_loop::packet::{TcpFlowKey, tcp_syn_flow_key};
 
 use super::eviction::evict_oldest_pending_listen;
 use super::socketaddr_to_listen_endpoint;
+
+mod maintenance;
+
+pub(crate) use maintenance::gc_stale_pending_listens;
 
 /// Each pending TCP socket owns two `TCP_SOCKET_BUF` allocations. Keep the half-open handshake budget at roughly 16 MiB on Android.
 const MAX_PENDING_LISTENS: usize = 128;
@@ -40,21 +44,4 @@ pub(crate) fn ensure_pending_listen_for_syn(
     let handle = socket_set.add(sock);
     pending_listens.insert(flow_key, (handle, StdInstant::now()));
     debug!("Added LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
-}
-
-pub(crate) fn gc_stale_pending_listens(
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
-    socket_set: &mut SocketSet<'static>,
-    timeout: Duration,
-) {
-    let now = StdInstant::now();
-    pending_listens.retain(|flow_key, (handle, created_at)| {
-        let age = now.duration_since(*created_at);
-        if age <= timeout {
-            return true;
-        }
-        debug!("GC stale LISTEN socket for flow {} -> {} (age {age:?})", flow_key.src, flow_key.dst);
-        socket_set.remove(*handle);
-        false
-    });
 }

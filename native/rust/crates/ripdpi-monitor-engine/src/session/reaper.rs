@@ -1,80 +1,152 @@
-use std::sync::mpsc::{self, Sender};
+use std::sync::mpsc::{self, SyncSender};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 pub(super) static WORKER_REAPER: std::sync::LazyLock<WorkerReaper> = std::sync::LazyLock::new(WorkerReaper::new);
 
-pub(super) struct WorkerReaper {
-    sender: Option<Sender<ReaperCommand>>,
-}
+const REAPER_WORKERS: usize = 4;
+const REAPER_QUEUE_CAPACITY: usize = 64;
+const REAPER_ENQUEUE_BUDGET: Duration = Duration::from_millis(5);
 
-enum ReaperCommand {
-    Join(JoinHandle<()>),
-    #[cfg(test)]
-    Flush(Sender<()>),
+pub(super) struct WorkerReaper {
+    sender: Option<SyncSender<JoinHandle<()>>>,
+    workers: Vec<JoinHandle<()>>,
+    pending: Arc<(Mutex<usize>, Condvar)>,
 }
 
 impl WorkerReaper {
     fn new() -> Self {
-        let (sender, receiver) = mpsc::channel::<ReaperCommand>();
-        match thread::Builder::new().name("ripdpi-monitor-reaper".to_string()).spawn(move || {
-            while let Ok(command) = receiver.recv() {
-                match command {
-                    ReaperCommand::Join(handle) => {
-                        let _ = handle.join();
-                    }
-                    #[cfg(test)]
-                    ReaperCommand::Flush(done) => {
-                        let _ = done.send(());
-                    }
-                }
-            }
-        }) {
-            Ok(_reaper) => Self { sender: Some(sender) },
-            Err(err) => {
-                log::error!("failed to start diagnostics worker reaper: {err}");
-                Self { sender: None }
-            }
-        }
+        Self::new_with_limits(REAPER_WORKERS, REAPER_QUEUE_CAPACITY)
     }
 
-    pub(super) fn reap(&self, handle: JoinHandle<()>) {
+    fn new_with_limits(worker_count: usize, queue_capacity: usize) -> Self {
+        let (sender, receiver) = mpsc::sync_channel::<JoinHandle<()>>(queue_capacity);
+        let receiver = Arc::new(Mutex::new(receiver));
+        let pending = Arc::new((Mutex::new(0usize), Condvar::new()));
+        let mut workers = Vec::with_capacity(worker_count);
+        for index in 0..worker_count {
+            let receiver = Arc::clone(&receiver);
+            let pending = Arc::clone(&pending);
+            match thread::Builder::new().name(format!("ripdpi-monitor-reaper-{index}")).spawn(move || {
+                loop {
+                    let handle = {
+                        let receiver = receiver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                        receiver.recv()
+                    };
+                    let Ok(handle) = handle else {
+                        break;
+                    };
+                    let _ = handle.join();
+                    finish_reap(&pending);
+                }
+            }) {
+                Ok(worker) => workers.push(worker),
+                Err(error) => {
+                    log::error!("failed to start diagnostics worker reaper {index}: {error}");
+                    break;
+                }
+            }
+        }
+        let sender = (!workers.is_empty()).then_some(sender);
+        Self { sender, workers, pending }
+    }
+
+    pub(super) fn reap(&self, handle: JoinHandle<()>) -> Result<(), JoinHandle<()>> {
         let Some(sender) = &self.sender else {
-            log::error!("detaching diagnostics worker because the reaper is unavailable");
-            return;
+            return Err(handle);
         };
-        if sender.send(ReaperCommand::Join(handle)).is_err() {
-            log::error!("detaching diagnostics worker because the reaper stopped");
+        let (count, _) = &*self.pending;
+        *count.lock().unwrap_or_else(std::sync::PoisonError::into_inner) += 1;
+        let deadline = Instant::now() + REAPER_ENQUEUE_BUDGET;
+        let mut handle = handle;
+        loop {
+            match sender.try_send(handle) {
+                Ok(()) => return Ok(()),
+                Err(mpsc::TrySendError::Full(returned)) if Instant::now() < deadline => {
+                    handle = returned;
+                    thread::yield_now();
+                }
+                Err(mpsc::TrySendError::Full(returned) | mpsc::TrySendError::Disconnected(returned)) => {
+                    finish_reap(&self.pending);
+                    return Err(returned);
+                }
+            }
         }
     }
 
     #[cfg(test)]
-    fn flush(&self) -> mpsc::Receiver<()> {
-        let (done_tx, done_rx) = mpsc::channel();
-        if let Some(sender) = &self.sender {
-            let _ = sender.send(ReaperCommand::Flush(done_tx));
-        }
-        done_rx
+    fn wait_for_pending_at_most(&self, limit: usize, timeout: Duration) -> bool {
+        let (count, changed) = &*self.pending;
+        let count = count.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let (count, _) = changed
+            .wait_timeout_while(count, timeout, |pending| *pending > limit)
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *count <= limit
     }
+}
+
+impl Drop for WorkerReaper {
+    fn drop(&mut self) {
+        self.sender.take();
+        for worker in self.workers.drain(..) {
+            if worker.thread().id() != thread::current().id() {
+                let _ = worker.join();
+            }
+        }
+    }
+}
+
+fn finish_reap(pending: &Arc<(Mutex<usize>, Condvar)>) {
+    let (count, changed) = &**pending;
+    let mut count = count.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    debug_assert!(*count > 0, "diagnostics worker reaper pending count underflow");
+    *count = count.saturating_sub(1);
+    changed.notify_all();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
 
     #[test]
-    fn worker_reaper_joins_workers_in_the_background() {
-        let reaper = WorkerReaper::new();
-        let (release_tx, release_rx) = mpsc::channel();
-        let worker = thread::spawn(move || release_rx.recv().expect("wait for release"));
+    fn worker_reaper_joins_workers_concurrently_without_head_of_line_blocking() {
+        let reaper = WorkerReaper::new_with_limits(2, 4);
+        let (release_first_tx, release_first_rx) = mpsc::channel();
+        let (release_second_tx, release_second_rx) = mpsc::channel();
+        let first = thread::spawn(move || release_first_rx.recv().expect("wait for first release"));
+        let second = thread::spawn(move || release_second_rx.recv().expect("wait for second release"));
 
-        reaper.reap(worker);
-        let flushed = reaper.flush();
+        reaper.reap(first).expect("enqueue first worker");
+        reaper.reap(second).expect("enqueue second worker");
+        release_second_tx.send(()).expect("release second worker");
+
         assert!(
-            flushed.recv_timeout(Duration::from_millis(50)).is_err(),
-            "reaper must wait for the queued worker before processing later commands"
+            reaper.wait_for_pending_at_most(1, Duration::from_secs(1)),
+            "a completed worker must be joined while an earlier worker remains blocked"
         );
-        release_tx.send(()).expect("release worker");
-        flushed.recv_timeout(Duration::from_secs(1)).expect("reaper joined worker and flushed queue");
+        release_first_tx.send(()).expect("release first worker");
+        assert!(reaper.wait_for_pending_at_most(0, Duration::from_secs(1)), "all workers must be joined");
+    }
+
+    #[test]
+    fn worker_reaper_rejects_work_after_bounded_queue_saturates() {
+        let reaper = WorkerReaper::new_with_limits(1, 1);
+        let (release_first_tx, release_first_rx) = mpsc::channel();
+        let (release_second_tx, release_second_rx) = mpsc::channel();
+        let (release_third_tx, release_third_rx) = mpsc::channel();
+        let first = thread::spawn(move || release_first_rx.recv().expect("wait for first release"));
+        let second = thread::spawn(move || release_second_rx.recv().expect("wait for second release"));
+        let third = thread::spawn(move || release_third_rx.recv().expect("wait for third release"));
+
+        reaper.reap(first).expect("enqueue running worker");
+        reaper.reap(second).expect("fill bounded reaper queue");
+        let third = reaper.reap(third).expect_err("saturated reaper must reject work without growing its queue");
+
+        release_first_tx.send(()).expect("release first worker");
+        release_second_tx.send(()).expect("release second worker");
+        release_third_tx.send(()).expect("release rejected worker");
+        third.join().expect("join rejected worker in test");
+        assert!(reaper.wait_for_pending_at_most(0, Duration::from_secs(1)), "accepted workers must be joined");
     }
 }

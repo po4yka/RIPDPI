@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct TorRelayConfig {
     pub state_dir: String,
     pub cache_dir: String,
@@ -6,7 +6,13 @@ pub struct TorRelayConfig {
     pub transports: Vec<TorPluggableTransportConfig>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+impl_redacted_debug!(TorRelayConfig {
+    state_dir,
+    cache_dir,
+    transports,
+});
+
+#[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TorPluggableTransportConfig {
     #[serde(default)]
@@ -17,3 +23,9 @@ pub struct TorPluggableTransportConfig {
     #[serde(default)]
     pub run_on_startup: bool,
 }
+
+impl_redacted_debug!(TorPluggableTransportConfig {
+    protocols,
+    binary_path,
+    run_on_startup,
+});

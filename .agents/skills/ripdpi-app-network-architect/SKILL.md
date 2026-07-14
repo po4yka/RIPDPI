@@ -1,6 +1,7 @@
 ---
 name: ripdpi-app-network-architect
-description: Audit and improve the RIPDPI Android VPN/proxy/diagnostics application from a network-engineering perspective: VpnService, TUN-to-SOCKS, SOCKS5, Rust native data plane, DNS, TLS/QUIC strategy probing, relay transports, MTU, telemetry, privacy, reliability, and network tests. Trigger for RIPDPI app network reviews, protocol strategy reviews, or app-side VPN/proxy architecture work.
+description: >-
+  Audit and improve the RIPDPI Android VPN/proxy/diagnostics application from a network-engineering perspective: VpnService, TUN-to-SOCKS, SOCKS5, Rust native data plane, DNS, TLS/QUIC strategy probing, relay transports, MTU, telemetry, privacy, reliability, and network tests. Trigger for RIPDPI app network reviews, protocol strategy reviews, or app-side VPN/proxy architecture work.
 ---
 
 # RIPDPI App Network Architect

@@ -5,12 +5,7 @@ pub async fn run_tcp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
     request_timeout: Duration,
     nodelay: bool,
 ) -> Result<T, SocksServerError> {
-    let addr = try_notify!(
-        proto,
-        addr.to_socket_addrs()
-            .err_when("converting to socket addr")
-            .and_then(|mut addrs| addrs.next().ok_or(SocksServerError::Bug("no socket addrs")))
-    );
+    let addr = try_notify!(proto, addr.socket_addr().ok_or(SocksServerError::Bug("unresolved target address")));
 
     // TCP connect with timeout, to avoid memory leak for connection that takes forever
     let outbound = match tcp_connect_with_timeout(addr, request_timeout).await {

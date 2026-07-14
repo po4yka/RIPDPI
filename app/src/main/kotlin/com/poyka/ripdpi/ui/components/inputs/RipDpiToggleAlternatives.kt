@@ -16,6 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
+private val DefaultToggleOptions = persistentListOf("Off", "On")
 
 /**
  * Renders the same binary choice in N alternative styles for visual
@@ -31,7 +35,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 fun RipDpiToggleAlternatives(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
-    options: List<String> = listOf("Off", "On"),
+    options: ImmutableList<String> = DefaultToggleOptions,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -86,7 +90,7 @@ private fun RipDpiToggleAlternativesLightPreview() {
         RipDpiToggleAlternatives(
             selectedIndex = sel,
             onSelect = { sel = it },
-            options = listOf("Off", "On"),
+            options = persistentListOf("Off", "On"),
         )
     }
 }
@@ -98,7 +102,7 @@ private fun RipDpiToggleAlternativesDarkPreview() {
         RipDpiToggleAlternatives(
             selectedIndex = 1,
             onSelect = {},
-            options = listOf("Auto", "Manual", "Off"),
+            options = persistentListOf("Auto", "Manual", "Off"),
         )
     }
 }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant as StdInstant;
 
 use smoltcp::iface::{SocketHandle, SocketSet};
@@ -16,7 +17,7 @@ use super::super::duplex::create_session_duplex;
 use super::super::eviction::remove_evicted_session_socket;
 use super::super::eviction::remove_pending_listen;
 use super::super::target::pin_synthetic_ip;
-use super::PendingTcpSession;
+use super::pending::PendingTcpSession;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn admit_session(
@@ -26,6 +27,8 @@ pub(super) fn admit_session(
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
     protect_path: Option<&str>,
+    connect_timeout: Duration,
+    read_write_timeout: Duration,
     cancel: &CancellationToken,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
@@ -34,7 +37,16 @@ pub(super) fn admit_session(
     remove_pending_listen(pending_listens, pending.handle);
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
 
-    let session = create_session_duplex(proxy_sockaddr, auth, pending.target_addr, protect_path, cancel, stats);
+    let session = create_session_duplex(
+        proxy_sockaddr,
+        auth,
+        pending.target_addr,
+        protect_path,
+        connect_timeout,
+        read_write_timeout,
+        cancel,
+        stats,
+    );
     let entry = SessionEntry {
         smoltcp_side: session.smoltcp_side,
         cancel: session.cancel,
@@ -43,9 +55,14 @@ pub(super) fn admit_session(
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: pending.synthetic_ip,
-        target_addr: pending.target_addr,
+        attribution_token: pending.attribution_token,
     };
-    let evicted_handle = sessions.insert(pending.handle, entry);
-    remove_evicted_session_socket(socket_set, evicted_handle);
+    let evicted = sessions.insert(pending.handle, entry);
+    if let Some((_, Some(ip))) = evicted
+        && let Some(cache) = dns_cache.as_mut()
+    {
+        cache.unpin(ip);
+    }
+    remove_evicted_session_socket(socket_set, evicted.map(|(handle, _)| handle));
     info!("TCP session spawned: remote={}", pending.target_addr);
 }

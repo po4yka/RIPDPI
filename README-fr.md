@@ -28,7 +28,7 @@ RIPDPI est une boîte à outils Android de diagnostic et d'optimisation des chem
 
 Applique des transformations configurables au niveau paquet, sur l'appareil, sans router le trafic vers un serveur relais. Aucun accès root n'est requis pour le chemin principal.
 
-Techniques prises en charge : découpage et désordre de segments TCP, injection de faux paquets, OOB (pointeur urgent), fragmentation d'enregistrements TLS, faux premier vol TLS, variation de handshake QUIC, normalisation d'empreinte DTLS, variation du champ de longueur UDP, insertion d'en-têtes d'extension IPv6, envois de paquets bruts définis en Lua, et marqueurs sémantiques adaptatifs qui résolvent la position en fonction de `TCP_INFO` en direct. Les chaînes de stratégies sont construites à partir de crates Rust de ce dépôt, sans binaire de stratégie externe.
+Techniques prises en charge : découpage et désordre de segments TCP, injection de faux paquets, OOB (pointeur urgent), fragmentation d'enregistrements TLS, faux premier vol TLS, variation de handshake QUIC, variation du champ de longueur UDP, insertion d'en-têtes d'extension IPv6, envois de paquets bruts définis en Lua, et marqueurs sémantiques adaptatifs qui résolvent la position en fonction de `TCP_INFO` en direct. Les chaînes de stratégies sont construites à partir de crates Rust de ce dépôt, sans binaire de stratégie externe.
 
 Lorsqu'aucun relais n'est configuré, le trafic quitte l'appareil directement — les mutations sur l'appareil sont le seul changement apporté au chemin.
 
@@ -86,7 +86,7 @@ Les réseaux Android modernes appliquent régulièrement un fingerprinting L7 (T
 Principe de conception de RIPDPI : classifier chaque cible et chaque réseau séparément, appliquer la solution la plus légère qui fonctionne et la mémoriser.
 
 1. **Une réponse par cible et par réseau** — pas une politique globale unique. Les diagnostics classifient chaque autorité et stockent le verdict indexé sur un hash d'empreinte de réseau.
-2. **Mutez le chemin local lorsque le réseau est le problème.** Marqueurs sémantiques, placement adaptatif des découpages, chaînes de faux payloads, OOB/désordre, enregistrements TLS aléatoires, variation d'empreinte QUIC et DTLS — assemblés à partir de crates Rust internes au dépôt.
+2. **Mutez le chemin local lorsque le réseau est le problème.** Marqueurs sémantiques, placement adaptatif des découpages, chaînes de faux payloads, OOB/désordre, enregistrements TLS aléatoires, variation d'empreinte QUIC — assemblés à partir de crates Rust internes au dépôt.
 3. **Repliez-vous sur un relais tunnelé lorsque le chemin direct est dégradé.** La matrice de relais ci-dessus distingue native relay-core backends, helper subprocesses, external pluggable transports et surfaces VPN/tunnel séparées.
 4. **Rapports honnêtes.** Les verdicts sont typés et affichés ; les résultats du classifieur d'échec sont mis en évidence plutôt que supprimés ; les paquets d'export de diagnostic masquent les secrets.
 
@@ -114,7 +114,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 - **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage. L'analyse du presse-papiers et de la feuille de partage utilise le codec URI proxy, qui accepte `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` et `ssh://` ; le scan QR réussit actuellement pour `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` et `tuic://`. AmneziaWG utilise le codec distinct `amneziawg://`. Les filtres d'intention Android exposent également `ssh://` au trampoline d'import, et le codec URI proxy le parse et le sérialise dans les deux sens.
 - **Abonnements** : formats d'abonnement base64, Clash / Clash.Meta YAML, sing-box JSON et WireGuard-INI avec mise à jour automatique en arrière-plan, détection des profils en double, groupes selector/urltest et livraison multi-miroir.
 - **DNS chiffré** : prise en charge des résolveurs DoH, DoT, DNSCrypt et DoQ dans les chemins liés au VPN.
-- **Contrôles de stratégie** : familles TCP split/disorder/fake, fragmentation d'enregistrements TLS et faux profils, variation de handshake QUIC et DTLS, variation du champ de longueur UDP, en-têtes d'extension IPv6, `rawsend` Lua, filtres d'activation par étape, contrôle de l'ID IPv4 et injection OOB.
+- **Contrôles de stratégie** : familles TCP split/disorder/fake, fragmentation d'enregistrements TLS et faux profils, variation de handshake QUIC, variation du champ de longueur UDP, en-têtes d'extension IPv6, `rawsend` Lua, filtres d'activation par étape, contrôle de l'ID IPv4 et injection OOB.
 - **Mémoire de politique par réseau** : verdicts validés par autorité indexés sur une empreinte de réseau ; rejoués automatiquement à la reconnexion.
 - **Sondage adaptatif** : sondage automatique des stratégies pour les réseaux vus pour la première fois ; revérification `quick_v1` en arrière-plan lors d'un handover réseau.
 - **Redémarrage conscient du handover** : réévaluation en direct de la politique lors des transitions entre Wi-Fi, cellulaire et roaming.
@@ -136,10 +136,7 @@ Utilise `VpnService` Android pour rediriger le trafic de l'appareil via le moteu
 
 RIPDPI enregistre des métadonnées opérationnelles à des fins de diagnostic et de dépannage : instantanés du réseau, état des résolveurs, décisions de route, résultats d'analyse, état du service et événements du moteur natif.
 
-RIPDPI n'enregistre pas :
-- Les captures complètes de paquets
-- Les charges utiles du trafic
-- Les secrets TLS
+En fonctionnement normal, RIPDPI ne capture pas les paquets, ne conserve pas les charges utiles du trafic et n'enregistre pas les secrets TLS. La capture avancée de paquets est un outil de diagnostic activé explicitement : les octets bruts sont conservés localement avec une rétention limitée et ne sont inclus dans une archive que lorsque l'utilisateur choisit délibérément de la partager.
 
 La confidentialité du trafic de relais dépend du point de terminaison et du profil de relais que vous configurez.
 
@@ -155,7 +152,7 @@ cd RIPDPI
 
 Les compilations locales utilisent par défaut `host` (`ripdpi.localNativeAbisDefault`) : l'ABI est dérivée de l'architecture de l'hôte (par ex. `arm64-v8a` sur Apple Silicon). Pour l'émulateur : `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-Sortie APK : `app/build/outputs/apk/debug/` et `app/build/outputs/apk/release/`.
+Les APK sont produits dans des répertoires propres aux variantes, par exemple `app/build/outputs/apk/githubFull/debug/` ; consultez [distribution.md](docs/distribution.md) pour les tâches et chemins de release.
 
 ## Tests
 

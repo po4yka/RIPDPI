@@ -1,11 +1,12 @@
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use super::protect::protect_socket_if_available;
@@ -14,6 +15,87 @@ use super::socks5::{Auth, associate, decode_udp_frame, encode_udp_frame, handsha
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_UDP_DATAGRAM_LEN: usize = 65_535;
+const MAX_SOCKS5_UDP_HEADER_LEN: usize = 261;
+const DEFAULT_RECEIVE_POOL_CONCURRENCY: usize = 64;
+const DEFAULT_QUEUED_UDP_BYTES: usize = 4 * 1024 * 1024;
+
+#[derive(Clone)]
+pub(crate) struct UdpMemoryBudget {
+    receive_pool: Arc<UdpReceiveBufferPool>,
+    queued_bytes: Arc<Semaphore>,
+}
+
+struct UdpReceiveBufferPool {
+    buffer_len: usize,
+    max_cached: usize,
+    permits: Arc<Semaphore>,
+    buffers: StdMutex<Vec<Vec<u8>>>,
+}
+
+struct PooledUdpBuffer {
+    pool: Arc<UdpReceiveBufferPool>,
+    buffer: Option<Vec<u8>>,
+    _permit: OwnedSemaphorePermit,
+}
+
+impl UdpMemoryBudget {
+    pub(crate) fn for_tunnel_mtu(mtu: usize) -> Self {
+        let receive_len = mtu.saturating_add(MAX_SOCKS5_UDP_HEADER_LEN).min(MAX_UDP_DATAGRAM_LEN);
+        Self::new(receive_len, DEFAULT_RECEIVE_POOL_CONCURRENCY, DEFAULT_QUEUED_UDP_BYTES)
+    }
+
+    fn new(receive_len: usize, receive_concurrency: usize, queued_bytes: usize) -> Self {
+        let receive_concurrency = receive_concurrency.max(1);
+        Self {
+            receive_pool: Arc::new(UdpReceiveBufferPool {
+                buffer_len: receive_len.max(1),
+                max_cached: receive_concurrency,
+                permits: Arc::new(Semaphore::new(receive_concurrency)),
+                buffers: StdMutex::new(Vec::new()),
+            }),
+            queued_bytes: Arc::new(Semaphore::new(queued_bytes)),
+        }
+    }
+
+    pub(crate) fn try_reserve_queued_bytes(&self, bytes: usize) -> Option<OwnedSemaphorePermit> {
+        let permits = u32::try_from(bytes).ok()?;
+        Arc::clone(&self.queued_bytes).try_acquire_many_owned(permits).ok()
+    }
+}
+
+impl UdpReceiveBufferPool {
+    async fn acquire(self: &Arc<Self>) -> io::Result<PooledUdpBuffer> {
+        let permit = Arc::clone(&self.permits)
+            .acquire_owned()
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "UDP receive buffer pool closed"))?;
+        let buffer = self
+            .buffers
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .pop()
+            .unwrap_or_else(|| vec![0; self.buffer_len]);
+        Ok(PooledUdpBuffer { pool: Arc::clone(self), buffer: Some(buffer), _permit: permit })
+    }
+}
+
+impl PooledUdpBuffer {
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        self.buffer.as_mut().expect("pooled UDP buffer is present").as_mut_slice()
+    }
+}
+
+impl Drop for PooledUdpBuffer {
+    fn drop(&mut self) {
+        let Some(buffer) = self.buffer.take() else {
+            return;
+        };
+        let mut buffers = self.pool.buffers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if buffers.len() < self.pool.max_cached {
+            buffers.push(buffer);
+        }
+    }
+}
 
 /// Persistent SOCKS5 UDP association.
 ///
@@ -24,7 +106,7 @@ const MAX_UDP_DATAGRAM_LEN: usize = 65_535;
 pub struct UdpSession {
     _ctrl: Arc<Mutex<TcpStream>>,
     udp: Arc<UdpSocket>,
-    recv_buf: Arc<Mutex<Vec<u8>>>,
+    memory_budget: UdpMemoryBudget,
     recv_timeout: Duration,
 }
 
@@ -52,6 +134,21 @@ impl UdpSession {
     /// to completion outside the single TUN/smoltcp owner task, so it is never
     /// cancelled mid-setup. Do not call it inside a `select!`/`timeout`.
     pub async fn connect(proxy_addr: SocketAddr, auth: Auth, protect_path: Option<&str>) -> io::Result<Self> {
+        Self::connect_with_memory_budget(
+            proxy_addr,
+            auth,
+            protect_path,
+            UdpMemoryBudget::new(MAX_UDP_DATAGRAM_LEN, 1, DEFAULT_QUEUED_UDP_BYTES),
+        )
+        .await
+    }
+
+    pub(crate) async fn connect_with_memory_budget(
+        proxy_addr: SocketAddr,
+        auth: Auth,
+        protect_path: Option<&str>,
+        memory_budget: UdpMemoryBudget,
+    ) -> io::Result<Self> {
         // Control connection: create the socket, protect it, *then* connect.
         let ctrl_socket = match proxy_addr {
             SocketAddr::V4(_) => TcpSocket::new_v4()?,
@@ -79,7 +176,7 @@ impl UdpSession {
         Ok(Self {
             _ctrl: Arc::new(Mutex::new(ctrl)),
             udp: Arc::new(udp),
-            recv_buf: Arc::new(Mutex::new(vec![0; MAX_UDP_DATAGRAM_LEN])),
+            memory_budget,
             recv_timeout: DEFAULT_RECV_TIMEOUT,
         })
     }
@@ -122,9 +219,9 @@ impl UdpSession {
     /// protect from starvation.
     pub async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
         let recv_fut = async {
-            let mut buf = self.recv_buf.lock().await;
-            let n = self.udp.recv(&mut buf).await?;
-            let (from, data) = decode_udp_frame(&buf[..n])?;
+            let mut buf = self.memory_budget.receive_pool.acquire().await?;
+            let n = self.udp.recv(buf.as_mut_slice()).await?;
+            let (from, data) = decode_udp_frame(&buf.as_mut_slice()[..n])?;
             Ok::<_, io::Error>((from, data.to_vec()))
         };
 
@@ -171,6 +268,29 @@ mod tests {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn tunnel_receive_pool_allocates_mtu_sized_buffers_on_demand() {
+        let budget = UdpMemoryBudget::for_tunnel_mtu(1500);
+        assert!(budget.receive_pool.buffers.lock().expect("buffer pool").is_empty());
+
+        let buffer = budget.receive_pool.acquire().await.expect("receive buffer");
+
+        assert_eq!(buffer.buffer.as_ref().expect("pooled buffer").len(), 1500 + MAX_SOCKS5_UDP_HEADER_LEN);
+        drop(buffer);
+        assert_eq!(budget.receive_pool.buffers.lock().expect("buffer pool").len(), 1);
+    }
+
+    #[test]
+    fn aggregate_queue_budget_is_shared_and_released_with_datagram() {
+        let budget = UdpMemoryBudget::new(1500, 1, 5);
+        let first = budget.try_reserve_queued_bytes(4).expect("first reservation");
+        assert!(budget.try_reserve_queued_bytes(2).is_none(), "aggregate byte budget must reject excess");
+
+        drop(first);
+
+        assert!(budget.try_reserve_queued_bytes(5).is_some(), "dropping queued datagram must release its bytes");
+    }
 
     /// Start a minimal SOCKS5 proxy stub that:
     /// - accepts the handshake (NoAuth)
@@ -442,16 +562,28 @@ mod tests {
             .unwrap()
             .with_recv_timeout(Duration::from_secs(3));
 
-        let initial_ptr = session.recv_buf.lock().await.as_ptr();
-        for payload in [b"first".as_slice(), b"second".as_slice()] {
-            session.send_to(echo_addr, payload).await.unwrap();
-            let (received, _from) = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
-            assert_eq!(received, payload);
-        }
+        session.send_to(echo_addr, b"first").await.unwrap();
+        let (first, _from) = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
+        assert_eq!(first, b"first");
+        let initial_ptr = session
+            .memory_budget
+            .receive_pool
+            .buffers
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .last()
+            .expect("receive buffer returned to pool")
+            .as_ptr();
 
-        let final_buf = session.recv_buf.lock().await;
+        session.send_to(echo_addr, b"second").await.unwrap();
+        let (second, _from) = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
+        assert_eq!(second, b"second");
+
+        let buffers =
+            session.memory_budget.receive_pool.buffers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let final_buf = buffers.last().expect("receive buffer returned to pool");
         assert_eq!(final_buf.len(), MAX_UDP_DATAGRAM_LEN);
-        assert_eq!(final_buf.as_ptr(), initial_ptr, "the 65 KiB receive allocation must be reused across datagrams");
+        assert_eq!(final_buf.as_ptr(), initial_ptr, "the pooled receive allocation must be reused across datagrams");
     }
 
     #[tokio::test]

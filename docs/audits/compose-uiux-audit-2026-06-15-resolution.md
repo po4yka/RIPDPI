@@ -2,9 +2,9 @@
 
 Disposition of all **148** findings from [compose-uiux-audit-2026-06-15.md](compose-uiux-audit-2026-06-15.md),
 implemented on branch `fix/compose-uiux-audit`. Every fixable finding is its own
-atomic commit (`Closes audit finding idx N` in the body). All gates green at HEAD:
+atomic commit (`Closes audit finding idx N` in the body). At that branch's final commit, these gates were green:
 `:app:compileGithubDebugKotlin`, `:app:testGithubDebugUnitTest`, `:app:detekt`,
-`:app:ktlintCheck`, `:app:lintGithubDebug` (incl. `MissingTranslation` across all 8 locales),
+`:app:ktlintCheck`, `:app:lintGithubDebug` (incl. `MissingTranslation` across the then-current 8 locales),
 plus the regenerated `config/i18n/translatable-keys.txt` manifest.
 
 | Disposition | Count |
@@ -29,7 +29,7 @@ idx: 0, 5, 7, 10, 15, 17, 18, 19, 22, 24, 25, 26, 28, 29, 30, 31, 36, 37, 40, 41
 143, 144, 145, 146, 147.
 
 Themes:
-- **i18n** — new string/plural/array keys added to all 8 locales (en, ru, es, de, fr, fa, ar, zh-rCN)
+- **i18n** — new string/plural/array keys added to all 8 locales shipped at the time (en, ru, es, de, fr, fa, ar, zh-rCN)
   with correct CLDR plural categories; concatenations replaced with format resources; `Locale.US`
   formatters switched to the observable device locale; the two real Criticals (idx 25 outbound labels,
   idx 26 routing-rule summary) resolved via the existing `StringResolver`/`pluralStringResource` paths.

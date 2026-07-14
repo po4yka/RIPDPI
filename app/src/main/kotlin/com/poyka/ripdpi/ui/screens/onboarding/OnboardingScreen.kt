@@ -40,7 +40,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -63,6 +62,7 @@ import com.poyka.ripdpi.activities.isBusy
 import com.poyka.ripdpi.activities.mapNotificationPermissionResult
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.RipDpiIntroScaffoldMetrics
@@ -74,7 +74,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlin.math.absoluteValue
 
 // Animation / alpha keyframe fractions
@@ -178,25 +178,18 @@ fun OnboardingRoute(
 
 @Composable
 internal fun OnboardingEffectsHandler(
-    effects: SharedFlow<OnboardingEffect>,
+    effects: Flow<OnboardingEffect>,
     onComplete: () -> Unit,
     onRequestNotificationsPermission: () -> Unit,
     onRequestNotificationsSettings: (Intent) -> Unit,
     onRequestVpnConsent: (Intent) -> Unit,
 ) {
-    val currentOnComplete by rememberUpdatedState(onComplete)
-    val currentOnRequestNotificationsPermission by rememberUpdatedState(onRequestNotificationsPermission)
-    val currentOnRequestNotificationsSettings by rememberUpdatedState(onRequestNotificationsSettings)
-    val currentOnRequestVpnConsent by rememberUpdatedState(onRequestVpnConsent)
-
-    LaunchedEffect(effects) {
-        effects.collect { effect ->
-            when (effect) {
-                OnboardingEffect.OnboardingComplete -> currentOnComplete()
-                OnboardingEffect.RequestNotificationsPermission -> currentOnRequestNotificationsPermission()
-                is OnboardingEffect.RequestNotificationsSettings -> currentOnRequestNotificationsSettings(effect.intent)
-                is OnboardingEffect.RequestVpnConsent -> currentOnRequestVpnConsent(effect.intent)
-            }
+    LifecycleEventEffect(effects) { effect ->
+        when (effect) {
+            OnboardingEffect.OnboardingComplete -> onComplete()
+            OnboardingEffect.RequestNotificationsPermission -> onRequestNotificationsPermission()
+            is OnboardingEffect.RequestNotificationsSettings -> onRequestNotificationsSettings(effect.intent)
+            is OnboardingEffect.RequestVpnConsent -> onRequestVpnConsent(effect.intent)
         }
     }
 }

@@ -1,7 +1,8 @@
-//! io_uring zero-copy networking support for RIPDPI.
+//! Registered-buffer io_uring networking support for RIPDPI.
 //!
-//! This crate provides optional io_uring integration for zero-copy send/recv
-//! on Linux 6.0+ kernels. All types and functions are gated behind
+//! This crate provides optional single-CQE fixed-buffer reads and writes on
+//! Linux and Android. It deliberately does not expose multi-CQE zero-copy send
+//! operations. All types and functions are gated behind
 //! `cfg(any(target_os = "linux", target_os = "android"))`.
 
 // Crate-local hardening for issue #16 (`Vec::from_raw_parts` /
@@ -29,7 +30,7 @@ mod ring;
 pub mod tun;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub use bufpool::{BufferHandle, PendingBuffer, RegisteredBufferPool};
+pub use bufpool::BufferHandle;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub use probe::{IoUringCapabilities, io_uring_capabilities};
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -42,10 +43,7 @@ mod stub {
     #[derive(Debug, Clone, Copy, Default)]
     pub struct IoUringCapabilities {
         pub available: bool,
-        pub send_zc: bool,
-        pub recv_zc: bool,
         pub fixed_buffers: bool,
-        pub multishot_recv: bool,
     }
 
     pub fn io_uring_capabilities() -> IoUringCapabilities {
@@ -71,10 +69,7 @@ mod tests {
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         {
             assert!(!caps.available);
-            assert!(!caps.send_zc);
-            assert!(!caps.recv_zc);
             assert!(!caps.fixed_buffers);
-            assert!(!caps.multishot_recv);
         }
         // On Linux, just verify the function doesn't panic.
         #[cfg(any(target_os = "linux", target_os = "android"))]

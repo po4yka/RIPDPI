@@ -18,7 +18,7 @@
 use std::io;
 use std::net::TcpStream;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsFd, AsRawFd, IntoRawFd};
 
 use ripdpi_config::IpIdMode;
 
@@ -45,7 +45,7 @@ pub fn send_multi_disorder_tcp_reserved(
 ) -> io::Result<()> {
     if let Some(result) = root_helper::with_root_helper(|h| {
         let res = h.send_multi_disorder_tcp(
-            stream.as_raw_fd(),
+            stream.as_fd(),
             payload,
             segments,
             default_ttl,
@@ -58,7 +58,7 @@ pub fn send_multi_disorder_tcp_reserved(
             // SAFETY: `replacement_fd` was just created by
             // `send_multi_disorder_tcp` and no other code path retains it;
             // `stream` continues to own its descriptor across the call.
-            unsafe { swap_replacement_fd(stream.as_raw_fd(), replacement_fd) }?;
+            unsafe { swap_replacement_fd(stream.as_raw_fd(), replacement_fd.into_raw_fd()) }?;
         }
         Ok(())
     }) {

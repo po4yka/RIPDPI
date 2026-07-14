@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 
 private const val Ipv4PartCount = 4
 private const val Ipv4MaxOctet = 255
@@ -80,7 +81,7 @@ fun RipDpiCidrInput(
         Text(label, style = RipDpiThemeTokens.type.secondaryBody.copy(color = colors.mutedForeground))
         RipDpiSegmentedButton(
             options =
-                listOf(
+                persistentListOf(
                     stringResource(R.string.cidr_input_family_ipv4),
                     stringResource(R.string.cidr_input_family_ipv6),
                 ),

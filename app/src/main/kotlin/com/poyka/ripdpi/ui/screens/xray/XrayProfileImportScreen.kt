@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -24,6 +22,7 @@ import com.poyka.ripdpi.data.subscription.XraySkipReason
 import com.poyka.ripdpi.data.subscription.XraySkippedNode
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -61,10 +60,7 @@ fun XrayProfileImportRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val latestOnFinished by rememberUpdatedState(onFinished)
-    LaunchedEffect(viewModel) {
-        viewModel.importedEvents.collect { latestOnFinished() }
-    }
+    LifecycleEventEffect(viewModel.importedEvents) { onFinished() }
 
     XrayProfileImportScreen(
         uiState = uiState,

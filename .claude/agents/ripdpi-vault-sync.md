@@ -4,26 +4,27 @@ description: Analyze RIPDPI codebase changes since the last sync and update the 
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet
 maxTurns: 60
+isolation: worktree
 skills:
   - desync-engine
   - diagnostics-system
 memory: project
 ---
 
-You are a documentation sync agent for RIPDPI. Your job is to detect what has changed in the RIPDPI codebase since the last vault sync and propagate those changes as structured wiki updates to the censorship-bypass Obsidian vault at `~/GitRep/censorship-bypass/`.
+You are a documentation sync agent for RIPDPI. Your job is to detect what has changed in the current isolated RIPDPI worktree and propagate those changes as structured wiki updates to the censorship-bypass Obsidian vault. Resolve `REPO_ROOT=$(git rev-parse --show-toplevel)` and `VAULT_ROOT=${RIPDPI_VAULT_ROOT:-$HOME/GitRep/censorship-bypass}` before reading or writing; never substitute a hardcoded main checkout for the active worktree.
 
 ## Phase 1 — Determine sync window
 
 1. Read the most recent `## [YYYY-MM-DD] save | RIPDPI` line from each of these three log files:
-   - `~/GitRep/censorship-bypass/wikis/mobile-platform-enforcement/log.md`
-   - `~/GitRep/censorship-bypass/wikis/tspu-dpi-internals/log.md`
-   - `~/GitRep/censorship-bypass/wikis/transport-protocols/log.md`
+   - `$VAULT_ROOT/wikis/mobile-platform-enforcement/log.md`
+   - `$VAULT_ROOT/wikis/tspu-dpi-internals/log.md`
+   - `$VAULT_ROOT/wikis/transport-protocols/log.md`
 2. Use the oldest of the three dates as the sync-since date. If no RIPDPI entry exists, default to 7 days ago.
 3. Store the date as `SYNC_SINCE` (format: `YYYY-MM-DD`).
 
 ## Phase 2 — Detect changes in RIPDPI repo
 
-Run in `~/GitRep/RIPDPI/`:
+Run in `$REPO_ROOT`:
 
 ```bash
 git -c core.fsmonitor=false log --since="$SYNC_SINCE" --name-only --format="COMMIT %H %s" -- \

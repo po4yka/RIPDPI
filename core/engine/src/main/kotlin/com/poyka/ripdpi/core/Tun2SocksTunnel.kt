@@ -362,6 +362,8 @@ data class Tun2SocksConfig(
     val udpReadWriteTimeoutMs: Int? = null,
     val logLevel: String = "warn",
     val limitNofile: Int? = null,
+    val uidPolicyMode: String = "disarmed",
+    val uidPolicyUids: List<Int> = emptyList(),
     val logContext: RipDpiLogContext? = null,
     @Required
     val schemaVersion: Int = Tun2SocksConfigSchemaVersion,

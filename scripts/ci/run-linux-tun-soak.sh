@@ -46,4 +46,4 @@ if [ "$target_exists" != "yes" ]; then
 fi
 
 echo "==> ripdpi-tunnel-core linux tun soak"
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --test linux_tun_soak -- --ignored --nocapture --test-threads=1
+cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --test linux_tun_soak -- --ignored --nocapture --test-threads=1

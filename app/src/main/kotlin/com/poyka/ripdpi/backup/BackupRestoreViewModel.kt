@@ -47,6 +47,8 @@ class BackupRestoreViewModel
         private val resetEffectChannel = Channel<BackupResetEffect>(Channel.BUFFERED)
         val resetEffects: Flow<BackupResetEffect> = resetEffectChannel.receiveAsFlow()
 
+        internal val shareTempFiles = BackupShareTempFileOwner()
+
         private val exportCoordinator =
             BackupExportCoordinator(
                 scope = viewModelScope,
@@ -171,4 +173,9 @@ class BackupRestoreViewModel
          * the process. A mismatched token is a no-op.
          */
         fun confirmReset() = resetCoordinator.confirmReset()
+
+        override fun onCleared() {
+            shareTempFiles.close()
+            super.onCleared()
+        }
     }

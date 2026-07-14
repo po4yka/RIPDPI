@@ -93,12 +93,12 @@ Smallest checks required before downstream implementation work resumes on the af
 2. `cargo check -p ripdpi-runtime-adaptive` and `cargo check -p ripdpi-proxy-runtime` — confirms the policy-extraction edge.
 3. `cargo nextest run -p ripdpi-proxy-runtime` and `-p ripdpi-runtime-adaptive` — exercises preserved policy contract.
 4. `./gradlew :app:testDebugUnitTest --tests "*WarpEnrollmentOrchestratorTest*"` — confirms the orchestrator split keeps existing assertions passing.
-5. JNI symbol-diff guard CI step against `libripdpi.so`. The guard's expected-symbol list MUST be regenerated from the current build when implemented.
+5. `cargo test -p ripdpi-android jni_baseline_is_non_empty_and_contains_expected_symbols` plus the `jni-symbol-diff.yml` CI workflow against `libripdpi.so`.
 
 This ADR does not run those commands; they are required of the Senior engineer who picks up the next change in either subsystem.
 
 ## Follow-Up Tasks
 
-- **FU-1.** Land the JNI symbol-diff guard from existing issue `162d0f3a-406a-4ffd-bb8b-5dd60d575573`. The guard's baseline list MUST be captured from the `d6f5f59f` (or later) build so it covers the adapter-split surface, not the pre-split surface.
+- **FU-1 (completed).** The JNI symbol-diff guard now lives in `.github/workflows/jni-symbol-diff.yml`, uses `.github/scripts/check-jni-symbols.sh`, and compares `libripdpi.so` with `native/rust/crates/ripdpi-android/jni-symbols.baseline`.
 - **FU-2.** Enforce the "no JNI exports in adapter crates" policy at review time. Any PR that adds a `pub extern "system" fn Java_…` outside `ripdpi-android/` MUST be blocked.
 - **FU-3.** When the next non-trivial change lands in `ripdpi-runtime-adaptive`, consider whether `ripdpi-proxy-runtime`'s policy-consuming surface can be narrowed to the new module paths (`morph_policy`, `strategy_context::*`) rather than the full crate. This would let other consumers depend on policy without pulling proxy-runtime's runtime types.

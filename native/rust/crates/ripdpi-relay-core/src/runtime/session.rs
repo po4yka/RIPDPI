@@ -17,16 +17,17 @@ pub(super) fn spawn_socks_session(
     // so this session unwinds promptly instead of leaking its upstream
     // connection and fds until the process exits.
     let cancel = runtime.state.session_cancel_token();
-    // Spawn onto the runtime's `TaskTracker` so `stop()`/`drain_sessions` can
-    // join every in-flight session within a bounded grace window.
-    runtime.state.clone_tracker().spawn(async move {
+    // Register both the join and abort handles so shutdown can escalate from
+    // cooperative cancellation to forced task abortion after the grace window.
+    let session_runtime = Arc::clone(&runtime);
+    runtime.state.spawn_session_task(async move {
         // Cancellation or task exit drops the owned permit and releases admission capacity.
         let _permit = permit;
-        runtime.state.start_session();
+        let _active_session = session_runtime.state.start_session();
         let socks_config = SocksSessionConfig {
-            local_socks_host: runtime.config.common.local_socks_host.clone(),
-            backend_kind: runtime.config.kind_id().to_string(),
-            confirm_good_eligible: runtime.confirm_good_dpi_eligible(),
+            local_socks_host: session_runtime.config.common.local_socks_host.clone(),
+            backend_kind: session_runtime.config.kind_id().to_string(),
+            confirm_good_eligible: session_runtime.confirm_good_dpi_eligible(),
         };
         // `handle_client` owns the shutdown token and honors it at the right
         // boundaries: it abandons pre-reply negotiation by drop, but once a
@@ -35,9 +36,8 @@ pub(super) fn spawn_socks_session(
         // CONNECT/ASSOCIATE on a relay that never started. We therefore await it
         // directly instead of racing it against `cancel` here — a drop-on-cancel
         // `select!` at this layer is exactly what created that orphan window.
-        if let Err(error) = handle_client(stream, backend, socks_config, runtime.as_ref(), cancel).await {
-            runtime.state.record_error(error.to_string());
+        if let Err(error) = handle_client(stream, backend, socks_config, session_runtime.as_ref(), cancel).await {
+            session_runtime.state.record_error(error.to_string());
         }
-        runtime.state.finish_session();
     });
 }

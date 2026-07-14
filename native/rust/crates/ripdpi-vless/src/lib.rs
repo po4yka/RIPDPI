@@ -125,11 +125,11 @@ impl VlessRealityClient {
         // profile's `flow` field so the engine can honor xray servers
         // that advertise `flow: ""` or `xtls-rprx-vision-udp443`. See
         // [`crate::addons::VlessFlow`] and audit finding C3.
-        let request = wire::encode_request(&config.uuid, config.flow.as_addons_bytes(), target);
+        let request = wire::encode_request(&config.uuid, config.flow.as_addons_bytes(), target)?;
         tls.write_all(&request).await?;
 
         // Read VLESS response header
-        wire::read_response(&mut tls).await?;
+        wire::read_response(&mut tls).await.map_err(io::Error::from)?;
 
         tracing::debug!("VLESS handshake completed");
 

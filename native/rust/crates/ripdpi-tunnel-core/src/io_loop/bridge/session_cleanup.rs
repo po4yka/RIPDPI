@@ -29,19 +29,15 @@ pub(super) async fn take_session_task(
     socket_set: &mut SocketSet<'static>,
     dns_cache: &mut Option<DnsCache>,
 ) -> Option<JoinHandle<io::Result<()>>> {
-    let mut task = None;
-    if let Some(mut entry) = sessions.remove(handle) {
-        if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
-            cache.unpin(ip);
-        }
-        // Drop the per-app attribution cache entry so a later flow to the same
-        // destination (possibly a different app) re-resolves its owner.
-        ripdpi_flow_app_attribution::evict_flow(entry.target_addr.ip());
-        entry.cancel.cancel();
-        entry.smoltcp_side.shutdown().await.ok();
-        task = Some(entry.handle);
+    let mut entry = sessions.remove(handle)?;
+    if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
+        cache.unpin(ip);
     }
-
+    if let Some(token) = entry.attribution_token {
+        ripdpi_flow_app_attribution::evict_flow(token);
+    }
+    entry.cancel.cancel();
+    entry.smoltcp_side.shutdown().await.ok();
     remove_tcp_socket(socket_set, handle);
-    task
+    Some(entry.handle)
 }

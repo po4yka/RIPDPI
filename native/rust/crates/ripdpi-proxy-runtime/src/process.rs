@@ -1,14 +1,11 @@
 use std::io;
 #[cfg(test)]
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub use ripdpi_proxy_runtime_adapter::model::config::{ProcessSettings, process_settings};
 use ripdpi_proxy_runtime_adapter::platform::process as process_platform;
-
-static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
 pub struct ProcessGuard {
     _inner: process_platform::ProcessGuard,
@@ -16,7 +13,7 @@ pub struct ProcessGuard {
 
 impl ProcessGuard {
     pub fn prepare(settings: ProcessSettings) -> io::Result<Self> {
-        SHUTDOWN.store(false, Ordering::Release);
+        process_platform::reset_shutdown_request();
         let inner = process_platform::ProcessGuard::prepare(settings)?;
         install_signal_handlers()?;
         Ok(Self { _inner: inner })
@@ -24,23 +21,20 @@ impl ProcessGuard {
 }
 
 pub(crate) fn shutdown_requested() -> bool {
-    SHUTDOWN.load(Ordering::Acquire)
+    process_platform::shutdown_requested()
 }
 
+#[cfg(test)]
 fn request_shutdown() {
-    SHUTDOWN.store(true, Ordering::Release);
+    process_platform::request_shutdown();
 }
 
 pub fn prepare_embedded() {
-    SHUTDOWN.store(false, Ordering::Release);
-}
-
-extern "C" fn handle_signal(_signal: std::os::raw::c_int) {
-    request_shutdown();
+    process_platform::reset_shutdown_request();
 }
 
 fn install_signal_handlers() -> io::Result<()> {
-    process_platform::install_shutdown_signal_handlers(handle_signal)
+    process_platform::install_shutdown_signal_handlers()
 }
 
 #[cfg(test)]

@@ -50,11 +50,10 @@ pub(crate) fn open_probe_stream_targets_with_key_log(
         Some(name) if should_run_tls_handshake(verify_certificates, port, profile) => {
             let captured =
                 capture_tls_handshake(opened.stream, targets, transport, name, profile, tls_verifier, key_log)?;
-            let observed_server_ttl = match &captured.stream {
-                ConnectionStream::Tls(stream) => platform_ttl::get_observed_ttl(&stream.sock),
+            let local_socket_ttl = match &captured.stream {
+                ConnectionStream::Tls(stream) => platform_ttl::get_local_socket_ttl(&stream.sock),
                 ConnectionStream::Plain(_) => unreachable!(),
             };
-            let estimated_hop_count = observed_server_ttl.map(platform_ttl::estimate_hop_count);
 
             Ok(ProbeStreamResult {
                 stream: captured.stream,
@@ -63,8 +62,7 @@ pub(crate) fn open_probe_stream_targets_with_key_log(
                 tls_handshake_ms: captured.tls_handshake_ms,
                 cert_chain_length: captured.cert_chain_length,
                 cert_issuer: captured.cert_issuer,
-                observed_server_ttl,
-                estimated_hop_count,
+                local_socket_ttl,
                 ja3_fingerprint: captured.ja3_fingerprint,
                 connected_addr: opened.connected_addr,
                 local_addr: opened.local_addr,
@@ -111,8 +109,7 @@ fn should_run_tls_handshake(verify_certificates: bool, port: u16, profile: TlsCl
 }
 
 fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult, String> {
-    let observed_server_ttl = platform_ttl::get_observed_ttl(&opened.stream);
-    let estimated_hop_count = observed_server_ttl.map(platform_ttl::estimate_hop_count);
+    let local_socket_ttl = platform_ttl::get_local_socket_ttl(&opened.stream);
 
     Ok(ProbeStreamResult {
         stream: ConnectionStream::Plain(opened.stream),
@@ -121,8 +118,7 @@ fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult
         tls_handshake_ms: 0,
         cert_chain_length: None,
         cert_issuer: None,
-        observed_server_ttl,
-        estimated_hop_count,
+        local_socket_ttl,
         ja3_fingerprint: None,
         connected_addr: opened.connected_addr,
         local_addr: opened.local_addr,

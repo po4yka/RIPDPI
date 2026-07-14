@@ -9,6 +9,8 @@ pub enum ConfigError {
     Yaml(#[from] serde_yaml_ng::Error),
     #[error("socks5 credentials: username and password must both be present or both absent")]
     MismatchedCredentials,
+    #[error("invalid {field}: {message}")]
+    InvalidValue { field: &'static str, message: String },
     #[error(
         "unsupported native config schemaVersion {found}; \
          this build supports {SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}"

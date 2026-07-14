@@ -7,8 +7,6 @@ import android.widget.Toast
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
-import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.serialization.RipDpiJson
 
 /**
  * Trampoline activity for inbound proxy share links and subscription deep links.
@@ -25,8 +23,6 @@ import com.poyka.ripdpi.serialization.RipDpiJson
  * input surfaces a typed [Toast] and finishes without forwarding — never a crash.
  */
 class ImportHandlerActivity : Activity() {
-    private val json = RipDpiJson
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         runCatching { handleInboundIntent() }
@@ -80,25 +76,16 @@ class ImportHandlerActivity : Activity() {
 
     private fun handleRipDpiImportDeepLink(result: RipDpiImportDeepLinkResult.Success) {
         val bootstrap = result.kind == RipDpiImportDeepLinkResult.Success.Kind.OneShot
-        forwardToMain(
-            Intent(this, MainActivity::class.java).apply {
-                putExtra(EXTRA_IMPORT_ROUTE, ImportLaunchRoute.SUBSCRIPTION_CONFIRM)
-                putExtra(EXTRA_SUBSCRIPTION_URL, result.targetUrl)
-                putExtra(EXTRA_SUBSCRIPTION_BOOTSTRAP, bootstrap)
-            },
+        forwardSubscription(
+            PendingSubscriptionImportRequest(result.targetUrl, name = "", bootstrap = bootstrap),
         )
     }
 
     private fun handleSubscriptionDeepLink(data: String) {
         when (val result = SingBoxDeepLinkParser.parse(data)) {
             is SingBoxDeepLinkResult.Success -> {
-                forwardToMain(
-                    Intent(this, MainActivity::class.java).apply {
-                        putExtra(EXTRA_IMPORT_ROUTE, ImportLaunchRoute.SUBSCRIPTION_CONFIRM)
-                        putExtra(EXTRA_SUBSCRIPTION_URL, result.url)
-                        putExtra(EXTRA_SUBSCRIPTION_NAME, result.name)
-                        putExtra(EXTRA_SUBSCRIPTION_BOOTSTRAP, result.bootstrap)
-                    },
+                forwardSubscription(
+                    PendingSubscriptionImportRequest(result.url, result.name, result.bootstrap),
                 )
             }
 
@@ -116,13 +103,28 @@ class ImportHandlerActivity : Activity() {
         }
     }
 
+    private fun forwardSubscription(request: PendingSubscriptionImportRequest) {
+        val importToken = PendingProxyImportStore.process.stageSubscription(request)
+        if (importToken == null) {
+            toast(R.string.import_error_bad_encoding)
+            return
+        }
+        forwardToMain(
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(EXTRA_IMPORT_ROUTE, ImportLaunchRoute.SUBSCRIPTION_CONFIRM)
+                putExtra(EXTRA_SUBSCRIPTION_IMPORT_TOKEN, importToken)
+            },
+        )
+    }
+
     private fun handleProxyShareLink(data: String) {
         when (val request = ProxyUriShareDispatcher.dispatch(data)) {
             is ProxyImportRequest.Profile -> {
+                val importToken = PendingProxyImportStore.process.stage(request.profile)
                 forwardToMain(
                     Intent(this, MainActivity::class.java).apply {
                         putExtra(EXTRA_IMPORT_ROUTE, ImportLaunchRoute.PROFILE_CONFIRM)
-                        putExtra(EXTRA_PROFILE_JSON, json.encodeToString(ProxyProfile.serializer(), request.profile))
+                        putExtra(EXTRA_PROFILE_IMPORT_TOKEN, importToken)
                     },
                 )
             }
@@ -146,16 +148,10 @@ class ImportHandlerActivity : Activity() {
         /** Which import-confirmation destination [MainActivity] should open. */
         const val EXTRA_IMPORT_ROUTE: String = "com.poyka.ripdpi.extra.IMPORT_ROUTE"
 
-        /** JSON-encoded [ProxyProfile] for [ImportLaunchRoute.PROFILE_CONFIRM]. */
-        const val EXTRA_PROFILE_JSON: String = "com.poyka.ripdpi.extra.IMPORT_PROFILE_JSON"
+        /** Opaque process-local hand-off token for [ImportLaunchRoute.PROFILE_CONFIRM]. */
+        const val EXTRA_PROFILE_IMPORT_TOKEN: String = "com.poyka.ripdpi.extra.IMPORT_PROFILE_TOKEN"
 
-        /** Subscription URL for [ImportLaunchRoute.SUBSCRIPTION_CONFIRM]. */
-        const val EXTRA_SUBSCRIPTION_URL: String = "com.poyka.ripdpi.extra.IMPORT_SUBSCRIPTION_URL"
-
-        /** Optional subscription display name for [ImportLaunchRoute.SUBSCRIPTION_CONFIRM]. */
-        const val EXTRA_SUBSCRIPTION_NAME: String = "com.poyka.ripdpi.extra.IMPORT_SUBSCRIPTION_NAME"
-
-        /** `true` when the subscription URL is a one-time `/bootstrap/` token import. */
-        const val EXTRA_SUBSCRIPTION_BOOTSTRAP: String = "com.poyka.ripdpi.extra.IMPORT_SUBSCRIPTION_BOOTSTRAP"
+        /** Opaque process-local hand-off token for [ImportLaunchRoute.SUBSCRIPTION_CONFIRM]. */
+        const val EXTRA_SUBSCRIPTION_IMPORT_TOKEN: String = "com.poyka.ripdpi.extra.IMPORT_SUBSCRIPTION_TOKEN"
     }
 }

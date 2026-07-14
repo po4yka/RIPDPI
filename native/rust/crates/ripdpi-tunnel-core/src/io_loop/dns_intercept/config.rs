@@ -66,5 +66,7 @@ pub(in crate::io_loop) fn parse_dns_cache(
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "mapdns.cache_size must be greater than zero"));
     }
 
-    Ok(Some(DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size)))
+    DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size).map(Some).map_err(|err| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid mapdns cache configuration: {err}"))
+    })
 }

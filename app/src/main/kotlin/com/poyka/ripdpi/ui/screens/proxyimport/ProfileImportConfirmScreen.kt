@@ -13,6 +13,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -33,21 +34,22 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
  */
 @Composable
 fun ProfileImportConfirmRoute(
-    profile: ProxyProfile,
+    importToken: String,
     onBack: () -> Unit,
     onImported: () -> Unit,
+    onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileImportConfirmViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel, profile) {
-        viewModel.setProfile(profile)
+    val latestOnUnavailable by rememberUpdatedState(onUnavailable)
+    LaunchedEffect(viewModel, importToken) {
+        if (!viewModel.loadProfile(importToken)) {
+            latestOnUnavailable()
+        }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val latestOnImported by rememberUpdatedState(onImported)
-    LaunchedEffect(viewModel) {
-        viewModel.importedEvents.collect { latestOnImported() }
-    }
+    LifecycleEventEffect(viewModel.importedEvents) { onImported() }
 
     ProfileImportConfirmScreen(
         uiState = uiState,

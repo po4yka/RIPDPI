@@ -51,6 +51,12 @@ interface BootSessionStateStore {
         mode: Mode,
     )
 
+    /** Stable, non-secret standalone AWG profile id selected for VPN egress. */
+    fun activeAwgProfileId(): String? = null
+
+    /** Persists or clears the standalone AWG selection without storing profile secrets. */
+    fun setActiveAwgProfileId(profileId: String?) = Unit
+
     /** Clears the recorded pointer — e.g. when the referenced profile no longer exists. */
     fun clear()
 
@@ -113,6 +119,21 @@ class SharedPreferencesBootSessionStateStore
                 .commit()
         }
 
+        override fun activeAwgProfileId(): String? =
+            preferences.getString(KeyActiveAwgProfileId, null)?.takeIf(String::isNotBlank)
+
+        override fun setActiveAwgProfileId(profileId: String?) {
+            preferences
+                .edit()
+                .also { editor ->
+                    if (profileId.isNullOrBlank()) {
+                        editor.remove(KeyActiveAwgProfileId)
+                    } else {
+                        editor.putString(KeyActiveAwgProfileId, profileId)
+                    }
+                }.commit()
+        }
+
         override fun clear() {
             preferences
                 .edit()
@@ -145,6 +166,7 @@ class SharedPreferencesBootSessionStateStore
         private companion object {
             const val KeyProfileId = "boot-session-profile-id"
             const val KeyMode = "boot-session-mode"
+            const val KeyActiveAwgProfileId = "boot-session-active-awg-profile-id"
             const val KeyWasRunningAtUpdate = "boot-session-was-running-at-update"
         }
     }

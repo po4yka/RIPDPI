@@ -62,6 +62,15 @@ internal class VpnTunnelRuntime(
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns)
         val ipv6 = settings.ipv6Enable
         val tunnelNetworkParameters = vpnHost.currentTunnelNetworkParameters()
+        val proxy = settings.toSettingsSections().proxy
+        val httpProxyPort =
+            if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
+        val tunnelSession =
+            vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6, httpProxyPort)
+        val uidPolicy =
+            (flowAttributionBridge as? FlowAttributionBridge)
+                ?.nativeUidPolicy(vpnHost.currentAppRoutingPlan())
+                ?: NativeUidPolicy.Disarmed
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
                 dnsPlan = dnsPlan,
@@ -75,13 +84,8 @@ internal class VpnTunnelRuntime(
                 protectPath = protectPath,
                 rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
                 luaScriptBaseDir = luaScriptBaseDir,
+                uidPolicy = uidPolicy,
             )
-
-        val proxy = settings.toSettingsSections().proxy
-        val httpProxyPort =
-            if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
-        val tunnelSession =
-            vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6, httpProxyPort)
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
             tunnelBridge.start(config, tunnelSession.tunFd, flowAttributionBridge)

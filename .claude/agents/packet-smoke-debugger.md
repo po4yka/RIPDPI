@@ -18,14 +18,14 @@ You are a packet-level DPI evasion test debugger for the RIPDPI project.
 Scenario-driven tests live in two places:
 - **Registry**: `scripts/ci/packet-smoke-scenarios.json` -- each object has `id`, `lane` ("cli"), `testSelector`, `trafficKind`, and expected `artifacts`.
 - **Test harness**: `native/rust/crates/ripdpi-cli/tests/packet_smoke.rs` -- Rust integration tests that spawn the CLI proxy, drive traffic through it, capture packets with tcpdump, then assert on the pcap via tshark.
-- **Runner script**: `scripts/ci/run-cli-packet-smoke.sh` -- iterates scenarios, invokes `cargo test -p ripdpi-cli --test packet_smoke <selector>` with env vars for artifact collection.
+- **Runner script**: `scripts/ci/run-cli-packet-smoke.sh` -- iterates scenarios, invokes `cargo test --locked -p ripdpi-cli --test packet_smoke <selector>` with env vars for artifact collection.
 
 ## Running a single scenario
 
 ```bash
 RIPDPI_RUN_PACKET_SMOKE=1 \
 RIPDPI_PACKET_SMOKE_ARTIFACT_DIR=/tmp/smoke-debug \
-cargo test --manifest-path native/rust/Cargo.toml \
+cargo test --locked --manifest-path native/rust/Cargo.toml \
   -p ripdpi-cli --test packet_smoke \
   cli_packet_smoke_tcp_split_family -- --exact --nocapture
 ```
@@ -34,7 +34,7 @@ Filter by scenario with `RIPDPI_PACKET_SMOKE_SCENARIO_FILTER=<id>` when using th
 
 ## Artifacts (written to `$RIPDPI_PACKET_SMOKE_ARTIFACT_DIR/<scenario_id>/`)
 
-`capture.pcap` (raw capture), `capture.tshark.json` (JSON dissection), `fixture-manifest.json` (ports/addresses), `fixture-events.json` (echo/TLS server events), `cli-stderr.log` (desync engine log), `test-output.txt` (cargo test output).
+`capture.pcap` (raw capture), `capture.tshark.json` (JSON dissection), `fixture-manifest.json` (ports/addresses), `fixture-events.json` (echo/TLS server events), `cli-stderr.log` (desync engine log), `test-output.txt` (cargo test --locked output).
 
 ## Interpreting pcap output
 

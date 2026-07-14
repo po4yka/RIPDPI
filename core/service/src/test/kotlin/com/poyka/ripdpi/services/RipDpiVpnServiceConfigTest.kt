@@ -112,6 +112,21 @@ class RipDpiVpnServiceConfigTest {
     }
 
     @Test
+    fun buildTun2SocksConfigCarriesNativeUidAdmissionPolicy() {
+        val config =
+            RipDpiVpnService.buildTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(plainDns("1.1.1.1"), forceTunnelDns = false),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint,
+                ipv6Enabled = false,
+                uidPolicy = NativeUidPolicy("allowlist", listOf(10123, 10124)),
+            )
+
+        assertEquals("allowlist", config.uidPolicyMode)
+        assertEquals(listOf(10123, 10124), config.uidPolicyUids)
+    }
+
+    @Test
     fun buildTun2SocksConfigUsesMapDnsAndLeavesIpv6UnsetWhenDisabled() {
         val tlsRootsPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----"
         val config =

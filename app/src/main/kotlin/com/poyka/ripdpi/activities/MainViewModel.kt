@@ -14,14 +14,13 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
+import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -53,7 +52,7 @@ class MainViewModel
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
 
-        val effects: SharedFlow<MainEffect> = _effects.asSharedFlow()
+        val effects = _effects.bufferForUiLifecycle(viewModelScope)
 
         private val strategyConfigActions =
             MainStrategyConfigApplyActions(

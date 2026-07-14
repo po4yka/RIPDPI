@@ -35,7 +35,7 @@ Known concentrations (verify current state before auditing):
    - Union field access
    - Mutable static access
 3. **Validate SAFETY comments**: every `unsafe` block must have a `// SAFETY:` comment
-4. **Run Miri** on testable modules: `cd native/rust && cargo +nightly miri test -p <crate> -- <test>`
+4. **Run Miri** on testable modules: `cd native/rust && cargo +nightly miri test --locked -p <crate> -- <test>`
 5. **Check for UB patterns** (see checklist below)
 
 ## UB Pattern Checklist
@@ -73,7 +73,7 @@ Default Miri aliasing model: **Tree Borrows** (PLDI 2025, recommended as of Dec 
 # Run Miri on a specific crate (requires nightly)
 cd native/rust
 MIRIFLAGS="-Zmiri-tree-borrows -Zmiri-disable-isolation -Zmiri-symbolic-alignment-check" \
-  cargo +nightly miri test -p <crate-name> --no-default-features
+  cargo +nightly miri test --locked -p <crate-name> --no-default-features
 ```
 
 Known Miri limitations: cannot test io-uring, raw sockets, or JNI. Focus on pure logic crates.

@@ -54,6 +54,10 @@ const PUMP_CHUNK: usize = 4096;
 const DEFAULT_POLL_DELAY_MS: u64 = 50;
 const DNS_QUEUE_CAPACITY: usize = 256;
 
+/// Maximum number of ready items one phase may process before yielding to the
+/// remaining phases and the runtime cancellation check.
+const IO_PHASE_WORK_BUDGET: usize = 64;
+
 /// Timeout for pending LISTEN sockets that never complete the handshake.
 const PENDING_LISTEN_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -99,6 +103,7 @@ fn send_dns_servfail(
 /// 4. Duplex bridge -- pump data between smoltcp sockets and session tasks
 /// 5. Flush tx_queue -- write smoltcp-produced packets back to TUN fd
 /// 6. Wait -- sleep until TUN readable / poll_delay / cancellation
+///
 /// Optional io_uring context for batch TUN I/O acceleration.
 ///
 /// When provided, Phase 5 (flush tx_queue) uses io_uring batched writes
@@ -120,7 +125,7 @@ pub struct IoUringTunContext {
     /// `run_tunnel` and audited.  External callers must not construct
     /// `IoUringTunContext` with the same fd number already adopted by
     /// `AsyncDevice` inside `run_tunnel`.
-    pub(crate) tun_fd: std::os::fd::OwnedFd,
+    pub(crate) _tun_fd: std::os::fd::OwnedFd,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -138,6 +143,9 @@ pub async fn io_loop_task(
     let mut state = setup_io_loop(device, iface, socket_set, sessions, config, cancel, stats, dns_cache)?;
 
     loop {
+        if state.cancel.is_cancelled() {
+            break;
+        }
         phases::drain_tun(tun, &mut state).await;
         phases::drain_dns(&mut state);
         phases::poll_smoltcp(&mut state);
@@ -145,9 +153,13 @@ pub async fn io_loop_task(
         phases::emit_loss_sample(&mut state);
         phases::admit_tcp_sessions(&mut state);
         phases::pump_bridges(&mut state).await;
-        phases::flush_tun(tun, &mut state).await?;
+        let tx_pending = match phases::flush_tun(tun, &mut state).await? {
+            bridge::TunFlushOutcome::Drained => false,
+            bridge::TunFlushOutcome::Pending => true,
+            bridge::TunFlushOutcome::Cancelled => break,
+        };
 
-        if matches!(wait_for_next_event(tun, &mut state).await, WaitOutcome::Cancelled) {
+        if matches!(wait_for_next_event(tun, &mut state, tx_pending).await, WaitOutcome::Cancelled) {
             break;
         }
     }

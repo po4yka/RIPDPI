@@ -37,7 +37,7 @@ fi
 
 mkdir -p "$target_dir"
 
-if ! cargo llvm-cov --version >/dev/null 2>&1; then
+if ! cargo llvm-cov --locked --version >/dev/null 2>&1; then
     echo "cargo-llvm-cov is required. Install it with: cargo install cargo-llvm-cov" >&2
     exit 1
 fi
@@ -65,7 +65,7 @@ IGNORED_SKIP_PATTERNS=(
 )
 
 run_coverage() {
-    RUST_TEST_THREADS=1 cargo llvm-cov test \
+    RUST_TEST_THREADS=1 cargo llvm-cov --locked test \
         --manifest-path "$workspace_manifest" \
         --workspace \
         --no-report \
@@ -75,7 +75,7 @@ run_coverage() {
         "${COVERAGE_ONLY_SKIP_PATTERNS[@]}"
 
     if [[ "$include_ignored" == "1" ]]; then
-        RUST_TEST_THREADS=1 cargo llvm-cov test \
+        RUST_TEST_THREADS=1 cargo llvm-cov --locked test \
             --manifest-path "$workspace_manifest" \
             --workspace \
             --no-report \
@@ -87,33 +87,33 @@ run_coverage() {
 }
 
 echo "==> rust coverage clean"
-cargo llvm-cov clean --manifest-path "$workspace_manifest" --workspace
+cargo llvm-cov --locked clean --manifest-path "$workspace_manifest" --workspace
 
 echo "==> rust coverage run"
 run_coverage
 
 echo "==> rust coverage reports"
-cargo llvm-cov report \
+cargo llvm-cov --locked report \
     --manifest-path "$workspace_manifest" \
     "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \
     --html \
     --output-dir "$html_dir"
 
-cargo llvm-cov report \
+cargo llvm-cov --locked report \
     --manifest-path "$workspace_manifest" \
     "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \
     --lcov \
     --output-path "$lcov_path"
 
-cargo llvm-cov report \
+cargo llvm-cov --locked report \
     --manifest-path "$workspace_manifest" \
     "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \
     --summary-only >"$summary_txt"
 
-cargo llvm-cov report \
+cargo llvm-cov --locked report \
     --manifest-path "$workspace_manifest" \
     "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \

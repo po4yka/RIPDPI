@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,6 +55,17 @@ class ImportHandlerActivityTest {
             ImportLaunchRoute.PROFILE_CONFIRM,
             forwarded.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE),
         )
+        val importToken = forwarded.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_IMPORT_TOKEN)
+        assertNotNull(importToken)
+        assertFalse(
+            forwarded.extras?.keySet()?.contains("com.poyka.ripdpi.extra.IMPORT_PROFILE_JSON") == true,
+        )
+        assertEquals(
+            "11111111-2222-3333-4444-555555555555",
+            PendingProxyImportStore.process.claim(requireNotNull(importToken))?.let {
+                (it as com.poyka.ripdpi.data.ProxyProfile.Vless).uuid
+            },
+        )
         assertTrue(activity.isFinishing)
         controller.destroy()
     }
@@ -71,11 +84,12 @@ class ImportHandlerActivityTest {
             ImportLaunchRoute.SUBSCRIPTION_CONFIRM,
             forwarded.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE),
         )
+        val importToken = forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_IMPORT_TOKEN)
+        assertNotNull(importToken)
         assertEquals(
-            "https://sub.example.com/c",
-            forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_URL),
+            PendingSubscriptionImportRequest("https://sub.example.com/c", "Fleet", false),
+            PendingProxyImportStore.process.claimSubscription(requireNotNull(importToken)),
         )
-        assertEquals("Fleet", forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_NAME))
         assertTrue(activity.isFinishing)
         controller.destroy()
     }
@@ -89,7 +103,8 @@ class ImportHandlerActivityTest {
 
         val forwarded = shadowOf(controller.get()).nextStartedActivity
 
-        assertTrue(forwarded.getBooleanExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_BOOTSTRAP, false))
+        val importToken = forwarded.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_IMPORT_TOKEN)
+        assertTrue(PendingProxyImportStore.process.claimSubscription(requireNotNull(importToken))?.bootstrap == true)
         controller.destroy()
     }
 

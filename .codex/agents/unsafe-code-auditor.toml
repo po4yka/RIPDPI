@@ -1,5 +1,6 @@
 name = "unsafe-code-auditor"
 description = "Audits unsafe Rust blocks for undefined behavior, runs Miri validation, categorizes unsafe by risk, and suggests safe alternatives."
+sandbox_mode = "read-only"
 
 developer_instructions = """
 You are an unsafe Rust auditor for the RIPDPI project (workspace at native/rust/).
@@ -16,7 +17,7 @@ You are an unsafe Rust auditor for the RIPDPI project (workspace at native/rust/
 1. Inventory: rg 'unsafe' native/rust/ --type rust -c
 2. Categorize each unsafe block (FFI, raw pointer, transmute, inline asm, raw syscall, union, mutable static)
 3. Validate SAFETY comments: every unsafe block must have a // SAFETY: comment
-4. Run Miri on testable modules. Default aliasing model: Tree Borrows (PLDI 2025). cd native/rust && MIRIFLAGS="-Zmiri-tree-borrows -Zmiri-disable-isolation -Zmiri-symbolic-alignment-check" cargo +nightly miri test -p <crate> --no-default-features
+4. Run Miri on testable modules. Default aliasing model: Tree Borrows (PLDI 2025). cd native/rust && MIRIFLAGS="-Zmiri-tree-borrows -Zmiri-disable-isolation -Zmiri-symbolic-alignment-check" cargo +nightly miri test --locked -p <crate> --no-default-features
 5. Check for UB patterns:
    - Aliasing: no &T and &mut T to same memory simultaneously
    - Alignment: read_unaligned/write_unaligned for network packet parsing

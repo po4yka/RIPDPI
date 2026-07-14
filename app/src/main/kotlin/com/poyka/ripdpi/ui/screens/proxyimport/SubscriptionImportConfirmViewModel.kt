@@ -5,9 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
+import com.poyka.ripdpi.data.subscription.BootstrapConsumer
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +30,7 @@ data class SubscriptionImportConfirmUiState(
     val name: String = "",
     val bootstrap: Boolean = false,
     val importing: Boolean = false,
+    val importFailed: Boolean = false,
 )
 
 /**
@@ -39,15 +45,55 @@ data class SubscriptionImportConfirmUiState(
  */
 @HiltViewModel
 class SubscriptionImportConfirmViewModel
-    @Inject
-    constructor(
+    private constructor(
         private val repository: ProxyGroupRepository,
+        private val bootstrapConsumer: BootstrapConsumer,
+        private val groupIdFactory: () -> String,
+        @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
+        @Inject
+        constructor(repository: ProxyGroupRepository) : this(
+            repository = repository,
+            bootstrapConsumer = BootstrapConsumer(),
+            groupIdFactory = { UUID.randomUUID().toString() },
+            constructorMarker = Unit,
+        )
+
+        internal constructor(
+            repository: ProxyGroupRepository,
+            bootstrapConsumer: BootstrapConsumer,
+            groupIdFactory: () -> String = { UUID.randomUUID().toString() },
+        ) : this(repository, bootstrapConsumer, groupIdFactory, Unit)
+
         private val _uiState = MutableStateFlow(SubscriptionImportConfirmUiState())
         val uiState: StateFlow<SubscriptionImportConfirmUiState> = _uiState.asStateFlow()
         private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
         val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
         private var completed = false
+        private var claimedImportToken: String? = null
+
+        internal fun claimRequest(
+            importToken: String,
+            pendingImports: PendingProxyImportStore = PendingProxyImportStore.process,
+        ): Boolean {
+            val alreadyClaimed = claimedImportToken == importToken && _uiState.value.url.isNotBlank()
+            val request = if (alreadyClaimed) null else pendingImports.claimSubscription(importToken)
+            return when {
+                alreadyClaimed -> {
+                    true
+                }
+
+                request == null -> {
+                    false
+                }
+
+                else -> {
+                    claimedImportToken = importToken
+                    setRequest(request.url, request.name, request.bootstrap)
+                    true
+                }
+            }
+        }
 
         /** Seeds the screen with the deep link's pre-filled fields. */
         fun setRequest(
@@ -57,16 +103,14 @@ class SubscriptionImportConfirmViewModel
         ) {
             completed = false
             _uiState.update {
-                it.copy(url = url, name = name, bootstrap = bootstrap)
+                it.copy(url = url, name = name, bootstrap = bootstrap, importFailed = false)
             }
         }
 
         /**
          * Persists the pending subscription into a new [ProxyGroupType.SUBSCRIPTION]
-         * group. When no display name was supplied the URL host is used instead. No
-         * network request is made here — the subscription is stored for the existing
-         * update pipeline to refresh. No-op when the URL is blank or an import is already
-         * in flight.
+         * group. Bootstrap links are consumed before the success event is emitted, so
+         * their single-use payload and consumed timestamp reach durable storage together.
          *
          * The persisted [Subscription.kind] reflects the bootstrap flag: a bootstrap
          * import is stored as [SubscriptionKind.BOOTSTRAP] so the auto-update worker
@@ -77,26 +121,96 @@ class SubscriptionImportConfirmViewModel
             val state = _uiState.value
             if (state.url.isBlank()) return
             if (state.importing || completed) return
-            _uiState.update { it.copy(importing = true) }
+            _uiState.update { it.copy(importing = true, importFailed = false) }
             viewModelScope.launch {
-                val groupId = UUID.randomUUID().toString()
-                val groupName = state.name.takeIf { it.isNotBlank() } ?: hostOf(state.url)
-                val kind =
-                    if (state.bootstrap) SubscriptionKind.BOOTSTRAP else SubscriptionKind.LONG_LIVED
-                repository.add(
-                    ProxyGroup(
-                        id = groupId,
-                        name = groupName,
-                        type = ProxyGroupType.SUBSCRIPTION,
-                        order = repository.list().size,
-                        isSelector = false,
-                        subscription = Subscription(link = state.url, kind = kind),
-                    ),
-                )
-                _uiState.update { it.copy(importing = false) }
-                completed = true
-                importedEventChannel.send(Unit)
+                try {
+                    val groups = repository.list()
+                    val existing = groups.firstOrNull { group -> group.subscription?.link == state.url }
+                    val groupId = existing?.id ?: groupIdFactory()
+                    val groupName = state.name.takeIf { it.isNotBlank() } ?: hostOf(state.url)
+                    val order = existing?.order ?: groups.size
+                    if (state.bootstrap) {
+                        consumeBootstrap(state, existing, groupId, groupName, order)
+                    } else {
+                        repository.add(
+                            subscriptionGroup(
+                                existing = existing,
+                                groupId = groupId,
+                                groupName = groupName,
+                                order = order,
+                                subscription = Subscription(link = state.url, kind = SubscriptionKind.LONG_LIVED),
+                            ),
+                        )
+                        completeImport()
+                    }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    _uiState.update { it.copy(importFailed = true) }
+                } finally {
+                    _uiState.update { it.copy(importing = false) }
+                }
             }
+        }
+
+        private suspend fun consumeBootstrap(
+            state: SubscriptionImportConfirmUiState,
+            existing: ProxyGroup?,
+            groupId: String,
+            groupName: String,
+            order: Int,
+        ) {
+            when (val result = bootstrapConsumer.consume(state.url, groupId)) {
+                is BootstrapConsumeResult.Consumed -> {
+                    repository.add(
+                        subscriptionGroup(
+                            existing = existing,
+                            groupId = groupId,
+                            groupName = groupName,
+                            order = order,
+                            subscription =
+                                Subscription(
+                                    link = state.url,
+                                    kind = SubscriptionKind.BOOTSTRAP,
+                                    consumedAt = result.consumedAtMillis,
+                                ),
+                            members = result.profiles,
+                        ),
+                    )
+                    completeImport()
+                }
+
+                is BootstrapConsumeResult.AlreadyConsumed,
+                is BootstrapConsumeResult.NetworkError,
+                is BootstrapConsumeResult.ParseError,
+                -> {
+                    _uiState.update { it.copy(importFailed = true) }
+                }
+            }
+        }
+
+        private fun subscriptionGroup(
+            existing: ProxyGroup?,
+            groupId: String,
+            groupName: String,
+            order: Int,
+            subscription: Subscription,
+            members: List<ProxyProfile> = existing?.members.orEmpty(),
+        ): ProxyGroup =
+            ProxyGroup(
+                id = groupId,
+                name = groupName,
+                type = ProxyGroupType.SUBSCRIPTION,
+                order = order,
+                isSelector = existing?.isSelector ?: false,
+                subscription = subscription,
+                members = members,
+                failover = existing?.failover,
+            )
+
+        private suspend fun completeImport() {
+            completed = true
+            importedEventChannel.send(Unit)
         }
 
         /** Extracts the host from [url] for use as a fallback group name. */

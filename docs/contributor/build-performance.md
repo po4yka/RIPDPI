@@ -140,7 +140,7 @@ ceiling; it needs neither a worktree nor a Gradle home.
 
 ### Device / emulator work is single-lane
 
-`:app:ciDevicesGroupGithubDebugAndroidTest` managed devices and
+`:app:ciDevicesGroupGithubFullDebugAndroidTest` managed devices and
 `scripts/ci/run-android-journeys-emulator.sh` share one AVD and one adb
 server. Run instrumented tests and journeys as a **serialised, single
 lane** (or give each agent its own AVD/serial) — parallel runs collide
@@ -199,12 +199,8 @@ CI=true ./gradlew :app:assembleDebug --dry-run --info 2>&1 \
 # Static analysis clean.
 ./gradlew staticAnalysis
 
-# Locale parity (no regressions).
-for XX in ru es de fr fa zh-rCN; do
-  comm -23 \
-    <(grep -oE 'name="[^"]+"' app/src/main/res/values/strings.xml | sort -u) \
-    <(grep -oE 'name="[^"]+"' "app/src/main/res/values-${XX}/strings.xml" | sort -u) | wc -l
-done   # all 0
+# Locale parity across all resource XML files (including Hindi strings2.xml).
+./gradlew :app:lintGithubFullDebug :core:service:lintDebug
 ```
 
 ## Things that intentionally did NOT change
@@ -215,5 +211,5 @@ done   # all 0
 - `[profile.android-jni]` (release) — fat LTO / opt-z / strip /
   codegen-units=1 are load-bearing for the native-size baseline.
 - Roborazzi goldens (see `.claude/rules/golden-bless-discipline.md`).
-- 7-locale strings parity contract.
+- 9-locale strings parity contract.
 - CI workflow YAML — propagation via `gradle.properties` is enough.

@@ -7,7 +7,7 @@
 ## Boundaries
 
 - Keep database parsing and lookup concerns here.
-- Routing decisions belong in runtime policy or the separate `ripdpi-routing` rule-engine crate; Android asset lifecycle belongs in Kotlin/service code.
+- Routing decisions belong in the runtime policy/decision crates; Android asset lifecycle belongs in Kotlin/service code.
 
 ## Checks
 

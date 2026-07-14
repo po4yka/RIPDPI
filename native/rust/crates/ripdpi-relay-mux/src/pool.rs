@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex as AsyncMutex, OwnedSemaphorePermit, Semaphore};
 
 use crate::health::{invalidate_cached_session, prune_expired_session};
 use crate::lease::LeaseGuard;
@@ -24,6 +24,7 @@ where
     capabilities: RelayCapabilities,
     config: RelayPoolConfig,
     permits: Arc<Semaphore>,
+    session_creation: AsyncMutex<()>,
     state: Arc<Mutex<RelayMuxState<F::Session>>>,
 }
 
@@ -39,6 +40,7 @@ where
                 factory,
                 config,
                 permits: Arc::new(Semaphore::new(max_active_leases)),
+                session_creation: AsyncMutex::new(()),
                 state: Arc::new(Mutex::new(RelayMuxState::new())),
             }),
         }
@@ -115,15 +117,17 @@ where
             return self.inner.factory.create_session().await;
         }
 
-        {
-            // Recover poison: lease accounting is advisory.
-            let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            prune_expired_session(&mut state, self.inner.config.idle_timeout);
-            if let Some(session) = state.cached_session.as_ref().map(|cached| Arc::clone(&cached.session)) {
-                return Ok(session);
-            }
+        if let Some(session) = self.cached_session() {
+            return Ok(session);
         }
 
+        // The guard is intentionally held across factory creation: it is the
+        // singleflight owner. Tokio's guard is drop-safe, so cancellation of
+        // the owner releases the gate and lets the next waiter retry.
+        let _creation_guard = self.inner.session_creation.lock().await;
+        if let Some(session) = self.cached_session() {
+            return Ok(session);
+        }
         let created = self.inner.factory.create_session().await?;
         // Recover poison: lease accounting is advisory.
         let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -133,6 +137,13 @@ where
         }
         state.cached_session = Some(CachedSession::new(Arc::clone(&created)));
         Ok(created)
+    }
+
+    fn cached_session(&self) -> Option<Arc<F::Session>> {
+        // Recover poison: lease accounting is advisory.
+        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        prune_expired_session(&mut state, self.inner.config.idle_timeout);
+        state.cached_session.as_ref().map(|cached| Arc::clone(&cached.session))
     }
 
     fn mark_lease_started(&self) {

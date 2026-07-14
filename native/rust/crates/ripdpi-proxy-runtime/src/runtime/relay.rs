@@ -40,6 +40,8 @@ pub(super) fn relay(
         return Ok(());
     }
 
+    let _active_upstream = state.register_active_tcp_socket(&upstream)?;
+
     let relay_result =
         relay_with_uring_if_available(client, upstream, state, route.clone(), session_state, success_host.clone());
     let relay_timeouts = state.relay_timeouts(route.group_index)?;

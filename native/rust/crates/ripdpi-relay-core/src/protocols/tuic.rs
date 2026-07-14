@@ -64,7 +64,7 @@ impl RelaySessionFactory for TuicSessionFactory {
     type Error = io::Error;
 
     fn capabilities(&self) -> RelayCapabilities {
-        RelayCapabilities { tcp: true, udp: true, reusable: true }
+        RelayCapabilities { tcp: true, udp: self.config.udp_enabled, reusable: true }
     }
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
@@ -103,5 +103,27 @@ mod tests {
         let mapped = classify_tuic_handshake_error(original);
         assert_eq!(mapped.kind(), io::ErrorKind::ConnectionReset);
         assert_eq!(mapped.to_string(), "upstream reset");
+    }
+
+    #[test]
+    fn factory_reports_udp_capability_from_configuration() {
+        let config = ripdpi_tuic::Config {
+            server: "127.0.0.1".to_owned(),
+            server_port: 443,
+            server_name: "localhost".to_owned(),
+            uuid: String::new(),
+            password: String::new(),
+            zero_rtt: false,
+            congestion_control: "bbr".to_owned(),
+            udp_enabled: false,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            keepalive_interval_ms: 0,
+            root_certificate_pem: None,
+        };
+        let factory = TuicSessionFactory { config, migration: QuicMigrationTelemetryState::default() };
+
+        assert!(!factory.capabilities().udp);
     }
 }

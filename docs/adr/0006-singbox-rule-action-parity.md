@@ -46,7 +46,7 @@ There is **no user-authored matcher→action rule DSL** in RIPDPI; routing/trans
    |---|---|
    | `tcpFamily` `REC_PRE_SNI`/`REC_MID_SNI` | `tls_record_fragment` |
    | `tcpFamily` `SEG_PRE_SNI`/`SEG_MID_SNI`/`SEG_POST_SNI` | `tls_fragment` (+ `tls_fragment_fallback_delay`) |
-   | the open `adopt-tls-spoof-prehandshake-clienthello-sni-desync` task | `tls_spoof` + `tls_spoof_method` (1.14) |
+   | relay-side `ripdpi-tls-spoof` pre-handshake SNI desync | `tls_spoof` + `tls_spoof_method` (1.14) |
    | `dnsMode` / IP-family selection | `resolve.strategy` (`prefer_ipv4`/…) |
    | `outcome = NO_DIRECT_SOLUTION` | `reject` (give up direct) — loose analogy |
 
@@ -54,17 +54,17 @@ There is **no user-authored matcher→action rule DSL** in RIPDPI; routing/trans
 
 The net interop win (cheaper strategy-expression exchange) is captured by (2) without paying for (1).
 
-## Migration sketch (only if alignment is later pursued; no work in this spike)
+## Import/export sketch
 
 A thin, additive **strategy-expression (de)serialization layer** at the import/export boundary — *not* a change to `TransportPolicy` itself:
 
 - An export mapper: `TransportPolicy` → a sing-box-vocabulary `route-options`-shaped JSON fragment (`tcpFamily` → `tls_fragment`/`tls_record_fragment`; the tls_spoof work → `tls_spoof`/`tls_spoof_method`; `dnsMode` → `resolve.strategy`).
 - An import mapper for the reverse, tolerant of sing-box fields RIPDPI does not model (ignored, not errored).
 - This lives next to the strategy-pack pipeline (the existing `CensorLab-style offline strategy-pack` work), leaves `TransportPolicyEnvelope` version 1 untouched, and needs no schema bump.
-- Concretely, the **first** place to apply the alignment is the `adopt-tls-spoof-prehandshake-clienthello-sni-desync` task: name its config after sing-box's `tls_spoof` / `tls_spoof_method` (and reuse the shared `spoof_method` value table) rather than inventing a parallel vocabulary.
+- The implemented relay-side `ripdpi-tls-spoof` config follows the `tls_spoof` / `tls_spoof_method` vocabulary; any future strategy-expression mapper should reuse that surface rather than inventing a parallel one.
 
 ## References
 
 - sing-box rule action — <https://sing-box.sagernet.org/configuration/route/rule_action/> (1.12 `tls_fragment`/`tls_record_fragment`; 1.13 `bypass`/`reject` ICMP; 1.14 `tls_spoof`/`tls_spoof_method`, `resolve.timeout`/`disable_optimistic_cache`).
 - `core/data/model/src/main/kotlin/com/poyka/ripdpi/data/TransportPolicy.kt` — the learned per-host policy/envelope this ADR compares against.
-- `docs/tasks/issues/adopt-tls-spoof-prehandshake-clienthello-sni-desync.md` — the concrete first vocabulary-alignment opportunity (`tls_spoof`).
+- [`docs/native/proxy-engine.md`](../native/proxy-engine.md) — current `ripdpi-tls-spoof` runtime and scope.

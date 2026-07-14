@@ -1,8 +1,37 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{thread, time::Duration};
 
 use proptest::prelude::*;
 
+use crate::window::Clock;
 use crate::{ConnectionQualitySnapshot, QualitySample, QualityWindow, TransportKind};
+
+struct ManualClock {
+    monotonic_ms: AtomicU64,
+    unix_ms: AtomicU64,
+}
+
+impl ManualClock {
+    fn new(unix_ms: u64) -> Self {
+        Self { monotonic_ms: AtomicU64::new(0), unix_ms: AtomicU64::new(unix_ms) }
+    }
+
+    fn advance(&self, duration_ms: u64) {
+        self.monotonic_ms.fetch_add(duration_ms, Ordering::Relaxed);
+        self.unix_ms.fetch_add(duration_ms, Ordering::Relaxed);
+    }
+}
+
+impl Clock for ManualClock {
+    fn monotonic_ms(&self) -> u64 {
+        self.monotonic_ms.load(Ordering::Relaxed)
+    }
+
+    fn unix_ms(&self) -> u64 {
+        self.unix_ms.load(Ordering::Relaxed)
+    }
+}
 
 #[test]
 fn record_one_sample_then_snapshot() {
@@ -92,6 +121,35 @@ fn window_start_at_ms_set_on_first_sample_only() {
 fn empty_window_snapshot_is_none() {
     let w = QualityWindow::new(TransportKind::TcpProxy);
     assert!(w.snapshot().is_none());
+}
+
+#[test]
+fn instant_window_expires_old_samples_while_series_retains_them() {
+    let clock = Arc::new(ManualClock::new(1_000_000));
+    let w = QualityWindow::with_clock(TransportKind::TcpProxy, clock.clone());
+    w.record(QualitySample { rtt_ms: 10, succeeded: true, loss_pct: 0.0 });
+
+    clock.advance(60_000);
+    w.record(QualitySample { rtt_ms: 30, succeeded: true, loss_pct: 0.0 });
+
+    let instant = w.snapshot().expect("new sample remains in the 60-second window");
+    assert_eq!(instant.sample_count, 1);
+    assert_eq!(instant.rtt_p50_ms, 30);
+    assert_eq!(instant.window_start_at_ms, 1_060_000);
+    let series = w.snapshot_series().expect("both samples remain in the 15-minute window");
+    assert_eq!(series.sample_count, 2);
+}
+
+#[test]
+fn series_window_expires_samples_after_fifteen_minutes() {
+    let clock = Arc::new(ManualClock::new(2_000_000));
+    let w = QualityWindow::with_clock(TransportKind::TcpTunnel, clock.clone());
+    w.record(QualitySample { rtt_ms: 25, succeeded: true, loss_pct: 0.0 });
+
+    clock.advance(15 * 60_000);
+
+    assert!(w.snapshot().is_none());
+    assert!(w.snapshot_series().is_none());
 }
 
 #[test]

@@ -284,21 +284,18 @@ private fun rememberBackupShareController(
     snackbarHostState: SnackbarHostState,
 ): () -> Unit {
     val context = LocalContext.current
-    // The temp cache file backing the in-flight share; deleted on the activity result.
-    var pendingShareFile by remember { mutableStateOf<java.io.File?>(null) }
     var showReminder by rememberSaveable { mutableStateOf(false) }
 
     val shareLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             // Regardless of result (shared, cancelled, or dismissed) the redacted temp
             // file has served its purpose — delete it.
-            deleteShareTempFile(pendingShareFile)
-            pendingShareFile = null
+            viewModel.shareTempFiles.clear()
         }
 
     val generateAndShare: () -> Unit = {
         val shareFile = newShareTempFile(context)
-        pendingShareFile = shareFile
+        viewModel.shareTempFiles.replace(shareFile)
         viewModel.prepareShareBackup {
             runCatching { java.io.FileOutputStream(shareFile) }.getOrNull()
         }
@@ -311,7 +308,7 @@ private fun rememberBackupShareController(
         flow = viewModel.shareEffects,
         snackbarHostState = snackbarHostState,
         onReady = {
-            val file = pendingShareFile
+            val file = viewModel.shareTempFiles.current()
             if (file == null) {
                 return@BackupShareEffectHandler
             }
@@ -325,13 +322,11 @@ private fun rememberBackupShareController(
                 )
             if (!launched) {
                 // No share target / launch failure: clean up the temp file now.
-                deleteShareTempFile(file)
-                pendingShareFile = null
+                viewModel.shareTempFiles.clear()
             }
         },
         onFailed = {
-            deleteShareTempFile(pendingShareFile)
-            pendingShareFile = null
+            viewModel.shareTempFiles.clear()
         },
     )
 
@@ -557,12 +552,6 @@ private fun newShareTempFile(context: android.content.Context): java.io.File {
     dir.mkdirs()
     runCatching { dir.listFiles()?.forEach { it.delete() } }
     return java.io.File(dir, defaultBackupFilename())
-}
-
-/** Deletes the redacted-share temp file once the share intent has returned. */
-private fun deleteShareTempFile(file: java.io.File?) {
-    if (file == null) return
-    runCatching { file.delete() }
 }
 
 /**
