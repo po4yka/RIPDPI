@@ -6,11 +6,13 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
@@ -75,13 +77,13 @@ object SystemFailoverClock : FailoverClock {
 /**
  * A transport candidate managed by [FailoverCoordinator].
  *
- * Priority is a natural number — lower value = higher priority.
- * REALITY(0) > Hysteria2(1) > AWG(2).
+ * Priority is a natural number — lower value = higher priority. Seeded relay profiles retain
+ * bundle order inside a protocol family: REALITY endpoints, VLESS/XHTTP, Hysteria2, then AWG.
  */
 sealed interface FailoverCandidate {
     val priority: Int
 
-    /** Relay-backed candidate (VLESS+Reality or Hysteria2). */
+    /** Relay-backed candidate (VLESS+Reality, VLESS/XHTTP, or Hysteria2). */
     data class Relay(
         override val priority: Int,
         val profileId: String,
@@ -98,7 +100,7 @@ sealed interface FailoverCandidate {
 /**
  * Cross-subsystem failover coordinator for the `simple` flavor.
  *
- * Ordered candidate list: REALITY(0) > Hysteria2(1) > AWG(2).
+ * Ordered candidate list: REALITY endpoints > VLESS/XHTTP > Hysteria2 > AWG.
  * Stays inert when fewer than 2 candidates are configured.
  *
  * Lifecycle:
@@ -248,7 +250,12 @@ class FailoverCoordinator
                         // initialised) instead preserves the index and back-off budget.
                         val racedIndex =
                             initialRaceSelection?.let { selection ->
-                                rebuilt.indexOfFirst { it == selection }.takeIf { it >= 0 }
+                                rebuilt
+                                    .indexOfFirst { candidate ->
+                                        candidate is FailoverCandidate.Relay &&
+                                            candidate.profileId == selection.profileId &&
+                                            candidate.relayKind == selection.relayKind
+                                    }.takeIf { it >= 0 }
                             }
                         activeCandidateIndex = racedIndex ?: resumeIndex()
                         switchesInCycle = 0
@@ -527,7 +534,8 @@ class FailoverCoordinator
          * Returns the index in [candidates] that matches the currently persisted transport.
          *
          * Reads [AppSettingsRepository.snapshot] once. If relay is enabled, match
-         * [settings.relayKind] to the relay candidate's [FailoverCandidate.Relay.relayKind].
+         * [settings.relayProfileId] to the exact relay candidate. Kind-only matching remains
+         * as a compatibility fallback for legacy settings without a stored profile id.
          * If relay is disabled and the explicit simple-failover AWG selector is set, resume
          * that AWG candidate. Falls back to 0 when nothing matches.
          *
@@ -541,9 +549,14 @@ class FailoverCoordinator
             if (settings.relayEnabled) {
                 val idx =
                     candidates.indexOfFirst {
-                        it is FailoverCandidate.Relay && it.relayKind == settings.relayKind
+                        it is FailoverCandidate.Relay && it.profileId == settings.relayProfileId
                     }
                 if (idx >= 0) return idx
+                val legacyIdx =
+                    candidates.indexOfFirst {
+                        it is FailoverCandidate.Relay && it.relayKind == settings.relayKind
+                    }
+                if (legacyIdx >= 0) return legacyIdx
             } else if (settings.simpleFailoverAwgProfileId.isNotBlank()) {
                 val idx =
                     candidates.indexOfFirst {
@@ -558,9 +571,10 @@ class FailoverCoordinator
          * Builds the ordered candidate list from what is actually persisted in the stores.
          *
          * Priority order:
-         *  0 — VLESS+Reality relay profile ([RelayKindVlessReality])
-         *  1 — Hysteria2 relay profile ([RelayKindHysteria2])
-         *  2 — First AWG profile in [AwgProfileRepository]
+         *  0..n — every VLESS+Reality relay profile ([RelayKindVlessReality])
+         *  n..m — every VLESS/XHTTP relay profile ([RelayKindVless])
+         *  m..k — every Hysteria2 relay profile ([RelayKindHysteria2])
+         *  last — first AWG profile in [AwgProfileRepository]
          *
          * A candidate is only added when its backing data exists. The list is sorted by
          * [FailoverCandidate.priority] so priority 0 is always index 0.
@@ -573,21 +587,68 @@ class FailoverCoordinator
 
             val relayProfiles = relayProfileStore.list()
 
-            relayProfiles.firstOrNull { it.kind == RelayKindVlessReality }?.let { profile ->
-                result.add(FailoverCandidate.Relay(priority = 0, profileId = profile.id, relayKind = profile.kind))
-            }
-
-            relayProfiles.firstOrNull { it.kind == RelayKindHysteria2 }?.let { profile ->
-                result.add(FailoverCandidate.Relay(priority = 1, profileId = profile.id, relayKind = profile.kind))
-            }
+            relayProfiles
+                .filter { it.kind in supportedRelayKinds }
+                .sortedWith(
+                    compareBy(
+                        { relayKindPriority.getValue(it.kind) },
+                        { seededOccurrence(it.id, it.kind) },
+                        { it.id },
+                    ),
+                ).forEach { profile ->
+                    result.add(
+                        FailoverCandidate.Relay(
+                            priority = result.size,
+                            profileId = profile.id,
+                            relayKind = profile.kind,
+                        ),
+                    )
+                }
 
             // One-shot read: take the first emission from the profiles flow.
             val awgProfiles = awgProfileRepository.observeProfiles().first()
             awgProfiles.firstOrNull()?.let { savedProfile ->
-                result.add(FailoverCandidate.Awg(priority = 2, awgProfileId = savedProfile.id))
+                result.add(FailoverCandidate.Awg(priority = result.size, awgProfileId = savedProfile.id))
             }
 
             return result.sortedBy { it.priority }
+        }
+
+        private fun seededOccurrence(
+            profileId: String,
+            relayKind: String,
+        ): Int {
+            val simpleName = relaySeedSimpleNames[relayKind] ?: return Int.MAX_VALUE
+            val base = "$SEED_RELAY_PROFILE_ID_PREFIX$simpleName"
+            return when {
+                profileId == base -> {
+                    0
+                }
+
+                profileId.startsWith("$base-") -> {
+                    profileId.removePrefix("$base-").toIntOrNull()?.minus(1) ?: Int.MAX_VALUE
+                }
+
+                else -> {
+                    Int.MAX_VALUE
+                }
+            }
+        }
+
+        private companion object {
+            val relayKindPriority =
+                mapOf(
+                    RelayKindVlessReality to 0,
+                    RelayKindVless to 1,
+                    RelayKindHysteria2 to 2,
+                )
+            val supportedRelayKinds = relayKindPriority.keys
+            val relaySeedSimpleNames =
+                mapOf(
+                    RelayKindVlessReality to "VlessReality",
+                    RelayKindVless to "Vless",
+                    RelayKindHysteria2 to "Hysteria2",
+                )
         }
     }
 

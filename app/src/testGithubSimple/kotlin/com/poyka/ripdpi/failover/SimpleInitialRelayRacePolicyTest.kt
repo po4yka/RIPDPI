@@ -115,6 +115,27 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
+    fun `multiple reality endpoints race the first declared reality against hysteria`() =
+        runTest {
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { multiRealityBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+
+            val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
+
+            assertEquals(2, plan?.candidates?.size)
+            assertEquals(RealityProfileId, plan?.candidates?.first()?.profileId)
+            assertEquals(HysteriaProfileId, plan?.candidates?.last()?.profileId)
+        }
+
+    @Test
     fun `failover induced restart and malformed url disable the race`() =
         runTest {
             failoverBridge.skip = true
@@ -202,6 +223,36 @@ class SimpleInitialRelayRacePolicyTest {
             },
             { "type": "selector", "tag": "select", "outbounds": ["reality", "hysteria", "auto"] },
             { "type": "urltest", "tag": "auto", "outbounds": ["reality", "hysteria"], "url": "$probeUrl" }
+          ]
+        }
+        """.trimIndent()
+
+    private fun multiRealityBundle(): String =
+        """
+        {
+          "outbounds": [
+            {
+              "type": "vless", "tag": "reality", "server": "192.0.2.10", "server_port": 443,
+              "uuid": "00000000-0000-0000-0000-000000000001", "flow": "xtls-rprx-vision",
+              "tls": { "enabled": true, "server_name": "example.test",
+                "reality": { "enabled": true,
+                  "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "short_id": "deadbeef" } }
+            },
+            {
+              "type": "vless", "tag": "reality-fallback", "server": "192.0.2.10", "server_port": 2053,
+              "uuid": "00000000-0000-0000-0000-000000000001", "flow": "xtls-rprx-vision",
+              "tls": { "enabled": true, "server_name": "fallback.example.test",
+                "reality": { "enabled": true,
+                  "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "short_id": "deadbeef" } }
+            },
+            {
+              "type": "hysteria2", "tag": "hysteria", "server": "192.0.2.20", "server_port": 8443,
+              "password": "fixture-value", "obfs": { "type": "salamander", "password": "fixture-obfs-value" }
+            },
+            { "type": "selector", "tag": "select",
+              "outbounds": ["reality", "reality-fallback", "hysteria", "auto"] },
+            { "type": "urltest", "tag": "auto", "outbounds": ["reality", "reality-fallback", "hysteria"],
+              "url": "https://probe.example/generate_204" }
           ]
         }
         """.trimIndent()

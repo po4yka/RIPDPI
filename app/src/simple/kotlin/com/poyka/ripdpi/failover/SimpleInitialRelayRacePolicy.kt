@@ -96,15 +96,15 @@ internal class SimpleInitialRelayRacePolicy
 
             val membersByTag = imported.profiles.associateBy(ProxyProfile::displayName)
             val members = imported.memberOrder.mapNotNull(membersByTag::get)
-            val realityProfiles = members.filterIsInstance<ProxyProfile.VlessReality>()
-            val hysteriaProfiles = members.filterIsInstance<ProxyProfile.Hysteria2>()
-            if (realityProfiles.size != 1 || hysteriaProfiles.size != 1) {
+            // The active race deliberately compares two distinct transport classes. A
+            // bundle may still declare several endpoints inside one class (for example
+            // REALITY/443 plus REALITY/2053); race the first declared member of each class.
+            val reality = members.filterIsInstance<ProxyProfile.VlessReality>().firstOrNull()
+            val hysteria = members.filterIsInstance<ProxyProfile.Hysteria2>().firstOrNull()
+            if (reality == null || hysteria == null) {
                 publishDisabledSnapshot()
                 return null
             }
-
-            val reality = realityProfiles.single()
-            val hysteria = hysteriaProfiles.single()
             if (hysteria.obfsPassword.isNullOrBlank()) {
                 publishDisabledSnapshot()
                 return null

@@ -103,6 +103,43 @@ private val FAKE_BUNDLE =
     }
     """.trimIndent()
 
+private val MULTI_RELAY_BUNDLE =
+    """
+    {
+      "outbounds": [
+        {
+          "type": "vless", "tag": "reality-primary", "server": "192.0.2.10", "server_port": 443,
+          "uuid": "00000000-0000-0000-0000-000000000001", "flow": "xtls-rprx-vision",
+          "tls": { "enabled": true, "server_name": "primary.example.test",
+            "reality": { "enabled": true,
+              "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "short_id": "11112222" } }
+        },
+        {
+          "type": "vless", "tag": "reality-fallback", "server": "192.0.2.10", "server_port": 2053,
+          "uuid": "00000000-0000-0000-0000-000000000001", "flow": "xtls-rprx-vision",
+          "tls": { "enabled": true, "server_name": "fallback.example.test",
+            "reality": { "enabled": true,
+              "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "short_id": "11112222" } }
+        },
+        {
+          "type": "vless", "tag": "xhttp", "server": "192.0.2.20", "server_port": 443,
+          "uuid": "00000000-0000-0000-0000-000000000001",
+          "tls": { "enabled": true, "server_name": "xhttp.example.test" },
+          "transport": { "type": "xhttp", "path": "/fixture", "host": "xhttp.example.test" }
+        },
+        {
+          "type": "hysteria2", "tag": "hysteria", "server": "192.0.2.30", "server_port": 443,
+          "password": "fixture-value", "obfs": { "type": "salamander", "password": "fixture-obfs-value" }
+        },
+        { "type": "selector", "tag": "select",
+          "outbounds": ["reality-primary", "reality-fallback", "xhttp", "hysteria", "auto"] },
+        { "type": "urltest", "tag": "auto",
+          "outbounds": ["reality-primary", "reality-fallback", "xhttp", "hysteria"],
+          "url": "https://probe.example/generate_204" }
+      ]
+    }
+    """.trimIndent()
+
 @RunWith(RobolectricTestRunner::class)
 class ConfigSeederTest {
     private lateinit var application: Application
@@ -117,6 +154,11 @@ class ConfigSeederTest {
     @Before
     fun setUp() {
         application = RuntimeEnvironment.getApplication()
+        application
+            .getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         proxyGroupRepository = RecordingProxyGroupRepository()
         relayProfileStore = FakeRelayProfileStore()
         relaySettings = FakeAppSettingsRepository()
@@ -191,6 +233,26 @@ class ConfigSeederTest {
         }
 
     @Test
+    fun `all declared relay candidates survive and primary reality stays selected`() =
+        runTest {
+            makeSeeder(MULTI_RELAY_BUNDLE).seed()
+
+            val relayProfiles = relayProfileStore.list()
+            assertEquals(4, relayProfiles.size)
+            assertEquals(4, relayProfiles.map(RelayProfileRecord::id).toSet().size)
+            assertEquals(
+                listOf(443, 2053),
+                relayProfiles
+                    .filter { it.kind == RelayKindVlessReality }
+                    .map(RelayProfileRecord::serverPort)
+                    .sorted(),
+            )
+            val selected = relayProfileStore.load(relaySettings.snapshot().relayProfileId)
+            assertEquals(RelayKindVlessReality, selected?.kind)
+            assertEquals(443, selected?.serverPort)
+        }
+
+    @Test
     fun `second seed call is a complete no-op`() =
         runTest {
             val seeder = makeSeeder(FAKE_BUNDLE)
@@ -200,6 +262,29 @@ class ConfigSeederTest {
 
             assertEquals(1, proxyGroupRepository.addedGroups.size)
             assertEquals(1, awgDao.rows.value.size)
+        }
+
+    @Test
+    fun `legacy seeded flag reruns migration without duplicating AWG`() =
+        runTest {
+            val seeder = makeSeeder(FAKE_BUNDLE)
+            seeder.seed()
+            application
+                .getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .remove(SEED_KEY_VERSION)
+                .putBoolean(SEED_KEY_SEEDED, true)
+                .commit()
+
+            seeder.seed()
+
+            assertEquals(2, relayProfileStore.list().size)
+            assertEquals(1, awgDao.rows.value.size)
+            assertTrue(
+                application
+                    .getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
+                    .getInt(SEED_KEY_VERSION, 0) > 0,
+            )
         }
 
     @Test

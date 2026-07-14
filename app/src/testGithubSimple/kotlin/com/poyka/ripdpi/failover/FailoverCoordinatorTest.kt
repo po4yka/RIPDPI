@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -132,6 +133,8 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
     fun relayEnabled(): Boolean = settingsState.value.relayEnabled
 
     fun relayKind(): String = settingsState.value.relayKind
+
+    fun relayProfileId(): String = settingsState.value.relayProfileId
 
     fun simpleFailoverAwgProfileId(): String = settingsState.value.simpleFailoverAwgProfileId
 }
@@ -666,6 +669,56 @@ class FailoverCoordinatorTest {
                 "Expected AWG candidate after switch from Hysteria2, got $afterSwitch"
             }
             assertEquals("AWG profile id must match", "awg-resume", afterSwitch.awgProfileId)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun `duplicate reality and xhttp candidates resume and fail over by profile id`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            val fallbackId = "simple-seed-VlessReality-2"
+            val xhttpId = "simple-seed-Vless"
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(fallbackId)
+            }
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = settings,
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(id = "simple-seed-VlessReality", kind = RelayKindVlessReality),
+                            RelayProfileRecord(id = fallbackId, kind = RelayKindVlessReality),
+                            RelayProfileRecord(id = xhttpId, kind = RelayKindVless),
+                            RelayProfileRecord(id = "simple-seed-Hysteria2", kind = RelayKindHysteria2),
+                        ),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            val resumed = coordinator.activeCandidate.value
+            check(resumed is FailoverCandidate.Relay)
+            assertEquals(fallbackId, resumed.profileId)
+
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            assertEquals(1, controller.stopCalls.size)
+            val switched = coordinator.activeCandidate.value
+            check(switched is FailoverCandidate.Relay)
+            assertEquals(RelayKindVless, switched.relayKind)
+            assertEquals(xhttpId, switched.profileId)
+            assertEquals(xhttpId, settings.relayProfileId())
 
             coordinator.stopObserving()
         }

@@ -13,13 +13,16 @@ import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 internal const val SEED_PREFS_NAME = "simple_flavor_seed_state"
 internal const val SEED_KEY_SEEDED = "config_seeded"
+internal const val SEED_KEY_VERSION = "config_seed_version"
 internal const val SIMPLE_RELAY_BUNDLE_ASSET_NAME = "embedded-relay-bundle.json"
+private const val CURRENT_SEED_VERSION = 2
 
 /**
  * Stable group id for the seeded config. Deterministic (not a random UUID) so that if an
@@ -30,16 +33,21 @@ internal const val SIMPLE_RELAY_BUNDLE_ASSET_NAME = "embedded-relay-bundle.json"
 internal const val SIMPLE_SEED_GROUP_ID = "00000000-0000-4000-8000-simpleflavor1"
 
 /**
- * Prefix for the per-relay store id minted when seeding. Each seeded relay kind gets a
- * distinct stable id ("simple-seed-<Kind>") so several relay profiles coexist in
- * [RelayProfileStore] — the default single "default" slot would make each relay overwrite
- * the previous one, leaving only the last and silently dropping the others from the
- * failover candidate set.
+ * Prefix for the per-relay store id minted when seeding. The first profile of a kind keeps
+ * the legacy stable id ("simple-seed-<Kind>"); additional profiles of the same kind receive
+ * a 1-based occurrence suffix. This preserves upgrade compatibility while preventing two
+ * REALITY endpoints (for example 443 plus 2053) from overwriting each other.
  */
 internal const val SEED_RELAY_PROFILE_ID_PREFIX = "simple-seed-"
 
-internal fun seedRelayProfileId(profile: ProxyProfile): String =
-    "$SEED_RELAY_PROFILE_ID_PREFIX${profile::class.simpleName}"
+internal fun seedRelayProfileId(
+    profile: ProxyProfile,
+    kindOccurrence: Int = 0,
+): String {
+    require(kindOccurrence >= 0)
+    val base = "$SEED_RELAY_PROFILE_ID_PREFIX${profile::class.simpleName}"
+    return if (kindOccurrence == 0) base else "$base-${kindOccurrence + 1}"
+}
 
 /**
  * First-launch seeder for the `simple` product flavor.
@@ -68,7 +76,7 @@ open class ConfigSeeder
         }
 
         override suspend fun seed() {
-            if (prefs.getBoolean(SEED_KEY_SEEDED, false)) {
+            if (prefs.getInt(SEED_KEY_VERSION, 0) >= CURRENT_SEED_VERSION) {
                 Logger.i { "ConfigSeeder: already seeded, skipping" }
                 return
             }
@@ -96,20 +104,25 @@ open class ConfigSeeder
                         ),
                     )
 
-                    // Activate each relay under a DISTINCT, stable per-kind id so every
-                    // relay in the bundle survives in RelayProfileStore (a shared id would
-                    // overwrite — only the last would remain, dropping the rest from the
-                    // failover candidate set). VLESS+REALITY is activated LAST so it lands
-                    // as the initial active transport (failover priority 0).
+                    // Assign ids in declaration order before reversing activation. Reversing
+                    // makes the bundle's first concrete relay the final selected transport,
+                    // while every later candidate remains persisted for failover.
+                    val occurrencesByKind = mutableMapOf<String, Int>()
                     val orderedProfiles =
-                        result.profiles.sortedBy { if (it is ProxyProfile.VlessReality) 1 else 0 }
+                        result.profiles
+                            .map { profile ->
+                                val kind = requireNotNull(profile::class.simpleName)
+                                val occurrence = occurrencesByKind.getOrDefault(kind, 0)
+                                occurrencesByKind[kind] = occurrence + 1
+                                profile to seedRelayProfileId(profile, occurrence)
+                            }.asReversed()
                     var activatedCount = 0
                     var skippedCount = 0
-                    for (profile in orderedProfiles) {
+                    for ((profile, profileId) in orderedProfiles) {
                         val applied =
                             relayProfileActivator.activate(
                                 profile = profile,
-                                profileId = seedRelayProfileId(profile),
+                                profileId = profileId,
                                 tlsFingerprintOverride =
                                     TlsFingerprintProfileFirefoxStable.takeIf {
                                         profile is ProxyProfile.Hysteria2
@@ -128,15 +141,28 @@ open class ConfigSeeder
                         "ConfigSeeder: activated $activatedCount relay profile(s), skipped $skippedCount"
                     }
 
+                    val existingAwgByName =
+                        awgProfileRepository
+                            .observeProfiles()
+                            .first()
+                            .associateBy { it.name }
                     for (awgProfile in result.amneziaWgProfiles) {
                         val request = awgProfile.toActivationRequest()
-                        awgProfileRepository.save(awgProfile.displayName, request)
+                        awgProfileRepository.save(
+                            name = awgProfile.displayName,
+                            request = request,
+                            existingId = existingAwgByName[awgProfile.displayName]?.id,
+                        )
                     }
                     Logger.i {
                         "ConfigSeeder: saved ${result.amneziaWgProfiles.size} AWG profile(s)"
                     }
 
-                    prefs.edit().putBoolean(SEED_KEY_SEEDED, true).apply()
+                    prefs
+                        .edit()
+                        .putBoolean(SEED_KEY_SEEDED, true)
+                        .putInt(SEED_KEY_VERSION, CURRENT_SEED_VERSION)
+                        .apply()
                     Logger.i { "ConfigSeeder: seed complete" }
                 }
             }
