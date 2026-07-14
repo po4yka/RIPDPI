@@ -6,11 +6,21 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tokio_util::sync::CancellationToken;
 
-pub(super) const UDP_OUTBOUND_QUEUE_CAPACITY: usize = 64;
+use crate::session::udp::UdpMemoryBudget;
+
+pub(super) const UDP_OUTBOUND_QUEUE_CAPACITY: usize = 16;
 
 pub(super) struct OutboundDatagram {
     pub(super) dest: SocketAddr,
     pub(super) payload: Vec<u8>,
+    _queued_bytes: tokio::sync::OwnedSemaphorePermit,
+}
+
+impl OutboundDatagram {
+    pub(super) fn try_new(dest: SocketAddr, payload: &[u8], memory_budget: &UdpMemoryBudget) -> Option<Self> {
+        let queued_bytes = memory_budget.try_reserve_queued_bytes(payload.len())?;
+        Some(Self { dest, payload: payload.to_vec(), _queued_bytes: queued_bytes })
+    }
 }
 
 /// Returns milliseconds since the Unix epoch, or 0 on clock failure.

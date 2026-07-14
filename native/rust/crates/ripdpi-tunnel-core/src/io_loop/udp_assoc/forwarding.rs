@@ -10,6 +10,7 @@ use tracing::debug;
 use crate::Stats;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
+use crate::session::udp::UdpMemoryBudget;
 use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, UidFlowPolicy, Verdict};
 
 mod allocation;
@@ -37,6 +38,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
     dns_cache: &mut Option<DnsCache>,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    memory_budget: &UdpMemoryBudget,
     next_id: &mut u64,
     idle_timeout: Duration,
     protect_path: Option<&str>,
@@ -54,6 +56,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
     ensure_udp_association(
         associations,
         eviction_heap,
+        memory_budget,
         next_id,
         proxy_addr,
         auth,
@@ -77,7 +80,11 @@ pub(in crate::io_loop) fn forward_udp_payload(
     let outbound = association.outbound.clone();
 
     touch_udp_activity(&association.last_activity);
-    match outbound.try_send(OutboundDatagram { dest: resolved_dst, payload: payload.to_vec() }) {
+    let Some(datagram) = OutboundDatagram::try_new(resolved_dst, payload, memory_budget) else {
+        debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
+        return;
+    };
+    match outbound.try_send(datagram) {
         Ok(()) => {}
         Err(TrySendError::Full(_)) => debug!("UDP association queue full for {src}; dropping datagram"),
         Err(TrySendError::Closed(datagram)) => {
@@ -86,6 +93,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
             ensure_udp_association(
                 associations,
                 eviction_heap,
+                memory_budget,
                 next_id,
                 proxy_addr,
                 auth,

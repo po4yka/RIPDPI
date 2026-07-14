@@ -10,6 +10,7 @@ use tokio_util::sync::CancellationToken;
 use crate::Stats;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
+use crate::session::udp::UdpMemoryBudget;
 
 use super::super::association_state::UdpAssociation;
 use super::super::event_handling::UdpEvent;
@@ -21,6 +22,7 @@ use super::quic_sni::record_quic_sni_if_present;
 pub(super) fn ensure_udp_association(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    memory_budget: &UdpMemoryBudget,
     next_id: &mut u64,
     proxy_addr: SocketAddr,
     auth: &Auth,
@@ -45,6 +47,7 @@ pub(super) fn ensure_udp_association(
     }
     let association = alloc_association(
         next_id,
+        memory_budget,
         proxy_addr,
         auth.clone(),
         src,

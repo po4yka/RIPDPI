@@ -49,6 +49,7 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
                     &mut state.dns_cache,
                     &mut state.udp_associations,
                     &mut state.udp_eviction_heap,
+                    &state.udp_memory_budget,
                     &mut state.next_udp_association_id,
                     state.runtime.udp_idle_timeout,
                     state.runtime.protect_path.as_deref(),

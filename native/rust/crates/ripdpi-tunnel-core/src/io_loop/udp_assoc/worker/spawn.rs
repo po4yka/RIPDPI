@@ -5,6 +5,7 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
+use crate::session::udp::UdpMemoryBudget;
 use crate::session::{Auth, UdpSession};
 
 use super::super::super::packet::build_udp_response;
@@ -18,6 +19,7 @@ pub(super) struct UdpWorkerConfig {
     pub(super) src: SocketAddr,
     pub(super) association_id: u64,
     pub(super) idle_timeout: Duration,
+    pub(super) memory_budget: UdpMemoryBudget,
 }
 
 pub(super) fn spawn_udp_worker(
@@ -28,11 +30,19 @@ pub(super) fn spawn_udp_worker(
     udp_tx: tokio::sync::mpsc::Sender<UdpEvent>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let UdpWorkerConfig { proxy_addr, auth, protect_path, src, association_id, idle_timeout } = config;
+        let UdpWorkerConfig { proxy_addr, auth, protect_path, src, association_id, idle_timeout, memory_budget } =
+            config;
         // UdpSession::connect is intentionally allowed to finish: its SOCKS5
         // handshake is not cancel-safe. Keeping it in this worker prevents the
         // single TUN/smoltcp owner task from stalling during setup.
-        let mut session = match UdpSession::connect(proxy_addr, auth.clone(), protect_path.as_deref()).await {
+        let mut session = match UdpSession::connect_with_memory_budget(
+            proxy_addr,
+            auth.clone(),
+            protect_path.as_deref(),
+            memory_budget.clone(),
+        )
+        .await
+        {
             Ok(session) => session.with_recv_timeout(idle_timeout),
             Err(err) => {
                 debug!("UDP association {} for {} failed during setup: {}", association_id, src, err);
@@ -63,7 +73,14 @@ pub(super) fn spawn_udp_worker(
                         // Preserve the previous one-reconnect retry semantics,
                         // but keep the non-cancel-safe SOCKS5 setup isolated in
                         // this worker instead of blocking the TUN owner task.
-                        session = match UdpSession::connect(proxy_addr, auth.clone(), protect_path.as_deref()).await {
+                        session = match UdpSession::connect_with_memory_budget(
+                            proxy_addr,
+                            auth.clone(),
+                            protect_path.as_deref(),
+                            memory_budget.clone(),
+                        )
+                        .await
+                        {
                             Ok(retry) => retry.with_recv_timeout(idle_timeout),
                             Err(retry_err) => {
                                 debug!(

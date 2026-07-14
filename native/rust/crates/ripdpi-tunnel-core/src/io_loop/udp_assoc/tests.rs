@@ -12,6 +12,7 @@ use tokio_util::sync::CancellationToken;
 use crate::TunDevice;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
+use crate::session::udp::UdpMemoryBudget;
 
 use super::association_state::{
     OutboundDatagram, UdpAssociation, now_millis, touch_udp_activity, udp_association_is_idle,
@@ -108,6 +109,7 @@ async fn association_worker_sends_datagram_queued_during_setup() {
     let src = "10.0.0.2:53009".parse().expect("source address");
     let dest = "203.0.113.20:443".parse().expect("destination address");
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+    let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let association = spawn_udp_association(
         proxy_addr,
         Auth::NoAuth,
@@ -116,13 +118,14 @@ async fn association_worker_sends_datagram_queued_during_setup() {
         9,
         Duration::from_secs(1),
         None,
+        memory_budget.clone(),
         CancellationToken::new(),
         udp_tx,
     );
 
     association
         .outbound
-        .try_send(OutboundDatagram { dest, payload: b"queued-during-setup".to_vec() })
+        .try_send(OutboundDatagram::try_new(dest, b"queued-during-setup", &memory_budget).expect("reserve queue bytes"))
         .expect("queue datagram");
     let datagram = tokio::time::timeout(Duration::from_secs(1), datagram_rx)
         .await
@@ -148,6 +151,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
         7,
         Duration::from_secs(1),
         None,
+        UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
         udp_tx,
     );
@@ -183,6 +187,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
         10,
         Duration::from_secs(1),
         None,
+        UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
         udp_tx,
     );
@@ -218,6 +223,7 @@ async fn handle_udp_event_removes_closed_association() {
         20,
         Duration::from_secs(1),
         None,
+        UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
         udp_tx,
     );
@@ -245,6 +251,7 @@ async fn handle_udp_event_ignores_stale_close() {
         30,
         Duration::from_secs(1),
         None,
+        UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
         udp_tx,
     );
@@ -335,6 +342,7 @@ async fn shutdown_cancels_all_associations() {
         1,
         Duration::from_secs(1),
         None,
+        UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
         udp_tx.clone(),
     );
@@ -348,6 +356,7 @@ async fn shutdown_cancels_all_associations() {
         2,
         Duration::from_secs(1),
         None,
+        UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
         udp_tx,
     );

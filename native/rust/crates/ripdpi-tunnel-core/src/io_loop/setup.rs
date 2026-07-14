@@ -15,6 +15,7 @@ use ripdpi_tunnel_intercept::egress::{RawTunPacketInjector, TunEgressInterceptor
 use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, SynAckStrategy, TunIngressInterceptor};
 
 use crate::dns_cache::DnsCache;
+use crate::session::udp::UdpMemoryBudget;
 use crate::uid_policy::UidFlowPolicy;
 use crate::{ActiveSessions, Stats, TunDevice};
 
@@ -107,6 +108,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         udp_rx,
         udp_associations: HashMap::new(),
         udp_eviction_heap: BoundedHeap::new(DEFAULT_MAX_UDP_ASSOCIATIONS),
+        udp_memory_budget: UdpMemoryBudget::for_tunnel_mtu(mtu),
         next_udp_association_id: 1,
         dns_req_tx,
         dns_resp_rx,

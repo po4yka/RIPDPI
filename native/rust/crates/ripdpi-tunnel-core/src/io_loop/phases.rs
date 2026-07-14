@@ -298,6 +298,7 @@ mod tests {
             udp_rx,
             udp_associations: HashMap::new(),
             udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(DEFAULT_MAX_UDP_ASSOCIATIONS),
+            udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,
             dns_req_tx: None,
             dns_resp_rx: None,

@@ -6,6 +6,7 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use crate::session::Auth;
+use crate::session::udp::UdpMemoryBudget;
 
 mod spawn;
 
@@ -31,6 +32,7 @@ pub(super) fn spawn_udp_association(
     association_id: u64,
     idle_timeout: Duration,
     protect_path: Option<&str>,
+    memory_budget: UdpMemoryBudget,
     cancel: CancellationToken,
     udp_tx: tokio::sync::mpsc::Sender<UdpEvent>,
 ) -> UdpAssociation {
@@ -44,6 +46,7 @@ pub(super) fn spawn_udp_association(
             src,
             association_id,
             idle_timeout,
+            memory_budget,
         },
         outbound_rx,
         Arc::clone(&last_activity),

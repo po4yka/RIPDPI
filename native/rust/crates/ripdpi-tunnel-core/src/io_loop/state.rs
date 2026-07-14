@@ -9,6 +9,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 
 use crate::dns_cache::DnsCache;
+use crate::session::udp::UdpMemoryBudget;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{DnsRequest, DnsResponse};
@@ -35,6 +36,7 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) udp_rx: Receiver<UdpEvent>,
     pub(in crate::io_loop) udp_associations: HashMap<SocketAddr, UdpAssociation>,
     pub(in crate::io_loop) udp_eviction_heap: BoundedHeap<UdpEvictionEntry>,
+    pub(in crate::io_loop) udp_memory_budget: UdpMemoryBudget,
     pub(in crate::io_loop) next_udp_association_id: u64,
     pub(in crate::io_loop) dns_req_tx: Option<Sender<DnsRequest>>,
     pub(in crate::io_loop) dns_resp_rx: Option<Receiver<DnsResponse>>,
