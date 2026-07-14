@@ -81,6 +81,24 @@ async fn settings_synack_tcp_echo_and_multiplexing_share_one_tls_session() {
 }
 
 #[tokio::test]
+async fn dropping_open_stream_sends_fin_and_releases_route() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+    let stream =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open stream");
+
+    drop(stream);
+
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while fixture.observed().fin_stream_ids != vec![1] {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("dropping a stream must send FIN");
+}
+
+#[tokio::test]
 async fn concurrent_opens_share_one_in_flight_tls_session() {
     let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
     let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
