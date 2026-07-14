@@ -29,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,7 +127,7 @@ fun ModeEditorRoute(
     val context = LocalContext.current
     var pendingMasqueImportAction by remember { mutableStateOf<MasqueImportAction?>(null) }
     var pendingPkcs12Uri by remember { mutableStateOf<Uri?>(null) }
-    var pkcs12Password by rememberSaveable { mutableStateOf("") }
+    var pkcs12Password by remember { mutableStateOf("") }
     val handleBack = {
         viewModel.cancelEditing()
         onBack()
