@@ -6164,7 +6164,6 @@ dependencies = [
 name = "ripdpi-quality"
 version = "0.1.0"
 dependencies = [
- "arc-swap",
  "hdrhistogram",
  "proptest",
  "serde",

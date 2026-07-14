@@ -9,7 +9,6 @@ workspace = true
 
 [dependencies]
 hdrhistogram = { workspace = true }
-arc-swap = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
