@@ -265,7 +265,7 @@ dependencies = [
  "libc",
  "once_cell",
  "postage",
- "rand 0.10.1",
+ "rand 0.10.2",
  "safelog",
  "serde",
  "tempfile",
@@ -801,9 +801,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.66"
+version = "1.2.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5d6cac793997bd970000024b2934968efe83b382de4fdcf4fcb46b6ee4ad996"
+checksum = "e17dd265a7d0f31ef544e1b20e03add05d3b45b491b633b10d67145d2acc1a38"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -2404,9 +2404,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "1.4.3"
+version = "1.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e55f16dcf0e9c00efbe2e655ffe45fc98e7066b52bc92f8a79e64060a79351"
+checksum = "ab4e5aa225bc56696909483320f0ff9b600f1a971b52e07a17d70f3d9b43254b"
 dependencies = [
  "generic-array 0.14.7",
  "rustversion",
@@ -2721,7 +2721,7 @@ dependencies = [
  "idna",
  "ipnet",
  "jni",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rustls",
  "thiserror 2.0.18",
  "tinyvec",
@@ -2744,7 +2744,7 @@ dependencies = [
  "jni",
  "once_cell",
  "prefix-trie",
- "rand 0.10.1",
+ "rand 0.10.2",
  "ring",
  "thiserror 2.0.18",
  "tinyvec",
@@ -2766,7 +2766,7 @@ dependencies = [
  "moka",
  "once_cell",
  "parking_lot",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rustls",
  "smallvec",
  "thiserror 2.0.18",
@@ -3220,7 +3220,7 @@ checksum = "ae8e22120c32fb4d19ec55fba35015f57095cd95a2e3b732e44457f5915b2ee8"
 dependencies = [
  "num-integer",
  "num-traits",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_core 0.10.1",
 ]
 
@@ -4299,7 +4299,7 @@ dependencies = [
  "delegate",
  "futures",
  "log",
- "rand 0.10.1",
+ "rand 0.10.2",
  "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
@@ -4947,9 +4947,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
+checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
  "chacha20 0.10.0",
  "getrandom 0.4.3",
@@ -5547,7 +5547,7 @@ dependencies = [
  "aes 0.9.1",
  "golden-test-support",
  "linkme",
- "rand 0.10.1",
+ "rand 0.10.2",
  "ring",
  "ripdpi-config",
  "ripdpi-ipfrag",
@@ -5839,7 +5839,7 @@ dependencies = [
  "http",
  "local-network-fixture",
  "quinn",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rcgen",
  "ripdpi-native-protect",
  "ripdpi-protocol-loopback",
@@ -5993,7 +5993,7 @@ dependencies = [
  "hyper-util",
  "local-network-fixture",
  "pico-args",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rcgen",
  "ripdpi-packets",
  "ripdpi-subprocess-protect",
@@ -6220,7 +6220,7 @@ name = "ripdpi-relay-mux"
 version = "0.1.0"
 dependencies = [
  "golden-test-support",
- "rand 0.10.1",
+ "rand 0.10.2",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -6229,7 +6229,7 @@ dependencies = [
 name = "ripdpi-relay-tls-transports"
 version = "0.1.0"
 dependencies = [
- "rand 0.10.1",
+ "rand 0.10.2",
  "ripdpi-anytls",
  "ripdpi-mieru",
  "ripdpi-native-protect",
@@ -6414,7 +6414,7 @@ dependencies = [
  "hex",
  "hkdf 0.13.0",
  "md5",
- "rand 0.10.1",
+ "rand 0.10.2",
  "sha1 0.11.0",
  "thiserror 2.0.18",
  "tokio",
@@ -6425,7 +6425,7 @@ dependencies = [
 name = "ripdpi-shadowtls"
 version = "0.1.0"
 dependencies = [
- "rand 0.10.1",
+ "rand 0.10.2",
  "rcgen",
  "ring",
  "ripdpi-native-protect",
@@ -6440,7 +6440,7 @@ name = "ripdpi-shared-priors"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "rand 0.10.1",
+ "rand 0.10.2",
  "ring",
  "serde",
  "serde_json",
@@ -6920,7 +6920,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
- "rand 0.10.1",
+ "rand 0.10.2",
  "ripdpi-tls-profiles",
  "ripdpi-vless",
  "sha2 0.11.0",
@@ -7037,7 +7037,7 @@ dependencies = [
  "enum_dispatch",
  "flate2",
  "futures",
- "generic-array 1.4.3",
+ "generic-array 1.4.4",
  "getrandom 0.4.3",
  "ghash 0.6.0",
  "hex-literal",
@@ -7059,7 +7059,7 @@ dependencies = [
  "pkcs5",
  "pkcs8 0.11.0",
  "polyval 0.7.1",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_core 0.10.1",
  "rsa 0.10.0-rc.18",
  "russh-cryptovec",
@@ -8050,7 +8050,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.52.0",
@@ -8422,7 +8422,7 @@ dependencies = [
  "itertools 0.14.0",
  "libc",
  "paste",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_chacha 0.10.0",
  "serde",
  "slab",
@@ -8466,7 +8466,7 @@ dependencies = [
  "educe",
  "itertools 0.14.0",
  "paste",
- "rand 0.10.1",
+ "rand 0.10.2",
  "smallvec",
  "thiserror 2.0.18",
  "tor-basic-utils",
@@ -8519,7 +8519,7 @@ dependencies = [
  "oneshot-fused-workaround",
  "percent-encoding",
  "postage",
- "rand 0.10.1",
+ "rand 0.10.2",
  "safelog",
  "serde",
  "serde_with",
@@ -8578,7 +8578,7 @@ dependencies = [
  "once_cell",
  "oneshot-fused-workaround",
  "pin-project",
- "rand 0.10.1",
+ "rand 0.10.2",
  "retry-error",
  "safelog",
  "serde",
@@ -8746,7 +8746,7 @@ dependencies = [
  "oneshot-fused-workaround",
  "paste",
  "postage",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rusqlite",
  "safelog",
  "scopeguard",
@@ -8829,7 +8829,7 @@ dependencies = [
  "oneshot-fused-workaround",
  "pin-project",
  "postage",
- "rand 0.10.1",
+ "rand 0.10.2",
  "safelog",
  "serde",
  "strum",
@@ -8868,7 +8868,7 @@ dependencies = [
  "itertools 0.14.0",
  "oneshot-fused-workaround",
  "postage",
- "rand 0.10.1",
+ "rand 0.10.2",
  "retry-error",
  "safelog",
  "slotmap-careful",
@@ -8912,7 +8912,7 @@ dependencies = [
  "humantime",
  "itertools 0.14.0",
  "paste",
- "rand 0.10.1",
+ "rand 0.10.2",
  "safelog",
  "serde",
  "signature 2.2.0",
@@ -8939,7 +8939,7 @@ dependencies = [
  "derive_more",
  "downcast-rs",
  "paste",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rsa 0.9.10",
  "signature 2.2.0",
  "ssh-key-fork-arti",
@@ -8970,7 +8970,7 @@ dependencies = [
  "humantime",
  "inventory",
  "itertools 0.14.0",
- "rand 0.10.1",
+ "rand 0.10.2",
  "safelog",
  "serde",
  "signature 2.2.0",
@@ -9039,7 +9039,7 @@ dependencies = [
  "getrandom 0.3.4",
  "getrandom 0.4.3",
  "hex",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_chacha 0.10.0",
  "rand_core 0.10.1",
  "rand_core 0.6.4",
@@ -9136,7 +9136,7 @@ dependencies = [
  "humantime",
  "itertools 0.14.0",
  "num_enum",
- "rand 0.10.1",
+ "rand 0.10.2",
  "serde",
  "strum",
  "thiserror 2.0.18",
@@ -9177,7 +9177,7 @@ dependencies = [
  "memchr",
  "paste",
  "phf 0.13.1",
- "rand 0.10.1",
+ "rand 0.10.2",
  "saturating-time",
  "serde",
  "serde_with",
@@ -9262,7 +9262,7 @@ dependencies = [
  "oneshot-fused-workaround",
  "pin-project",
  "postage",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_core 0.10.1",
  "safelog",
  "slotmap-careful",
@@ -9348,7 +9348,7 @@ version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09778e3a45fdf49ca335fa16a0032abc5d4e1cacff9f46c3ed3e2a416d088aa6"
 dependencies = [
- "rand 0.10.1",
+ "rand 0.10.2",
  "serde",
  "tor-basic-utils",
  "tor-linkspec",
@@ -10528,18 +10528,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.52"
+version = "0.8.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce1022995ff5ff5d841ad7d994facc23098cd40152f2c1d11cd607c6f530653f"
+checksum = "b7cbbc0a705a0fd05cc3676525980d2bf5a9bc4adac6d6475209a7887cf59d19"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.52"
+version = "0.8.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ae7f38b72ec2a254e2b87ef277cf2cd4fb97cbebf944faa6f33354da0867930"
+checksum = "e2e817b7b52d0c7358d3246da9d69935ebb18116b2b102b4230dac079b4862f5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10621,6 +10621,6 @@ dependencies = [
 
 [[package]]
 name = "zmij"
-version = "1.0.21"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
+checksum = "bd2f034a4bebf216c9e4b7083603e024cf930873fd67830cfb083c9fa33129d9"
