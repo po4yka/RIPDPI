@@ -32,6 +32,7 @@ class ProfileImportConfirmScreenshotTest {
             "importedState",
             ProfileImportConfirmUiState(
                 profile = sampleShadowsocksProfile,
+                importing = true,
             ),
         )
     }
