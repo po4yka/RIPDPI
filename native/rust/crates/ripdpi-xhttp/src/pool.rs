@@ -1,9 +1,10 @@
 use std::io;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex as StdMutex};
 
 use hyper::client::conn::http2;
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
+use tokio::task::JoinHandle;
 
 use crate::client::XhttpClientInner;
 use crate::connect;
@@ -13,6 +14,15 @@ pub(crate) struct PooledConnection {
     pub(crate) sender: Mutex<http2::SendRequest<XhttpBody>>,
     permits: Arc<Semaphore>,
     closed: AtomicBool,
+    driver: StdMutex<Option<AbortOnDrop>>,
+}
+
+struct AbortOnDrop(JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
 }
 
 #[derive(Default)]
@@ -44,7 +54,14 @@ impl PooledConnection {
             sender: Mutex::new(sender),
             permits: Arc::new(Semaphore::new(max_concurrent_streams)),
             closed: AtomicBool::new(false),
+            driver: StdMutex::new(None),
         }
+    }
+
+    pub(crate) fn attach_driver(&self, driver: JoinHandle<()>) {
+        let mut guard = self.driver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        debug_assert!(guard.is_none(), "xHTTP connection driver attached twice");
+        *guard = Some(AbortOnDrop(driver));
     }
 
     pub(crate) fn mark_closed(&self) {
@@ -150,7 +167,7 @@ mod tests {
     use hyper::Request;
     use hyper::service::service_fn;
     use hyper_util::rt::{TokioExecutor, TokioIo};
-    use tokio::sync::{Notify, mpsc};
+    use tokio::sync::{Notify, mpsc, oneshot};
 
     use crate::h2_body::XhttpBody;
 
@@ -172,6 +189,41 @@ mod tests {
         task.abort();
         let _ = task.await;
         assert_eq!(0, creating_connections.load(Ordering::Acquire));
+    }
+
+    struct DropNotice(Option<oneshot::Sender<()>>);
+
+    impl Drop for DropNotice {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn dropping_pooled_connection_aborts_attached_driver() {
+        let (client_io, _server_io) = tokio::io::duplex(4096);
+        let (sender, _connection) =
+            hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
+                .await
+                .expect("client h2 handshake");
+        let pooled = Arc::new(PooledConnection::new(sender, 1));
+        let (started_tx, started_rx) = oneshot::channel();
+        let (dropped_tx, dropped_rx) = oneshot::channel();
+        pooled.attach_driver(tokio::spawn(async move {
+            let _notice = DropNotice(Some(dropped_tx));
+            let _ = started_tx.send(());
+            std::future::pending::<()>().await;
+        }));
+        started_rx.await.expect("driver started");
+
+        drop(pooled);
+
+        tokio::time::timeout(Duration::from_secs(1), dropped_rx)
+            .await
+            .expect("pooled connection drop must abort driver")
+            .expect("driver drop notification");
     }
 
     #[tokio::test]

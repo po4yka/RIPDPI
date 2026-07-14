@@ -84,13 +84,16 @@ pub(crate) async fn create_connection(
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;
 
     let pooled = Arc::new(PooledConnection::new(sender, max_concurrent_streams));
-    let pooled_for_task = pooled.clone();
-    tokio::spawn(async move {
+    let pooled_for_task = Arc::downgrade(&pooled);
+    let driver = tokio::spawn(async move {
         if let Err(error) = connection.await {
             tracing::debug!(error = %error, "xHTTP H2 connection closed");
         }
-        pooled_for_task.mark_closed();
+        if let Some(pooled) = pooled_for_task.upgrade() {
+            pooled.mark_closed();
+        }
     });
+    pooled.attach_driver(driver);
     Ok(pooled)
 }
 
