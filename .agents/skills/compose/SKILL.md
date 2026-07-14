@@ -103,7 +103,7 @@ Two-layer approach:
 
 Invoke when the user asks to audit the Jetpack Compose codebase, review Compose architecture or quality, rate the codebase with scores, or establish a pre-release quality baseline.
 
-**Rubric version:** v1 — current as of 2026-04-13. Compose track: Kotlin 2.3.20 / Compose BOM 2026.03.01 (Strong Skipping Mode default).
+**Rubric version:** v1. Read the active Kotlin and Compose BOM versions from `gradle/libs.versions.toml`; never reuse versions embedded in an older audit. Determine Strong Skipping behavior from that active Kotlin version and the project compiler configuration.
 
 Four scored categories: Performance, State Management, Side Effects, Composable API Quality.
 
@@ -111,9 +111,7 @@ Four scored categories: Performance, State Management, Side Effects, Composable 
 
 ### Expected Output
 
-Produce both:
-- a repository report file named **COMPOSE-AUDIT-REPORT.md**
-- a short chat summary with the overall score, category scores, worst issues, and top fixes
+Always return a short chat summary with the overall score, category scores, worst issues, and top fixes. Write a repository report only when the user explicitly requests a persistent artifact; use the path they name, or default to the ignored `build/reports/compose/compose-audit-<YYYY-MM-DD>.md`.
 
 ### Audit Principles
 
@@ -127,9 +125,9 @@ Produce both:
 
 Before starting the audit:
 
-1. **Read `.github/skills/compose-performance/SKILL.md`** to absorb the known quick-wins list, existing `TrackRecomposition` instrumentation, and annotation conventions. Issues already tracked there should appear in "Known Open Items", not as new findings, unless they remain unfixed.
+1. **Read `.agents/skills/compose-performance/SKILL.md`** to absorb the known quick-wins list, existing `TrackRecomposition` instrumentation, and annotation conventions. Issues already tracked there should appear in "Known Open Items", not as new findings, unless they remain unfixed.
 
-2. **Compiler reports**: use `./gradlew :app:assembleRelease -Pripdpi.composeReports=true` (NOT the init.gradle script). Output lands at `app/build/compose-reports/` and `app/build/compose-metrics/`. The convention plugin `ripdpi.android.compose.gradle.kts` handles this.
+2. **Compiler reports**: use `./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true` (NOT the init.gradle script). This non-signing compile task writes `app/build/compose-reports/` and `app/build/compose-metrics/` through `ripdpi.android.compose.gradle.kts`.
 
 3. **Module scope**: `:app` is the only Compose module. Do not search `:core:data`, `:core:diagnostics`, `:core:engine`, `:core:service`, or `:core:detection` for `@Composable` definitions.
 
@@ -159,7 +157,8 @@ If subagents are available, parallelize category scans and merge findings.
 
 **Primary path:**
 ```bash
-cd /Users/po4yka/GitRep/RIPDPI && ./gradlew :app:assembleRelease -Pripdpi.composeReports=true --no-daemon
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT" && ./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true --no-daemon
 ```
 Use a 600-second timeout.
 
@@ -173,8 +172,8 @@ Extract: unstable classes, non-skippable named composables, module-wide skippabi
 
 **Fallback if convention plugin fails:**
 ```bash
-./gradlew :app:assembleRelease \
-    --init-script .claude/skills/compose/scripts/compose-reports.init.gradle \
+./gradlew :app:compileGithubFullDebugKotlin \
+    --init-script .agents/skills/compose/scripts/compose-reports.init.gradle \
     --no-daemon --quiet
 ```
 Output goes to `app/build/compose_audit/`.
@@ -219,15 +218,15 @@ Performance ceiling check:
 
 ### Step 8: Write The Report
 
-Use `references/report-template.md`. The report must include: overall score, category score table, top critical findings, category-by-category reasoning, evidence file paths, prioritized remediation list, **Known Open Items** cross-referencing the quick-wins checklist from `.github/skills/compose-performance/SKILL.md`, and an optional note to run `material-3` if design issues are suspected.
+Use `references/report-template.md`. The report must include: overall score, category score table, top critical findings, category-by-category reasoning, evidence file paths, prioritized remediation list, **Known Open Items** cross-referencing the quick-wins checklist from `.agents/skills/compose-performance/SKILL.md`, and an optional note to run `material-3` if design issues are suspected.
 
-Write to **COMPOSE-AUDIT-REPORT.md** at the project root. If it already exists, confirm overwrite or write to `COMPOSE-AUDIT-REPORT-<YYYY-MM-DD>.md`.
+Only write the report when the user requested persistence. Use their explicit destination, or create `build/reports/compose/compose-audit-<YYYY-MM-DD>.md`; do not add a root-level report by default.
 
 ### Step 9: Return A Short Summary
 
 Include: overall score (and delta vs. prior reports), one-line judgment per category with applied ceiling, compiler-report highlights (Strong Skipping on/off, `skippable%`, unstable shared types), **top three actionable fixes** (concrete change, file path + line numbers, official doc URL, expected impact), and whether a `material-3` audit is worth running next.
 
-The top-three fixes in the chat summary MUST be the same items as the report's `Prioritized Fixes` list.
+When a persistent report was requested, the top-three fixes in chat MUST be the same items as the report's `Prioritized Fixes` list.
 
 ### What To Avoid
 
@@ -242,7 +241,7 @@ The top-three fixes in the chat summary MUST be the same items as the report's `
 
 - `references/scoring.md` — per-rule rubric with inline citations
 - `references/search-playbook.md` — search patterns and red-flag heuristics
-- `references/report-template.md` — required structure for **COMPOSE-AUDIT-REPORT.md**
+- `references/report-template.md` — required structure when a persistent report is requested
 - `references/canonical-sources.md` — the official URLs every deduction must cite
 - `references/diagnostics.md` — Gradle/code snippets for compiler reports, stability config, baseline profiles, R8 checks
-- `.claude/skills/compose/scripts/compose-reports.init.gradle` — Gradle init script fallback
+- `.agents/skills/compose/scripts/compose-reports.init.gradle` — Gradle init script fallback

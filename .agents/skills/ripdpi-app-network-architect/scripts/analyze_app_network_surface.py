@@ -16,9 +16,11 @@ from pathlib import Path
 from typing import Iterable, List, Sequence
 
 DEFAULT_EXCLUDES = {
-    ".git", ".gradle", ".idea", ".kotlin", "build", "dist", "out",
-    "node_modules", "coverage", ".tmp", "tmp", "target", ".venv", "venv",
+    ".agents", ".claude", ".codex", ".git", ".github", ".gradle", ".idea",
+    ".kotlin", "build", "dist", "out", "node_modules", "coverage", ".tmp",
+    "tmp", "target", ".venv", "venv",
 }
+DEFAULT_EXCLUDED_FILES = {"AGENTS.md", "CLAUDE.md"}
 SOURCE_EXTS = {
     ".kt", ".kts", ".java", ".rs", ".toml", ".proto", ".json", ".yaml", ".yml",
     ".md", ".xml", ".sh", ".py",
@@ -104,12 +106,16 @@ KEY_FILE_HINTS = [
 ]
 
 
-def iter_files(root: Path, excludes: set[str]) -> Iterable[Path]:
+def iter_files(
+    root: Path,
+    excludes: set[str],
+    excluded_files: set[str] = DEFAULT_EXCLUDED_FILES,
+) -> Iterable[Path]:
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in excludes]
         for filename in filenames:
             path = Path(dirpath) / filename
-            if path.suffix in SOURCE_EXTS:
+            if filename not in excluded_files and path.suffix in SOURCE_EXTS:
                 yield path
 
 

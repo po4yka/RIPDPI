@@ -66,3 +66,5 @@ jobs:
         run: bash scripts/ci/check-rules-drift.sh
       - name: Test committed agent hooks
         run: python3 scripts/tests/test_agent_hooks.py
+      - name: Test harness-owned scanners
+        run: python3 -m unittest scripts.tests.test_network_surface_scanner

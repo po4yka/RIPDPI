@@ -1,6 +1,6 @@
 # Report Template
 
-Write the audit report to `COMPOSE-AUDIT-REPORT.md` using this structure.
+When the user requests a persistent audit artifact, write it to their chosen path or `build/reports/compose/compose-audit-<YYYY-MM-DD>.md` using this structure.
 
 **Citation rule:** every finding (Critical Findings *and* per-category Evidence bullets) must include a `References:` line with at least one URL pointing to the official documentation rule the code violates. Use the URLs in `references/canonical-sources.md` and `references/scoring.md`. A finding without a citation should not appear in the report — that's the credibility lever this audit relies on.
 
@@ -13,7 +13,7 @@ Scope: [modules or directories audited]
 Excluded from scoring: [paths or globs treated as samples / tests / previews]
 Confidence: [High | Medium | Low]
 Overall Score: [X/100]
-Design system: RipDpiThemeTokens (custom wrapper over MaterialTheme) -- see `.claude/skills/material-3/` for design scoring
+Design system: RipDpiThemeTokens (custom wrapper over MaterialTheme) -- see `.agents/skills/material-3/` for design scoring
 
 ## Scorecard
 
@@ -116,7 +116,7 @@ Example format:
 
 ## Known Open Items
 
-Cross-reference against `.github/skills/compose-performance/SKILL.md` quick-wins checklist.
+Cross-reference against `.agents/skills/compose-performance/SKILL.md` quick-wins checklist.
 Items listed here are tracked debt, not new findings:
 
 - [item from compose-performance quick-wins, if still open]

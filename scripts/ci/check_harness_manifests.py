@@ -209,6 +209,45 @@ def validate_specialist_ground_truth() -> None:
                     )
 
 
+def validate_skill_portability() -> None:
+    compose_root = CANONICAL_SKILLS / "compose"
+    compose_paths = (
+        compose_root / "SKILL.md",
+        compose_root / "references" / "diagnostics.md",
+        compose_root / "references" / "performance.md",
+        compose_root / "references" / "report-template.md",
+    )
+    compose_content = "\n".join(path.read_text(encoding="utf-8") for path in compose_paths)
+    for forbidden in (
+        "/Users/po4yka",
+        "assembleRelease",
+        "COMPOSE-AUDIT-REPORT",
+        ".claude/skills/compose",
+    ):
+        if forbidden in compose_content:
+            raise ValueError(f".agents/skills/compose: non-portable contract {forbidden!r}")
+    for required in (
+        "git rev-parse --show-toplevel",
+        ":app:compileGithubFullDebugKotlin",
+        "build/reports/compose/compose-audit-<YYYY-MM-DD>.md",
+    ):
+        if required not in compose_content:
+            raise ValueError(f".agents/skills/compose: missing portable contract {required!r}")
+
+    scanner_path = (
+        CANONICAL_SKILLS
+        / "ripdpi-app-network-architect"
+        / "scripts"
+        / "analyze_app_network_surface.py"
+    )
+    scanner_content = scanner_path.read_text(encoding="utf-8")
+    for excluded in (".agents", ".claude", ".codex", ".github", "AGENTS.md", "CLAUDE.md"):
+        if f'"{excluded}"' not in scanner_content:
+            raise ValueError(
+                f"{scanner_path.relative_to(REPO_ROOT)}: missing harness exclusion {excluded!r}"
+            )
+
+
 def main() -> int:
     try:
         names = skill_names()
@@ -220,6 +259,7 @@ def main() -> int:
         validate_instruction_entrypoints()
         validate_worktree_integration_contract()
         validate_specialist_ground_truth()
+        validate_skill_portability()
     except (OSError, ValueError, tomllib.TOMLDecodeError, yaml.YAMLError) as exc:
         print(f"HARNESS MANIFEST ERROR: {exc}", file=sys.stderr)
         return 1

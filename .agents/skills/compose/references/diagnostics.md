@@ -13,13 +13,14 @@ The single highest-leverage diagnostic. Generates per-composable skippability an
 The `ripdpi.android.compose` convention plugin enables Compose Compiler reports when the Gradle property is set. No edits to `build.gradle.kts` are required:
 
 ```bash
-cd /Users/po4yka/GitRep/RIPDPI && ./gradlew :app:assembleRelease -Pripdpi.composeReports=true --no-daemon
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT" && ./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true --no-daemon
 ```
 
 Alternatively, the convention plugin also enables reports when `CI=true`:
 
 ```bash
-CI=true ./gradlew :app:assembleRelease --no-daemon
+CI=true ./gradlew :app:compileGithubFullDebugKotlin --no-daemon
 ```
 
 Output lands at:
@@ -31,8 +32,8 @@ Output lands at:
 If the convention plugin is unavailable or fails, use the bundled Gradle init script that injects `reportsDestination` / `metricsDestination` into every Compose module without modifying any file in the target repo:
 
 ```bash
-./gradlew :app:assembleRelease \
-    --init-script .claude/skills/compose/scripts/compose-reports.init.gradle \
+./gradlew :app:compileGithubFullDebugKotlin \
+    --init-script .agents/skills/compose/scripts/compose-reports.init.gradle \
     --no-daemon --quiet
 ```
 
@@ -53,7 +54,7 @@ composeCompiler {
 
 ### Reading the output
 
-Run a release-variant build, then inspect:
+Run the selected compile task, then inspect:
 
 - `*-classes.txt` -- stability inference per class (`stable` / `unstable` / `runtime`)
 - `*-composables.txt` -- per-composable `skippable` / `restartable` / `readonly` flags
@@ -112,7 +113,7 @@ If the release block has `isMinifyEnabled = false`, that's a release-hygiene ded
 
 ## 5. Strong Skipping Mode Confirmation
 
-Strong Skipping is on by default at Kotlin 2.0.20+. RIPDPI uses Kotlin 2.3.20, so Strong Skipping is active by default.
+Strong Skipping is on by default at Kotlin 2.0.20+. Read the current Kotlin version from `gradle/libs.versions.toml` before deciding whether that default applies.
 
 **Reference:** <https://developer.android.com/develop/ui/compose/performance/stability/strongskipping>
 
@@ -125,7 +126,7 @@ When arriving at the RIPDPI repo, run these in order before scoring:
 1. `rg -n 'androidx\.compose' -g '*.gradle*' -g '*.toml'` -- confirm Compose presence (fast-fail).
 2. `rg -n 'kotlin\s*=\s*"' -g '*.toml'` -- record Kotlin version (Strong Skipping baseline).
 3. `rg -n 'isMinifyEnabled' -g '*.gradle*'` -- release hygiene.
-4. Run the convention plugin build: `./gradlew :app:assembleRelease -Pripdpi.composeReports=true --no-daemon`
+4. Run the convention plugin build: `./gradlew :app:compileGithubFullDebugKotlin -Pripdpi.composeReports=true --no-daemon`
 5. `rg -l 'baselineProfile|ProfileInstaller' -g '*.gradle*' -g '*.kt'` -- baseline-profile presence.
 
 These five checks tell you what kind of evidence is available before any rubric-level reading.
