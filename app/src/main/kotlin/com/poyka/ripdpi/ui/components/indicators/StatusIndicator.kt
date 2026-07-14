@@ -7,20 +7,15 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -41,7 +36,6 @@ enum class StatusIndicatorTone {
     Error,
 }
 
-@Suppress("LongMethod")
 @Composable
 fun StatusIndicator(
     label: String,
@@ -58,18 +52,19 @@ fun StatusIndicator(
             StatusIndicatorTone.Warning -> colors.warning
             StatusIndicatorTone.Error -> colors.destructive
         }
-    val animatedIndicatorColor by animateColorAsState(
-        targetValue = indicatorColor,
-        animationSpec = motion.stateTween(),
-        label = "statusIndicatorColor",
-    )
+    val animatedIndicatorColor =
+        animateColorAsState(
+            targetValue = indicatorColor,
+            animationSpec = motion.stateTween(),
+            label = "statusIndicatorColor",
+        )
     val pulseTransition =
         if (!staticMotion && tone != StatusIndicatorTone.Idle && tone != StatusIndicatorTone.Error) {
             rememberInfiniteTransition(label = "statusPulse")
         } else {
             null
         }
-    val pulseScale by (
+    val pulseScale =
         pulseTransition?.animateFloat(
             initialValue = 1f,
             targetValue = 1.8f,
@@ -84,8 +79,7 @@ fun StatusIndicator(
                 ),
             label = "statusPulseScale",
         ) ?: rememberUpdatedState(1f)
-    )
-    val pulseAlpha by (
+    val pulseAlpha =
         pulseTransition?.animateFloat(
             initialValue = 0.22f,
             targetValue = 0f,
@@ -100,7 +94,6 @@ fun StatusIndicator(
                 ),
             label = "statusPulseAlpha",
         ) ?: rememberUpdatedState(0f)
-    )
 
     val statusDescription = stringResource(R.string.status_indicator_description, label)
     val components = RipDpiThemeTokens.components
@@ -114,27 +107,28 @@ fun StatusIndicator(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            if (pulseAlpha > 0f) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(components.indicators.statusMarkerSmall)
-                            .scale(pulseScale)
-                            .background(animatedIndicatorColor.copy(alpha = pulseAlpha), CircleShape),
-                )
-            }
-            when (tone) {
-                StatusIndicatorTone.Active -> {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(components.indicators.statusMarkerSmall)
-                                .background(animatedIndicatorColor, CircleShape),
+            if (pulseTransition != null) {
+                Canvas(modifier = Modifier.size(components.indicators.statusMarkerSmall)) {
+                    drawCircle(
+                        color = animatedIndicatorColor.value.copy(alpha = pulseAlpha.value),
+                        radius = size.minDimension / 2f * pulseScale.value,
                     )
                 }
+            }
+            val markerSize =
+                when (tone) {
+                    StatusIndicatorTone.Active, StatusIndicatorTone.Error -> components.indicators.statusMarkerSmall
+                    StatusIndicatorTone.Idle -> components.indicators.statusMarkerMedium
+                    StatusIndicatorTone.Warning -> components.indicators.statusMarkerLarge
+                }
+            Canvas(modifier = Modifier.size(markerSize)) {
+                val color = animatedIndicatorColor.value
+                when (tone) {
+                    StatusIndicatorTone.Active -> {
+                        drawCircle(color)
+                    }
 
-                StatusIndicatorTone.Warning -> {
-                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerLarge)) {
+                    StatusIndicatorTone.Warning -> {
                         val path =
                             Path().apply {
                                 moveTo(size.width / 2f, 0f)
@@ -142,18 +136,14 @@ fun StatusIndicator(
                                 lineTo(0f, size.height)
                                 close()
                             }
-                        drawPath(path, animatedIndicatorColor)
+                        drawPath(path, color)
                     }
-                }
 
-                StatusIndicatorTone.Error -> {
-                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerSmall)) {
-                        drawRect(animatedIndicatorColor)
+                    StatusIndicatorTone.Error -> {
+                        drawRect(color)
                     }
-                }
 
-                StatusIndicatorTone.Idle -> {
-                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerMedium)) {
+                    StatusIndicatorTone.Idle -> {
                         val cx = size.width / 2f
                         val cy = size.height / 2f
                         val r = size.width / 2f
@@ -165,7 +155,7 @@ fun StatusIndicator(
                                 lineTo(cx - r, cy)
                                 close()
                             }
-                        drawPath(path, animatedIndicatorColor)
+                        drawPath(path, color)
                     }
                 }
             }
