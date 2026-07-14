@@ -156,7 +156,7 @@ escalation (`ripdpi-android/src/telemetry.rs`).
 2. Add `(octet0, octet1) => match o[2] { ... }` arms
 3. Add boundary tests (first and last IP in range)
 4. If adding DC6+, update `TelegramDc::from_raw()` range checks
-5. Run `cargo test -p ripdpi-ws-tunnel`
+5. Run `cargo test --locked -p ripdpi-ws-tunnel`
 6. Update DC endpoints in diagnostics probe target configuration
 
 Static lookup table by design -- must work without network, and DC ranges change

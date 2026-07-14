@@ -81,15 +81,15 @@ Always target `--profile android-jni` to match what ships in the APK.
 cd native/rust
 
 # Per-crate breakdown (what matters for APK)
-cargo bloat --profile android-jni --target aarch64-linux-android --crates
+cargo bloat --locked --profile android-jni --target aarch64-linux-android --crates
 
 # Top 20 functions by size
-cargo bloat --profile android-jni --target aarch64-linux-android -n 20
+cargo bloat --locked --profile android-jni --target aarch64-linux-android -n 20
 
 # Compare before/after
-cargo bloat --profile android-jni --target aarch64-linux-android --crates > before.txt
+cargo bloat --locked --profile android-jni --target aarch64-linux-android --crates > before.txt
 # make changes
-cargo bloat --profile android-jni --target aarch64-linux-android --crates > after.txt
+cargo bloat --locked --profile android-jni --target aarch64-linux-android --crates > after.txt
 diff before.txt after.txt
 ```
 
@@ -107,8 +107,8 @@ diff before.txt after.txt
 ```bash
 cd native/rust
 
-cargo llvm-lines --release -p ripdpi-ws-tunnel | head -30
-cargo llvm-lines --release -p ripdpi-session | head -30
+cargo llvm-lines --locked --release -p ripdpi-ws-tunnel | head -30
+cargo llvm-lines --locked --release -p ripdpi-session | head -30
 ```
 
 High `Copies` count = monomorphization expansion. Fix with the inner-function pattern:
@@ -127,18 +127,18 @@ fn send<T: AsRef<[u8]>>(data: T) { fn inner(data: &[u8]) { /* ... */ } inner(dat
 cd native/rust
 
 # Run all benchmarks
-cargo bench -p ripdpi-bench
+cargo bench --locked -p ripdpi-bench
 
 # Run specific benchmark
-cargo bench -p ripdpi-bench --bench relay_throughput
+cargo bench --locked -p ripdpi-bench --bench relay_throughput
 
 # Filter to specific function
-cargo bench -p ripdpi-bench -- "throughput/4096"
+cargo bench --locked -p ripdpi-bench -- "throughput/4096"
 
 # Save baseline and compare
-cargo bench -p ripdpi-bench -- --save-baseline before
+cargo bench --locked -p ripdpi-bench -- --save-baseline before
 # make changes
-cargo bench -p ripdpi-bench -- --baseline before
+cargo bench --locked -p ripdpi-bench -- --baseline before
 
 # View HTML report
 open target/criterion/report/index.html
@@ -152,13 +152,13 @@ Works for host-target binaries and benchmarks only (not Android targets).
 
 ```bash
 # Profile a benchmark on host
-cargo flamegraph --bench relay_throughput -p ripdpi-bench -- --bench
+cargo flamegraph --locked --bench relay_throughput -p ripdpi-bench -- --bench
 
 # macOS: requires DTrace + sudo
-sudo cargo flamegraph --bench relay_throughput -p ripdpi-bench -- --bench
+sudo cargo flamegraph --locked --bench relay_throughput -p ripdpi-bench -- --bench
 
 # Linux: requires perf_event_paranoid <= 1
-cargo flamegraph --bin ripdpi-cli -- args
+cargo flamegraph --locked --bin ripdpi-cli -- args
 ```
 
 #### Reading flamegraphs
@@ -184,7 +184,7 @@ These require running on the host, not on Android:
 - **`perf stat`/`perf record`** — Linux only; use `RUSTFLAGS="-C force-frame-pointers=yes"` for better call graphs
 - **`heaptrack`** — Linux heap profiler; `heaptrack ./target/release/binary`
 - **`DHAT`** — Valgrind heap profiler; `valgrind --tool=dhat ./target/debug/binary`
-- **DTrace** — macOS; used automatically by `cargo flamegraph`
+- **DTrace** — macOS; used automatically by `cargo flamegraph --locked`
 
 ---
 
@@ -194,8 +194,8 @@ These require running on the host, not on Android:
 
 ```bash
 # Build with timing report (opens target/cargo-timings/cargo-timing.html)
-cargo build --timings
-cargo build --release --timings
+cargo build --locked --timings
+cargo build --locked --release --timings
 
 # Key things to look for:
 # - Long sequential chains (no parallelism)
@@ -206,7 +206,7 @@ cargo build --release --timings
 ```bash
 # cargo-llvm-lines — count LLVM IR lines per function (monomorphization bloat)
 cargo install cargo-llvm-lines
-cargo llvm-lines --release | head -20
+cargo llvm-lines --locked --release | head -20
 ```
 
 ### 8. sccache — compilation caching
@@ -254,12 +254,12 @@ strategy:
 
 ```bash
 # Dev: build only arm64 (most common emulator/device)
-cargo build --target aarch64-linux-android
+cargo build --locked --target aarch64-linux-android
 
 # CI/release: all 4 targets
 for target in aarch64-linux-android armv7-linux-androideabi \
               i686-linux-android x86_64-linux-android; do
-  cargo build --release --target "$target"
+  cargo build --locked --release --target "$target"
 done
 ```
 
@@ -269,12 +269,12 @@ done
 
 ```bash
 # Visualize dependency graph
-cargo tree | head -30
-cargo tree --depth 1
-cargo tree --prefix depth
+cargo tree --locked | head -30
+cargo tree --locked --depth 1
+cargo tree --locked --prefix depth
 
 # Check how many crates compile in parallel
-cargo build --timings  # timeline shows parallelism
+cargo build --locked --timings  # timeline shows parallelism
 ```
 
 Rules for effective workspace splitting:
@@ -343,7 +343,7 @@ split-debuginfo = "unpacked" # reduces linker input on macOS
 
 ```bash
 # Disable incremental compilation (sometimes faster for full rebuilds)
-CARGO_INCREMENTAL=0 cargo build
+CARGO_INCREMENTAL=0 cargo build --locked
 
 # Heavy proc-macros (serde, tokio) — keep versions pinned to avoid recompilation
 ```

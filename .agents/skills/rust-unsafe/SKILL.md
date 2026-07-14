@@ -44,7 +44,7 @@ These lints belong in `[workspace.lints.clippy]` at deny/warn level (see `rust-l
 
 1. Add the lint floor above to `lib.rs` / `main.rs`.
 2. If the crate previously carried `#![forbid(unsafe_code)]`, removing it is a change that requires a tracking comment with a tracking issue number — see the `Governance` section above.
-3. Run `cargo clippy -p <crate> --all-targets -- -D warnings` BEFORE writing the unsafe body, to confirm the lint floor is active and would catch a bare `unsafe { ... }`.
+3. Run `cargo clippy --locked -p <crate> --all-targets -- -D warnings` BEFORE writing the unsafe body, to confirm the lint floor is active and would catch a bare `unsafe { ... }`.
 4. Write the unsafe body, run clippy again, and confirm the SAFETY comments pass.
 5. Add a Miri test (if non-FFI) or a `cargo-careful` test (if FFI) under `#[cfg_attr(miri, ignore)]` gating.
 6. Cross-reference in this skill's "When to use unsafe in RIPDPI" section: does the new unsafe site fit a documented category, or does it need a new category entry?
@@ -301,7 +301,7 @@ When reviewing an `unsafe` block:
 - [ ] For union access: was the field written before being read?
 - [ ] For `Send`/`Sync` impl: is thread safety actually guaranteed?
 - [ ] Is the unsafe block as small as possible?
-- [ ] Can this be tested under Miri with Tree Borrows? (`MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test`) — Tree Borrows is the formal aliasing model published at PLDI 2025 and is now the recommended default. It permits more valid unsafe patterns than Stacked Borrows, so code that failed the older model may pass now.
+- [ ] Can this be tested under Miri with Tree Borrows? (`MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test --locked`) — Tree Borrows is the formal aliasing model published at PLDI 2025 and is now the recommended default. It permits more valid unsafe patterns than Stacked Borrows, so code that failed the older model may pass now.
 - [ ] Does any `Drop::drop` implementation contain `.unwrap()`, `.expect()`, or any call that can panic? → move to an explicit `close()`/`flush()` method returning `Result`.
 - [ ] Does any `#[no_mangle]` or `#[export_name]` symbol collide with an identically-named symbol in another cdylib crate loaded simultaneously?
 
@@ -345,7 +345,7 @@ Concrete example: `flatbuffers` calls `str::from_utf8_unchecked` internally. If 
 
 Action items when auditing:
 1. `rg 'from_utf8_unchecked\|from_raw_parts\|String::from_raw_parts' native/rust/ --type rust -n` — every hit needs a SAFETY comment tracing back to where the invariant is established.
-2. `cargo deny check` — flag any dep with a known `unsafe`-soundness advisory.
+2. `cargo deny --locked check` — flag any dep with a known `unsafe`-soundness advisory.
 3. When a dep's `unsafe` may transit through your API surface, document the assumed invariant in your own `# Safety` section.
 
 Reference: `crabbook/unsafe_is_unsafe.md`

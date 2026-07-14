@@ -38,7 +38,7 @@ No exceptions. The reviewer pass costs minutes; an unaudited bug from this list 
 
 - **Miri nightly** for every crate without `#![forbid(unsafe_code)]`. The 10× test slowdown is the price; empirical measurement shows 22/40 (~55%) of LLM-generated `unsafe` samples have UB. Run as a scheduled (nightly) job, not on every PR.
 - **`clippy::pedantic` + `clippy::nursery`** enabled for files where AI authorship ≥ 50%. Many LLM-class errors surface only at these lint levels. Adopt this **per-crate** (crate-root `#![warn(clippy::pedantic)]` opt-in), not as a workspace-wide group flip — see `docs/tasks/issues/lints-pedantic-nursery-M7.md` for the rationale and pattern (`ripdpi-tor` is the first demonstration crate).
-- **`cargo deny` on every PR** — already wired in RIPDPI; do not regress.
+- **`cargo deny --locked` on every PR** — already wired in RIPDPI; do not regress.
 - **`cargo audit` daily on `main`** to catch published advisories against pinned deps.
 
 ### Sentinel patterns for review attention
@@ -88,7 +88,7 @@ Respect the model and sandbox declared by the selected profile rather than overr
 
 Every cargo invocation issued by an agent — sub-agent Bash command, hook script, slash command, manual diagnostic — MUST pass `--locked`. Rationale:
 
-- Without `--locked`, cargo may transparently bump a dependency that was previously vetted by `cargo deny check`. The vetting becomes stale silently.
+- Without `--locked`, cargo may transparently bump a dependency that was previously vetted by `cargo deny --locked check`. The vetting becomes stale silently.
 - Agentic loops that run `cargo build` repeatedly without `--locked` can drift `Cargo.lock` across iterations, producing diffs unrelated to the task.
 - The `rust-toolchain.toml` pin (`rust-toolchain-pin.md` rule) provides the channel guarantee; `--locked` provides the dependency-version guarantee. They are complementary.
 
@@ -100,7 +100,7 @@ When a model would otherwise need to "guess" a Rust type, lifetime, trait bound,
 
 Hook this into sub-agent dispatch: any agent whose prompt involves a type or borrow-checker question should be told "consult rust-analyzer MCP before guessing." For any agent class focused on borrow-checker error review, this is mandatory; for general code generation, it is strongly preferred.
 
-When rust-analyzer MCP is not configured, the fallback is `cargo expand -p <crate> <module>` (for macro-related questions) and reading the `cargo doc --no-deps --message-format=json` output (for cross-crate types). Never let the model guess a signature when one of these tools can answer in < 5 seconds.
+When rust-analyzer MCP is not configured, the fallback is `cargo expand -p <crate> <module>` (for macro-related questions) and reading the `cargo doc --locked --no-deps --message-format=json` output (for cross-crate types). Never let the model guess a signature when one of these tools can answer in < 5 seconds.
 
 ### When the LLM disagrees with this rule file
 
@@ -112,7 +112,7 @@ The LLM is wrong. The rules are derived from production failures, not theory. Pu
 - `rust-lints` skill — canonical `[workspace.lints]` and `clippy.toml` template that catches the sentinels at build time.
 - `rust-unsafe` skill — pointer reads from untrusted byte buffers section; lint floor for unsafe crates.
 - `rust-async-internals` skill — cancel-safety annotation discipline, library Drop contracts, async closures, extended `CancellationToken` patterns.
-- `rust-test-tools` skill — cargo-careful / loom / proptest / fuzz / mutants beyond the standard `cargo test`.
+- `rust-test-tools` skill — cargo-careful / loom / proptest / fuzz / mutants beyond the standard `cargo test --locked`.
 - `rust-sanitizers-miri` skill — Miri configuration for the nightly UB-detection job.
 - `rust-security` skill — RUSTSEC triage SLA for advisories surfacing via `cargo audit`.
 - `rust-toolchain-pin.md` rule — toolchain channel pin and `--locked` discipline.

@@ -28,20 +28,20 @@ Confirm package names with `cargo metadata --manifest-path native/rust/Cargo.tom
 
 ```bash
 cd native/rust
-cargo bench --package ripdpi-bench -- --output-format bencher
+cargo bench --locked --package ripdpi-bench -- --output-format bencher
 ```
 
 Compare against baseline:
 ```bash
-cargo bench --package ripdpi-bench -- --save-baseline current
-cargo bench --package ripdpi-bench -- --baseline main --compare
+cargo bench --locked --package ripdpi-bench -- --save-baseline current
+cargo bench --locked --package ripdpi-bench -- --baseline main --compare
 ```
 
 ### 2. Generate Flamegraphs
 
 ```bash
 # CPU flamegraph for a specific benchmark
-cargo flamegraph --package ripdpi-bench --bench relay_throughput -- --bench --profile-time 10
+cargo flamegraph --locked --package ripdpi-bench --bench relay_throughput -- --bench --profile-time 10
 
 # For Android targets (simpleperf)
 # Requires device/emulator with debuggable build
@@ -53,7 +53,7 @@ Flamegraph output: `native/rust/flamegraph.svg`
 
 ```bash
 cd native/rust
-cargo llvm-lines --package ripdpi-proxy-runtime --release 2>/dev/null | head -30
+cargo llvm-lines --locked --package ripdpi-proxy-runtime --release 2>/dev/null | head -30
 ```
 
 Flag functions with >1000 copies or >10000 lines of LLVM IR.
@@ -61,8 +61,8 @@ Flag functions with >1000 copies or >10000 lines of LLVM IR.
 ### 4. Binary Size Analysis
 
 ```bash
-cargo bloat --package ripdpi-android --profile android-jni --release -n 20
-cargo bloat --package ripdpi-android --profile android-jni --release --crates
+cargo bloat --locked --package ripdpi-android --profile android-jni --release -n 20
+cargo bloat --locked --package ripdpi-android --profile android-jni --release --crates
 ```
 
 Cross-reference with `native-verifier` baseline in `scripts/ci/verify_native_sizes.py`.
@@ -71,7 +71,7 @@ Cross-reference with `native-verifier` baseline in `scripts/ci/verify_native_siz
 
 ```bash
 perf stat -e cache-misses,cache-references,instructions,cycles \
-  cargo bench --package ripdpi-bench -- --test relay_throughput
+  cargo bench --locked --package ripdpi-bench -- --test relay_throughput
 ```
 
 ## Analysis Guidelines

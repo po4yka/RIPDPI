@@ -142,7 +142,7 @@ pub fn create_socket(ip: String, port: i32) -> Result<i32, ProxyError> {
 ### Generate Kotlin Bindings
 
 ```bash
-cargo run --bin uniffi-bindgen generate \
+cargo run --locked --bin uniffi-bindgen generate \
     --library target/debug/libripdpi.so \
     --language kotlin \
     --out-dir core/engine/src/main/kotlin/com/poyka/ripdpi/rust

@@ -180,7 +180,7 @@ rustc --print sysroot
         {
             "type": "lldb",
             "request": "launch",
-            "name": "cargo test -- module_name",
+            "name": "cargo test --locked -- module_name",
             "cargo": {
                 "args": ["test", "--no-run", "--lib"],
                 "filter": { "name": "myapp", "kind": "lib" }

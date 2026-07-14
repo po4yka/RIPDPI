@@ -56,12 +56,12 @@ pre-commit:
 
     cargo-deny:
       glob: "native/rust/Cargo*.toml"
-      run: command -v cargo-deny >/dev/null || exit 0; cargo deny --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
+      run: command -v cargo-deny >/dev/null || exit 0; cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
 
     rust-clippy:
       glob: "*.rs"
       root: "native/rust/"
-      run: cargo clippy --workspace --no-deps --all-targets -- -D warnings
+      run: cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings
 
     design-md:
       glob: "DESIGN.md"
@@ -81,6 +81,9 @@ pre-commit:
 
     rules-drift-check:
       run: bash scripts/ci/check-rules-drift.sh
+
+    harness-cargo-locked:
+      run: python3 scripts/ci/check_harness_cargo_locked.py
 
 commit-msg:
   commands:

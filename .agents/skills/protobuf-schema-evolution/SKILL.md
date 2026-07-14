@@ -120,4 +120,4 @@ update mode), then run Kotlin tests. Commit updated fixtures with the code.
 - [ ] Wire changes have `#[serde(default)]` / Kotlin defaults
 - [ ] Schema version bumped if wire change is breaking
 - [ ] Golden contract fixtures updated
-- [ ] Both Rust (`cargo test -p ripdpi-monitor-engine`) and Kotlin contract tests pass
+- [ ] Both Rust (`cargo test --locked -p ripdpi-monitor-engine`) and Kotlin contract tests pass

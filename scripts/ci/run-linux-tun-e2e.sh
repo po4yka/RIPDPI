@@ -38,4 +38,4 @@ if [ "$target_exists" != "yes" ]; then
 fi
 
 echo "==> ripdpi-tunnel-core linux tun e2e"
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --test linux_tun_e2e -- --ignored --nocapture
+cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --test linux_tun_e2e -- --ignored --nocapture

@@ -139,7 +139,7 @@ run_native_rust_lint() {
 
 run_native_cargo_deny() {
   require_cmd cargo-deny "cargo install cargo-deny" || return
-  cargo deny --manifest-path "$WORKSPACE_MANIFEST" check
+  cargo deny --locked --manifest-path "$WORKSPACE_MANIFEST" check
 }
 
 run_native_rust_workspace_tests() {
@@ -149,7 +149,7 @@ run_native_rust_workspace_tests() {
 run_native_rust_loom() {
   (
     cd "$REPO_ROOT/native/rust" &&
-      LOOM_MAX_PREEMPTIONS=3 cargo test --features loom -- loom
+      LOOM_MAX_PREEMPTIONS=3 cargo test --locked --features loom -- loom
   )
 }
 
@@ -172,7 +172,7 @@ run_native_rust_network_e2e() {
 run_native_rust_criterion_bench() {
   (
     cd "$REPO_ROOT/native/rust" &&
-      cargo bench --package ripdpi-bench
+      cargo bench --locked --package ripdpi-bench
   )
 }
 

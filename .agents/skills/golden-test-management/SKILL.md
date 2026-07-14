@@ -41,7 +41,7 @@ This script:
 
 ```bash
 # Rust
-RIPDPI_BLESS_GOLDENS=1 cargo test -p ripdpi-android --manifest-path native/rust/Cargo.toml
+RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p ripdpi-android --manifest-path native/rust/Cargo.toml
 
 # Kotlin
 RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testDebugUnitTest --tests "*.NativeTelemetryGoldenTest"
@@ -171,7 +171,7 @@ private fun scrubVolatileFields(value: JsonElement): JsonElement =
    }
    ```
 
-3. Create initial fixture: `RIPDPI_BLESS_GOLDENS=1 cargo test -p my-crate my_output_matches_golden`
+3. Create initial fixture: `RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p my-crate my_output_matches_golden`
 
 4. Review and commit the new fixture file.
 

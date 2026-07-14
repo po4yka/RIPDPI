@@ -32,7 +32,7 @@ fi
 
 workspace_packages() {
     local manifest="$1"
-    cargo metadata --manifest-path "$manifest" --format-version 1 --no-deps | jq -r '.packages[].name'
+    cargo metadata --locked --manifest-path "$manifest" --format-version 1 --no-deps | jq -r '.packages[].name'
 }
 
 package_belongs_to_workspace() {

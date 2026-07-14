@@ -47,25 +47,25 @@ export PATH="$PATH:/path/to/FlameGraph"
 
 ```bash
 # Profile binary with args
-cargo flamegraph --bin myapp -- --workers 4 --input data.bin
+cargo flamegraph --locked --bin myapp -- --workers 4 --input data.bin
 
 # Profile specific test
-cargo flamegraph --test integration_tests -- test_name
+cargo flamegraph --locked --test integration_tests -- test_name
 
 # Profile benchmark (compare with criterion)
-cargo flamegraph --bench my_bench -- --bench benchmark_name
+cargo flamegraph --locked --bench my_bench -- --bench benchmark_name
 
 # Profile example
-cargo flamegraph --example my_example
+cargo flamegraph --locked --example my_example
 
 # Custom frequency (samples/sec, higher = more accurate, more overhead)
-cargo flamegraph --freq 997 --bin myapp   # 997 Hz avoids aliasing
+cargo flamegraph --locked --freq 997 --bin myapp   # 997 Hz avoids aliasing
 
 # Output to specific file
-cargo flamegraph -o profile.svg --bin myapp
+cargo flamegraph --locked -o profile.svg --bin myapp
 
 # Open in browser automatically
-cargo flamegraph -o /tmp/fg.svg --bin myapp && xdg-open /tmp/fg.svg
+cargo flamegraph --locked -o /tmp/fg.svg --bin myapp && xdg-open /tmp/fg.svg
 ```
 
 ### Reading Flamegraphs
@@ -150,11 +150,11 @@ fn bench_async(c: &mut Criterion) {
 
 ```bash
 # Save baseline
-cargo bench -- --save-baseline main-branch
+cargo bench --locked -- --save-baseline main-branch
 
 # Switch branch and compare
 git checkout my-feature
-cargo bench -- --baseline main-branch
+cargo bench --locked -- --baseline main-branch
 ```
 
 Output shows:

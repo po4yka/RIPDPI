@@ -173,7 +173,7 @@ The script is the single entry point for both CI and local batch runs.
 **What it does**: Locates `native/rust/Cargo.toml`, reads env vars
 (`MUTANTS_TEST_TOOL`=nextest, `MUTANTS_PACKAGES`=all,
 `MUTANTS_JOBS` unset = cargo-mutants default parallelism), filters packages via
-`cargo metadata` if a subset is requested, then calls `cargo mutants` with
+`cargo metadata --locked` if a subset is requested, then calls `cargo mutants` with
 assembled args. Extra CLI args (e.g., `--in-diff`) are passed through.
 
 **Local usage**:

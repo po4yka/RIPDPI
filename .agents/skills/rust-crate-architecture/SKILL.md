@@ -5,12 +5,12 @@ description: Rust crate creation, workspace restructuring, dependency layering, 
 
 # Rust Crate Architecture
 
-The `native/rust/` workspace is large and changes frequently. Treat `native/rust/Cargo.toml`, `cargo metadata`, and `docs/architecture/NATIVE_RUST.md` as the current crate inventory. Dependencies should still flow toward smaller/shared crates and away from Android/JNI adapter crates.
+The `native/rust/` workspace is large and changes frequently. Treat `native/rust/Cargo.toml`, `cargo metadata --locked`, and `docs/architecture/NATIVE_RUST.md` as the current crate inventory. Dependencies should still flow toward smaller/shared crates and away from Android/JNI adapter crates.
 
 ## Current Architecture Map
 
 - `docs/architecture/NATIVE_RUST.md` is the maintained crate taxonomy and native artifact map.
-- `cargo metadata --manifest-path native/rust/Cargo.toml --no-deps` is the authoritative machine-readable workspace inventory.
+- `cargo metadata --locked --manifest-path native/rust/Cargo.toml --no-deps` is the authoritative machine-readable workspace inventory.
 - Android JNI crates (`ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-warp-android`, `ripdpi-relay-android`) should stay as adapters over domain/runtime crates.
 - Diagnostics execution is split across `ripdpi-monitor-engine`, `ripdpi-diagnostics-runner`, `ripdpi-diagnostics-contracts`, and per-protocol `ripdpi-diagnostics-*` crates.
 - Proxy runtime work belongs under `ripdpi-proxy-runtime` and its adapter/service crates, not under removed legacy crate names.
@@ -105,8 +105,8 @@ Platform-specific code lives behind `#[cfg(target_os = "...")]` gates, never cre
 
 6. **Verify**:
    ```bash
-   cargo clippy -p <crate-name> --all-targets -- -D warnings
-   cargo deny check
+   cargo clippy --locked -p <crate-name> --all-targets -- -D warnings
+   cargo deny --locked check
    ```
 
 ### Naming conventions

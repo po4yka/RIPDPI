@@ -100,19 +100,19 @@ let _ = unsafe { *raw }; // VIOLATION: raw's &mut tag was invalidated by &x
 
 ```bash
 # Run unsafe tests under Miri
-cargo +nightly miri test
+cargo +nightly miri test --locked
 
 # With stricter provenance checking
-MIRIFLAGS="-Zmiri-strict-provenance" cargo +nightly miri test
+MIRIFLAGS="-Zmiri-strict-provenance" cargo +nightly miri test --locked
 
 # Isolate a specific test
-cargo +nightly miri test test_my_unsafe_fn
+cargo +nightly miri test --locked test_my_unsafe_fn
 ```
 
 ## Clippy lints for unsafe
 
 ```bash
-cargo clippy -- -W clippy::undocumented-unsafe-blocks \
+cargo clippy --locked -- -W clippy::undocumented-unsafe-blocks \
                -W clippy::multiple-unsafe-ops-per-block \
                -W clippy::transmute-undefined-repr \
                -W clippy::ptr-as-ptr

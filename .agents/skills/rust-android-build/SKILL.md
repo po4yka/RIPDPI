@@ -21,7 +21,7 @@ RIPDPI ships 4 Android ABIs (arm64-v8a, armeabi-v7a, x86_64, x86) cross-compiled
 
 ### Status quo
 
-Play Store has required 16 KiB-aligned `.so` files for new and updated apps targeting Android 15+ since 1 November 2025. NDK r28+ (RIPDPI pins NDK r29 = `29.0.14206865`) compiles 16 KiB-aligned by default. `.cargo/config.toml` per-target rustflags reinforce this for `cargo build` invocations that do not go through cargo-ndk.
+Play Store has required 16 KiB-aligned `.so` files for new and updated apps targeting Android 15+ since 1 November 2025. NDK r28+ (RIPDPI pins NDK r29 = `29.0.14206865`) compiles 16 KiB-aligned by default. `.cargo/config.toml` per-target rustflags reinforce this for `cargo build --locked` invocations that do not go through cargo-ndk.
 
 ### Per-ABI rustflags
 
@@ -165,13 +165,13 @@ Audit a regression:
 
 ```bash
 cd native/rust
-cargo bloat --profile android-jni --target aarch64-linux-android --crates -n 30
-cargo bloat --profile android-jni --target aarch64-linux-android -n 30   # by function
+cargo bloat --locked --profile android-jni --target aarch64-linux-android --crates -n 30
+cargo bloat --locked --profile android-jni --target aarch64-linux-android -n 30   # by function
 ```
 
 Common culprits:
 - A new monomorphized generic explosion. Use the inner-function pattern (see `rust-performance` skill).
-- A new transitive dependency. Check `cargo tree -p ripdpi-android` diff.
+- A new transitive dependency. Check `cargo tree --locked -p ripdpi-android` diff.
 - Loss of `--icf=all` / `--gc-sections` from RUSTFLAGS.
 - LTO regression — verify `lto = "fat"` is still active.
 
@@ -192,7 +192,7 @@ When bumping NDK in a future PR:
 
 ## Cargo + Gradle integration
 
-RIPDPI uses a Gradle convention plugin (`ripdpi.android.rust-native`) that calls `cargo build` per ABI in parallel, with per-ABI `CARGO_TARGET_DIR` to avoid lock contention. The plugin sets `CARGO_TARGET_<TRIPLE>_LINKER` to the NDK's clang.
+RIPDPI uses a Gradle convention plugin (`ripdpi.android.rust-native`) that calls `cargo build --locked` per ABI in parallel, with per-ABI `CARGO_TARGET_DIR` to avoid lock contention. The plugin sets `CARGO_TARGET_<TRIPLE>_LINKER` to the NDK's clang.
 
 Do NOT switch back to `cargo-ndk` CLI in build scripts without consulting `cargo-workflows` skill — the Gradle plugin's per-ABI parallelism is faster than cargo-ndk's sequential mode.
 

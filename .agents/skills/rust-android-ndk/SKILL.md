@@ -7,7 +7,7 @@ description: Android Rust builds, cross-compilation targets, and Gradle jniLibs 
 
 ## Overview
 
-RIPDPI builds Rust libraries as Android `.so` files with plain `cargo build` plus the Android NDK linker toolchain. The project-standard entrypoint is `:core:engine:buildRustNativeLibs`, which is registered by the `ripdpi.android.rust-native` convention plugin and builds the `native/rust` workspace before `preBuild`.
+RIPDPI builds Rust libraries as Android `.so` files with plain `cargo build --locked` plus the Android NDK linker toolchain. The project-standard entrypoint is `:core:engine:buildRustNativeLibs`, which is registered by the `ripdpi.android.rust-native` convention plugin and builds the `native/rust` workspace before `preBuild`.
 
 ## Toolchain Setup
 

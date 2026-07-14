@@ -16,9 +16,9 @@ You are a golden test management specialist for the RIPDPI project.
 | Type | Fixture location | Bless command |
 |------|-----------------|---------------|
 | Roborazzi screenshots | `app/src/test/screenshots/` | `./gradlew :app:recordRoborazziDebug` |
-| Rust telemetry/logging | `native/rust/crates/{crate}/tests/golden/` | `RIPDPI_BLESS_GOLDENS=1 cargo test -p {crate} --manifest-path native/rust/Cargo.toml` |
+| Rust telemetry/logging | `native/rust/crates/{crate}/tests/golden/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p {crate} --manifest-path native/rust/Cargo.toml` |
 | JVM telemetry/logging | `core/{module}/src/test/resources/golden/` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :{module}:testDebugUnitTest --tests "*.{TestClass}"` |
-| Rust contract_fixtures | `native/rust/crates/{crate}/tests/contract_fixtures/` | `RIPDPI_BLESS_GOLDENS=1 cargo test -p {crate}` |
+| Rust contract_fixtures | `native/rust/crates/{crate}/tests/contract_fixtures/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p {crate}` |
 | Wire contract (shared) | Read via `GoldenContractSupport.readSharedFixture()` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testDebugUnitTest` |
 | Android instrumentation | `app/src/androidTest/assets/golden/` | Copied from JVM fixtures by `scripts/tests/bless-telemetry-goldens.sh` |
 

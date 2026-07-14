@@ -34,17 +34,17 @@ rustup component add rust-src --toolchain nightly
 
 # AddressSanitizer (Linux, macOS)
 RUSTFLAGS="-Z sanitizer=address" \
-    cargo +nightly test -Zbuild-std \
+    cargo +nightly test --locked -Zbuild-std \
     --target x86_64-unknown-linux-gnu
 
 # ThreadSanitizer (Linux)
 RUSTFLAGS="-Z sanitizer=thread" \
-    cargo +nightly test -Zbuild-std \
+    cargo +nightly test --locked -Zbuild-std \
     --target x86_64-unknown-linux-gnu
 
 # MemorySanitizer (Linux, requires all-instrumented build)
 RUSTFLAGS="-Z sanitizer=memory -Zsanitizer-memory-track-origins" \
-    cargo +nightly test -Zbuild-std \
+    cargo +nightly test --locked -Zbuild-std \
     --target x86_64-unknown-linux-gnu
 ```
 
@@ -75,12 +75,12 @@ For on-device testing of JNI crates cross-compiled to Android NDK:
 # HWASan (ARM64 only, Android 10+, preferred over ASan on ARM64)
 # In .cargo/config.toml or via env:
 RUSTFLAGS="-Z sanitizer=hwaddress" \
-    cargo +nightly build -Zbuild-std \
+    cargo +nightly build --locked -Zbuild-std \
     --target aarch64-linux-android
 
 # ASan for Android (works on both ARM and x86 emulators)
 RUSTFLAGS="-Z sanitizer=address" \
-    cargo +nightly build -Zbuild-std \
+    cargo +nightly build --locked -Zbuild-std \
     --target aarch64-linux-android
 ```
 
@@ -149,16 +149,16 @@ For RIPDPI's hot-path code with raw pointers (`ripdpi-runtime-platform/src/linux
 rustup +nightly component add miri
 
 # Run tests under Miri
-cargo +nightly miri test
+cargo +nightly miri test --locked
 
 # Run specific test
-cargo +nightly miri test test_name
+cargo +nightly miri test --locked test_name
 
 # Strict provenance mode (recommended for CI)
-MIRIFLAGS="-Zmiri-strict-provenance" cargo +nightly miri test
+MIRIFLAGS="-Zmiri-strict-provenance" cargo +nightly miri test --locked
 
 # Disable isolation (allow file I/O, randomness)
-MIRIFLAGS="-Zmiri-disable-isolation" cargo +nightly miri test
+MIRIFLAGS="-Zmiri-disable-isolation" cargo +nightly miri test --locked
 ```
 
 #### Stubbing FFI for Miri
@@ -217,7 +217,7 @@ fn test_jni_integration() {
   run: |
     rustup toolchain install nightly
     rustup +nightly component add miri
-    cargo +nightly miri test
+    cargo +nightly miri test --locked
   env:
     MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-strict-provenance"
 
@@ -225,7 +225,7 @@ fn test_jni_integration() {
   run: |
     rustup component add rust-src --toolchain nightly
     RUSTFLAGS="-Z sanitizer=address" \
-    cargo +nightly test -Zbuild-std \
+    cargo +nightly test --locked -Zbuild-std \
     --target x86_64-unknown-linux-gnu
 ```
 

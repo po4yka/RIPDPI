@@ -444,7 +444,7 @@ artifacts are written to `core/diagnostics/build/golden-diffs/`.
 ### Wire compatibility verification
 
 After any wire type change:
-1. Run `cargo test -p ripdpi-monitor-engine` -- catches fixture decode failures and
+1. Run `cargo test --locked -p ripdpi-monitor-engine` -- catches fixture decode failures and
    outcome token coverage gaps.
 2. Run `:core:diagnostics:testDebugUnitTest` -- catches field manifest and
    schema version mismatches.

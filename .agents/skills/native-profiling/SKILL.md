@@ -68,7 +68,7 @@ cargo install flamegraph
 
 # Generate flamegraph while running the proxy
 cd native/rust
-cargo flamegraph -p ripdpi-cli -- -p 1080 -x 1
+cargo flamegraph --locked -p ripdpi-cli -- -p 1080 -x 1
 # Send traffic through the proxy, then Ctrl+C
 # Opens flamegraph.svg
 ```
@@ -78,7 +78,7 @@ cargo flamegraph -p ripdpi-cli -- -p 1080 -x 1
 ```bash
 # Requires nightly
 cd native/rust
-cargo +nightly run -p ripdpi-cli \
+cargo +nightly run --locked -p ripdpi-cli \
   --features dhat-heap -- -p 1080 -x 1
 # Produces dhat-heap.json on exit
 # Open at https://nnethercote.github.io/dh_view/dh_view.html
@@ -93,7 +93,7 @@ HWASan (Hardware Address Sanitizer) is the replacement for ASan, which is unsupp
 ```bash
 # Requires nightly Rust for -Zbuild-std
 cd native/rust
-RUSTFLAGS="-Zsanitizer=hwaddress" cargo +nightly build \
+RUSTFLAGS="-Zsanitizer=hwaddress" cargo +nightly build --locked \
   -p ripdpi-android \
   --target aarch64-linux-android \
   -Zbuild-std \
@@ -186,7 +186,7 @@ Backtraces in `android-jni-dev` profile show file/line info (`debug = "line-tabl
 |------|---------|
 | Record CPU profile | `adb shell simpleperf record -p $(adb shell pidof com.poyka.ripdpi) --call-graph dwarf --duration 30 -o /data/local/tmp/perf.data` |
 | Generate flamegraph | `python3 $ANDROID_NDK_HOME/simpleperf/inferno.py -sc --record_file perf.data` |
-| Desktop flamegraph | `cargo flamegraph -p ripdpi-cli -- -p 1080 -x 1` |
+| Desktop flamegraph | `cargo flamegraph --locked -p ripdpi-cli -- -p 1080 -x 1` |
 | Symbolicate crash log | `adb logcat \| ndk-stack -sym native/rust/target/aarch64-linux-android/debug/` |
 | Filter panic backtraces | `adb logcat -s ripdpi-native:E \| grep -A 50 "PANIC:"` |
 

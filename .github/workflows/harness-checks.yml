@@ -13,6 +13,7 @@ on:
       - 'lefthook.yml'
       - 'native/rust/Cargo.toml'
       - 'native/rust/clippy.toml'
+      - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/ci/check_codex_skills_sync.py'
       - 'scripts/ci/check-rules-drift.sh'
@@ -30,6 +31,7 @@ on:
       - 'lefthook.yml'
       - 'native/rust/Cargo.toml'
       - 'native/rust/clippy.toml'
+      - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/ci/check_codex_skills_sync.py'
       - 'scripts/ci/check-rules-drift.sh'
@@ -56,6 +58,8 @@ jobs:
         run: python3 scripts/ci/check_harness_links.py --strict
       - name: Validate documented lint policy
         run: python3 scripts/ci/check_harness_policy.py
+      - name: Validate locked Cargo commands
+        run: python3 scripts/ci/check_harness_cargo_locked.py
       - name: Validate compatibility mirrors
         run: python3 scripts/ci/check_codex_skills_sync.py
       - name: Validate rule mirrors

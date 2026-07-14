@@ -29,7 +29,7 @@ native/rust/
 ### How it works (no cargo-ndk)
 
 This project does NOT use `cargo-ndk`. Instead, a custom Gradle convention plugin
-(`ripdpi.android.rust-native`) invokes `cargo build` directly with per-ABI
+(`ripdpi.android.rust-native`) invokes `cargo build --locked` directly with per-ABI
 environment variables pointing to NDK clang linkers and `llvm-ar`.
 
 Key file: `build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts`
@@ -96,8 +96,8 @@ environment variables pointing to NDK clang at build time.
 ./gradlew :core:engine:buildRustNativeLibs
 
 # Host-only (no Android NDK, for tests/benchmarks)
-cd native/rust && cargo build -p ripdpi-cli
-cd native/rust && cargo bench -p ripdpi-bench
+cd native/rust && cargo build --locked -p ripdpi-cli
+cd native/rust && cargo bench --locked -p ripdpi-bench
 ```
 
 ## cdylib crates and JNI considerations
@@ -130,16 +130,16 @@ Feature rules:
 
 ```bash
 # Run all workspace tests with nextest (preferred)
-cd native/rust && cargo nextest run
+cd native/rust && cargo nextest run --locked
 
 # CI profile (retries=2, no fail-fast)
-cd native/rust && cargo nextest run --profile ci
+cd native/rust && cargo nextest run --locked --profile ci
 
 # Run single crate tests
-cd native/rust && cargo nextest run -p ripdpi-packets
+cd native/rust && cargo nextest run --locked -p ripdpi-packets
 
-# Standard cargo test (for doc-tests, which nextest skips)
-cd native/rust && cargo test --doc
+# Standard cargo test --locked (for doc-tests, which nextest skips)
+cd native/rust && cargo test --locked --doc
 ```
 
 nextest config at `native/rust/.config/nextest.toml`:
@@ -155,7 +155,7 @@ cd native/rust
 cargo audit
 
 # Full policy check (licenses, bans, advisories, sources)
-cargo deny check
+cargo deny --locked check
 ```
 
 ### deny.toml policy (native/rust/deny.toml)
@@ -190,14 +190,14 @@ cargo deny check
 ```bash
 cd native/rust
 
-cargo check --workspace                # Type-check all crates
-cargo clippy --workspace -- -D warnings # Lint (workspace lints in Cargo.toml)
+cargo check --locked --workspace                # Type-check all crates
+cargo clippy --locked --workspace -- -D warnings # Lint (workspace lints in Cargo.toml)
 cargo fmt --check                       # Format check
-cargo build -p ripdpi-cli               # Build single crate
-cargo tree --duplicates                 # Find duplicate deps
-cargo tree -i serde                     # Who depends on serde?
+cargo build --locked -p ripdpi-cli               # Build single crate
+cargo tree --locked --duplicates                 # Find duplicate deps
+cargo tree --locked -i serde                     # Who depends on serde?
 cargo update -p tokio --precise 1.42.0  # Pin single dep version
-cargo deny check                        # Run full deny policy
+cargo deny --locked check                        # Run full deny policy
 cargo audit                             # Security advisories only
 ```
 
@@ -217,8 +217,8 @@ git diff
 # Bump the crate's Cargo.toml:
 #   edition = "2024"
 # Run per-crate lint + test to verify:
-cargo clippy -p <leaf-crate> --all-targets -- -D warnings
-cargo nextest run -p <leaf-crate>
+cargo clippy --locked -p <leaf-crate> --all-targets -- -D warnings
+cargo nextest run --locked -p <leaf-crate>
 ```
 
 ### Breaking changes that bite
@@ -255,14 +255,14 @@ Detection:
 ```bash
 cd native/rust
 # Find which crates activate which features on serde/tokio/etc.
-cargo tree -f '{p}: {f}' -i serde | grep -v '^$'
-cargo tree -f '{p}: {f}' -i tokio | grep -v '^$'
+cargo tree --locked -f '{p}: {f}' -i serde | grep -v '^$'
+cargo tree --locked -f '{p}: {f}' -i tokio | grep -v '^$'
 
 # Check if a pure-logic crate accidentally gets std
-cargo check -p ripdpi-packets --no-default-features 2>&1 | grep 'std\|alloc'
+cargo check --locked -p ripdpi-packets --no-default-features 2>&1 | grep 'std\|alloc'
 ```
 
-Fix: for crates that must remain `no_std`, add an explicit `default-features = false` on every dep declaration and verify via `cargo check --no-default-features`. If a workspace test binary needs the `std` feature of a dep, consider gating it behind a dev-dep rather than a normal dep.
+Fix: for crates that must remain `no_std`, add an explicit `default-features = false` on every dep declaration and verify via `cargo check --locked --no-default-features`. If a workspace test binary needs the `std` feature of a dep, consider gating it behind a dev-dep rather than a normal dep.
 
 Reference: [cargo feature unification pitfall — nickb.dev](https://nickb.dev/blog/cargo-workspace-and-the-feature-unification-pitfall/), Cargo Resolver docs.
 
@@ -279,7 +279,7 @@ Affected in RIPDPI: Android NDK cross-compilation targets. If a dep's `unix` or 
 Detection:
 ```bash
 # Compare features seen by a subcrate via workspace vs direct inheritance
-cargo tree --target aarch64-linux-android -f '{p}: {f}' -i <dep-name>
+cargo tree --locked --target aarch64-linux-android -f '{p}: {f}' -i <dep-name>
 ```
 
 Workaround: for deps where target-specific features are critical, declare the dep directly in the subcrate's `Cargo.toml` with explicit `target.'cfg(...)'.dependencies` rather than relying on workspace inheritance.

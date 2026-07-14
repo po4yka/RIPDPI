@@ -1,6 +1,6 @@
 ---
 name: rust-security
-description: Use when auditing Rust dependencies with cargo-audit, configuring cargo-deny policies, triaging RUSTSEC advisories, evaluating a new crate for typosquat/supply-chain risk before adding it to Cargo.toml, responding to a published CVE on a pinned dep, or modifying native/rust/deny.toml. Triggers on "cargo audit", "cargo deny", "RUSTSEC", "advisory", "supply chain", or new-dependency-addition reviews.
+description: Use when auditing Rust dependencies with cargo-audit, configuring cargo-deny policies, triaging RUSTSEC advisories, evaluating a new crate for typosquat/supply-chain risk before adding it to Cargo.toml, responding to a published CVE on a pinned dep, or modifying native/rust/deny.toml. Triggers on "cargo audit", "cargo deny --locked", "RUSTSEC", "advisory", "supply chain", or new-dependency-addition reviews.
 ---
 
 # Rust Supply Chain Security
@@ -22,7 +22,7 @@ Guide agents through Rust supply chain security: vulnerability scanning with car
 - 97 Rust crates under `native/rust/`
 - Policy config: `native/rust/deny.toml`
 - CI job: `cargo-deny` in `.github/workflows/ci.yml` (cargo-deny v0.19.0, installed via `taiki-e/install-action@v2`)
-- CI invocation: `cargo deny --manifest-path native/rust/Cargo.toml check`
+- CI invocation: `cargo deny --locked --manifest-path native/rust/Cargo.toml check`
 
 ## Workflow
 
@@ -60,13 +60,13 @@ cargo-deny goes beyond audit: it enforces license policies, bans specific crates
 
 ```bash
 # Run all checks against project config
-cargo deny --manifest-path native/rust/Cargo.toml check
+cargo deny --locked --manifest-path native/rust/Cargo.toml check
 
 # Run a specific check
-cargo deny --manifest-path native/rust/Cargo.toml check advisories
-cargo deny --manifest-path native/rust/Cargo.toml check licenses
-cargo deny --manifest-path native/rust/Cargo.toml check bans
-cargo deny --manifest-path native/rust/Cargo.toml check sources
+cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories
+cargo deny --locked --manifest-path native/rust/Cargo.toml check licenses
+cargo deny --locked --manifest-path native/rust/Cargo.toml check bans
+cargo deny --locked --manifest-path native/rust/Cargo.toml check sources
 ```
 
 #### Project deny.toml (`native/rust/deny.toml`)
@@ -78,7 +78,7 @@ The project config enforces:
 - **bans**: `multiple-versions = "warn"`, `wildcards = "warn"`, `highlight = "all"`
 - **sources**: `unknown-registry = "deny"`, `unknown-git = "warn"`, only crates.io allowed via `allow-registry`
 
-When modifying `deny.toml`, always run `cargo deny --manifest-path native/rust/Cargo.toml check` locally before pushing to validate changes.
+When modifying `deny.toml`, always run `cargo deny --locked --manifest-path native/rust/Cargo.toml check` locally before pushing to validate changes.
 
 ### 3. RUSTSEC advisory database
 
@@ -109,7 +109,7 @@ Three confirmed malicious-crate incidents hit crates.io in RIPDPI's exact depend
 Attack class: typosquatting against async and crypto utility names — the exact dependency category RIPDPI pulls from. Every new crate addition to `Cargo.toml` must:
 
 1. Verify the crate name against the intended upstream (typo check).
-2. Run `cargo deny check bans advisories sources` locally **before** the first `cargo update`.
+2. Run `cargo deny --locked check bans advisories sources` locally **before** the first `cargo update`.
 3. Scan the published crate's `build.rs` / `src/lib.rs` for network calls, shell-out, or process spawns. A utility crate that opens sockets is a red flag.
 4. Pin to a specific version (`=1.2.3`) for the first adoption commit; loosen to `^1.2` only after the crate has been in the tree for at least one release cycle without incident.
 
@@ -152,7 +152,7 @@ cargo update -p <crate_name>
 #    ]
 
 # 5. Verify
-cargo deny --manifest-path native/rust/Cargo.toml check advisories
+cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories
 ```
 
 ### 5. Supply chain hardening
@@ -163,8 +163,8 @@ cargo deny --manifest-path native/rust/Cargo.toml check advisories
 cargo fetch --locked
 
 # Audit full dependency tree
-cargo tree                  # view full tree
-cargo tree -d               # show duplicate versions
+cargo tree --locked                  # view full tree
+cargo tree --locked -d               # show duplicate versions
 
 # Find unused dependencies
 cargo machete
@@ -180,7 +180,7 @@ The project CI runs cargo-deny as a standalone job on every PR (skipped for sche
 
 1. Checks out the repo
 2. Installs cargo-deny v0.19.0 via `taiki-e/install-action@v2`
-3. Runs `cargo deny --manifest-path native/rust/Cargo.toml check`
+3. Runs `cargo deny --locked --manifest-path native/rust/Cargo.toml check`
 
 If the CI job fails:
 - Check the failing check category (advisories, licenses, bans, sources)

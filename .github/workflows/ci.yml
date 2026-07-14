@@ -623,7 +623,7 @@ jobs:
           tool: cargo-deny@0.19.8
 
       - name: Run cargo-deny
-        run: cargo deny --manifest-path native/rust/Cargo.toml check
+        run: cargo deny --locked --manifest-path native/rust/Cargo.toml check
 
   cargo-deny-advisories:
     # Daily re-scan of the RustSec advisory DB against the pinned Cargo.lock, so
@@ -643,7 +643,7 @@ jobs:
           tool: cargo-deny@0.19.8
 
       - name: Run cargo-deny advisories
-        run: cargo deny --manifest-path native/rust/Cargo.toml check advisories
+        run: cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories
 
   diagnostics-probes-facade:
     if: github.event_name != 'schedule'
@@ -1379,7 +1379,7 @@ jobs:
           LOOM_MAX_PREEMPTIONS: 3
         run: |
           cd native/rust
-          cargo test --features loom -- loom
+          cargo test --locked --features loom -- loom
 
   rust-native-soak:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true')

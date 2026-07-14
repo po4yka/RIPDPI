@@ -63,7 +63,7 @@ Do **not** downgrade tokio below these versions:
 - **≥ 1.42.1** — fixes a `broadcast::Sender::clone()` soundness bug (missing synchronization for `Send + !Sync` payloads) and a `CancellationToken` race where futures that polled to `Ready` before the token fired were not cancelled. RIPDPI's connection-level abort paths rely on the cancellation fix. See the tokio [CHANGELOG](https://github.com/tokio-rs/tokio/blob/master/tokio/CHANGELOG.md) and [PR #7462](https://github.com/tokio-rs/tokio/pull/7462).
 - **≥ 1.51.1** — fixes a file-descriptor leak when an `io_uring` `open` operation is cancelled before completion. `ripdpi-tunnel-core` cancels in-flight FS/IO operations on session teardown; below this version the leaked fds accumulate until the process exits. See [PR #7983](https://github.com/tokio-rs/tokio/pull/7983).
 
-If `cargo tree -i tokio` shows a version below the floor, promote it in `native/rust/Cargo.toml` workspace dependencies (never downgrade a transitive dep to work around a breaking change — open an upstream issue instead).
+If `cargo tree --locked -i tokio` shows a version below the floor, promote it in `native/rust/Cargo.toml` workspace dependencies (never downgrade a transitive dep to work around a breaking change — open an upstream issue instead).
 
 ### Runtime configuration for Android NDK
 

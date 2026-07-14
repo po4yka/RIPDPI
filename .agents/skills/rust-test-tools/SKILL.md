@@ -1,13 +1,13 @@
 ---
 name: rust-test-tools
-description: Dynamic check toolkit beyond cargo test — cargo-careful (Miri fallback for FFI), loom (concurrency model checker), proptest (property tests), cargo-fuzz (libFuzzer), cargo-mutants (mutation testing). Use when authoring tests for unsafe code, custom atomics/locks, packet parsers, or before promoting an AI-generated module past basic test coverage.
+description: Dynamic check toolkit beyond cargo test --locked — cargo-careful (Miri fallback for FFI), loom (concurrency model checker), proptest (property tests), cargo-fuzz (libFuzzer), cargo-mutants (mutation testing). Use when authoring tests for unsafe code, custom atomics/locks, packet parsers, or before promoting an AI-generated module past basic test coverage.
 ---
 
 # Rust Test Tools -- RIPDPI
 
 ## Purpose
 
-`cargo test` and `cargo nextest run` are necessary but insufficient for the failure modes RIPDPI cares about: UB in `unsafe`, data races in lock-free atomics, missing edge cases in packet parsers, and behavioral changes that pass naive tests but break under exhaustive exploration. This skill catalogs the dynamic toolkit beyond Miri and tests when to reach for each tool.
+`cargo test --locked` and `cargo nextest run --locked` are necessary but insufficient for the failure modes RIPDPI cares about: UB in `unsafe`, data races in lock-free atomics, missing edge cases in packet parsers, and behavioral changes that pass naive tests but break under exhaustive exploration. This skill catalogs the dynamic toolkit beyond Miri and tests when to reach for each tool.
 
 ## Tool selection decision tree
 
@@ -31,7 +31,7 @@ Is the change a refactor or rewrite of well-tested logic?
           do not actually constrain behavior — add more before merging.
 
 None of the above?
-└── cargo nextest run + standard tests are sufficient.
+└── cargo nextest run --locked + standard tests are sufficient.
 ```
 
 ## cargo-careful — the Miri fallback
@@ -94,9 +94,9 @@ Run:
 
 ```bash
 cd native/rust
-RUSTFLAGS="--cfg loom" cargo test --release --test loom_shutdown
+RUSTFLAGS="--cfg loom" cargo test --locked --release --test loom_shutdown
 # Bound the search space if loom takes too long:
-LOOM_MAX_PREEMPTIONS=3 RUSTFLAGS="--cfg loom" cargo test --release --test loom_shutdown
+LOOM_MAX_PREEMPTIONS=3 RUSTFLAGS="--cfg loom" cargo test --locked --release --test loom_shutdown
 ```
 
 Cost: exponential in atomic count and preemption bound. Keep loom tests small (one primitive at a time). Pair with the `memory-model` skill — every Relaxed publish/subscribe site without a loom test is a tracking debt.
@@ -171,9 +171,9 @@ Use after a refactor or after an AI-generated rewrite of a well-tested module. D
 
 ## Cost / cadence summary
 
-| Tool | Cost vs `cargo test` | Cadence | Catches |
+| Tool | Cost vs `cargo test --locked` | Cadence | Catches |
 |------|----------------------|---------|---------|
-| `cargo nextest run` | baseline | every PR | functional regressions |
+| `cargo nextest run --locked` | baseline | every PR | functional regressions |
 | `cargo-careful` | 2–3× | every PR if FFI present | uninit reads, alignment, std-debug-assert violations |
 | Miri | 50–400× | nightly + on `unsafe` PRs | UB, aliasing, provenance (pure Rust) |
 | loom | exponential, bounded by preemptions | every PR touching custom concurrency | data races, atomic reorderings |
@@ -197,7 +197,7 @@ jobs:
   loom:
     runs-on: ubuntu-latest
     steps:
-      - run: RUSTFLAGS="--cfg loom" cargo test --release --tests
+      - run: RUSTFLAGS="--cfg loom" cargo test --locked --release --tests
 
   fuzz_nightly:
     if: github.event_name == 'schedule'

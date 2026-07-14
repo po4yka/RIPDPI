@@ -95,19 +95,19 @@ fn bad<'a>() -> &'a u32 {
 
 ```bash
 # Development (most permissive)
-MIRIFLAGS="-Zmiri-disable-isolation" cargo +nightly miri test
+MIRIFLAGS="-Zmiri-disable-isolation" cargo +nightly miri test --locked
 
 # CI (strict)
 MIRIFLAGS="-Zmiri-strict-provenance" \
-    cargo +nightly miri test
+    cargo +nightly miri test --locked
 
 # Concurrency testing with randomized scheduling
 MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-seed=42 -Zmiri-num-cpus=4" \
-    cargo +nightly miri test
+    cargo +nightly miri test --locked
 
 # Ignore intentional leaks (e.g., global objects)
 MIRIFLAGS="-Zmiri-ignore-leaks -Zmiri-disable-isolation" \
-    cargo +nightly miri test
+    cargo +nightly miri test --locked
 ```
 
 ## Miri Limitations
@@ -151,5 +151,5 @@ fn test_jni_lifecycle() {
 | TSan | Data races at runtime | nightly for Rust build | 5-15x |
 | MSan | Uninit reads at runtime | nightly, all-instrumented | 3x |
 | UBSan | Integer UB, null, etc. | nightly | <2x |
-| `cargo check` | Type, lifetime errors | stable | fast |
+| `cargo check --locked` | Type, lifetime errors | stable | fast |
 | Clippy | Common bug patterns | stable | fast |

@@ -155,8 +155,8 @@ android_support::clear_android_log_scope_level("proxy");
 ### 4. Build for Debugging
 
 ```bash
-cargo build --target aarch64-linux-android          # debug
-cargo build --target aarch64-linux-android --release # release w/ debug info
+cargo build --locked --target aarch64-linux-android          # debug
+cargo build --locked --target aarch64-linux-android --release # release w/ debug info
 # Ensure Cargo.toml has: [profile.release] debug = true
 ```
 

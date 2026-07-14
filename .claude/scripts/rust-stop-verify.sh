@@ -48,11 +48,11 @@ clippy_ec=${clippy_ec:-0}
 
 if [[ $clippy_ec -ne 0 ]]; then
   if [[ $strict_mode -eq 1 ]]; then
-    echo "rust-stop-verify: cargo clippy FAILED (strict mode):" >&2
+    echo "rust-stop-verify: cargo clippy --locked FAILED (strict mode):" >&2
     echo "$clippy_log" | tail -50 >&2
     exit 2
   else
-    echo "rust-stop-verify [advisory]: cargo clippy found warnings (RIPDPI_RUST_HOOKS_STRICT=on to block):" >&2
+    echo "rust-stop-verify [advisory]: cargo clippy --locked found warnings (RIPDPI_RUST_HOOKS_STRICT=on to block):" >&2
     echo "$clippy_log" | tail -30 >&2
   fi
 fi

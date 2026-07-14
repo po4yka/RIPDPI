@@ -67,7 +67,7 @@ The current configuration is intentionally permissive — it prioritizes shippin
 
 ### 1. `multiple-versions = "warn"` → `"deny"`
 
-Current state allows duplicate dep versions to silently accumulate. This masks transitive-dep drift and complicates supply-chain audits. **Precondition for escalation**: run `cargo tree --duplicates` inside `native/rust`, resolve all existing duplicates (typically by patching workspace dep versions or adding `[patch.crates-io]` entries), then flip the level. Do not flip the level before the duplicates are clean — the first CI run will explode.
+Current state allows duplicate dep versions to silently accumulate. This masks transitive-dep drift and complicates supply-chain audits. **Precondition for escalation**: run `cargo tree --locked --duplicates` inside `native/rust`, resolve all existing duplicates (typically by patching workspace dep versions or adding `[patch.crates-io]` entries), then flip the level. Do not flip the level before the duplicates are clean — the first CI run will explode.
 
 ### 2. Add `clippy::expect_used` and `clippy::unwrap_used` at `"warn"`
 
@@ -96,16 +96,16 @@ Exempt test code via `#[cfg_attr(test, allow(clippy::unwrap_used, clippy::expect
 cd native/rust
 
 # Clippy -- all targets, treat warnings as errors
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --locked --workspace --all-targets -- -D warnings
 
 # Format check
 cargo fmt --all -- --check
 
 # Supply chain / license / advisory
-cargo deny check
+cargo deny --locked check
 
 # All three in sequence
-cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all -- --check && cargo deny check
+cargo clippy --locked --workspace --all-targets -- -D warnings && cargo fmt --all -- --check && cargo deny --locked check
 ```
 
 ### CI
@@ -115,18 +115,18 @@ The `.github/workflows/ci.yml` pipeline runs these as separate steps. Clippy and
 ### Single-crate iteration
 
 ```bash
-cargo clippy -p ripdpi-monitor-engine --all-targets -- -D warnings
+cargo clippy --locked -p ripdpi-monitor-engine --all-targets -- -D warnings
 ```
 
 ## Adding a New Lint
 
 1. **Add** the lint to `[workspace.lints.clippy]` in `native/rust/Cargo.toml`
-2. **Run** `cargo clippy --workspace --all-targets` to find all violations
+2. **Run** `cargo clippy --locked --workspace --all-targets` to find all violations
 3. **Fix** violations across the workspace. If too numerous for one patch:
    - Add `#[allow(clippy::lint_name)]` with a `// TODO(po4yka): fix` comment on individual sites
    - Create a follow-up task to clean them up
 4. **Never** suppress a lint workspace-wide to avoid fixing violations
-5. **Run** `cargo nextest run --workspace` to verify fixes did not break behavior
+5. **Run** `cargo nextest run --locked --workspace` to verify fixes did not break behavior
 
 ### Adding a disallowed method
 
@@ -164,8 +164,8 @@ If a lint produces too many false positives across the entire workspace, reconsi
 |---------|-----|
 | Adding lint config to a specific crate's Cargo.toml | All lints are workspace-level; crates use `[lints] workspace = true` |
 | Suppressing lint workspace-wide to avoid fixing code | Fix the violations or add per-site `#[allow]` with TODO |
-| Running `cargo clippy` without `--all-targets` | Tests and examples need linting too |
+| Running `cargo clippy --locked` without `--all-targets` | Tests and examples need linting too |
 | Forgetting `-- -D warnings` in CI | Warnings must be treated as errors in CI |
-| Adding a dependency without running `cargo deny check` | New deps may violate license or advisory policy |
+| Adding a dependency without running `cargo deny --locked check` | New deps may violate license or advisory policy |
 | Using unstable rustfmt options | `rustfmt.toml` uses only stable options (`edition`, `max_width`, `use_small_heuristics`) |
 | Raising thresholds in clippy.toml to avoid refactoring | Fix the code; thresholds are already generous (8 args, 300 type complexity) |

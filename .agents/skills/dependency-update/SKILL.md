@@ -110,8 +110,8 @@ Update all three together in `libs.versions.toml`:
 ```bash
 cd native/rust
 cargo update -p <crate-name>
-cargo test
-cargo clippy --workspace --all-targets -- -D warnings
+cargo test --locked
+cargo clippy --locked --workspace --all-targets -- -D warnings
 # Rebuild Android libs to verify cross-compilation:
 cd ../.. && ./gradlew :core:engine:buildRustNativeLibs
 ```
@@ -128,14 +128,14 @@ NDK changes affect **both** ecosystems:
 3. Full test suite:
    ```bash
    ./gradlew assembleDebug testDebugUnitTest
-   cd native/rust && cargo test
+   cd native/rust && cargo test --locked
    ```
 
 ### Rust Toolchain Update
 
 1. Update `channel` in `native/rust/rust-toolchain.toml`
 2. Verify CI workflow uses the same version (reads from `rust-toolchain.toml`)
-3. Run: `cd native/rust && cargo test && cargo clippy --workspace`
+3. Run: `cd native/rust && cargo test --locked && cargo clippy --locked --workspace`
 
 ## Cross-Ecosystem Dependencies
 
@@ -153,7 +153,7 @@ After any update, run in order:
 ./gradlew assembleDebug                          # Kotlin compilation
 ./gradlew testDebugUnitTest                      # Unit tests
 ./gradlew staticAnalysis                         # detekt + ktlint + lint
-cd native/rust && cargo test                     # Rust tests
+cd native/rust && cargo test --locked                     # Rust tests
 cd ../.. && ./gradlew :core:engine:buildRustNativeLibs  # Cross-compilation
 ```
 

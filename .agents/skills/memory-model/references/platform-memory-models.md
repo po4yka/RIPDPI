@@ -31,7 +31,7 @@ ARM64 implications for RIPDPI:
 - Acquire loads emit `dmb ishld`; Release stores emit `dmb ish`
 - SeqCst adds full sequential constraint (expensive on ARM64)
 - Bugs may hide on x86 (stronger model) but surface on ARM64
-- Always test on-device or validate with Miri (`cargo +nightly miri test`)
+- Always test on-device or validate with Miri (`cargo +nightly miri test --locked`)
 
 ## C++ / Rust Ordering Equivalence
 

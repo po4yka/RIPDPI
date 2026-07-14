@@ -38,10 +38,10 @@ These jobs exist in CI but are not curated by the wrapper yet:
 | `cli-packet-smoke` | Maybe | `bash scripts/ci/run-cli-packet-smoke.sh` |
 | `rust-turmoil` | Likely | `bash scripts/ci/run-rust-turmoil-tests.sh` |
 | `coverage` | Heavy | `./gradlew coverageReport` plus the CI-scoped `bash scripts/ci/run-rust-coverage.sh` |
-| `rust-criterion-bench` | Likely | `cd native/rust && cargo bench --package ripdpi-bench` |
+| `rust-criterion-bench` | Likely | `cd native/rust && cargo bench --locked --package ripdpi-bench` |
 | `android-macrobenchmark` | No | Needs emulator/KVM; use GitHub CI or a native Linux host |
 | `android-instrumented-tests` | No | GMD instrumented-test matrix; needs emulator/KVM -- use GitHub CI |
-| `rust-loom` | Likely | `cd native/rust && cargo test --features loom -- loom` |
+| `rust-loom` | Likely | `cd native/rust && cargo test --locked --features loom -- loom` |
 | `rust-native-load` | Maybe | `bash scripts/ci/run-rust-native-load.sh` |
 | `nightly-rust-coverage` | Heavy | Use the repo coverage scripts directly |
 | `android-network-e2e` | No | Run on a local emulator outside Docker |

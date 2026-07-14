@@ -19,7 +19,7 @@ baseline_md="$artifact_dir/phase0-baseline.md"
 echo "==> Criterion benchmarks"
 (
   cd "$repo_root/native/rust"
-  cargo bench --package ripdpi-bench 2>&1 | tee "$artifact_dir/criterion-output.txt"
+  cargo bench --locked --package ripdpi-bench 2>&1 | tee "$artifact_dir/criterion-output.txt"
 )
 python3 "$repo_root/scripts/ci/check-criterion-regressions.py" \
   --criterion-dir "$repo_root/native/rust/target/criterion" \

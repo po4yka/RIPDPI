@@ -70,20 +70,20 @@ The Gradle task maps Cargo output names to Android library names:
 cd native/rust
 
 # Build specific workspace member
-cargo build -p ripdpi-packets
-cargo check -p ripdpi-ws-tunnel
+cargo build --locked -p ripdpi-packets
+cargo check --locked -p ripdpi-ws-tunnel
 
 # Test specific member
-cargo nextest run -p ripdpi-session
+cargo nextest run --locked -p ripdpi-session
 
 # Test all members
-cargo nextest run --workspace
+cargo nextest run --locked --workspace
 
 # Exclude member from workspace build
-cargo build --workspace --exclude ripdpi-bench
+cargo build --locked --workspace --exclude ripdpi-bench
 
 # Cross-compile check (host only -- no NDK linker)
-cargo check --target aarch64-linux-android -p ripdpi-packets
+cargo check --locked --target aarch64-linux-android -p ripdpi-packets
 ```
 
 ## Cargo.lock management
