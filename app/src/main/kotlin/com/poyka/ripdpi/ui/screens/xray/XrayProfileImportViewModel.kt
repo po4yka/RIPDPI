@@ -12,10 +12,16 @@ import com.poyka.ripdpi.data.xray.XrayImportParser
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -33,7 +39,6 @@ import javax.inject.Inject
  * @property capabilities jargon-free capability labels for the translated config.
  * @property skipped outbounds that could not be translated, each with a reason.
  * @property errorMessage a redacted, user-safe validation error (null when none).
- * @property imported true once the translated profile(s) have been persisted.
  */
 data class XrayImportUiState(
     val selectedOption: XrayServiceModeOption = XrayServiceModeOption.default,
@@ -41,10 +46,9 @@ data class XrayImportUiState(
     val validating: Boolean = false,
     val acceptedConfigReady: Boolean = false,
     val importableCount: Int = 0,
-    val capabilities: List<XrayCapability> = emptyList(),
-    val skipped: List<XraySkippedNode> = emptyList(),
+    val capabilities: ImmutableList<XrayCapability> = persistentListOf(),
+    val skipped: ImmutableList<XraySkippedNode> = persistentListOf(),
     val errorMessage: String? = null,
-    val imported: Boolean = false,
 ) {
     /** True when the chosen option needs a validated Xray profile to proceed. */
     val requiresXrayProfile: Boolean get() = selectedOption.requiresXrayProfile
@@ -78,6 +82,9 @@ class XrayProfileImportViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(XrayImportUiState())
         val uiState: StateFlow<XrayImportUiState> = _uiState.asStateFlow()
+        private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
+        val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
+        private var completed = false
 
         /** Profiles translated by the last successful [validate]; not exposed to the UI. */
         private var translatedProfiles: List<ProxyProfile> = emptyList()
@@ -107,6 +114,7 @@ class XrayProfileImportViewModel
 
         /** Selects a service-mode option, clearing any stale validation outcome. */
         fun selectOption(option: XrayServiceModeOption) {
+            completed = false
             translatedProfiles = emptyList()
             acceptedXrayProfile = null
             _uiState.update {
@@ -114,16 +122,16 @@ class XrayProfileImportViewModel
                     selectedOption = option,
                     acceptedConfigReady = false,
                     importableCount = 0,
-                    capabilities = emptyList(),
-                    skipped = emptyList(),
+                    capabilities = persistentListOf(),
+                    skipped = persistentListOf(),
                     errorMessage = null,
-                    imported = false,
                 )
             }
         }
 
         /** Updates the editable import text, clearing the previous outcome. */
         fun onRawInputChange(value: String) {
+            completed = false
             translatedProfiles = emptyList()
             acceptedXrayProfile = null
             _uiState.update {
@@ -131,8 +139,8 @@ class XrayProfileImportViewModel
                     rawInput = value,
                     acceptedConfigReady = false,
                     importableCount = 0,
-                    capabilities = emptyList(),
-                    skipped = emptyList(),
+                    capabilities = persistentListOf(),
+                    skipped = persistentListOf(),
                     errorMessage = null,
                 )
             }
@@ -166,8 +174,8 @@ class XrayProfileImportViewModel
                             validating = false,
                             acceptedConfigReady = false,
                             importableCount = 0,
-                            capabilities = emptyList(),
-                            skipped = emptyList(),
+                            capabilities = persistentListOf(),
+                            skipped = persistentListOf(),
                             errorMessage = persistence.unparseableMessage,
                         )
                     }
@@ -185,8 +193,8 @@ class XrayProfileImportViewModel
                         validating = false,
                         acceptedConfigReady = false,
                         importableCount = 0,
-                        capabilities = emptyList(),
-                        skipped = result.skipped,
+                        capabilities = persistentListOf(),
+                        skipped = result.skipped.toImmutableList(),
                         errorMessage = persistence.noSupportedNodesMessage,
                     )
                 }
@@ -221,8 +229,8 @@ class XrayProfileImportViewModel
                     validating = false,
                     acceptedConfigReady = true,
                     importableCount = 1,
-                    capabilities = capabilitiesFor(listOf(activated)),
-                    skipped = result.skipped + deferred,
+                    capabilities = capabilitiesFor(listOf(activated)).toImmutableList(),
+                    skipped = (result.skipped + deferred).toImmutableList(),
                     errorMessage = null,
                 )
             }
@@ -256,8 +264,8 @@ class XrayProfileImportViewModel
                                 validating = false,
                                 acceptedConfigReady = true,
                                 importableCount = 1,
-                                capabilities = parsed.capabilities,
-                                skipped = skipped,
+                                capabilities = parsed.capabilities.toImmutableList(),
+                                skipped = skipped.toImmutableList(),
                                 errorMessage = null,
                             )
                         }
@@ -282,8 +290,8 @@ class XrayProfileImportViewModel
                     validating = false,
                     acceptedConfigReady = false,
                     importableCount = 0,
-                    capabilities = emptyList(),
-                    skipped = skipped,
+                    capabilities = persistentListOf(),
+                    skipped = skipped.toImmutableList(),
                     errorMessage = message,
                 )
             }
@@ -292,13 +300,12 @@ class XrayProfileImportViewModel
         /**
          * Hands the translated profiles to the persistence seam (which activates the
          * first supported one on the native relay) and records the chosen mode. Awaits
-         * the persist so [XrayImportUiState.imported] (the screen's navigate-away
-         * signal) only flips once the relay is actually written. No-op when the
+         * the persist so the navigate-away event is sent only once the relay is actually written. No-op when the
          * selection cannot finish yet or a persist is already in flight.
          */
         fun confirm() {
             val state = _uiState.value
-            if (!state.canFinish || state.imported || importInFlight) return
+            if (!state.canFinish || importInFlight || completed) return
             importInFlight = true
             viewModelScope.launch {
                 val result =
@@ -307,7 +314,10 @@ class XrayProfileImportViewModel
                     }
                 importInFlight = false
                 result.fold(
-                    onSuccess = { _uiState.update { it.copy(imported = true) } },
+                    onSuccess = {
+                        completed = true
+                        importedEventChannel.send(Unit)
+                    },
                     onFailure = { error ->
                         // Don't swallow structured-concurrency cancellation.
                         if (error is CancellationException) throw error

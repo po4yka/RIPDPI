@@ -8,7 +8,7 @@ use crate::util::{ProbeOutcomeBucket, classify_probe_outcome};
 use ripdpi_telemetry::recorder;
 use std::collections::HashSet;
 
-pub(in crate::engine) fn build_report(
+pub(crate) fn build_report(
     session_id: String,
     request: ScanRequest,
     started_at: u64,

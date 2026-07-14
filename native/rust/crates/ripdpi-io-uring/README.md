@@ -2,7 +2,7 @@
 
 **Layer:** L5 -- platform / privileged.
 
-`ripdpi-io-uring` provides optional Linux/Android io_uring support and capability probing for zero-copy-oriented networking paths.
+`ripdpi-io-uring` provides optional Linux/Android io_uring support and capability probing for zero-copy-oriented networking paths. `IoUringDriver::start` owns ring creation and registers the buffer pool on that exact ring so safe callers cannot mismatch fixed buffers and submission queues.
 
 ## Boundaries
 

@@ -84,6 +84,8 @@ pub async fn run_tunnel(
     cancel: CancellationToken,
     stats: Arc<Stats>,
 ) -> io::Result<()> {
+    config.validate().map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
+
     // Consume the OwnedFd RAII guard immediately.  From this point the raw fd
     // is owned by the async frame; `AsyncDevice::from_fd` wraps it in the next
     // statement with no intervening code that could panic or return early.

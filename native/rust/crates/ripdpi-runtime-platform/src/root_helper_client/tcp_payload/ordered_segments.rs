@@ -1,5 +1,5 @@
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, OwnedFd};
 
 use ripdpi_root_helper_protocol::{CMD_SEND_ORDERED_TCP_SEGMENTS, OrderedTcpSegmentParams, OrderedTcpSegmentsParams};
 
@@ -12,7 +12,7 @@ impl RootHelperClient {
     #[allow(clippy::too_many_arguments)]
     pub fn send_ordered_tcp_segments(
         &self,
-        stream_fd: RawFd,
+        stream_fd: BorrowedFd<'_>,
         segments: &[OrderedTcpSegment<'_>],
         original_payload_len: usize,
         default_ttl: u8,
@@ -20,7 +20,7 @@ impl RootHelperClient {
         timestamp_delta_ticks: Option<i32>,
         ipv4_identifications: &[u16],
         wait: TcpStageWait,
-    ) -> io::Result<Option<RawFd>> {
+    ) -> io::Result<Option<OwnedFd>> {
         let segment_specs: Vec<OrderedTcpSegmentParams> = segments
             .iter()
             .map(|segment| OrderedTcpSegmentParams {

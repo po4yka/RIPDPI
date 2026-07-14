@@ -1,3 +1,4 @@
 mod summary;
 
-pub(in crate::engine) use summary::{build_report, connectivity_analytics_summary, connectivity_summary};
+pub(crate) use summary::build_report;
+pub(in crate::engine) use summary::{connectivity_analytics_summary, connectivity_summary};

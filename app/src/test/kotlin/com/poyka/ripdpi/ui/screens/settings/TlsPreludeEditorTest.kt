@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.ui.state.SettingsUiState
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -20,7 +21,7 @@ class TlsPreludeEditorTest {
                 desync =
                     DesyncCoreUiState(
                         tcpChainSteps =
-                            listOf(
+                            persistentListOf(
                                 TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
                                 TcpChainStepModel(
                                     kind = TcpChainStepKind.TlsRandRec,
@@ -42,7 +43,7 @@ class TlsPreludeEditorTest {
         val updated = state.rewriteTlsPreludeChainForEditor(mode = TlsPreludeModeDisabled)
 
         assertEquals(
-            listOf(
+            persistentListOf(
                 TcpChainStepModel(
                     kind = TcpChainStepKind.HostFake,
                     marker = "endhost+8",
@@ -60,7 +61,7 @@ class TlsPreludeEditorTest {
             SettingsUiState(
                 desync =
                     DesyncCoreUiState(
-                        tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
+                        tcpChainSteps = persistentListOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
                     ),
                 tlsPrelude = TlsPreludeUiState(tlsrecMarker = "sniext+4"),
             )
@@ -72,7 +73,7 @@ class TlsPreludeEditorTest {
             )
 
         assertEquals(
-            listOf(
+            persistentListOf(
                 TcpChainStepModel(TcpChainStepKind.TlsRec, "0"),
                 TcpChainStepModel(TcpChainStepKind.Split, "host+1"),
             ),
@@ -86,7 +87,7 @@ class TlsPreludeEditorTest {
             SettingsUiState(
                 desync =
                     DesyncCoreUiState(
-                        tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
+                        tcpChainSteps = persistentListOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
                     ),
                 tlsPrelude = TlsPreludeUiState(tlsrecMarker = "extlen"),
             )

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.backup
 
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -10,11 +11,14 @@ import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,14 +51,19 @@ class ResetAllSettingsUseCaseTest {
         groups: ProxyGroupRepository,
         rules: RuleDao,
         settings: AppSettingsRepository,
+        profileData: UserProfileResetStore,
         diagnostics: DiagnosticsHistoryResetStore,
         caches: CacheDirectoryCleaner,
+        artifacts: UserArtifactResetStore = FakeUserArtifactResetStore(),
     ) = ResetAllSettingsUseCase(
         resetEventRecorder = recorder,
         groupRepository = groups,
         ruleDao = rules,
         settingsRepository = settings,
+        profileMutations = NoOpProfileMutationCoordinator,
+        userProfileResetStore = profileData,
         diagnosticsHistoryResetStore = diagnostics,
+        userArtifactResetStore = artifacts,
         cacheDirectoryCleaner = caches,
     )
 
@@ -75,18 +84,23 @@ class ResetAllSettingsUseCaseTest {
                 )
             val diagnostics = FakeDiagnosticsHistoryResetStore()
             val caches = FakeCacheDirectoryCleaner()
+            val profileData = FakeUserProfileResetStore()
+            val artifacts = FakeUserArtifactResetStore()
 
-            useCase(recorder, groups, rules, settings, diagnostics, caches).reset()
+            useCase(recorder, groups, rules, settings, profileData, diagnostics, caches, artifacts).reset()
 
             // Groups and their embedded profiles are emptied.
             assertTrue(groups.list().isEmpty())
             // Routing rules deleted.
             assertEquals(0, rules.rowCount)
             assertEquals(1, rules.deleteAllCalls)
-            // Settings back to the proto default (custom proxyPort gone).
-            assertEquals(AppSettings.getDefaultInstance().proxyPort, settings.snapshot().proxyPort)
+            // Settings match a clean install, not protobuf's zero instance.
+            assertEquals(AppSettingsSerializer.defaultValue, settings.snapshot())
+            // Separate profile, credential, selection, and boot-session stores are wiped.
+            assertEquals(1, profileData.clearCalls)
             // Diagnostics user-history cleared.
             assertEquals(1, diagnostics.clearCalls)
+            assertEquals(1, artifacts.clearCalls)
             // Caches cleared.
             assertEquals(1, caches.clearCalls)
         }
@@ -104,6 +118,7 @@ class ResetAllSettingsUseCaseTest {
                 groups = groups,
                 rules = FakeRuleDao(initialRowCount = 1),
                 settings = FakeAppSettingsRepository(),
+                profileData = FakeUserProfileResetStore(),
                 diagnostics = FakeDiagnosticsHistoryResetStore(),
                 caches = FakeCacheDirectoryCleaner(),
             ).reset()
@@ -122,6 +137,7 @@ class ResetAllSettingsUseCaseTest {
                 groups = FakeGroupRepository(mutableListOf(sampleGroup)),
                 rules = FakeRuleDao(initialRowCount = 1),
                 settings = FakeAppSettingsRepository(),
+                profileData = FakeUserProfileResetStore(),
                 diagnostics = FakeDiagnosticsHistoryResetStore(),
                 caches = FakeCacheDirectoryCleaner(),
             ).reset()
@@ -131,6 +147,44 @@ class ResetAllSettingsUseCaseTest {
             assertTrue(recorder.consumeResetEvent())
             assertFalse(recorder.consumeResetEvent())
             assertFalse(recorder.hasPendingResetEvent())
+        }
+
+    @Test
+    fun `reset completes destructive phases after caller cancellation`() =
+        runTest {
+            val deleteStarted = CompletableDeferred<Unit>()
+            val continueDelete = CompletableDeferred<Unit>()
+            val profileData = FakeUserProfileResetStore()
+            val diagnostics = FakeDiagnosticsHistoryResetStore()
+            val artifacts = FakeUserArtifactResetStore()
+            val caches = FakeCacheDirectoryCleaner()
+            val job =
+                backgroundScope.launch {
+                    useCase(
+                        recorder = FakeResetEventRecorder(),
+                        groups = FakeGroupRepository(mutableListOf(sampleGroup)),
+                        rules =
+                            FakeRuleDao(1) {
+                                deleteStarted.complete(Unit)
+                                continueDelete.await()
+                            },
+                        settings = FakeAppSettingsRepository(),
+                        profileData = profileData,
+                        diagnostics = diagnostics,
+                        caches = caches,
+                        artifacts = artifacts,
+                    ).reset()
+                }
+
+            deleteStarted.await()
+            job.cancel()
+            continueDelete.complete(Unit)
+            job.join()
+
+            assertEquals(1, profileData.clearCalls)
+            assertEquals(1, diagnostics.clearCalls)
+            assertEquals(1, artifacts.clearCalls)
+            assertEquals(1, caches.clearCalls)
         }
 
     // -- Fakes ----------------------------------------------------------------
@@ -225,11 +279,29 @@ class ResetAllSettingsUseCaseTest {
         }
     }
 
+    private class FakeUserProfileResetStore : UserProfileResetStore {
+        var clearCalls = 0
+            private set
+
+        override suspend fun clearAll() {
+            clearCalls++
+        }
+    }
+
     private class FakeCacheDirectoryCleaner : CacheDirectoryCleaner {
         var clearCalls = 0
             private set
 
         override fun clearCaches() {
+            clearCalls++
+        }
+    }
+
+    private class FakeUserArtifactResetStore : UserArtifactResetStore {
+        var clearCalls = 0
+            private set
+
+        override fun clearAll(settings: AppSettings) {
             clearCalls++
         }
     }
@@ -241,6 +313,7 @@ class ResetAllSettingsUseCaseTest {
      */
     private class FakeRuleDao(
         initialRowCount: Int,
+        private val beforeDelete: suspend () -> Unit = {},
     ) : RuleDao() {
         var rowCount: Int = initialRowCount
             private set
@@ -248,6 +321,7 @@ class ResetAllSettingsUseCaseTest {
             private set
 
         override suspend fun deleteAll() {
+            beforeDelete()
             deleteAllCalls++
             rowCount = 0
         }

@@ -28,7 +28,7 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 
 在设备端应用可配置的数据包级转换，无需将流量路由到中继服务器。核心路径不需要 root 权限。
 
-支持的技术：TCP 段分裂与乱序、伪造数据包注入、OOB（紧急指针）、TLS 记录分片、伪造 TLS 首次发送、QUIC 握手变种、DTLS 指纹归一化、UDP 长度字段变种、IPv6 扩展头注入、Lua 定义的原始数据包发送，以及自适应语义标记（根据实时 `TCP_INFO` 解析位置）。策略链由本仓库中的 Rust crate 构建，无需外部策略二进制文件。
+支持的技术：TCP 段分裂与乱序、伪造数据包注入、OOB（紧急指针）、TLS 记录分片、伪造 TLS 首次发送、QUIC 握手变种、UDP 长度字段变种、IPv6 扩展头注入、Lua 定义的原始数据包发送，以及自适应语义标记（根据实时 `TCP_INFO` 解析位置）。策略链由本仓库中的 Rust crate 构建，无需外部策略二进制文件。
 
 未配置中继时，流量直接从设备出口——设备端变换是路径上唯一的更改。
 
@@ -86,7 +86,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应用最轻量级的有效修复，并将其记住。
 
 1. **每目标、每网络的答案** — 而非一个全局策略。诊断对每个权威进行分类并存储与网络指纹哈希关联的判定结果。
-2. **当网络是问题时，改变本地路径。** 语义标记、自适应分裂位置、伪造负载链、OOB/乱序、随机化 TLS 记录、QUIC 和 DTLS 指纹变种——由仓库内 Rust crate 组装。
+2. **当网络是问题时，改变本地路径。** 语义标记、自适应分裂位置、伪造负载链、OOB/乱序、随机化 TLS 记录、QUIC 指纹变种——由仓库内 Rust crate 组装。
 3. **当直接路径退化时，退回到隧道中继。** 上方的中继矩阵区分了原生 relay-core 后端、辅助子进程、外部可插拔传输层，以及独立的 VPN/隧道配置文件层。
 4. **诚实的报告。** 判定结果是类型化的并显示出来；故障分类器的结果是显示而非抑制；诊断导出包会编辑机密信息。
 
@@ -114,7 +114,7 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 - **配置文件导入**：QR 码扫描与生成，以及通过剪贴板和分享表单导入。剪贴板/分享表单解析使用代理 URI 编解码器，支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`anytls://`、`tuic://`、`mieru://` 和 `ssh://`；QR 码扫描目前支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://` 和 `tuic://`。AmneziaWG 使用独立的 `amneziawg://` 编解码器。Android intent 过滤器还会将 `ssh://` 暴露给导入中转层，代理 URI 编解码器可解析并双向编码该协议。
 - **订阅**：支持 base64、Clash / Clash.Meta YAML、sing-box JSON 和 WireGuard-INI 订阅格式，具备后台自动更新、重复配置文件检测、selector/urltest 分组以及多镜像分发。
 - **加密 DNS**：在 VPN 相关路径中支持 DoH、DoT、DNSCrypt 和 DoQ 解析器。
-- **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 和 DTLS 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。
+- **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。
 - **每网络策略记忆**：经过验证的、按权威的判定结果以网络指纹为键；重新连接时自动重放。
 - **自适应探测**：首次见到的网络的自动策略探测；网络切换时的后台 `quick_v1` 重新检查。
 - **切换感知重启**：在 Wi-Fi、蜂窝和漫游之间过渡时进行实时策略重新评估。
@@ -136,10 +136,7 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 
 RIPDPI 记录用于诊断和故障排除的操作元数据：网络快照、解析器状态、路由决策、扫描结果、服务状态和原生运行时事件。
 
-RIPDPI **不**记录：
-- 完整数据包捕获
-- 流量负载
-- TLS 机密
+正常运行时，RIPDPI 不捕获数据包、不持久化流量负载，也不记录 TLS 机密。高级数据包捕获是一项必须明确启用的诊断工具：原始数据包字节仅在本地限时保存，并且只有在用户主动分享归档时才会包含在归档中。
 
 中继流量隐私取决于您配置的中继端点和配置文件。
 
@@ -155,7 +152,7 @@ cd RIPDPI
 
 本地构建默认为 `host`（`ripdpi.localNativeAbisDefault`），ABI 由主机架构推导（例如 Apple Silicon 上为 `arm64-v8a`）。模拟器：`./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`。
 
-APK 输出：`app/build/outputs/apk/debug/` 和 `app/build/outputs/apk/release/`。
+APK 输出位于对应变体目录中，例如 `app/build/outputs/apk/githubFull/debug/`；release 任务和路径请参阅 [distribution.md](docs/distribution.md)。
 
 ## 测试
 

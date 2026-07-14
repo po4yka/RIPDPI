@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import kotlinx.collections.immutable.toImmutableList
 
 private const val LiveTelemetrySamples = 24
 
@@ -15,24 +16,25 @@ internal fun DiagnosticsUiFactorySupport.buildLiveTrends(
     return listOf(
         DiagnosticsSparklineUiModel(
             label = context.getString(R.string.diagnostics_sparkline_tx_bytes),
-            values = samples.map { it.txBytes.toFloat() },
+            values = samples.map { it.txBytes.toFloat() }.toImmutableList(),
             tone = DiagnosticsTone.Info,
         ),
         DiagnosticsSparklineUiModel(
             label = context.getString(R.string.diagnostics_sparkline_rx_bytes),
-            values = samples.map { it.rxBytes.toFloat() },
+            values = samples.map { it.rxBytes.toFloat() }.toImmutableList(),
             tone = DiagnosticsTone.Positive,
         ),
         DiagnosticsSparklineUiModel(
             label = context.getString(R.string.diagnostics_sparkline_errors),
             values =
-                samples.map { sample ->
-                    if (sample.connectionState.equals("running", ignoreCase = true)) {
-                        0f
-                    } else {
-                        1f
-                    }
-                },
+                samples
+                    .map { sample ->
+                        if (sample.connectionState.equals("running", ignoreCase = true)) {
+                            0f
+                        } else {
+                            1f
+                        }
+                    }.toImmutableList(),
             tone = DiagnosticsTone.Warning,
         ),
     )

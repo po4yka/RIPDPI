@@ -32,5 +32,5 @@ pub use params::{
 pub use scm_rights::{recv_message, send_message};
 pub use wire::{
     CAPABILITY_VERSION, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES,
-    PROTOCOL_VERSION, valid_session_nonce,
+    PROTOCOL_VERSION, ProtocolVersionError, valid_session_nonce,
 };

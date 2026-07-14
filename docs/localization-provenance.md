@@ -3,37 +3,30 @@
 This ledger records, per locale, the source revision the translation was
 verified against, key-parity status, translation origin (human vs. machine),
 and reviewer sign-off. It is the audit trail behind the
-[localization pipeline](localization.md) and the
-[Localization expansion epic](../docs/tasks/issues/epic-localization-expansion.md).
+[localization pipeline](localization.md).
 
 Update this ledger in the same PR that lands or refreshes a locale.
 
 ## Review ledger
 
-Audit date: **2026-05-30** (refreshed 2026-05-31 after integration with the
-extended-outbound-protocol and system-HTTP-proxy epics on `main`, which added
-119 source strings). Source: `app/src/main/res/values/strings.xml`
-(3,049 translatable app `<string>` + 4 app `<plurals>`; plus 4 `core/service`
-`<string>` = 3,053 manifest keys). 42 technical tokens are `translatable="false"`
-(40 app + 2 service; see [glossary](localization-glossary.md)) and are
-intentionally excluded from every locale.
+Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.xml` contains 4,005 translatable `<string>` entries plus 17 `<plurals>` entries; `diagnostics_fallbacks.xml` and `diagnostics_initial_states.xml` contribute another 41 translated strings, for 4,063 app keys. `core/service/src/main/res/values/strings.xml` contributes 4 more, for 4,067 translated keys across both modules. The app has 47 technical entries marked `translatable="false"`, and the service module has 2; these 49 entries are intentionally excluded from locale resources. Every shipped locale has structural key parity across every XML file in its resource directory. This revalidation checks XML/key structure only; it does not replace the linguistic review dates below.
 
 | Locale | Resource dir | Keys | Missing | Origin | MT-origin | Reviewer | Review date |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Russian (ru) | `values-ru/` | 3049 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| Spanish (es) | `values-es/` | 3049 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| German (de) | `values-de/` | 3049 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| French (fr) | `values-fr/` | 3049 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| Persian (fa) | `values-fa/` | 3049 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| Arabic (ar) | `values-ar/` | 3049 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer) | 2026-05-31 |
-| Simplified Chinese (zh-CN) | `values-zh-rCN/` | 3049 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| Russian (ru) | `values-ru/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| Spanish (es) | `values-es/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| German (de) | `values-de/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| French (fr) | `values-fr/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| Persian (fa) | `values-fa/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| Arabic (ar) | `values-ar/` | 4063 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer, structural review) | 2026-05-31 |
+| Simplified Chinese (zh-CN) | `values-zh-rCN/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| Hindi (hi) | `values-hi/` (`strings.xml` + `strings2.xml`) | 4063 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
 
 `core/service` strings (4 translatable) mirror the same locales with 0 missing keys.
 
 ### Sign-off
 
-The maintainer (Nikita Pochaev) has reviewed and signed off the landed
-locales above as of 2026-05-30. Key parity is enforced continuously by
+The recorded maintainer sign-off applies to the locale snapshots and dates shown above; it does not imply that strings added later have received a new linguistic pass. Key parity is enforced continuously by
 Android lint (`MissingTranslation severity="error"`) and the
 [CI export gate](localization.md#ci-export-gate).
 
@@ -47,6 +40,8 @@ yet had a native-speaker linguistic pass. This is disclosed here and in the
 Play Store Data Safety / QA trail) can see the provenance. Native-speaker
 review of `ar` is tracked as follow-up; it does not block the locale shipping,
 which is the maintainer's explicit decision for first-wave Arabic coverage.
+
+Hindi (`hi`) is likewise machine-translated and structurally complete, split across `strings.xml` and `strings2.xml`; a native-speaker linguistic review is still pending.
 
 ## Font & glyph coverage
 

@@ -252,7 +252,7 @@ async fn proxy(mut upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Err
         match parse_request_header(&buf) {
             Ok(header) => break header,
             Err(ParseRequestError::NeedMoreData) => {}
-            Err(ParseRequestError::Invalid(reason)) => return Err(io::Error::new(io::ErrorKind::InvalidData, reason)),
+            Err(error) => return Err(io::Error::new(io::ErrorKind::InvalidData, error)),
         }
         if buf.len() >= MAX_REQUEST_HEADER {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "VLESS request header exceeded bound"));
@@ -283,7 +283,7 @@ async fn proxy(mut upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Err
     // 2. Connect to the proxy target, then ACK with the VLESS response header.
     let upstream = TcpStream::connect(header.target.as_str()).await?;
     down_tx
-        .send(Ok(Bytes::copy_from_slice(&encode_response(&[]))))
+        .send(Ok(Bytes::from(encode_response(&[])?)))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "download channel closed"))?;
 

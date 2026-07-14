@@ -7,21 +7,19 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -41,7 +39,13 @@ enum class StatusIndicatorTone {
     Error,
 }
 
-@Suppress("LongMethod")
+private data class StatusIndicatorAnimation(
+    val animatedIndicatorColor: State<Color>,
+    val pulseScale: State<Float>,
+    val pulseAlpha: State<Float>,
+    val pulsing: Boolean,
+)
+
 @Composable
 fun StatusIndicator(
     label: String,
@@ -49,8 +53,6 @@ fun StatusIndicator(
     tone: StatusIndicatorTone = StatusIndicatorTone.Active,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val motion = RipDpiThemeTokens.motion
-    val staticMotion = LocalInspectionMode.current || !motion.allowsInfiniteMotion
     val indicatorColor =
         when (tone) {
             StatusIndicatorTone.Active -> colors.foreground
@@ -58,18 +60,47 @@ fun StatusIndicator(
             StatusIndicatorTone.Warning -> colors.warning
             StatusIndicatorTone.Error -> colors.destructive
         }
-    val animatedIndicatorColor by animateColorAsState(
-        targetValue = indicatorColor,
-        animationSpec = motion.stateTween(),
-        label = "statusIndicatorColor",
-    )
-    val pulseTransition =
-        if (!staticMotion && tone != StatusIndicatorTone.Idle && tone != StatusIndicatorTone.Error) {
-            rememberInfiniteTransition(label = "statusPulse")
-        } else {
-            null
-        }
-    val pulseScale by (
+    val animation = rememberStatusIndicatorAnimation(indicatorColor, tone)
+    val statusDescription = stringResource(R.string.status_indicator_description, label)
+    val indicators = RipDpiThemeTokens.components.indicators
+
+    Row(
+        modifier =
+            modifier.semantics(mergeDescendants = true) {
+                contentDescription = statusDescription
+                liveRegion = LiveRegionMode.Polite
+            },
+        horizontalArrangement = Arrangement.spacedBy(indicators.statusMarkerSpacing),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatusMarker(tone, animation)
+        Text(
+            text = label,
+            style = RipDpiThemeTokens.type.brandStatus,
+            color = colors.foreground,
+        )
+    }
+}
+
+@Composable
+private fun rememberStatusIndicatorAnimation(
+    indicatorColor: Color,
+    tone: StatusIndicatorTone,
+): StatusIndicatorAnimation {
+    val motion = RipDpiThemeTokens.motion
+    val pulsing =
+        !LocalInspectionMode.current &&
+            motion.allowsInfiniteMotion &&
+            tone != StatusIndicatorTone.Idle &&
+            tone != StatusIndicatorTone.Error
+    val animatedIndicatorColor =
+        animateColorAsState(
+            targetValue = indicatorColor,
+            animationSpec = motion.stateTween(),
+            label = "statusIndicatorColor",
+        )
+    val pulseTransition = if (pulsing) rememberInfiniteTransition(label = "statusPulse") else null
+    val pulseScale =
         pulseTransition?.animateFloat(
             initialValue = 1f,
             targetValue = 1.8f,
@@ -84,8 +115,7 @@ fun StatusIndicator(
                 ),
             label = "statusPulseScale",
         ) ?: rememberUpdatedState(1f)
-    )
-    val pulseAlpha by (
+    val pulseAlpha =
         pulseTransition?.animateFloat(
             initialValue = 0.22f,
             targetValue = 0f,
@@ -100,81 +130,74 @@ fun StatusIndicator(
                 ),
             label = "statusPulseAlpha",
         ) ?: rememberUpdatedState(0f)
-    )
+    return StatusIndicatorAnimation(animatedIndicatorColor, pulseScale, pulseAlpha, pulsing)
+}
 
-    val statusDescription = stringResource(R.string.status_indicator_description, label)
-    val components = RipDpiThemeTokens.components
-    Row(
-        modifier =
-            modifier.semantics(mergeDescendants = true) {
-                contentDescription = statusDescription
-                liveRegion = LiveRegionMode.Polite
-            },
-        horizontalArrangement = Arrangement.spacedBy(components.indicators.statusMarkerSpacing),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (pulseAlpha > 0f) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(components.indicators.statusMarkerSmall)
-                            .scale(pulseScale)
-                            .background(animatedIndicatorColor.copy(alpha = pulseAlpha), CircleShape),
+@Composable
+private fun StatusMarker(
+    tone: StatusIndicatorTone,
+    animation: StatusIndicatorAnimation,
+) {
+    val indicators = RipDpiThemeTokens.components.indicators
+    Box(contentAlignment = Alignment.Center) {
+        if (animation.pulsing) {
+            Canvas(modifier = Modifier.size(indicators.statusMarkerSmall)) {
+                drawCircle(
+                    color = animation.animatedIndicatorColor.value.copy(alpha = animation.pulseAlpha.value),
+                    radius = size.minDimension / 2f * animation.pulseScale.value,
                 )
             }
-            when (tone) {
-                StatusIndicatorTone.Active -> {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(components.indicators.statusMarkerSmall)
-                                .background(animatedIndicatorColor, CircleShape),
-                    )
-                }
-
-                StatusIndicatorTone.Warning -> {
-                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerLarge)) {
-                        val path =
-                            Path().apply {
-                                moveTo(size.width / 2f, 0f)
-                                lineTo(size.width, size.height)
-                                lineTo(0f, size.height)
-                                close()
-                            }
-                        drawPath(path, animatedIndicatorColor)
-                    }
-                }
-
-                StatusIndicatorTone.Error -> {
-                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerSmall)) {
-                        drawRect(animatedIndicatorColor)
-                    }
-                }
-
-                StatusIndicatorTone.Idle -> {
-                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerMedium)) {
-                        val cx = size.width / 2f
-                        val cy = size.height / 2f
-                        val r = size.width / 2f
-                        val path =
-                            Path().apply {
-                                moveTo(cx, cy - r)
-                                lineTo(cx + r, cy)
-                                lineTo(cx, cy + r)
-                                lineTo(cx - r, cy)
-                                close()
-                            }
-                        drawPath(path, animatedIndicatorColor)
-                    }
-                }
-            }
         }
-        Text(
-            text = label,
-            style = RipDpiThemeTokens.type.brandStatus,
-            color = colors.foreground,
-        )
+        val markerSize =
+            when (tone) {
+                StatusIndicatorTone.Active, StatusIndicatorTone.Error -> indicators.statusMarkerSmall
+                StatusIndicatorTone.Idle -> indicators.statusMarkerMedium
+                StatusIndicatorTone.Warning -> indicators.statusMarkerLarge
+            }
+        Canvas(modifier = Modifier.size(markerSize)) {
+            drawStatusMarker(tone, animation.animatedIndicatorColor.value)
+        }
+    }
+}
+
+private fun DrawScope.drawStatusMarker(
+    tone: StatusIndicatorTone,
+    color: Color,
+) {
+    when (tone) {
+        StatusIndicatorTone.Active -> {
+            drawCircle(color)
+        }
+
+        StatusIndicatorTone.Error -> {
+            drawRect(color)
+        }
+
+        StatusIndicatorTone.Warning -> {
+            val path =
+                Path().apply {
+                    moveTo(size.width / 2f, 0f)
+                    lineTo(size.width, size.height)
+                    lineTo(0f, size.height)
+                    close()
+                }
+            drawPath(path, color)
+        }
+
+        StatusIndicatorTone.Idle -> {
+            val centerX = size.width / 2f
+            val centerY = size.height / 2f
+            val radius = size.width / 2f
+            val path =
+                Path().apply {
+                    moveTo(centerX, centerY - radius)
+                    lineTo(centerX + radius, centerY)
+                    lineTo(centerX, centerY + radius)
+                    lineTo(centerX - radius, centerY)
+                    close()
+                }
+            drawPath(path, color)
+        }
     }
 }
 

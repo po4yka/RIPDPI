@@ -13,10 +13,67 @@ use std::collections::VecDeque;
 /// Hard limit on queued packets per direction. Sized to absorb short bursts
 /// (a few MB at MTU 1500) without allowing unbounded memory growth under flood.
 const DEFAULT_MAX_QUEUE_DEPTH: usize = 4096;
+const DEFAULT_MAX_TX_QUEUE_BYTES: usize = 8 * 1024 * 1024;
+
+pub struct TunTxQueue {
+    packets: VecDeque<Vec<u8>>,
+    queued_bytes: usize,
+    max_packets: usize,
+    max_bytes: usize,
+    dropped_packets: u64,
+}
+
+impl TunTxQueue {
+    fn new(max_packets: usize, max_bytes: usize) -> Self {
+        Self { packets: VecDeque::new(), queued_bytes: 0, max_packets, max_bytes, dropped_packets: 0 }
+    }
+
+    pub fn push_back(&mut self, packet: Vec<u8>) -> bool {
+        let exceeds_bytes = self.queued_bytes.checked_add(packet.len()).is_none_or(|bytes| bytes > self.max_bytes);
+        if self.packets.len() >= self.max_packets || exceeds_bytes {
+            self.dropped_packets = self.dropped_packets.saturating_add(1);
+            return false;
+        }
+        self.queued_bytes += packet.len();
+        self.packets.push_back(packet);
+        true
+    }
+
+    pub fn pop_front(&mut self) -> Option<Vec<u8>> {
+        let packet = self.packets.pop_front()?;
+        self.queued_bytes = self.queued_bytes.saturating_sub(packet.len());
+        Some(packet)
+    }
+
+    pub fn clear(&mut self) {
+        self.packets.clear();
+        self.queued_bytes = 0;
+    }
+
+    pub fn front(&self) -> Option<&Vec<u8>> {
+        self.packets.front()
+    }
+
+    pub fn len(&self) -> usize {
+        self.packets.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.packets.is_empty()
+    }
+
+    pub fn queued_bytes(&self) -> usize {
+        self.queued_bytes
+    }
+
+    pub fn dropped_packets(&self) -> u64 {
+        self.dropped_packets
+    }
+}
 
 pub struct TunDevice {
     pub rx_queue: VecDeque<Vec<u8>>,
-    pub tx_queue: VecDeque<Vec<u8>>,
+    pub tx_queue: TunTxQueue,
     pub mtu: usize,
     max_rx_depth: usize,
     /// Packets dropped because `rx_queue` was at capacity.
@@ -27,7 +84,7 @@ impl TunDevice {
     pub fn new(mtu: usize) -> Self {
         Self {
             rx_queue: VecDeque::new(),
-            tx_queue: VecDeque::new(),
+            tx_queue: TunTxQueue::new(DEFAULT_MAX_QUEUE_DEPTH, DEFAULT_MAX_TX_QUEUE_BYTES),
             mtu,
             max_rx_depth: DEFAULT_MAX_QUEUE_DEPTH,
             rx_drops: 0,
@@ -63,7 +120,7 @@ impl RxToken for OwnedRxToken {
 // ── smoltcp TxToken ───────────────────────────────────────────────────────────
 
 /// Transmit token: pushes the constructed packet into `tx_queue` on consume.
-pub struct OwnedTxToken<'a>(&'a mut VecDeque<Vec<u8>>);
+pub struct OwnedTxToken<'a>(&'a mut TunTxQueue);
 
 impl<'a> TxToken for OwnedTxToken<'a> {
     fn consume<R, F>(self, len: usize, f: F) -> R
@@ -79,12 +136,12 @@ impl<'a> TxToken for OwnedTxToken<'a> {
 
 // Compile-fail regressions for soundness issue #14: `OwnedRxToken` owns
 // a heap-allocated `Vec<u8>` consumed exactly once via `RxToken::consume`,
-// and `OwnedTxToken<'a>` carries an exclusive `&'a mut VecDeque<Vec<u8>>`
+// and `OwnedTxToken<'a>` carries an exclusive `&'a mut TunTxQueue`
 // borrow that smoltcp relies on for its single-consumer protocol. A
 // future `derive(Copy)` on either type would let safe code consume the
 // same packet twice (Rx) or hand out two aliasing exclusive borrows of
 // the same `VecDeque` (Tx). The contained types — `Vec<u8>` and `&mut
-// VecDeque<_>` — are already `!Copy`, so the compiler already rejects
+// TunTxQueue` — are already `!Copy`, so the compiler already rejects
 // any future `derive(Copy)`; these blocks pin the soundness argument so
 // the next reviewer can read it next to the type declaration.
 const _: fn() = || {

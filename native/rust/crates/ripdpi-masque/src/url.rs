@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
 
 use url::{Url, form_urlencoded::byte_serialize};
 
@@ -42,13 +42,19 @@ pub(crate) fn parse_proxy_origin(config: &MasqueConfig) -> io::Result<ProxyOrigi
     Ok(ProxyOrigin { host, authority, udp_base_path })
 }
 
-pub(crate) fn resolve_proxy_socket_addr(config: &MasqueConfig, proxy_origin: &ProxyOrigin) -> io::Result<SocketAddr> {
+pub(crate) async fn resolve_proxy_socket_addr(
+    config: &MasqueConfig,
+    proxy_origin: &ProxyOrigin,
+) -> io::Result<SocketAddr> {
     if let Some(addr) = config.proxy_socket_addr {
         return Ok(addr);
     }
-    proxy_origin
-        .authority
-        .to_socket_addrs()?
+    let port = url::Url::parse(&config.url).ok().and_then(|url| url.port()).unwrap_or(443);
+    config
+        .socket_protection
+        .resolve_host(&proxy_origin.host, port)
+        .await?
+        .into_iter()
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "failed to resolve MASQUE proxy host"))
 }

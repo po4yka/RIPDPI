@@ -17,6 +17,8 @@ import com.poyka.ripdpi.data.WarpRouteModeOff
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.WarpScannerModeAutomatic
 import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Stable
 data class HostAutolearnUiState(
@@ -116,7 +118,7 @@ data class RoutingProtectionPresetUiState(
     val id: String,
     val title: String,
     val enabled: Boolean,
-    val matchedPackages: List<String> = emptyList(),
+    val matchedPackages: ImmutableList<String> = persistentListOf(),
     val detectionMethod: String = "",
     val fixCoverage: String = "",
     val limitations: String = "",
@@ -133,13 +135,13 @@ data class RoutingProtectionSuggestionUiState(
 @Stable
 data class RoutingProtectionUiState(
     val policyMode: String = AppRoutingPolicyModePrompt,
-    val enabledPresetIds: List<String> = emptyList(),
+    val enabledPresetIds: ImmutableList<String> = persistentListOf(),
     val antiCorrelationEnabled: Boolean = false,
     val dhtMitigationMode: String = DhtMitigationModeOff,
     val fullTunnelMode: Boolean = false,
-    val presets: List<RoutingProtectionPresetUiState> = emptyList(),
-    val detectedApps: List<RoutingProtectionDetectedAppUiState> = emptyList(),
-    val suggestions: List<RoutingProtectionSuggestionUiState> = emptyList(),
+    val presets: ImmutableList<RoutingProtectionPresetUiState> = persistentListOf(),
+    val detectedApps: ImmutableList<RoutingProtectionDetectedAppUiState> = persistentListOf(),
+    val suggestions: ImmutableList<RoutingProtectionSuggestionUiState> = persistentListOf(),
     val transportVpnDisclosure: String =
         "Application exclusion does not hide TRANSPORT_VPN checks made by the app itself.",
 ) {

@@ -285,6 +285,30 @@ mod tests {
     }
 
     #[test]
+    fn jni_destroy_returns_without_waiting_for_active_probe() {
+        let _serial = lock_jni_tests();
+        let mut handle = DiagnosticsHandle::new();
+        let slow_server = SlowHttpServer::start();
+
+        with_env(|env| {
+            jni_start_scan(env, handle.raw(), &slow_request_json(slow_server.port()), "session-destroy");
+            assert_no_exception(env);
+        });
+        slow_server
+            .accepted
+            .recv_timeout(Duration::from_secs(2))
+            .expect("slow HTTP server should receive the diagnostics request before destroy");
+
+        let raw = handle.disarm();
+        let started = Instant::now();
+        with_env(|env| {
+            jni_destroy(env, raw);
+            assert_no_exception(env);
+        });
+        assert!(started.elapsed() < Duration::from_millis(250), "JNI destroy must not join an active probe worker");
+    }
+
+    #[test]
     fn invalid_handles_throw_illegal_argument_and_string_ops_return_null() {
         let _serial = lock_jni_tests();
 

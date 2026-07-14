@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Immutable
 data class HomeDiagnosticsActionUiState(
@@ -75,31 +76,31 @@ data class HomeDiagnosticsAnalysisSheetUiState(
     val confidenceSummary: String? = null,
     val coverageSummary: String? = null,
     val recommendationSummary: String? = null,
-    val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
-    val capabilityEvidence: List<DiagnosticsCapabilityEvidenceUiModel> = emptyList(),
-    val stageSummaries: List<HomeDiagnosticsStageUiState> = emptyList(),
+    val appliedSettings: ImmutableList<DiagnosticsAppliedSetting> = persistentListOf(),
+    val capabilityEvidence: ImmutableList<DiagnosticsCapabilityEvidenceUiModel> = persistentListOf(),
+    val stageSummaries: ImmutableList<HomeDiagnosticsStageUiState> = persistentListOf(),
     val completedStageCount: Int = 0,
     val failedStageCount: Int = 0,
     val shareBusy: Boolean = false,
     val detectionVerdict: String? = null,
-    val detectionFindings: List<String> = emptyList(),
+    val detectionFindings: ImmutableList<String> = persistentListOf(),
     val installedVpnDetectorCount: Int? = null,
-    val installedVpnDetectorTopApps: List<String> = emptyList(),
+    val installedVpnDetectorTopApps: ImmutableList<String> = persistentListOf(),
     val pcapRecordingRequested: Boolean = false,
     val remediationLadder: DiagnosticsRemediationLadderUiModel? = null,
     val actionableHeadline: String? = null,
-    val actionableNextSteps: List<String> = emptyList(),
-    val networkCharacterRows: List<HomeAnalysisLabeledRow> = emptyList(),
-    val networkCharacterNotes: List<String> = emptyList(),
-    val strategyEffectivenessRows: List<HomeAnalysisLabeledRow> = emptyList(),
+    val actionableNextSteps: ImmutableList<String> = persistentListOf(),
+    val networkCharacterRows: ImmutableList<HomeAnalysisLabeledRow> = persistentListOf(),
+    val networkCharacterNotes: ImmutableList<String> = persistentListOf(),
+    val strategyEffectivenessRows: ImmutableList<HomeAnalysisLabeledRow> = persistentListOf(),
     val routingSanitySummary: String? = null,
-    val routingSanityFindings: List<HomeAnalysisLabeledRow> = emptyList(),
+    val routingSanityFindings: ImmutableList<HomeAnalysisLabeledRow> = persistentListOf(),
     val regressionDeltaSummary: String? = null,
-    val regressionDeltaFailures: List<String> = emptyList(),
-    val regressionDeltaRecoveries: List<String> = emptyList(),
+    val regressionDeltaFailures: ImmutableList<String> = persistentListOf(),
+    val regressionDeltaRecoveries: ImmutableList<String> = persistentListOf(),
     val bufferbloatSummary: String? = null,
     val dnsCharacterizationSummary: String? = null,
-    val dnsCharacterizationNotes: List<String> = emptyList(),
+    val dnsCharacterizationNotes: ImmutableList<String> = persistentListOf(),
 )
 
 @Immutable

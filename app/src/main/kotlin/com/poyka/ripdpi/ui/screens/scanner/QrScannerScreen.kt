@@ -18,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -184,6 +185,7 @@ private fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val previewView = remember { PreviewView(context) }
+    val currentOnQrDecoded by rememberUpdatedState(onQrDecoded)
     val analyzerExecutor =
         remember {
             java.util.concurrent.Executors
@@ -191,26 +193,40 @@ private fun CameraPreview(
         }
 
     DisposableEffect(lifecycleOwner, previewView) {
-        val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+        var disposed = false
+        var cameraProvider: ProcessCameraProvider? = null
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         val preview =
             Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+        val analyzer = QrCameraAnalyzer { currentOnQrDecoded(it) }
         val analysis =
             ImageAnalysis
                 .Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
-                .also { it.setAnalyzer(analyzerExecutor, QrCameraAnalyzer(onQrDecoded)) }
-        runCatching {
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                preview,
-                analysis,
-            )
-        }
+                .also { it.setAnalyzer(analyzerExecutor, analyzer) }
+        cameraProviderFuture.addListener(
+            {
+                if (disposed) return@addListener
+                runCatching {
+                    val provider = cameraProviderFuture.get()
+                    cameraProvider = provider
+                    provider.unbindAll()
+                    provider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        analysis,
+                    )
+                }
+            },
+            ContextCompat.getMainExecutor(context),
+        )
         onDispose {
-            runCatching { cameraProvider.unbindAll() }
+            disposed = true
+            analysis.clearAnalyzer()
+            analyzer.close()
+            runCatching { cameraProvider?.unbindAll() }
             analyzerExecutor.shutdown()
         }
     }

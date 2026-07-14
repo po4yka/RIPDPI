@@ -1,4 +1,5 @@
 use std::net::{SocketAddr, TcpStream};
+use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
 
@@ -7,6 +8,8 @@ use super::route_experiment::{connect_addresses_with_route_experiment, route_ide
 use super::socks5::connect_via_socks5_observed;
 use super::types::{RouteExperimentConfig, TargetAddress, TransportConfig, TransportConnectResult};
 use crate::util::CONNECT_TIMEOUT;
+
+const HAPPY_EYEBALLS_DELAY: Duration = Duration::from_millis(250);
 
 pub fn connect_transport_observed(
     targets: &[TargetAddress],
@@ -66,36 +69,57 @@ pub(super) fn resolve_candidate_addresses(targets: &[TargetAddress], port: u16) 
 
 fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), String> {
     let initial_batch = addresses.iter().take(2).copied().collect::<Vec<_>>();
+    let initial_batch_len = initial_batch.len();
     let mut last_error = None;
     if !initial_batch.is_empty() {
-        let raced = thread::scope(|scope| {
-            let handles = initial_batch
-                .iter()
-                .map(|address| {
-                    scope.spawn(move || (*address, super::protect::protected_tcp_connect(*address, CONNECT_TIMEOUT)))
-                })
-                .collect::<Vec<_>>();
-            let mut winner = None;
-            let mut local_last_error = None;
-            for handle in handles {
-                let (address, result) = handle.join().map_err(|_| "connect_race_panicked".to_string())?;
-                match result {
-                    Ok(stream) if winner.is_none() => winner = Some((stream, address)),
-                    Ok(_) => {}
-                    Err(err) => local_last_error = Some(err.to_string()),
-                }
-            }
-            Ok::<_, String>((winner, local_last_error))
-        })?;
-        if let Some((stream, address)) = raced.0 {
+        let raced = race_initial_addresses(
+            initial_batch,
+            Arc::new(|address| {
+                super::protect::protected_tcp_connect(address, CONNECT_TIMEOUT).map_err(|error| error.to_string())
+            }),
+        );
+        if let Ok((stream, address)) = raced {
             return Ok((stream, address));
         }
-        last_error = raced.1;
+        last_error = raced.err();
     }
-    for address in addresses.iter().skip(initial_batch.len()).copied() {
+    for address in addresses.iter().skip(initial_batch_len).copied() {
         match super::protect::protected_tcp_connect(address, CONNECT_TIMEOUT) {
             Ok(stream) => return Ok((stream, address)),
             Err(err) => last_error = Some(err.to_string()),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
+}
+
+fn race_initial_addresses<T, F>(addresses: Vec<SocketAddr>, connect: Arc<F>) -> Result<(T, SocketAddr), String>
+where
+    T: Send + 'static,
+    F: Fn(SocketAddr) -> Result<T, String> + Send + Sync + 'static,
+{
+    let attempt_count = addresses.len();
+    let (result_tx, result_rx) = mpsc::channel();
+    for (index, address) in addresses.into_iter().enumerate() {
+        let connect = Arc::clone(&connect);
+        let result_tx = result_tx.clone();
+        thread::Builder::new()
+            .name(format!("ripdpi-connect-race-{index}"))
+            .spawn(move || {
+                if index > 0 {
+                    thread::sleep(HAPPY_EYEBALLS_DELAY);
+                }
+                let _ = result_tx.send((address, connect(address)));
+            })
+            .map_err(|error| format!("connect_race_spawn_failed: {error}"))?;
+    }
+    drop(result_tx);
+
+    let mut last_error = None;
+    for _ in 0..attempt_count {
+        match result_rx.recv() {
+            Ok((address, Ok(stream))) => return Ok((stream, address)),
+            Ok((_, Err(error))) => last_error = Some(error),
+            Err(_) => return Err(last_error.unwrap_or_else(|| "connect_race_panicked".to_string())),
         }
     }
     Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
@@ -109,4 +133,35 @@ pub fn wait_for_listener(addr: SocketAddr) -> Result<(), String> {
         thread::sleep(Duration::from_millis(25));
     }
     Err(format!("probe runtime listener did not become ready on {addr}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use super::*;
+
+    #[test]
+    fn address_race_returns_fast_second_success_before_slow_first_attempt() {
+        let first = "192.0.2.1:443".parse().expect("first address");
+        let second = "192.0.2.2:443".parse().expect("second address");
+        let started = Instant::now();
+
+        let (winner, address) = race_initial_addresses(
+            vec![first, second],
+            Arc::new(move |address| {
+                if address == first {
+                    thread::sleep(Duration::from_secs(1));
+                    Err("slow failure".to_string())
+                } else {
+                    Ok("fast success")
+                }
+            }),
+        )
+        .expect("second attempt should win");
+
+        assert_eq!(winner, "fast success");
+        assert_eq!(address, second);
+        assert!(started.elapsed() < Duration::from_millis(600));
+    }
 }

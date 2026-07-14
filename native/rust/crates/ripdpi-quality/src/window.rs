@@ -1,202 +1,266 @@
-//! `QualityWindow` — bounded rolling-window aggregator for TCP-connect samples.
-//!
-//! Mirrors `ripdpi_telemetry::LatencyHistogram` in lock-mutator shape, with
-//! connection-quality additions:
-//!
-//! - TWO histograms (instant 60s, series 15min, both capped at 60_000 ms with
-//!   2-significant-digit precision; ≈2 KB each, ≈4 KB total per window).
-//! - Success / failure atomic counters so `loss_pct` is computable without
-//!   peeking into either histogram's `len()`.
-//! - `window_start_at_ms` published via `ArcSwapOption<u64>`, set on first
-//!   sample (idempotent under race; first writer wins because subsequent
-//!   `store` calls all write the same logical "start" — newer timestamp would
-//!   be wrong, so we guard with a load-then-store on `is_none()`).
-//! - RFC 3550 jitter accumulator (`J = J + (|D| - J) / 16`) stored fixed-point
-//!   in `AtomicI64` (ms × 16) so the update is integer-only.
+//! Bounded, time-bucketed connection-quality windows.
 
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicI64, AtomicU64, Ordering},
-};
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use arc_swap::ArcSwapOption;
 use hdrhistogram::Histogram;
 
 use crate::snapshot::{ConnectionQualitySnapshot, QualitySample, TransportKind};
 
-/// Bounded rolling window of TCP-connect quality samples.
-///
-/// Holds two histograms internally: an "instant" window (last 60s) for the
-/// DegradationStrip's current values, and a "series" window (last 15 min)
-/// for the throughput / latency graphs. Both are populated by the same
-/// `record(sample)` call; consumers pick which to read via the snapshot
-/// method's `window` parameter.
-///
-/// RFC 3550 jitter formula: J = J + (|D(i-1, i)| - J) / 16, where D is the
-/// inter-arrival time delta. Mirrors Wireshark RTP stats tooling.
-///
-/// Cancel-safety: all mutators are synchronous (no .await). Mid-cancellation
-/// at the call site loses at most one sample.
+const INSTANT_WINDOW_MS: u64 = 60_000;
+const INSTANT_BUCKET_MS: u64 = 1_000;
+const SERIES_WINDOW_MS: u64 = 15 * 60_000;
+const SERIES_BUCKET_MS: u64 = 15_000;
+const MAX_RTT_MS: u64 = 60_000;
+const JITTER_DECAY: f64 = 15.0 / 16.0;
+
+pub(crate) trait Clock: Send + Sync {
+    fn monotonic_ms(&self) -> u64;
+    fn unix_ms(&self) -> u64;
+}
+
+struct SystemClock {
+    started: Instant,
+}
+
+impl SystemClock {
+    fn new() -> Self {
+        Self { started: Instant::now() }
+    }
+}
+
+impl Clock for SystemClock {
+    fn monotonic_ms(&self) -> u64 {
+        self.started.elapsed().as_millis() as u64
+    }
+
+    fn unix_ms(&self) -> u64 {
+        SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |duration| duration.as_millis() as u64)
+    }
+}
+
 #[derive(Clone)]
 pub struct QualityWindow {
     transport_kind: TransportKind,
-    instant: Arc<Mutex<Histogram<u64>>>,
-    series: Arc<Mutex<Histogram<u64>>>,
-    success_count: Arc<AtomicU64>,
-    failure_count: Arc<AtomicU64>,
-    window_start_at_ms: Arc<ArcSwapOption<u64>>,
-    // RFC 3550 jitter accumulator. Stored as fixed-point i64 (ms * 16) so we
-    // can do the J += (|D| - J) / 16 update without floating-point.
-    jitter_acc: Arc<AtomicI64>,
-    // Last recorded successful RTT in ms; -1 sentinel for "no prior sample".
-    last_rtt_ms: Arc<AtomicI64>,
-    // Retransmit-derived loss accumulator. Stored as milli-percent (loss_pct
-    // × 1000) in AtomicI64 to avoid floating-point in the atomic path.
-    retransmit_loss_sum_milli: Arc<AtomicI64>,
-    retransmit_loss_count: Arc<AtomicU64>,
+    state: Arc<Mutex<QualityState>>,
+    clock: Arc<dyn Clock>,
+}
+
+struct QualityState {
+    instant: BucketWindow,
+    series: BucketWindow,
+}
+
+impl QualityState {
+    fn new() -> Self {
+        Self {
+            instant: BucketWindow::new(INSTANT_WINDOW_MS, INSTANT_BUCKET_MS),
+            series: BucketWindow::new(SERIES_WINDOW_MS, SERIES_BUCKET_MS),
+        }
+    }
+}
+
+struct BucketWindow {
+    duration_ms: u64,
+    bucket_width_ms: u64,
+    max_buckets: usize,
+    buckets: VecDeque<QualityBucket>,
+}
+
+impl BucketWindow {
+    fn new(duration_ms: u64, bucket_width_ms: u64) -> Self {
+        let max_buckets = duration_ms.div_ceil(bucket_width_ms) as usize + 1;
+        Self { duration_ms, bucket_width_ms, max_buckets, buckets: VecDeque::with_capacity(max_buckets) }
+    }
+
+    fn record(&mut self, monotonic_ms: u64, unix_ms: u64, sample: Option<QualitySample>, loss_pct: Option<f32>) {
+        self.expire(monotonic_ms);
+        let bucket_start_ms = monotonic_ms - (monotonic_ms % self.bucket_width_ms);
+        if self.buckets.back().is_none_or(|bucket| bucket.start_monotonic_ms != bucket_start_ms) {
+            self.buckets.push_back(QualityBucket::new(bucket_start_ms, unix_ms, monotonic_ms));
+        }
+        while self.buckets.len() > self.max_buckets {
+            self.buckets.pop_front();
+        }
+        let bucket = self.buckets.back_mut().expect("record creates a quality bucket");
+        bucket.last_observation_monotonic_ms = monotonic_ms;
+        if let Some(sample) = sample {
+            bucket.record_sample(sample);
+        }
+        if let Some(loss_pct) = loss_pct {
+            bucket.record_loss(loss_pct);
+        }
+    }
+
+    fn expire(&mut self, monotonic_ms: u64) {
+        while self
+            .buckets
+            .front()
+            .is_some_and(|bucket| monotonic_ms.saturating_sub(bucket.last_observation_monotonic_ms) >= self.duration_ms)
+        {
+            self.buckets.pop_front();
+        }
+    }
+
+    fn snapshot(&mut self, monotonic_ms: u64, transport_kind: TransportKind) -> Option<ConnectionQualitySnapshot> {
+        self.expire(monotonic_ms);
+        if self.buckets.is_empty() {
+            return None;
+        }
+
+        let mut histogram = new_histogram();
+        let mut success = 0u64;
+        let mut failure = 0u64;
+        let mut loss_sum_milli = 0i64;
+        let mut loss_count = 0u64;
+        let mut jitter = 0.0f64;
+        let mut previous_rtt: Option<u64> = None;
+        for bucket in &self.buckets {
+            let _ = histogram.add(&bucket.histogram);
+            success = success.saturating_add(bucket.success_count);
+            failure = failure.saturating_add(bucket.failure_count);
+            loss_sum_milli = loss_sum_milli.saturating_add(bucket.loss_sum_milli);
+            loss_count = loss_count.saturating_add(bucket.loss_count);
+            if let (Some(previous), Some(first)) = (previous_rtt, bucket.first_rtt_ms) {
+                jitter = JITTER_DECAY.mul_add(jitter, previous.abs_diff(first) as f64 / 16.0);
+            }
+            jitter = bucket.jitter_multiplier.mul_add(jitter, bucket.jitter_addend);
+            if bucket.last_rtt_ms.is_some() {
+                previous_rtt = bucket.last_rtt_ms;
+            }
+        }
+
+        let total = success.saturating_add(failure);
+        let connect_failure_loss = if total == 0 { 0.0 } else { (failure as f32 / total as f32) * 100.0 };
+        let retransmit_loss =
+            if loss_count == 0 { 0.0 } else { (loss_sum_milli.max(0) as f64 / loss_count as f64 / 1000.0) as f32 };
+        let (p50, p95) = if histogram.is_empty() {
+            (0, 0)
+        } else {
+            (histogram.value_at_percentile(50.0), histogram.value_at_percentile(95.0))
+        };
+
+        Some(ConnectionQualitySnapshot {
+            loss_pct: connect_failure_loss.max(retransmit_loss).clamp(0.0, 100.0),
+            rtt_p50_ms: p50,
+            rtt_p95_ms: p95,
+            jitter_ms: jitter.max(0.0) as u64,
+            sample_count: success,
+            window_start_at_ms: self.buckets.front().map_or(0, |bucket| bucket.first_observation_unix_ms),
+            transport_kind,
+        })
+    }
+}
+
+struct QualityBucket {
+    start_monotonic_ms: u64,
+    first_observation_unix_ms: u64,
+    last_observation_monotonic_ms: u64,
+    histogram: Histogram<u64>,
+    success_count: u64,
+    failure_count: u64,
+    loss_sum_milli: i64,
+    loss_count: u64,
+    first_rtt_ms: Option<u64>,
+    last_rtt_ms: Option<u64>,
+    jitter_multiplier: f64,
+    jitter_addend: f64,
+}
+
+impl QualityBucket {
+    fn new(start_monotonic_ms: u64, first_observation_unix_ms: u64, monotonic_ms: u64) -> Self {
+        Self {
+            start_monotonic_ms,
+            first_observation_unix_ms,
+            last_observation_monotonic_ms: monotonic_ms,
+            histogram: new_histogram(),
+            success_count: 0,
+            failure_count: 0,
+            loss_sum_milli: 0,
+            loss_count: 0,
+            first_rtt_ms: None,
+            last_rtt_ms: None,
+            jitter_multiplier: 1.0,
+            jitter_addend: 0.0,
+        }
+    }
+
+    fn record_sample(&mut self, sample: QualitySample) {
+        if sample.succeeded {
+            let rtt_ms = sample.rtt_ms.min(MAX_RTT_MS);
+            self.success_count = self.success_count.saturating_add(1);
+            let _ = self.histogram.record(rtt_ms);
+            if self.first_rtt_ms.is_none() {
+                self.first_rtt_ms = Some(rtt_ms);
+            }
+            if let Some(previous) = self.last_rtt_ms {
+                self.jitter_multiplier *= JITTER_DECAY;
+                self.jitter_addend = JITTER_DECAY.mul_add(self.jitter_addend, previous.abs_diff(rtt_ms) as f64 / 16.0);
+            }
+            self.last_rtt_ms = Some(rtt_ms);
+        } else {
+            self.failure_count = self.failure_count.saturating_add(1);
+        }
+        if sample.loss_pct > 0.0 {
+            self.record_loss(sample.loss_pct);
+        }
+    }
+
+    fn record_loss(&mut self, loss_pct: f32) {
+        let clamped = if loss_pct.is_finite() { loss_pct.clamp(0.0, 100.0) } else { 0.0 };
+        self.loss_sum_milli = self.loss_sum_milli.saturating_add((clamped * 1000.0) as i64);
+        self.loss_count = self.loss_count.saturating_add(1);
+    }
 }
 
 impl QualityWindow {
     #[must_use]
     pub fn new(transport_kind: TransportKind) -> Self {
-        Self {
-            transport_kind,
-            instant: Arc::new(Mutex::new(
-                Histogram::<u64>::new_with_max(60_000, 2).expect("valid histogram parameters"),
-            )),
-            series: Arc::new(Mutex::new(
-                Histogram::<u64>::new_with_max(60_000, 2).expect("valid histogram parameters"),
-            )),
-            success_count: Arc::new(AtomicU64::new(0)),
-            failure_count: Arc::new(AtomicU64::new(0)),
-            window_start_at_ms: Arc::new(ArcSwapOption::empty()),
-            jitter_acc: Arc::new(AtomicI64::new(0)),
-            last_rtt_ms: Arc::new(AtomicI64::new(-1)),
-            retransmit_loss_sum_milli: Arc::new(AtomicI64::new(0)),
-            retransmit_loss_count: Arc::new(AtomicU64::new(0)),
-        }
+        Self::with_clock(transport_kind, Arc::new(SystemClock::new()))
     }
 
-    /// Records a single observation. Synchronous, lock-bounded, cancel-safe at
-    /// every call site.
+    pub(crate) fn with_clock(transport_kind: TransportKind, clock: Arc<dyn Clock>) -> Self {
+        Self { transport_kind, state: Arc::new(Mutex::new(QualityState::new())), clock }
+    }
+
     pub fn record(&self, sample: QualitySample) {
-        // Set window_start_at_ms on first sample (idempotent under race —
-        // first writer wins because the load-then-store is benign even if two
-        // racers both pass the `is_none()` check: both write the same epoch
-        // millisecond ± thread-skew, and the field is for UI affordance only).
-        if self.window_start_at_ms.load().is_none() {
-            self.window_start_at_ms.store(Some(Arc::new(now_ms())));
-        }
-
-        if sample.succeeded {
-            self.success_count.fetch_add(1, Ordering::Relaxed);
-            let clamped = sample.rtt_ms.min(60_000);
-            // Histogram::record never fails for values within [0, 60_000].
-            if let Ok(mut h) = self.instant.lock() {
-                let _ = h.record(clamped);
-            }
-            if let Ok(mut h) = self.series.lock() {
-                let _ = h.record(clamped);
-            }
-            // Jitter is only updated from successful samples — a failed connect
-            // has no meaningful RTT to delta against.
-            self.update_jitter(clamped as i64);
-        } else {
-            self.failure_count.fetch_add(1, Ordering::Relaxed);
-        }
-
-        if sample.loss_pct > 0.0 {
-            self.accumulate_loss(sample.loss_pct);
+        let monotonic_ms = self.clock.monotonic_ms();
+        let unix_ms = self.clock.unix_ms();
+        if let Ok(mut state) = self.state.lock() {
+            state.instant.record(monotonic_ms, unix_ms, Some(sample), None);
+            state.series.record(monotonic_ms, unix_ms, Some(sample), None);
         }
     }
 
-    /// Records a TCP-retransmit-derived loss percentage without touching
-    /// the RTT histogram or success/failure counters.
-    ///
-    /// Called from the io_loop retransmit observer every
-    /// `LOSS_EMIT_INTERVAL` loop iterations. Synchronous, cancel-safe.
     pub fn record_loss(&self, loss_pct: f32) {
-        if self.window_start_at_ms.load().is_none() {
-            self.window_start_at_ms.store(Some(Arc::new(now_ms())));
+        let monotonic_ms = self.clock.monotonic_ms();
+        let unix_ms = self.clock.unix_ms();
+        if let Ok(mut state) = self.state.lock() {
+            state.instant.record(monotonic_ms, unix_ms, None, Some(loss_pct));
+            state.series.record(monotonic_ms, unix_ms, None, Some(loss_pct));
         }
-        self.accumulate_loss(loss_pct);
     }
 
-    /// Resets all rolling state. Call on session stop to avoid stale history
-    /// bleeding across session boundaries.
     pub fn reset(&self) {
-        if let Ok(mut h) = self.instant.lock() {
-            h.reset();
+        if let Ok(mut state) = self.state.lock() {
+            *state = QualityState::new();
         }
-        if let Ok(mut h) = self.series.lock() {
-            h.reset();
-        }
-        self.success_count.store(0, Ordering::Relaxed);
-        self.failure_count.store(0, Ordering::Relaxed);
-        self.window_start_at_ms.store(None);
-        self.jitter_acc.store(0, Ordering::Relaxed);
-        self.last_rtt_ms.store(-1, Ordering::Relaxed);
-        self.retransmit_loss_sum_milli.store(0, Ordering::Relaxed);
-        self.retransmit_loss_count.store(0, Ordering::Relaxed);
     }
 
-    /// Snapshot of the *instant* (60s) window suitable for the DegradationStrip.
-    /// Returns `None` until at least one sample has been recorded.
+    /// Snapshot of observations from the last 60 seconds.
     pub fn snapshot(&self) -> Option<ConnectionQualitySnapshot> {
-        let h = self.instant.lock().ok()?;
-        let success = self.success_count.load(Ordering::Relaxed);
-        let failure = self.failure_count.load(Ordering::Relaxed);
-        let loss_count = self.retransmit_loss_count.load(Ordering::Relaxed);
-        if h.is_empty() && success == 0 && failure == 0 && loss_count == 0 {
-            return None;
-        }
-        let total = success + failure;
-        let connect_failure_loss = if total == 0 { 0.0 } else { (failure as f32 / total as f32) * 100.0 };
-        let mean_retransmit_loss = if loss_count == 0 {
-            0.0
-        } else {
-            let sum_milli = self.retransmit_loss_sum_milli.load(Ordering::Relaxed).max(0);
-            (sum_milli as f64 / loss_count as f64 / 1000.0) as f32
-        };
-        let loss_pct = connect_failure_loss.max(mean_retransmit_loss).clamp(0.0, 100.0);
-        let window_start = self.window_start_at_ms.load().as_ref().map_or(0, |arc| **arc);
-        let jitter_fixed = self.jitter_acc.load(Ordering::Relaxed);
-        let jitter_ms = (jitter_fixed.max(0) / 16) as u64;
-        let (p50, p95) = if h.is_empty() { (0, 0) } else { (h.value_at_percentile(50.0), h.value_at_percentile(95.0)) };
-        Some(ConnectionQualitySnapshot {
-            loss_pct,
-            rtt_p50_ms: p50,
-            rtt_p95_ms: p95,
-            jitter_ms,
-            sample_count: success,
-            window_start_at_ms: window_start,
-            transport_kind: self.transport_kind,
-        })
+        let monotonic_ms = self.clock.monotonic_ms();
+        self.state.lock().ok()?.instant.snapshot(monotonic_ms, self.transport_kind)
     }
 
-    fn update_jitter(&self, current_rtt_ms: i64) {
-        let last = self.last_rtt_ms.swap(current_rtt_ms, Ordering::Relaxed);
-        if last < 0 {
-            // First sample — no prior to compute delta against.
-            return;
-        }
-        let delta_abs = (current_rtt_ms - last).abs();
-        // J += (|D| - J) / 16 in fixed-point (ms × 16).
-        let prev_j = self.jitter_acc.load(Ordering::Relaxed);
-        let delta_fixed = delta_abs * 16;
-        let new_j = prev_j + ((delta_fixed - prev_j) / 16);
-        self.jitter_acc.store(new_j, Ordering::Relaxed);
-    }
-
-    fn accumulate_loss(&self, loss_pct: f32) {
-        let clamped = if loss_pct.is_finite() { loss_pct.clamp(0.0, 100.0) } else { 0.0 };
-        let milli = (clamped * 1000.0) as i64;
-        self.retransmit_loss_sum_milli.fetch_add(milli, Ordering::Relaxed);
-        self.retransmit_loss_count.fetch_add(1, Ordering::Relaxed);
+    /// Snapshot of observations from the last 15 minutes.
+    pub fn snapshot_series(&self) -> Option<ConnectionQualitySnapshot> {
+        let monotonic_ms = self.clock.monotonic_ms();
+        self.state.lock().ok()?.series.snapshot(monotonic_ms, self.transport_kind)
     }
 }
 
-fn now_ms() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+fn new_histogram() -> Histogram<u64> {
+    Histogram::new_with_max(MAX_RTT_MS, 2).expect("valid quality histogram parameters")
 }

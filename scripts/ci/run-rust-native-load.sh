@@ -12,4 +12,4 @@ export RIPDPI_SOAK_PROFILE="${RIPDPI_SOAK_PROFILE:-smoke}"
 export RIPDPI_SOAK_ARTIFACT_DIR="$artifact_dir"
 
 echo "==> ripdpi-proxy-runtime load tests"
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_load -- --ignored --nocapture --test-threads=1
+cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_load -- --ignored --nocapture --test-threads=1

@@ -136,6 +136,7 @@ pub(super) struct RuntimeState {
     #[allow(dead_code)]
     decision_engine: RuntimeDecisionEngine,
     active_clients: Arc<AtomicUsize>,
+    active_tcp_sockets: ActiveSocketRegistry,
     telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
     control: Option<std::sync::Arc<EmbeddedProxyControl>>,
@@ -192,7 +193,7 @@ mod udp;
 mod warmup;
 mod ws;
 
-pub(super) use listener::ClientSlotGuard;
+pub(super) use listener::{ActiveSocketRegistry, ClientSlotGuard};
 impl RuntimeState {
     pub(super) fn validate_runtime_requirements(config: &RuntimeConfig) -> io::Result<()> {
         validate_ip_fragmentation_support(&raw_packet_requirements(config))
@@ -282,6 +283,7 @@ impl RuntimeState {
             services: handle,
             decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),
+            active_tcp_sockets: ActiveSocketRegistry::default(),
             telemetry,
             runtime_context,
             control,

@@ -7,7 +7,7 @@ use super::state::LoopState;
 use super::tcp_accept::ensure_pending_listen_for_syn;
 use super::udp_assoc::forward_udp_payload;
 
-pub(in crate::io_loop) async fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
+pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
     if state.runtime.tun_egress_interceptor.handle_packet(packet) {
         return;
     }
@@ -30,23 +30,34 @@ pub(in crate::io_loop) async fn route_tun_packet(packet: &[u8], state: &mut Loop
         }
         IpClass::Udp { src, dst, payload } => {
             state.stats.record_dht_trigger_destination(dst);
+            let synthetic_ip = match dst.ip() {
+                std::net::IpAddr::V4(ip)
+                    if state.dns_cache.as_ref().is_some_and(|cache| cache.contains_mapped_ip(u32::from(ip))) =>
+                {
+                    Some(u32::from(ip))
+                }
+                _ => None,
+            };
             if let Some(resolved_dst) = resolve_mapped_target(&state.stats, &mut state.dns_cache, dst) {
                 forward_udp_payload(
                     state.runtime.proxy_sockaddr,
                     &state.runtime.auth,
                     src,
                     resolved_dst,
+                    synthetic_ip,
                     payload,
+                    &mut state.dns_cache,
                     &mut state.udp_associations,
                     &mut state.udp_eviction_heap,
+                    &state.udp_memory_budget,
                     &mut state.next_udp_association_id,
                     state.runtime.udp_idle_timeout,
                     state.runtime.protect_path.as_deref(),
                     &state.cancel,
                     &state.udp_tx,
                     &state.stats,
-                )
-                .await;
+                    &state.runtime.uid_policy,
+                );
             }
         }
     }

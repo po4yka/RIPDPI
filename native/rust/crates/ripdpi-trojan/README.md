@@ -33,7 +33,7 @@ Trojan outbound client library for RIPDPI relay-core integration.
 - `local-network-fixture::TrojanLoopback` provides an offline TLS Trojan fixture that observes SNI/ALPN, validates the password hash and CONNECT/UDP ASSOCIATE framing, pipes TCP payloads to a local echo target, and echoes UDP payloads through stream datagram packets.
 - `ripdpi-relay-tls-transports` adapts `ripdpi-trojan` into relay-core with `TrojanSessionFactory` and stream-datagram UDP sessions; `ripdpi-relay-core` has `RelayBackendConfig::Trojan`, `RelayKind::Trojan`, `RelayBackend::Trojan`, a transport registration row, flattened Trojan config fields, and fixture-backed TCP/UDP tests.
 - Kotlin keeps the existing `ProxyUriCodec.parseTrojan()` parser, projects confirmed Trojan imports into the default relay profile, persists `trojanPassword` through `RelayCredentialRecord`, emits `RelayKindTrojan`, and includes Trojan fields in `ResolvedRipDpiRelayConfig`.
-- `ResolvedRipDpiRelayConfig` / Rust `FlatResolvedRelayRuntimeConfig` schema version is `6`; the version is pinned by `NativeConfigSchemaVersionTest` plus relay-core schema tests.
+- `ResolvedRipDpiRelayConfig` / Rust `FlatResolvedRelayRuntimeConfig` schema version is current-only `10`; the version is pinned by `NativeConfigSchemaVersionTest` plus relay-core schema tests.
 - Trojan is in the relay-core native descriptor table with TCP and UDP capability true.
 
 ## Test Plan

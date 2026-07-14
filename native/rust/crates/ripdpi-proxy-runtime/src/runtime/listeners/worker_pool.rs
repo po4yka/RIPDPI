@@ -1,10 +1,12 @@
 use std::collections::VecDeque;
 use std::io;
+use std::net::Shutdown;
 use std::sync::{Arc as StdArc, Condvar, Mutex as StdMutex};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use super::client_job::{ClientJob, process_client_job};
+use crate::runtime::state::RuntimeState;
 
 const WORKER_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const WORKER_PARALLELISM_FALLBACK: usize = 4;
@@ -12,6 +14,7 @@ const MAX_BASELINE_WORKERS: usize = 16;
 /// Maximum time to wait for in-flight client connections to finish after the
 /// listener stops accepting new connections.
 const GRACEFUL_DRAIN_TIMEOUT: Duration = Duration::from_secs(3);
+const FORCED_DRAIN_TIMEOUT: Duration = Duration::from_secs(1);
 
 struct WorkerPoolState {
     jobs: VecDeque<ClientJob>,
@@ -29,6 +32,7 @@ struct WorkerPoolShared {
 
 pub(crate) struct ClientWorkerPool {
     shared: StdArc<WorkerPoolShared>,
+    workers: StdMutex<Vec<JoinHandle<()>>>,
 }
 
 impl ClientWorkerPool {
@@ -46,6 +50,7 @@ impl ClientWorkerPool {
                 }),
                 available: Condvar::new(),
             }),
+            workers: StdMutex::new(Vec::new()),
         };
         for _ in 0..min_workers {
             pool.spawn_worker()?;
@@ -89,21 +94,60 @@ impl ClientWorkerPool {
     }
 
     pub(crate) fn close(&self) {
-        let mut state = self.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.closed = true;
-        self.shared.available.notify_all();
+        let queued = {
+            let mut state = self.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.closed = true;
+            let queued = state.jobs.drain(..).collect::<Vec<_>>();
+            self.shared.available.notify_all();
+            queued
+        };
+        for job in queued {
+            let _ = job.client.shutdown(Shutdown::Both);
+            job.state.note_client_finished();
+            drop(job);
+        }
     }
 
-    pub(crate) fn drain_gracefully(&self) {
+    pub(crate) fn drain_gracefully(&self, state: &RuntimeState) {
         self.close();
-        let drain_deadline = Instant::now() + GRACEFUL_DRAIN_TIMEOUT;
-        while self.has_live_workers() {
-            let remaining = drain_deadline.saturating_duration_since(Instant::now());
+        self.wait_for_workers(Instant::now() + GRACEFUL_DRAIN_TIMEOUT);
+        if self.has_live_workers() {
+            tracing::debug!("graceful drain timeout reached; shutting down active client sockets");
+            state.shutdown_active_tcp_sockets();
+            self.wait_for_workers(Instant::now() + FORCED_DRAIN_TIMEOUT);
+        }
+        self.retire_worker_handles(!self.has_live_workers());
+    }
+
+    fn wait_for_workers(&self, deadline: Instant) {
+        let mut pool_state = self.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        while pool_state.live_workers > 0 {
+            let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
-                tracing::debug!("graceful drain timeout reached; dropping remaining workers");
                 break;
             }
-            thread::sleep(remaining.min(Duration::from_millis(50)));
+            let (next, _) = self
+                .shared
+                .available
+                .wait_timeout(pool_state, remaining)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            pool_state = next;
+        }
+    }
+
+    fn retire_worker_handles(&self, all_workers_exited: bool) {
+        let handles = {
+            let mut workers = self.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            std::mem::take(&mut *workers)
+        };
+        for handle in handles {
+            if all_workers_exited || handle.is_finished() {
+                let _ = handle.join();
+            } else {
+                let _ = thread::Builder::new().name("ripdpi-worker-reaper".into()).spawn(move || {
+                    let _ = handle.join();
+                });
+            }
         }
     }
 
@@ -123,17 +167,19 @@ impl ClientWorkerPool {
 
     fn spawn_reserved_worker(&self) -> io::Result<()> {
         let shared = self.shared.clone();
-        thread::Builder::new()
+        let handle = thread::Builder::new()
             .name("ripdpi-worker".into())
             .spawn(move || worker_loop(shared))
-            .map(|_| ())
-            .map_err(|err| io::Error::other(format!("failed to spawn client worker thread: {err}")))
+            .map_err(|err| io::Error::other(format!("failed to spawn client worker thread: {err}")))?;
+        self.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(handle);
+        Ok(())
     }
 }
 
 impl Drop for ClientWorkerPool {
     fn drop(&mut self) {
         self.close();
+        self.retire_worker_handles(false);
     }
 }
 
@@ -163,13 +209,13 @@ fn worker_loop(shared: StdArc<WorkerPoolShared>) {
             let mut state = shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             state.idle_workers += 1;
             loop {
-                if let Some(job) = state.jobs.pop_front() {
-                    state.idle_workers = state.idle_workers.saturating_sub(1);
-                    break job;
-                }
                 if state.closed {
                     state.idle_workers = state.idle_workers.saturating_sub(1);
                     return;
+                }
+                if let Some(job) = state.jobs.pop_front() {
+                    state.idle_workers = state.idle_workers.saturating_sub(1);
+                    break job;
                 }
                 if state.live_workers > state.min_workers {
                     let (next_state, timeout) = shared
@@ -207,7 +253,12 @@ fn baseline_worker_count(max_workers: usize, parallelism: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::baseline_worker_count;
+    use std::io::Read;
+    use std::net::{Ipv4Addr, TcpListener, TcpStream};
+
+    use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+
+    use super::*;
 
     #[test]
     fn baseline_worker_count_respects_client_limit() {
@@ -219,5 +270,22 @@ mod tests {
     fn baseline_worker_count_caps_initial_pool_growth() {
         assert_eq!(baseline_worker_count(512, 32), 16);
         assert_eq!(baseline_worker_count(128, 8), 16);
+    }
+
+    #[test]
+    fn closing_pool_drops_queued_jobs_before_workers_can_start_them() {
+        let pool = ClientWorkerPool::new(0).expect("zero-worker pool");
+        let state = RuntimeState::new(RuntimeConfig::default(), None);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client pair");
+        let mut peer = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect peer");
+        let (queued, _) = listener.accept().expect("accept queued client");
+        let slot = state.acquire_client_slot(1).expect("client slot");
+        assert!(pool.enqueue(ClientJob { client: queued, state, slot }).is_ok(), "queue client job");
+
+        pool.close();
+
+        peer.set_read_timeout(Some(Duration::from_secs(1))).expect("set peer timeout");
+        let mut byte = [0u8; 1];
+        assert_eq!(peer.read(&mut byte).unwrap_or(0), 0, "queued client must be closed during shutdown");
     }
 }

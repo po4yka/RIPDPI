@@ -19,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.dpi.AttemptStatus
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -63,8 +64,8 @@ class BlockcheckProbeOrchestrator
                 emit(
                     BlockcheckUiState(
                         runState = BlockcheckRunState.Running,
-                        domains = domains,
-                        diagnoses = diagnoses,
+                        domains = domains.toImmutableList(),
+                        diagnoses = diagnoses.toImmutableList(),
                         recommendedStrategyId = diagnoses.recommendedCandidate(candidates)?.id,
                         recommendedStrategyLabel = diagnoses.recommendedCandidate(candidates)?.label,
                         totalExpectedResults = candidates.size * domains.size,
@@ -80,10 +81,10 @@ class BlockcheckProbeOrchestrator
                     emit(
                         BlockcheckUiState(
                             runState = BlockcheckRunState.Running,
-                            domains = domains,
+                            domains = domains.toImmutableList(),
                             results = collected,
-                            rankedStrategies = ranked,
-                            diagnoses = diagnoses,
+                            rankedStrategies = ranked.toImmutableList(),
+                            diagnoses = diagnoses.toImmutableList(),
                             recommendedStrategyId =
                                 diagnoses
                                     .recommendedCandidate(candidates = candidates, rankedStrategies = ranked)
@@ -106,10 +107,10 @@ class BlockcheckProbeOrchestrator
                 emit(
                     BlockcheckUiState(
                         runState = BlockcheckRunState.Complete,
-                        domains = domains,
+                        domains = domains.toImmutableList(),
                         results = collected,
-                        rankedStrategies = ranked,
-                        diagnoses = finalDiagnoses,
+                        rankedStrategies = ranked.toImmutableList(),
+                        diagnoses = finalDiagnoses.toImmutableList(),
                         recommendedStrategyId =
                             finalDiagnoses
                                 .recommendedCandidate(candidates = candidates, rankedStrategies = ranked)

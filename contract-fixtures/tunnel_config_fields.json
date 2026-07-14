@@ -59,5 +59,7 @@
   "udpCopyBufferNums",
   "udpReadWriteTimeoutMs",
   "udpRecvBufferSize",
+  "uidPolicyMode",
+  "uidPolicyUids[]",
   "username"
 ]

@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionLimit
 import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
-import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import dagger.Binds
 import dagger.Module
@@ -432,8 +431,6 @@ class RoomRememberedNetworkPolicyRecordStore
             dao.countRememberedNetworkPoliciesForFingerprint(fingerprintHash)
 
         override suspend fun pruneRememberedNetworkPolicies() {
-            val staleThreshold = clock.now() - RememberedNetworkPolicyRetentionMaxAgeMs
-            dao.deleteRememberedNetworkPoliciesOlderThan(staleThreshold)
             dao.trimRememberedNetworkPoliciesToCount(RememberedNetworkPolicyRetentionLimit)
         }
     }
@@ -563,6 +560,7 @@ class RoomDiagnosticsHistoryRetentionStore
             dao.deleteNativeEventsOlderThan(threshold)
             dao.deleteExportRecordsOlderThan(threshold)
             dao.deleteBypassUsageSessionsOlderThan(threshold)
+            dao.deleteRememberedNetworkPoliciesOlderThan(threshold)
             dao.deleteNetworkDnsPathPreferencesOlderThan(threshold)
             dao.deleteBlockedPathsOlderThan(threshold)
             dao.deleteNetworkEdgePreferencesOlderThan(threshold)

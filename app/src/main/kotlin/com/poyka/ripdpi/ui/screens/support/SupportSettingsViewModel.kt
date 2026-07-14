@@ -8,9 +8,15 @@ import com.poyka.ripdpi.data.support.SupportSettingsFieldChange
 import com.poyka.ripdpi.data.support.SupportSettingsPreview
 import com.poyka.ripdpi.data.support.SupportSettingsPreviewResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,9 +25,8 @@ data class SupportSettingsUiState(
     val packageJson: String = "",
     val loading: Boolean = false,
     val applying: Boolean = false,
-    val applied: Boolean = false,
     val preview: SupportSettingsPreview? = null,
-    val changes: List<SupportSettingsFieldChange> = emptyList(),
+    val changes: ImmutableList<SupportSettingsFieldChange> = persistentListOf(),
     val invalid: Boolean = false,
 )
 
@@ -33,9 +38,13 @@ class SupportSettingsViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SupportSettingsUiState())
         val uiState: StateFlow<SupportSettingsUiState> = _uiState.asStateFlow()
+        private val appliedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
+        val appliedEvents: Flow<Unit> = appliedEventChannel.receiveAsFlow()
+        private var completed = false
 
         fun setPackage(packageJson: String) {
             if (_uiState.value.packageJson == packageJson) return
+            completed = false
             _uiState.update { SupportSettingsUiState(packageJson = packageJson, loading = true) }
             viewModelScope.launch {
                 when (val result = applyUseCase.preview(packageJson)) {
@@ -48,7 +57,7 @@ class SupportSettingsViewModel
                             it.copy(
                                 loading = false,
                                 preview = result.preview,
-                                changes = result.preview.changes,
+                                changes = result.preview.changes.toImmutableList(),
                                 invalid = false,
                             )
                         }
@@ -59,7 +68,7 @@ class SupportSettingsViewModel
 
         fun apply() {
             val state = _uiState.value
-            if (!state.canApply) return
+            if (!state.canApply || completed) return
             _uiState.update { it.copy(applying = true) }
             viewModelScope.launch {
                 when (val result = applyUseCase.apply(state.packageJson)) {
@@ -71,10 +80,11 @@ class SupportSettingsViewModel
                         _uiState.update {
                             it.copy(
                                 applying = false,
-                                applied = true,
-                                changes = result.changes,
+                                changes = result.changes.toImmutableList(),
                             )
                         }
+                        completed = true
+                        appliedEventChannel.send(Unit)
                     }
                 }
             }
@@ -82,4 +92,4 @@ class SupportSettingsViewModel
     }
 
 private val SupportSettingsUiState.canApply: Boolean
-    get() = packageJson.isNotBlank() && !loading && !applying && !applied && !invalid
+    get() = packageJson.isNotBlank() && !loading && !applying && !invalid

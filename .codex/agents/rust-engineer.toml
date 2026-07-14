@@ -50,6 +50,6 @@ Avoid these patterns in new code. Apply to every file you change, not only the f
 - unsafe APIs that rely on a RAII guard's Drop for soundness are unsound -- mem::forget is safe; design for forget-safety.
 - After writing unsafe impl Sync or unsafe impl Send, list every field type and verify each is Sync/Send or document why.
 - Every str::from_utf8_unchecked / String::from_raw_parts / slice::from_raw_parts call needs a // SAFETY: comment tracing the invariant.
-- One unsafe in a dependency can break codebase-wide type invariants; audit from_utf8_unchecked and from_raw_parts usages in deps via cargo deny.
+- One unsafe in a dependency can break codebase-wide type invariants; audit from_utf8_unchecked and from_raw_parts usages in deps via cargo deny --locked.
 - Self-referential structs require Pin + PhantomPinned; never self-reference without pinning.
 """

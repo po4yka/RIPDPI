@@ -1,3 +1,10 @@
+---
+paths:
+  - "app/**/*.kt"
+  - "core/**/*.kt"
+  - "native/rust/**/*.rs"
+---
+
 # Android app layer and Rust concurrency gotchas
 
 These are conventions and pitfalls confirmed against live source that are not yet documented in `.claude/rules/`, `AGENTS.md`, or `docs/architecture/`. They split across two areas: Rust-side concurrency primitives shared by the native crates, and Kotlin/Compose app-layer patterns in `app/` and `core/`. `docs/rust-soundness-policy.md` is the CI-enforced authority for deeper Rust soundness topics (lock ordering, callback reentrancy, FFI panic containment) — read it first for anything that sounds like it belongs there; the items below are the gaps that remain outside its scope.
@@ -30,7 +37,7 @@ Hilt/Dagger ignores Kotlin default parameter values on `@Inject` constructors, w
 
 ### Navigation: keep the bottom-bar fallback set in sync with the nav graph
 
-`RipDpiNavHost.kt`'s `selectedTopLevel` (`app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt:140`) picks the highlighted bottom-tab via an exact stable-route match plus an explicit `configSubRouteStableKeys` fallback set (`RipDpiNavHost.kt:896`) — it does not walk `NavDestination.hierarchy`. Whenever a new sub-destination is added inside a nested nav graph (for example, a new screen under the Config tab), add its stable route key to `configSubRouteStableKeys` in the same change, or the parent tab goes unselected the moment a user navigates into that sub-screen.
+`RipDpiNavHost.kt`'s `selectedTopLevel` picks the highlighted bottom tab via an exact stable-route match plus the explicit `configSubRouteStableKeys` fallback set — it does not walk `NavDestination.hierarchy`. Locate both symbols by name instead of relying on line-number snapshots. Whenever a new sub-destination is added inside a nested nav graph (for example, a new screen under the Config tab), add its stable route key to `configSubRouteStableKeys` in the same change, or the parent tab goes unselected when a user navigates into that sub-screen.
 
 ### Cross-references
 
@@ -38,4 +45,3 @@ Hilt/Dagger ignores Kotlin default parameter values on `@Inject` constructors, w
 - `docs/rust-soundness-policy.md` § "FFI panic-unwind containment" — the CI-enforced `catch_unwind` requirement at every `extern` export and foreign-invoked callback; the worker-thread panic-isolation note above extends the same discipline to pure background workers that never cross that boundary.
 - `llm-rust-prompts.md` — sentinel-pattern list for AI-generated Rust review gates.
 - `android-vpn-lifecycle.md` — thread naming and state-persistence rules for the same native worker threads discussed above.
-

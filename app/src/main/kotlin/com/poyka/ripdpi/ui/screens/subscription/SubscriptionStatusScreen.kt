@@ -1,11 +1,8 @@
 package com.poyka.ripdpi.ui.screens.subscription
 
-import android.view.WindowManager
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -19,6 +16,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -51,7 +49,7 @@ internal fun SubscriptionStatusScreen(
     onRefresh: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (uiState.secretsRevealed) SecureSubscriptionWindowEffect()
+    if (uiState.secretsRevealed) SecureWindowEffect()
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.subscription_status_title),
         navigationIcon = RipDpiIcons.Back,
@@ -198,12 +196,3 @@ private fun formatInstant(epochMillis: Long?): String =
             )
         }
         ?: "—"
-
-@Composable
-private fun SecureSubscriptionWindowEffect() {
-    val window = LocalActivity.current?.window
-    DisposableEffect(window) {
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-    }
-}

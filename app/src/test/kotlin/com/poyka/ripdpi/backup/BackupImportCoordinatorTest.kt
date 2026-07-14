@@ -5,10 +5,12 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.backup.BackupExportUseCase
+import com.poyka.ripdpi.data.backup.BackupEncryption
 import com.poyka.ripdpi.data.backup.BackupExporter
+import com.poyka.ripdpi.data.backup.BackupImporter
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupSerializer
+import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
@@ -23,7 +25,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -199,6 +200,7 @@ class BackupImportCoordinatorTest {
 
             val preview = h.state.value.importPreview!!
             assertEquals(json, preview.json)
+            assertFalse(preview.encrypted)
             // profilesAndGroups = canRestoreProfilesAndGroups (decodable profile + group => true).
             assertTrue(preview.selection.profilesAndGroups)
             // routes = ruleCount > 0 (no rules => false).
@@ -207,6 +209,49 @@ class BackupImportCoordinatorTest {
             assertTrue(preview.selection.settings)
             assertFalse(h.state.value.importing)
             assertTrue(h.restoreEffects.isEmpty())
+        }
+
+    @Test
+    fun `encrypted FULL import waits for passphrase then opens preview`() =
+        runTest(StandardTestDispatcher()) {
+            val archive = encryptedArchive()
+            val h = harness()
+
+            h.coordinator.openImport { archive.inputStream() }
+            testScheduler.advanceUntilIdle()
+
+            assertTrue(h.state.value.encryptedImportPending)
+            assertNull(h.state.value.importPreview)
+
+            h.coordinator.unlockEncryptedImport(ArchivePhrase.copyOf())
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.encryptedImportPending)
+            assertTrue(
+                h.state.value.importPreview
+                    ?.preview
+                    ?.containsCredentials == true,
+            )
+            assertTrue(
+                h.state.value.importPreview
+                    ?.encrypted == true,
+            )
+            assertTrue(h.restoreEffects.isEmpty())
+        }
+
+    @Test
+    fun `wrong passphrase keeps encrypted import retryable`() =
+        runTest(StandardTestDispatcher()) {
+            val h = harness()
+            h.coordinator.openImport { encryptedArchive().inputStream() }
+            testScheduler.advanceUntilIdle()
+
+            h.coordinator.unlockEncryptedImport("wrong password".toCharArray())
+            testScheduler.advanceUntilIdle()
+
+            assertTrue(h.state.value.encryptedImportPending)
+            assertNull(h.state.value.importPreview)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.DecryptionFailed), h.restoreEffects)
         }
 
     @Test
@@ -396,7 +441,7 @@ class BackupImportCoordinatorTest {
         }
 
     @Test
-    fun `confirmRestore exception clears restoring and emits Malformed`() =
+    fun `confirmRestore surfaces compensation failure as integrity failure`() =
         runTest(StandardTestDispatcher()) {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val repository =
@@ -412,7 +457,7 @@ class BackupImportCoordinatorTest {
 
             assertFalse(h.state.value.restoring)
             assertNull(h.state.value.importPreview)
-            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.IntegrityFailure), h.restoreEffects)
         }
 
     @Test
@@ -544,15 +589,28 @@ class BackupImportCoordinatorTest {
             groups.map { group ->
                 group.copy(members = group.members + profiles.filter { it.groupId == group.id })
             }
-        val out = ByteArrayOutputStream()
-        runBlocking {
-            BackupExportUseCase(
-                groupRepository = MutableGroupRepository(groupsWithProfiles),
-                ruleDao = FakeRuleDao(),
-                settingsRepository = FakeAppSettingsRepository(),
-            ).export(variant = variant, output = out, appVersion = "1.0.0")
-        }
-        return out.toString("UTF-8")
+        return BackupSerializer.encodeToString(
+            BackupExporter.export(
+                variant = variant,
+                profiles = profiles,
+                groups = groupsWithProfiles,
+                rules = emptyList(),
+                settings = BackupSettingsConverter.toMap(AppSettings.getDefaultInstance(), variant),
+                createdAtEpochMillis = 0L,
+                appVersion = "1.0.0",
+            ),
+        )
+    }
+
+    private fun encryptedArchive(): ByteArray {
+        val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
+        val output = ByteArrayOutputStream()
+        BackupEncryption.encryptToStream(BackupImporter.import(json), ArchivePhrase.copyOf(), output)
+        return output.toByteArray()
+    }
+
+    private companion object {
+        val ArchivePhrase = "archive phrase fixture".toCharArray()
     }
 
     private class MutableGroupRepository(

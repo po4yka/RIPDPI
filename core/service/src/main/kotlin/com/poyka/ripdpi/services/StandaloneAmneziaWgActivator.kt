@@ -2,6 +2,8 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,11 +28,29 @@ interface StandaloneAmneziaWgActivator {
 
 @Singleton
 internal class DefaultStandaloneAmneziaWgActivator
-    @Inject
-    constructor(
+    private constructor(
         private val serviceController: ServiceController,
+        private val bootSessionStateStore: BootSessionStateStore,
+        private val profileLoader: AwgProfileLoader,
     ) : StandaloneAmneziaWgActivator,
         AwgEgressSelectionSource {
+        @Inject
+        constructor(
+            serviceController: ServiceController,
+            bootSessionStateStore: BootSessionStateStore,
+            profileRepository: AwgProfileRepository,
+        ) : this(
+            serviceController = serviceController,
+            bootSessionStateStore = bootSessionStateStore,
+            profileLoader = AwgProfileLoader { profileId -> profileRepository.load(profileId)?.request },
+        )
+
+        internal constructor(
+            serviceController: ServiceController,
+            bootSessionStateStore: BootSessionStateStore,
+            loadProfile: suspend (String) -> AwgActivationRequest?,
+        ) : this(serviceController, bootSessionStateStore, AwgProfileLoader(loadProfile))
+
         override val selectionPriority: Int = 0
 
         private val lifecycleLock = Mutex()
@@ -39,6 +59,7 @@ internal class DefaultStandaloneAmneziaWgActivator
         override suspend fun activate(request: AwgActivationRequest) {
             lifecycleLock.withLock {
                 selectedRequest = request
+                bootSessionStateStore.setActiveAwgProfileId(request.profileId)
                 when (val result = serviceController.start(Mode.VPN)) {
                     is ServiceStartResult.Accepted -> {
                         Unit
@@ -46,6 +67,7 @@ internal class DefaultStandaloneAmneziaWgActivator
 
                     is ServiceStartResult.Rejected -> {
                         selectedRequest = null
+                        bootSessionStateStore.setActiveAwgProfileId(null)
                         error("Cannot start standalone AWG VPN: ${result.reason}")
                     }
                 }
@@ -54,8 +76,9 @@ internal class DefaultStandaloneAmneziaWgActivator
 
         override suspend fun deactivate() {
             lifecycleLock.withLock {
-                val hadSelectedRequest = selectedRequest != null
+                val hadSelectedRequest = selectedRequest != null || bootSessionStateStore.activeAwgProfileId() != null
                 selectedRequest = null
+                bootSessionStateStore.setActiveAwgProfileId(null)
                 if (hadSelectedRequest) {
                     serviceController.stop()
                 }
@@ -64,9 +87,18 @@ internal class DefaultStandaloneAmneziaWgActivator
 
         override suspend fun selectedAwgEgress(): AwgActivationRequest? =
             lifecycleLock.withLock {
-                selectedRequest
+                selectedRequest?.let { return@withLock it }
+                val profileId = bootSessionStateStore.activeAwgProfileId() ?: return@withLock null
+                profileLoader
+                    .load(profileId)
+                    ?.also { selectedRequest = it }
+                    ?: error("Selected standalone AWG profile is unavailable")
             }
     }
+
+private fun interface AwgProfileLoader {
+    suspend fun load(profileId: String): AwgActivationRequest?
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

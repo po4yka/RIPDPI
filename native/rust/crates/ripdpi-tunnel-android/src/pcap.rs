@@ -15,6 +15,8 @@ use std::fs::{self, File};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -22,6 +24,32 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crossbeam_queue::ArrayQueue;
 use ripdpi_pcap::{PcapWriter, SNAPLEN_DEFAULT};
 use ripdpi_tunnel_core::PacketObserver;
+
+const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_FILES: u32 = 16;
+
+#[cfg(test)]
+pub(crate) static LIVE_WRITER_THREADS: AtomicU64 = AtomicU64::new(0);
+#[cfg(test)]
+pub(crate) static TEST_PCAP_LOCK: Mutex<()> = Mutex::new(());
+
+#[cfg(test)]
+struct LiveWriterGuard;
+
+#[cfg(test)]
+impl LiveWriterGuard {
+    fn enter() -> Self {
+        LIVE_WRITER_THREADS.fetch_add(1, Ordering::Relaxed);
+        Self
+    }
+}
+
+#[cfg(test)]
+impl Drop for LiveWriterGuard {
+    fn drop(&mut self) {
+        LIVE_WRITER_THREADS.fetch_sub(1, Ordering::Relaxed);
+    }
+}
 
 /// A single captured packet en route to the writer thread.
 #[derive(Debug, Clone)]
@@ -60,6 +88,9 @@ pub struct PcapCaptureSet {
     writer_thread: Option<JoinHandle<WriterResult>>,
 }
 
+const WRITER_STOP_TIMEOUT: Duration = Duration::from_secs(2);
+const WRITER_JOIN_POLL: Duration = Duration::from_millis(10);
+
 #[derive(Debug, Default)]
 struct WriterResult {
     files: Vec<PcapCaptureMetadata>,
@@ -74,6 +105,12 @@ impl PcapCaptureSet {
     /// `max_files` together cap the on-disk footprint (default per
     /// design: 16 MiB x 4 = 64 MiB).
     pub fn start(set_id: u64, dir: PathBuf, max_file_bytes: u64, max_files: u32) -> std::io::Result<Self> {
+        if !(1..=MAX_FILE_BYTES).contains(&max_file_bytes) || !(1..=MAX_FILES).contains(&max_files) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("pcap limits must be fileBytes=1..={MAX_FILE_BYTES}, files=1..={MAX_FILES}"),
+            ));
+        }
         if !dir.is_dir() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -96,6 +133,10 @@ impl PcapCaptureSet {
     /// Try to enqueue a record. Lock-free. On queue-full, increments
     /// the drops counter and returns false -- capture is best-effort.
     pub fn submit(&self, record: PcapCaptureRecord) -> bool {
+        // Ordering: `stop` publishes capture retirement before any caller can enqueue another owned packet.
+        if self.stop.load(Ordering::Acquire) {
+            return false;
+        }
         match self.queue.push(record) {
             Ok(()) => true,
             Err(_) => {
@@ -108,14 +149,14 @@ impl PcapCaptureSet {
     /// Signal the writer thread to drain the queue, fsync the final
     /// file, and exit. Returns the metadata of every file written.
     pub fn stop(mut self) -> WriterStopResult {
-        self.stop.store(true, Ordering::Relaxed);
+        self.request_stop();
         let mut result = WriterStopResult {
             set_id: self.set_id,
             files: Vec::new(),
             total_drops: self.drops.load(Ordering::Relaxed),
         };
         if let Some(handle) = self.writer_thread.take()
-            && let Ok(writer_result) = handle.join()
+            && let Some(writer_result) = join_writer_bounded(handle, WRITER_STOP_TIMEOUT)
         {
             result.files = writer_result.files;
             // Annotate the drops on the last file (most informative
@@ -125,6 +166,11 @@ impl PcapCaptureSet {
             }
         }
         result
+    }
+
+    pub(crate) fn request_stop(&self) {
+        // Ordering: publish retirement to packet observers before the writer queue and thread are released.
+        self.stop.store(true, Ordering::Release);
     }
 
     pub fn set_id(&self) -> u64 {
@@ -140,12 +186,32 @@ impl PcapCaptureSet {
     /// installed via [`ripdpi_tunnel_core::Stats::set_packet_observer`]
     /// so the io_loop hot path enqueues each packet directly into the
     /// writer-thread queue. The handle is decoupled from the set
-    /// lifetime — after [`Self::stop`] consumes the set and joins the
-    /// writer thread, any further `on_inbound`/`on_outbound` calls
-    /// silently enqueue (then drop, since no consumer remains).
+    /// lifetime. Once [`Self::stop`] publishes retirement, stale observer
+    /// clones reject packets before allocating an owned record.
     pub fn observer_handle(&self) -> Arc<PcapPacketObserver> {
-        Arc::new(PcapPacketObserver { queue: self.queue.clone(), drops: self.drops.clone() })
+        Arc::new(PcapPacketObserver { queue: self.queue.clone(), drops: self.drops.clone(), stop: self.stop.clone() })
     }
+}
+
+impl Drop for PcapCaptureSet {
+    fn drop(&mut self) {
+        // Cleanup order: publish stop first, then detach the writer. The worker
+        // owns Arc clones of every shared input, so Drop never needs to block.
+        self.request_stop();
+        drop(self.writer_thread.take());
+    }
+}
+
+fn join_writer_bounded(handle: JoinHandle<WriterResult>, timeout: Duration) -> Option<WriterResult> {
+    let deadline = Instant::now() + timeout;
+    while !handle.is_finished() && Instant::now() < deadline {
+        thread::sleep(WRITER_JOIN_POLL.min(deadline.saturating_duration_since(Instant::now())));
+    }
+    if handle.is_finished() {
+        return handle.join().ok();
+    }
+    tracing::warn!(timeout_ms = timeout.as_millis(), "pcap writer did not stop before deadline; detaching worker");
+    None
 }
 
 /// Independent observer that owns clone-able handles to the
@@ -155,10 +221,15 @@ impl PcapCaptureSet {
 pub struct PcapPacketObserver {
     queue: Arc<ArrayQueue<PcapCaptureRecord>>,
     drops: Arc<AtomicU64>,
+    stop: Arc<AtomicBool>,
 }
 
 impl PcapPacketObserver {
     fn try_push(&self, packet: &[u8]) {
+        // Ordering: acquire the retirement published by `PcapCaptureSet::request_stop` before touching the queue or allocating packet storage.
+        if self.stop.load(Ordering::Acquire) {
+            return;
+        }
         let record = PcapCaptureRecord { ts_micros: now_micros(), bytes: packet.to_vec() };
         if self.queue.push(record).is_err() {
             self.drops.fetch_add(1, Ordering::Relaxed);
@@ -195,6 +266,8 @@ fn writer_loop(
     max_file_bytes: u64,
     max_files: u32,
 ) -> WriterResult {
+    #[cfg(test)]
+    let _live_writer = LiveWriterGuard::enter();
     let mut result = WriterResult::default();
     let mut file_idx: u32 = 0;
     while file_idx < max_files {
@@ -215,7 +288,7 @@ fn writer_loop(
                     Err(_) => break,
                 }
                 file_idx += 1;
-                if stop.load(Ordering::Relaxed) && queue.is_empty() {
+                if stop.load(Ordering::Acquire) && queue.is_empty() {
                     break;
                 }
             }
@@ -256,7 +329,7 @@ fn drain_one_file(
                 }
             }
             None => {
-                if stop.load(Ordering::Relaxed) {
+                if stop.load(Ordering::Acquire) {
                     break;
                 }
                 thread::sleep(Duration::from_millis(50));
@@ -324,8 +397,21 @@ mod tests {
         PcapCaptureRecord { ts_micros: 0, bytes }
     }
 
+    fn serial_pcap_test() -> std::sync::MutexGuard<'static, ()> {
+        TEST_PCAP_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn wait_for_live_writers(expected: u64) {
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while LIVE_WRITER_THREADS.load(Ordering::Relaxed) != expected && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(LIVE_WRITER_THREADS.load(Ordering::Relaxed), expected);
+    }
+
     #[test]
     fn start_then_stop_roundtrips_zero_packets() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let capture = PcapCaptureSet::start(1, dir.path().to_path_buf(), 1024, 4).unwrap();
         let result = capture.stop();
@@ -336,7 +422,51 @@ mod tests {
     }
 
     #[test]
+    fn dropping_capture_stops_writer_thread() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let live_before = LIVE_WRITER_THREADS.load(Ordering::Relaxed);
+        let capture = PcapCaptureSet::start(10, dir.path().to_path_buf(), 1024, 1).unwrap();
+        wait_for_live_writers(live_before + 1);
+
+        drop(capture);
+
+        wait_for_live_writers(live_before);
+    }
+
+    #[test]
+    fn bounded_join_detaches_blocked_writer() {
+        let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+        let handle = thread::spawn(move || {
+            let _ = release_rx.recv();
+            WriterResult::default()
+        });
+        let started = Instant::now();
+
+        let result = join_writer_bounded(handle, Duration::from_millis(25));
+
+        assert!(result.is_none());
+        assert!(started.elapsed() < Duration::from_millis(250));
+        let _ = release_tx.send(());
+    }
+
+    #[test]
+    fn stopped_capture_rejects_stale_observer_packets() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let capture = PcapCaptureSet::start(11, dir.path().to_path_buf(), 1024, 1).unwrap();
+        let queue = capture.queue.clone();
+        let observer = capture.observer_handle();
+        let _ = capture.stop();
+
+        observer.on_inbound(&fake_packet(1).bytes);
+
+        assert!(queue.is_empty(), "stale observer must not enqueue after capture stop");
+    }
+
+    #[test]
     fn submit_then_stop_records_packet_count() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let capture = PcapCaptureSet::start(2, dir.path().to_path_buf(), 1024 * 1024, 4).unwrap();
         for i in 0..10u8 {
@@ -361,6 +491,7 @@ mod tests {
 
     #[test]
     fn submit_returns_false_when_queue_full() {
+        let _serial = serial_pcap_test();
         // Best-effort: on fast hardware we may not actually hit full
         // because the writer drains continuously. We at least assert
         // the call sequence is panic-free and any drops are accounted.
@@ -381,5 +512,18 @@ mod tests {
             Ok(_) => panic!("expected NotFound error for missing dir"),
             Err(e) => assert_eq!(e.kind(), std::io::ErrorKind::NotFound),
         }
+    }
+
+    #[test]
+    fn start_rejects_unbounded_capture_limits() {
+        let dir = TempDir::new().unwrap();
+        let zero_files =
+            PcapCaptureSet::start(100, dir.path().to_path_buf(), 1024, 0).err().expect("zero files must fail");
+        let oversized_file = PcapCaptureSet::start(101, dir.path().to_path_buf(), MAX_FILE_BYTES + 1, 1)
+            .err()
+            .expect("oversized file must fail");
+
+        assert_eq!(zero_files.kind(), std::io::ErrorKind::InvalidInput);
+        assert_eq!(oversized_file.kind(), std::io::ErrorKind::InvalidInput);
     }
 }

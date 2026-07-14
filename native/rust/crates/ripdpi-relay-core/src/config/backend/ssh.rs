@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct SshRelayConfig {
     pub host: String,
     pub port: i32,
@@ -10,3 +10,10 @@ pub struct SshRelayConfig {
     pub host_key_fingerprint: Option<String>,
     pub strict_host_key: bool,
 }
+
+impl_redacted_debug!(SshRelayConfig {
+    host,
+    port,
+    auth_type,
+    strict_host_key,
+});

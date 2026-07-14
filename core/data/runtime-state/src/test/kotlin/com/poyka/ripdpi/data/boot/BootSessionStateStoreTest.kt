@@ -38,6 +38,17 @@ class BootSessionStateStoreTest {
     }
 
     @Test
+    fun `active awg pointer survives recreation without secret material`() {
+        store.setActiveAwgProfileId("awg-profile-42")
+
+        val afterKill = SharedPreferencesBootSessionStateStore(prefs)
+
+        assertEquals("awg-profile-42", afterKill.activeAwgProfileId())
+        afterKill.setActiveAwgProfileId(null)
+        assertNull(store.activeAwgProfileId())
+    }
+
+    @Test
     fun `recordSession persists proxy mode distinctly from vpn`() {
         store.recordSession(profileId = "p", mode = Mode.Proxy)
 
@@ -62,10 +73,20 @@ class BootSessionStateStoreTest {
     }
 
     @Test
-    fun `a pointer written before unlock is readable by a fresh store instance`() {
-        // The same device-protected prefs file backs both instances, modelling the
-        // direct-boot read path: a pointer persisted during a prior (post-unlock)
-        // session is visible to a fresh process at LOCKED_BOOT_COMPLETED.
+    fun `clearAll removes the pointer and update auto-resume marker`() {
+        store.recordSession(profileId = "p", mode = Mode.VPN)
+        store.setWasRunningAtUpdate(true)
+
+        store.clearAll()
+
+        assertNull(store.lastSession())
+        assertFalse(store.wasRunningAtUpdate())
+    }
+
+    @Test
+    fun `a pointer written before reboot is readable by a fresh store instance`() {
+        // The same device-protected prefs file backs both instances, modelling a
+        // pointer persisted during a prior session and read by a fresh post-boot process.
         store.recordSession(profileId = "survivor", mode = Mode.VPN)
 
         val afterReboot = SharedPreferencesBootSessionStateStore(prefs)

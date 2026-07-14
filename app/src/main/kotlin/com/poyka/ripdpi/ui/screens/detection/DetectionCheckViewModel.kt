@@ -17,6 +17,9 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,15 +32,15 @@ data class DetectionCheckUiState(
     val narrative: VerdictNarrative? = null,
     val stealthScore: Int? = null,
     val stealthLabel: String? = null,
-    val recommendations: List<Recommendation> = emptyList(),
-    val suggestedFixes: List<DetectionSuggestedFix> = emptyList(),
+    val recommendations: ImmutableList<Recommendation> = persistentListOf(),
+    val suggestedFixes: ImmutableList<DetectionSuggestedFix> = persistentListOf(),
     val reportText: String? = null,
     val debugReportText: String? = null,
     val error: String? = null,
     val showOnboarding: Boolean = false,
     val permissionAction: DetectionPermissionPlanner.Action = DetectionPermissionPlanner.Action.NONE,
-    val missingPermissions: List<String> = emptyList(),
-    val history: List<DetectionHistoryEntry> = emptyList(),
+    val missingPermissions: ImmutableList<String> = persistentListOf(),
+    val history: ImmutableList<DetectionHistoryEntry> = persistentListOf(),
     val communityStats: CommunityStats? = null,
     val communityStatsLoading: Boolean = false,
     val communityStatsError: String? = null,

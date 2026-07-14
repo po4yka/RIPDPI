@@ -81,7 +81,7 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
 2. **Rust crate graph**: Parse `[dependencies]` in every `Cargo.toml` under `native/rust/crates/` for workspace dependencies (`ripdpi-*`, `android-support`). Alternatively:
 
    ```bash
-   cd native/rust && cargo tree --workspace --depth 1 --prefix none --edges normal 2>/dev/null | head -100
+   cd native/rust && cargo tree --locked --workspace --depth 1 --prefix none --edges normal 2>/dev/null | head -100
    ```
 
 3. **Layer violation check**: For each edge in both graphs, verify the dependency direction respects the layer hierarchy above. Flag any edge pointing from a lower layer to a higher layer.
@@ -110,7 +110,7 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
 
    ```bash
    cd native/rust
-   cargo tree -p ripdpi-proxy-runtime --depth 1 --edges normal --prefix none \
+   cargo tree --locked -p ripdpi-proxy-runtime --depth 1 --edges normal --prefix none \
      | grep '^ripdpi-' | sort -u
    ```
 
@@ -121,7 +121,7 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
    *Fan-out (target ≤ 9, current known state: ~14 — tracked tech debt):*
 
    ```bash
-   cargo tree -p ripdpi-proxy-runtime --depth 1 --edges normal \
+   cargo tree --locked -p ripdpi-proxy-runtime --depth 1 --edges normal \
      | grep -c '^[├└]── ripdpi-'
    ```
 
@@ -129,7 +129,7 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
 
    ```bash
    cd native/rust
-   cargo tree --workspace --edges normal --prefix none \
+   cargo tree --locked --workspace --edges normal --prefix none \
      | grep 'ripdpi-runtime-services' | sort -u
    ```
 

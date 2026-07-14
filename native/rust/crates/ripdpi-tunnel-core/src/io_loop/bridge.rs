@@ -12,4 +12,4 @@ pub(super) use duplex::{flush_pending_to_session, flush_pending_to_smoltcp, try_
 pub(super) use session_pump::pump_active_sessions;
 pub(super) use shutdown::shutdown_active_sessions;
 pub(super) use tun_queue::enqueue_tun_packet;
-pub(super) use tun_tx::flush_device_tx_queue;
+pub(super) use tun_tx::{TunFlushOutcome, flush_device_tx_queue};

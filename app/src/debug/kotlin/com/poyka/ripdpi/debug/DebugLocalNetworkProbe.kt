@@ -678,12 +678,8 @@ fun NetworkProbeResult.writeToOutput(
     context: Context,
     outputPath: String?,
 ): File {
-    val output =
-        if (outputPath.isNullOrBlank()) {
-            File(context.getExternalFilesDir(null) ?: context.filesDir, "probe-result.json")
-        } else {
-            File(outputPath)
-        }
+    require(outputPath.isNullOrBlank()) { "Custom debug probe output paths are not supported" }
+    val output = File(context.getExternalFilesDir(null) ?: context.filesDir, "probe-result.json")
     output.parentFile?.mkdirs()
     output.writeText(toJson(), Charsets.UTF_8)
     return output

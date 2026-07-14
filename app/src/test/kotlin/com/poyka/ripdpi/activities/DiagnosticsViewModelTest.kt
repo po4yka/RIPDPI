@@ -1812,7 +1812,7 @@ class DiagnosticsViewModelTest {
                                 DiagnosticsResolverRecommendationUiModel(
                                     headline = "Switch DNS to Cloudflare",
                                     rationale = "Encrypted DNS stayed clean while UDP DNS diverged.",
-                                    fields = emptyList(),
+                                    fields = persistentListOf(),
                                     appliedTemporarily = false,
                                     persistable = true,
                                 ),

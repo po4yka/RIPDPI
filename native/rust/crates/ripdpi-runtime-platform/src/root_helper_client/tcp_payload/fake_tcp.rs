@@ -1,5 +1,5 @@
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, OwnedFd};
 
 use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_TCP, FakeTcpParams};
 
@@ -11,7 +11,7 @@ impl RootHelperClient {
     #[allow(clippy::too_many_arguments)]
     pub fn send_fake_tcp(
         &self,
-        stream_fd: RawFd,
+        stream_fd: BorrowedFd<'_>,
         original_prefix: &[u8],
         fake_prefix: &[u8],
         ttl: u8,
@@ -19,7 +19,7 @@ impl RootHelperClient {
         default_ttl: u8,
         options: &FakeTcpOptions<'_>,
         wait: TcpStageWait,
-    ) -> io::Result<Option<RawFd>> {
+    ) -> io::Result<Option<OwnedFd>> {
         let params = command_params(FakeTcpParams {
             original_prefix: original_prefix.to_vec(),
             fake_prefix: fake_prefix.to_vec(),

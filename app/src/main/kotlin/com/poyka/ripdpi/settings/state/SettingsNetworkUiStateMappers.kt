@@ -5,6 +5,7 @@ import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.collections.immutable.toImmutableList
 
 internal fun AppSettings.buildDnsUiState(
     activeDns: ActiveDnsSettings,
@@ -18,7 +19,7 @@ internal fun AppSettings.buildDnsUiState(
         encryptedDnsHost = activeDns.encryptedDnsHost,
         encryptedDnsPort = activeDns.encryptedDnsPort,
         encryptedDnsTlsServerName = activeDns.encryptedDnsTlsServerName,
-        encryptedDnsBootstrapIps = activeDns.encryptedDnsBootstrapIps,
+        encryptedDnsBootstrapIps = activeDns.encryptedDnsBootstrapIps.toImmutableList(),
         encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
         encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
         encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,

@@ -1,0 +1,29 @@
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%1$s über %2$s</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">Dauer</string>
+    <string name="diagnostics_metric_health">Zustand</string>
+    <string name="diagnostics_metric_route_changes">Routenwechsel</string>
+    <string name="diagnostics_metric_path">Pfad</string>
+    <string name="diagnostics_metric_probes">Prüfungen</string>
+    <string name="diagnostics_field_hidden">Ausgeblendet</string>
+    <string name="diagnostics_field_hidden_count_format">Ausgeblendet (%1$d)</string>
+    <string name="diagnostics_field_winning_tcp_family">Erfolgreiche TCP-Familie</string>
+    <string name="diagnostics_field_winning_quic_family">Erfolgreiche QUIC-Familie</string>
+    <string name="diagnostics_field_network_fingerprint">Netzwerk-Fingerabdruck</string>
+    <string name="diagnostics_field_proxy_rtt_band">Proxy-RTT-Bereich</string>
+    <string name="diagnostics_field_resolver_rtt_band">Resolver-RTT-Bereich</string>
+    <string name="diagnostics_field_aggregate_rtt_band">Gesamter RTT-Bereich</string>
+    <string name="diagnostics_field_proxy_route_retries">Proxy-Routenwiederholungen</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">Tunnel-Wiederherstellungen</string>
+    <string name="diagnostics_field_total_retries">Wiederholungen gesamt</string>
+    <string name="diagnostics_field_classifier">Klassifikator</string>
+    <string name="diagnostics_field_packs">Pakete</string>
+    <string name="diagnostics_field_source">Quelle</string>
+    <string name="diagnostics_field_recorded">Erfasst</string>
+    <string name="diagnostics_duration_hours_format">%1$d Std. %2$d Min.</string>
+    <string name="diagnostics_duration_minutes_format">%1$d Min. %2$d Sek.</string>
+    <string name="diagnostics_duration_seconds_format">%1$d Sek.</string>
+</resources>

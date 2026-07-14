@@ -14,14 +14,13 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
+import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -53,7 +52,7 @@ class MainViewModel
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
 
-        val effects: SharedFlow<MainEffect> = _effects.asSharedFlow()
+        val effects = _effects.bufferForUiLifecycle(viewModelScope)
 
         private val strategyConfigActions =
             MainStrategyConfigApplyActions(
@@ -216,9 +215,7 @@ class MainViewModel
         }
 
         fun onStopRequested() {
-            // Stop on any non-Halted status. The launcher stop-shortcut, Quick Tile,
-            // and widget all treat Reconnecting as stoppable; this external-stop sink
-            // (ripdpi://disconnect) must match so a stop issued during the brief
+            // Stop on any non-Halted status so an internal request issued during the brief
             // Reconnecting window is not silently dropped.
             if (uiState.value.appStatus != AppStatus.Halted) {
                 connectionActions.stop()

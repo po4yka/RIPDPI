@@ -1873,4 +1873,22 @@ fakeddisorder endhost</string>
     <string name="subscription_home_invalidated_body">%1$s समाप्त या निरस्त हो गई। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
     <string name="xray_skip_unsupported_transport">%1$s ट्रांसपोर्ट मूल रूप से समर्थित नहीं है।</string>
     <string name="xray_skip_unsupported_fingerprint">%1$s TLS फिंगरप्रिंट मूल रूप से समर्थित नहीं है।</string>
+    <string name="diagnostics_sparkline_chart_description">%1$s का रुझान, %2$d नमूने</string>
+    <string name="diagnostics_sparkline_selected_state">%2$d में से नमूना %1$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">नवीनतम मान: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">पिछला नमूना</string>
+    <string name="diagnostics_sparkline_next_sample">अगला नमूना</string>
+    <string name="diagnostics_sparkline_clear_selection">चयन हटाएँ</string>
+    <string name="backup_restore_integrity_failure">पुनर्स्थापना के बाद डेटा की अखंडता की गारंटी नहीं दी जा सकी। ऐप को पुनः आरंभ करें और अपनी प्रोफ़ाइलों की जाँच करें।</string>
+    <string name="backup_encryption_create_title">पूर्ण बैकअप एन्क्रिप्ट करें</string>
+    <string name="backup_encryption_create_body">कम से कम 8 अक्षरों का पासफ़्रेज़ बनाएँ। किसी भी डिवाइस पर बैकअप पुनर्स्थापित करने के लिए इसकी आवश्यकता होगी।</string>
+    <string name="backup_encryption_create_action">एन्क्रिप्ट करके सहेजें</string>
+    <string name="backup_encryption_unlock_title">एन्क्रिप्टेड बैकअप खोलें</string>
+    <string name="backup_encryption_unlock_body">इस पूर्ण बैकअप को बनाते समय उपयोग किया गया पासफ़्रेज़ दर्ज करें।</string>
+    <string name="backup_encryption_unlock_action">खोलें</string>
+    <string name="backup_encryption_unlock_failed">पासफ़्रेज़ गलत है या बैकअप बदला गया है।</string>
+    <string name="backup_encryption_passphrase">बैकअप पासफ़्रेज़</string>
+    <string name="backup_encryption_confirm_passphrase">पासफ़्रेज़ की पुष्टि करें</string>
+    <string name="backup_encryption_passphrase_mismatch">पासफ़्रेज़ मेल नहीं खाते</string>
+    <string name="backup_import_legacy_full_warning">यह पुराना पूर्ण बैकअप एन्क्रिप्टेड नहीं है। इसे केवल विश्वसनीय स्रोत से पुनर्स्थापित करें, फिर नया एन्क्रिप्टेड बैकअप निर्यात करें।</string>
 </resources>

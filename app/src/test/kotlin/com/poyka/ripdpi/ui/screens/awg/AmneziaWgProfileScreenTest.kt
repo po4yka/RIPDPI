@@ -81,6 +81,8 @@ class AmneziaWgProfileScreenTest {
 
         override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
 
+        override suspend fun allProfiles(): List<AwgProfileEntity> = rows.value
+
         override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
 
         override suspend fun upsertProfile(profile: AwgProfileEntity) {
@@ -89,6 +91,10 @@ class AmneziaWgProfileScreenTest {
 
         override suspend fun deleteProfile(profile: AwgProfileEntity) {
             rows.value = rows.value.filterNot { it.id == profile.id }
+        }
+
+        override suspend fun deleteAll() {
+            rows.value = emptyList()
         }
     }
 

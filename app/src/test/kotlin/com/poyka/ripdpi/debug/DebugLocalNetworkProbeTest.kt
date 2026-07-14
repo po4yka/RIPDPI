@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import java.io.File
 import java.io.InputStream
 import java.net.SocketTimeoutException
@@ -80,40 +81,7 @@ class DebugLocalNetworkProbeTest {
 
     @Test
     fun `network probe result emits spec shaped json and typed quic unsupported state`() {
-        val result =
-            NetworkProbeResult(
-                runId = "run-1",
-                timestampEpochMs = 1L,
-                appVersionName = "1-debug",
-                appVersionCode = 2L,
-                profile = LabProfile.Emulator,
-                mode = ProbeMode.Vpn,
-                vpnEstablished = true,
-                tunActive = true,
-                proxyReady = true,
-                relayReady = true,
-                dns = DnsProbeResult(true, true, "10.0.2.2", "ok.test", listOf("10.0.2.2"), 12, null),
-                http = HttpProbeResult(true, true, "http://10.0.2.2:8080/get", 200, 512, 35, null),
-                https = TlsProbeResult(true, true, "https://10.0.2.2:8443/", "TLS_AES_128_GCM_SHA256", null, 54, null),
-                tcp = TcpProbeResult(true, true, "10.0.2.2", 9000, true, 8, null),
-                udp = UdpProbeResult(true, true, "10.0.2.2", 9001, true, 10, null),
-                quic =
-                    QuicProbeResult(
-                        attempted = false,
-                        ok = false,
-                        url = "https://10.0.2.2:9443/h3/ok",
-                        httpStatus = null,
-                        fallbackUsed = false,
-                        latencyMs = null,
-                        errorCode = "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
-                    ),
-                egressProtected = true,
-                ipv4RouteInstalled = true,
-                ipv6RouteInstalled = false,
-                fallbackUsed = false,
-                verdict = ProbeVerdict.Degraded,
-                errors = emptyList(),
-            )
+        val result = sampleNetworkProbeResult()
 
         val json = Json.parseToJsonElement(result.toJson()).jsonObject
 
@@ -140,6 +108,43 @@ class DebugLocalNetworkProbeTest {
             "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
             quicErrorCode,
         )
+    }
+
+    @Test
+    fun `debug probe receiver requires shell dump permission`() {
+        val manifest = sourceFile("src/debug/AndroidManifest.xml", "app/src/debug/AndroidManifest.xml").readText()
+        val receiverDeclaration =
+            manifest
+                .substringAfter(
+                    ".debug.DebugNetworkProbeReceiver",
+                ).substringBefore("</receiver>")
+
+        assertTrue(receiverDeclaration.contains("android:permission=\"android.permission.DUMP\""))
+    }
+
+    @Test
+    fun `debug probe rejects custom output and uses app specific default`() {
+        val context = RuntimeEnvironment.getApplication()
+        val arbitraryOutput = File(System.getProperty("java.io.tmpdir"), "ripdpi-probe-${System.nanoTime()}.json")
+        val expectedOutput = File(context.getExternalFilesDir(null) ?: context.filesDir, "probe-result.json")
+        arbitraryOutput.delete()
+        expectedOutput.delete()
+
+        try {
+            val customOutputResult =
+                runCatching {
+                    sampleNetworkProbeResult().writeToOutput(context, arbitraryOutput.absolutePath)
+                }
+            val defaultOutput = sampleNetworkProbeResult().writeToOutput(context, null)
+
+            assertTrue(customOutputResult.isFailure)
+            assertEquals(expectedOutput.canonicalFile, defaultOutput.canonicalFile)
+            assertTrue(expectedOutput.isFile)
+            assertFalse(arbitraryOutput.exists())
+        } finally {
+            arbitraryOutput.delete()
+            expectedOutput.delete()
+        }
     }
 
     @Test
@@ -341,4 +346,39 @@ class DebugLocalNetworkProbeTest {
 
     private fun File.isGuardedProductionFile(): Boolean =
         extension in setOf("kt", "java", "xml", "json", "properties", "txt", "md")
+
+    private fun sampleNetworkProbeResult(): NetworkProbeResult =
+        NetworkProbeResult(
+            runId = "run-1",
+            timestampEpochMs = 1L,
+            appVersionName = "1-debug",
+            appVersionCode = 2L,
+            profile = LabProfile.Emulator,
+            mode = ProbeMode.Vpn,
+            vpnEstablished = true,
+            tunActive = true,
+            proxyReady = true,
+            relayReady = true,
+            dns = DnsProbeResult(true, true, "10.0.2.2", "ok.test", listOf("10.0.2.2"), 12, null),
+            http = HttpProbeResult(true, true, "http://10.0.2.2:8080/get", 200, 512, 35, null),
+            https = TlsProbeResult(true, true, "https://10.0.2.2:8443/", "TLS_AES_128_GCM_SHA256", null, 54, null),
+            tcp = TcpProbeResult(true, true, "10.0.2.2", 9000, true, 8, null),
+            udp = UdpProbeResult(true, true, "10.0.2.2", 9001, true, 10, null),
+            quic =
+                QuicProbeResult(
+                    attempted = false,
+                    ok = false,
+                    url = "https://10.0.2.2:9443/h3/ok",
+                    httpStatus = null,
+                    fallbackUsed = false,
+                    latencyMs = null,
+                    errorCode = "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
+                ),
+            egressProtected = true,
+            ipv4RouteInstalled = true,
+            ipv6RouteInstalled = false,
+            fallbackUsed = false,
+            verdict = ProbeVerdict.Degraded,
+            errors = emptyList(),
+        )
 }

@@ -7,7 +7,7 @@ use hyper::client::conn::http2;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use tokio::net::{TcpSocket, TcpStream};
 
-use crate::config::{XhttpMode, XhttpSocketProtector};
+use crate::config::{AsyncIo, XhttpMode, XhttpSocketProtector};
 use crate::finalmask;
 use crate::pool::PooledConnection;
 
@@ -20,7 +20,7 @@ pub(crate) async fn create_connection(
     mode: &XhttpMode,
     max_concurrent_streams: usize,
 ) -> io::Result<Arc<PooledConnection>> {
-    let io = match mode {
+    let io: Box<dyn AsyncIo> = match mode {
         XhttpMode::Reality(config) => {
             let transport = finalmask::wrap_tcp_stream(
                 connect_tcp_stream(
@@ -33,7 +33,7 @@ pub(crate) async fn create_connection(
                 &config.finalmask,
             )?;
             let tls = ripdpi_vless::reality::connect_reality_tls_over(transport, &config.vless).await?;
-            TokioIo::new(tls)
+            Box::new(tls)
         }
         XhttpMode::Tls(config) => {
             let transport = finalmask::wrap_tcp_stream(
@@ -74,22 +74,26 @@ pub(crate) async fn create_connection(
             // iff the negotiated group is the hybrid X25519MLKEM768.
             // Privacy-safe (no authority / SNI / IP in the event).
             ripdpi_tls_profiles::note_pq_kem_negotiation(tls.ssl().curve());
-            TokioIo::new(tls)
+            Box::new(tls)
         }
     };
+    let io = TokioIo::new(io);
 
     let (sender, connection) = http2::handshake(TokioExecutor::new(), io)
         .await
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;
 
     let pooled = Arc::new(PooledConnection::new(sender, max_concurrent_streams));
-    let pooled_for_task = pooled.clone();
-    tokio::spawn(async move {
+    let pooled_for_task = Arc::downgrade(&pooled);
+    let driver = tokio::spawn(async move {
         if let Err(error) = connection.await {
             tracing::debug!(error = %error, "xHTTP H2 connection closed");
         }
-        pooled_for_task.mark_closed();
+        if let Some(pooled) = pooled_for_task.upgrade() {
+            pooled.mark_closed();
+        }
     });
+    pooled.attach_driver(driver);
     Ok(pooled)
 }
 

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.mieru
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -63,10 +64,12 @@ class MieruProfileViewModelTest {
             viewModel.onFieldChanged(MieruEditorField.USERNAME, usernameFixture)
             viewModel.onFieldChanged(MieruEditorField.PASSWORD, passwordFixture)
             // Protocol defaults to TCP, multiplexing defaults to "middle" — no explicit selection needed.
-            viewModel.onSave()
-            advanceUntilIdle()
-
-            assertTrue(viewModel.uiState.value.saved)
+            viewModel.savedEvents.test {
+                viewModel.onSave()
+                advanceUntilIdle()
+                awaitItem()
+                expectNoEvents()
+            }
             assertFalse(viewModel.uiState.value.saving)
             assertNull(viewModel.uiState.value.errorMessage)
 
@@ -99,7 +102,6 @@ class MieruProfileViewModelTest {
             viewModel.onSave()
             advanceUntilIdle()
 
-            assertFalse(viewModel.uiState.value.saved)
             assertFalse(settings.snapshot().relayEnabled)
         }
 }

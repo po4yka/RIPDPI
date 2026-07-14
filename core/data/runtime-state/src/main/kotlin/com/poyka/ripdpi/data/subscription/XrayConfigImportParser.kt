@@ -532,22 +532,22 @@ private fun JsonObject?.unsupportedTcpOnlyTransport(): String? =
     this?.string("network")?.lowercase()?.takeIf { it !in setOf("raw", "tcp") }
 
 private fun unsupportedVlessLinkTransport(line: String): String? {
-    if (!line.startsWith("vless://", ignoreCase = true)) return null
-    val rawQuery = runCatching { java.net.URI(line).rawQuery }.getOrNull() ?: return null
-    val transport =
-        rawQuery
-            .split('&')
-            .firstNotNullOfOrNull { part ->
-                val separator = part.indexOf('=')
-                if (separator > 0 && part.substring(0, separator) == "type") {
-                    java.net.URLDecoder
-                        .decode(part.substring(separator + 1), "UTF-8")
-                        .lowercase()
-                } else {
-                    null
-                }
+    val rawQuery =
+        line
+            .takeIf { it.startsWith("vless://", ignoreCase = true) }
+            ?.let { runCatching { java.net.URI(it).rawQuery }.getOrNull() }
+    return rawQuery
+        ?.split('&')
+        ?.firstNotNullOfOrNull { part ->
+            val separator = part.indexOf('=')
+            if (separator > 0 && part.substring(0, separator) == "type") {
+                java.net.URLDecoder
+                    .decode(part.substring(separator + 1), "UTF-8")
+                    .lowercase()
+            } else {
+                null
             }
-    return transport?.takeIf { it !in setOf("tcp", "xhttp") }
+        }?.takeIf { it !in setOf("tcp", "xhttp") }
 }
 
 private fun looksLikeJson(text: String): Boolean = text.startsWith("{") || text.startsWith("[")

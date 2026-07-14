@@ -4,8 +4,11 @@ import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.StrategyPackDefinition
 import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @Stable
 enum class HostPackRefreshFailureCodeUiModel {
@@ -24,8 +27,8 @@ data class HostPackCatalogUiState(
     val lastRefreshFailureCode: HostPackRefreshFailureCodeUiModel? = null,
     val lastRefreshFailureMessage: String? = null,
 ) {
-    val presets: List<HostPackPreset>
-        get() = snapshot.packs
+    val presets: ImmutableList<HostPackPreset>
+        get() = snapshot.packs.toImmutableList()
 }
 
 enum class StrategyPackHealthFailureCodeUiModel {
@@ -46,8 +49,8 @@ data class StrategyPackCatalogUiState(
     val snapshot
         get() = runtimeState.snapshot
 
-    val packs
-        get() = runtimeState.snapshot.packs
+    val packs: ImmutableList<StrategyPackDefinition>
+        get() = runtimeState.snapshot.packs.toImmutableList()
 
     val source: String
         get() = runtimeState.snapshot.source

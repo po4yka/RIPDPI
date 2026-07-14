@@ -1,0 +1,29 @@
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%1$s en %2$s</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">Duración</string>
+    <string name="diagnostics_metric_health">Estado</string>
+    <string name="diagnostics_metric_route_changes">Cambios de ruta</string>
+    <string name="diagnostics_metric_path">Ruta</string>
+    <string name="diagnostics_metric_probes">Pruebas</string>
+    <string name="diagnostics_field_hidden">Oculto</string>
+    <string name="diagnostics_field_hidden_count_format">Oculto (%1$d)</string>
+    <string name="diagnostics_field_winning_tcp_family">Familia TCP ganadora</string>
+    <string name="diagnostics_field_winning_quic_family">Familia QUIC ganadora</string>
+    <string name="diagnostics_field_network_fingerprint">Huella de red</string>
+    <string name="diagnostics_field_proxy_rtt_band">Rango RTT del proxy</string>
+    <string name="diagnostics_field_resolver_rtt_band">Rango RTT del resolvedor</string>
+    <string name="diagnostics_field_aggregate_rtt_band">Rango RTT total</string>
+    <string name="diagnostics_field_proxy_route_retries">Reintentos de ruta proxy</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">Reintentos de recuperación del túnel</string>
+    <string name="diagnostics_field_total_retries">Reintentos totales</string>
+    <string name="diagnostics_field_classifier">Clasificador</string>
+    <string name="diagnostics_field_packs">Paquetes</string>
+    <string name="diagnostics_field_source">Fuente</string>
+    <string name="diagnostics_field_recorded">Registrado</string>
+    <string name="diagnostics_duration_hours_format">%1$d h %2$d min</string>
+    <string name="diagnostics_duration_minutes_format">%1$d min %2$d s</string>
+    <string name="diagnostics_duration_seconds_format">%1$d s</string>
+</resources>

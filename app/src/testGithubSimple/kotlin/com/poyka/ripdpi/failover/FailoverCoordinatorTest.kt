@@ -143,6 +143,8 @@ private class FakeAwgProfileDao(
 
     override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rowsState.asStateFlow()
 
+    override suspend fun allProfiles(): List<AwgProfileEntity> = rowsState.value
+
     override suspend fun getProfile(id: String): AwgProfileEntity? = rowsState.value.firstOrNull { it.id == id }
 
     override suspend fun upsertProfile(profile: AwgProfileEntity) {
@@ -154,6 +156,10 @@ private class FakeAwgProfileDao(
 
     override suspend fun deleteProfile(profile: AwgProfileEntity) {
         rowsState.value = rowsState.value.filter { it.id != profile.id }.toMutableList()
+    }
+
+    override suspend fun deleteAll() {
+        rowsState.value = mutableListOf()
     }
 }
 

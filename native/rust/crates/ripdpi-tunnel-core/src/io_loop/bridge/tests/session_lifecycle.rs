@@ -25,7 +25,7 @@ async fn u24_pump_removes_closed_session() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        target_addr: "203.0.113.10:443".parse().expect("valid test addr"),
+        attribution_token: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);
@@ -62,7 +62,7 @@ async fn u26_pump_upstream_closed_closes_tcp() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: true, // Simulate upstream already closed
         pinned_synthetic_ip: None,
-        target_addr: "203.0.113.10:443".parse().expect("valid test addr"),
+        attribution_token: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);
@@ -113,7 +113,7 @@ async fn u28_pump_removal_cancels_session_task_token() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        target_addr: "203.0.113.10:443".parse().expect("valid test addr"),
+        attribution_token: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);

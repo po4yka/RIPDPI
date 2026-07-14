@@ -28,7 +28,7 @@ RIPDPI — это набор инструментов Android для диагн�
 
 Применяет настраиваемые преобразования на уровне пакетов на устройстве без маршрутизации трафика через relay-сервер. Root для основного пути не требуется.
 
-Поддерживаемые техники: TCP-сегментация и disorder, инъекция fake-пакетов, OOB (urgent pointer), фрагментация TLS-записей, fake TLS first-flight, вариация QUIC handshake, нормализация DTLS-fingerprint, вариация UDP length-field, вставка IPv6 extension-headers, отправка raw-пакетов через Lua и адаптивные семантические маркеры, разрешающие позицию по live `TCP_INFO`. Strategy chains собираются из Rust-крейтов этого репозитория, без внешнего strategy-бинарника.
+Поддерживаемые техники: TCP-сегментация и disorder, инъекция fake-пакетов, OOB (urgent pointer), фрагментация TLS-записей, fake TLS first-flight, вариация QUIC handshake, вариация UDP length-field, вставка IPv6 extension-headers, отправка raw-пакетов через Lua и адаптивные семантические маркеры, разрешающие позицию по live `TCP_INFO`. Strategy chains собираются из Rust-крейтов этого репозитория, без внешнего strategy-бинарника.
 
 Когда relay не настроен, трафик выходит с устройства напрямую — мутации на устройстве являются единственным изменением пути.
 
@@ -86,7 +86,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 Принцип проектирования RIPDPI: классифицировать каждую цель и каждую сеть отдельно, применять самое лёгкое работающее исправление и запоминать его.
 
 1. **Ответ для каждой цели и каждой сети** — а не единая глобальная политика. Диагностика классифицирует каждый authority и сохраняет вердикт по хешу network fingerprint.
-2. **Мутировать локальный путь, когда проблема в сети.** Семантические маркеры, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, вариация QUIC- и DTLS-fingerprint — собираются из in-repo Rust-крейтов.
+2. **Мутировать локальный путь, когда проблема в сети.** Семантические маркеры, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, вариация QUIC-fingerprint — собираются из in-repo Rust-крейтов.
 3. **Откатываться на tunneled relay, когда прямой путь деградирован.** См. матрицу relay выше: она различает native relay-core backends, helper subprocesses, external pluggable transports и отдельные VPN/tunnel profile surfaces.
 4. **Честная отчётность.** Вердикты типизированы и отображаются; результаты failure classifier выводятся, а не подавляются; диагностические export bundles редактируют секреты.
 
@@ -114,7 +114,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 - **Импорт профилей**: сканирование и генерация QR-кода, а также импорт через буфер обмена и share-sheet. Разбор буфера обмена и share-sheet выполняется через кодек proxy URI, который принимает `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` и `ssh://`; сканирование QR-кода в настоящее время работает для `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` и `tuic://`. AmneziaWG использует отдельный кодек `amneziawg://`. Фильтры интентов Android также передают `ssh://` в trampoline импорта, и кодек proxy URI разбирает и кодирует её в обе стороны.
 - **Подписки**: форматы подписок base64, Clash / Clash.Meta YAML, sing-box JSON и WireGuard-INI с фоновым автообновлением, обнаружением дублирующихся профилей, группами selector/urltest и доставкой через несколько зеркал.
 - **Зашифрованный DNS**: поддержка DoH, DoT, DNSCrypt и DoQ-резолверов в путях, связанных с VPN.
-- **Управление стратегиями**: семейства TCP split/disorder/fake, фрагментация TLS-записей и fake-профили, вариация QUIC- и DTLS-handshake, вариация UDP length-field, IPv6 extension headers, Lua `rawsend`, per-step activation filters, контроль IPv4 ID и OOB-инъекция.
+- **Управление стратегиями**: семейства TCP split/disorder/fake, фрагментация TLS-записей и fake-профили, вариация QUIC-handshake, вариация UDP length-field, IPv6 extension headers, Lua `rawsend`, per-step activation filters, контроль IPv4 ID и OOB-инъекция.
 - **Память политики по сети**: валидированные per-authority вердикты, индексированные по network fingerprint; автоматически воспроизводятся при переподключении.
 - **Адаптивное probing**: автоматическое probing стратегий для впервые увиденных сетей; фоновая `quick_v1` перепроверка при network handover.
 - **Перезапуск с учётом handover**: live-переоценка политики при переходах между Wi-Fi, сотовой связью и роумингом.
@@ -136,10 +136,7 @@ SOCKS5-прокси на настроенном localhost-порте. Для п�
 
 RIPDPI записывает операционные метаданные для диагностики и устранения неполадок: снимки сети, статус резолвера, решения о маршрутизации, результаты сканирования, состояние сервиса и события нативного runtime.
 
-RIPDPI не записывает:
-- Полные перехваты пакетов
-- Полезную нагрузку трафика
-- TLS-секреты
+В обычном режиме RIPDPI не перехватывает пакеты, не сохраняет полезную нагрузку трафика и не записывает TLS-секреты. Расширенный захват пакетов — явно включаемый диагностический инструмент: необработанные байты пакетов хранятся локально с ограниченным сроком хранения и попадают в архив только когда пользователь намеренно делится этим архивом.
 
 Приватность relay-трафика зависит от endpoint relay и профиля, который вы настраиваете.
 
@@ -155,7 +152,7 @@ cd RIPDPI
 
 Локальные сборки по умолчанию используют `host` (`ripdpi.localNativeAbisDefault`) — ABI определяется по архитектуре хоста (например, `arm64-v8a` на Apple Silicon). Для эмулятора: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-Вывод APK: `app/build/outputs/apk/debug/` и `app/build/outputs/apk/release/`.
+APK создаются в каталогах вариантов, например `app/build/outputs/apk/githubFull/debug/`; задачи и пути release-сборок описаны в [distribution.md](docs/distribution.md).
 
 ## Тестирование
 

@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -246,7 +247,7 @@ class AdvancedSettingsRouteBinderTest {
                 desync =
                     DesyncCoreUiState(
                         tcpChainSteps =
-                            listOf(
+                            persistentListOf(
                                 TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
                                 TcpChainStepModel(TcpChainStepKind.Fake, "host+1"),
                             ),
@@ -289,7 +290,7 @@ class AdvancedSettingsRouteBinderTest {
                 desync =
                     DesyncCoreUiState(
                         tcpChainSteps =
-                            listOf(
+                            persistentListOf(
                                 TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
                                 TcpChainStepModel(TcpChainStepKind.FakeSplit, "host+1"),
                             ),
@@ -332,7 +333,7 @@ class AdvancedSettingsRouteBinderTest {
                 desync =
                     DesyncCoreUiState(
                         tcpChainSteps =
-                            listOf(
+                            persistentListOf(
                                 TcpChainStepModel(
                                     kind = TcpChainStepKind.HostFake,
                                     marker = "endhost+8",
@@ -361,7 +362,7 @@ class AdvancedSettingsRouteBinderTest {
                     DesyncCoreUiState(
                         desyncMethod = TcpChainStepKind.SeqOverlap.wireName,
                         tcpChainSteps =
-                            listOf(
+                            persistentListOf(
                                 TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
                                 TcpChainStepModel(
                                     kind = TcpChainStepKind.SeqOverlap,
@@ -485,7 +486,7 @@ class AdvancedSettingsRouteBinderTest {
                 DesyncCoreUiState(
                     desyncMethod = TcpChainStepKind.MultiDisorder.wireName,
                     tcpChainSteps =
-                        listOf(
+                        persistentListOf(
                             TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
                             TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
                             TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host"),

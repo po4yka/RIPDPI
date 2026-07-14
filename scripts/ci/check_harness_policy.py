@@ -148,7 +148,7 @@ class HarnessPolicyAuditor:
         self.findings: list[str] = []   # formatted lines, collected and printed together
 
     def _load_skill_md(self) -> list[str]:
-        skill_path = self.root / ".claude" / "skills" / "rust-lints" / "SKILL.md"
+        skill_path = self.root / ".agents" / "skills" / "rust-lints" / "SKILL.md"
         if not skill_path.exists():
             print(f"ERROR: SKILL.md not found: {skill_path}", file=sys.stderr)
             sys.exit(1)
@@ -282,7 +282,7 @@ class HarnessPolicyAuditor:
         print("HARNESS POLICY AUDIT")
         print("====================")
         print(
-            "Compared: .claude/skills/rust-lints/SKILL.md vs "
+            "Compared: .agents/skills/rust-lints/SKILL.md vs "
             "native/rust/{Cargo.toml,clippy.toml}"
         )
         print()

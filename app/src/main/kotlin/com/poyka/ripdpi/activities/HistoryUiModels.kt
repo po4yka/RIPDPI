@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 enum class HistorySection {
     Connections,
@@ -35,17 +36,17 @@ data class HistoryConnectionRowUiModel(
 data class HistoryConnectionDetailUiModel(
     val session: HistoryConnectionRowUiModel,
     val highlights: ImmutableList<DiagnosticsMetricUiModel>,
-    val contextGroups: List<DiagnosticsContextGroupUiModel>,
-    val snapshots: List<DiagnosticsNetworkSnapshotUiModel>,
-    val events: List<DiagnosticsEventUiModel>,
+    val contextGroups: ImmutableList<DiagnosticsContextGroupUiModel>,
+    val snapshots: ImmutableList<DiagnosticsNetworkSnapshotUiModel>,
+    val events: ImmutableList<DiagnosticsEventUiModel>,
 )
 
 @Immutable
 data class HistoryConnectionsUiModel(
     val filters: HistoryConnectionFiltersUiModel = HistoryConnectionFiltersUiModel(),
-    val sessions: List<HistoryConnectionRowUiModel> = emptyList(),
-    val modes: List<String> = emptyList(),
-    val statuses: List<String> = emptyList(),
+    val sessions: ImmutableList<HistoryConnectionRowUiModel> = persistentListOf(),
+    val modes: ImmutableList<String> = persistentListOf(),
+    val statuses: ImmutableList<String> = persistentListOf(),
     val focusedSessionId: String? = null,
 )
 
@@ -62,7 +63,7 @@ data class HistoryUiState(
     val connections: HistoryConnectionsUiModel = HistoryConnectionsUiModel(),
     val diagnostics: DiagnosticsSessionsUiModel = DiagnosticsSessionsUiModel(),
     val events: DiagnosticsEventsUiModel = DiagnosticsEventsUiModel(),
-    val groupedEvents: List<GroupedEventUiModel> = emptyList(),
+    val groupedEvents: ImmutableList<GroupedEventUiModel> = persistentListOf(),
     val selectedConnectionDetail: HistoryConnectionDetailUiModel? = null,
     val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,

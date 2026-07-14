@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
@@ -17,7 +18,7 @@ internal fun rememberSettingsScreenLocalState(uiState: SettingsUiState): Setting
     var showResetConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showPinRequiredDialog by rememberSaveable { mutableStateOf(false) }
-    var backupPinDraft by rememberSaveable { mutableStateOf("") }
+    var backupPinDraft by remember { mutableStateOf("") }
     var communityApiUrlDraft by rememberSaveable(uiState.communityApiUrl) {
         mutableStateOf(uiState.communityApiUrl)
     }

@@ -79,10 +79,10 @@ That script runs:
 Focused native commands for the current policy/runtime surface:
 
 ```bash
-cargo test -p ripdpi-proxy-runtime --lib
-cargo test -p ripdpi-monitor-engine --lib
-cargo test -p ripdpi-android --lib
-cargo test -p ripdpi-masque -p ripdpi-relay-core -p ripdpi-xhttp -p ripdpi-naiveproxy -p ripdpi-cloudflare-origin -p ripdpi-trojan -p ripdpi-anytls -p ripdpi-shadowsocks -p ripdpi-tor
+(cd native/rust && cargo test -p ripdpi-proxy-runtime --lib)
+(cd native/rust && cargo test -p ripdpi-monitor-engine --lib)
+(cd native/rust && cargo test -p ripdpi-android --lib)
+(cd native/rust && cargo test -p ripdpi-masque -p ripdpi-relay-core -p ripdpi-xhttp -p ripdpi-naiveproxy -p ripdpi-cloudflare-origin -p ripdpi-trojan -p ripdpi-anytls -p ripdpi-shadowsocks -p ripdpi-tor)
 ./gradlew :core:engine:testDebugUnitTest \
   --tests com.poyka.ripdpi.core.NativeTelemetryGoldenTest \
   -x :core:engine:buildRustNativeLibs
@@ -101,11 +101,12 @@ Before changing runtime threading, lock granularity, JNI wrappers, or packet-par
 Criterion benchmarks:
 
 ```bash
-cargo bench -p ripdpi-bench --bench config_parse
-cargo bench -p ripdpi-bench --bench relay_throughput
-cargo bench -p ripdpi-bench --bench runtime_control_snapshot
-cargo bench -p ripdpi-bench --bench relay_connect_setup
-cargo bench -p ripdpi-bench --bench runtime_lock_contention
+(cd native/rust && cargo bench -p ripdpi-bench --bench config_parse)
+(cd native/rust && cargo bench -p ripdpi-bench --bench protocol_throughput)
+(cd native/rust && cargo bench -p ripdpi-bench --bench relay_throughput)
+(cd native/rust && cargo bench -p ripdpi-bench --bench runtime_control_snapshot)
+(cd native/rust && cargo bench -p ripdpi-bench --bench relay_connect_setup)
+(cd native/rust && cargo bench -p ripdpi-bench --bench runtime_lock_contention)
 python3 scripts/ci/check-criterion-regressions.py
 ```
 
@@ -345,7 +346,7 @@ Common commands:
 CI runs `:app` integration tests and the macrobenchmark suite on **Gradle Managed Devices**
 (the `android-instrumented-tests` and `android-macrobenchmark` jobs) — Pixel 6 / API 34,
 `aosp-atd` + `google_apis`. To reproduce on a managed emulator instead of a connected device,
-run `just test-instrumented` (or `./gradlew :app:pixel6Api34AtdGithubDebugAndroidTest`). The
+run `just test-instrumented` (or `./gradlew :app:pixel6Api34AtdGithubFullDebugAndroidTest`). The
 shared device registry lives in `build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt`.
 
 Useful runner filters:

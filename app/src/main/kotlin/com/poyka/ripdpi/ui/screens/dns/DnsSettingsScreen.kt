@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 internal fun DnsSettingsScreen(
@@ -102,7 +103,7 @@ private fun DnsSettingsEncryptedPreview() {
                             encryptedDnsHost = "cloudflare-dns.com",
                             encryptedDnsPort = 443,
                             encryptedDnsTlsServerName = "cloudflare-dns.com",
-                            encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                            encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1").toImmutableList(),
                             encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
                         ),
                     isVpn = true,

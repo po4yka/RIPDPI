@@ -16,14 +16,7 @@ Project Rules). Three capabilities work independently or combined:
 1. **On-device packet strategies** — applies configurable packet-level
    transformations (TCP split/disorder, fake injection, OOB, TLS record
    fragmentation, QUIC/DTLS variation, etc.) without routing to a relay.
-2. **VPN relay** — chains local proxy or VPN traffic through encrypted relay
-   protocols (VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS,
-   Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy, Google Apps Script, Cloudflare
-   Tunnel, in-repository WebTunnel, and external Snowflake/obfs4 PT paths) to a server
-   or bridge path the user controls. `mieru` and `ssh` are additional registered
-   `relay_kind` values whose wire engines are still stubbed (config/validation
-   only; they fail session creation with `Unimplemented` rather than carrying
-   traffic). WARP and AmneziaWG are separate VPN/tunnel
+2. **VPN relay** — chains local proxy or VPN traffic through encrypted relay protocols (VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, Tor, NaiveProxy, Google Apps Script, Cloudflare Tunnel, in-repository WebTunnel, and external Snowflake/obfs4 PT paths) to a server or bridge path the user controls. Mieru currently exposes TCP relay only; UDP remains capability-gated. WARP and AmneziaWG are separate VPN/tunnel
    profile surfaces, not `relay_kind` values.
    Owner-operated relay promotion is governed by the deployment-plane controls in
    [`Relay Deployment Operations`](../relay-deployment-operations.md).
@@ -51,9 +44,8 @@ must fully function on **non-rooted devices**; root features degrade gracefully.
 
 ## 3. Android module ownership map
 
-Modules from [`settings.gradle.kts`](../../settings.gradle.kts). Dependency
-direction flows downward (`:app` depends on everything below it). An
-auto-generated Mermaid dependency graph is kept at
+Modules from [`settings.gradle.kts`](../../settings.gradle.kts). This table is an ownership map, not a dependency order; the exact dependency edges are captured by the
+auto-generated Mermaid graph at
 [`MODULE_GRAPH.md`](MODULE_GRAPH.md) — regenerate with `just module-graph`.
 
 | Module | Owns |
@@ -61,6 +53,8 @@ auto-generated Mermaid dependency graph is kept at
 | `:app` | Jetpack Compose UI (Material 3), navigation, ViewModels |
 | `:core:service` | Android VPN + proxy foreground services; relay orchestration, DNS failover, connection-policy resolution, root-helper lifecycle, subprocess relay supervision |
 | `:core:engine` | Rust native libraries + JNI bridge; Kotlin↔native config codecs |
+| `:core:engine-api` | Kotlin interfaces, native runtime DTOs, and schema-versioned wire contracts shared without exposing the JNI implementation |
+| `:core:pcap-export` | Explicit opt-in PCAP capture controller, reader, and export support |
 | `:core:diagnostics` | Active diagnostics, passive telemetry collection, diagnostics UI logic |
 | `:core:diagnostics-data` | Protobuf schemas + data contracts for diagnostics |
 | `:core:detection` | VPN/DPI detection and checkers (consensus, privacy, `vpn`, `dpi`, `export`, `community`, `probe` subpackages); depends on `:xray-protos` |
@@ -96,7 +90,7 @@ classpath. Native-crate dependency direction is enforced separately by
 ## 4. Native Rust artifact map
 
 The Rust workspace is at [`native/rust/`](../../native/rust/Cargo.toml) — a
-Cargo workspace of 115 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
+Cargo workspace of 116 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
 builds it via the `ripdpi.android.rust-native` convention plugin: **five** JNI
 `.so` libraries, three managed Rust helper binaries, and pluggable-transport
 assets are packaged into the APK. See
@@ -140,21 +134,16 @@ files — they are compiled from source.
 
 ## 5. Kotlin ↔ Rust control flow
 
-```
-:app (Compose UI, ViewModels)
-   │  start / stop / configure
-   ▼
-:core:service  ── ServiceRuntimeCoordinator owns lifecycle sequencing,
-   │               restart/backoff, mode policies
-   │            ── ConnectionPolicyResolver resolves per-network policy
-   │               (RipDpiProxyService / RipDpiVpnService are the entry services)
-   ▼
-:core:engine   ── JNI bridges: RipDpiProxy.kt, Tun2SocksTunnel.kt,
-   │               NetworkDiagnostics.kt, RipDpiRelay.kt, RipDpiWarp.kt
-   ▼
-native Rust    ── libripdpi.so / libripdpi-tunnel.so
-                   ripdpi-proxy-runtime drives the proxy; ripdpi-tunnel-core
-                   drives the TUN bridge; ripdpi-monitor-engine drives diagnostics scans
+```mermaid
+flowchart TD
+    App[":app<br/>Compose UI and ViewModels"] --> Service[":core:service<br/>lifecycle, policy, relay composition"]
+    Service --> Api[":core:engine-api<br/>runtime interfaces and wire DTOs"]
+    Service --> Engine[":core:engine<br/>Kotlin JNI bridges"]
+    Engine --> Proxy["libripdpi.so<br/>proxy and diagnostics"]
+    Engine --> Tunnel["libripdpi-tunnel.so<br/>TUN-to-SOCKS"]
+    Engine --> Relay["libripdpi-relay.so<br/>relay transports"]
+    Engine --> Warp["libripdpi-warp.so<br/>WARP"]
+    Engine --> Awg["libripdpi-amneziawg.so<br/>AmneziaWG"]
 ```
 
 - **VPN socket protection invariant** — every non-loopback outbound socket the

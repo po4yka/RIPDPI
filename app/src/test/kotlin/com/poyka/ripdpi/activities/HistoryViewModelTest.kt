@@ -19,7 +19,7 @@ class HistoryViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val coreSupport = DiagnosticsUiCoreSupport()
+    private val coreSupport = testDiagnosticsUiCoreSupport()
     private val connectionDetailUiFactory =
         HistoryConnectionDetailUiFactory(
             context = ApplicationProvider.getApplicationContext(),

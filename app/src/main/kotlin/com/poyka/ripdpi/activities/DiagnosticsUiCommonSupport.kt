@@ -18,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import com.poyka.ripdpi.platform.StringResolver
+import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
 import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
@@ -51,7 +52,7 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
                         ?: com.poyka.ripdpi.diagnostics.ProbePersistencePolicy.MANUAL_ONLY,
             ),
         manualOnly = request?.executionPolicy?.manualOnly == true,
-        packRefs = request?.packRefs.orEmpty(),
+        packRefs = request?.packRefs.orEmpty().toImmutableList(),
         policyAccess =
             policyDecision?.access ?: com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess.ALLOWED,
         requiresExplicitConsent = policyDecision?.requiresExplicitConsent == true,
@@ -99,16 +100,18 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
                 else -> DiagnosticsTone.Info
             },
         evidence =
-            if (isConfirmGood) {
-                listOf(
-                    context.getString(R.string.diagnostics_confirm_good_dpi_evidence_reality),
-                    context.getString(R.string.diagnostics_confirm_good_dpi_evidence_quic),
-                )
-            } else if (isConnectionConcurrency) {
-                diagnosis.evidence
-            } else {
-                diagnosis.evidence
-            },
+            (
+                if (isConfirmGood) {
+                    listOf(
+                        context.getString(R.string.diagnostics_confirm_good_dpi_evidence_reality),
+                        context.getString(R.string.diagnostics_confirm_good_dpi_evidence_quic),
+                    )
+                } else if (isConnectionConcurrency) {
+                    diagnosis.evidence
+                } else {
+                    diagnosis.evidence
+                }
+            ).toImmutableList(),
         recommendation =
             if (isConfirmGood) {
                 context.getString(R.string.diagnostics_confirm_good_dpi_recommendation)
@@ -281,14 +284,14 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         isFullAudit = isFullAudit,
         elapsedLabel = elapsedLabel,
         etaLabel = etaLabel,
-        phaseSteps = phaseSteps,
+        phaseSteps = phaseSteps.toImmutableList(),
         currentProbeLabel = strategyProbeProgress?.candidateLabel ?: progress.message,
         strategyProbeProgress = strategyProbeProgress,
         dnsBaselineStatus = dnsBaselineStatus,
         dpiFailureClass = dpiFailureClass,
         networkContext = networkContext,
-        candidateTimeline = candidateTimeline,
-        completedProbes = completedProbes,
+        candidateTimeline = candidateTimeline.toImmutableList(),
+        completedProbes = completedProbes.toImmutableList(),
     )
 }
 

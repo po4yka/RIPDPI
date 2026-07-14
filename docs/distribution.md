@@ -13,16 +13,16 @@ All channels share the same `versionCode` and `versionName` from `app/build.grad
 Use these release tasks:
 
 ```bash
-./gradlew bundlePlayRelease -Pripdpi.enableAbiSplits=false
-./gradlew assembleFdroidRelease -Pripdpi.enableAbiSplits=false
-./gradlew assembleGithubRelease -Pripdpi.enableAbiSplits=false
+./gradlew bundlePlayFullRelease -Pripdpi.enableAbiSplits=false
+./gradlew assembleFdroidFullRelease -Pripdpi.enableAbiSplits=false
+./gradlew assembleGithubFullRelease -Pripdpi.enableAbiSplits=false
 ```
 
 Outputs:
 
-- Play AAB: `app/build/outputs/bundle/playRelease/*.aab`
-- F-Droid APK: `app/build/outputs/apk/fdroid/release/*.apk`
-- GitHub APK: `app/build/outputs/apk/github/release/*.apk`
+- Play AAB: `app/build/outputs/bundle/playFullRelease/*.aab`
+- F-Droid APK: `app/build/outputs/apk/fdroidFull/release/*.apk`
+- GitHub APK: `app/build/outputs/apk/githubFull/release/*.apk`
 
 ## Channel Behavior
 
@@ -68,7 +68,7 @@ The default decision is `retain-stable-id` only while the reviewed catalog has n
 
 ## Google Play Flow
 
-1. Build `bundlePlayRelease`.
+1. Build `bundlePlayFullRelease`.
 2. Upload the generated AAB to Google Play.
 3. Let Google Play own update discovery, staging, rollout, and installation.
 
@@ -76,7 +76,7 @@ The Play flavor must not request `android.permission.REQUEST_INSTALL_PACKAGES` a
 
 ## F-Droid Flow
 
-1. Build `assembleFdroidRelease`.
+1. Build `assembleFdroidFullRelease`.
 2. Publish the generated APK through F-Droid metadata or a compatible repository.
 3. Let the client own update discovery, download, verification, and installation.
 
@@ -84,13 +84,13 @@ The F-Droid flavor intentionally disables the GitHub updater because F-Droid cli
 
 ## GitHub Releases Flow
 
-1. Build `assembleGithubRelease`.
+1. Build `assembleGithubFullRelease`.
 2. Generate metadata:
 
    ```bash
    scripts/ci/generate_update_metadata.py \
-     --apk-glob "app/build/outputs/apk/github/release/*.apk" \
-     --output-metadata "app/build/outputs/apk/github/release/output-metadata.json" \
+     --apk-glob "app/build/outputs/apk/githubFull/release/*.apk" \
+     --output-metadata "app/build/outputs/apk/githubFull/release/output-metadata.json" \
      --gradle-properties "gradle.properties" \
      --package-name "com.poyka.ripdpi" \
      --update-json "update.json" \
@@ -121,9 +121,9 @@ The GitHub flavor is the only flavor that declares `android.permission.REQUEST_I
 
 `.github/workflows/release.yml` builds all three release outputs in one run:
 
-- `bundlePlayRelease`
-- `assembleFdroidRelease`
-- `assembleGithubRelease`
+- `bundlePlayFullRelease`
+- `assembleFdroidFullRelease`
+- `assembleGithubFullRelease`
 - `update.json`
 - `SHA256SUMS`
 

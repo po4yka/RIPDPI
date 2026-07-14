@@ -10,7 +10,7 @@ use ripdpi_shadowsocks::{
     UdpPacket,
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::{TcpSocket, TcpStream, UdpSocket, lookup_host};
+use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 
 const BUFFER_SIZE: usize = 65_536;
 
@@ -27,6 +27,7 @@ pub struct ShadowsocksUdpSession {
     socket: UdpSocket,
     config: Arc<ShadowsocksClientConfig>,
     codec: ShadowsocksUdpCodec,
+    receive_buffer: Vec<u8>,
     /// Whether this session has calibrated the shared network-time provider from
     /// a server packet's authenticated timestamp (done once per session).
     calibrated: bool,
@@ -86,8 +87,11 @@ impl RelaySession for ShadowsocksSession {
         let config = Arc::clone(&self.config);
         let socket = bind_udp(config.outbound_bind_ip).await?;
         let want_v4 = socket.local_addr()?.is_ipv4();
-        let server_addr = lookup_host((config.server_host.as_str(), config.server_port))
+        let server_addr = config
+            .socket_protection
+            .resolve_host(&config.server_host, config.server_port)
             .await?
+            .into_iter()
             .find(|addr| addr.is_ipv4() == want_v4)
             .ok_or_else(|| {
                 io::Error::new(io::ErrorKind::AddrNotAvailable, "no UDP server address matches socket family")
@@ -104,7 +108,7 @@ impl RelaySession for ShadowsocksSession {
         } else {
             ShadowsocksUdpCodec::Legacy(UdpPacket::new(config.cipher, false))
         };
-        Ok(ShadowsocksUdpSession { socket, config, codec, calibrated: false })
+        Ok(ShadowsocksUdpSession { socket, config, codec, receive_buffer: vec![0_u8; BUFFER_SIZE], calibrated: false })
     }
 }
 
@@ -138,15 +142,17 @@ impl ShadowsocksUdpSession {
     }
 
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
-        let mut buffer = vec![0_u8; BUFFER_SIZE];
-        let read = self.socket.recv(&mut buffer).await?;
+        let read = self.socket.recv(&mut self.receive_buffer).await?;
         let secret = SecretString::new(self.config.password.clone());
         let mut server_timestamp = None;
         let plain = match &mut self.codec {
-            ShadowsocksUdpCodec::Legacy(codec) => codec.decrypt(&secret, &buffer[..read]).map_err(to_io)?,
+            ShadowsocksUdpCodec::Legacy(codec) => {
+                codec.decrypt(&secret, &self.receive_buffer[..read]).map_err(to_io)?
+            }
             ShadowsocksUdpCodec::Aead2022(codec) => {
                 let now = NetworkTimeProvider::shared().now_unix_u64();
-                let packet = codec.decrypt(&buffer[..read], Aead2022UdpPacketType::Server, now).map_err(to_io)?;
+                let packet =
+                    codec.decrypt(&self.receive_buffer[..read], Aead2022UdpPacketType::Server, now).map_err(to_io)?;
                 server_timestamp = Some(packet.timestamp);
                 packet.payload
             }
@@ -260,12 +266,12 @@ where
 
 async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStream> {
     let bind_ip = config.outbound_bind_ip;
-    let mut addrs = lookup_host((config.server_host.as_str(), config.server_port)).await?;
+    let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
     let server_addr = match bind_ip {
-        Some(ip) => addrs.find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
+        Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
         })?,
-        None => addrs.next().ok_or_else(|| {
+        None => addrs.into_iter().next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for shadowsocks server")
         })?,
     };
@@ -371,4 +377,47 @@ fn to_io(error: impl std::fmt::Display) -> io::Error {
 
 fn invalid_input(error: impl std::fmt::Display) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn udp_receive_reuses_session_buffer_across_datagrams() {
+        let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind server");
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind client");
+        socket.connect(server.local_addr().expect("server address")).await.expect("connect client");
+        let client_addr = socket.local_addr().expect("client address");
+        let cipher = Cipher::AeadAes128Gcm;
+        let credential = "test-credential";
+        let mut session = ShadowsocksUdpSession {
+            socket,
+            config: Arc::new(ShadowsocksClientConfig {
+                server_host: Ipv4Addr::LOCALHOST.to_string(),
+                server_port: server.local_addr().expect("server address").port(),
+                cipher,
+                password: credential.to_owned(),
+                outbound_bind_ip: None,
+                socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            }),
+            codec: ShadowsocksUdpCodec::Legacy(UdpPacket::new(cipher, false)),
+            receive_buffer: vec![0_u8; BUFFER_SIZE],
+            calibrated: false,
+        };
+        let receive_buffer = session.receive_buffer.as_ptr();
+        let encoder = UdpPacket::new(cipher, false);
+        let secret = SecretString::new(credential.to_owned());
+
+        for payload in [b"first".as_slice(), b"second".as_slice()] {
+            let plain = encode_address("192.0.2.1:53", payload).expect("encode datagram");
+            let packet = encoder.encrypt(&secret, &plain).expect("encrypt datagram");
+            server.send_to(&packet, client_addr).await.expect("send datagram");
+
+            let (target, received) = session.recv_from().await.expect("receive datagram");
+            assert_eq!(target, "192.0.2.1:53");
+            assert_eq!(received, payload);
+            assert_eq!(session.receive_buffer.as_ptr(), receive_buffer, "receive buffer must retain its allocation");
+        }
+    }
 }

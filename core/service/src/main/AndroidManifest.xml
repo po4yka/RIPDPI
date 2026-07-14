@@ -29,19 +29,17 @@
         <!--
             Boot-autostart receiver. Disabled by default (android:enabled="false");
             BootReceiver.setEnabled() toggles it on only while the user's "Start on
-            boot" preference is enabled. directBootAware so LOCKED_BOOT_COMPLETED is
-            delivered before the user unlocks. BOOT_COMPLETED / LOCKED_BOOT_COMPLETED
-            are protected system broadcasts, so exported="true" is safe.
+            boot" preference is enabled. BOOT_COMPLETED is delivered after credential
+            storage becomes available; the receiver starts the FGS while the protected
+            system broadcast is still active, so exported="true" is safe.
         -->
         <receiver
             android:name="com.poyka.ripdpi.services.BootReceiver"
             android:enabled="false"
             android:exported="true"
-            android:directBootAware="true"
             tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>

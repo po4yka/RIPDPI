@@ -16,3 +16,32 @@ fn u21_enqueue_tun_packet_ignores_empty() {
     enqueue_tun_packet(&mut device, vec![]);
     assert!(device.tx_queue.is_empty(), "empty packet should not be enqueued");
 }
+
+#[test]
+fn tun_tx_queue_tail_drops_at_packet_budget() {
+    let mut device = crate::TunDevice::new(1500);
+    for _ in 0..=4096 {
+        enqueue_tun_packet(&mut device, vec![1]);
+    }
+
+    assert_eq!(device.tx_queue.len(), 4096, "TUN TX packet backlog must be bounded");
+    assert_eq!(device.tx_queue.dropped_packets(), 1);
+}
+
+#[test]
+fn tun_tx_queue_tail_drops_at_byte_budget() {
+    let mut device = crate::TunDevice::new(1500);
+    for _ in 0..9 {
+        enqueue_tun_packet(&mut device, vec![0; 1024 * 1024]);
+    }
+
+    assert_eq!(device.tx_queue.len(), 8, "TUN TX byte backlog must be bounded independently of packet count");
+    assert_eq!(device.tx_queue.queued_bytes(), 8 * 1024 * 1024);
+    assert_eq!(device.tx_queue.dropped_packets(), 1);
+
+    let drained = device.tx_queue.pop_front().expect("drain one queued packet");
+    assert_eq!(drained.len(), 1024 * 1024);
+    assert_eq!(device.tx_queue.queued_bytes(), 7 * 1024 * 1024);
+    enqueue_tun_packet(&mut device, vec![0; 1024 * 1024]);
+    assert_eq!(device.tx_queue.len(), 8, "draining must release byte budget for a later packet");
+}

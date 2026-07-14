@@ -35,16 +35,19 @@ class AppSettingsSerializerUnknownFieldTest {
         expectedValue: String,
     ): Boolean {
         val input = CodedInputStream.newInstance(bytes)
-        while (!input.isAtEnd) {
+        var matches = false
+        while (!input.isAtEnd && !matches) {
             val tag = input.readTag()
-            if (tag == 0) return false
-            if (WireFormat.getTagFieldNumber(tag) == expectedField &&
+            matches =
+                tag != 0 &&
+                WireFormat.getTagFieldNumber(tag) == expectedField &&
                 WireFormat.getTagWireType(tag) == WireFormat.WIRETYPE_LENGTH_DELIMITED
-            ) {
-                return input.readStringRequireUtf8() == expectedValue
+            if (matches) {
+                matches = input.readStringRequireUtf8() == expectedValue
+            } else if (tag != 0) {
+                input.skipField(tag)
             }
-            input.skipField(tag)
         }
-        return false
+        return matches
     }
 }

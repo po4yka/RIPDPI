@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct CloudflareTunnelRelayConfig {
     pub uuid: Option<String>,
     pub xhttp_path: String,
@@ -9,3 +9,5 @@ pub struct CloudflareTunnelRelayConfig {
     pub tunnel_token: Option<String>,
     pub tunnel_credentials_json: Option<String>,
 }
+
+impl_redacted_debug!(CloudflareTunnelRelayConfig { tunnel_mode });

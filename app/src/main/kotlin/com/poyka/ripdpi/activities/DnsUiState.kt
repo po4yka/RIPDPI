@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 private val DefaultDnsUiSeed = canonicalDefaultEncryptedDnsSettings()
 
@@ -15,7 +17,7 @@ data class DnsUiState(
     val encryptedDnsHost: String = DefaultDnsUiSeed.encryptedDnsHost,
     val encryptedDnsPort: Int = DefaultDnsUiSeed.encryptedDnsPort,
     val encryptedDnsTlsServerName: String = DefaultDnsUiSeed.encryptedDnsTlsServerName,
-    val encryptedDnsBootstrapIps: List<String> = DefaultDnsUiSeed.encryptedDnsBootstrapIps,
+    val encryptedDnsBootstrapIps: ImmutableList<String> = DefaultDnsUiSeed.encryptedDnsBootstrapIps.toImmutableList(),
     val encryptedDnsDohUrl: String = DefaultDnsUiSeed.encryptedDnsDohUrl,
     val encryptedDnsDnscryptProviderName: String = "",
     val encryptedDnsDnscryptPublicKey: String = "",

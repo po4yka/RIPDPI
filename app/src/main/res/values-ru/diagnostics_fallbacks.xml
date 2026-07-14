@@ -1,0 +1,29 @@
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%1$s в сети %2$s</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">Длительность</string>
+    <string name="diagnostics_metric_health">Состояние</string>
+    <string name="diagnostics_metric_route_changes">Смены маршрута</string>
+    <string name="diagnostics_metric_path">Путь</string>
+    <string name="diagnostics_metric_probes">Проверки</string>
+    <string name="diagnostics_field_hidden">Скрыто</string>
+    <string name="diagnostics_field_hidden_count_format">Скрыто (%1$d)</string>
+    <string name="diagnostics_field_winning_tcp_family">Победившее семейство TCP</string>
+    <string name="diagnostics_field_winning_quic_family">Победившее семейство QUIC</string>
+    <string name="diagnostics_field_network_fingerprint">Отпечаток сети</string>
+    <string name="diagnostics_field_proxy_rtt_band">Диапазон RTT прокси</string>
+    <string name="diagnostics_field_resolver_rtt_band">Диапазон RTT резолвера</string>
+    <string name="diagnostics_field_aggregate_rtt_band">Общий диапазон RTT</string>
+    <string name="diagnostics_field_proxy_route_retries">Повторы маршрута прокси</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">Повторы восстановления туннеля</string>
+    <string name="diagnostics_field_total_retries">Всего повторов</string>
+    <string name="diagnostics_field_classifier">Классификатор</string>
+    <string name="diagnostics_field_packs">Пакеты</string>
+    <string name="diagnostics_field_source">Источник</string>
+    <string name="diagnostics_field_recorded">Записано</string>
+    <string name="diagnostics_duration_hours_format">%1$d ч %2$d мин</string>
+    <string name="diagnostics_duration_minutes_format">%1$d мин %2$d с</string>
+    <string name="diagnostics_duration_seconds_format">%1$d с</string>
+</resources>

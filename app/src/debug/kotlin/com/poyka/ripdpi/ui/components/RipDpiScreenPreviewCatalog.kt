@@ -38,6 +38,7 @@ import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 @Preview(name = "Home Expanded", showBackground = true, widthDp = 1040, heightDp = 920)
 @Composable
@@ -282,7 +283,7 @@ private val diagnosticsScanProfiles =
 
 private val diagnosticsScanState =
     DiagnosticsScanUiModel(
-        profiles = diagnosticsScanProfiles,
+        profiles = diagnosticsScanProfiles.toImmutableList(),
         selectedProfileId = "dpi_full",
         selectedProfile = diagnosticsScanProfiles[2],
         selectedProfileScopeLabel = "DNS + HTTP + TLS + TCP + QUIC + Services + Throughput",

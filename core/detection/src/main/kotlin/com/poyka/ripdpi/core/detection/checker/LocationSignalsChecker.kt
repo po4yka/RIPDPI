@@ -6,7 +6,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Geocoder
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
@@ -31,6 +30,21 @@ import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
+internal data class CellTowerSignal(
+    val radio: String,
+    val mcc: String,
+    val mnc: String,
+    val areaCode: Long,
+    val cellId: Long,
+    val signalStrength: Int? = null,
+)
+
+internal data class WifiAccessPointSignal(
+    val macAddress: String,
+    val signalStrength: Int? = null,
+    val frequency: Int? = null,
+)
+
 object LocationSignalsChecker {
     internal data class LocationSnapshot(
         val networkMcc: String?,
@@ -42,8 +56,6 @@ object LocationSignalsChecker {
         val bssid: String?,
         val phonePermissionGranted: Boolean,
         val locationPermissionGranted: Boolean,
-        val beaconDbCountryIso: String? = null,
-        val beaconDbLookupSummary: String? = null,
         val cellTowerCandidatesCount: Int = 0,
         val wifiAccessPointCandidatesCount: Int = 0,
     )
@@ -126,15 +138,6 @@ object LocationSignalsChecker {
             } catch (_: Exception) {
             }
         }
-        val beaconDbLookup =
-            if (locationGranted && (cellTowers.isNotEmpty() || wifiAccessPoints.isNotEmpty())) {
-                BeaconDbClient(countryResolver = { latitude, longitude ->
-                    reverseGeocodeCountry(context, latitude, longitude)
-                }).lookup(cellTowers, wifiAccessPoints)
-            } else {
-                null
-            }
-
         return LocationSnapshot(
             networkMcc = networkMcc,
             networkCountryIso = networkCountryIso,
@@ -145,8 +148,6 @@ object LocationSignalsChecker {
             bssid = bssid,
             phonePermissionGranted = phoneGranted,
             locationPermissionGranted = locationGranted,
-            beaconDbCountryIso = beaconDbLookup?.countryIso,
-            beaconDbLookupSummary = beaconDbLookup?.summary,
             cellTowerCandidatesCount = cellTowers.size,
             wifiAccessPointCandidatesCount = wifiAccessPoints.size,
         )
@@ -248,29 +249,6 @@ object LocationSignalsChecker {
             findings.add(Finding("Cell lookup candidates: ${snapshot.cellTowerCandidatesCount}"))
             findings.add(Finding("Wi-Fi scan candidates: ${snapshot.wifiAccessPointCandidatesCount}"))
         }
-        snapshot.beaconDbCountryIso?.uppercase(Locale.US)?.let { countryIso ->
-            findings.add(Finding("BeaconDB country: $countryIso"))
-            if (countryIso == "RU") {
-                findings.add(Finding("cell_country_ru:true"))
-                findings.add(Finding("location_country_ru:true"))
-            }
-            val networkCountry = snapshot.networkCountryIso?.uppercase(Locale.US)
-            if (networkCountry != null && networkCountry != countryIso) {
-                findings.add(
-                    Finding(
-                        description = "Location country mismatch: BeaconDB $countryIso vs network $networkCountry",
-                        needsReview = true,
-                        source = EvidenceSource.LOCATION_SIGNALS,
-                        confidence = EvidenceConfidence.MEDIUM,
-                    ),
-                )
-                needsReview = true
-            }
-        }
-        snapshot.beaconDbLookupSummary?.let { summary ->
-            findings.add(Finding(summary))
-        }
-
         return CategoryResult(
             name = "Location signals",
             detected = false,
@@ -505,23 +483,6 @@ object LocationSignalsChecker {
             frequency = frequency,
         )
     }
-
-    @Suppress("DEPRECATION")
-    private fun reverseGeocodeCountry(
-        context: Context,
-        latitude: Double,
-        longitude: Double,
-    ): String? =
-        runCatching {
-            if (!Geocoder.isPresent()) {
-                null
-            } else {
-                Geocoder(context, Locale.US)
-                    .getFromLocation(latitude, longitude, 1)
-                    ?.firstOrNull()
-                    ?.countryCode
-            }
-        }.getOrNull()
 
     private fun normalizeMacAddress(value: String?): String? {
         val normalized = value?.trim()?.lowercase(Locale.US) ?: return null

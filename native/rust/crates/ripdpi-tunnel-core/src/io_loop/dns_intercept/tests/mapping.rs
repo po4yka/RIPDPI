@@ -14,7 +14,7 @@ use super::support::{build_query, build_response, mapdns_config, test_mapdns, tu
 fn normalized_default_mapdns_network_preserves_reverse_lookup() {
     let config = tunnel_config_with_mapdns(Some(mapdns_config(8)));
     let runtime = parse_mapdns_runtime(&config).expect("runtime").expect("mapdns runtime");
-    let mut cache = DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, 8);
+    let mut cache = DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, 8).expect("valid cache");
     let query = build_query("fixture.test");
     let upstream = build_response("fixture.test", Ipv4Addr::new(203, 0, 113, 10));
     let rewritten = cache.rewrite_response(&query, &upstream).expect("rewrite succeeds");
@@ -36,7 +36,7 @@ fn normalized_default_mapdns_network_preserves_reverse_lookup() {
 #[test]
 fn resolve_mapped_target_returns_none_for_unmapped_synthetic_ip() {
     let mapdns = test_mapdns();
-    let cache = DnsCache::new(mapdns.synthetic_net, mapdns.synthetic_mask, 8);
+    let cache = DnsCache::new(mapdns.synthetic_net, mapdns.synthetic_mask, 8).expect("valid cache");
     let stats = Arc::new(Stats::default());
     let synthetic_dns = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 53)), 853);
     let resolved = resolve_mapped_target(&stats, &mut Some(cache), synthetic_dns);

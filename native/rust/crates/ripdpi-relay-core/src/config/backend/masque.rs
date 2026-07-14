@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MasqueRelayConfig {
     pub url: String,
     pub proxy_socket_addr: Option<SocketAddr>,
@@ -15,6 +15,14 @@ pub struct MasqueRelayConfig {
     pub privacy_pass_provider_url: Option<String>,
     pub privacy_pass_provider_auth_token: Option<String>,
 }
+
+impl_redacted_debug!(MasqueRelayConfig {
+    proxy_socket_addr,
+    tcp_protocol,
+    use_http2_fallback,
+    cloudflare_geohash_enabled,
+    auth_mode,
+});
 
 impl Default for MasqueRelayConfig {
     fn default() -> Self {

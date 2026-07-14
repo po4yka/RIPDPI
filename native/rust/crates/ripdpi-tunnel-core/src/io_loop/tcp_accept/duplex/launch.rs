@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::io::duplex;
 use tokio_util::sync::CancellationToken;
@@ -15,6 +16,8 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
     auth: &Auth,
     target_addr: SocketAddr,
     protect_path: Option<&str>,
+    connect_timeout: Duration,
+    read_write_timeout: Duration,
     parent_cancel: &CancellationToken,
     stats: &Arc<Stats>,
 ) -> SessionDuplex {
@@ -25,6 +28,8 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
         auth.clone(),
         TargetAddr::Ip(target_addr),
         protect_path.map(str::to_owned),
+        connect_timeout,
+        read_write_timeout,
         Arc::clone(stats),
     );
     let session_cancel = cancel.clone();

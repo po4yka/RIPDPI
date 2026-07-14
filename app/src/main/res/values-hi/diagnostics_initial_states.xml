@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">अंतर्निहित DPI डोमेन के लिए सीधे UDP/53 उत्तरों की तुलना DoH नियंत्रणों से करें।</string>
+    <string name="diagnostics_dns_availability_idle_summary">सार्वजनिक UDP और DoH रिज़ॉल्वर की उपलब्धता और विलंबता जाँचें।</string>
+    <string name="diagnostics_domain_reachability_idle_summary">अंतर्निहित DPI डोमेन के लिए TLS 1.3, TLS 1.2 और HTTP पहुँच जाँचें।</string>
+    <string name="diagnostics_rkn_idle_headline">RKN अवरोध निदान</string>
+    <string name="diagnostics_rkn_idle_confidence_note">अवरोध घोषित करने से पहले नियंत्रण और परीक्षण लक्ष्य समूहों की तुलना करें।</string>
+    <string name="diagnostics_rkn_idle_summary">समग्र निष्कर्ष सुरक्षा के साथ अंतर्निहित नियंत्रण और ब्लैकलिस्ट जाँच चलाएँ।</string>
+    <string name="diagnostics_compression_idle_summary">अंतर्निहित लक्ष्य के लिए HTTP gzip, deflate, Brotli और वैकल्पिक Zstd समर्थन जाँचें।</string>
+    <string name="diagnostics_tcp16_idle_summary">अंतर्निहित नेटवर्क लक्ष्यों पर TCP16 fat-header व्यवहार जाँचें।</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">TCP16 द्वारा चिह्नित ASN के लिए SNI संगतता जाँच चलाएँ।</string>
+    <string name="diagnostics_byoh_idle_summary">उन्नत — आपके नियंत्रण वाला HTTPS सर्वर आवश्यक है।</string>
+    <string name="diagnostics_byoh_requirements_summary">अपने नियंत्रण वाला होस्ट लक्ष्य IP पर HTTPS उत्तर देने और कम से कम 128 KiB प्रदान करने के लिए कॉन्फ़िगर करें।</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">व्यापक रूटिंग प्रतिबंधों के लिए अनुमत और सामान्य URL समूहों की तुलना करें।</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">प्रदाता सबनेट प्राप्त करें और अनुमति-सूची व्यवहार के लिए कैश किए गए /24 दायरों का नमूना जाँचें।</string>
+    <string name="diagnostics_dpi_suite_idle_summary">चुनी गई DPI जाँचों को एक समेकित सूट के रूप में चलाएँ।</string>
+</resources>

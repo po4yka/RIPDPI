@@ -4,6 +4,8 @@ import android.net.VpnService
 import android.os.Build
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,6 +61,22 @@ class VpnNativeProtectRegistrationTest {
 
     @Before
     fun setUp() {
+        installSuccessfulRegisterHooks()
+        installSuccessfulUnregisterHooks()
+
+        // Drain any leftover state from a previous test (object is a singleton).
+        VpnNativeProtectRegistration.unregister()
+        clearUnregisterCalls()
+    }
+
+    private fun installSuccessfulUnregisterHooks() {
+        VpnNativeProtectRegistration.proxyUnregister = { token -> proxyUnregisterCalls += token }
+        VpnNativeProtectRegistration.relayUnregister = { token -> relayUnregisterCalls += token }
+        VpnNativeProtectRegistration.warpUnregister = { token -> warpUnregisterCalls += token }
+        VpnNativeProtectRegistration.awgUnregister = { token -> awgUnregisterCalls += token }
+    }
+
+    private fun installSuccessfulRegisterHooks() {
         VpnNativeProtectRegistration.proxyRegister = {
             nextProxyToken.getAndIncrement().also { proxyRegisterCalls += it }
         }
@@ -71,13 +89,9 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.awgRegister = {
             nextAwgToken.getAndIncrement().also { awgRegisterCalls += it }
         }
-        VpnNativeProtectRegistration.proxyUnregister = { token -> proxyUnregisterCalls += token }
-        VpnNativeProtectRegistration.relayUnregister = { token -> relayUnregisterCalls += token }
-        VpnNativeProtectRegistration.warpUnregister = { token -> warpUnregisterCalls += token }
-        VpnNativeProtectRegistration.awgUnregister = { token -> awgUnregisterCalls += token }
+    }
 
-        // Drain any leftover state from a previous test (object is a singleton).
-        VpnNativeProtectRegistration.unregister()
+    private fun clearUnregisterCalls() {
         proxyUnregisterCalls.clear()
         relayUnregisterCalls.clear()
         warpUnregisterCalls.clear()
@@ -151,16 +165,16 @@ class VpnNativeProtectRegistrationTest {
         assertEquals(listOf(secondWarp), warpUnregisterCalls)
         assertEquals(listOf(secondAwg), awgUnregisterCalls)
 
-        // After unregister tokens must be zero; a follow-up unregister passes 0.
+        // After unregister tokens must be zero; a follow-up unregister is a no-op.
         proxyUnregisterCalls.clear()
         relayUnregisterCalls.clear()
         warpUnregisterCalls.clear()
         awgUnregisterCalls.clear()
         VpnNativeProtectRegistration.unregister()
-        assertEquals("proxy token must be 0 after unregister", listOf(0L), proxyUnregisterCalls)
-        assertEquals("relay token must be 0 after unregister", listOf(0L), relayUnregisterCalls)
-        assertEquals("warp token must be 0 after unregister", listOf(0L), warpUnregisterCalls)
-        assertEquals("awg token must be 0 after unregister", listOf(0L), awgUnregisterCalls)
+        assertEquals(emptyList<Long>(), proxyUnregisterCalls)
+        assertEquals(emptyList<Long>(), relayUnregisterCalls)
+        assertEquals(emptyList<Long>(), warpUnregisterCalls)
+        assertEquals(emptyList<Long>(), awgUnregisterCalls)
     }
 
     /**
@@ -194,9 +208,147 @@ class VpnNativeProtectRegistrationTest {
         warpUnregisterCalls.clear()
         awgUnregisterCalls.clear()
         VpnNativeProtectRegistration.unregister()
-        assertEquals("proxy token must be 0 after final drain", listOf(0L), proxyUnregisterCalls)
-        assertEquals("relay token must be 0 after final drain", listOf(0L), relayUnregisterCalls)
-        assertEquals("warp token must be 0 after final drain", listOf(0L), warpUnregisterCalls)
-        assertEquals("awg token must be 0 after final drain", listOf(0L), awgUnregisterCalls)
+        assertEquals(emptyList<Long>(), proxyUnregisterCalls)
+        assertEquals(emptyList<Long>(), relayUnregisterCalls)
+        assertEquals(emptyList<Long>(), warpUnregisterCalls)
+        assertEquals(emptyList<Long>(), awgUnregisterCalls)
     }
+
+    @Test
+    fun `partial registration failure rolls back every acquired token`() {
+        val registrationFailure = IllegalStateException("warp registration failed")
+        VpnNativeProtectRegistration.warpRegister = { throw registrationFailure }
+
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                VpnNativeProtectRegistration.register(fakeService)
+            }
+
+        assertSame(registrationFailure, thrown)
+        assertEquals(listOf(1L), proxyUnregisterCalls)
+        assertEquals(listOf(50L), relayUnregisterCalls)
+        assertEquals(emptyList<Long>(), warpUnregisterCalls)
+        assertEquals(emptyList<Long>(), awgUnregisterCalls)
+    }
+
+    @Test
+    fun `zero token from every native owner fails registration and rolls back prior owners`() {
+        val zeroHooks =
+            listOf<() -> Unit>(
+                { VpnNativeProtectRegistration.proxyRegister = { 0L } },
+                { VpnNativeProtectRegistration.relayRegister = { 0L } },
+                { VpnNativeProtectRegistration.warpRegister = { 0L } },
+                { VpnNativeProtectRegistration.awgRegister = { 0L } },
+            )
+
+        zeroHooks.forEachIndexed { ownerIndex, installZeroHook ->
+            installSuccessfulRegisterHooks()
+            clearUnregisterCalls()
+            installZeroHook()
+
+            assertThrows(IllegalStateException::class.java) {
+                VpnNativeProtectRegistration.register(fakeService)
+            }
+
+            assertEquals(if (ownerIndex > 0) 1 else 0, proxyUnregisterCalls.size)
+            assertEquals(if (ownerIndex > 1) 1 else 0, relayUnregisterCalls.size)
+            assertEquals(if (ownerIndex > 2) 1 else 0, warpUnregisterCalls.size)
+            assertEquals(0, awgUnregisterCalls.size)
+        }
+    }
+
+    @Test
+    fun `unregister attempts every slot and retries only failed owners`() {
+        VpnNativeProtectRegistration.register(fakeService)
+        val proxyFailure = IllegalStateException("proxy unregister failed")
+        val warpFailure = IllegalArgumentException("warp unregister failed")
+        VpnNativeProtectRegistration.proxyUnregister = { token ->
+            proxyUnregisterCalls += token
+            throw proxyFailure
+        }
+        VpnNativeProtectRegistration.warpUnregister = { token ->
+            warpUnregisterCalls += token
+            throw warpFailure
+        }
+
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                VpnNativeProtectRegistration.unregister()
+            }
+
+        assertSame(proxyFailure, thrown)
+        assertEquals(listOf(warpFailure), thrown.suppressed.toList())
+        assertEquals(listOf(1L), proxyUnregisterCalls)
+        assertEquals(listOf(50L), relayUnregisterCalls)
+        assertEquals(listOf(100L), warpUnregisterCalls)
+        assertEquals(listOf(200L), awgUnregisterCalls)
+
+        VpnNativeProtectRegistration.proxyUnregister = { token -> proxyUnregisterCalls += token }
+        VpnNativeProtectRegistration.warpUnregister = { token -> warpUnregisterCalls += token }
+        VpnNativeProtectRegistration.unregister()
+
+        assertEquals(listOf(1L, 1L), proxyUnregisterCalls)
+        assertEquals(listOf(50L), relayUnregisterCalls)
+        assertEquals(listOf(100L, 100L), warpUnregisterCalls)
+        assertEquals(listOf(200L), awgUnregisterCalls)
+    }
+
+    @Test
+    fun `failure at every unregister position keeps only that owner for retry`() {
+        val failureHooks =
+            listOf<() -> Unit>(
+                {
+                    VpnNativeProtectRegistration.proxyUnregister = { token ->
+                        proxyUnregisterCalls += token
+                        error("proxy failed")
+                    }
+                },
+                {
+                    VpnNativeProtectRegistration.relayUnregister = { token ->
+                        relayUnregisterCalls += token
+                        error("relay failed")
+                    }
+                },
+                {
+                    VpnNativeProtectRegistration.warpUnregister = { token ->
+                        warpUnregisterCalls += token
+                        error("warp failed")
+                    }
+                },
+                {
+                    VpnNativeProtectRegistration.awgUnregister = { token ->
+                        awgUnregisterCalls += token
+                        error("awg failed")
+                    }
+                },
+            )
+
+        failureHooks.forEachIndexed { failedOwner, installFailure ->
+            installSuccessfulRegisterHooks()
+            installSuccessfulUnregisterHooks()
+            clearUnregisterCalls()
+            VpnNativeProtectRegistration.register(fakeService)
+            installFailure()
+
+            assertThrows(IllegalStateException::class.java) {
+                VpnNativeProtectRegistration.unregister()
+            }
+            assertEquals(listOf(1, 1, 1, 1), unregisterCallCounts())
+
+            installSuccessfulUnregisterHooks()
+            VpnNativeProtectRegistration.unregister()
+            assertEquals(
+                List(4) { owner -> if (owner == failedOwner) 2 else 1 },
+                unregisterCallCounts(),
+            )
+        }
+    }
+
+    private fun unregisterCallCounts(): List<Int> =
+        listOf(
+            proxyUnregisterCalls.size,
+            relayUnregisterCalls.size,
+            warpUnregisterCalls.size,
+            awgUnregisterCalls.size,
+        )
 }

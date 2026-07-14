@@ -3315,6 +3315,7 @@ Origen: %2$s</string>
     <string name="backup_restore_success">Copia de seguridad restaurada</string>
     <string name="backup_restore_unsupported_version">Esta copia (versión %1$d) es más reciente de lo que admite la aplicación (versión %2$d)</string>
     <string name="backup_restore_malformed">Este archivo no es una copia de seguridad válida</string>
+    <string name="backup_restore_integrity_failure">No se pudo garantizar la integridad de los datos tras la restauración. Reinicia la aplicación y revisa tus perfiles.</string>
     <string name="backup_restore_nothing_selected">Selecciona al menos una categoría para restaurar</string>
     <string name="backup_import_preview_title">Revisar copia</string>
     <string name="backup_import_preview_schema">Copia versión %1$d, creada por la aplicación %2$s</string>
@@ -4114,4 +4115,21 @@ Origen: %2$s</string>
     <string name="subscription_home_expired_body">%1$s ya no puede actualizarse. Los perfiles existentes siguen disponibles.</string>
     <string name="subscription_home_invalidated_title">Suscripción no disponible</string>
     <string name="subscription_home_invalidated_body">%1$s caducó o fue revocada. Los perfiles existentes siguen disponibles.</string>
+    <string name="diagnostics_sparkline_chart_description">Tendencia de %1$s, %2$d muestras</string>
+    <string name="diagnostics_sparkline_selected_state">Muestra %1$d de %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">Último valor: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">Muestra anterior</string>
+    <string name="diagnostics_sparkline_next_sample">Muestra siguiente</string>
+    <string name="diagnostics_sparkline_clear_selection">Borrar selección</string>
+    <string name="backup_encryption_create_title">Cifrar copia completa</string>
+    <string name="backup_encryption_create_body">Crea una frase de contraseña de al menos 8 caracteres. La necesitarás para restaurar esta copia en cualquier dispositivo.</string>
+    <string name="backup_encryption_create_action">Cifrar y guardar</string>
+    <string name="backup_encryption_unlock_title">Desbloquear copia cifrada</string>
+    <string name="backup_encryption_unlock_body">Introduce la frase de contraseña usada al crear esta copia completa.</string>
+    <string name="backup_encryption_unlock_action">Desbloquear</string>
+    <string name="backup_encryption_unlock_failed">La frase de contraseña es incorrecta o la copia fue modificada.</string>
+    <string name="backup_encryption_passphrase">Frase de contraseña de la copia</string>
+    <string name="backup_encryption_confirm_passphrase">Confirmar frase de contraseña</string>
+    <string name="backup_encryption_passphrase_mismatch">Las frases de contraseña no coinciden</string>
+    <string name="backup_import_legacy_full_warning">Esta copia completa antigua no está cifrada. Restáurala solo desde una fuente de confianza y exporta después una nueva copia cifrada.</string>
 </resources>

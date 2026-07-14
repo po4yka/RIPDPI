@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +43,9 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /** Immutable render state for [DomainBypassListScreen]. */
 internal data class DomainBypassListScreenState(
@@ -63,15 +66,21 @@ fun DomainBypassListRoute(
     val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var text by rememberSaveable { mutableStateOf(uiState.initialText) }
-    var loadedFromStore by rememberSaveable { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    var loadedFromStore by remember { mutableStateOf(false) }
     // Hydrate the editor buffer once from the persisted rule, then leave it under user control.
-    if (!loadedFromStore && uiState.initialText.isNotEmpty() && text.isEmpty()) {
-        text = uiState.initialText
-        loadedFromStore = true
+    LaunchedEffect(uiState.initialText) {
+        if (!loadedFromStore && uiState.initialText.isNotEmpty() && text.isEmpty()) {
+            text = boundedDomainBypassDraft(uiState.initialText)
+            loadedFromStore = true
+        }
     }
 
-    val compiled = remember(text) { DomainBypassList.compile(text) }
+    var compiled by remember { mutableStateOf(DomainBypassList.compile("")) }
+    LaunchedEffect(text) {
+        if (text.isNotEmpty()) delay(DomainCompileDebounceMillis)
+        compiled = withContext(Dispatchers.Default) { DomainBypassList.compile(text) }
+    }
     val moveDialogName = stringResource(R.string.domain_bypass_moved_rule_name)
     val ripdpiDomainsLabel = stringResource(R.string.clipboard_label_ripdpi_domains)
 
@@ -84,7 +93,7 @@ fun DomainBypassListRoute(
                 hasRule = uiState.hasRule,
             ),
         onBack = onBack,
-        onTextChanged = { text = it },
+        onTextChanged = { text = boundedDomainBypassDraft(it) },
         onSave = {
             viewModel.save(text) { savedCount ->
                 val message =
@@ -107,7 +116,7 @@ fun DomainBypassListRoute(
             if (pasted.isNullOrBlank()) {
                 Toast.makeText(context, R.string.domain_bypass_clipboard_empty, Toast.LENGTH_SHORT).show()
             } else {
-                text = if (text.isBlank()) pasted else "$text\n$pasted"
+                text = boundedDomainBypassDraft(if (text.isBlank()) pasted else "$text\n$pasted")
             }
         },
         onCopyToClipboard = {
@@ -128,6 +137,17 @@ fun DomainBypassListRoute(
         modifier = modifier,
     )
 }
+
+internal fun boundedDomainBypassDraft(text: String): String =
+    text
+        .lineSequence()
+        .take(MaxDomainBypassLines)
+        .joinToString("\n")
+        .boundedUtf8(MaxDomainBypassBytes)
+
+private const val MaxDomainBypassBytes = 64 * 1024
+private const val MaxDomainBypassLines = 2_048
+private const val DomainCompileDebounceMillis = 150L
 
 @Composable
 internal fun DomainBypassListScreen(

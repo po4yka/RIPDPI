@@ -446,6 +446,7 @@ pub mod process {
     use std::io::Write;
     use std::path::{Path, PathBuf};
 
+    #[cfg(feature = "daemonize")]
     use daemonize::Daemonize;
     use nix::fcntl::{Flock, FlockArg};
 
@@ -470,18 +471,36 @@ pub mod process {
         }
     }
 
-    pub fn install_shutdown_signal_handlers(handler: extern "C" fn(std::os::raw::c_int)) -> io::Result<()> {
-        ripdpi_runtime_platform::capability::install_shutdown_signal_handlers(handler)
+    pub fn install_shutdown_signal_handlers() -> io::Result<()> {
+        ripdpi_runtime_platform::capability::install_shutdown_signal_handlers()
+    }
+
+    pub fn shutdown_requested() -> bool {
+        ripdpi_runtime_platform::capability::shutdown_requested()
+    }
+
+    pub fn reset_shutdown_request() {
+        ripdpi_runtime_platform::capability::reset_shutdown_request();
+    }
+
+    pub fn request_shutdown() {
+        ripdpi_runtime_platform::capability::request_shutdown();
     }
 
     pub fn detected_parallelism(fallback: usize) -> usize {
         ripdpi_runtime_platform::capability::detected_parallelism(fallback)
     }
 
+    #[cfg(feature = "daemonize")]
     fn daemonize(pid_file: Option<&Path>) -> io::Result<()> {
         let daemon =
             pid_file.map_or_else(Daemonize::new, |path| Daemonize::new().pid_file(path)).working_directory("/");
         daemon.start().map_err(io::Error::other)
+    }
+
+    #[cfg(not(feature = "daemonize"))]
+    fn daemonize(_pid_file: Option<&Path>) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "daemonization support is disabled in this build"))
     }
 
     struct PidFileGuard {
@@ -596,6 +615,21 @@ pub mod process {
                 let _guard = PidFileGuard::remove_on_drop(path.clone());
             }
             assert!(!path.exists(), "remove_on_drop variant must still unlink");
+        }
+
+        #[cfg(not(feature = "daemonize"))]
+        #[test]
+        fn daemonize_request_fails_when_support_is_not_compiled() {
+            let result = super::ProcessGuard::prepare(crate::model::config::ProcessSettings {
+                daemonize: true,
+                pid_file_path: None,
+            });
+            let error = match result {
+                Ok(_) => panic!("embedded builds must reject daemonization"),
+                Err(error) => error,
+            };
+
+            assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
         }
     }
 }

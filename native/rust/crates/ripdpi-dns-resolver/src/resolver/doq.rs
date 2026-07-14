@@ -1,6 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Instant;
 
 use tokio::time::timeout;
 
@@ -9,6 +10,7 @@ use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsE
 
 impl EncryptedDnsResolver {
     pub(super) async fn exchange_doq(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        let len_prefix = doq_length_prefix(query_bytes.len())?;
         if matches!(self.inner.transport, EncryptedDnsTransport::Socks5 { .. }) {
             return Err(EncryptedDnsError::Request(
                 "DoQ is not supported over SOCKS5 transport (SOCKS5 is TCP-only)".to_string(),
@@ -21,7 +23,7 @@ impl EncryptedDnsResolver {
             .ok_or_else(|| EncryptedDnsError::Request("DoQ endpoint not initialized".to_string()))?;
 
         let conn = self.get_or_connect_doq(endpoint).await?;
-        match timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes)).await {
+        match timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes, len_prefix)).await {
             Ok(result) => result,
             Err(_) => {
                 conn.close(0u32.into(), b"DoQ query timeout");
@@ -41,35 +43,65 @@ impl EncryptedDnsResolver {
                 return Ok(conn.clone());
             }
         }
-        // New connection.
-        let addr = self.resolve_doq_addr()?;
         let server_name = self.inner.endpoint.tls_server_name.as_deref().unwrap_or(&self.inner.endpoint.host);
-        let conn = timeout(self.inner.timeout, async {
-            endpoint
-                .connect(addr, server_name)
-                .map_err(|e| EncryptedDnsError::Tls(format!("DoQ connect: {e}")))?
-                .await
-                .map_err(|e| EncryptedDnsError::Tls(format!("DoQ handshake: {e}")))
-        })
-        .await
-        .map_err(|_| EncryptedDnsError::Request("DoQ connect timeout".to_string()))??;
+        let bootstrap_ips = self.inner.health.as_ref().map_or_else(
+            || self.inner.endpoint.bootstrap_ips.clone(),
+            |health| health.rank_bootstrap_ips_in_scope(&self.inner.network_scope, &self.inner.endpoint.bootstrap_ips),
+        );
+        if bootstrap_ips.is_empty() {
+            return Err(EncryptedDnsError::MissingBootstrapIps);
+        }
 
-        *self.inner.doq_connection.lock().await = Some(conn.clone());
-        Ok(conn)
-    }
+        let mut last_error = None;
+        for ip in bootstrap_ips {
+            let started = Instant::now();
+            let addr = SocketAddr::new(ip, self.inner.endpoint.port);
+            let result = timeout(self.inner.timeout, async {
+                endpoint
+                    .connect(addr, server_name)
+                    .map_err(|error| EncryptedDnsError::Tls(format!("DoQ connect: {error}")))?
+                    .await
+                    .map_err(|error| EncryptedDnsError::Tls(format!("DoQ handshake: {error}")))
+            })
+            .await
+            .map_err(|_| EncryptedDnsError::Request("DoQ connect timeout".to_string()))
+            .and_then(std::convert::identity);
+            let success = result.is_ok();
+            if let Some(health) = &self.inner.health {
+                let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
+                health.record_bootstrap_outcome_in_scope(&self.inner.network_scope, ip, success, latency_ms);
+            }
+            match result {
+                Ok(conn) => {
+                    *self.inner.doq_connection.lock().await = Some(conn.clone());
+                    return Ok(conn);
+                }
+                Err(error) => last_error = Some(error),
+            }
+        }
 
-    fn resolve_doq_addr(&self) -> Result<SocketAddr, EncryptedDnsError> {
-        let ip = self.inner.endpoint.bootstrap_ips.first().ok_or(EncryptedDnsError::MissingBootstrapIps)?;
-        Ok(SocketAddr::new(*ip, self.inner.endpoint.port))
+        Err(last_error.unwrap_or(EncryptedDnsError::MissingBootstrapIps))
     }
 }
 
-async fn exchange_doq_query(conn: quinn::Connection, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+fn doq_length_prefix(message_len: usize) -> Result<[u8; 2], EncryptedDnsError> {
+    let length = u16::try_from(message_len).map_err(|_| EncryptedDnsError::DnsMessageTooLarge {
+        transport: "DoQ",
+        size: message_len,
+        max: usize::from(u16::MAX),
+    })?;
+    Ok(length.to_be_bytes())
+}
+
+async fn exchange_doq_query(
+    conn: quinn::Connection,
+    query_bytes: &[u8],
+    len_prefix: [u8; 2],
+) -> Result<Vec<u8>, EncryptedDnsError> {
     let (mut send, mut recv) =
         conn.open_bi().await.map_err(|e| EncryptedDnsError::Request(format!("DoQ open_bi: {e}")))?;
 
     // RFC 9250: DNS wire format with 2-byte length prefix (same as DNS-over-TCP).
-    let len_prefix = (query_bytes.len() as u16).to_be_bytes();
     send.write_all(&len_prefix).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
     send.write_all(query_bytes).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
     send.finish().map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
@@ -123,8 +155,8 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use super::build_doq_endpoint;
-    use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsProtocol};
+    use super::{build_doq_endpoint, doq_length_prefix};
+    use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol};
 
     fn doq_endpoint() -> EncryptedDnsEndpoint {
         EncryptedDnsEndpoint {
@@ -161,5 +193,19 @@ mod tests {
             });
         build_doq_endpoint(&doq_endpoint(), &hooks).expect("the protected binder path must build the endpoint");
         assert_eq!(calls.load(Ordering::Relaxed), 1, "the protected binder must be invoked exactly once");
+    }
+
+    #[test]
+    fn doq_length_prefix_rejects_oversized_messages_without_truncation() {
+        let size = usize::from(u16::MAX) + 1;
+        let error = doq_length_prefix(size).expect_err("oversized DoQ message must fail");
+        assert!(matches!(
+            error,
+            EncryptedDnsError::DnsMessageTooLarge {
+                transport: "DoQ",
+                size: actual,
+                max
+            } if actual == size && max == usize::from(u16::MAX)
+        ));
     }
 }

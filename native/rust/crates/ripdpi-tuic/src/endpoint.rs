@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::Once;
@@ -14,6 +14,7 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use crate::config::Config;
 
 const MAX_CONCURRENT_STREAMS: u32 = 512;
+const MAX_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 static RUSTLS_PROVIDER: Once = Once::new();
 
 #[derive(Debug, Clone, Copy)]
@@ -28,18 +29,7 @@ pub(crate) fn build_endpoint(
     tls_config: RustlsClientConfig,
     socket_spec: ClientSocketSpec,
 ) -> io::Result<(Endpoint, std::net::UdpSocket)> {
-    let mut transport = TransportConfig::default();
-    transport.max_concurrent_bidi_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
-    transport.max_concurrent_uni_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
-    transport.max_idle_timeout(None);
-    if config.keepalive_interval_ms > 0 {
-        transport.keep_alive_interval(Some(std::time::Duration::from_millis(u64::from(config.keepalive_interval_ms))));
-    }
-    match config.congestion_control.trim().to_ascii_lowercase().as_str() {
-        "cubic" => transport.congestion_controller_factory(Arc::new(CubicConfig::default())),
-        "new_reno" | "newreno" => transport.congestion_controller_factory(Arc::new(NewRenoConfig::default())),
-        _ => transport.congestion_controller_factory(Arc::new(BbrConfig::default())),
-    };
+    let transport = build_transport_config(config.keepalive_interval_ms, &config.congestion_control)?;
 
     let mut client_config = ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config).map_err(io::Error::other)?,
@@ -51,6 +41,25 @@ pub(crate) fn build_endpoint(
     let mut endpoint = Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))?;
     endpoint.set_default_client_config(client_config);
     Ok((endpoint, socket_clone))
+}
+
+fn build_transport_config(keepalive_interval_ms: u32, congestion_control: &str) -> io::Result<TransportConfig> {
+    let mut transport = TransportConfig::default();
+    transport.max_concurrent_bidi_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
+    transport.max_concurrent_uni_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
+    let idle_timeout = MAX_IDLE_TIMEOUT
+        .try_into()
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid TUIC idle timeout: {error}")))?;
+    transport.max_idle_timeout(Some(idle_timeout));
+    if keepalive_interval_ms > 0 {
+        transport.keep_alive_interval(Some(std::time::Duration::from_millis(u64::from(keepalive_interval_ms))));
+    }
+    match congestion_control.trim().to_ascii_lowercase().as_str() {
+        "cubic" => transport.congestion_controller_factory(Arc::new(CubicConfig::default())),
+        "new_reno" | "newreno" => transport.congestion_controller_factory(Arc::new(NewRenoConfig::default())),
+        _ => transport.congestion_controller_factory(Arc::new(BbrConfig::default())),
+    };
+    Ok(transport)
 }
 
 pub(crate) fn build_client_udp_socket(socket_spec: ClientSocketSpec) -> io::Result<std::net::UdpSocket> {
@@ -167,11 +176,37 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     Ok(())
 }
 
-pub(crate) fn resolve_server_addr(server: &str, port: i32) -> io::Result<SocketAddr> {
-    (server, port as u16)
-        .to_socket_addrs()?
+pub(crate) async fn resolve_server_addr(
+    server: &str,
+    port: i32,
+    socket_protection: SocketProtectionPolicy,
+) -> io::Result<SocketAddr> {
+    socket_protection
+        .resolve_host(server, port as u16)
+        .await?
+        .into_iter()
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"))
+}
+
+#[cfg(test)]
+mod transport_tests {
+    use super::*;
+
+    #[test]
+    fn transport_retains_finite_idle_timeout_when_keepalive_is_disabled() {
+        let transport = build_transport_config(0, "bbr").expect("build transport config");
+        let rendered = format!("{transport:?}");
+
+        assert!(
+            rendered.contains("max_idle_timeout: Some(60000)"),
+            "TUIC carrier must retain a finite blackhole watchdog: {rendered}"
+        );
+        assert!(
+            rendered.contains("keep_alive_interval: None"),
+            "test precondition requires disabled keepalive: {rendered}"
+        );
+    }
 }
 
 #[cfg(test)]

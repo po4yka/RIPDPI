@@ -125,6 +125,43 @@ class VpnEncryptedDnsFailoverControllerTest {
         }
 
     @Test
+    fun `dns counter restart resets failure sequence and baselines`() =
+        runTest {
+            val env = newEnv()
+            val currentDns = cloudflareDohDns()
+            val signature = dnsSignature(currentDns, overrideReason = null)
+
+            evaluateDns(env, currentDns, signature, dnsTelemetry(queries = 10, failures = 2))
+            evaluateDns(
+                env,
+                currentDns,
+                signature,
+                dnsTelemetry(queries = 11, failures = 3, lastDnsError = "resolver timeout"),
+            )
+            evaluateDns(env, currentDns, signature, dnsTelemetry(queries = 0, failures = 0))
+
+            val firstAfterRestart =
+                evaluateDns(
+                    env,
+                    currentDns,
+                    signature,
+                    dnsTelemetry(queries = 1, failures = 1, lastDnsError = "resolver timeout"),
+                )
+            val secondAfterRestart =
+                evaluateDns(
+                    env,
+                    currentDns,
+                    signature,
+                    dnsTelemetry(queries = 2, failures = 2, lastDnsError = "resolver timeout"),
+                )
+
+            assertFalse(firstAfterRestart)
+            assertTrue(secondAfterRestart)
+            assertEquals(0L, env.state.pathStartQueries)
+            assertEquals(0L, env.state.pathStartFailures)
+        }
+
+    @Test
     fun `controller persists preferred path after successful failover`() =
         runTest {
             val env = newEnv()
@@ -352,6 +389,20 @@ class VpnEncryptedDnsFailoverControllerTest {
         dnsFailuresTotal = failures,
         lastDnsError = lastDnsError,
     )
+
+    private suspend fun evaluateDns(
+        env: Env,
+        currentDns: com.poyka.ripdpi.data.ActiveDnsSettings,
+        signature: String,
+        telemetry: NativeRuntimeSnapshot,
+    ): Boolean =
+        env.controller.evaluate(
+            state = env.state,
+            activeDns = currentDns,
+            currentDnsSignature = signature,
+            networkScopeKey = env.fingerprint.scopeKey(),
+            telemetry = telemetry,
+        )
 
     private data class Env(
         val controller: VpnEncryptedDnsFailoverController,

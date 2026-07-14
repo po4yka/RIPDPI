@@ -9,12 +9,14 @@ import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.IOException
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Manages the lifecycle of the root helper binary.
@@ -22,6 +24,7 @@ import javax.inject.Inject
  * When root mode is enabled, extracts the helper binary from APK assets,
  * starts it via `su`, and monitors its Unix socket for readiness.
  */
+@Singleton
 open class RootHelperManager
     @Inject
     constructor() {
@@ -356,14 +359,16 @@ open class RootHelperManager
             timeoutMs: Long,
             pollIntervalMs: Long,
         ): Boolean {
-            val deadline = System.currentTimeMillis() + timeoutMs
-            while (System.currentTimeMillis() < deadline) {
-                if (socket.exists() && canConnect(socket)) {
-                    return true
+            var ready = false
+            withTimeoutOrNull<Unit>(timeoutMs) {
+                while (!ready) {
+                    ready = (socket.exists() && canConnect(socket))
+                    if (!ready) {
+                        delay(pollIntervalMs)
+                    }
                 }
-                delay(pollIntervalMs)
             }
-            return socket.exists() && canConnect(socket)
+            return ready || (socket.exists() && canConnect(socket))
         }
 
         private fun canConnect(socket: File): Boolean {

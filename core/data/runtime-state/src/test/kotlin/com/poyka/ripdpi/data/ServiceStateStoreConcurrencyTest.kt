@@ -1,14 +1,18 @@
 package com.poyka.ripdpi.data
 
-import app.cash.turbine.test
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ServiceStateStoreConcurrencyTest {
     /**
      * Test #1: Status/telemetry coherence under concurrent setStatus calls.
@@ -59,44 +63,41 @@ class ServiceStateStoreConcurrencyTest {
         }
 
     /**
-     * Test #2: DROP_OLDEST event delivery — tryEmit never returns false under load.
-     *
-     * With the old extraBufferCapacity=8, the 9th emitFailed call would silently return
-     * false and the event would be lost. With DROP_OLDEST + capacity 64, tryEmit always
-     * succeeds. This test emits 100 events to an active subscriber and asserts that all
-     * 100 are delivered in order, with the last reason being reason-99.
+     * Test #2: event delivery remains ordered when producers run before a lifecycle subscriber.
      */
     @Test
     fun `all Failed events are delivered in order and none is silently dropped`() =
         runTest {
             val store = DefaultServiceStateStore()
+            val received = mutableListOf<ServiceEvent>()
 
-            store.events.test {
-                // Emit 100 events with an active Turbine subscriber. Under
-                // StandardTestDispatcher, Turbine's unlimited internal channel absorbs all
-                // items synchronously — DROP_OLDEST prevents tryEmit from returning false.
-                repeat(100) { i ->
-                    store.emitFailed(Sender.VPN, FailureReason.NativeError("reason-$i"))
-                }
-
-                // All 100 must arrive in emission order.
-                val received = mutableListOf<ServiceEvent.Failed>()
-                repeat(100) {
-                    received += awaitItem() as ServiceEvent.Failed
-                }
-                cancelAndIgnoreRemainingEvents()
-
-                assertEquals(100, received.size)
-                assertEquals(
-                    "First event must be reason-0",
-                    FailureReason.NativeError("reason-0"),
-                    received.first().reason,
-                )
-                assertEquals(
-                    "Last event must be reason-99 (newest always delivered)",
-                    FailureReason.NativeError("reason-99"),
-                    received.last().reason,
-                )
+            repeat(100) { i ->
+                store.emitFailed(Sender.VPN, FailureReason.NativeError("reason-$i"))
             }
+            runCurrent()
+
+            val collector =
+                launch {
+                    store.events
+                        .onEach { delay(1) }
+                        .take(100)
+                        .toList(received)
+                }
+            runCurrent()
+            collector.join()
+
+            val failures = received.map { it as ServiceEvent.Failed }
+
+            assertEquals(100, failures.size)
+            assertEquals(
+                "First event must be reason-0",
+                FailureReason.NativeError("reason-0"),
+                failures.first().reason,
+            )
+            assertEquals(
+                "Last event must be reason-99",
+                FailureReason.NativeError("reason-99"),
+                failures.last().reason,
+            )
         }
 }

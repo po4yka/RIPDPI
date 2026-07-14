@@ -10,11 +10,15 @@ import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
+import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
+import com.poyka.ripdpi.data.subscription.SubscriptionPayloadTooLargeException
 import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
+import com.poyka.ripdpi.data.subscription.fitsSubscriptionLimits
+import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
@@ -228,11 +232,30 @@ class SubscriptionRefreshCoordinator private constructor(
             try {
                 httpClient.newCall(request).execute().use { response ->
                     classifyHttpFailure(response.code, group)?.let { return@use it }
-                    val body = response.body.string()
-                    val wireGuardCount = persistWireGuardProfiles(body, group.id)
-                    val profiles = parseProfiles(body, group.id, wireGuardCount)
+                    val body =
+                        try {
+                            response.body.readBoundedSubscriptionPayload()
+                        } catch (_: SubscriptionPayloadTooLargeException) {
+                            return@use payloadTooLargeFailure()
+                        }
+                    val singBox = SingBoxSubscriptionParser.parse(body, group.id) as? SingBoxParseResult.Success
+                    val wireGuard =
+                        if (WireGuardIniSubscriptionParser.looksLikeWireGuardIni(body)) {
+                            WireGuardIniSubscriptionParser.parse(body, group.id)
+                        } else {
+                            null
+                        }
+                    val wireGuardCount =
+                        singBox.orEmptyAwgCount() +
+                            wireGuard?.let { it.amneziaWgProfiles.size + it.profiles.size }.orZero()
+                    val profiles = parseProfiles(body, group.id, wireGuardCount, singBox)
                     if (profiles != null) {
-                        profiles.copy(subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty())
+                        if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
+                            payloadTooLargeFailure()
+                        } else {
+                            persistWireGuardProfiles(singBox, wireGuard)
+                            profiles.copy(subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty())
+                        }
                     } else {
                         RefreshOutcome.Failure(
                             failure = SubscriptionRefreshFailure.PARSE_ERROR,
@@ -305,8 +328,8 @@ class SubscriptionRefreshCoordinator private constructor(
         body: String,
         groupId: String,
         wireGuardCount: Int,
+        singBox: SingBoxParseResult.Success?,
     ): RefreshOutcome.Updated? {
-        val singBox = SingBoxSubscriptionParser.parse(body, groupId) as? SingBoxParseResult.Success
         val selector = SelectorUrltestGroupImport.import(body, groupId)
         var parsed =
             if (selector is SelectorUrltestImportResult.Success && selector.profiles.isNotEmpty()) {
@@ -338,19 +361,17 @@ class SubscriptionRefreshCoordinator private constructor(
     }
 
     private suspend fun persistWireGuardProfiles(
-        body: String,
-        groupId: String,
+        singBox: SingBoxParseResult.Success?,
+        wireGuardIni: com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionResult?,
     ): Int {
         var saved = 0
-        val singBox = SingBoxSubscriptionParser.parse(body, groupId)
-        if (singBox is SingBoxParseResult.Success) {
+        if (singBox != null) {
             singBox.amneziaWgProfiles.forEach { profile ->
                 awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
                 saved++
             }
         }
-        if (WireGuardIniSubscriptionParser.looksLikeWireGuardIni(body)) {
-            val wireGuardIni = WireGuardIniSubscriptionParser.parse(body, groupId)
+        if (wireGuardIni != null) {
             wireGuardIni.amneziaWgProfiles.forEach { profile ->
                 awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
                 saved++
@@ -362,6 +383,17 @@ class SubscriptionRefreshCoordinator private constructor(
         }
         return saved
     }
+
+    private fun payloadTooLargeFailure(): RefreshOutcome.Failure =
+        RefreshOutcome.Failure(
+            failure = SubscriptionRefreshFailure.PAYLOAD_TOO_LARGE,
+            lifecycleState = SubscriptionLifecycleState.UNAVAILABLE,
+            retry = false,
+        )
+
+    private fun SingBoxParseResult.Success?.orEmptyAwgCount(): Int = this?.amneziaWgProfiles?.size ?: 0
+
+    private fun Int?.orZero(): Int = this ?: 0
 
     private sealed interface RefreshOutcome {
         data class Updated(

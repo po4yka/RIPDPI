@@ -47,6 +47,7 @@ graph LR
   :core:engine-api --> :quality:detekt-rules
   :core:engine-api --> :core:data
   :core:pcap-export --> :quality:detekt-rules
+  :core:pcap-export --> :core:data:model
   :core:diagnostics-data --> :quality:detekt-rules
   :core:diagnostics-data --> :core:data
   :app --> :quality:detekt-rules

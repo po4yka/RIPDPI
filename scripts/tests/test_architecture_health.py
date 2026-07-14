@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,6 +14,33 @@ import check_architecture_health as sut
 
 
 class ArchitectureHealthTest(unittest.TestCase):
+    def test_staged_snapshot_reads_index_instead_of_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            source = repo / "native/rust/crates/ripdpi-example/src/lib.rs"
+            manifest = repo / "native/rust/crates/ripdpi-example/Cargo.toml"
+            self._write(source, "pub fn staged() {}\n")
+            self._write(
+                manifest,
+                '[package]\nname = "ripdpi-example"\nversion = "0.1.0"\n\n[dependencies]\nripdpi-staged = { path = "../ripdpi-staged" }\n',
+            )
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            self._write(source, "pub fn unstaged() { panic!(\"working tree\") }\n")
+            self._write(
+                manifest,
+                '[package]\nname = "ripdpi-example"\nversion = "0.1.0"\n\n[dependencies]\nripdpi-unstaged = { path = "../ripdpi-unstaged" }\n',
+            )
+
+            tracked = sut.git_staged_paths(repo)
+            with sut.materialize_git_index_snapshot(repo, tracked) as snapshot:
+                snapshot_source = snapshot / source.relative_to(repo)
+                snapshot_manifest = snapshot / manifest.relative_to(repo)
+                dependencies = sut.manifest_dependencies(snapshot_manifest)
+
+                self.assertEqual("pub fn staged() {}\n", snapshot_source.read_text())
+                self.assertEqual({"ripdpi-staged"}, dependencies)
+
     def test_dependency_hub_and_discouraged_edges_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)

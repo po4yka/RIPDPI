@@ -14,7 +14,7 @@ mod handlers;
 use std::ffi::CString;
 use std::fs;
 use std::io;
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -130,13 +130,10 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
 
     let (data, received_fd) = protocol::recv_message(stream, "peer closed connection")?;
 
-    let request: HelperRequest = serde_json::from_slice(&data).map_err(|e| {
-        close_received_fd(received_fd);
-        io::Error::new(io::ErrorKind::InvalidData, format!("invalid request JSON: {e}"))
-    })?;
+    let request: HelperRequest = serde_json::from_slice(&data)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid request JSON: {e}")))?;
 
     if !session_nonce_matches(session_nonce, request.session_nonce.as_deref()) {
-        close_received_fd(received_fd);
         warn!(command = %request.command, "rejected command with invalid root-helper session nonce");
         send_response(stream, HelperResponse::error("invalid root-helper session nonce"), None)?;
         return Ok(());
@@ -151,7 +148,7 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
     // So `handle_connection` must NOT close `received_fd` here — doing so would
     // double-close a descriptor dispatch already released (the previous
     // dead/inverted accounting block, audit F17).
-    let dispatch = dispatch::dispatch_command(&request, received_fd);
+    let dispatch = dispatch::dispatch_command(&request, received_fd.map(IntoRawFd::into_raw_fd));
     if dispatch.shutdown_requested {
         RUNNING.store(false, Ordering::SeqCst);
     }
@@ -176,17 +173,7 @@ fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option
     let response = response.with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
     let json =
         serde_json::to_vec(&response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
-    protocol::send_message(stream, &json, reply_fd.as_ref().map(AsRawFd::as_raw_fd))
-}
-
-fn close_received_fd(fd: Option<RawFd>) {
-    if let Some(fd) = fd {
-        // SAFETY: fd ownership was transferred to this process via SCM_RIGHTS and
-        // command dispatch has not consumed it on this error path.
-        unsafe {
-            libc::close(fd);
-        }
-    }
+    protocol::send_message(stream, &json, reply_fd.as_ref().map(AsFd::as_fd))
 }
 
 fn prepare_socket_for_app(socket_path: &Path) -> io::Result<()> {
@@ -288,7 +275,7 @@ extern "C" fn signal_handler(_sig: libc::c_int) {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::fd::AsRawFd;
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::os::unix::net::UnixStream;
     use std::sync::Mutex;
@@ -367,9 +354,6 @@ mod tests {
         assert!(crate::dispatch::test_support::fd_is_closed(local_reply_fd));
         let (_payload, received_fd) = recv_message(&receiver, "sender closed").expect("receive response");
         let received_fd = received_fd.expect("received reply fd");
-        // SAFETY: `recv_message` transferred a fresh unique descriptor to this
-        // test, and this `OwnedFd` consumes it exactly once.
-        let received_fd = unsafe { OwnedFd::from_raw_fd(received_fd) };
         nix::unistd::write(&write_end, b"x").expect("write pipe byte");
         let mut byte = [0_u8; 1];
         assert_eq!(nix::unistd::read(&received_fd, &mut byte).expect("read pipe byte"), 1);

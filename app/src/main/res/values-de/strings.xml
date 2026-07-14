@@ -3315,6 +3315,7 @@ Quelle: %2$s</string>
     <string name="backup_restore_success">Sicherung wiederhergestellt</string>
     <string name="backup_restore_unsupported_version">Diese Sicherung (Version %1$d) ist neuer als von dieser App unterstützt (Version %2$d)</string>
     <string name="backup_restore_malformed">Diese Datei ist keine gültige Sicherung</string>
+    <string name="backup_restore_integrity_failure">Die Datenintegrität konnte nach der Wiederherstellung nicht garantiert werden. Starte die App neu und prüfe deine Profile.</string>
     <string name="backup_restore_nothing_selected">Wähle mindestens eine Kategorie zum Wiederherstellen aus</string>
     <string name="backup_import_preview_title">Sicherung prüfen</string>
     <string name="backup_import_preview_schema">Sicherung Version %1$d, erstellt von App %2$s</string>
@@ -4114,4 +4115,21 @@ Quelle: %2$s</string>
     <string name="subscription_home_expired_body">%1$s kann nicht mehr aktualisiert werden. Vorhandene Profile bleiben verfügbar.</string>
     <string name="subscription_home_invalidated_title">Abonnement nicht verfügbar</string>
     <string name="subscription_home_invalidated_body">%1$s ist abgelaufen oder wurde widerrufen. Vorhandene Profile bleiben verfügbar.</string>
+    <string name="diagnostics_sparkline_chart_description">%1$s-Trend, %2$d Messwerte</string>
+    <string name="diagnostics_sparkline_selected_state">Messwert %1$d von %2$d: %3$s</string>
+    <string name="diagnostics_sparkline_latest_state">Letzter Wert: %1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">Vorheriger Messwert</string>
+    <string name="diagnostics_sparkline_next_sample">Nächster Messwert</string>
+    <string name="diagnostics_sparkline_clear_selection">Auswahl aufheben</string>
+    <string name="backup_encryption_create_title">Vollständiges Backup verschlüsseln</string>
+    <string name="backup_encryption_create_body">Erstelle eine Passphrase mit mindestens 8 Zeichen. Du benötigst sie zur Wiederherstellung auf jedem Gerät.</string>
+    <string name="backup_encryption_create_action">Verschlüsseln und speichern</string>
+    <string name="backup_encryption_unlock_title">Verschlüsseltes Backup entsperren</string>
+    <string name="backup_encryption_unlock_body">Gib die Passphrase ein, die beim Erstellen dieses vollständigen Backups verwendet wurde.</string>
+    <string name="backup_encryption_unlock_action">Entsperren</string>
+    <string name="backup_encryption_unlock_failed">Die Passphrase ist falsch oder das Backup wurde verändert.</string>
+    <string name="backup_encryption_passphrase">Backup-Passphrase</string>
+    <string name="backup_encryption_confirm_passphrase">Passphrase bestätigen</string>
+    <string name="backup_encryption_passphrase_mismatch">Passphrasen stimmen nicht überein</string>
+    <string name="backup_import_legacy_full_warning">Dieses ältere vollständige Backup ist nicht verschlüsselt. Stelle es nur aus einer vertrauenswürdigen Quelle wieder her und exportiere danach ein neues verschlüsseltes Backup.</string>
 </resources>

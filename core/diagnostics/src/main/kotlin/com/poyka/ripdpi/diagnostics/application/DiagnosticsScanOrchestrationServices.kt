@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -266,13 +267,16 @@ class ActiveScanRegistry
             bridge: NetworkDiagnosticsBridge,
             graceMs: Long,
         ): String? {
-            val deadline = System.currentTimeMillis() + graceMs
-            while (System.currentTimeMillis() < deadline) {
-                val report = runCatching { bridge.takeReportJson() }.getOrNull()
-                if (report != null) return report
-                delay(CANCEL_POLL_INTERVAL_MS)
+            var report: String? = null
+            withTimeoutOrNull<Unit>(graceMs) {
+                while (report == null) {
+                    report = runCatching { bridge.takeReportJson() }.getOrNull()
+                    if (report == null) {
+                        delay(CANCEL_POLL_INTERVAL_MS)
+                    }
+                }
             }
-            return null
+            return report
         }
 
         internal suspend fun cancelHiddenAutomaticProbe(

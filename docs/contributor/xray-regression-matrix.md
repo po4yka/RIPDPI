@@ -43,7 +43,7 @@ Run with `./gradlew :<module>:testDebugUnitTest --offline`.
 | Import/onboarding UX | `:app` | `XrayProfileImportScreenTest`, `XrayProfileImportViewModelTest` | Provider picker + fail-closed import surface (Robolectric; see app-module caveat below) |
 
 > **App-module caveat.** `:app` transitively configures the native engine, so
-> `:app:testGithubDebugUnitTest` does **not** run on this offline toolchain
+> `:app:testGithubFullDebugUnitTest` does **not** run on this offline toolchain
 > (NDK 29 absent). The two `:app` Xray test classes are authored and were green
 > during development; treat them as **UNVERIFIED IN CI** here and gate them in
 > the device/CI environment that has NDK 29.
@@ -55,7 +55,7 @@ Run with `./gradlew :<module>:testDebugUnitTest --offline`.
 ./gradlew :core:data:catalog:testDebugUnitTest        --offline
 ./gradlew :core:engine-api:testDebugUnitTest          --offline
 # :app — only where NDK 29 is present:
-./gradlew :app:testGithubDebugUnitTest
+./gradlew :app:testGithubFullDebugUnitTest
 ```
 
 ## Device / emulator lanes (UNVERIFIED IN CI)

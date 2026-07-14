@@ -27,7 +27,7 @@ internal class DiagnosticsByohCompatibilityController(
     private val stringResolver: StringResolver,
     private val checker: ByohDomainCompatibilityChecker = ByohDomainCompatibilityChecker(),
 ) {
-    private val _tool = MutableStateFlow(DiagnosticsByohCompatibilityToolUiModel())
+    private val _tool = MutableStateFlow(initialDiagnosticsByohUiModel(stringResolver))
     val tool: StateFlow<DiagnosticsByohCompatibilityToolUiModel> = _tool.asStateFlow()
 
     fun setDstIp(value: String) {

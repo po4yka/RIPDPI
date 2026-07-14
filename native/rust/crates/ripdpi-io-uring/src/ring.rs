@@ -7,4 +7,3 @@ mod submission;
 pub use blocking::block_on_completion;
 pub use completion::{CompletionFuture, CompletionResult};
 pub use driver::IoUringDriver;
-pub use submission::Submission;

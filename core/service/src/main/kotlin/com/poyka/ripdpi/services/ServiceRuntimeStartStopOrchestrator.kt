@@ -54,39 +54,37 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         stop()
     }
 
+    @Suppress("TooGenericExceptionCaught")
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
     ) {
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
 
-        dependencies.lifecycleRunner.stop {
-            dependencies.handoverProcessor.cancel()
-            dependencies.loopOwner.cancelPermissionWatchdog()
-            runCatching {
+        try {
+            dependencies.lifecycleRunner.stop {
+                dependencies.handoverProcessor.cancel()
+                dependencies.loopOwner.cancelPermissionWatchdog()
                 callbacks.stopModeRuntime(skipRuntimeShutdown)
-            }.onFailure { failure ->
-                val error =
-                    failure as? Exception ?: IllegalStateException(
-                        "Failed to stop ${dependencies.serviceLabel()}",
-                        failure,
-                    )
-                Logger.e(error) { "Failed to stop ${dependencies.serviceLabel()}" }
-            }
 
-            val session = callbacks.currentSession()
-            callbacks.updateStatus(ServiceStatus.Disconnected, null)
-            dependencies.loopOwner.cancelTelemetry()
-            callbacks.onAfterStopCleanup(session)
-            session?.clearActiveConnectionPolicy()
-            session?.let {
-                dependencies.serviceRuntimeRegistry.unregister(
-                    mode = dependencies.mode,
-                    runtimeId = it.runtimeId,
-                )
+                val session = callbacks.currentSession()
+                callbacks.updateStatus(ServiceStatus.Disconnected, null)
+                dependencies.loopOwner.cancelTelemetry()
+                callbacks.onAfterStopCleanup(session)
+                session?.clearActiveConnectionPolicy()
+                session?.let {
+                    dependencies.serviceRuntimeRegistry.unregister(
+                        mode = dependencies.mode,
+                        runtimeId = it.runtimeId,
+                    )
+                }
+                callbacks.setRuntimeSession(null)
+                dependencies.host.requestStopSelf(stopSelfStartId)
             }
-            callbacks.setRuntimeSession(null)
-            dependencies.host.requestStopSelf(stopSelfStartId)
+        } catch (failure: Exception) {
+            Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()}" }
+            callbacks.updateStatus(ServiceStatus.Failed, FailureReason.Unexpected(failure))
+            throw failure
         }
     }
 }

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeCandidateDetails
 import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeReportPresentation
 import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeFamilies
+import kotlinx.collections.immutable.toImmutableList
 
 internal class StrategyReportSummaryMapper {
     fun summaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> =
@@ -78,7 +79,7 @@ internal class ResolverRecommendationPresenter {
                             stringResolver.getString(R.string.diagnostics_value_none)
                         },
                     ),
-                ),
+                ).toImmutableList(),
             appliedTemporarily = recommendation.appliedTemporarily,
             persistable = recommendation.persistable,
         )

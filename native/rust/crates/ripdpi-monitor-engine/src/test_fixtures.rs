@@ -6,8 +6,6 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use golden_test_support::{assert_text_golden, canonicalize_json_with};
-use rcgen::generate_simple_self_signed;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use serde_json::Value;
 
@@ -15,6 +13,12 @@ use crate::transport::{decode_socks5_udp_frame, encode_socks5_udp_frame};
 use crate::types::ScanReport;
 use crate::util::{CONNECT_TIMEOUT, FAT_HEADER_THRESHOLD_BYTES, IO_TIMEOUT};
 use crate::{MonitorSession, contracts::ScanProgress};
+
+mod cert;
+pub use cert::make_cert;
+
+// Match the production full-matrix stage budget while keeping report polling itself non-blocking.
+const REPORT_POLL_ATTEMPTS: usize = 6_000;
 
 pub struct UdpDnsServer {
     addr: SocketAddr,
@@ -378,7 +382,7 @@ impl Drop for HttpTextServer {
 }
 
 pub fn wait_for_report(session: &MonitorSession) -> ScanReport {
-    for _ in 0..50 {
+    for _ in 0..REPORT_POLL_ATTEMPTS {
         if let Some(report_json) = session.take_report_json().expect("take report json") {
             return serde_json::from_str(&report_json).expect("decode scan report");
         }
@@ -403,7 +407,7 @@ pub fn wait_for_progress_json(session: &MonitorSession) -> String {
 }
 
 pub fn wait_for_report_json(session: &MonitorSession) -> String {
-    for _ in 0..50 {
+    for _ in 0..REPORT_POLL_ATTEMPTS {
         if let Some(report_json) = session.take_report_json().expect("take report json") {
             return report_json;
         }
@@ -748,10 +752,4 @@ pub fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u
     answer.extend(4u16.to_be_bytes());
     answer.extend(answer_ip.octets());
     Ok(answer)
-}
-
-pub fn make_cert(names: &[String]) -> (CertificateDer<'static>, PrivateKeyDer<'static>) {
-    let certified = generate_simple_self_signed(names.to_vec()).expect("generate cert");
-    let cert = certified.cert.der().clone();
-    (cert, PrivateKeyDer::Pkcs8(certified.signing_key.serialize_der().into()))
 }

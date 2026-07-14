@@ -24,7 +24,7 @@ The epic's own notes already flagged them as legacy/transitional:
 - Trojan-Go: "sunset-flagged."
 
 Carrying a never-completed wire engine plus its full config/UI/codec/locale surface is
-ongoing maintenance cost (enum exhaustiveness, drift gates, golden fixtures, 8 locales)
+ongoing maintenance cost (enum exhaustiveness, drift gates, golden fixtures, the then-current 8 locales)
 for zero working capability. Upstream ecosystems have moved on: VMess to VLESS/REALITY,
 Trojan-Go to plain Trojan, Hysteria v1 to Hysteria2.
 
@@ -57,9 +57,9 @@ not stubbed indefinitely.
   import **skips** the unsupported node (the rest of the subscription still imports).
 - Kotlin: the `ProxyProfile.Vmess`/`TrojanGo`/`HysteriaV1` sealed types, their profile editors,
   URI codec arms, DTO sections, mappers, descriptors, and backup-allowlist entries are removed.
-- Wire contract: `RelayNativeConfigSchemaVersion` and the Rust schema ceiling are `8`; the proto
+- Historical wire effect of this decision: `RelayNativeConfigSchemaVersion` and the Rust schema ceiling moved to `8`; the current contract is schema `10` only (see `CONFIG_CONTRACTS.md`). The proto
   field numbers and names are reserved so they are never reused.
-- Localized strings for the three protocols are dropped from all 8 locales.
+- Localized strings for the three protocols were dropped from all 8 locales shipped at the time.
 
 ## Revisit trigger
 
@@ -83,19 +83,12 @@ this point, not from intent:
   `ProxyProfile.Ssh` (→ `RelayKindSsh` + credentials) and `SshProfileScreen` is a complete
   editor. No "not implemented" status is shown in the UI (correctly).
 
-- **Mieru — native carrier implemented and loopback-verified; end-to-end profile activation
-  still pending.** Native crate `native/rust/crates/ripdpi-mieru` (XChaCha20-Poly1305 wire
+- **Mieru — native carrier implemented, loopback-verified, and profile-activated.** Native crate `native/rust/crates/ripdpi-mieru` (XChaCha20-Poly1305 wire
   engine); loopback-verified by `ripdpi-mieru/src/loopback.rs::client_round_trips_one_mib_through_spec_faithful_loopback`
   (1 MiB TCP round-trip) with `udp_protocol_is_rejected` enforcing the UDP gate. The resolver
-  builds a `mieruSection()` and `MieruProfileScreen` exists with an **honest** "Experimental —
-  unverified against live servers" banner. **Remaining gap:** `RelayProfileActivator` has no
-  `ProxyProfile.Mieru` arm yet, so a saved Mieru profile is not yet activatable end-to-end, and
-  UDP relay is intentionally gated off pending the custom wire engine. So Mieru is "carrier
-  loopback-verified", not "fully usable from a profile".
+  builds a `mieruSection()`, `RelayProfileActivator` handles `ProxyProfile.Mieru`, and `MieruProfileScreen` exposes the editor. UDP relay remains intentionally capability-gated; the current supported path is TCP.
 
 Neither protocol is live-verified (no real-remote-endpoint test exists for any relay protocol —
 loopback fixtures only); that is the same bar applied to every other implemented protocol here.
 
-A full code-derived per-protocol truth table (every outbound protocol × crate / loopback / live
-/ relay-wired / UI present / UI honest) lives at
-[`docs/architecture/PROTOCOL_STATUS.md`](../architecture/PROTOCOL_STATUS.md).
+The current code-derived relay status is summarized in [`docs/native/protocol-ground-truth-matrix.md`](../native/protocol-ground-truth-matrix.md); authoritative enumerations remain the Kotlin and Rust registries named above.

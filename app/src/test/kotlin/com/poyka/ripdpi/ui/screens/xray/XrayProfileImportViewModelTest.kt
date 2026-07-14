@@ -2,6 +2,7 @@
 // XrayConfigImportParser (additionally unit-tested in :core:data).
 package com.poyka.ripdpi.ui.screens.xray
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.subscription.XraySkipReason
 import com.poyka.ripdpi.data.xray.XrayProfile
@@ -116,9 +117,12 @@ class XrayProfileImportViewModelTest {
             assertTrue(accepted.capabilities.isNotEmpty())
             assertTrue(accepted.canFinish)
 
-            vm.confirm()
-            advanceUntilIdle()
-            assertTrue(vm.uiState.value.imported)
+            vm.importedEvents.test {
+                vm.confirm()
+                advanceUntilIdle()
+                awaitItem()
+                expectNoEvents()
+            }
             assertEquals(XrayServiceModeOption.XrayVpn, persistence.persisted?.first)
             assertEquals(1, persistence.persisted?.second?.size)
             assertTrue(persistence.persisted?.second?.first() is ProxyProfile.VlessReality)
@@ -236,13 +240,14 @@ class XrayProfileImportViewModelTest {
             // First confirm: persist throws → error surfaced, not imported, no crash.
             vm.confirm()
             advanceUntilIdle()
-            assertFalse(vm.uiState.value.imported)
             assertEquals("activation-failed", vm.uiState.value.errorMessage)
 
             // The in-flight guard was reset, so a retry can proceed and succeed.
-            vm.confirm()
-            advanceUntilIdle()
-            assertTrue(vm.uiState.value.imported)
+            vm.importedEvents.test {
+                vm.confirm()
+                advanceUntilIdle()
+                awaitItem()
+            }
             assertEquals(2, persistence.attempts)
         }
 
@@ -253,9 +258,11 @@ class XrayProfileImportViewModelTest {
             val vm = viewModel(persistence)
             vm.selectOption(XrayServiceModeOption.NativeDirect)
             assertTrue(vm.uiState.value.canFinish)
-            vm.confirm()
-            advanceUntilIdle()
-            assertTrue(vm.uiState.value.imported)
+            vm.importedEvents.test {
+                vm.confirm()
+                advanceUntilIdle()
+                awaitItem()
+            }
             assertEquals(XrayServiceModeOption.NativeDirect, persistence.persisted?.first)
             assertTrue(persistence.persisted?.second?.isEmpty() == true)
             // Native options never thread a typed Xray profile.
@@ -282,7 +289,6 @@ class XrayProfileImportViewModelTest {
             // Confirm is a no-op while Finish is disabled: nothing is persisted.
             vm.confirm()
             advanceUntilIdle()
-            assertFalse(vm.uiState.value.imported)
             assertNull(persistence.persisted)
         }
 }

@@ -1,5 +1,5 @@
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
@@ -28,8 +28,8 @@ impl ClientTransport {
         &self,
         command: &str,
         params: serde_json::Value,
-        fd: Option<RawFd>,
-    ) -> io::Result<(HelperResponse, Option<RawFd>)> {
+        fd: Option<BorrowedFd<'_>>,
+    ) -> io::Result<(HelperResponse, Option<OwnedFd>)> {
         // Client-side descriptor pre-validation: an unknown command, a
         // missing inbound fd for an fd-carrying command, or an extra fd for
         // a non-fd command is rejected here, BEFORE we open the Unix socket
@@ -51,18 +51,18 @@ impl ClientTransport {
 
         let (resp_bytes, reply_fd) = recv_message(&stream, "helper closed connection")?;
 
-        let response: HelperResponse = serde_json::from_slice(&resp_bytes).map_err(|e| {
-            close_raw_fd(reply_fd);
-            io::Error::new(io::ErrorKind::InvalidData, format!("invalid response: {e}"))
-        })?;
+        let response: HelperResponse = serde_json::from_slice(&resp_bytes)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid response: {e}")))?;
+
+        if let Err(error) = response.validate_protocol_version() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, error));
+        }
 
         if !response.ok {
-            close_raw_fd(reply_fd);
             let msg = response.error.unwrap_or_else(|| "unknown helper error".into());
             return Err(io::Error::other(msg));
         }
         if reply_fd.is_some() && !descriptor.may_return_outbound_fd {
-            close_raw_fd(reply_fd);
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("{command} returned an unexpected root-helper fd"),
@@ -86,25 +86,21 @@ fn load_session_nonce(path: &str) -> io::Result<String> {
     Ok(nonce)
 }
 
-fn close_raw_fd(fd: Option<RawFd>) {
-    if let Some(fd) = fd {
-        // SAFETY: fd ownership was transferred to this process by SCM_RIGHTS
-        // and this path rejects the response before returning the descriptor.
-        unsafe {
-            libc::close(fd);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{ClientTransport, load_session_nonce, session_nonce_path};
     use std::io::Write;
-    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::fd::AsFd;
     use std::os::unix::net::UnixListener;
     use std::thread;
 
-    use ripdpi_root_helper_protocol::{HelperResponse, recv_message, send_message};
+    use ripdpi_root_helper_protocol::{
+        CAPABILITY_VERSION, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
+    };
+
+    fn current_response(response: HelperResponse) -> HelperResponse {
+        response.with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION)
+    }
 
     #[test]
     fn derives_session_nonce_path_from_socket_path() {
@@ -184,12 +180,13 @@ mod tests {
     fn send_command_rejects_unexpected_success_reply_fd_and_closes_it() {
         let fixture = TransportFixture::start(|stream| {
             let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
-            close_owned_raw_fd(inbound_fd.expect("client sends request fd"));
+            drop(inbound_fd.expect("client sends request fd"));
             let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
             send_message(
                 &stream,
-                &serde_json::to_vec(&HelperResponse::success(serde_json::Value::Null)).expect("response JSON"),
-                Some(read_fd.as_raw_fd()),
+                &serde_json::to_vec(&current_response(HelperResponse::success(serde_json::Value::Null)))
+                    .expect("response JSON"),
+                Some(read_fd.as_fd()),
             )
             .expect("send unexpected reply fd");
             drop(read_fd);
@@ -202,7 +199,7 @@ mod tests {
             .send_command(
                 ripdpi_root_helper_protocol::CMD_SEND_FAKE_RST,
                 serde_json::json!({ "default_ttl": 64 }),
-                Some(request_fd.as_raw_fd()),
+                Some(request_fd.as_fd()),
             )
             .expect_err("fake_rst must reject unexpected reply fd");
         let mut write_fd = fixture.join();
@@ -217,12 +214,13 @@ mod tests {
     fn send_command_closes_reply_fd_attached_to_helper_error() {
         let fixture = TransportFixture::start(|stream| {
             let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
-            close_owned_raw_fd(inbound_fd.expect("client sends request fd"));
+            drop(inbound_fd.expect("client sends request fd"));
             let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
             send_message(
                 &stream,
-                &serde_json::to_vec(&HelperResponse::error("synthetic helper failure")).expect("response JSON"),
-                Some(read_fd.as_raw_fd()),
+                &serde_json::to_vec(&current_response(HelperResponse::error("synthetic helper failure")))
+                    .expect("response JSON"),
+                Some(read_fd.as_fd()),
             )
             .expect("send error reply fd");
             drop(read_fd);
@@ -235,7 +233,7 @@ mod tests {
             .send_command(
                 ripdpi_root_helper_protocol::CMD_SEND_FAKE_TCP,
                 serde_json::json!({ "original_prefix": [], "fake_prefix": [], "ttl": 1, "default_ttl": 64 }),
-                Some(request_fd.as_raw_fd()),
+                Some(request_fd.as_fd()),
             )
             .expect_err("helper error must propagate");
         let mut write_fd = fixture.join();
@@ -249,12 +247,13 @@ mod tests {
     fn send_command_returns_allowed_replacement_fd_to_the_caller() {
         let fixture = TransportFixture::start(|stream| {
             let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
-            close_owned_raw_fd(inbound_fd.expect("client sends request fd"));
+            drop(inbound_fd.expect("client sends request fd"));
             let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
             send_message(
                 &stream,
-                &serde_json::to_vec(&HelperResponse::success(serde_json::Value::Null)).expect("response JSON"),
-                Some(read_fd.as_raw_fd()),
+                &serde_json::to_vec(&current_response(HelperResponse::success(serde_json::Value::Null)))
+                    .expect("response JSON"),
+                Some(read_fd.as_fd()),
             )
             .expect("send allowed reply fd");
             drop(read_fd);
@@ -267,16 +266,70 @@ mod tests {
             .send_command(
                 ripdpi_root_helper_protocol::CMD_SEND_FAKE_TCP,
                 serde_json::json!({ "original_prefix": [], "fake_prefix": [], "ttl": 1, "default_ttl": 64 }),
-                Some(request_fd.as_raw_fd()),
+                Some(request_fd.as_fd()),
             )
             .expect("fake_tcp may return a replacement fd");
         let reply_fd = reply_fd.expect("allowed replacement fd");
         let mut write_fd = fixture.join();
         write_fd.write_all(b"x").expect("returned fd keeps the pipe readable");
-        close_owned_raw_fd(reply_fd);
+        drop(reply_fd);
         let write_error = write_fd.write_all(b"x").expect_err("closing returned fd removes the final reader");
 
         assert_eq!(write_error.kind(), std::io::ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn send_command_rejects_unversioned_legacy_response() {
+        let fixture = TransportFixture::start(|stream| {
+            let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
+            assert!(inbound_fd.is_none());
+            send_message(
+                &stream,
+                &serde_json::to_vec(&HelperResponse::success(serde_json::Value::Null)).expect("response JSON"),
+                None,
+            )
+            .expect("send legacy response");
+        });
+
+        let error = fixture
+            .transport
+            .send_command(ripdpi_root_helper_protocol::CMD_PROBE_CAPABILITIES, serde_json::Value::Null, None)
+            .expect_err("legacy response must fail closed");
+        fixture.join();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("missing protocol_version"));
+    }
+
+    #[test]
+    fn send_command_rejects_protocol_version_mismatch_and_closes_reply_fd() {
+        let fixture = TransportFixture::start(|stream| {
+            let (_request, inbound_fd) = recv_message(&stream, "client closed").expect("request");
+            drop(inbound_fd.expect("client sends request fd"));
+            let (read_fd, write_fd) = nix::unistd::pipe().expect("create reply-fd pipe");
+            let response = HelperResponse::success(serde_json::Value::Null)
+                .with_versions(PROTOCOL_VERSION + 1, CAPABILITY_VERSION);
+            send_message(&stream, &serde_json::to_vec(&response).expect("response JSON"), Some(read_fd.as_fd()))
+                .expect("send mismatched response");
+            drop(read_fd);
+            std::fs::File::from(write_fd)
+        });
+        let request_fd = std::fs::File::open("/dev/null").expect("open request fd");
+
+        let error = fixture
+            .transport
+            .send_command(
+                ripdpi_root_helper_protocol::CMD_SEND_FAKE_TCP,
+                serde_json::json!({ "original_prefix": [], "fake_prefix": [], "ttl": 1, "default_ttl": 64 }),
+                Some(request_fd.as_fd()),
+            )
+            .expect_err("mismatched response must fail closed");
+        let mut write_fd = fixture.join();
+        let write_error = write_fd.write_all(b"x").expect_err("rejected response fd must be closed");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("protocol version mismatch"));
+        assert_eq!(write_error.kind(), io::ErrorKind::BrokenPipe);
     }
 
     fn unique_suffix() -> u128 {
@@ -315,13 +368,6 @@ mod tests {
             let _ = std::fs::remove_file(&self.socket_path);
             let _ = std::fs::remove_file(session_nonce_path(&self.socket_path));
             result
-        }
-    }
-
-    fn close_owned_raw_fd(fd: std::os::fd::RawFd) {
-        // SAFETY: ownership of this duplicate fd came from recv_message.
-        unsafe {
-            drop(OwnedFd::from_raw_fd(fd));
         }
     }
 }

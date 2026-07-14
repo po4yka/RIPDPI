@@ -94,8 +94,8 @@ class TransportSpecificRemediationSupportTest {
                             DiagnosticsStrategyProbeRecommendationUiModel(
                                 headline = "No winner",
                                 rationale = "No winner",
-                                fields = emptyList(),
-                                signature = emptyList(),
+                                fields = persistentListOf(),
+                                signature = persistentListOf(),
                             ),
                         families = persistentListOf(),
                     ),

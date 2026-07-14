@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointStore
@@ -33,9 +34,11 @@ internal class DefaultWarpRuntimeConfigResolver
         private val credentialStore: WarpCredentialStore,
         private val endpointStore: WarpEndpointStore,
         private val enrollmentOrchestrator: WarpEnrollmentOrchestrator,
+        private val profileMutations: ProfileMutationCoordinator,
     ) : WarpRuntimeConfigResolver {
         override suspend fun resolve(config: RipDpiWarpConfig): ResolvedRipDpiWarpConfig {
             require(config.enabled) { "WARP runtime requested while disabled" }
+            profileMutations.recover()
             val profileId =
                 appSettingsRepository
                     .snapshot()

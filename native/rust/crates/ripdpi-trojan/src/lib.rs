@@ -239,7 +239,7 @@ fn read_exact<'a>(
 pub struct TrojanClient;
 
 /// TLS CONNECT client configuration.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TrojanClientConfig {
     pub server_host: String,
     pub server_port: u16,
@@ -250,6 +250,21 @@ pub struct TrojanClientConfig {
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
+impl std::fmt::Debug for TrojanClientConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("TrojanClientConfig")
+            .field("server_host", &self.server_host)
+            .field("server_port", &self.server_port)
+            .field("server_name", &self.server_name)
+            .field("password", &"<redacted>")
+            .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
+            .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<redacted>"))
+            .field("socket_protection", &self.socket_protection)
+            .finish()
+    }
+}
+
 /// Open a protected TCP connection to the Trojan server.
 ///
 /// Builds the socket explicitly and protects its fd via the in-process
@@ -257,8 +272,11 @@ pub struct TrojanClientConfig {
 /// socket bypasses the app's own TUN route. Loopback-skip and fail-closed are
 /// handled by [`protect_outbound_socket`]. REL-1.
 async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream> {
-    let mut addrs = tokio::net::lookup_host((config.server_host.as_str(), config.server_port)).await?;
-    let server_addr = addrs
+    let server_addr = config
+        .socket_protection
+        .resolve_host(&config.server_host, config.server_port)
+        .await?
+        .into_iter()
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for trojan server"))?;
     let socket = match server_addr {
@@ -460,6 +478,25 @@ mod tests {
         let hash = hash_password(SPEC_PASSWORD);
         assert_eq!(hash.len(), 56);
         assert!(hash.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn client_config_debug_redacts_password_and_root_certificate() {
+        let config = TrojanClientConfig {
+            server_host: "relay.example".to_string(),
+            server_port: 443,
+            server_name: "cover.example".to_string(),
+            password: "debug-trojan-secret".to_string(),
+            tls_fingerprint_profile: "chrome".to_string(),
+            root_certificate_pem: Some("debug-root-certificate-secret".to_string()),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        };
+
+        let rendered = format!("{config:?}");
+
+        assert!(!rendered.contains("debug-trojan-secret"));
+        assert!(!rendered.contains("debug-root-certificate-secret"));
+        assert!(rendered.contains("<redacted>"));
     }
 
     #[test]

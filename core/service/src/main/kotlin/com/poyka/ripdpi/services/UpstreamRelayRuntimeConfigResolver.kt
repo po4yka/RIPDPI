@@ -135,27 +135,44 @@ private fun sanitizeTorPathSegment(value: String): String = value.replace(Regex(
 internal class DefaultUpstreamRelayRuntimeConfigResolver
     @Inject
     constructor(
-        private val relayProfileStore: RelayProfileStore,
-        private val relayCredentialStore: RelayCredentialStore,
+        private val relayRuntimeProfileReader: RelayRuntimeProfileReader,
         private val relayKindResolverRegistry: RelayKindResolverRegistry,
         private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
         private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
         private val torRuntimePathProvider: TorRuntimePathProvider,
         private val torPluggableTransportProvider: TorPluggableTransportProvider,
     ) : UpstreamRelayRuntimeConfigResolver {
+        internal constructor(
+            relayProfileStore: RelayProfileStore,
+            relayCredentialStore: RelayCredentialStore,
+            relayKindResolverRegistry: RelayKindResolverRegistry,
+            tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
+            runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
+            torRuntimePathProvider: TorRuntimePathProvider,
+            torPluggableTransportProvider: TorPluggableTransportProvider,
+        ) : this(
+            relayRuntimeProfileReader = RelayRuntimeProfileReader(relayProfileStore, relayCredentialStore),
+            relayKindResolverRegistry = relayKindResolverRegistry,
+            tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
+            runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
+            torRuntimePathProvider = torRuntimePathProvider,
+            torPluggableTransportProvider = torPluggableTransportProvider,
+        )
+
         override suspend fun resolve(
             config: RipDpiRelayConfig,
             quicMigrationConfig: OwnedRelayQuicMigrationConfig,
         ): ResolvedRipDpiRelayConfig {
             val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
-            val storedProfile = relayProfileStore.load(profileId)
+            val persisted = relayRuntimeProfileReader.read(profileId)
+            val storedProfile = persisted.profile
             val requestedTlsProfile =
                 storedProfile
                     ?.vlessFingerprint
                     ?.takeIf { it.isNotBlank() }
                     ?.let(::normalizeImportedTlsFingerprint)
                     ?: normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
-            val credentials = relayCredentialStore.load(profileId)
+            val credentials = persisted.credentials
             val resolution =
                 relayKindResolverRegistry.resolve(
                     RelayResolverRequest(
@@ -483,8 +500,7 @@ internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
     torPluggableTransportProvider: TorPluggableTransportProvider,
 ): UpstreamRelayRuntimeConfigResolver =
     DefaultUpstreamRelayRuntimeConfigResolver(
-        relayProfileStore = relayProfileStore,
-        relayCredentialStore = relayCredentialStore,
+        relayRuntimeProfileReader = RelayRuntimeProfileReader(relayProfileStore, relayCredentialStore),
         relayKindResolverRegistry =
             createDefaultRelayKindResolverRegistry(
                 relayProfileStore = relayProfileStore,

@@ -89,6 +89,6 @@ done
 for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
   echo "  -> $target"
   clean_android_boring_sys_build_cache "${CARGO_TARGET_DIR:-$repo_root/native/rust/target}" "$target"
-  RUSTC_WRAPPER="" cargo check --manifest-path "$workspace_manifest" --workspace \
-    --exclude ripdpi-io-uring --target "$target" --locked
+  RUSTC_WRAPPER="" cargo check --locked --manifest-path "$workspace_manifest" --workspace \
+    --exclude ripdpi-io-uring --target "$target"
 done

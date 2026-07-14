@@ -54,11 +54,13 @@ pub fn vless_smoke() {
     static ONCE: OnceLock<()> = OnceLock::new();
     ONCE.get_or_init(|| {
         let uuid = [0x11_u8; 16];
-        let domain_request = ripdpi_vless::wire::encode_request(&uuid, &[0xAA], "example.com:443");
-        let _ = ripdpi_vless::wire::parse_request_header(&domain_request);
+        if let Ok(domain_request) = ripdpi_vless::wire::encode_request(&uuid, &[0xAA], "example.com:443") {
+            let _ = ripdpi_vless::wire::parse_request_header(&domain_request);
+        }
 
-        let ipv6_request = ripdpi_vless::wire::encode_request(&uuid, &[], "[2001:db8::1]:8443");
-        let _ = ripdpi_vless::wire::parse_request_header(&ipv6_request);
+        if let Ok(ipv6_request) = ripdpi_vless::wire::encode_request(&uuid, &[], "[2001:db8::1]:8443") {
+            let _ = ripdpi_vless::wire::parse_request_header(&ipv6_request);
+        }
     });
 }
 

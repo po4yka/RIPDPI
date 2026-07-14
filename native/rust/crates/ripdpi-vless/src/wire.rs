@@ -1,7 +1,10 @@
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
+
+const RESPONSE_VERSION: u8 = 0x00;
 
 /// VLESS wire version.
 ///
@@ -45,10 +48,59 @@ pub struct DecodedRequestHeader {
     pub consumed_len: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParseRequestError {
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum EncodeError {
+    #[error("VLESS addons are too long: {len} bytes exceeds {max}")]
+    AddonsTooLong { len: usize, max: usize },
+    #[error("VLESS domain is too long: {len} bytes exceeds {max}")]
+    DomainTooLong { len: usize, max: usize },
+    #[error("invalid VLESS target {target:?}")]
+    InvalidTarget { target: String },
+    #[error("invalid VLESS target port {port:?}")]
+    InvalidPort { port: String },
+}
+
+impl From<EncodeError> for io::Error {
+    fn from(error: EncodeError) -> Self {
+        Self::new(io::ErrorKind::InvalidInput, error)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum DecodeError {
+    #[error("VLESS header needs more data")]
     NeedMoreData,
-    Invalid(String),
+    #[error("unsupported VLESS request version {0}")]
+    UnsupportedRequestVersion(u8),
+    #[error("unsupported VLESS response version {0}")]
+    UnsupportedResponseVersion(u8),
+    #[error("unsupported VLESS command {0}")]
+    UnsupportedCommand(u8),
+    #[error("unsupported VLESS address type {0}")]
+    UnsupportedAddressType(u8),
+    #[error("VLESS domain target is not valid UTF-8 at byte {valid_up_to}")]
+    InvalidDomainUtf8 { valid_up_to: usize },
+    #[error("VLESS header length overflow")]
+    LengthOverflow,
+}
+
+pub type ParseRequestError = DecodeError;
+
+#[derive(Debug, Error)]
+pub enum ReadResponseError {
+    #[error("read VLESS response: {0}")]
+    Io(#[from] io::Error),
+    #[error(transparent)]
+    Decode(#[from] DecodeError),
+}
+
+impl From<ReadResponseError> for io::Error {
+    fn from(error: ReadResponseError) -> Self {
+        match error {
+            ReadResponseError::Io(error) => error,
+            ReadResponseError::Decode(error) => Self::new(io::ErrorKind::InvalidData, error),
+        }
+    }
 }
 
 /// Encode a VLESS request header.
@@ -60,9 +112,10 @@ pub enum ParseRequestError {
 /// ```
 ///
 /// `target` is `"host:port"` — the destination the VLESS server should proxy to.
-pub fn encode_request(uuid: &[u8; 16], addons: &[u8], target: &str) -> Vec<u8> {
-    let (host, port) = parse_target(target);
-    let addons_len = u8::try_from(addons.len()).expect("addons must be < 256 bytes");
+pub fn encode_request(uuid: &[u8; 16], addons: &[u8], target: &str) -> Result<Vec<u8>, EncodeError> {
+    let (host, port) = parse_target(target)?;
+    let addons_len = u8::try_from(addons.len())
+        .map_err(|_| EncodeError::AddonsTooLong { len: addons.len(), max: usize::from(u8::MAX) })?;
 
     let mut buf = Vec::with_capacity(1 + 16 + 1 + addons.len() + 1 + 2 + 1 + host.len() + 2);
 
@@ -88,25 +141,27 @@ pub fn encode_request(uuid: &[u8; 16], addons: &[u8], target: &str) -> Vec<u8> {
     } else {
         // Domain
         let domain_bytes = host.as_bytes();
-        let domain_len = u8::try_from(domain_bytes.len()).expect("domain must be < 256 bytes");
+        let domain_len = u8::try_from(domain_bytes.len())
+            .map_err(|_| EncodeError::DomainTooLong { len: domain_bytes.len(), max: usize::from(u8::MAX) })?;
         buf.push(0x02); // Domain
         buf.push(domain_len);
         buf.extend_from_slice(domain_bytes);
     }
 
-    buf
+    Ok(buf)
 }
 
 /// Encode the VLESS response header.
 ///
 /// Response format: `Version(1B) | AddonsLen(1B) | Addons(var)`.
-pub fn encode_response(addons: &[u8]) -> Vec<u8> {
-    let addons_len = u8::try_from(addons.len()).expect("addons must be < 256 bytes");
+pub fn encode_response(addons: &[u8]) -> Result<Vec<u8>, EncodeError> {
+    let addons_len = u8::try_from(addons.len())
+        .map_err(|_| EncodeError::AddonsTooLong { len: addons.len(), max: usize::from(u8::MAX) })?;
     let mut buf = Vec::with_capacity(2 + addons.len());
-    buf.push(0x00);
+    buf.push(RESPONSE_VERSION);
     buf.push(addons_len);
     buf.extend_from_slice(addons);
-    buf
+    Ok(buf)
 }
 
 /// Parse a VLESS request header from an in-memory buffer.
@@ -116,7 +171,7 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
         return Err(ParseRequestError::NeedMoreData);
     }
     if ProtocolVersion::from_wire_byte(bytes[0]).is_none() {
-        return Err(ParseRequestError::Invalid(format!("unsupported VLESS version {}", bytes[0])));
+        return Err(DecodeError::UnsupportedRequestVersion(bytes[0]));
     }
     let mut uuid = [0u8; 16];
     uuid.copy_from_slice(&bytes[1..17]);
@@ -131,7 +186,7 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
     let command = bytes[cursor];
     cursor += 1;
     if command != 0x01 {
-        return Err(ParseRequestError::Invalid(format!("unsupported VLESS command {command}")));
+        return Err(DecodeError::UnsupportedCommand(command));
     }
 
     let port = u16::from_be_bytes([bytes[cursor], bytes[cursor + 1]]);
@@ -159,7 +214,7 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
                 return Err(ParseRequestError::NeedMoreData);
             }
             let host = std::str::from_utf8(&bytes[cursor..cursor + domain_len])
-                .map_err(|error| ParseRequestError::Invalid(format!("domain target is not valid UTF-8: {error}")))?;
+                .map_err(|error| DecodeError::InvalidDomainUtf8 { valid_up_to: error.valid_up_to() })?;
             cursor += domain_len;
             host.to_owned()
         }
@@ -175,7 +230,7 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
         }
 
         other => {
-            return Err(ParseRequestError::Invalid(format!("unsupported VLESS address type {other}")));
+            return Err(DecodeError::UnsupportedAddressType(other));
         }
     };
 
@@ -187,10 +242,10 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
 /// Response format: `Version(1B) | AddonsLen(1B) | Addons(var)`
 ///
 /// After this call returns successfully, the stream carries raw bidirectional data.
-pub async fn read_response(stream: &mut (impl AsyncRead + Unpin)) -> io::Result<()> {
+pub async fn read_response(stream: &mut (impl AsyncRead + Unpin)) -> Result<(), ReadResponseError> {
     let mut header = [0u8; 2];
     stream.read_exact(&mut header).await?;
-    let _version = header[0];
+    validate_response_version(header[0])?;
     let addons_len = usize::from(header[1]);
     if addons_len > 0 {
         let mut addons = vec![0u8; addons_len];
@@ -209,9 +264,9 @@ pub fn parse_response_header(bytes: &[u8]) -> Result<usize, ParseRequestError> {
     if bytes.len() < 2 {
         return Err(ParseRequestError::NeedMoreData);
     }
+    validate_response_version(bytes[0])?;
     let addons_len = usize::from(bytes[1]);
-    let total =
-        2usize.checked_add(addons_len).ok_or_else(|| ParseRequestError::Invalid("addons_len overflow".to_owned()))?;
+    let total = 2usize.checked_add(addons_len).ok_or(DecodeError::LengthOverflow)?;
     if bytes.len() < total {
         return Err(ParseRequestError::NeedMoreData);
     }
@@ -219,19 +274,36 @@ pub fn parse_response_header(bytes: &[u8]) -> Result<usize, ParseRequestError> {
 }
 
 /// Split `"host:port"` into `(host, port)`.
-fn parse_target(target: &str) -> (String, u16) {
+fn validate_response_version(version: u8) -> Result<(), DecodeError> {
+    if version == RESPONSE_VERSION { Ok(()) } else { Err(DecodeError::UnsupportedResponseVersion(version)) }
+}
+
+fn parse_target(target: &str) -> Result<(String, u16), EncodeError> {
     // Handle IPv6 bracket notation: [::1]:443
-    if let Some(bracket_end) = target.rfind("]:") {
+    if target.starts_with('[') {
+        let Some(bracket_end) = target.rfind("]:") else {
+            return Err(EncodeError::InvalidTarget { target: target.to_owned() });
+        };
         let host = target[1..bracket_end].to_owned();
-        let port: u16 = target[bracket_end + 2..].parse().expect("invalid port in target");
-        return (host, port);
+        if host.is_empty() {
+            return Err(EncodeError::InvalidTarget { target: target.to_owned() });
+        }
+        let port_text = &target[bracket_end + 2..];
+        let port = port_text.parse().map_err(|_| EncodeError::InvalidPort { port: port_text.to_owned() })?;
+        return Ok((host, port));
     }
     if let Some(colon) = target.rfind(':') {
         let host = target[..colon].to_owned();
-        let port: u16 = target[colon + 1..].parse().expect("invalid port in target");
-        (host, port)
+        if host.is_empty() || host.contains(':') {
+            return Err(EncodeError::InvalidTarget { target: target.to_owned() });
+        }
+        let port_text = &target[colon + 1..];
+        let port = port_text.parse().map_err(|_| EncodeError::InvalidPort { port: port_text.to_owned() })?;
+        Ok((host, port))
+    } else if target.is_empty() {
+        Err(EncodeError::InvalidTarget { target: target.to_owned() })
     } else {
-        (target.to_owned(), 443)
+        Ok((target.to_owned(), 443))
     }
 }
 
@@ -247,7 +319,7 @@ mod tests {
     fn encode_request_domain() {
         let uuid = [0x01u8; 16];
         let addons = &[0x0a, 0x10, b'x'];
-        let buf = encode_request(&uuid, addons, "example.com:443");
+        let buf = encode_request(&uuid, addons, "example.com:443").expect("encode request");
 
         assert_eq!(buf[0], 0x01); // version
         assert_eq!(&buf[1..17], &[0x01; 16]); // UUID
@@ -263,7 +335,7 @@ mod tests {
     #[test]
     fn encode_request_ipv4() {
         let uuid = [0xAA; 16];
-        let buf = encode_request(&uuid, &[], "1.2.3.4:80");
+        let buf = encode_request(&uuid, &[], "1.2.3.4:80").expect("encode request");
 
         // version(1) + uuid(16) + addonslen(1) + addons(0 bytes) + cmd(1) + port(2)
         let base = 1 + 16 + 1 + 1 + 2;
@@ -274,7 +346,7 @@ mod tests {
     #[test]
     fn encode_request_ipv6() {
         let uuid = [0xBB; 16];
-        let buf = encode_request(&uuid, &[], "[::1]:8080");
+        let buf = encode_request(&uuid, &[], "[::1]:8080").expect("encode request");
 
         // version(1) + uuid(16) + addonslen(1) + addons(0 bytes) + cmd(1) + port(2)
         let base = 1 + 16 + 1 + 1 + 2;
@@ -285,13 +357,13 @@ mod tests {
 
     #[test]
     fn encode_response_writes_default_success_header() {
-        assert_eq!(encode_response(&[]), vec![0x00, 0x00]);
+        assert_eq!(encode_response(&[]).expect("encode response"), vec![0x00, 0x00]);
     }
 
     #[test]
     fn parse_request_header_round_trips_domain_target() {
         let uuid = [0x44; 16];
-        let encoded = encode_request(&uuid, &[0x0a], "example.com:443");
+        let encoded = encode_request(&uuid, &[0x0a], "example.com:443").expect("encode request");
 
         let decoded = parse_request_header(&encoded).expect("domain request");
 
@@ -303,7 +375,7 @@ mod tests {
     #[test]
     fn parse_request_header_round_trips_ipv6_target() {
         let uuid = [0x55; 16];
-        let encoded = encode_request(&uuid, &[], "[2001:db8::1]:8443");
+        let encoded = encode_request(&uuid, &[], "[2001:db8::1]:8443").expect("encode request");
 
         let decoded = parse_request_header(&encoded).expect("ipv6 request");
 
@@ -314,20 +386,17 @@ mod tests {
     #[test]
     fn parse_request_header_reports_partial_buffers() {
         let uuid = [0x66; 16];
-        let encoded = encode_request(&uuid, &[], "example.com:443");
+        let encoded = encode_request(&uuid, &[], "example.com:443").expect("encode request");
 
         assert_eq!(Err(ParseRequestError::NeedMoreData), parse_request_header(&encoded[..8]));
     }
 
     #[test]
     fn parse_request_header_rejects_unknown_command() {
-        let mut encoded = encode_request(&[0x77; 16], &[], "example.com:443");
+        let mut encoded = encode_request(&[0x77; 16], &[], "example.com:443").expect("encode request");
         encoded[18] = 0x02;
 
-        assert_eq!(
-            Err(ParseRequestError::Invalid("unsupported VLESS command 2".to_string())),
-            parse_request_header(&encoded),
-        );
+        assert_eq!(Err(DecodeError::UnsupportedCommand(2)), parse_request_header(&encoded),);
     }
 
     #[test]
@@ -350,7 +419,7 @@ mod tests {
 
     #[test]
     fn encoded_request_uses_protocol_version_wire_byte() {
-        let encoded = encode_request(&[0x77; 16], &[], "example.com:443");
+        let encoded = encode_request(&[0x77; 16], &[], "example.com:443").expect("encode request");
         assert_eq!(encoded[0], ProtocolVersion::V1.wire_byte());
     }
 
@@ -366,6 +435,35 @@ mod tests {
     #[test]
     fn parse_response_header_returns_consumed_length_for_zero_addons() {
         assert_eq!(parse_response_header(&[0x00, 0x00]), Ok(2));
+    }
+
+    #[test]
+    fn parse_response_header_rejects_unknown_version() {
+        assert_eq!(parse_response_header(&[0x01, 0x00]), Err(DecodeError::UnsupportedResponseVersion(0x01)));
+    }
+
+    #[tokio::test]
+    async fn read_response_rejects_unknown_version() {
+        let mut input = &b"\x01\x00"[..];
+        let error = read_response(&mut input).await.expect_err("unknown response version must fail");
+        assert!(matches!(error, ReadResponseError::Decode(DecodeError::UnsupportedResponseVersion(0x01))));
+    }
+
+    #[test]
+    fn encode_request_returns_typed_errors_for_oversized_fields_and_bad_target() {
+        assert_eq!(
+            encode_request(&[0; 16], &vec![0; 256], "example.com:443"),
+            Err(EncodeError::AddonsTooLong { len: 256, max: 255 })
+        );
+        let domain = "a".repeat(256);
+        assert_eq!(
+            encode_request(&[0; 16], &[], &format!("{domain}:443")),
+            Err(EncodeError::DomainTooLong { len: 256, max: 255 })
+        );
+        assert_eq!(
+            encode_request(&[0; 16], &[], "example.com:not-a-port"),
+            Err(EncodeError::InvalidPort { port: "not-a-port".to_string() })
+        );
     }
 
     #[test]

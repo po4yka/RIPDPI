@@ -50,7 +50,7 @@ The current implementation includes:
 
 This means NaiveProxy is no longer a provisional transport. It is a supported runtime with explicit operational boundaries.
 
-The manager does not yet enforce the probe before every launch. That remaining startup guard is tracked by `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`.
+The manager does not yet enforce the structured probe before every launch; it still starts with the `--version` check. Treat mandatory probe/schema enforcement as an open service-integration gap until code and tests prove otherwise.
 
 ## Boundaries
 

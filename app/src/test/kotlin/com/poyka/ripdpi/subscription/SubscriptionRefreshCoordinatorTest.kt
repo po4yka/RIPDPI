@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -20,6 +21,7 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
 import okhttp3.OkHttpClient
+import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -199,6 +201,50 @@ class SubscriptionRefreshCoordinatorTest {
             assertEquals(SubscriptionLifecycleState.ACTIVE, subscription.lifecycleState)
             assertEquals(SubscriptionRefreshFailure.PARSE_ERROR, subscription.lastRefreshFailure)
             assertEquals(0L, subscription.lastUpdated)
+        }
+
+    @Test
+    fun `declared oversized payload is terminal without buffering`() =
+        runTest {
+            server.enqueue(response(200, "x".repeat((MaxSubscriptionPayloadBytes + 1L).toInt())))
+            val fixture = fixture(now = 2_000L, initialLifecycle = SubscriptionLifecycleState.ACTIVE)
+
+            val result = fixture.coordinator.refreshAll()
+            val subscription =
+                fixture.repository
+                    .list()
+                    .single()
+                    .subscription!!
+
+            assertEquals(SubscriptionRefreshRunResult.SUCCESS, result)
+            assertEquals(SubscriptionRefreshFailure.PAYLOAD_TOO_LARGE, subscription.lastRefreshFailure)
+            assertEquals(SubscriptionLifecycleState.UNAVAILABLE, subscription.lifecycleState)
+            assertTrue(subscription.lastRefreshFailure?.isTerminal == true)
+        }
+
+    @Test
+    fun `chunked oversized payload is stopped at max plus one`() =
+        runTest {
+            val payload = Buffer().write(ByteArray((MaxSubscriptionPayloadBytes + 1L).toInt()) { 'x'.code.toByte() })
+            server.enqueue(
+                MockResponse
+                    .Builder()
+                    .code(200)
+                    .chunkedBody(payload, 8_192)
+                    .build(),
+            )
+            val fixture = fixture(now = 2_000L, initialLifecycle = SubscriptionLifecycleState.ACTIVE)
+
+            fixture.coordinator.refreshAll()
+
+            assertEquals(
+                SubscriptionRefreshFailure.PAYLOAD_TOO_LARGE,
+                fixture.repository
+                    .list()
+                    .single()
+                    .subscription
+                    ?.lastRefreshFailure,
+            )
         }
 
     @Test
@@ -384,11 +430,15 @@ private class FakeBlobStore : ProxyGroupBlobStore {
 private class FakeAwgDao : AwgProfileDao {
     override fun observeProfiles(): Flow<List<AwgProfileEntity>> = flowOf(emptyList())
 
+    override suspend fun allProfiles(): List<AwgProfileEntity> = emptyList()
+
     override suspend fun getProfile(id: String): AwgProfileEntity? = null
 
     override suspend fun upsertProfile(profile: AwgProfileEntity) = Unit
 
     override suspend fun deleteProfile(profile: AwgProfileEntity) = Unit
+
+    override suspend fun deleteAll() = Unit
 }
 
 private class FakeAwgCredentialStore : AwgCredentialStore {

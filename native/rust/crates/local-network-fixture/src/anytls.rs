@@ -3,6 +3,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use rcgen::{CertificateParams, DistinguishedName, DnType, IsCa, KeyPair};
 use rustls::ServerConfig;
@@ -22,6 +23,9 @@ pub struct AnyTlsLoopbackConfig {
     pub close_after_update: bool,
     pub send_heart_request_after_settings: bool,
     pub send_alert_after_first_syn: Option<String>,
+    pub flood_first_stream_frames: usize,
+    pub tls_handshake_delay: Duration,
+    pub synack_delay: Duration,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -31,6 +35,7 @@ pub struct AnyTlsLoopbackObserved {
     pub settings_padding_md5: Vec<String>,
     pub syn_stream_ids: Vec<u32>,
     pub synack_successes: Vec<u32>,
+    pub fin_stream_ids: Vec<u32>,
     pub tcp_targets: Vec<String>,
     pub udp_magic_targets: Vec<String>,
     pub update_padding_scheme_count: usize,
@@ -172,6 +177,7 @@ async fn serve_anytls(
         let observed = Arc::clone(&observed);
         tokio::spawn(async move {
             observed.lock().expect("anytls observed").tls_session_count += 1;
+            tokio::time::sleep(config.tls_handshake_delay).await;
             let Ok(tls) = acceptor.accept(socket).await else {
                 return;
             };
@@ -251,12 +257,22 @@ async fn handle_connection(
                     if let Some(message) = &config.reject_next_synack {
                         write_frame(&mut tls, CMD_SYNACK, frame.stream_id, message.as_bytes()).await?;
                     } else {
+                        tokio::time::sleep(config.synack_delay).await;
                         observed.lock().expect("anytls observed").synack_successes.push(frame.stream_id);
                         write_frame(&mut tls, CMD_SYNACK, frame.stream_id, &[]).await?;
+                        if frame.stream_id == 1 {
+                            for _ in 0..config.flood_first_stream_frames {
+                                write_frame(&mut tls, CMD_PSH, frame.stream_id, b"stalled-stream").await?;
+                            }
+                        }
                     }
                 } else {
                     write_frame(&mut tls, CMD_PSH, frame.stream_id, &frame.data).await?;
                 }
+            }
+            CMD_FIN => {
+                streams.remove(&frame.stream_id);
+                observed.lock().expect("anytls observed").fin_stream_ids.push(frame.stream_id);
             }
             _ => {}
         }
@@ -278,6 +294,7 @@ struct FixtureFrame {
 const CMD_WASTE: u8 = 0;
 const CMD_SYN: u8 = 1;
 const CMD_PSH: u8 = 2;
+const CMD_FIN: u8 = 3;
 const CMD_SETTINGS: u8 = 4;
 const CMD_ALERT: u8 = 5;
 const CMD_UPDATE_PADDING_SCHEME: u8 = 6;

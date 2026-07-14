@@ -6,7 +6,7 @@ use tracing::debug;
 
 use crate::io_loop::packet::TcpFlowKey;
 
-use super::listener::remove_pending_listen;
+use super::eviction::remove_pending_listen;
 
 pub(super) fn abort_unresolved_sessions(
     socket_set: &mut SocketSet<'static>,

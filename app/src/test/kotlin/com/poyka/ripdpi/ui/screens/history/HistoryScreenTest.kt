@@ -120,7 +120,7 @@ class HistoryScreenTest {
                                                 tone = DiagnosticsTone.Positive,
                                             ),
                                         ),
-                                    modes = listOf("VPN"),
+                                    modes = persistentListOf("VPN"),
                                     statuses = persistentListOf("Running"),
                                 ),
                         ),

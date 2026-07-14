@@ -17,10 +17,16 @@ import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
+import javax.inject.Singleton
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RootHelperManagerTest {
+    @Test
+    fun `root helper has one process scoped DI owner`() {
+        assertTrue(RootHelperManager::class.java.isAnnotationPresent(Singleton::class.java))
+    }
+
     @Test
     fun `start uses app private socket and nonce paths`() =
         runTest {

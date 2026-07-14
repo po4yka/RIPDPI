@@ -624,7 +624,7 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeResultGroups(
                 ?.let { "$it results" }
                 ?: probe.probeType.replace('_', ' ').replaceFirstChar { it.uppercase() }
         }.map { (title, items) ->
-            DiagnosticsProbeGroupUiModel(title = title, items = items)
+            DiagnosticsProbeGroupUiModel(title = title, items = items.toImmutableList())
         }.sortedBy { it.title }
 
 private fun StrategyProbeCandidateSummary.toCandidateUiModel(
@@ -696,12 +696,13 @@ private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
                         DiagnosticsFieldUiModel("Suppression", it)
                     },
                     DiagnosticsFieldUiModel("Why trials stopped", recommendation.rationale),
-                ).filterNotNull(),
+                ).filterNotNull().toImmutableList(),
             signature =
                 recommendation.strategySignature
                     ?.let { signature ->
                         strategySignatureFields(signature)
-                    }.orEmpty(),
+                    }.orEmpty()
+                    .toImmutableList(),
         )
     } else {
         DiagnosticsStrategyProbeRecommendationUiModel(
@@ -729,11 +730,12 @@ private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
                         DiagnosticsFieldUiModel("Suppression", it)
                     },
                     DiagnosticsFieldUiModel("Why it won", recommendation.rationale),
-                ).filterNotNull(),
+                ).filterNotNull().toImmutableList(),
             signature =
                 recommendation.strategySignature
                     ?.let { signature ->
                         strategySignatureFields(signature)
-                    }.orEmpty(),
+                    }.orEmpty()
+                    .toImmutableList(),
         )
     }

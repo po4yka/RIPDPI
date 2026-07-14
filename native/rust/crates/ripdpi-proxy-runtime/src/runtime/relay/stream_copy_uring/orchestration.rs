@@ -1,6 +1,5 @@
 use std::io;
 use std::net::TcpStream;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -14,10 +13,10 @@ use super::cleanup::{clone_relay_sockets, configure_relay_sockets, detach_drop_s
 use super::inbound_zc::copy_inbound_zc;
 use super::outbound_desync::copy_outbound_half;
 
-/// io_uring-accelerated relay. Replaces `relay_streams` when ZC send is
-/// available. The inbound path (upstream -> client) uses `IORING_OP_SEND_ZC`
-/// via registered buffers. The outbound path uses the standard desync
-/// pipeline since desync strategies require fine-grained socket manipulation.
+/// io_uring-accelerated relay. Replaces `relay_streams` when registered fixed
+/// buffers are available. The inbound path (upstream -> client) uses
+/// `IORING_OP_WRITE_FIXED`; the outbound path uses the standard desync pipeline
+/// since desync strategies require fine-grained socket manipulation.
 pub(crate) fn relay_streams_uring(
     client: TcpStream,
     upstream: TcpStream,
@@ -42,14 +41,12 @@ pub(crate) fn relay_streams_uring(
     let timeouts = settings.group.timeouts();
     let down_done = peer_done.clone();
     let uring_clone = Arc::clone(uring);
-    let client_fd = sockets.client_writer.as_raw_fd();
     let down = thread::Builder::new()
         .name("ripdpi-dn-zc".into())
         .spawn(move || {
             copy_inbound_zc(
                 sockets.upstream_reader,
                 sockets.client_writer,
-                client_fd,
                 inbound_session,
                 down_done,
                 timeouts,

@@ -25,12 +25,12 @@ sealed interface BootResumeDecision {
 }
 
 /**
- * Pure boot-resume policy, factored out of [BootResumeWorker] so it can be
- * unit-tested without WorkManager / `PackageManager` plumbing.
+ * Pure boot-resume policy, factored out of [BootResumeCoordinator] so it can be
+ * unit-tested without broadcast / `PackageManager` plumbing.
  *
  * - No recorded pointer → nothing was ever active → [BootResumeDecision.Skip].
  * - Recorded profile no longer resumable (deleted) → [BootResumeDecision.Skip].
- * - `BOOT_COMPLETED` / `LOCKED_BOOT_COMPLETED` → resume the recorded mode.
+ * - `BOOT_COMPLETED` → resume the recorded mode after credential unlock.
  * - `MY_PACKAGE_REPLACED` → resume ONLY if the session was running at update
  *   time ([wasRunningAtUpdate]); a deliberately-stopped tunnel must not be
  *   silently resurrected by an app update.
@@ -50,7 +50,7 @@ internal fun decideBootResume(
             BootResumeDecision.Skip("recorded profile is no longer resumable")
         }
 
-        action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
+        action == Intent.ACTION_BOOT_COMPLETED -> {
             BootResumeDecision.Resume(pointer.mode)
         }
 

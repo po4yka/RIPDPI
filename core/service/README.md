@@ -26,11 +26,9 @@ correct side:
 | Package | Role |
 |---------|------|
 | `service.*` | The **coordinator / DI-wiring layer**. Hilt `@Module`s (`service.session.{proxy,vpn}`) and the per-mode runtime coordinators (`service.runtime.{proxy,vpn}`) that *compose* implementations into a coherent runtime. Small, organized, sub-packaged. |
-| `services.*` | The **implementation layer** — ~165 flat files plus organized sub-packages (`services.dns`, `.leak`, `.lifecycle`, `.network`, `.redaction`, `.selector`). The supervisors, policy resolvers, DNS pipeline, relay managers, and the two Android `Service` classes live here. |
+| `services.*` | The **implementation layer** — flat files plus organized sub-packages (`services.dns`, `.leak`, `.lifecycle`, `.network`, `.redaction`, `.selector`). The supervisors, policy resolvers, DNS pipeline, relay managers, and the two Android `Service` classes live here. |
 
-`service.*` depends on `services.*`, never the reverse. New cross-cutting
-infrastructure should land in an organized sub-package, not as another flat
-`services/*.kt` file.
+The package split expresses primary ownership, not a strict one-way dependency rule: a few lifecycle and telemetry collaborators cross the boundary in both directions. New cross-cutting infrastructure should land in an organized sub-package, not as another flat `services/*.kt` file.
 
 Other `:core:service` packages — `hosts`, `keystore`, `security`, `storage`,
 `strategy`, `utility` — are narrow support packages outside the scope of this

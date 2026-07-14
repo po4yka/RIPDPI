@@ -17,6 +17,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -113,7 +114,7 @@ class XrayProfileImportScreenTest {
                                     XrayCapability.VPN_PRIVACY,
                                     XrayCapability.RELAY,
                                     XrayCapability.ANTI_DPI,
-                                ),
+                                ).toImmutableList(),
                         ),
                     onBack = {},
                     onSelectOption = {},

@@ -1,5 +1,5 @@
 use std::io;
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, OwnedFd};
 
 use ripdpi_root_helper_protocol::{CMD_SEND_SEQOVL_TCP, SeqOvlParams};
 
@@ -11,14 +11,14 @@ impl RootHelperClient {
     /// Perform TCP sequence overlap via the helper. Returns replacement fd.
     pub fn send_seqovl_tcp(
         &self,
-        stream_fd: RawFd,
+        stream_fd: BorrowedFd<'_>,
         real_chunk: &[u8],
         fake_prefix: &[u8],
         default_ttl: u8,
         md5sig: bool,
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,
-    ) -> io::Result<Option<RawFd>> {
+    ) -> io::Result<Option<OwnedFd>> {
         let params = command_params(SeqOvlParams {
             real_chunk: real_chunk.to_vec(),
             fake_prefix: fake_prefix.to_vec(),

@@ -1,7 +1,8 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::{Arc, Barrier, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
 use rustls::client::danger::ServerCertVerifier;
@@ -25,6 +26,7 @@ const QUICK_LEVELS: &[u16] = &[1, 4];
 const AUDIT_LEVELS: &[u16] = &[1, 2, 4, 8];
 const MAX_LAUNCH_SPREAD_MS: u32 = 400;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const CELL_RESULT_DEADLINE: Duration = Duration::from_secs(6);
 
 pub(in crate::engine::runners) struct StrategyConnectionConcurrencyRunner;
 
@@ -232,42 +234,74 @@ where
     F: Fn(&str, SocketAddr, &str) -> Result<T, String> + Sync,
 {
     let start_barrier = Arc::new(Barrier::new(usize::from(parallelism)));
-    let finish_barrier = Arc::new(Barrier::new(usize::from(parallelism)));
     let launch_times = Arc::new(Mutex::new(Vec::with_capacity(usize::from(parallelism))));
     let active = Arc::new(AtomicU16::new(0));
     let peak = Arc::new(AtomicU16::new(0));
     let started = Instant::now();
-    let outcomes = std::thread::scope(|scope| {
+    let outcomes: Vec<Result<(), String>> = std::thread::scope(|scope| {
+        let (outcome_tx, outcome_rx) = mpsc::channel();
         let mut handles = Vec::with_capacity(usize::from(parallelism));
-        for _ in 0..parallelism {
+        let mut release_txs = Vec::with_capacity(usize::from(parallelism));
+        for index in 0..parallelism {
             let start_barrier = Arc::clone(&start_barrier);
-            let finish_barrier = Arc::clone(&finish_barrier);
             let launch_times = Arc::clone(&launch_times);
             let active = Arc::clone(&active);
             let peak = Arc::clone(&peak);
+            let outcome_tx = outcome_tx.clone();
+            let (release_tx, release_rx) = mpsc::sync_channel(1);
+            release_txs.push(release_tx);
             let connect = &connect;
             handles.push(scope.spawn(move || {
                 start_barrier.wait();
-                launch_times.lock().expect("launch times lock").push(Instant::now());
-                // Keep the successful owned TLS stream in `result` until every
-                // peer has finished its handshake. The barrier therefore
-                // measures real simultaneously-live streams, not just threads.
-                let result = connect(target.host.as_str(), address, profile);
-                let success = result.is_ok();
-                if success {
-                    let now_active = active.fetch_add(1, Ordering::AcqRel) + 1;
-                    peak.fetch_max(now_active, Ordering::AcqRel);
+                launch_times.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(Instant::now());
+                match catch_unwind(AssertUnwindSafe(|| connect(target.host.as_str(), address, profile))) {
+                    Ok(Ok(stream)) => {
+                        let now_active = active.fetch_add(1, Ordering::AcqRel) + 1;
+                        peak.fetch_max(now_active, Ordering::AcqRel);
+                        let _ = outcome_tx.send((usize::from(index), Ok(())));
+                        let _ = release_rx.recv_timeout(CELL_RESULT_DEADLINE);
+                        drop(stream);
+                        active.fetch_sub(1, Ordering::AcqRel);
+                    }
+                    Ok(Err(error)) => {
+                        let signal = classify_error(&error).to_string();
+                        let _ = outcome_tx.send((usize::from(index), Err(signal)));
+                    }
+                    Err(_) => {
+                        let _ = outcome_tx.send((usize::from(index), Err("connection_freeze".to_string())));
+                    }
                 }
-                finish_barrier.wait();
-                if success {
-                    active.fetch_sub(1, Ordering::AcqRel);
-                }
-                result.map(|_| ()).map_err(|error| classify_error(&error).to_string())
             }));
         }
-        handles
+        drop(outcome_tx);
+
+        let deadline = Instant::now() + CELL_RESULT_DEADLINE;
+        let mut outcomes: Vec<Option<Result<(), String>>> = (0..parallelism).map(|_| None).collect();
+        let mut received = 0usize;
+        while received < usize::from(parallelism) {
+            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
+                break;
+            };
+            match outcome_rx.recv_timeout(remaining) {
+                Ok((index, outcome)) if outcomes.get(index).is_some_and(Option::is_none) => {
+                    outcomes[index] = Some(outcome);
+                    received += 1;
+                }
+                Ok(_) => {}
+                Err(mpsc::RecvTimeoutError::Timeout | mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+        for release in release_txs {
+            let _ = release.send(());
+        }
+        for (index, handle) in handles.into_iter().enumerate() {
+            if handle.join().is_err() {
+                outcomes[index] = Some(Err("connection_freeze".to_string()));
+            }
+        }
+        outcomes
             .into_iter()
-            .map(|handle| handle.join().unwrap_or_else(|_| Err("connection_freeze".to_string())))
+            .map(|outcome| outcome.unwrap_or_else(|| Err("connection_freeze".to_string())))
             .collect::<Vec<_>>()
     });
     let times = launch_times.lock().expect("launch times lock");
@@ -523,6 +557,30 @@ mod tests {
         );
         assert_eq!(cell.status, ClassifierStatus::Healthy);
         assert_eq!(cell.observed_peak_parallelism, 4);
+    }
+
+    #[test]
+    fn panicking_connector_is_reported_without_stranding_peer_threads() {
+        let calls = AtomicU16::new(0);
+        let started = Instant::now();
+        let cell = execute_cell_with(
+            &target(),
+            "fixture",
+            "127.0.0.1:443".parse().expect("address"),
+            "chrome_stable",
+            4,
+            |_, _, _| {
+                if calls.fetch_add(1, Ordering::AcqRel) == 0 {
+                    panic!("synthetic connector panic");
+                }
+                Ok(())
+            },
+        );
+
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(cell.success_count, 3);
+        assert_eq!(cell.failure_count, 1);
+        assert!(cell.block_signals.contains(&"connection_freeze".to_string()));
     }
 
     #[test]

@@ -1,5 +1,46 @@
 use super::*;
 
+#[derive(Default)]
+struct ActiveSocketRegistryState {
+    next_id: u64,
+    sockets: BTreeMap<u64, TcpStream>,
+}
+
+#[derive(Clone, Default)]
+pub(in crate::runtime) struct ActiveSocketRegistry {
+    inner: std::sync::Arc<std::sync::Mutex<ActiveSocketRegistryState>>,
+}
+
+impl ActiveSocketRegistry {
+    fn register(&self, socket: &TcpStream) -> io::Result<ActiveSocketGuard> {
+        let owned = socket.try_clone()?;
+        let mut state = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let id = state.next_id;
+        state.next_id = state.next_id.checked_add(1).ok_or_else(|| io::Error::other("active socket id exhausted"))?;
+        state.sockets.insert(id, owned);
+        Ok(ActiveSocketGuard { id, registry: self.clone() })
+    }
+
+    fn shutdown_all(&self) {
+        let state = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        for socket in state.sockets.values() {
+            let _ = socket.shutdown(std::net::Shutdown::Both);
+        }
+    }
+}
+
+pub(in crate::runtime) struct ActiveSocketGuard {
+    id: u64,
+    registry: ActiveSocketRegistry,
+}
+
+impl Drop for ActiveSocketGuard {
+    fn drop(&mut self) {
+        let mut state = self.registry.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.sockets.remove(&self.id);
+    }
+}
+
 impl RuntimeState {
     pub(in crate::runtime) fn listener_client_capacity(&self) -> usize {
         self.listener_settings.client_capacity
@@ -9,6 +50,12 @@ impl RuntimeState {
     }
     pub(in crate::runtime) fn acquire_client_slot(&self, client_capacity: usize) -> Option<ClientSlotGuard> {
         ClientSlotGuard::acquire(self.active_clients.clone(), client_capacity)
+    }
+    pub(in crate::runtime) fn register_active_tcp_socket(&self, socket: &TcpStream) -> io::Result<ActiveSocketGuard> {
+        self.active_tcp_sockets.register(socket)
+    }
+    pub(in crate::runtime) fn shutdown_active_tcp_sockets(&self) {
+        self.active_tcp_sockets.shutdown_all();
     }
     pub(in crate::runtime) fn note_listener_started(
         &self,

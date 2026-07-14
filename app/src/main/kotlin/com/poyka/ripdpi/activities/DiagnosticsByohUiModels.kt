@@ -23,9 +23,8 @@ data class DiagnosticsByohDomainUiModel(
 @Stable
 data class DiagnosticsByohCompatibilityToolUiModel(
     val state: DiagnosticsByohCompatibilityState = DiagnosticsByohCompatibilityState.Idle,
-    val summary: String = "Advanced - requires a user-controlled HTTPS server.",
-    val requirementsSummary: String =
-        "Configure a host you control to answer HTTPS on the destination IP and serve at least 128 KiB.",
+    val summary: String = "",
+    val requirementsSummary: String = "",
     val dstIp: String = "",
     val urlPath: String = "/1MB.bin",
     val useSyntheticFixture: Boolean = true,

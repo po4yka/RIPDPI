@@ -77,7 +77,7 @@ class SharedPreferencesSelectorSelectionStore
 
         /** Clears every persisted selection. Intended for tests and reset flows. */
         fun clearAll() {
-            preferences.edit().clear().apply()
+            preferences.edit().clear().commit()
             synchronized(flows) {
                 flows.values.forEach { it.value = null }
             }

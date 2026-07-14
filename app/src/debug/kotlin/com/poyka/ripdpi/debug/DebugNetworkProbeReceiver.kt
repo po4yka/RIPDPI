@@ -34,9 +34,11 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
             val (probeResult, activityResultCode) =
                 runCatching {
                     if (intent.action == ActionDebugProbe) {
+                        val requestedOutput = intent.getStringExtra(ExtraOutput)
+                        require(requestedOutput.isNullOrBlank()) { "Custom debug probe output paths are not supported" }
                         val config = NetworkProbeConfig.fromIntent(intent)
                         val result = DebugLocalNetworkProbeRunner(context.applicationContext).run(config)
-                        val output = result.writeToOutput(context, intent.getStringExtra(ExtraOutput))
+                        val output = result.writeToOutput(context, requestedOutput)
                         extras.putString(ExtraOutput, output.absolutePath)
                         extras.putString(ExtraVerdict, result.verdict.name)
                         DebugProbeDispatchResult

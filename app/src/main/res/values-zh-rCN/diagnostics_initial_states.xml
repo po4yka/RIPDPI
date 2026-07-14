@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">将直接 UDP/53 响应与内置 DPI 域名的 DoH 对照结果进行比较。</string>
+    <string name="diagnostics_dns_availability_idle_summary">检查公共 UDP 和 DoH 解析器的可用性与延迟。</string>
+    <string name="diagnostics_domain_reachability_idle_summary">检查内置 DPI 域名的 TLS 1.3、TLS 1.2 和 HTTP 可达性。</string>
+    <string name="diagnostics_rkn_idle_headline">RKN 封锁诊断</string>
+    <string name="diagnostics_rkn_idle_confidence_note">在判定封锁之前，请比较对照目标组和测试目标组。</string>
+    <string name="diagnostics_rkn_idle_summary">运行内置的对照与黑名单探测，并对汇总结论应用保护措施。</string>
+    <string name="diagnostics_compression_idle_summary">检查内置目标对 HTTP gzip、deflate、Brotli 和可选 Zstd 的支持。</string>
+    <string name="diagnostics_tcp16_idle_summary">检查内置网络目标的 TCP16 大标头行为。</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">对 TCP16 标记的 ASN 运行 SNI 兼容性检查。</string>
+    <string name="diagnostics_byoh_idle_summary">高级功能 — 需要用户自行控制的 HTTPS 服务器。</string>
+    <string name="diagnostics_byoh_requirements_summary">配置一个由你控制的主机，使其在目标 IP 上响应 HTTPS 并提供至少 128 KiB 的内容。</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">比较白名单 URL 组与普通 URL 组，以检测粗粒度路由限制。</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">获取提供商子网，并抽样检查缓存的 /24 范围是否存在白名单行为。</string>
+    <string name="diagnostics_dpi_suite_idle_summary">将选定的 DPI 探测作为一个完整套件运行。</string>
+</resources>

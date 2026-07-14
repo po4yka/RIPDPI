@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
+import kotlinx.collections.immutable.toImmutableList
 
 internal fun AppSettings.buildAutolearnUiState(
     proxyTelemetry: NativeRuntimeSnapshot,
@@ -97,7 +98,7 @@ internal fun AppSettings.buildRoutingProtectionUiState(
                 id = preset.id,
                 title = preset.title,
                 enabled = preset.id in enabledPresetIds,
-                matchedPackages = preset.matchedPackages,
+                matchedPackages = preset.matchedPackages.toImmutableList(),
                 detectionMethod = preset.detectionMethod,
                 fixCoverage = preset.fixCoverage,
                 limitations = preset.limitations,
@@ -107,23 +108,24 @@ internal fun AppSettings.buildRoutingProtectionUiState(
     val suggestions = buildRoutingProtectionSuggestions(presets, snapshot, serviceTelemetry)
     return RoutingProtectionUiState(
         policyMode = normalizeAppRoutingPolicyMode(appRoutingPolicyMode),
-        enabledPresetIds = enabledPresetIds.toList().sorted(),
+        enabledPresetIds = enabledPresetIds.toList().sorted().toImmutableList(),
         antiCorrelationEnabled = antiCorrelationEnabled,
         dhtMitigationMode = normalizeDhtMitigationMode(dhtMitigationMode),
         fullTunnelMode = fullTunnelMode,
-        presets = presets,
+        presets = presets.toImmutableList(),
         detectedApps =
-            snapshot.detectedApps.map { app ->
-                RoutingProtectionDetectedAppUiState(
-                    packageName = app.packageName,
-                    presetTitle = app.presetTitle,
-                    detectionMethod = app.detectionMethod,
-                    fixCoverage = app.fixCoverage,
-                    vpnDetection = app.vpnDetection,
-                    severity = app.severity,
-                )
-            },
-        suggestions = suggestions,
+            snapshot.detectedApps
+                .map { app ->
+                    RoutingProtectionDetectedAppUiState(
+                        packageName = app.packageName,
+                        presetTitle = app.presetTitle,
+                        detectionMethod = app.detectionMethod,
+                        fixCoverage = app.fixCoverage,
+                        vpnDetection = app.vpnDetection,
+                        severity = app.severity,
+                    )
+                }.toImmutableList(),
+        suggestions = suggestions.toImmutableList(),
     )
 }
 

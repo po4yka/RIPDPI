@@ -1,5 +1,5 @@
 use std::io;
-use std::net::TcpStream;
+use std::net::{Shutdown, TcpStream};
 
 use crate::runtime::state::{ClientSlotGuard, RuntimeState};
 
@@ -12,6 +12,15 @@ pub(crate) struct ClientJob {
 pub(crate) fn process_client_job(job: ClientJob) {
     let ClientJob { client, state, slot } = job;
     let _slot = slot;
+    let _active_client = match state.register_active_tcp_socket(&client) {
+        Ok(guard) => guard,
+        Err(err) => {
+            state.note_client_error(&err);
+            state.note_client_finished();
+            let _ = client.shutdown(Shutdown::Both);
+            return;
+        }
+    };
     let result = super::super::handshake::handle_client(client, &state);
     if let Err(err) = &result {
         let shutting_down = state.shutdown_requested();

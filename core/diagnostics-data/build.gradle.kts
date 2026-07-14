@@ -2,6 +2,7 @@ import com.android.build.api.dsl.LibraryExtension
 import com.google.devtools.ksp.gradle.KspExtension
 
 plugins {
+    id("ripdpi.android.coverage")
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")
     id("ripdpi.android.quality")

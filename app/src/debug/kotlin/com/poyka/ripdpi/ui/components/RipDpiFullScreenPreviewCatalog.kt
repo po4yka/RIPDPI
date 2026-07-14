@@ -57,6 +57,7 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 // -- Home state variants --------------------------------------------------------
 
@@ -421,7 +422,7 @@ internal fun RipDpiHistoryPreviewScene() {
                                         metrics = persistentListOf(),
                                         tone = DiagnosticsTone.Negative,
                                     ),
-                                ),
+                                ).toImmutableList(),
                         ),
                 ),
             onBack = {},

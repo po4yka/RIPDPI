@@ -100,7 +100,7 @@ def _validate_gate_tests(surface_id: str, gate_tests: object) -> set[str]:
             raise ValueError(f"surface {surface_id} gate {gate_id} references missing path: {path}")
         if not isinstance(command, str) or not command.strip():
             raise ValueError(f"surface {surface_id} gate {gate_id} is missing command")
-        if not any(token in command for token in ("cargo test", "./gradlew", "python3")):
+        if not any(token in command for token in ("cargo test --locked", "./gradlew", "python3")):
             raise ValueError(f"surface {surface_id} gate {gate_id} command must be an executable test/check")
         seen.add(gate_id)
     missing = REQUIRED_GATE_IDS[surface_id] - seen

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.services
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /**
@@ -37,6 +39,8 @@ class VpnServiceSessionLifecycleTest {
         data object ServerStop : Event
 
         data object Unregister : Event
+
+        data object Register : Event
     }
 
     private val events = mutableListOf<Event>()
@@ -76,6 +80,66 @@ class VpnServiceSessionLifecycleTest {
             socketPath,
             provider.current(),
         )
+    }
+
+    @Test
+    fun `registration failure withdraws path and stops socket server`() {
+        val provider = ActiveProtectSocketPathProvider()
+        val registrationFailure = IllegalStateException("registration failed")
+
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                establishProtectPath(
+                    startProtectSocketServer = { events += Event.ServerStart },
+                    advertiseProtectPath = {
+                        provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path")
+                        events += Event.PathSet
+                    },
+                    registerNativeProtect = {
+                        events += Event.Register
+                        throw registrationFailure
+                    },
+                    rollbackProtection = {
+                        provider.clear()
+                        events += Event.PathClear
+                        events += Event.Unregister
+                        events += Event.ServerStop
+                    },
+                )
+            }
+
+        assertSame(registrationFailure, thrown)
+        assertEquals(
+            listOf(
+                Event.ServerStart,
+                Event.PathSet,
+                Event.Register,
+                Event.PathClear,
+                Event.Unregister,
+                Event.ServerStop,
+            ),
+            events,
+        )
+        assertNull(provider.current())
+    }
+
+    @Test
+    fun `registration failure retains rollback failure as suppressed`() {
+        val registrationFailure = IllegalStateException("registration failed")
+        val rollbackFailure = IllegalArgumentException("rollback failed")
+
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                establishProtectPath(
+                    startProtectSocketServer = {},
+                    advertiseProtectPath = {},
+                    registerNativeProtect = { throw registrationFailure },
+                    rollbackProtection = { throw rollbackFailure },
+                )
+            }
+
+        assertSame(registrationFailure, thrown)
+        assertEquals(listOf(rollbackFailure), thrown.suppressed.toList())
     }
 
     /**

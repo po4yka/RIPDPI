@@ -37,7 +37,7 @@
         {
           "id": "rust-diagnostics-contract-fixtures",
           "path": "native/rust/crates/ripdpi-monitor-engine/tests/contract_fixtures.rs",
-          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine --test contract_fixtures"
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine --test contract_fixtures"
         },
         {
           "id": "rust-diagnostics-schema-contract",
@@ -107,7 +107,7 @@
         {
           "id": "rust-proxy-setting-feature-contract",
           "path": "native/rust/crates/feature-contract-harness/tests/proxy_setting.rs",
-          "command": "cargo test --manifest-path native/rust/Cargo.toml -p feature-contract-harness proxy_setting"
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p feature-contract-harness proxy_setting"
         }
       ],
       "invariants": [
@@ -164,7 +164,7 @@
         {
           "id": "rust-proxy-config-round-trip",
           "path": "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs",
-          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-proxy-config --test round_trip"
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-proxy-config --test round_trip"
         },
         {
           "id": "rust-tunnel-config-schema",
@@ -303,12 +303,12 @@
         {
           "id": "rust-android-telemetry-contracts",
           "path": "native/rust/crates/ripdpi-android-telemetry-adapter/src/tests.rs",
-          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-android-telemetry-adapter"
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-android-telemetry-adapter"
         },
         {
           "id": "rust-tunnel-telemetry-contracts",
           "path": "native/rust/crates/ripdpi-tunnel-android/src/telemetry/tests.rs",
-          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-android telemetry"
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-android telemetry"
         },
         {
           "id": "rust-auxiliary-telemetry-contracts",

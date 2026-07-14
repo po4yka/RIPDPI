@@ -4,13 +4,13 @@ import android.Manifest
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -39,17 +39,42 @@ class DetectionPermissionStateOwnerTest {
     @Test
     @Config(sdk = [33])
     fun `requiredPermissions includes nearby wifi on tiramisu and above`() {
-        val perms = DetectionPermissionStateOwner.requiredPermissions().toList()
-        assertTrue(Manifest.permission.NEARBY_WIFI_DEVICES in perms)
-        assertEquals(3, perms.size)
+        assertEquals(
+            setOf(
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.NEARBY_WIFI_DEVICES,
+            ),
+            DetectionPermissionStateOwner.requiredPermissions().toSet(),
+        )
     }
 
     @Test
     @Config(sdk = [30])
     fun `requiredPermissions omits nearby wifi below tiramisu`() {
-        val perms = DetectionPermissionStateOwner.requiredPermissions().toList()
-        assertFalse(Manifest.permission.NEARBY_WIFI_DEVICES in perms)
-        assertEquals(2, perms.size)
+        assertEquals(
+            setOf(
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ),
+            DetectionPermissionStateOwner.requiredPermissions().toSet(),
+        )
+    }
+
+    @Test
+    @Config(sdk = [33])
+    fun `common manifest declares every detection runtime permission`() {
+        val declaredPermissions =
+            Regex("""<uses-permission\s+[^>]*android:name="([^"]+)"""")
+                .findAll(commonManifestFile().readText())
+                .map { match -> match.groupValues[1] }
+                .toSet()
+        val missingPermissions = DetectionPermissionStateOwner.requiredPermissions().toSet() - declaredPermissions
+
+        assertTrue(
+            "Common manifest is missing Detection permissions: $missingPermissions",
+            missingPermissions.isEmpty(),
+        )
     }
 
     @Test
@@ -90,4 +115,10 @@ class DetectionPermissionStateOwnerTest {
                 .isEmpty(),
         )
     }
+
+    private fun commonManifestFile(): File =
+        listOf(
+            File("src/main/AndroidManifest.xml"),
+            File("app/src/main/AndroidManifest.xml"),
+        ).first { file -> file.exists() }
 }

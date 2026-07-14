@@ -3306,6 +3306,7 @@ fake_burst 3</string>
     <string name="backup_restore_success">备份已恢复</string>
     <string name="backup_restore_unsupported_version">此备份（版本 %1$d）比本应用支持的版本（版本 %2$d）更新</string>
     <string name="backup_restore_malformed">此文件不是有效的备份</string>
+    <string name="backup_restore_integrity_failure">恢复后无法保证数据完整性。请重启应用并检查您的配置文件。</string>
     <string name="backup_restore_nothing_selected">请至少选择一个要恢复的类别</string>
     <string name="backup_import_preview_title">查看备份</string>
     <string name="backup_import_preview_schema">备份版本 %1$d，由应用 %2$s 创建</string>
@@ -4102,4 +4103,21 @@ fake_burst 3</string>
     <string name="subscription_home_expired_body">%1$s 已无法更新。现有配置仍可使用。</string>
     <string name="subscription_home_invalidated_title">订阅不可用</string>
     <string name="subscription_home_invalidated_body">%1$s 已到期或被撤销。现有配置仍可使用。</string>
+    <string name="diagnostics_sparkline_chart_description">%1$s 趋势，共 %2$d 个样本</string>
+    <string name="diagnostics_sparkline_selected_state">第 %1$d 个样本，共 %2$d 个：%3$s</string>
+    <string name="diagnostics_sparkline_latest_state">最新值：%1$s</string>
+    <string name="diagnostics_sparkline_previous_sample">上一个样本</string>
+    <string name="diagnostics_sparkline_next_sample">下一个样本</string>
+    <string name="diagnostics_sparkline_clear_selection">清除选择</string>
+    <string name="backup_encryption_create_title">加密完整备份</string>
+    <string name="backup_encryption_create_body">创建至少 8 个字符的密码短语。以后在任何设备上恢复此备份时都需要它。</string>
+    <string name="backup_encryption_create_action">加密并保存</string>
+    <string name="backup_encryption_unlock_title">解锁加密备份</string>
+    <string name="backup_encryption_unlock_body">输入创建此完整备份时使用的密码短语。</string>
+    <string name="backup_encryption_unlock_action">解锁</string>
+    <string name="backup_encryption_unlock_failed">密码短语错误或备份已被修改。</string>
+    <string name="backup_encryption_passphrase">备份密码短语</string>
+    <string name="backup_encryption_confirm_passphrase">确认密码短语</string>
+    <string name="backup_encryption_passphrase_mismatch">密码短语不一致</string>
+    <string name="backup_import_legacy_full_warning">此旧版完整备份未加密。请仅从可信来源恢复，然后重新导出新的加密备份。</string>
 </resources>

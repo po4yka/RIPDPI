@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
@@ -224,11 +225,11 @@ internal fun ScanSection(
                 item {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
                 }
-                items(
+                itemsIndexed(
                     items = livePreviewProbes,
-                    key = { probe -> "${probe.target}-${probe.outcome}" },
-                    contentType = { "live_probe" },
-                ) { probe ->
+                    key = { index, _ -> liveProbeItemKey(progress.completedProbes.size, index) },
+                    contentType = { _, _ -> "live_probe" },
+                ) { _, probe ->
                     AnimatedVisibility(
                         visible = true,
                         enter =
@@ -314,6 +315,11 @@ internal fun ScanSection(
         }
     }
 }
+
+internal fun liveProbeItemKey(
+    completedProbeCount: Int,
+    previewIndex: Int,
+): Int = completedProbeCount - previewIndex - 1
 
 @Composable
 private fun DiagnosisSummaryCard(

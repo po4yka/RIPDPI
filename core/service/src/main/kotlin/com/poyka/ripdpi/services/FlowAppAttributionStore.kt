@@ -18,7 +18,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** UID sentinel for an unresolvable flow owner (matches `Process.INVALID_UID`). */
-private const val InvalidUid = -1
+internal const val InvalidUid = -1
 
 /** Bytes of the SHA-256 prefix kept in the digest — mirrors the Rust 8-byte prefix. */
 private const val DigestPrefixBytes = 8
@@ -98,6 +98,18 @@ interface FlowAppAttributionStore {
         remotePort: Int,
     )
 
+    /** Resolve and record the flow, returning its UID for native admission or [InvalidUid]. */
+    fun resolveFlowUid(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ): Int {
+        noteFlow(protocol, localIp, localPort, remoteIp, remotePort)
+        return InvalidUid
+    }
+
     /** Look up the attribution for a learning signal's `ipSetDigest`. */
     fun lookup(ipSetDigest: String): FlowAttribution.Attributed?
 
@@ -126,12 +138,24 @@ class DefaultFlowAppAttributionStore
             remoteIp: String,
             remotePort: Int,
         ) {
+            resolveFlowUid(protocol, localIp, localPort, remoteIp, remotePort)
+        }
+
+        override fun resolveFlowUid(
+            protocol: Int,
+            localIp: String,
+            localPort: Int,
+            remoteIp: String,
+            remotePort: Int,
+        ): Int {
             val digest = flowAttributionDigest(remoteIp)
             // Overwrite rather than putIfAbsent: the native queue already dedupes
             // noteFlow calls per destination (one per dest until evict_flow on
             // close), so a fresh call here means the destination was re-seen and
             // must be re-resolved -- e.g. after a different app reuses the IP.
-            attributions[digest] = resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
+            val (uid, attribution) = resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
+            attributions[digest] = attribution
+            return uid
         }
 
         override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? =
@@ -158,27 +182,28 @@ class DefaultFlowAppAttributionStore
             localPort: Int,
             remoteIp: String,
             remotePort: Int,
-        ): FlowAttribution {
+        ): Pair<Int, FlowAttribution> {
             // getConnectionOwnerUid is API 29+. Below that, attribution is unavailable.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return FlowAttribution.Unattributed
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return InvalidUid to FlowAttribution.Unattributed
             return runCatching {
                 val connectivity =
                     context.getSystemService(ConnectivityManager::class.java)
-                        ?: return@runCatching FlowAttribution.Unattributed
+                        ?: return@runCatching InvalidUid to FlowAttribution.Unattributed
                 val uid =
                     connectivity.getConnectionOwnerUid(
                         protocol,
                         InetSocketAddress(InetAddress.getByName(localIp), localPort),
                         InetSocketAddress(InetAddress.getByName(remoteIp), remotePort),
                     )
-                decideAttribution(uid, context.packageManager.getPackagesForUid(uid)) { pkg ->
-                    runCatching {
-                        PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(pkg, 0))
-                    }.getOrNull()
-                }
+                uid to
+                    decideAttribution(uid, context.packageManager.getPackagesForUid(uid)) { pkg ->
+                        runCatching {
+                            PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(pkg, 0))
+                        }.getOrNull()
+                    }
             }.getOrElse { error ->
                 log.w(error) { "flow owner resolution failed" }
-                FlowAttribution.Unattributed
+                InvalidUid to FlowAttribution.Unattributed
             }
         }
 

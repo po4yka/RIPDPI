@@ -9,8 +9,9 @@ use crate::platform::NoopMonitorPlatformBridge;
 use crate::types::{EngineScanRequestWire, SharedState};
 use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
 
-use super::log_level::native_log_level_from_str;
-use super::validation::validate_scan_request;
+use super::log_level::parse_native_log_level;
+use super::reaper::WORKER_REAPER;
+use super::validation::ValidatedScanRequest;
 use super::wire_json::{passive_events_to_json, progress_to_json, report_to_json};
 use super::worker::{join_finished_worker_locked, spawn_scan_worker};
 
@@ -21,12 +22,6 @@ pub struct MonitorSession {
     pub(super) tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(super) platform_bridge: Arc<dyn MonitorPlatformBridge>,
     pub(super) candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
-}
-
-impl Default for MonitorSession {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl MonitorSession {
@@ -73,15 +68,8 @@ impl MonitorSession {
     }
 
     pub fn start_scan(&self, session_id: String, request: EngineScanRequestWire) -> Result<(), String> {
-        validate_scan_request(&request)?;
-        let native_log_level = request
-            .native_log_level
-            .as_deref()
-            .map(|value| {
-                native_log_level_from_str(value)
-                    .ok_or_else(|| format!("Unsupported diagnostics nativeLogLevel: {value}"))
-            })
-            .transpose()?;
+        let request = ValidatedScanRequest::try_from(request)?;
+        let native_log_level = parse_native_log_level(request.as_wire().native_log_level.as_deref())?;
         let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
         join_finished_worker_locked(&mut worker_guard);
         if worker_guard.is_some() {
@@ -93,7 +81,7 @@ impl MonitorSession {
             let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
             shared.progress = None;
             shared.report = None;
-            shared.log_context = request.log_context.clone();
+            shared.log_context = request.as_wire().log_context.clone();
         }
         let domain_request = request.into();
         *worker_guard = Some(spawn_scan_worker(
@@ -128,9 +116,20 @@ impl MonitorSession {
         passive_events_to_json(self.platform_bridge.drain_passive_events())
     }
 
+    /// Cancel the active scan and retire its worker without blocking the caller.
+    ///
+    /// An unfinished worker is joined by the process-wide diagnostics reaper.
+    /// This keeps JNI teardown bounded even when a probe is inside blocking I/O;
+    /// the worker still owns its state until it exits and is reaped.
     pub fn destroy(&self) {
         self.cancel_scan();
-        self.try_join_worker();
+        let handle = self.worker.lock().ok().and_then(|mut worker_guard| worker_guard.take());
+        if let Some(handle) = handle
+            && let Err(handle) = WORKER_REAPER.reap(handle)
+        {
+            log::error!("detaching diagnostics worker because the bounded reaper is saturated or unavailable");
+            drop(handle);
+        }
     }
 
     fn try_join_worker(&self) {
@@ -138,8 +137,54 @@ impl MonitorSession {
             return;
         };
         join_finished_worker_locked(&mut worker_guard);
-        if let Some(handle) = worker_guard.take() {
-            let _ = handle.join();
-        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn destroy_returns_without_waiting_for_blocked_worker() {
+        let session = MonitorSession::new();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            started_tx.send(()).expect("signal worker start");
+            release_rx.recv().expect("wait for worker release");
+        });
+        started_rx.recv_timeout(Duration::from_secs(1)).expect("worker started");
+        *session.worker.lock().expect("worker lock") = Some(worker);
+
+        let started = Instant::now();
+        session.destroy();
+        assert!(started.elapsed() < Duration::from_millis(250), "destroy must not join a blocked probe worker");
+        assert!(session.worker.lock().expect("worker lock").is_none());
+
+        release_tx.send(()).expect("release worker for asynchronous join");
+    }
+    #[test]
+    fn take_report_returns_without_waiting_for_blocked_worker() {
+        let session = Arc::new(MonitorSession::new());
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            started_tx.send(()).expect("signal worker start");
+            release_rx.recv().expect("wait for worker release");
+        });
+        started_rx.recv_timeout(Duration::from_secs(1)).expect("worker started");
+        *session.worker.lock().expect("worker lock") = Some(worker);
+
+        let (poll_tx, poll_rx) = mpsc::channel();
+        thread::spawn(move || {
+            poll_tx.send(session.take_report_json()).expect("return report polling result");
+        });
+
+        let result = poll_rx.recv_timeout(Duration::from_millis(100));
+        release_tx.send(()).expect("release worker after bounded poll");
+        assert!(matches!(result, Ok(Ok(None))), "report polling must not join a running worker: {result:?}");
     }
 }

@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 data class RelayChainHopStatusUiState(
     val entry: RelayChainHopUiState = RelayChainHopUiState(),
-    val intermediate: List<RelayChainHopUiState> = emptyList(),
+    val intermediate: ImmutableList<RelayChainHopUiState> = persistentListOf(),
     val exit: RelayChainHopUiState = RelayChainHopUiState(),
 ) {
     /**
@@ -67,7 +70,7 @@ internal fun buildRelayChainHopStatus(snapshot: NativeRuntimeSnapshot): RelayCha
                         latencyLabel = hop.latencyMs?.let { "$it ms" },
                         latencyMs = hop.latencyMs,
                     )
-                },
+                }.toImmutableList(),
         exit =
             RelayChainHopUiState(
                 statusLabel = snapshot.chainExitState?.chainHopStatusLabel(),

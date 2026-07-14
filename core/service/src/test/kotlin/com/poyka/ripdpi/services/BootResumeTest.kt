@@ -56,7 +56,7 @@ class BootResumeTest {
     }
 
     @Test
-    fun `locked boot completed resumes the recorded mode for direct boot`() {
+    fun `locked boot completed is skipped until credential storage is available`() {
         val proxyPointer = BootSessionPointer(profileId = "p", mode = Mode.Proxy)
         val decision =
             decideBootResume(
@@ -65,7 +65,7 @@ class BootResumeTest {
                 profileResumable = true,
                 wasRunningAtUpdate = false,
             )
-        assertEquals(BootResumeDecision.Resume(Mode.Proxy), decision)
+        assertTrue(decision is BootResumeDecision.Skip)
     }
 
     @Test

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,8 +27,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,7 +38,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigEffect
 import com.poyka.ripdpi.activities.ConfigFieldBufferSize
 import com.poyka.ripdpi.activities.ConfigFieldDefaultTtl
 import com.poyka.ripdpi.activities.ConfigFieldDnsIp
@@ -80,17 +76,14 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
-import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
-import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -98,7 +91,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
-import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -107,7 +99,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.coroutines.flow.collectLatest
 
 internal enum class MasqueImportAction {
     CertificateChain,
@@ -124,11 +115,10 @@ fun ModeEditorRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val validationMessage = stringResource(R.string.config_validation_fix)
     val context = LocalContext.current
     var pendingMasqueImportAction by remember { mutableStateOf<MasqueImportAction?>(null) }
     var pendingPkcs12Uri by remember { mutableStateOf<Uri?>(null) }
-    var pkcs12Password by rememberSaveable { mutableStateOf("") }
+    var pkcs12Password by remember { mutableStateOf("") }
     val handleBack = {
         viewModel.cancelEditing()
         onBack()
@@ -136,8 +126,6 @@ fun ModeEditorRoute(
 
     BackHandler(onBack = handleBack)
 
-    val currentOnBack by rememberUpdatedState(onBack)
-    val performHaptic = rememberRipDpiHapticPerformer()
     val documentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             val action = pendingMasqueImportAction
@@ -160,33 +148,8 @@ fun ModeEditorRoute(
         if (viewModel.uiState.value.editingPreset == null) {
             viewModel.startEditingPreset()
         }
-        viewModel.effects.collectLatest { effect ->
-            when (effect) {
-                ConfigEffect.SaveSuccess -> {
-                    performHaptic(RipDpiHapticFeedback.Success)
-                    currentOnBack()
-                }
-
-                ConfigEffect.ValidationFailed -> {
-                    performHaptic(RipDpiHapticFeedback.Error)
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = validationMessage,
-                        tone = RipDpiSnackbarTone.Warning,
-                        duration = SnackbarDuration.Short,
-                        testTag = RipDpiTestTags.ModeEditorValidationSnackbar,
-                    )
-                }
-
-                is ConfigEffect.Message -> {
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = effect.text,
-                        tone = RipDpiSnackbarTone.Warning,
-                        duration = SnackbarDuration.Short,
-                    )
-                }
-            }
-        }
     }
+    ModeEditorEffects(viewModel, snackbarHostState, onBack)
 
     pendingPkcs12Uri?.let { uri ->
         RipDpiDialog(

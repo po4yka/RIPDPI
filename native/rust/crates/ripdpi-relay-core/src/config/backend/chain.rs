@@ -16,7 +16,7 @@ pub const CHAIN_RELAY_MAX_HOPS: usize = 4;
 /// empty the required resolved `entry`+`exit` fields are folded into a
 /// 2-element list by [`ordered_hops`](Self::ordered_hops). Scalar-only legacy
 /// chain payloads are not composed because they cannot carry per-hop identity.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct ChainRelayConfig {
     /// Ordered N-hop list (min 2, max 4 once validated). Empty means "fold the
     /// required resolved entry/exit fields below into a 2-hop list".
@@ -37,6 +37,18 @@ pub struct ChainRelayConfig {
     pub exit_short_id: String,
     pub exit_profile_id: String,
     pub exit_uuid: Option<String>,
+}
+
+impl std::fmt::Debug for ChainRelayConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ChainRelayConfig")
+            .field("hops", &self.hops)
+            .field("entry", &self.entry)
+            .field("exit", &self.exit)
+            .field("credentials", &REDACTED_CREDENTIALS)
+            .finish_non_exhaustive()
+    }
 }
 
 impl ChainRelayConfig {
@@ -118,7 +130,7 @@ fn default_chain_hop_tls_fingerprint_profile() -> String {
     "chrome_stable".to_string()
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
@@ -219,6 +231,29 @@ pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
     pub finalmask: ResolvedRelayFinalmaskConfig,
 }
+
+impl_redacted_debug!(ResolvedChainRelayHopConfig {
+    kind,
+    profile_id,
+    server,
+    server_port,
+    server_name,
+    vless_transport,
+    vless_flow,
+    xhttp_mode,
+    cloudflare_tunnel_mode,
+    masque_tcp_protocol,
+    masque_use_http2_fallback,
+    masque_cloudflare_geohash_enabled,
+    tuic_zero_rtt,
+    tuic_congestion_control,
+    shadow_tls_inner_profile_id,
+    shadow_tls_inner,
+    shadowsocks_method,
+    tls_fingerprint_profile,
+    masque_auth_mode,
+    finalmask,
+});
 
 impl Default for ResolvedChainRelayHopConfig {
     fn default() -> Self {

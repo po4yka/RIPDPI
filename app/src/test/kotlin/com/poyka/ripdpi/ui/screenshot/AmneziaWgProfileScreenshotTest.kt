@@ -6,6 +6,7 @@ import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileScreen
 import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileUiState
 import com.poyka.ripdpi.ui.screens.awg.AwgCohortOption
 import com.poyka.ripdpi.ui.screens.awg.AwgEditorField
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -22,7 +23,7 @@ class AmneziaWgProfileScreenshotTest {
             "emptyNew",
             AmneziaWgProfileUiState(
                 editor = AmneziaWgEditorState.initial(),
-                cohortOptions = listOf(customOption()),
+                cohortOptions = listOf(customOption()).toImmutableList(),
             ),
         )
     }
@@ -80,7 +81,11 @@ class AmneziaWgProfileScreenshotTest {
             "populatedLockedCohort",
             AmneziaWgProfileUiState(
                 editor = editor,
-                cohortOptions = listOf(AwgCohortOption(id = COHORT_ID, displayNameKey = ""), customOption()),
+                cohortOptions =
+                    listOf(
+                        AwgCohortOption(id = COHORT_ID, displayNameKey = ""),
+                        customOption(),
+                    ).toImmutableList(),
                 privateKeyRevealed = true,
                 canActivate = editor.isActivatable(),
             ),
@@ -120,7 +125,11 @@ class AmneziaWgProfileScreenshotTest {
                         rawTextByField = rawText,
                         obfuscationLocked = false,
                     ),
-                cohortOptions = listOf(AwgCohortOption(id = COHORT_ID, displayNameKey = ""), customOption()),
+                cohortOptions =
+                    listOf(
+                        AwgCohortOption(id = COHORT_ID, displayNameKey = ""),
+                        customOption(),
+                    ).toImmutableList(),
             ),
         )
     }

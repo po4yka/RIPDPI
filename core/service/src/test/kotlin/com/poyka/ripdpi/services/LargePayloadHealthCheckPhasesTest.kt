@@ -44,7 +44,7 @@ class LargePayloadHealthCheckPhasesTest {
     fun `HealthPhaseOutcome Failed carries reason string`() {
         val outcome = HealthPhaseOutcome.Failed("connection_reset")
         assertNotNull(outcome)
-        assertEquals("connection_reset", (outcome as HealthPhaseOutcome.Failed).reason)
+        assertEquals("connection_reset", outcome.reason)
     }
 
     @Test
