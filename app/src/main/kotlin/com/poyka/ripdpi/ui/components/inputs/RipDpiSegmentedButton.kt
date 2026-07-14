@@ -24,6 +24,8 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Pill-shaped segmented control: a Row of equal-width segments where
@@ -32,7 +34,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
  */
 @Composable
 fun RipDpiSegmentedButton(
-    options: List<String>,
+    options: ImmutableList<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -86,13 +88,13 @@ private fun RipDpiSegmentedLightPreview() {
         var sel by remember { mutableIntStateOf(0) }
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiSegmentedButton(
-                options = listOf("Auto", "Manual"),
+                options = persistentListOf("Auto", "Manual"),
                 selectedIndex = sel,
                 onSelect = { sel = it },
                 modifier = Modifier.fillMaxWidth(),
             )
             RipDpiSegmentedButton(
-                options = listOf("All", "Errors", "Warnings"),
+                options = persistentListOf("All", "Errors", "Warnings"),
                 selectedIndex = 1,
                 onSelect = {},
                 modifier = Modifier.fillMaxWidth(),
@@ -106,7 +108,7 @@ private fun RipDpiSegmentedLightPreview() {
 private fun RipDpiSegmentedDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiSegmentedButton(
-            options = listOf("On", "Off"),
+            options = persistentListOf("On", "Off"),
             selectedIndex = 0,
             onSelect = {},
             modifier = Modifier.fillMaxWidth(),

@@ -22,6 +22,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 
 @Immutable
 data class RipDpiTelemetryEntry(
@@ -137,7 +138,7 @@ fun RipDpiEmptyStateCard(
 
 @Composable
 fun RipDpiTelemetryRows(
-    entries: List<RipDpiTelemetryEntry>,
+    entries: ImmutableList<RipDpiTelemetryEntry>,
     modifier: Modifier = Modifier,
 ) {
     if (entries.isEmpty()) {
@@ -161,7 +162,7 @@ fun RipDpiTelemetryRows(
 fun RipDpiRemediationCard(
     title: String,
     summary: String,
-    steps: List<String>,
+    steps: ImmutableList<String>,
     tone: StatusIndicatorTone,
     modifier: Modifier = Modifier,
     cardVariant: RipDpiCardVariant = RipDpiCardVariant.Elevated,

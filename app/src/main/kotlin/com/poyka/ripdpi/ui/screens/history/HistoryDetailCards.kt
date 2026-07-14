@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
@@ -14,6 +15,7 @@ import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryRows
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 internal fun ProbeGroupCard(group: DiagnosticsProbeGroupUiModel) {
@@ -77,15 +79,19 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 
 @Composable
 internal fun MetricList(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
+    val entries =
+        remember(metrics) {
+            metrics
+                .map { metric ->
+                    RipDpiTelemetryEntry(
+                        label = metric.label,
+                        value = metric.value,
+                        monospaceValue = metric.value.length > 18,
+                    )
+                }.toImmutableList()
+        }
     RipDpiTelemetryRows(
-        entries =
-            metrics.map { metric ->
-                RipDpiTelemetryEntry(
-                    label = metric.label,
-                    value = metric.value,
-                    monospaceValue = metric.value.length > 18,
-                )
-            },
+        entries = entries,
     )
 }
 

@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.chrome.RipDpiRemediationCard
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 internal fun DiagnosticsRemediationLadderCard(
@@ -16,10 +18,11 @@ internal fun DiagnosticsRemediationLadderCard(
     cardTestTag: String? = null,
     actionTestTag: String? = null,
 ) {
+    val steps = remember(ladder.steps) { ladder.steps.map { it.text }.toImmutableList() }
     RipDpiRemediationCard(
         title = ladder.title,
         summary = ladder.summary,
-        steps = ladder.steps.map { it.text },
+        steps = steps,
         tone =
             when (ladder.tone) {
                 DiagnosticsTone.Negative -> StatusIndicatorTone.Error

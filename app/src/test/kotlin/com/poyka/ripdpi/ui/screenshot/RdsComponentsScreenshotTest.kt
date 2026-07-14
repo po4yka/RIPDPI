@@ -75,6 +75,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyAbState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyImportState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -224,7 +225,7 @@ class RdsComponentsScreenshotTest {
     @Test
     fun kbdShortcut() {
         captureBothThemes("kbdShortcut", widthDp = 360, heightDp = 120) {
-            RipDpiKbdShortcut(keys = listOf("⌘", "K"))
+            RipDpiKbdShortcut(keys = persistentListOf("⌘", "K"))
         }
     }
 
@@ -274,7 +275,7 @@ class RdsComponentsScreenshotTest {
     fun tabs() {
         captureBothThemes("tabs", widthDp = 360, heightDp = 120) {
             RipDpiTabs(
-                tabs = listOf(RipDpiTab("a", "Home"), RipDpiTab("b", "Logs")),
+                tabs = persistentListOf(RipDpiTab("a", "Home"), RipDpiTab("b", "Logs")),
                 selectedIndex = 0,
                 onSelect = {},
             )
@@ -285,7 +286,7 @@ class RdsComponentsScreenshotTest {
     fun segmentedButton() {
         captureBothThemes("segmentedButton", widthDp = 360, heightDp = 120) {
             RipDpiSegmentedButton(
-                options = listOf("Auto", "Manual"),
+                options = persistentListOf("Auto", "Manual"),
                 selectedIndex = 0,
                 onSelect = {},
             )
@@ -335,8 +336,8 @@ class RdsComponentsScreenshotTest {
     fun filterBar() {
         captureBothThemes("filterBar", widthDp = 360, heightDp = 120) {
             RipDpiFilterBar(
-                filters = listOf(RipDpiFilter("a", "All"), RipDpiFilter("b", "Errors")),
-                selectedKeys = setOf("b"),
+                filters = persistentListOf(RipDpiFilter("a", "All"), RipDpiFilter("b", "Errors")),
+                selectedKeys = persistentSetOf("b"),
                 onToggle = {},
             )
         }
@@ -378,7 +379,7 @@ class RdsComponentsScreenshotTest {
             RipDpiCombobox(
                 value = "rel",
                 onValueChange = {},
-                suggestions = listOf("relay.example.com"),
+                suggestions = persistentListOf("relay.example.com"),
             )
         }
     }
@@ -388,7 +389,7 @@ class RdsComponentsScreenshotTest {
         captureBothThemes("diffViewer", widthDp = 360, heightDp = 200) {
             RipDpiDiffViewer(
                 lines =
-                    listOf(
+                    persistentListOf(
                         RipDpiDiffLine(RipDpiDiffKind.Added, "x", null, 1),
                         RipDpiDiffLine(RipDpiDiffKind.Removed, "y", 1, null),
                     ),
@@ -403,7 +404,7 @@ class RdsComponentsScreenshotTest {
                 root =
                     RipDpiJsonNode.Branch(
                         null,
-                        listOf(RipDpiJsonNode.Leaf("k", "v", RipDpiJsonNode.Leaf.Kind.String)),
+                        persistentListOf(RipDpiJsonNode.Leaf("k", "v", RipDpiJsonNode.Leaf.Kind.String)),
                         isArray = false,
                     ),
             )
@@ -414,7 +415,7 @@ class RdsComponentsScreenshotTest {
     fun logStream() {
         captureBothThemes("logStream", widthDp = 360, heightDp = 200) {
             RipDpiLogStream(
-                entries = listOf(RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "core", "tunnel up")),
+                entries = persistentListOf(RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "core", "tunnel up")),
             )
         }
     }
