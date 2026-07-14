@@ -9,7 +9,7 @@ use crate::config::Config;
 use crate::error::{HysteriaError, Result};
 use crate::migration::QuicMigration;
 use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
-use crate::tls_quic::{ClientSocketSpec, authenticate_connection, build_endpoint, build_tls_config};
+use crate::tls_quic::{ClientSocketSpec, H3ConnectionGuard, authenticate_connection, build_endpoint, build_tls_config};
 use crate::udp::{UdpPacket, UdpSession, dispatch_udp_datagrams};
 
 /// Aborts the contained task when the last owner is dropped.
@@ -48,12 +48,13 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
     let (endpoint, current_socket) = build_endpoint(config, tls_config, socket_spec.clone())?;
     let connection = endpoint.connect(server_addr, &config.server_name)?.await?;
 
-    let udp_supported = authenticate_connection(config, &connection).await?;
+    let (udp_supported, h3_guard) = authenticate_connection(config, &connection).await?;
     let max_datagram_size = connection.max_datagram_size();
 
     let inner = Arc::new(ClientInner {
         endpoint,
         connection,
+        _h3_guard: h3_guard,
         next_session_id: AtomicU32::new(1),
         registrations: Mutex::new(HashMap::new()),
         udp_supported,
@@ -133,6 +134,7 @@ impl HysteriaClient {
 pub(crate) struct ClientInner {
     pub(crate) endpoint: quinn::Endpoint,
     pub(crate) connection: quinn::Connection,
+    _h3_guard: H3ConnectionGuard,
     pub(crate) next_session_id: AtomicU32,
     pub(crate) registrations: Mutex<HashMap<u32, mpsc::Sender<UdpPacket>>>,
     pub(crate) udp_supported: bool,

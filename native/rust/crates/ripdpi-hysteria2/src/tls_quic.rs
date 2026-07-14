@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use http::Request;
 use rand::RngExt;
+use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
@@ -11,6 +12,19 @@ use crate::quic_transport::{self, QuicTransportConfig};
 use crate::salamander::SalamanderUdpSocket;
 
 const HYSTERIA_AUTH_STATUS: u16 = 233;
+
+pub(crate) struct H3ConnectionGuard {
+    send_request: h3::client::SendRequest<h3_quinn::OpenStreams, bytes::Bytes>,
+    _driver: DriverAbortGuard,
+}
+
+struct DriverAbortGuard(JoinHandle<()>);
+
+impl Drop for DriverAbortGuard {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct ClientSocketSpec {
@@ -32,8 +46,15 @@ impl fmt::Debug for ClientSocketSpec {
     }
 }
 
-pub(crate) async fn authenticate_connection(config: &Config, connection: &quinn::Connection) -> Result<bool> {
-    let (mut h3_connection, mut send_request) = h3::client::new(h3_quinn::Connection::new(connection.clone())).await?;
+pub(crate) async fn authenticate_connection(
+    config: &Config,
+    connection: &quinn::Connection,
+) -> Result<(bool, H3ConnectionGuard)> {
+    let (mut h3_connection, send_request) = h3::client::new(h3_quinn::Connection::new(connection.clone())).await?;
+    let driver = tokio::spawn(async move {
+        let _ = std::future::poll_fn(|cx| h3_connection.poll_close(cx)).await;
+    });
+    let mut h3_guard = H3ConnectionGuard { send_request, _driver: DriverAbortGuard(driver) };
     let padding = generate_padding();
     let request = Request::builder()
         .method("POST")
@@ -45,26 +66,16 @@ pub(crate) async fn authenticate_connection(config: &Config, connection: &quinn:
         .body(())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
 
-    let mut stream = send_request.send_request(request).await?;
+    let mut stream = h3_guard.send_request.send_request(request).await?;
     stream.finish().await?;
     let response = stream.recv_response().await?;
-    tokio::spawn(async move {
-        // Keep the h3 `SendRequest` alive for the QUIC connection's lifetime.
-        // Dropping it makes the h3 client begin a graceful shutdown that closes
-        // the underlying QUIC connection (H3_NO_ERROR) — which would tear down
-        // the raw bidirectional proxy streams Hysteria 2 multiplexes onto the
-        // same connection right after auth. Holding it (and driving the
-        // connection via `poll_close`) keeps the connection open until it is
-        // genuinely closed by the peer or an error.
-        let _send_request = send_request;
-        let _ = std::future::poll_fn(|cx| h3_connection.poll_close(cx)).await;
-    });
 
     if response.status().as_u16() != HYSTERIA_AUTH_STATUS {
         return Err(HysteriaError::AuthFailed);
     }
 
-    Ok(response.headers().get("Hysteria-UDP").and_then(|value| value.to_str().ok()) == Some("true"))
+    let udp_supported = response.headers().get("Hysteria-UDP").and_then(|value| value.to_str().ok()) == Some("true");
+    Ok((udp_supported, h3_guard))
 }
 
 pub(crate) fn build_endpoint(
@@ -140,4 +151,42 @@ fn generate_padding() -> String {
         padding.push(PADDING_CHARS[index] as char);
     }
     padding
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio::sync::oneshot;
+
+    use super::DriverAbortGuard;
+
+    struct DropNotice(Option<oneshot::Sender<()>>);
+
+    impl Drop for DropNotice {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn driver_guard_aborts_pending_task_on_drop() {
+        let (started_tx, started_rx) = oneshot::channel();
+        let (dropped_tx, dropped_rx) = oneshot::channel();
+        let driver = tokio::spawn(async move {
+            let _drop_notice = DropNotice(Some(dropped_tx));
+            let _ = started_tx.send(());
+            std::future::pending::<()>().await;
+        });
+        started_rx.await.expect("driver task started");
+
+        drop(DriverAbortGuard(driver));
+
+        tokio::time::timeout(Duration::from_secs(1), dropped_rx)
+            .await
+            .expect("aborted driver must release its task state")
+            .expect("driver drop notice");
+    }
 }
