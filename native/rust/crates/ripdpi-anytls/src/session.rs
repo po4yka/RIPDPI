@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::future::Future;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::fd::AsRawFd;
@@ -627,7 +628,7 @@ async fn run_session<S>(
 {
     let (mut reader, mut writer) = tokio::io::split(tls);
     let write_padding_scheme = Arc::clone(&padding_scheme);
-    let writer_task = tokio::spawn(async move {
+    let writer = async move {
         let mut packet_index = 1_u32;
         while let Some(outbound) = outbound_rx.recv().await {
             let Outbound::Batch(frames) = outbound;
@@ -652,9 +653,9 @@ async fn run_session<S>(
             }
         }
         Ok::<(), AnyTlsError>(())
-    });
+    };
 
-    let reader_result: Result<(), AnyTlsError> = async {
+    let reader = async {
         loop {
             let frame = read_frame(&mut reader).await?;
             match frame.command() {
@@ -707,18 +708,33 @@ async fn run_session<S>(
                 | Command::Syn => {}
             }
         }
-    }
-    .await;
+    };
+    let session_result = supervise_session_io(reader, writer).await;
     closing.store(true, Ordering::Release);
-    writer_task.abort();
     if let Some(client_state) = client_state.upgrade() {
         let mut state = client_state.lock().await;
         if state.session.as_ref().is_some_and(|session| Arc::ptr_eq(&session.closing, &closing)) {
             state.session = None;
         }
     }
-    if !matches!(reader_result, Err(AnyTlsError::Alert(_))) {
+    if !matches!(session_result, Err(AnyTlsError::Alert(_))) {
         fail_all_streams(&streams, AnyTlsError::SessionClosed);
+    }
+}
+
+async fn supervise_session_io<R, W>(reader: R, writer: W) -> Result<(), AnyTlsError>
+where
+    R: Future<Output = Result<(), AnyTlsError>>,
+    W: Future<Output = Result<(), AnyTlsError>>,
+{
+    tokio::pin!(reader);
+    tokio::pin!(writer);
+    tokio::select! {
+        result = &mut reader => result,
+        result = &mut writer => match result {
+            Ok(()) => Err(AnyTlsError::SessionClosed),
+            Err(error) => Err(error),
+        },
     }
 }
 
@@ -906,6 +922,19 @@ mod session_cache_tests {
         })
         .await
         .expect("session task must not keep client state alive");
+    }
+
+    #[tokio::test]
+    async fn writer_failure_terminates_session_supervision() {
+        let reader = std::future::pending::<Result<(), super::AnyTlsError>>();
+        let writer = std::future::ready(Err(super::AnyTlsError::Io("writer failed".to_owned())));
+
+        let result = tokio::time::timeout(Duration::from_millis(100), super::supervise_session_io(reader, writer))
+            .await
+            .expect("writer failure must terminate supervision")
+            .expect_err("writer failure must close the session");
+
+        assert!(matches!(result, super::AnyTlsError::Io(error) if error == "writer failed"));
     }
 }
 
