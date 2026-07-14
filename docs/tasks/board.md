@@ -2,7 +2,7 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (24)
+## Doing (23)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -17,7 +17,6 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | high | transport | [Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)](issues/wire-standalone-amneziawg-profile-transport.md) | unassigned | 2026-06-21 |
 | high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | unassigned | 2026-06-11 |
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | unassigned | 2026-06-05 |
-| medium | epic | [Fix July 2026 native Rust API and quality findings](issues/epic-native-rust-api-quality-remediation-july-2026.md) | Codex | 2026-07-14 |
 | medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | unassigned | 2026-06-11 |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-10 |
 | medium | outbound | [Add SSH outbound client crate and profile editor](issues/add-ssh-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-05 |
