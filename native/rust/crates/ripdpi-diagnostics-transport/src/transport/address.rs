@@ -150,7 +150,24 @@ pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<Socket
 }
 
 pub fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, String> {
-    value.to_socket_addrs().map_err(|err| err.to_string())?.next().ok_or_else(|| "no_socket_addrs".to_string())
+    resolve_first_socket_addr_with(value, DNS_RESOLVER.as_ref().map_err(Clone::clone)?)
+}
+
+fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> Result<SocketAddr, String> {
+    if let Ok(address) = value.parse::<SocketAddr>() {
+        return Ok(address);
+    }
+    let (host, port) = value.rsplit_once(':').ok_or_else(|| "missing_socket_port".to_string())?;
+    let host = host.trim().trim_start_matches('[').trim_end_matches(']');
+    if host.is_empty() {
+        return Err("missing_socket_host".to_string());
+    }
+    let port = port.parse::<u16>().map_err(|error| format!("invalid_socket_port: {error}"))?;
+    resolver
+        .resolve(host.to_string(), port, DNS_RESOLVE_TIMEOUT)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "no_socket_addrs".to_string())
 }
 
 #[cfg(test)]
@@ -234,6 +251,25 @@ mod tests {
         let addrs = resolve_addresses(&target, 443).expect("resolve localhost");
 
         assert!(addrs.iter().any(|address| address.ip().is_loopback() && address.port() == 443));
+    }
+
+    #[test]
+    fn socket_address_helper_uses_bounded_resolver_for_hostnames() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let calls = Arc::clone(&calls);
+            move |host, port| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(host, "resolver.example");
+                Ok(vec![SocketAddr::new("192.0.2.53".parse().expect("fixture IP"), port)])
+            }
+        });
+        let executor = ResolverExecutor::new(1, 1, resolver).expect("create resolver executor");
+
+        let address = resolve_first_socket_addr_with("resolver.example:5353", &executor).expect("resolve endpoint");
+
+        assert_eq!(address, "192.0.2.53:5353".parse().expect("expected endpoint"));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 
     #[test]
