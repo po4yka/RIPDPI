@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 
 use ripdpi_collections::bounded_heap::BoundedHeap;
 
+use crate::dns_cache::DnsCache;
+
 use super::association_removal::remove_association;
 use super::association_state::UdpAssociation;
 
@@ -22,8 +24,9 @@ pub(in crate::io_loop) struct UdpEvictionEntry {
 pub(super) fn evict_if_over_capacity(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    dns_cache: &mut Option<DnsCache>,
 ) {
     if let Some(entry) = eviction_heap.pop() {
-        remove_association(associations, entry.addr);
+        remove_association(associations, dns_cache, entry.addr);
     }
 }

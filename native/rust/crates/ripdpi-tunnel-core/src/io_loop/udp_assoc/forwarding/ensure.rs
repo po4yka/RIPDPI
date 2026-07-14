@@ -8,6 +8,7 @@ use ripdpi_collections::bounded_heap::BoundedHeap;
 use tokio_util::sync::CancellationToken;
 
 use crate::Stats;
+use crate::dns_cache::DnsCache;
 use crate::session::Auth;
 
 use super::super::association_state::UdpAssociation;
@@ -26,6 +27,7 @@ pub(super) fn ensure_udp_association(
     src: SocketAddr,
     resolved_dst: SocketAddr,
     payload: &[u8],
+    dns_cache: &mut Option<DnsCache>,
     idle_timeout: Duration,
     protect_path: Option<&str>,
     cancel: &CancellationToken,
@@ -39,7 +41,7 @@ pub(super) fn ensure_udp_association(
 
     record_quic_sni_if_present(stats, payload);
     if eviction_heap.is_full() {
-        evict_if_over_capacity(associations, eviction_heap);
+        evict_if_over_capacity(associations, eviction_heap, dns_cache);
     }
     let association = alloc_association(
         next_id,

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -50,5 +51,13 @@ pub(super) fn spawn_udp_association(
         udp_tx.clone(),
     );
 
-    UdpAssociation { id: association_id, outbound, cancel, last_activity, worker, dest }
+    UdpAssociation {
+        id: association_id,
+        outbound,
+        cancel,
+        last_activity,
+        worker,
+        leased_synthetic_ips: HashSet::new(),
+        dest,
+    }
 }

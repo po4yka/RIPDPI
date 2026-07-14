@@ -1,10 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
-use lru::LruCache;
-use tracing::debug;
-
 use super::{DnsCacheEntry, DnsCacheError, DnsCacheKey};
+use lru::LruCache;
 
 /// LRU DNS cache that maps real IPv4 answers to synthetic IPv4 addresses.
 ///
@@ -15,8 +13,8 @@ pub struct DnsCache {
     lru: LruCache<DnsCacheKey, usize>,
     rev: HashMap<u32, DnsCacheEntry>,
     records: Vec<Option<DnsCacheKey>>,
-    /// Synthetic IPs that must not be evicted while a TCP session is active.
-    pinned: HashSet<u32>,
+    /// Active TCP/UDP mapping leases keyed by synthetic IP.
+    leases: HashMap<u32, usize>,
     net: u32,
     mask: u32,
     max: usize,
@@ -43,7 +41,7 @@ impl DnsCache {
             lru: LruCache::new(capacity),
             rev: HashMap::new(),
             records,
-            pinned: HashSet::new(),
+            leases: HashMap::new(),
             net,
             mask,
             max,
@@ -65,17 +63,28 @@ impl DnsCache {
         ip & self.mask == self.net
     }
 
-    /// Pin a synthetic IP so it is not evicted while a TCP session is active.
-    pub fn pin(&mut self, ip: u32) {
-        self.pinned.insert(ip);
+    /// Acquire a mapping lease. Returns false for an IP with no live mapping.
+    pub fn pin(&mut self, ip: u32) -> bool {
+        if !self.rev.contains_key(&ip) {
+            return false;
+        }
+        let count = self.leases.entry(ip).or_default();
+        *count = count.saturating_add(1);
+        true
     }
 
     /// Release a pin on a synthetic IP.
     pub fn unpin(&mut self, ip: u32) {
-        self.pinned.remove(&ip);
+        let Some(count) = self.leases.get_mut(&ip) else {
+            return;
+        };
+        *count = count.saturating_sub(1);
+        if *count == 0 {
+            self.leases.remove(&ip);
+        }
     }
 
-    pub(super) fn find(&mut self, host: &str, real_ip: u32) -> Result<(u32, bool), DnsCacheError> {
+    pub(crate) fn find(&mut self, host: &str, real_ip: u32) -> Result<(u32, bool), DnsCacheError> {
         if self.max == 0 {
             return Err(DnsCacheError::EmptyCache);
         }
@@ -108,7 +117,7 @@ impl DnsCache {
             .rev()
             .find(|&(_, &slot)| {
                 let candidate_ip = self.net | slot as u32;
-                !self.pinned.contains(&candidate_ip)
+                !self.leases.contains_key(&candidate_ip)
             })
             .map(|(key, &slot)| (key.clone(), slot));
 
@@ -117,11 +126,7 @@ impl DnsCache {
             return Ok(evicted_idx);
         }
 
-        // All candidates are pinned; evict the true LRU to prevent unbounded growth.
-        debug!("mapdns LRU eviction: all cache slots are pinned; evicting LRU anyway");
-        let (_, evicted_idx) = self.lru.pop_lru().ok_or(DnsCacheError::EmptyCache)?;
-        self.remove_record(evicted_idx);
-        Ok(evicted_idx)
+        Err(DnsCacheError::AllMappingsLeased)
     }
 
     fn remove_slot(&mut self, key: &DnsCacheKey, idx: usize) {
@@ -133,5 +138,10 @@ impl DnsCache {
         let evicted_ip = self.net | idx as u32;
         self.rev.remove(&evicted_ip);
         self.records[idx] = None;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn lease_count(&self, ip: u32) -> usize {
+        self.leases.get(&ip).copied().unwrap_or(0)
     }
 }

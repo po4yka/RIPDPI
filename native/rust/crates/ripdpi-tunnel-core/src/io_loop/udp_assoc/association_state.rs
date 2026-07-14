@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -23,6 +24,9 @@ pub(in crate::io_loop) struct UdpAssociation {
     pub(super) cancel: CancellationToken,
     pub(super) last_activity: Arc<AtomicU64>,
     pub(super) worker: tokio::task::JoinHandle<()>,
+    /// Synthetic MapDNS addresses used by this association. Each entry owns
+    /// one cache lease until association removal or shutdown.
+    pub(super) leased_synthetic_ips: HashSet<u32>,
     /// Destination this association forwards to, kept so the per-app attribution
     /// cache entry can be evicted when the association closes.
     pub(super) dest: SocketAddr,

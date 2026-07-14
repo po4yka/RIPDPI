@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use crate::TunDevice;
+use crate::dns_cache::DnsCache;
 
 use super::super::bridge::enqueue_tun_packet;
+use super::association_removal::remove_association;
 use super::association_state::UdpAssociation;
 
 pub(in crate::io_loop) enum UdpEvent {
@@ -14,6 +16,7 @@ pub(in crate::io_loop) enum UdpEvent {
 pub(in crate::io_loop) fn handle_udp_event(
     device: &mut TunDevice,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    dns_cache: &mut Option<DnsCache>,
     event: UdpEvent,
 ) {
     match event {
@@ -24,7 +27,7 @@ pub(in crate::io_loop) fn handle_udp_event(
         }
         UdpEvent::Closed { src, association_id } => {
             if associations.get(&src).is_some_and(|association| association.id == association_id) {
-                associations.remove(&src);
+                remove_association(associations, dns_cache, src);
             }
         }
     }

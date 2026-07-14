@@ -31,6 +31,8 @@ pub enum DnsCacheError {
     NetworkHasHostBits,
     #[error("could not reserve storage for {size} DNS cache records")]
     AllocationFailed { size: usize },
+    #[error("all synthetic DNS mappings are leased by active flows")]
+    AllMappingsLeased,
     #[error("response buffer smaller than request")]
     BufferTooSmall,
     #[error("truncated or malformed DNS packet")]
@@ -215,6 +217,36 @@ mod tests {
         assert_eq!(first_ip, second_ip);
         assert_eq!(remapped.host, "b.test");
         assert_eq!(Ipv4Addr::from(remapped.real_ip), Ipv4Addr::new(203, 0, 113, 20));
+    }
+
+    #[test]
+    fn leased_mapping_is_refcounted_and_never_evicted() {
+        let mut cache = DnsCache::new(NET, MASK, 1).expect("valid cache");
+        let first = cache
+            .rewrite_response(
+                &build_query("a.test"),
+                &build_response("a.test", &[Ipv4Addr::new(203, 0, 113, 10)], false),
+            )
+            .expect("first rewrite");
+        let first_ip = u32::from(a_answers(&first.response)[0]);
+        cache.pin(first_ip);
+        cache.pin(first_ip);
+        cache.unpin(first_ip);
+
+        let second = cache.rewrite_response(
+            &build_query("b.test"),
+            &build_response("b.test", &[Ipv4Addr::new(203, 0, 113, 20)], false),
+        );
+        assert!(second.is_err(), "a cache with only leased slots must reject a new mapping");
+        assert_eq!(cache.lookup(first_ip).expect("leased reverse mapping must remain").host, "a.test");
+
+        cache.unpin(first_ip);
+        cache
+            .rewrite_response(
+                &build_query("b.test"),
+                &build_response("b.test", &[Ipv4Addr::new(203, 0, 113, 20)], false),
+            )
+            .expect("released slot may be reused");
     }
 
     #[test]

@@ -10,12 +10,14 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use crate::TunDevice;
+use crate::dns_cache::DnsCache;
 use crate::session::Auth;
 
 use super::association_state::{
     OutboundDatagram, UdpAssociation, now_millis, touch_udp_activity, udp_association_is_idle,
 };
 use super::event_handling::{UdpEvent, handle_udp_event};
+use super::forwarding::lease_udp_mapping;
 use super::shutdown::shutdown_udp_associations;
 use super::worker::spawn_udp_association;
 
@@ -41,8 +43,15 @@ fn stalled_udp_association(
         let _ = started_tx.send(());
         std::future::pending::<()>().await;
     });
-    let association =
-        UdpAssociation { id, outbound, cancel, last_activity: Arc::new(AtomicU64::new(now_millis())), worker, dest };
+    let association = UdpAssociation {
+        id,
+        outbound,
+        cancel,
+        last_activity: Arc::new(AtomicU64::new(now_millis())),
+        worker,
+        leased_synthetic_ips: std::collections::HashSet::new(),
+        dest,
+    };
     (association, alive, started_rx)
 }
 
@@ -149,6 +158,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
     handle_udp_event(
         &mut device,
         &mut associations,
+        &mut None,
         UdpEvent::Packet { src, association_id: 7, raw: vec![1, 2, 3, 4] },
     );
 
@@ -180,7 +190,12 @@ async fn handle_udp_event_ignores_stale_association_id() {
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
 
-    handle_udp_event(&mut device, &mut associations, UdpEvent::Packet { src, association_id: 99, raw: vec![5, 6, 7] });
+    handle_udp_event(
+        &mut device,
+        &mut associations,
+        &mut None,
+        UdpEvent::Packet { src, association_id: 99, raw: vec![5, 6, 7] },
+    );
 
     assert!(device.tx_queue.is_empty(), "stale association_id should not enqueue packet");
     if let Some(association) = associations.remove(&src) {
@@ -210,7 +225,7 @@ async fn handle_udp_event_removes_closed_association() {
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
 
-    handle_udp_event(&mut device, &mut associations, UdpEvent::Closed { src, association_id: 20 });
+    handle_udp_event(&mut device, &mut associations, &mut None, UdpEvent::Closed { src, association_id: 20 });
 
     assert!(associations.is_empty(), "closed event should remove association");
     worker.abort();
@@ -237,7 +252,7 @@ async fn handle_udp_event_ignores_stale_close() {
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
 
-    handle_udp_event(&mut device, &mut associations, UdpEvent::Closed { src, association_id: 999 });
+    handle_udp_event(&mut device, &mut associations, &mut None, UdpEvent::Closed { src, association_id: 999 });
 
     assert_eq!(associations.len(), 1, "stale close should not remove current association");
     if let Some(association) = associations.remove(&src) {
@@ -258,6 +273,35 @@ fn touch_udp_activity_updates_timestamp() {
     let after = last_activity.load(Ordering::Relaxed);
     assert!(after > before, "timestamp should be refreshed after touch");
     assert!(now_millis().saturating_sub(after) < 1_000, "timestamp should be very recent");
+}
+
+#[tokio::test]
+async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53100);
+    let dest = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443);
+    let (association, _alive, started) = stalled_udp_association(41, dest);
+    started.await.expect("stalled association should start");
+    let mut associations = HashMap::from([(src, association)]);
+    let mut dns_cache = Some(DnsCache::new(0xC612_0000, 0xFFFE_0000, 1).expect("valid cache"));
+    let synthetic_ip = dns_cache
+        .as_mut()
+        .expect("cache")
+        .find("udp.test", u32::from(Ipv4Addr::new(203, 0, 113, 10)))
+        .expect("mapping")
+        .0;
+
+    lease_udp_mapping(&mut associations, &mut dns_cache, src, Some(synthetic_ip));
+    lease_udp_mapping(&mut associations, &mut dns_cache, src, Some(synthetic_ip));
+    assert_eq!(dns_cache.as_ref().expect("cache").lease_count(synthetic_ip), 1);
+
+    let mut device = TunDevice::new(1500);
+    handle_udp_event(&mut device, &mut associations, &mut dns_cache, UdpEvent::Closed { src, association_id: 41 });
+    assert_eq!(dns_cache.as_ref().expect("cache").lease_count(synthetic_ip), 0);
+    dns_cache
+        .as_mut()
+        .expect("cache")
+        .find("replacement.test", u32::from(Ipv4Addr::new(203, 0, 113, 20)))
+        .expect("released UDP lease must make the slot evictable");
 }
 
 #[test]
@@ -312,7 +356,7 @@ async fn shutdown_cancels_all_associations() {
     let cancel2 = a2.cancel.clone();
     let mut associations = HashMap::from([(src1, a1), (src2, a2)]);
 
-    shutdown_udp_associations(&mut associations).await;
+    shutdown_udp_associations(&mut associations, &mut None).await;
 
     assert!(associations.is_empty(), "all associations should be drained");
     assert!(cancel1.is_cancelled(), "association 1 cancel token should be cancelled");
@@ -332,7 +376,7 @@ async fn shutdown_uses_one_grace_period_and_aborts_stalled_association_tasks() {
     started2.await.expect("second stalled task should start");
 
     let started_at = Instant::now();
-    shutdown_udp_associations(&mut associations).await;
+    shutdown_udp_associations(&mut associations, &mut None).await;
 
     assert_eq!(started_at.elapsed(), Duration::from_secs(5), "all tasks must share one shutdown grace period");
     assert!(cancel1.is_cancelled() && cancel2.is_cancelled(), "all association tokens must be cancelled together");

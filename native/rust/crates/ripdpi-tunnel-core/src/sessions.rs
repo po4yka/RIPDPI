@@ -89,7 +89,7 @@ impl ActiveSessions {
     ///
     /// Returns the evicted session's `SocketHandle` so the caller can remove
     /// it from the `SocketSet`, preventing socket handle leaks.
-    pub fn insert(&mut self, handle: SocketHandle, entry: SessionEntry) -> Option<SocketHandle> {
+    pub fn insert(&mut self, handle: SocketHandle, entry: SessionEntry) -> Option<(SocketHandle, Option<u32>)> {
         let seq = self.next_sequence;
         self.next_sequence += 1;
 
@@ -102,7 +102,7 @@ impl ActiveSessions {
                         oldest.cancel.cancel();
                         drop(oldest.smoltcp_side);
                         oldest.handle.abort();
-                        Some(evicted.handle)
+                        Some((evicted.handle, oldest.pinned_synthetic_ip))
                     }
                     _ => None,
                 }
@@ -194,7 +194,8 @@ mod tests {
 
         let mut sessions = ActiveSessions::new(3);
 
-        let (e1, cancel1) = make_entry();
+        let (mut e1, cancel1) = make_entry();
+        e1.pinned_synthetic_ip = Some(0xC612_0001);
         let (e2, _cancel2) = make_entry();
         let (e3, _cancel3) = make_entry();
         let (e4, _cancel4) = make_entry();
@@ -208,7 +209,7 @@ mod tests {
 
         // 4th insert evicts h1 (oldest).
         let evicted = sessions.insert(h4, e4);
-        assert_eq!(evicted, Some(h1), "evicted handle must be h1");
+        assert_eq!(evicted, Some((h1, Some(0xC612_0001))), "eviction must return the mapping lease to release");
 
         assert_eq!(sessions.len(), 3, "session count must remain at max=3 after eviction");
         assert!(cancel1.is_cancelled(), "evicted session's cancel token must be cancelled");

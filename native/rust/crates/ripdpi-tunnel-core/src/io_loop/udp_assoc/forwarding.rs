@@ -8,6 +8,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use crate::Stats;
+use crate::dns_cache::DnsCache;
 use crate::session::Auth;
 use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, UidFlowPolicy, Verdict};
 
@@ -31,7 +32,9 @@ pub(in crate::io_loop) fn forward_udp_payload(
     auth: &Auth,
     src: SocketAddr,
     resolved_dst: SocketAddr,
+    synthetic_ip: Option<u32>,
     payload: &[u8],
+    dns_cache: &mut Option<DnsCache>,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     next_id: &mut u64,
@@ -57,12 +60,15 @@ pub(in crate::io_loop) fn forward_udp_payload(
         src,
         resolved_dst,
         payload,
+        dns_cache,
         idle_timeout,
         protect_path,
         cancel,
         udp_tx,
         stats,
     );
+
+    lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
 
     let Some(association) = associations.get(&src) else {
         return;
@@ -74,7 +80,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
         Ok(()) => {}
         Err(TrySendError::Full(_)) => debug!("UDP association queue full for {src}; dropping datagram"),
         Err(TrySendError::Closed(datagram)) => {
-            remove_association(associations, src);
+            remove_association(associations, dns_cache, src);
             ensure_udp_association(
                 associations,
                 eviction_heap,
@@ -84,15 +90,32 @@ pub(in crate::io_loop) fn forward_udp_payload(
                 src,
                 datagram.dest,
                 &datagram.payload,
+                dns_cache,
                 idle_timeout,
                 protect_path,
                 cancel,
                 udp_tx,
                 stats,
             );
+            lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
             if let Some(association) = associations.get(&src) {
                 let _ = association.outbound.try_send(datagram);
             }
         }
+    }
+}
+
+pub(super) fn lease_udp_mapping(
+    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    dns_cache: &mut Option<DnsCache>,
+    src: SocketAddr,
+    synthetic_ip: Option<u32>,
+) {
+    let (Some(association), Some(cache), Some(ip)) = (associations.get_mut(&src), dns_cache.as_mut(), synthetic_ip)
+    else {
+        return;
+    };
+    if association.leased_synthetic_ips.insert(ip) && !cache.pin(ip) {
+        association.leased_synthetic_ips.remove(&ip);
     }
 }

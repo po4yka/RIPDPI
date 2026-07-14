@@ -57,7 +57,12 @@ pub(super) fn admit_session(
         pinned_synthetic_ip: pending.synthetic_ip,
         target_addr: pending.target_addr,
     };
-    let evicted_handle = sessions.insert(pending.handle, entry);
-    remove_evicted_session_socket(socket_set, evicted_handle);
+    let evicted = sessions.insert(pending.handle, entry);
+    if let Some((_, Some(ip))) = evicted
+        && let Some(cache) = dns_cache.as_mut()
+    {
+        cache.unpin(ip);
+    }
+    remove_evicted_session_socket(socket_set, evicted.map(|(handle, _)| handle));
     info!("TCP session spawned: remote={}", pending.target_addr);
 }
