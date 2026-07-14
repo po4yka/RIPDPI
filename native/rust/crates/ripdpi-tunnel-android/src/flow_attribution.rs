@@ -34,7 +34,7 @@ use jni::{EnvUnowned, JavaVM, Outcome};
 
 use ripdpi_flow_app_attribution::{
     AttributionGeneration, FlowResolveRequest, begin_attribution_session, end_attribution_session_if,
-    pop_pending_request, store_resolution, store_uid_resolution,
+    pop_pending_request, store_flow_resolution, store_uid_resolution,
 };
 
 /// How long the worker blocks waiting for a queued request before re-checking the
@@ -114,12 +114,13 @@ impl FlowNotifier for JniFlowNotifier {
 /// Returns `true` if a request was processed.
 fn drain_once(notifier: &dyn FlowNotifier) -> bool {
     match pop_pending_request(WORKER_POLL) {
-        Some(request) => {
+        Some(job) => {
+            let request = job.request();
             let uid = notifier.note(request);
-            store_uid_resolution(request, uid);
+            store_uid_resolution(job, uid);
             // Mark the destination "notified". The authoritative attribution lives
             // in the Kotlin map; the native cache only needs the dedupe marker.
-            store_resolution(request.key(), None);
+            store_flow_resolution(job, None);
             true
         }
         None => false,
@@ -297,7 +298,7 @@ mod tests {
         let remote = sock(93, 184, 216, 34, 443);
         let local = sock(10, 0, 0, 2, 51000);
         // A flow birth enqueues a request and leaves the dest unresolved.
-        assert!(note_flow(6, local, remote).is_none());
+        assert!(note_flow(6, local, remote).context.is_none());
 
         let notifier = RecordingNotifier { seen: StdMutex::new(Vec::new()) };
         assert!(drain_once(&notifier));
@@ -311,7 +312,7 @@ mod tests {
             ripdpi_flow_app_attribution::lookup_flow_uid(6, local, remote),
             ripdpi_flow_app_attribution::FlowUidLookup::Resolved(Some(10_123))
         );
-        assert!(note_flow(6, local, remote).is_none());
+        assert!(note_flow(6, local, remote).context.is_none());
         assert_eq!(pending_len(), 0);
     }
 

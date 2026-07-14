@@ -55,7 +55,7 @@ pub(super) fn admit_session(
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: pending.synthetic_ip,
-        target_addr: pending.target_addr,
+        attribution_token: pending.attribution_token,
     };
     let evicted = sessions.insert(pending.handle, entry);
     if let Some((_, Some(ip))) = evicted

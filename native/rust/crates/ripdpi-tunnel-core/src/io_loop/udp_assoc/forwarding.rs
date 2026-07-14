@@ -45,7 +45,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
     stats: &Arc<Stats>,
     uid_policy: &UidFlowPolicy,
 ) {
-    ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
+    let observation = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
     match uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, resolved_dst) {
         Verdict::Allow => {}
         Verdict::Pending | Verdict::DropUdp | Verdict::ResetTcp => return,
@@ -68,6 +68,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
         stats,
     );
 
+    lease_udp_attribution(associations, src, observation.token);
     lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
 
     let Some(association) = associations.get(&src) else {
@@ -81,6 +82,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
         Err(TrySendError::Full(_)) => debug!("UDP association queue full for {src}; dropping datagram"),
         Err(TrySendError::Closed(datagram)) => {
             remove_association(associations, dns_cache, src);
+            let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, datagram.dest);
             ensure_udp_association(
                 associations,
                 eviction_heap,
@@ -97,11 +99,22 @@ pub(in crate::io_loop) fn forward_udp_payload(
                 udp_tx,
                 stats,
             );
+            lease_udp_attribution(associations, src, replacement.token);
             lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
             if let Some(association) = associations.get(&src) {
                 let _ = association.outbound.try_send(datagram);
             }
         }
+    }
+}
+
+fn lease_udp_attribution(
+    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    src: SocketAddr,
+    token: ripdpi_flow_app_attribution::FlowAttributionToken,
+) {
+    if let Some(association) = associations.get_mut(&src) {
+        association.attribution_tokens.insert(token);
     }
 }
 

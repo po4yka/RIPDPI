@@ -25,7 +25,7 @@ impl Drop for TaskAlive {
 fn insert_stalled_session(
     sessions: &mut ActiveSessions,
     socket_set: &mut SocketSet<'static>,
-    target_addr: &str,
+    _target_addr: &str,
 ) -> (CancellationToken, Arc<AtomicBool>, tokio::sync::oneshot::Receiver<()>) {
     let socket = TcpSocket::new(tcp::SocketBuffer::new(vec![0; 256]), tcp::SocketBuffer::new(vec![0; 256]));
     let socket_handle = socket_set.add(socket);
@@ -47,7 +47,7 @@ fn insert_stalled_session(
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        target_addr: target_addr.parse().expect("valid test address"),
+        attribution_token: None,
     };
     assert!(sessions.insert(socket_handle, entry).is_none());
     (cancel, alive, started_rx)
@@ -74,7 +74,7 @@ async fn u27_shutdown_cancels_all() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        target_addr: "203.0.113.10:443".parse().expect("valid test addr"),
+        attribution_token: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);

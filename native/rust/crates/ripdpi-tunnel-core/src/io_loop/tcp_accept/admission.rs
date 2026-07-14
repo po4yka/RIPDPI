@@ -78,31 +78,33 @@ fn collect_admissible_sessions(
         let synthetic_ip = pinned_synthetic_ip(dns_cache, tcp);
         match tcp_session_target_addr(stats, dns_cache, tcp) {
             Some(target_addr) => {
-                // Record the originating app's flow for per-app attribution. This is
-                // the one site that sees both the app source (smoltcp remote
-                // endpoint) and the intercepted destination. `note_flow` only locks
-                // a mutex and pushes to a queue (deduped by destination) — never any
-                // JNI on this hot path; a background worker resolves off-path.
+                // Record the originating app's flow for per-app attribution. This is the one site that sees both the app source (smoltcp remote endpoint) and the intercepted destination. `note_flow` only locks a mutex and pushes an exact-tuple job — never any JNI on this hot path; a background worker resolves off-path.
                 let Some(app_src) = tcp.remote_endpoint().map(endpoint_to_socketaddr) else {
                     if uid_policy.is_enforcing() {
                         abort_unresolved_tcp_socket(handle, tcp);
                         unresolvable.push(handle);
                         continue;
                     }
-                    new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip });
+                    new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip, attribution_token: None });
                     continue;
                 };
-                ripdpi_flow_app_attribution::note_flow(PROTO_TCP, app_src, target_addr);
+                let observation = ripdpi_flow_app_attribution::note_flow(PROTO_TCP, app_src, target_addr);
                 match uid_policy.admit(&CachedFlowUidSource, PROTO_TCP, app_src, target_addr) {
                     Verdict::Allow => {}
                     Verdict::Pending => continue,
                     Verdict::ResetTcp | Verdict::DropUdp => {
+                        ripdpi_flow_app_attribution::evict_flow(observation.token);
                         abort_unresolved_tcp_socket(handle, tcp);
                         unresolvable.push(handle);
                         continue;
                     }
                 }
-                new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip });
+                new_sessions.push(PendingTcpSession {
+                    handle,
+                    target_addr,
+                    synthetic_ip,
+                    attribution_token: Some(observation.token),
+                });
             }
             None => {
                 abort_unresolved_tcp_socket(handle, tcp);

@@ -31,7 +31,7 @@ impl Drop for WorkerAlive {
 
 fn stalled_udp_association(
     id: u64,
-    dest: SocketAddr,
+    _dest: SocketAddr,
 ) -> (UdpAssociation, Arc<AtomicBool>, tokio::sync::oneshot::Receiver<()>) {
     let (outbound, _outbound_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
@@ -50,7 +50,7 @@ fn stalled_udp_association(
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker,
         leased_synthetic_ips: std::collections::HashSet::new(),
-        dest,
+        attribution_tokens: std::collections::HashSet::new(),
     };
     (association, alive, started_rx)
 }

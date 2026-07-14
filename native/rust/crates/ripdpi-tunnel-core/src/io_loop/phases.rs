@@ -227,7 +227,8 @@ mod tests {
         route_tun_packet(&packet, &mut state);
         assert!(state.udp_associations.is_empty(), "pending UID must not create an association");
 
-        ripdpi_flow_app_attribution::store_uid_resolution(request, Some(20_000));
+        let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("denied flow job");
+        ripdpi_flow_app_attribution::store_uid_resolution(job, Some(20_000));
         route_tun_packet(&packet, &mut state);
         assert!(state.udp_associations.is_empty(), "denied UID must remain dropped");
 
@@ -238,7 +239,8 @@ mod tests {
             remote: "93.184.216.34:443".parse().expect("remote endpoint"),
         };
         route_tun_packet(&allowed_packet, &mut state);
-        ripdpi_flow_app_attribution::store_uid_resolution(allowed_request, Some(10_123));
+        let job = ripdpi_flow_app_attribution::take_pending_request(allowed_request).expect("allowed flow job");
+        ripdpi_flow_app_attribution::store_uid_resolution(job, Some(10_123));
         route_tun_packet(&allowed_packet, &mut state);
         assert_eq!(state.udp_associations.len(), 1, "allowed UID may create the association");
         state.shutdown().await;

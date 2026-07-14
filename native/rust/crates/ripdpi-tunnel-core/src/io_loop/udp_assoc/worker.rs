@@ -27,7 +27,7 @@ pub(super) fn spawn_udp_association(
     proxy_addr: SocketAddr,
     auth: Auth,
     src: SocketAddr,
-    dest: SocketAddr,
+    _dest: SocketAddr,
     association_id: u64,
     idle_timeout: Duration,
     protect_path: Option<&str>,
@@ -58,6 +58,6 @@ pub(super) fn spawn_udp_association(
         last_activity,
         worker,
         leased_synthetic_ips: HashSet::new(),
-        dest,
+        attribution_tokens: HashSet::new(),
     }
 }

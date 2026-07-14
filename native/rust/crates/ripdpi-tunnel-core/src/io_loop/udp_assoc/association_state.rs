@@ -27,9 +27,8 @@ pub(in crate::io_loop) struct UdpAssociation {
     /// Synthetic MapDNS addresses used by this association. Each entry owns
     /// one cache lease until association removal or shutdown.
     pub(super) leased_synthetic_ips: HashSet<u32>,
-    /// Destination this association forwards to, kept so the per-app attribution
-    /// cache entry can be evicted when the association closes.
-    pub(super) dest: SocketAddr,
+    /// Exact attribution generations observed on this multiplexed association.
+    pub(super) attribution_tokens: HashSet<ripdpi_flow_app_attribution::FlowAttributionToken>,
 }
 
 pub(super) fn touch_udp_activity(last_activity: &Arc<AtomicU64>) {

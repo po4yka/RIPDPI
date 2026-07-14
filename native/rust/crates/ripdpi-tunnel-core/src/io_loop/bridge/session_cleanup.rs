@@ -34,9 +34,9 @@ pub(super) async fn take_session_task(
         if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
             cache.unpin(ip);
         }
-        // Drop the per-app attribution cache entry so a later flow to the same
-        // destination (possibly a different app) re-resolves its owner.
-        ripdpi_flow_app_attribution::evict_flow(entry.target_addr.ip());
+        if let Some(token) = entry.attribution_token {
+            ripdpi_flow_app_attribution::evict_flow(token);
+        }
         entry.cancel.cancel();
         entry.smoltcp_side.shutdown().await.ok();
         task = Some(entry.handle);
