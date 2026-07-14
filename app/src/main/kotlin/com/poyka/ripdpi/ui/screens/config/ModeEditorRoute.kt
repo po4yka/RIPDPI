@@ -106,6 +106,7 @@ internal enum class MasqueImportAction {
     Pkcs12,
 }
 
+@Suppress("LongMethod")
 @Composable
 fun ModeEditorRoute(
     onBack: () -> Unit,
