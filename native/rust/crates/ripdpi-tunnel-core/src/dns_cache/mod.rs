@@ -153,6 +153,20 @@ mod tests {
     }
 
     #[test]
+    fn rewritten_synthetic_answers_are_not_cacheable_across_tunnel_sessions() {
+        let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
+        let query = build_query("fixture.test");
+        let upstream = build_response("fixture.test", &[Ipv4Addr::new(203, 0, 113, 10)], false);
+
+        let rewritten = cache.rewrite_response(&query, &upstream).expect("rewrite succeeds");
+        let message = Message::from_vec(&rewritten.response).expect("rewritten response parses");
+        let synthetic_answer =
+            message.answers.iter().find(|record| matches!(&record.data, RData::A(_))).expect("synthetic A answer");
+
+        assert_eq!(synthetic_answer.ttl, 0);
+    }
+
+    #[test]
     fn rewrite_response_strips_aaaa_records() {
         let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
         let query = build_query("fixture.test");

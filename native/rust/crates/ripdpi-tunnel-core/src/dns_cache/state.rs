@@ -7,8 +7,8 @@ use lru::LruCache;
 /// LRU DNS cache that maps real IPv4 answers to synthetic IPv4 addresses.
 ///
 /// The cache allocates addresses from the range `[net, net+max)` and preserves
-/// a reverse mapping so later tunnel sessions can turn a synthetic destination
-/// back into the original upstream IPv4 address.
+/// a reverse mapping so later flows in the same tunnel session can turn a
+/// synthetic destination back into the original upstream IPv4 address.
 pub struct DnsCache {
     lru: LruCache<DnsCacheKey, usize>,
     rev: HashMap<u32, DnsCacheEntry>,

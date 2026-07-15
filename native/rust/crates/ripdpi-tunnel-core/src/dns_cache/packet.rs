@@ -40,6 +40,13 @@ pub(super) fn rewrite_response(
         };
         if let Some(data) = replacement {
             record.data = data;
+            // The reverse map is owned by this native tunnel session. Android's
+            // resolver cache can outlive that session (and even the app
+            // process), so caching a synthetic address would let a later
+            // session receive an address it cannot reverse. Keep the mapping in
+            // our LRU for live flows, but require the platform resolver to ask
+            // again after a tunnel restart.
+            record.ttl = 0;
         }
     }
 
