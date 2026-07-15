@@ -21,7 +21,7 @@ class ServiceStopSelfTest {
     }
 
     @Test
-    fun `fallback stop runs when start id does not stop service`() {
+    fun `newer start is preserved when start id does not stop service`() {
         val calls = StopSelfCalls(stopSelfResult = false)
 
         requestStopSelfWithFallback(
@@ -31,7 +31,7 @@ class ServiceStopSelfTest {
         )
 
         assertEquals(42, calls.stopSelfResultStartId)
-        assertTrue(calls.stopSelfCalled)
+        assertFalse(calls.stopSelfCalled)
     }
 
     @Test
