@@ -46,27 +46,29 @@ object WebRtcLeakChecker {
             val stunResult = probeStunReachability()
             when (stunResult) {
                 StunProbeResult.REACHABLE -> {
-                    if (!webRtcProtectionEnabled) {
-                        detected = true
-                        findings.add(
-                            Finding(
-                                description = "STUN server reachable - WebRTC can expose real IP",
-                                detected = true,
-                                source = EvidenceSource.NETWORK_CAPABILITIES,
-                                confidence = EvidenceConfidence.MEDIUM,
-                            ),
-                        )
-                        evidence.add(
-                            EvidenceItem(
-                                source = EvidenceSource.NETWORK_CAPABILITIES,
-                                detected = true,
-                                confidence = EvidenceConfidence.MEDIUM,
-                                description = "STUN server reachable without WebRTC protection",
-                            ),
-                        )
-                    } else {
-                        findings.add(Finding("STUN server reachable (protected by WebRTC filter)"))
-                    }
+                    detected = true
+                    val reachabilityDescription =
+                        if (webRtcProtectionEnabled) {
+                            "STUN server reachable despite WebRTC protection"
+                        } else {
+                            "STUN server reachable - WebRTC can expose real IP"
+                        }
+                    findings.add(
+                        Finding(
+                            description = reachabilityDescription,
+                            detected = true,
+                            source = EvidenceSource.NETWORK_CAPABILITIES,
+                            confidence = EvidenceConfidence.MEDIUM,
+                        ),
+                    )
+                    evidence.add(
+                        EvidenceItem(
+                            source = EvidenceSource.NETWORK_CAPABILITIES,
+                            detected = true,
+                            confidence = EvidenceConfidence.MEDIUM,
+                            description = reachabilityDescription,
+                        ),
+                    )
                 }
 
                 StunProbeResult.BLOCKED -> {

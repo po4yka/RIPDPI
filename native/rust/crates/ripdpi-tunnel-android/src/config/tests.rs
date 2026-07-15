@@ -145,6 +145,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 uid_policy_uids: Vec::new(),
                 log_context: None,
                 filter_injected_resets: None,
+                webrtc_protection_enabled: false,
             },
         )
 }
@@ -279,6 +280,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 uid_policy_uids: Vec::new(),
                 log_context: None,
                 filter_injected_resets: None,
+                webrtc_protection_enabled: false,
             },
         )
         .prop_filter("credentials must be both present or both absent", |payload| {
@@ -290,12 +292,14 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
 fn builds_config_from_json_payload() {
     let mut payload = sample_payload();
     payload.mapdns_address = Some("198.18.0.53".to_string());
+    payload.webrtc_protection_enabled = true;
     payload.encrypted_dns_tls_roots_pem =
         Some("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----".to_string());
 
     let config = config_from_payload(payload).expect("config");
     assert_eq!(config.socks5.address, "127.0.0.1");
     assert_eq!(config.misc.task_stack_size, 81_920);
+    assert!(config.misc.webrtc_protection_enabled);
     assert_eq!(
         config.mapdns.and_then(|mapdns| mapdns.encrypted_dns_tls_roots_pem),
         Some("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----".to_string()),
@@ -614,6 +618,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "uidPolicyMode": "allowlist",
         "uidPolicyUids": [10123, 10124],
         "filterInjectedResets": true,
+        "webrtcProtectionEnabled": true,
         "logContext": {
             "runtimeId": "rt-1",
             "mode": "auto",

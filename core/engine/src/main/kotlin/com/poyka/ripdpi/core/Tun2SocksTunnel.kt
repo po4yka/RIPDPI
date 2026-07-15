@@ -362,6 +362,7 @@ data class Tun2SocksConfig(
     val udpReadWriteTimeoutMs: Int? = null,
     val logLevel: String = "warn",
     val limitNofile: Int? = null,
+    val webrtcProtectionEnabled: Boolean = false,
     val uidPolicyMode: String = "disarmed",
     val uidPolicyUids: List<Int> = emptyList(),
     val logContext: RipDpiLogContext? = null,

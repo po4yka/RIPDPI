@@ -35,6 +35,7 @@ pub(crate) fn misc_config_from_payload(payload: &TunnelConfigPayload) -> MiscCon
     if let Some(value) = payload.filter_injected_resets {
         misc.filter_injected_resets = value;
     }
+    misc.webrtc_protection_enabled = payload.webrtc_protection_enabled;
     if let Some(value) = &payload.uid_policy_mode {
         misc.uid_policy_mode.clone_from(value);
     }

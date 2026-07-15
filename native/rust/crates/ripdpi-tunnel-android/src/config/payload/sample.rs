@@ -58,6 +58,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         log_level: default_log_level(),
         limit_nofile: None,
         filter_injected_resets: None,
+        webrtc_protection_enabled: false,
         uid_policy_mode: None,
         uid_policy_uids: Vec::new(),
         log_context: None,

@@ -84,6 +84,33 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
+    fun startPassesWebRtcProtectionToNativeConfig() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setWebrtcProtectionEnabled(true)
+                    .build()
+            val bridge = TestTun2SocksBridge()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                )
+
+            runtime.start(
+                activeDns = settings.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertTrue(bridge.startedConfig?.webrtcProtectionEnabled == true)
+        }
+
+    @Test
     fun secondStartIncrementsRecoveryRetryCount() =
         runTest {
             val events = mutableListOf<String>()

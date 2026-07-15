@@ -77,6 +77,7 @@ internal class VpnTunnelRuntime(
                 overrideReason = overrideReason,
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = ipv6,
+                webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
                 tunnelMtu = tunnelNetworkParameters.tunnelMtu,
                 logContext = logContext,
                 encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },

@@ -61,5 +61,6 @@
   "udpRecvBufferSize",
   "uidPolicyMode",
   "uidPolicyUids[]",
-  "username"
+  "username",
+  "webrtcProtectionEnabled"
 ]

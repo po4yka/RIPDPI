@@ -8,6 +8,8 @@ use super::tcp_accept::ensure_pending_listen_for_syn;
 use super::udp_assoc::{UdpForwardOutcome, forward_udp_payload};
 
 const PENDING_UID_UDP_CAPACITY: usize = 256;
+const STUN_HEADER_LEN: usize = 20;
+const STUN_MAGIC_COOKIE: [u8; 4] = 0x2112_A442_u32.to_be_bytes();
 
 pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
     route_tun_packet_inner(packet, state, true);
@@ -35,6 +37,9 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
             );
         }
         IpClass::Udp { src, dst, payload } => {
+            if state.runtime.webrtc_protection_enabled && is_stun_datagram(payload) {
+                return;
+            }
             state.stats.record_dht_trigger_destination(dst);
             let synthetic_ip = match dst.ip() {
                 std::net::IpAddr::V4(ip)
@@ -74,6 +79,15 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
             }
         }
     }
+}
+
+fn is_stun_datagram(payload: &[u8]) -> bool {
+    if payload.len() < STUN_HEADER_LEN || payload[0] & 0b1100_0000 != 0 || payload[4..8] != STUN_MAGIC_COOKIE {
+        return false;
+    }
+
+    let declared_len = usize::from(u16::from_be_bytes([payload[2], payload[3]]));
+    declared_len.is_multiple_of(4) && STUN_HEADER_LEN.saturating_add(declared_len) <= payload.len()
 }
 
 pub(in crate::io_loop) fn retry_pending_uid_udp(state: &mut LoopState) {

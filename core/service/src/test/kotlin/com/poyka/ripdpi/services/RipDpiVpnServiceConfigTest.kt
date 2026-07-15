@@ -127,6 +127,20 @@ class RipDpiVpnServiceConfigTest {
     }
 
     @Test
+    fun buildTun2SocksConfigCarriesWebRtcProtection() {
+        val config =
+            RipDpiVpnService.buildTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(plainDns("1.1.1.1"), forceTunnelDns = false),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint,
+                ipv6Enabled = false,
+                webrtcProtectionEnabled = true,
+            )
+
+        assertTrue(config.webrtcProtectionEnabled)
+    }
+
+    @Test
     fun buildTun2SocksConfigUsesMapDnsAndLeavesIpv6UnsetWhenDisabled() {
         val tlsRootsPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----"
         val config =

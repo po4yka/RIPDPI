@@ -39,6 +39,7 @@ pub(super) fn build_loop_runtime(
         mapdns_runtime,
         mapdns_classify,
         filter_injected_resets: config.misc.filter_injected_resets,
+        webrtc_protection_enabled: config.misc.webrtc_protection_enabled,
         uid_policy,
         tun_ingress_interceptor: TunIngressInterceptor::new(
             SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),

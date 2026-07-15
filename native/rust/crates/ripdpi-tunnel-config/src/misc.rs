@@ -27,6 +27,8 @@ pub struct MiscConfig {
     pub limit_nofile: u32,
     #[serde(default)]
     pub filter_injected_resets: bool,
+    #[serde(default)]
+    pub webrtc_protection_enabled: bool,
     #[serde(default = "default_uid_policy_mode")]
     pub uid_policy_mode: String,
     #[serde(default)]
@@ -57,6 +59,7 @@ impl Default for MiscConfig {
             pid_file: None,
             limit_nofile: default_limit_nofile(),
             filter_injected_resets: false,
+            webrtc_protection_enabled: false,
             uid_policy_mode: default_uid_policy_mode(),
             uid_policy_uids: Vec::new(),
             strategy_chain_yaml: None,

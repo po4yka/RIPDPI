@@ -293,6 +293,34 @@ mod tests {
         state.shutdown().await;
     }
 
+    #[tokio::test]
+    async fn webrtc_protection_drops_stun_before_udp_admission() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.webrtc_protection_enabled = true;
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        let mut stun_request = [0_u8; 20];
+        stun_request[0..2].copy_from_slice(&1_u16.to_be_bytes());
+        stun_request[4..8].copy_from_slice(&0x2112_A442_u32.to_be_bytes());
+
+        route_tun_packet(&ipv4_udp_packet(55_126, 3478, &stun_request), &mut state);
+
+        assert!(state.pending_uid_udp_packets.is_empty(), "blocked STUN must not enter UID admission");
+        assert!(state.udp_associations.is_empty(), "blocked STUN must not create a SOCKS association");
+        state.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn webrtc_protection_preserves_non_stun_udp() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.webrtc_protection_enabled = true;
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+
+        route_tun_packet(&ipv4_udp_packet(55_127, 443, b"not-stun"), &mut state);
+
+        assert_eq!(state.pending_uid_udp_packets.len(), 1, "non-STUN UDP must continue to UID admission");
+        state.shutdown().await;
+    }
+
     struct RecordingEgressHandler {
         consume: bool,
         seen_packets: Arc<Mutex<Vec<Vec<u8>>>>,
@@ -331,6 +359,7 @@ mod tests {
                 mapdns_runtime: None,
                 mapdns_classify: None,
                 filter_injected_resets: false,
+                webrtc_protection_enabled: false,
                 uid_policy: crate::uid_policy::UidFlowPolicy::disarmed(),
                 tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
                 tun_egress_interceptor,

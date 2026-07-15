@@ -551,6 +551,7 @@ class NativeConfigContractSnapshotTest {
                     udpReadWriteTimeoutMs = 7000,
                     logLevel = "info",
                     limitNofile = 4096,
+                    webrtcProtectionEnabled = true,
                     uidPolicyMode = "allowlist",
                     uidPolicyUids = listOf(10123, 10124),
                 ),
@@ -600,6 +601,7 @@ class NativeConfigContractSnapshotTest {
                   "udpReadWriteTimeoutMs": 7000,
                   "logLevel": "info",
                   "limitNofile": 4096,
+                  "webrtcProtectionEnabled": true,
                   "uidPolicyMode": "allowlist",
                   "uidPolicyUids": [
                     10123,
