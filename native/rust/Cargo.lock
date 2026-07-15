@@ -6774,6 +6774,7 @@ dependencies = [
  "foreign-types-shared",
  "futures",
  "hex",
+ "rcgen",
  "ring",
  "ripdpi-dns-resolver",
  "ripdpi-ech-dns",

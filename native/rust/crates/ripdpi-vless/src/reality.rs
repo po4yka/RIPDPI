@@ -19,6 +19,7 @@ use tokio_boring::SslStream;
 
 use crate::config::VlessRealityConfig;
 use crate::reality_hook::{SslHandle, install_reality_client_hello_hook};
+use crate::vision::{XtlsDirectRead, XtlsDirectWrite};
 
 /// Owns a resource and the guard that keeps the resource's callback state
 /// alive. Rust drops fields in declaration order, so `resource` is always
@@ -72,6 +73,32 @@ where
     }
 }
 
+impl<S> XtlsDirectRead for RealityTlsStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    fn poll_read_direct(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.owned.resource.get_mut()).poll_read(cx, buf)
+    }
+}
+
+impl<S> XtlsDirectWrite for RealityTlsStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    fn poll_write_direct(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(self.owned.resource.get_mut()).poll_write(cx, buf)
+    }
+
+    fn poll_flush_direct(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.owned.resource.get_mut()).poll_flush(cx)
+    }
+
+    fn poll_shutdown_direct(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.owned.resource.get_mut()).poll_shutdown(cx)
+    }
+}
+
 /// Connect to a VLESS+Reality server over TCP, performing the
 /// Reality TLS handshake. Cert verification is disabled because
 /// Reality uses its own auth model on top of TLS 1.3; the
@@ -115,6 +142,16 @@ where
         ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
     let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
         .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+
+    // REALITY's authenticated server flight uses an ephemeral Ed25519
+    // certificate and hard-codes Ed25519 for CertificateVerify. Some of the
+    // browser profile templates intentionally prune that signature scheme, so
+    // restore it only on the REALITY path without widening ordinary TLS/xHTTP.
+    let profile_sigalgs = ripdpi_tls_profiles::selected_profile_config(profile_name).sigalgs;
+    let reality_sigalgs = format!("{profile_sigalgs}:ed25519");
+    builder
+        .set_sigalgs_list(&reality_sigalgs)
+        .map_err(|error| io::Error::other(format!("Reality TLS signature algorithms: {error}")))?;
 
     // Optional post-quantum KEM group override: replace the profile's static
     // curve list with the configured ordered group list (applied AFTER profile
@@ -179,10 +216,19 @@ where
     //    await point during `ssl_add_client_hello`.
     let stream_builder = tokio_boring::SslStreamBuilder::new(ssl, stream);
     let mut handshake = DropOrdered { resource: Box::pin(stream_builder.connect()), guard: hook_guard };
-    let tls_stream =
-        handshake.resource.as_mut().await.map_err(|error| {
-            io::Error::new(io::ErrorKind::ConnectionRefused, format!("Reality TLS handshake: {error}"))
-        })?;
+    let tls_stream = match handshake.resource.as_mut().await {
+        Ok(stream) => stream,
+        Err(_) if !handshake.guard.was_successful() => {
+            return Err(io::Error::other("Reality client_hello_cb failed before the TLS flight was sent"));
+        }
+        Err(error) => {
+            let state = error.ssl().map_or("unknown", boring::ssl::SslRef::state_string_long);
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("Reality TLS handshake failed in {state}: {error}"),
+            ));
+        }
+    };
 
     // 4. Verify the callback actually ran successfully. A failure
     //    here would normally surface as a TLS handshake error
@@ -207,8 +253,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::DropOrdered;
+    use super::{DropOrdered, connect_reality_tls};
+    use base64::Engine;
+    use boring::ssl::{Ssl, SslContext, SslMethod, SslVersion};
+    use std::io::Write;
+    use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
+    use std::thread;
+    use std::time::Duration;
+    use tokio::io::AsyncReadExt;
+    use x25519_dalek::{PublicKey, StaticSecret};
+
+    use crate::config::VlessRealityConfig;
 
     struct DropProbe {
         name: &'static str,
@@ -232,5 +288,60 @@ mod tests {
         drop(owned);
 
         assert_eq!(*events.lock().expect("drop probe events mutex poisoned"), ["ssl", "callback_state"]);
+    }
+
+    #[tokio::test]
+    async fn reality_tls_accepts_required_ed25519_certificate_verify() {
+        const ED25519_PRIVATE_KEY_DER: &str = concat!(
+            "302e020100300506032b6570042204207c8c6497f9960d5595d7815f550569e5",
+            "f77764ac97e63e339aaa68cc1512b683"
+        );
+        let key_der = hex::decode(ED25519_PRIVATE_KEY_DER).expect("decode Ed25519 fixture key");
+        let signing_key = rcgen::KeyPair::try_from(key_der.as_slice()).expect("rcgen Ed25519 fixture key");
+        let params = rcgen::CertificateParams::new(vec!["reality.test".to_string()]).expect("fixture cert params");
+        let certificate = params.self_signed(&signing_key).expect("self-signed Ed25519 fixture cert");
+        let cert = boring::x509::X509::from_der(certificate.der()).expect("BoringSSL fixture cert");
+        let key = boring::pkey::PKey::private_key_from_der(&key_der).expect("BoringSSL fixture key");
+        let mut context = SslContext::builder(SslMethod::tls()).expect("fixture context");
+        context.set_min_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 minimum");
+        context.set_max_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 maximum");
+        context.set_curves_list("X25519").expect("fixture X25519 curve");
+        context.set_certificate(&cert).expect("fixture certificate");
+        context.set_private_key(&key).expect("fixture private key");
+        let context = context.build();
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind Reality TLS fixture");
+        let address = listener.local_addr().expect("Reality TLS fixture address");
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept Reality TLS client");
+            stream.set_read_timeout(Some(Duration::from_secs(5))).expect("fixture read timeout");
+            stream.set_write_timeout(Some(Duration::from_secs(5))).expect("fixture write timeout");
+            let ssl = Ssl::new(&context).expect("Reality TLS fixture SSL");
+            let mut tls = ssl.accept(stream).expect("Reality TLS fixture handshake");
+            tls.write_all(b"ok").expect("write Reality TLS fixture response");
+        });
+
+        let reality_secret = StaticSecret::from([0x42; 32]);
+        let reality_public = PublicKey::from(&reality_secret);
+        let public_key = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(reality_public.as_bytes());
+        let config = VlessRealityConfig::from_strings(
+            "127.0.0.1",
+            i32::from(address.port()),
+            "550e8400-e29b-41d4-a716-446655440000",
+            "reality.test",
+            &public_key,
+            "abcd1234",
+            "chrome_stable",
+        )
+        .expect("Reality TLS fixture config")
+        .with_kem_groups(vec!["X25519".to_string()]);
+
+        let tcp = tokio::net::TcpStream::connect(address).await.expect("connect Reality TLS fixture");
+        let mut tls =
+            connect_reality_tls(tcp, &config).await.expect("Reality TLS must accept Ed25519 CertificateVerify");
+        let mut response = [0_u8; 2];
+        tls.read_exact(&mut response).await.expect("read Reality TLS fixture response");
+        assert_eq!(response, *b"ok");
+        server.join().expect("Reality TLS fixture thread");
     }
 }

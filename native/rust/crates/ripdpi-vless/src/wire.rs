@@ -1,41 +1,45 @@
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::pin::Pin;
+use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
+
+use crate::vision::{XtlsDirectRead, XtlsDirectWrite};
 
 const RESPONSE_VERSION: u8 = 0x00;
 
 /// VLESS wire version.
 ///
-/// xray-core has only ever defined VLESS request version `0x01`. Wrapping
+/// xray-core has only ever defined VLESS request version `0x00`. Wrapping
 /// the value in a typed enum lets future variants slot in without
-/// re-validating every literal `0x01` in the codebase. The
+/// re-validating every literal `0x00` in the codebase. The
 /// `ProtocolVersion::SUPPORTED` slice is the source of truth for
 /// "what does this client speak" and is the hook point for the future
 /// version-mismatch probe diagnostic
 /// (`docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolVersion {
-    /// Wire byte `0x01`. The only revision xray-core has shipped.
-    V1,
+    /// Wire byte `0x00`. The only revision xray-core has shipped.
+    V0,
 }
 
 impl ProtocolVersion {
     /// All wire-version variants this client can encode.
-    pub const SUPPORTED: &'static [Self] = &[Self::V1];
+    pub const SUPPORTED: &'static [Self] = &[Self::V0];
 
     /// On-wire byte representation.
     pub const fn wire_byte(self) -> u8 {
         match self {
-            Self::V1 => 0x01,
+            Self::V0 => 0x00,
         }
     }
 
     /// Decode a wire byte into a known variant, or `None` for unsupported.
     pub const fn from_wire_byte(byte: u8) -> Option<Self> {
         match byte {
-            0x01 => Some(Self::V1),
+            0x00 => Some(Self::V0),
             _ => None,
         }
     }
@@ -103,11 +107,118 @@ impl From<ReadResponseError> for io::Error {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResponseHeaderState {
+    Header { bytes: [u8; 2], filled: usize },
+    Addons { remaining: usize },
+    Payload,
+}
+
+/// Removes the VLESS response header lazily from the first downlink read.
+///
+/// xray-core buffers its response header and flushes it with the first
+/// outbound payload. Waiting for the header before exposing a writable stream
+/// therefore deadlocks request/response protocols: the client cannot send the
+/// request that makes the server flush its header. Writes pass through
+/// immediately; reads validate and consume `Version | AddonsLen | Addons`
+/// before yielding payload bytes.
+pub struct ResponseHeaderStream<S> {
+    inner: S,
+    state: ResponseHeaderState,
+}
+
+impl<S> ResponseHeaderStream<S> {
+    pub fn new(inner: S) -> Self {
+        Self { inner, state: ResponseHeaderState::Header { bytes: [0; 2], filled: 0 } }
+    }
+}
+
+impl<S: AsyncRead + Unpin> AsyncRead for ResponseHeaderStream<S> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, output: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        loop {
+            match &mut this.state {
+                ResponseHeaderState::Header { bytes, filled } => {
+                    let mut header = ReadBuf::new(&mut bytes[*filled..]);
+                    ready!(Pin::new(&mut this.inner).poll_read(cx, &mut header))?;
+                    let read = header.filled().len();
+                    if read == 0 {
+                        return Poll::Ready(Err(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "VLESS response ended before its header",
+                        )));
+                    }
+                    *filled += read;
+                    if *filled == bytes.len() {
+                        validate_response_version(bytes[0])
+                            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+                        this.state = ResponseHeaderState::Addons { remaining: usize::from(bytes[1]) };
+                    }
+                }
+                ResponseHeaderState::Addons { remaining } if *remaining > 0 => {
+                    let mut scratch = [0_u8; u8::MAX as usize];
+                    let mut addons = ReadBuf::new(&mut scratch[..*remaining]);
+                    ready!(Pin::new(&mut this.inner).poll_read(cx, &mut addons))?;
+                    let read = addons.filled().len();
+                    if read == 0 {
+                        return Poll::Ready(Err(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "VLESS response ended before its addons",
+                        )));
+                    }
+                    *remaining -= read;
+                }
+                ResponseHeaderState::Addons { remaining: 0 } => {
+                    this.state = ResponseHeaderState::Payload;
+                }
+                ResponseHeaderState::Payload => return Pin::new(&mut this.inner).poll_read(cx, output),
+                ResponseHeaderState::Addons { .. } => unreachable!("guard handles non-empty VLESS addons"),
+            }
+        }
+    }
+}
+
+impl<S: AsyncWrite + Unpin> AsyncWrite for ResponseHeaderStream<S> {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, input: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.get_mut().inner).poll_write(cx, input)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.get_mut().inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.get_mut().inner).poll_shutdown(cx)
+    }
+}
+
+impl<S: XtlsDirectRead> XtlsDirectRead for ResponseHeaderStream<S> {
+    fn poll_read_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, output: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        debug_assert_eq!(this.state, ResponseHeaderState::Payload, "direct mode requires a validated VLESS response");
+        Pin::new(&mut this.inner).poll_read_direct(cx, output)
+    }
+}
+
+impl<S: XtlsDirectWrite> XtlsDirectWrite for ResponseHeaderStream<S> {
+    fn poll_write_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, input: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.get_mut().inner).poll_write_direct(cx, input)
+    }
+
+    fn poll_flush_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.get_mut().inner).poll_flush_direct(cx)
+    }
+
+    fn poll_shutdown_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.get_mut().inner).poll_shutdown_direct(cx)
+    }
+}
+
 /// Encode a VLESS request header.
 ///
 /// Wire format (from the VLESS spec):
 /// ```text
-/// Version(1B = 0x01) | UUID(16B) | AddonsLen(1B) | Addons(var)
+/// Version(1B = 0x00) | UUID(16B) | AddonsLen(1B) | Addons(var)
 /// | Cmd(1B) | Port(2B BE) | AddrType(1B) | Addr(var)
 /// ```
 ///
@@ -120,7 +231,7 @@ pub fn encode_request(uuid: &[u8; 16], addons: &[u8], target: &str) -> Result<Ve
     let mut buf = Vec::with_capacity(1 + 16 + 1 + addons.len() + 1 + 2 + 1 + host.len() + 2);
 
     // Version
-    buf.push(ProtocolVersion::V1.wire_byte());
+    buf.push(ProtocolVersion::V0.wire_byte());
     // UUID
     buf.extend_from_slice(uuid);
     // Addons length + addons
@@ -314,6 +425,14 @@ fn format_target(host: &str, port: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::AsyncWriteExt;
+
+    #[test]
+    fn xray_vless_request_version_is_zero() {
+        let encoded = encode_request(&[0x42; 16], &[], "example.com:443").expect("encode request");
+
+        assert_eq!(encoded[0], 0x00, "xray-core accepts only VLESS request version zero");
+    }
 
     #[test]
     fn encode_request_domain() {
@@ -321,7 +440,7 @@ mod tests {
         let addons = &[0x0a, 0x10, b'x'];
         let buf = encode_request(&uuid, addons, "example.com:443").expect("encode request");
 
-        assert_eq!(buf[0], 0x01); // version
+        assert_eq!(buf[0], 0x00); // version
         assert_eq!(&buf[1..17], &[0x01; 16]); // UUID
         assert_eq!(buf[17], 3); // addons len
         assert_eq!(&buf[18..21], addons); // addons
@@ -412,7 +531,7 @@ mod tests {
         // Anything outside SUPPORTED must return None so the parser can
         // emit a typed "unsupported version" error rather than silently
         // accepting an alien byte.
-        for byte in [0x00u8, 0x02, 0x05, 0xff] {
+        for byte in [0x01u8, 0x02, 0x05, 0xff] {
             assert_eq!(ProtocolVersion::from_wire_byte(byte), None, "unexpected accept for {byte:#x}");
         }
     }
@@ -420,7 +539,7 @@ mod tests {
     #[test]
     fn encoded_request_uses_protocol_version_wire_byte() {
         let encoded = encode_request(&[0x77; 16], &[], "example.com:443").expect("encode request");
-        assert_eq!(encoded[0], ProtocolVersion::V1.wire_byte());
+        assert_eq!(encoded[0], ProtocolVersion::V0.wire_byte());
     }
 
     #[test]
@@ -447,6 +566,41 @@ mod tests {
         let mut input = &b"\x01\x00"[..];
         let error = read_response(&mut input).await.expect_err("unknown response version must fail");
         assert!(matches!(error, ReadResponseError::Decode(DecodeError::UnsupportedResponseVersion(0x01))));
+    }
+
+    #[tokio::test]
+    async fn lazy_response_header_allows_uplink_before_xray_flushes_downlink() {
+        let (client, mut server) = tokio::io::duplex(64);
+        let peer = tokio::spawn(async move {
+            let mut request = [0_u8; 5];
+            server.read_exact(&mut request).await.expect("read first uplink payload");
+            assert_eq!(request, *b"hello");
+
+            server
+                .write_all(&[RESPONSE_VERSION, 3, 0xaa, 0xbb, 0xcc])
+                .await
+                .expect("write buffered VLESS response header");
+            server.write_all(b"world").await.expect("write response payload");
+        });
+
+        let mut stream = ResponseHeaderStream::new(client);
+        stream.write_all(b"hello").await.expect("uplink must not wait for the response header");
+        let mut response = [0_u8; 5];
+        stream.read_exact(&mut response).await.expect("strip response header and read payload");
+
+        assert_eq!(response, *b"world");
+        peer.await.expect("xray-like peer task");
+    }
+
+    #[tokio::test]
+    async fn lazy_response_header_rejects_unknown_version_on_first_read() {
+        let mut stream = ResponseHeaderStream::new(&b"\x01\x00payload"[..]);
+        let mut payload = [0_u8; 7];
+
+        let error = stream.read_exact(&mut payload).await.expect_err("unknown response version must fail");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("unsupported VLESS response version 1"));
     }
 
     #[test]

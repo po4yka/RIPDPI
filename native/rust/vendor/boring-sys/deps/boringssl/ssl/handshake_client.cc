@@ -255,6 +255,20 @@ bool ssl_add_client_hello(SSL_HANDSHAKE *hs) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
       return false;
     }
+
+    // The Reality callback rewrites legacy_session_id in the serialized
+    // ClientHello. Keep the handshake's expected echo value aligned with the
+    // bytes sent on the wire; otherwise TLS 1.3 rejects the valid ServerHello
+    // in parse_server_hello_tls13 with SSL_R_DECODE_ERROR.
+    CBS client_hello, session_id;
+    CBS_init(&client_hello, msg.data(), msg.size());
+    if (!CBS_skip(&client_hello, 4 + 2 + SSL3_RANDOM_SIZE) ||
+        !CBS_get_u8_length_prefixed(&client_hello, &session_id) ||
+        CBS_len(&session_id) > SSL_MAX_SSL_SESSION_ID_LENGTH ||
+        !hs->session_id.TryCopyFrom(session_id)) {
+      OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+      return false;
+    }
   }
 
   return ssl->method->add_message(ssl, std::move(msg));

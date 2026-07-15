@@ -22,13 +22,12 @@
 //! `Direct` (the xtls splice signal), and the stream is raw afterwards in that
 //! direction. The two directions transition independently.
 //!
-//! ## Interop caveat
-//!
-//! Full interop confidence requires a live Vision-enforcing Xray server. Unlike
-//! xray, RIPDPI writes the VLESS request header eagerly *before* this wrapper
-//! engages, so the "hide-header" zero-content chunk is not emitted; the 16-byte
-//! UUID still prefixes the first real chunk, which is what the peer's unpadder
-//! locks onto. The pinned xray tag is recorded in `SPEC_VERSION.md`.
+//! RIPDPI writes the VLESS request header eagerly before this wrapper engages,
+//! so the xray "hide-header" zero-content chunk is not emitted. The UUID still
+//! prefixes the first real chunk. `Direct` switches reads and writes to the
+//! transport beneath the outer Reality TLS stream, matching xray's raw-conn
+//! splice; `End` keeps the outer layer. The owner-only live test exercises a
+//! complete HTTPS exchange against a Vision-enforcing Xray server.
 
 use std::io;
 use std::pin::Pin;
@@ -36,6 +35,26 @@ use std::task::{Context, Poll};
 
 use ring::rand::{SecureRandom, SystemRandom};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+
+/// Raw transport access used after an XTLS `Direct` downlink command removes
+/// the outer Reality TLS layer.
+pub trait XtlsDirectRead: AsyncRead + Unpin {
+    /// Polls the transport below the outer Reality TLS stream.
+    fn poll_read_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>>;
+}
+
+/// Raw transport access used after an XTLS `Direct` uplink command removes
+/// the outer Reality TLS layer.
+pub trait XtlsDirectWrite: AsyncWrite + Unpin {
+    /// Writes to the transport below the outer Reality TLS stream.
+    fn poll_write_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>>;
+
+    /// Flushes the transport below the outer Reality TLS stream.
+    fn poll_flush_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>>;
+
+    /// Shuts down the transport below the outer Reality TLS stream.
+    fn poll_shutdown_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>>;
+}
 
 /// Vision command bytes (xray-core `proxy/proxy.go` const block). `End` (0x01)
 /// is a valid terminal command the reader handles generically, but the client
@@ -79,6 +98,7 @@ pub struct VisionStream<S> {
 
     // ---- uplink (write) ----
     w_padding: bool,
+    w_direct: bool,
     w_uuid_sent: bool,
     w_seen_handshake: bool,
     w_chunks: u32,
@@ -90,6 +110,7 @@ pub struct VisionStream<S> {
 
     // ---- downlink (read) ----
     r_uuid_checked: bool,
+    r_padding: bool,
     r_direct: bool,
     r_cur_cmd: u8,
     r_rem_cmd: i32,
@@ -121,6 +142,7 @@ impl<S> VisionStream<S> {
             uuid,
             rng: SystemRandom::new(),
             w_padding: vision,
+            w_direct: false,
             w_uuid_sent: false,
             w_seen_handshake: false,
             w_chunks: 0,
@@ -129,6 +151,7 @@ impl<S> VisionStream<S> {
             w_hdr_len: 0,
             w_pending: Vec::new(),
             r_uuid_checked: false,
+            r_padding: vision,
             r_direct: false,
             r_cur_cmd: CMD_CONTINUE,
             r_rem_cmd: -1,
@@ -236,8 +259,9 @@ impl<S> VisionStream<S> {
                 self.r_rem_content = -1;
                 self.r_rem_padding = -1;
             } else {
-                // Not Vision-padded: deliver verbatim and stop parsing.
-                self.r_direct = true;
+                // Not Vision-padded: deliver verbatim through the existing
+                // outer stream and stop parsing.
+                self.r_padding = false;
                 self.r_out.append(&mut self.r_inbuf);
                 return;
             }
@@ -275,8 +299,10 @@ impl<S> VisionStream<S> {
                     self.r_rem_content = -1;
                     self.r_rem_padding = -1;
                 } else {
-                    // End or Direct: padding stops, the remainder is raw.
-                    self.r_direct = true;
+                    // End keeps the outer transport; Direct bypasses Reality
+                    // TLS as well. In both cases Vision padding stops.
+                    self.r_padding = false;
+                    self.r_direct = self.r_cur_cmd == CMD_DIRECT;
                     let rest = self.r_inbuf.split_off(i);
                     self.r_out.extend_from_slice(&rest);
                     self.r_inbuf.clear();
@@ -326,7 +352,7 @@ fn encode_padding_chunk(out: &mut Vec<u8>, uuid: Option<&[u8; 16]>, cmd: u8, con
     out.resize(out.len() + usize::from(padding), 0);
 }
 
-impl<S: AsyncRead + Unpin> AsyncRead for VisionStream<S> {
+impl<S: XtlsDirectRead> AsyncRead for VisionStream<S> {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, read_buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let this = self.get_mut();
         if !this.vision {
@@ -340,7 +366,11 @@ impl<S: AsyncRead + Unpin> AsyncRead for VisionStream<S> {
                 return Poll::Ready(Ok(()));
             }
             if this.r_direct {
-                // Padding finished: the rest of the downlink is raw.
+                // `Direct` removes both Vision padding and the outer Reality
+                // TLS record layer. Read from the transport beneath BoringSSL.
+                return Pin::new(&mut this.inner).poll_read_direct(cx, read_buf);
+            }
+            if !this.r_padding {
                 return Pin::new(&mut this.inner).poll_read(cx, read_buf);
             }
             let mut scratch = [0u8; READ_SCRATCH];
@@ -362,7 +392,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for VisionStream<S> {
     }
 }
 
-impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
+impl<S: XtlsDirectWrite> AsyncWrite for VisionStream<S> {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         let this = self.get_mut();
         if !this.vision {
@@ -374,8 +404,12 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
             Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
             Poll::Pending => return Poll::Pending,
         }
+        if this.w_direct {
+            // The peer switches to the transport beneath Reality TLS after
+            // receiving `Direct`, so subsequent inner TLS records bypass it.
+            return Pin::new(&mut this.inner).poll_write_direct(cx, buf);
+        }
         if !this.w_padding {
-            // Padding finished: the rest of the uplink is raw.
             return Pin::new(&mut this.inner).poll_write(cx, buf);
         }
         if buf.is_empty() {
@@ -389,6 +423,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
         this.encode_outgoing(buf, cmd);
         if stop {
             this.w_padding = false;
+            this.w_direct = true;
         }
 
         // Best-effort flush; remaining bytes stay buffered for the next poll.
@@ -400,6 +435,14 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let this = self.get_mut();
+        if this.w_direct {
+            match this.flush_pending(cx) {
+                Poll::Ready(Ok(())) => {}
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Pending => return Poll::Pending,
+            }
+            return Pin::new(&mut this.inner).poll_flush_direct(cx);
+        }
         if this.vision {
             match this.flush_pending(cx) {
                 Poll::Ready(Ok(())) => {}
@@ -412,6 +455,14 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let this = self.get_mut();
+        if this.w_direct {
+            match this.flush_pending(cx) {
+                Poll::Ready(Ok(())) => {}
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Pending => return Poll::Pending,
+            }
+            return Pin::new(&mut this.inner).poll_shutdown_direct(cx);
+        }
         if this.vision {
             match this.flush_pending(cx) {
                 Poll::Ready(Ok(())) => {}
@@ -426,13 +477,87 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
 
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
     use super::*;
 
     const TEST_UUID: [u8; 16] =
         [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10];
+
+    impl XtlsDirectRead for Cursor<Vec<u8>> {
+        fn poll_read_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+            AsyncRead::poll_read(self, cx, buf)
+        }
+    }
+
+    impl XtlsDirectWrite for &mut Vec<u8> {
+        fn poll_write_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+            AsyncWrite::poll_write(self, cx, buf)
+        }
+
+        fn poll_flush_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            AsyncWrite::poll_flush(self, cx)
+        }
+
+        fn poll_shutdown_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            AsyncWrite::poll_shutdown(self, cx)
+        }
+    }
+
+    struct WriteModeSpy {
+        outer_tls: Vec<u8>,
+        direct: Vec<u8>,
+    }
+
+    impl AsyncWrite for WriteModeSpy {
+        fn poll_write(mut self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+            self.outer_tls.extend_from_slice(buf);
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl XtlsDirectWrite for WriteModeSpy {
+        fn poll_write_direct(mut self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+            self.direct.extend_from_slice(buf);
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush_direct(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown_direct(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    struct ReadModeSpy {
+        outer_tls: Cursor<Vec<u8>>,
+        direct: Cursor<Vec<u8>>,
+    }
+
+    impl AsyncRead for ReadModeSpy {
+        fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+            AsyncRead::poll_read(Pin::new(&mut self.get_mut().outer_tls), cx, buf)
+        }
+    }
+
+    impl XtlsDirectRead for ReadModeSpy {
+        fn poll_read_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+            AsyncRead::poll_read(Pin::new(&mut self.get_mut().direct), cx, buf)
+        }
+    }
 
     #[test]
     fn encode_padding_chunk_first_chunk_matches_golden() {
@@ -497,6 +622,35 @@ mod tests {
         expected.extend_from_slice(bulk);
         assert_eq!(recovered, expected, "round-trip must recover the exact byte stream");
         assert!(reader.r_direct, "reader must switch to direct after the appdata record");
+    }
+
+    #[tokio::test]
+    async fn direct_command_bypasses_outer_tls_in_both_directions() {
+        let handshake = [TLS_HANDSHAKE, 0x03, 0x01, 0x00, 0x02, 0xaa, 0xbb];
+        let appdata = [TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x03, 0x01, 0x02, 0x03];
+        let raw = b"raw inner TLS after splice";
+
+        let mut writer =
+            VisionStream::new_vision(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
+        writer.write_all(&handshake).await.expect("write padded handshake");
+        writer.write_all(&appdata).await.expect("write direct transition");
+        writer.write_all(raw).await.expect("write raw post-splice bytes");
+        writer.flush().await.expect("flush direct transport");
+
+        assert!(writer.inner.outer_tls.starts_with(&TEST_UUID), "Vision prefix must traverse outer TLS");
+        assert_eq!(writer.inner.direct, raw, "post-Direct uplink must bypass outer TLS");
+
+        let mut transition = Vec::new();
+        encode_padding_chunk(&mut transition, Some(&TEST_UUID), CMD_DIRECT, &appdata, 0);
+        let mut reader = VisionStream::new_vision(
+            ReadModeSpy { outer_tls: Cursor::new(transition), direct: Cursor::new(raw.to_vec()) },
+            TEST_UUID,
+        );
+        let mut recovered = Vec::new();
+        reader.read_to_end(&mut recovered).await.expect("read across direct transition");
+
+        let expected = [appdata.as_slice(), raw].concat();
+        assert_eq!(recovered, expected, "post-Direct downlink must bypass outer TLS");
     }
 
     #[tokio::test]

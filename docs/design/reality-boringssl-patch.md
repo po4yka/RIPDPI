@@ -7,13 +7,21 @@
 3. Inside `ssl_add_client_hello` (vendored patch in `native/rust/vendor/boring-sys/`), the callback fires after the body is serialized but before `add_message` consumes it.
 4. The callback reads the X25519 key_share private key via the patched `SSL_handshake_get_x25519_private_key`, pulls client_random out of `msg[6..38]`, and calls into `ripdpi-vless::reality_seal::seal_session_id` to produce the AES-256-GCM sealed session_id.
 5. The 32 sealed bytes overwrite `msg[39..71]` before the transcript hash absorbs them.
+6. The patched handshake driver copies the serialized session ID back into `hs->session_id`, so TLS 1.3 validates the server's echoed value against the bytes that were actually sent.
+
+Live interoperability validation on 2026-07-15 found and fixed four additional requirements that the frozen seal vector could not exercise:
+
+- REALITY authenticates its ephemeral server certificate with Ed25519, so the REALITY-only connector restores `ed25519` after applying the browser signature-algorithm profile.
+- VLESS request version is the upstream byte `0x00`.
+- xray-core buffers the VLESS response header until the first outbound payload; RIPDPI therefore strips and validates it lazily on first downlink read instead of blocking `connect()` before an uplink can be written.
+- XTLS `Direct` removes the outer REALITY TLS record layer as well as Vision padding. `VisionStream` now bypasses BoringSSL and polls the underlying transport after the transition in each direction.
 
 Cross-implementation oracle: `test-lab/reality-vector/main.go` reproduces the seal in pure Go (mirroring xray-core `reality.go`) and prints the same 32 bytes that the Rust frozen-vector test asserts on.
 
-Remaining work that is intentionally **not** part of H1 itself:
+Remaining infrastructure work that is intentionally **not** part of H1 itself:
 
 - Native `.so` size baselines will need to be updated once a real Android build runs through the patched boring-sys. Gated by the project's hook-enforced `*baseline*` policy.
-- `test-lab/` integration test that brings up a real Xray-core Reality server in docker-compose and asserts the full handshake completes against it. Tracked in the "Integration test" section below.
+- A hermetic `test-lab/` Xray-core container remains desirable for CI. The owner-only ignored test `ripdpi-vless/tests/live_reality.rs` now verifies a complete REALITY → VLESS → Vision → HTTPS exchange against the deployed infrastructure, while deterministic unit tests pin Ed25519 CertificateVerify, lazy response-header ordering, and raw `Direct` transport switching on every PR.
 
 Archived pre-implementation design context follows. In that section, "current" describes the pre-H1 implementation that existed before the commits named above, not the current source tree.
 

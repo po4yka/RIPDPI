@@ -36,6 +36,7 @@ use tokio::net::{TcpSocket, TcpStream};
 use crate::config::VlessRealityConfig;
 use crate::reality::RealityTlsStream;
 use crate::vision::VisionStream;
+use crate::wire::ResponseHeaderStream;
 
 /// Trait alias for an async bidirectional stream that is `Send`.
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -67,7 +68,7 @@ impl VlessRealityClient {
     pub async fn connect(
         config: &VlessRealityConfig,
         target: &str,
-    ) -> io::Result<VisionStream<RealityTlsStream<TcpStream>>> {
+    ) -> io::Result<VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>> {
         Self::connect_with_optional_bind(config, None, target).await
     }
 
@@ -77,7 +78,7 @@ impl VlessRealityClient {
         config: &VlessRealityConfig,
         bind_ip: IpAddr,
         target: &str,
-    ) -> io::Result<VisionStream<RealityTlsStream<TcpStream>>> {
+    ) -> io::Result<VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>> {
         Self::connect_with_optional_bind(config, Some(bind_ip), target).await
     }
 
@@ -85,7 +86,7 @@ impl VlessRealityClient {
         config: &VlessRealityConfig,
         bind_ip: Option<IpAddr>,
         target: &str,
-    ) -> io::Result<VisionStream<RealityTlsStream<TcpStream>>> {
+    ) -> io::Result<VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>> {
         tracing::debug!("VLESS+Reality: connecting");
 
         let tcp = connect_tcp(config, bind_ip).await?;
@@ -112,12 +113,13 @@ impl VlessRealityClient {
         Self::vless_handshake_and_wrap(tls, config, target).await
     }
 
-    /// Send the VLESS request, read the response, and wrap in a VisionStream.
+    /// Send the VLESS request and wrap the stream for lazy response-header
+    /// validation plus the selected Vision flow.
     async fn vless_handshake_and_wrap<S>(
         mut tls: S,
         config: &VlessRealityConfig,
         target: &str,
-    ) -> io::Result<VisionStream<S>>
+    ) -> io::Result<VisionStream<ResponseHeaderStream<S>>>
     where
         S: AsyncIo + 'static,
     {
@@ -128,10 +130,10 @@ impl VlessRealityClient {
         let request = wire::encode_request(&config.uuid, config.flow.as_addons_bytes(), target)?;
         tls.write_all(&request).await?;
 
-        // Read VLESS response header
-        wire::read_response(&mut tls).await.map_err(io::Error::from)?;
-
-        tracing::debug!("VLESS handshake completed");
+        // xray-core buffers its response header until the first outbound
+        // payload is available. Strip it lazily on read so the caller can
+        // first send the request that makes the server flush that header.
+        let response = ResponseHeaderStream::new(tls);
 
         // Wrap for the selected flow: real XTLS Vision framing for
         // `xtls-rprx-vision[-udp443]`, or a transparent passthrough for
@@ -139,9 +141,9 @@ impl VlessRealityClient {
         // splices to raw afterwards, mirroring the wire format the server's
         // `xtls-rprx-vision` reader expects (see [`crate::vision`]).
         let stream = match config.flow {
-            crate::addons::VlessFlow::None => VisionStream::new_passthrough(tls),
+            crate::addons::VlessFlow::None => VisionStream::new_passthrough(response),
             crate::addons::VlessFlow::Vision | crate::addons::VlessFlow::VisionUdp443 => {
-                VisionStream::new_vision(tls, config.uuid)
+                VisionStream::new_vision(response, config.uuid)
             }
         };
         Ok(stream)
