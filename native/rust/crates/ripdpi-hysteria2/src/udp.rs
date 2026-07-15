@@ -60,6 +60,11 @@ impl UdpSession {
     }
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> Result<()> {
+        // The Android live path can receive the successful H3 auth response
+        // just before the server's UDP session is ready to accept the first
+        // QUIC datagram. Wait out that connection-scoped handoff window; on
+        // other platforms `udp_ready_at` is the connection creation instant.
+        tokio::time::sleep_until(self.client.udp_ready_at).await;
         let (session_id, packet_id) = self.route_for(address).await?;
         let migration = self.client.begin_quic_migration()?;
         match send_udp_payload(&self.client, session_id, packet_id, address, payload).await {

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
+use std::time::Duration;
 
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
@@ -11,6 +12,8 @@ use crate::migration::QuicMigration;
 use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
 use crate::tls_quic::{ClientSocketSpec, H3ConnectionGuard, authenticate_connection, build_endpoint, build_tls_config};
 use crate::udp::{UdpPacket, UdpSession, dispatch_udp_datagrams};
+
+const ANDROID_UDP_AUTH_SETTLE_GRACE: Duration = Duration::from_millis(100);
 
 /// Aborts the contained task when the last owner is dropped.
 ///
@@ -50,6 +53,7 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
 
     let (udp_supported, h3_guard) = authenticate_connection(config, &connection).await?;
     let max_datagram_size = connection.max_datagram_size();
+    let udp_ready_at = tokio::time::Instant::now() + udp_auth_settle_grace(cfg!(target_os = "android"));
 
     let inner = Arc::new(ClientInner {
         endpoint,
@@ -59,6 +63,7 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         registrations: Mutex::new(HashMap::new()),
         udp_supported,
         max_datagram_size,
+        udp_ready_at,
         socket_spec,
         migrate_after_handshake: config.quic_migrate_after_handshake,
         migration: QuicMigration::new_not_attempted(current_socket),
@@ -139,7 +144,23 @@ pub(crate) struct ClientInner {
     pub(crate) registrations: Mutex<HashMap<u32, mpsc::Sender<UdpPacket>>>,
     pub(crate) udp_supported: bool,
     pub(crate) max_datagram_size: Option<usize>,
+    pub(crate) udp_ready_at: tokio::time::Instant,
     pub(crate) socket_spec: ClientSocketSpec,
     pub(crate) migrate_after_handshake: bool,
     pub(crate) migration: QuicMigration,
+}
+
+fn udp_auth_settle_grace(is_android: bool) -> Duration {
+    if is_android { ANDROID_UDP_AUTH_SETTLE_GRACE } else { Duration::ZERO }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ANDROID_UDP_AUTH_SETTLE_GRACE, udp_auth_settle_grace};
+
+    #[test]
+    fn android_udp_waits_for_server_auth_handoff_before_first_datagram() {
+        assert_eq!(udp_auth_settle_grace(true), ANDROID_UDP_AUTH_SETTLE_GRACE);
+        assert_eq!(udp_auth_settle_grace(false), std::time::Duration::ZERO);
+    }
 }
