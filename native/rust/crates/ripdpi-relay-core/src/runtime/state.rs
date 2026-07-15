@@ -88,6 +88,7 @@ pub(super) struct RuntimeState {
     running: AtomicBool,
     active_sessions: Arc<AtomicU64>,
     total_sessions: AtomicU64,
+    session_error_streak: AtomicU64,
     backend: OnceLock<Arc<RelayBackend>>,
     listener_address: OnceLock<String>,
     last_target: ArcSwapOption<String>,
@@ -114,6 +115,7 @@ impl RuntimeState {
             running: AtomicBool::new(false),
             active_sessions: Arc::new(AtomicU64::new(0)),
             total_sessions: AtomicU64::new(0),
+            session_error_streak: AtomicU64::new(0),
             backend: OnceLock::new(),
             listener_address: OnceLock::new(),
             last_target: ArcSwapOption::empty(),
@@ -225,6 +227,20 @@ impl RuntimeState {
 
     pub(super) fn record_error(&self, error: String) {
         self.last_error.store(Some(Arc::new(error)));
+        // Ordering: this is a standalone telemetry counter and does not publish other state.
+        let _ = self
+            .session_error_streak
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |streak| Some(streak.saturating_add(1)));
+    }
+
+    pub(super) fn record_session_success(&self) {
+        // Ordering: this is a standalone telemetry counter and does not publish other state.
+        self.session_error_streak.store(0, Ordering::Relaxed);
+    }
+
+    pub(super) fn session_error_streak(&self) -> u64 {
+        // Ordering: this is a standalone telemetry counter and does not synchronize other state.
+        self.session_error_streak.load(Ordering::Relaxed)
     }
 
     pub(super) fn record_handshake_error(&self, error: String) {

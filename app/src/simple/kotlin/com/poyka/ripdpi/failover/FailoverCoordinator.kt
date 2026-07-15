@@ -24,7 +24,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +31,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.net.URI
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -49,6 +50,9 @@ internal const val FAILOVER_DEBOUNCE_MS = 20_000L
  * rapid oscillation (flapping) when all candidates are degraded.
  */
 internal const val FAILOVER_MIN_INTERVAL_MS = 30_000L
+
+/** Maximum time to wait for the old VPN session to halt before attempting recovery. */
+internal const val FAILOVER_STOP_TIMEOUT_MS = 15_000L
 
 /**
  * Opaque clock interface so tests can inject a fake without calling
@@ -117,13 +121,14 @@ sealed interface FailoverCandidate {
 @Singleton
 class FailoverCoordinator
     @Inject
-    constructor(
+    internal constructor(
         private val serviceStateStore: ServiceStateStore,
         private val serviceController: ServiceController,
         private val relayProfileStore: RelayProfileStore,
         private val awgProfileRepository: AwgProfileRepository,
         private val settingsRepository: AppSettingsRepository,
         private val awgEgressSelection: SimpleAwgEgressSelection,
+        private val egressProbe: FailoverEgressProbe,
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
         ActiveTransportProvider,
@@ -342,7 +347,7 @@ class FailoverCoordinator
          * // NOT cancel-safe: contains suspending `collect`. Cancellation via
          * [stopObserving] or scope cancellation cleanly terminates the loop; no
          * partial switch is left in progress because state writes in [performSwitch]
-         * occur before the suspending `delay` call.
+         * occur before waiting for the old service to halt.
          */
         private suspend fun observeLoop() {
             serviceStateStore.telemetry
@@ -380,6 +385,18 @@ class FailoverCoordinator
                 return
             }
 
+            // Native session errors are only a passive trigger: a target-specific reset or
+            // failed DNS-provider attempt does not prove that the relay path is unusable.
+            // Confirm the current Android VPN egress before starting or advancing the
+            // failover debounce. A successful request also creates a successful relay
+            // session, which clears the native consecutive-error signal.
+            if (confirmRelayEgress(snapshot)) {
+                failingsSince = null
+                backedOff = false
+                switchesInCycle = 0
+                return
+            }
+
             // Still failing. If every candidate was already tried this cycle with none healthy,
             // stay quiet until a healthy emission (above) resets the budget.
             if (backedOff) return
@@ -405,14 +422,22 @@ class FailoverCoordinator
             performSwitch(now)
         }
 
+        private suspend fun confirmRelayEgress(snapshot: ServiceTelemetrySnapshot): Boolean {
+            if (candidates.getOrNull(activeCandidateIndex) !is FailoverCandidate.Relay) {
+                return false
+            }
+            val endpoint = parseFailoverProxyEndpoint(snapshot.relayTelemetry.listenerAddress) ?: return false
+            return runCatching { egressProbe.probe(endpoint) }.getOrDefault(false)
+        }
+
         /**
          * Advances to the next candidate in priority order and restarts the VPN session.
          *
          * If advancing would wrap back to index 0 we have exhausted all candidates;
          * set [backedOff] and stop switching until a healthy emission resets state.
          *
-         * // NOT cancel-safe: contains [delay] and suspending [settingsRepository.update].
-         * The stop→delay→start restart runs inside [NonCancellable] so it completes
+         * // NOT cancel-safe: waits for service state and suspends in [settingsRepository.update].
+         * The stop→halted→start restart runs inside [NonCancellable] so it completes
          * atomically: the self-induced [AppStatus.Halted] makes [bind] cancel [observeJob]
          * (which is running this very function), but the restart must still reach
          * [serviceController.start] or the session is stranded in [AppStatus.Halted] with
@@ -452,15 +477,22 @@ class FailoverCoordinator
             // of treating it as a user-initiated session end.
             selfInducedRestart = true
 
-            // Session restart: stop then start. VPN consent is already granted;
-            // start(Mode.VPN) reuses it without prompting. Wrapped in NonCancellable so the
-            // self-induced Halted (which makes bind cancel this job) cannot abort the restart
-            // mid-way and strand the session in Halted.
+            // Session restart: wait for the asynchronous service stop to complete before
+            // starting the replacement. VPN consent is already granted; start(Mode.VPN)
+            // reuses it without prompting. Wrapped in NonCancellable so the self-induced
+            // Halted (which makes bind cancel this job) cannot abort the restart mid-way.
             val result =
                 withContext(NonCancellable) {
                     serviceController.stop()
-                    // Brief yield so the OS processes the stop intent before the start intent.
-                    delay(300L)
+                    val halted =
+                        withTimeoutOrNull(FAILOVER_STOP_TIMEOUT_MS) {
+                            serviceStateStore.status.first { (status, mode) ->
+                                status == AppStatus.Halted && mode == Mode.VPN
+                            }
+                        } != null
+                    if (!halted) {
+                        Logger.w { "FailoverCoordinator: timed out waiting for the previous VPN session to halt" }
+                    }
                     serviceController.start(Mode.VPN)
                 }
             if (result is ServiceStartResult.Rejected) {
@@ -523,12 +555,15 @@ class FailoverCoordinator
          *
          * // cancel-safe: no suspension points
          */
-        private fun activeEgressHealth(snapshot: ServiceTelemetrySnapshot): String =
-            when (candidates.getOrNull(activeCandidateIndex)) {
-                is FailoverCandidate.Relay -> snapshot.relayTelemetry.health
-                is FailoverCandidate.Awg -> snapshot.awgTelemetry.health
-                null -> NativeRuntimeSnapshot.idle(source = "unknown").health
-            }
+        private fun activeEgressHealth(snapshot: ServiceTelemetrySnapshot): String {
+            val health =
+                when (candidates.getOrNull(activeCandidateIndex)) {
+                    is FailoverCandidate.Relay -> snapshot.relayTelemetry.health
+                    is FailoverCandidate.Awg -> snapshot.awgTelemetry.health
+                    null -> NativeRuntimeSnapshot.idle(source = "unknown").health
+                }
+            return health.substringBefore(' ')
+        }
 
         /**
          * Returns the index in [candidates] that matches the currently persisted transport.
@@ -652,6 +687,16 @@ class FailoverCoordinator
         }
     }
 
+internal fun parseFailoverProxyEndpoint(listenerAddress: String?): FailoverProxyEndpoint? {
+    val raw = listenerAddress?.trim()?.takeIf(String::isNotEmpty) ?: return null
+    return runCatching {
+        val uri = URI("socks://$raw")
+        val host = uri.host?.takeIf(String::isNotBlank) ?: return null
+        val port = uri.port.takeIf { it in 1..65_535 } ?: return null
+        FailoverProxyEndpoint(host = host, port = port)
+    }.getOrNull()
+}
+
 /**
  * Maps a [FailoverCandidate] to its raw protocol kind string.
  *
@@ -683,6 +728,10 @@ abstract class FailoverCoordinatorBindsModule {
 
     @Binds
     abstract fun bindActiveTransportProvider(coordinator: FailoverCoordinator): ActiveTransportProvider
+
+    @Binds
+    @Singleton
+    internal abstract fun bindFailoverEgressProbe(probe: HttpFailoverEgressProbe): FailoverEgressProbe
 
     @Binds
     internal abstract fun bindInitialRaceFailoverCoordinator(

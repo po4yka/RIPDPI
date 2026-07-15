@@ -15,12 +15,18 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         backend.map_or((None, None), |backend| backend.quic_migration_snapshot());
     let is_running = runtime.state.is_running();
     let state = if is_running { "running" } else { "idle" };
+    let health = match runtime.state.session_error_streak() {
+        _ if !is_running => "idle",
+        streak if streak >= FAILED_SESSION_ERROR_STREAK => "failed",
+        streak if streak > 0 => "degraded",
+        _ => "running",
+    };
     let chain_hops = backend.and_then(|backend| backend.chain_hop_snapshot());
 
     RelayTelemetry {
         source: "relay",
         state: state.to_string(),
-        health: describe_runtime_health(state, backend.map(Arc::as_ref)),
+        health: describe_runtime_health(health, backend.map(Arc::as_ref)),
         active_sessions: runtime.state.active_sessions(),
         total_sessions: runtime.state.total_sessions(),
         listener_address: runtime.state.listener_address(),
@@ -62,6 +68,8 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
     }
 }
 
+const FAILED_SESSION_ERROR_STREAK: u64 = 3;
+
 fn chain_state(config: &ResolvedRelayRuntimeConfig, is_running: bool) -> Option<String> {
     matches!(RelayKind::from_config(config), RelayKind::ChainRelay)
         .then(|| if is_running { "connected" } else { "idle" }.to_string())
@@ -85,6 +93,24 @@ mod tests {
         assert_eq!(Some("idle"), telemetry.chain_exit_state.as_deref());
         assert_eq!(None, telemetry.chain_entry_latency_ms);
         assert_eq!(None, telemetry.chain_exit_latency_ms);
+    }
+
+    #[test]
+    fn health_tracks_consecutive_session_failures_and_recovery() {
+        let runtime = RelayRuntime::new(chain_config());
+        runtime.state.set_running(true);
+
+        assert_eq!("running", runtime.telemetry().health);
+
+        runtime.state.record_error("first failure".to_string());
+        assert_eq!("degraded", runtime.telemetry().health);
+
+        runtime.state.record_error("second failure".to_string());
+        runtime.state.record_error("third failure".to_string());
+        assert_eq!("failed", runtime.telemetry().health);
+
+        runtime.state.record_session_success();
+        assert_eq!("running", runtime.telemetry().health);
     }
 
     fn chain_config() -> ResolvedRelayRuntimeConfig {

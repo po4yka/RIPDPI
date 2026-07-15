@@ -36,8 +36,9 @@ pub(super) fn spawn_socks_session(
         // CONNECT/ASSOCIATE on a relay that never started. We therefore await it
         // directly instead of racing it against `cancel` here — a drop-on-cancel
         // `select!` at this layer is exactly what created that orphan window.
-        if let Err(error) = handle_client(stream, backend, socks_config, session_runtime.as_ref(), cancel).await {
-            session_runtime.state.record_error(error.to_string());
+        match handle_client(stream, backend, socks_config, session_runtime.as_ref(), cancel).await {
+            Ok(()) => session_runtime.state.record_session_success(),
+            Err(error) => session_runtime.state.record_error(error.to_string()),
         }
     });
 }

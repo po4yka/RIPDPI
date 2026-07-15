@@ -79,7 +79,9 @@ private class FakeServiceStateStore(
     }
 }
 
-private class FakeServiceController : ServiceController {
+private class FakeServiceController(
+    private val stateStore: FakeServiceStateStore? = null,
+) : ServiceController {
     val startCalls = mutableListOf<Mode>()
     val stopCalls = mutableListOf<Unit>()
 
@@ -90,6 +92,7 @@ private class FakeServiceController : ServiceController {
 
     override fun stop() {
         stopCalls += Unit
+        stateStore?.setStatus(AppStatus.Halted, Mode.VPN)
     }
 }
 
@@ -201,11 +204,18 @@ private var telemetrySeq = 0L
 private fun runningTelemetry(
     relayHealth: String = "healthy",
     awgHealth: String = "idle",
+    relayListenerAddress: String? = "127.0.0.1:1080",
 ): ServiceTelemetrySnapshot =
     ServiceTelemetrySnapshot(
         status = AppStatus.Running,
         mode = Mode.VPN,
-        relayTelemetry = NativeRuntimeSnapshot(source = "relay", state = "running", health = relayHealth),
+        relayTelemetry =
+            NativeRuntimeSnapshot(
+                source = "relay",
+                state = "running",
+                health = relayHealth,
+                listenerAddress = relayListenerAddress,
+            ),
         awgTelemetry = NativeRuntimeSnapshot(source = "awg", state = "running", health = awgHealth),
         updatedAt = ++telemetrySeq,
     )
@@ -219,7 +229,7 @@ private const val MINIMAL_AWG_REQUEST_JSON =
 
 private fun buildCoordinator(
     stateStore: FakeServiceStateStore = FakeServiceStateStore(),
-    controller: FakeServiceController = FakeServiceController(),
+    controller: FakeServiceController = FakeServiceController(stateStore),
     relayProfiles: List<RelayProfileRecord> =
         listOf(
             RelayProfileRecord(id = "reality-1", kind = RelayKindVlessReality),
@@ -228,6 +238,7 @@ private fun buildCoordinator(
     awgProfiles: List<AwgProfileEntity> = emptyList(),
     clock: FakeFailoverClock = FakeFailoverClock(now = 0L),
     settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+    egressProbe: FailoverEgressProbe = FailoverEgressProbe { _ -> false },
 ): CoordinatorFixture {
     val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
     val awgSelection = SimpleAwgEgressSelection(awgRepo, settings)
@@ -239,6 +250,7 @@ private fun buildCoordinator(
             awgProfileRepository = awgRepo,
             settingsRepository = settings,
             awgEgressSelection = awgSelection,
+            egressProbe = egressProbe,
             clock = clock,
         )
     return CoordinatorFixture(coordinator, controller, clock, awgSelection)
@@ -260,8 +272,7 @@ private data class CoordinatorFixture(
  * [UnconfinedTestDispatcher] (sharing the test's [TestCoroutineScheduler]).
  * This makes [StateFlow] emissions delivered synchronously to the collector —
  * no per-emit [advanceUntilIdle] needed for flow delivery. [advanceUntilIdle]
- * is only needed after the triggering emission to let [delay](300) in
- * [performSwitch] complete.
+ * is only needed after a switch to drain any remaining child work.
  *
  * [FakeFailoverClock] is the sole clock for debounce/min-interval math.
  * [ServiceTelemetrySnapshot.updatedAt] increments on every [runningTelemetry]
@@ -304,12 +315,97 @@ class FailoverCoordinatorTest {
 
             clock.advance(7_000L) // t=28000; elapsed=21000 >= 20000 → SWITCH
             stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
-            advanceUntilIdle() // complete delay(300) in performSwitch
+            advanceUntilIdle()
 
             assertEquals("Expected exactly one stop", 1, controller.stopCalls.size)
             assertEquals("Expected exactly one start", 1, controller.startCalls.size)
             assertEquals(Mode.VPN, controller.startCalls.first())
 
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun enrichedFailureHealthTriggersSwitch() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val (coordinator, controller, _) = buildCoordinator(stateStore = stateStore, clock = clock)
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy (pool busy=0 idle=1)"))
+
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed (pool busy=0 idle=0)"))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed (pool busy=0 idle=0)"))
+            advanceUntilIdle()
+
+            assertEquals(1, controller.stopCalls.size)
+            assertEquals(1, controller.startCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun successfulEgressConfirmationSuppressesPassiveFailureSwitch() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressProbe =
+                        FailoverEgressProbe { endpoint ->
+                            probeCalls++
+                            assertEquals(FailoverProxyEndpoint("127.0.0.1", 1080), endpoint)
+                            true
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+
+            assertEquals(2, probeCalls)
+            assertEquals(0, controller.stopCalls.size)
+            assertEquals(0, controller.startCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun restartWaitsForHaltedStatusBeforeStartingReplacement() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val controller = FakeServiceController()
+            val clock = FakeFailoverClock(now = 0L)
+            val coordinator =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    controller = controller,
+                    clock = clock,
+                ).coordinator
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+
+            assertEquals(1, controller.stopCalls.size)
+            assertEquals(0, controller.startCalls.size)
+
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+
+            assertEquals(1, controller.startCalls.size)
             coordinator.stopObserving()
         }
 
