@@ -127,10 +127,6 @@ internal class SimpleInitialRelayRacePolicy
                 publishDisabledSnapshot()
                 return null
             }
-            if (hysteria.obfsPassword.isNullOrBlank()) {
-                publishDisabledSnapshot()
-                return null
-            }
             val realityProfileId = requireNotNull(realityMember).second
             val hysteriaProfileId = requireNotNull(hysteriaMember).second
             val storedReality = relayProfileStore.load(realityProfileId)
@@ -142,7 +138,7 @@ internal class SimpleInitialRelayRacePolicy
                 storedReality?.kind != RelayKindVlessReality ||
                 storedHysteria?.kind != RelayKindHysteria2 ||
                 hysteriaPassword.isNullOrBlank() ||
-                hysteriaSalamanderKey.isNullOrBlank()
+                (!hysteria.obfsPassword.isNullOrBlank() && hysteriaSalamanderKey.isNullOrBlank())
             ) {
                 publishDisabledSnapshot()
                 return null

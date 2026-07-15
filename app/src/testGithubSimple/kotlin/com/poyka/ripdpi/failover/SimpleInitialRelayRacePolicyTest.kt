@@ -115,6 +115,55 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
+    fun `hysteria without salamander obfuscation remains eligible for the race`() =
+        runTest {
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { validBundleWithoutObfs() },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore =
+                        InMemoryRelayCredentialStore(
+                            RelayCredentialRecord(
+                                profileId = HysteriaProfileId,
+                                hysteriaPassword = "fixture-value",
+                            ),
+                        ),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+
+            val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
+
+            assertEquals(2, plan?.candidates?.size)
+            assertEquals(HysteriaProfileId, plan?.candidates?.last()?.profileId)
+        }
+
+    @Test
+    fun `advertised salamander obfuscation requires its stored key`() =
+        runTest {
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore =
+                        InMemoryRelayCredentialStore(
+                            RelayCredentialRecord(
+                                profileId = HysteriaProfileId,
+                                hysteriaPassword = "fixture-value",
+                            ),
+                        ),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+
+            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
+        }
+
+    @Test
     fun `multiple reality endpoints race the first declared reality against hysteria`() =
         runTest {
             policy =
@@ -270,6 +319,12 @@ class SimpleInitialRelayRacePolicyTest {
           ]
         }
         """.trimIndent()
+
+    private fun validBundleWithoutObfs(): String =
+        validBundle().replace(
+            ", \"obfs\": { \"type\": \"salamander\", \"password\": \"fixture-obfs-value\" }",
+            "",
+        )
 
     private fun multiRealityBundle(): String =
         """
