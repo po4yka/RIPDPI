@@ -804,8 +804,9 @@ async fn chain_relay_routes_tcp_through_vless_entry_and_vless_exit() {
 
 /// Chain-relay negative path: the second (exit) hop fails — it cannot reach the
 /// final destination because the target port has no listener. The exit hop
-/// closes without a VLESS response, so the chained `connect_over` surfaces a
-/// recognizable connection-failure error to the caller rather than hanging or
+/// closes without a VLESS response. Because VLESS response validation is lazy,
+/// `connect_over` first returns a writable stream; the first downlink read must
+/// then surface a recognizable connection-failure error rather than hanging or
 /// silently succeeding. Closes the negative-path criterion on
 /// `audit-vless-chained-connect-over-relay-end-to-end-tests`.
 #[tokio::test]
@@ -828,11 +829,14 @@ async fn chain_relay_vless_second_hop_failure_surfaces_recognizable_error() {
 
     let backend = build_backend(&config).await.expect("chain backend builds for the failure case");
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), dead_port));
-    let error = backend
-        .connect_tcp(&target)
+    let mut stream =
+        backend.connect_tcp(&target).await.expect("lazy VLESS response validation returns a writable chained stream");
+    stream.write_all(b"trigger failed exit target").await.expect("write chained request payload");
+    let mut response = [0_u8; 1];
+    let error = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut response))
         .await
-        .err()
-        .expect("a second-hop failure to reach the destination must surface an error");
+        .expect("a second-hop failure must not hang the first downlink read")
+        .expect_err("a second-hop failure to reach the destination must surface an error on read");
 
     assert!(
         matches!(
