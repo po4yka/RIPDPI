@@ -136,6 +136,49 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
+    fun `selected fallback reality races its exact endpoint against hysteria`() =
+        runTest {
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { multiRealityBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+
+            val plan = policy.plan(FallbackRealityProfileId, RelayKindVlessReality, "network-a")
+
+            assertEquals(FallbackRealityProfileId, plan?.candidates?.first()?.profileId)
+            assertEquals(HysteriaProfileId, plan?.candidates?.last()?.profileId)
+        }
+
+    @Test
+    fun `unknown seeded endpoint disables race instead of substituting first member`() =
+        runTest {
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { multiRealityBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+
+            assertNull(
+                policy.plan(
+                    "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality-3",
+                    RelayKindVlessReality,
+                    "network-a",
+                ),
+            )
+        }
+
+    @Test
     fun `failover induced restart and malformed url disable the race`() =
         runTest {
             failoverBridge.skip = true
@@ -194,6 +237,7 @@ class SimpleInitialRelayRacePolicyTest {
     private fun seededProfileStore(): RelayProfileStore =
         InMemoryRelayProfileStore(
             RelayProfileRecord(id = RealityProfileId, kind = RelayKindVlessReality),
+            RelayProfileRecord(id = FallbackRealityProfileId, kind = RelayKindVlessReality),
             RelayProfileRecord(id = HysteriaProfileId, kind = RelayKindHysteria2),
         )
 
@@ -259,6 +303,7 @@ class SimpleInitialRelayRacePolicyTest {
 
     private companion object {
         const val RealityProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality"
+        const val FallbackRealityProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality-2"
         const val HysteriaProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}Hysteria2"
         const val HourMillis = 60L * 60L * 1_000L
     }
