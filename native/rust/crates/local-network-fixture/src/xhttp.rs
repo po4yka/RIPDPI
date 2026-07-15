@@ -56,7 +56,7 @@ enum SessionHalf {
     /// The GET arrived first; holds the download-body sender.
     Download(mpsc::Sender<Result<Bytes, io::Error>>),
     /// The POST arrived first; holds the upload request body.
-    Upload(Incoming),
+    Upload { body: Incoming, response_tx: mpsc::Sender<Result<Bytes, io::Error>> },
 }
 
 type Sessions = Arc<Mutex<HashMap<String, SessionHalf>>>;
@@ -192,7 +192,7 @@ async fn handle_request(request: Request<Incoming>, sessions: Sessions) -> Resul
             let paired_upload = {
                 let mut guard = sessions.lock().expect("xhttp sessions");
                 match guard.remove(&path) {
-                    Some(SessionHalf::Upload(upload)) => Some(upload),
+                    Some(SessionHalf::Upload { body, response_tx }) => Some((body, response_tx)),
                     Some(other) => {
                         // Duplicate GET for the path: keep the original, reject this.
                         guard.insert(path.clone(), other);
@@ -204,8 +204,8 @@ async fn handle_request(request: Request<Incoming>, sessions: Sessions) -> Resul
                     }
                 }
             };
-            if let Some(upload) = paired_upload {
-                spawn_proxy(upload, down_tx);
+            if let Some((upload, upload_response_tx)) = paired_upload {
+                spawn_proxy(upload, down_tx, upload_response_tx);
             }
             Ok(ok_streaming_response(down_rx))
         }
@@ -213,6 +213,7 @@ async fn handle_request(request: Request<Incoming>, sessions: Sessions) -> Resul
         // pair them and start proxying; otherwise stash the upload body.
         Method::POST => {
             let upload = request.into_body();
+            let (upload_response_tx, upload_response_rx) = mpsc::channel::<Result<Bytes, io::Error>>(1);
             let paired_download = {
                 let mut guard = sessions.lock().expect("xhttp sessions");
                 match guard.remove(&path) {
@@ -222,15 +223,18 @@ async fn handle_request(request: Request<Incoming>, sessions: Sessions) -> Resul
                         return Ok(status_response(StatusCode::CONFLICT));
                     }
                     None => {
-                        guard.insert(path.clone(), SessionHalf::Upload(upload));
-                        return Ok(status_response(StatusCode::OK));
+                        guard.insert(
+                            path.clone(),
+                            SessionHalf::Upload { body: upload, response_tx: upload_response_tx },
+                        );
+                        return Ok(ok_streaming_response(upload_response_rx));
                     }
                 }
             };
             if let Some(down_tx) = paired_download {
-                spawn_proxy(upload, down_tx);
+                spawn_proxy(upload, down_tx, upload_response_tx);
             }
-            Ok(status_response(StatusCode::OK))
+            Ok(ok_streaming_response(upload_response_rx))
         }
         _ => Ok(status_response(StatusCode::METHOD_NOT_ALLOWED)),
     }
@@ -239,8 +243,13 @@ async fn handle_request(request: Request<Incoming>, sessions: Sessions) -> Resul
 /// Pair an upload body with a download sender: read the VLESS request from the
 /// upload, ACK with the VLESS response on the download, then proxy both
 /// directions to the request's target.
-fn spawn_proxy(upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Error>>) -> TokioJoinHandle<()> {
+fn spawn_proxy(
+    upload: Incoming,
+    down_tx: mpsc::Sender<Result<Bytes, io::Error>>,
+    upload_response_tx: mpsc::Sender<Result<Bytes, io::Error>>,
+) -> TokioJoinHandle<()> {
     tokio::spawn(async move {
+        let _upload_response_tx = upload_response_tx;
         let _ = proxy(upload, down_tx).await;
     })
 }
@@ -280,12 +289,11 @@ async fn proxy(mut upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Err
         ));
     }
 
-    // 2. Connect to the proxy target, then ACK with the VLESS response header.
+    // 2. Connect to the proxy target. xray-core buffers the VLESS response
+    // header until the first downstream payload is available, so the fixture
+    // must not send an eager ACK that lets clients hide a handshake deadlock.
     let upstream = TcpStream::connect(header.target.as_str()).await?;
-    down_tx
-        .send(Ok(Bytes::from(encode_response(&[])?)))
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "download channel closed"))?;
+    let response_header = encode_response(&[])?;
 
     let (mut upstream_read, mut upstream_write) = upstream.into_split();
 
@@ -310,12 +318,22 @@ async fn proxy(mut upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Err
 
     // 3b. Download pump: upstream -> xHTTP download body.
     let mut chunk = vec![0u8; DOWNLOAD_CHUNK];
+    let mut first_download = true;
     loop {
         let read = match upstream_read.read(&mut chunk).await {
             Ok(0) | Err(_) => break,
             Ok(read) => read,
         };
-        if down_tx.send(Ok(Bytes::copy_from_slice(&chunk[..read]))).await.is_err() {
+        let payload = if first_download {
+            first_download = false;
+            let mut framed = Vec::with_capacity(response_header.len() + read);
+            framed.extend_from_slice(&response_header);
+            framed.extend_from_slice(&chunk[..read]);
+            Bytes::from(framed)
+        } else {
+            Bytes::copy_from_slice(&chunk[..read])
+        };
+        if down_tx.send(Ok(payload)).await.is_err() {
             break;
         }
     }

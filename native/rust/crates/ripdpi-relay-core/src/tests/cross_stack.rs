@@ -4,6 +4,7 @@
 //! enforced by `scripts/ci/check_file_loc_limits.py`.
 
 use super::*;
+use std::time::Duration;
 
 /// Cross-stack: VLESS-over-xHTTP-over-Reality, single stream. Drives the real
 /// `ripdpi-xhttp` client (through the relay VLESS-Reality xHTTP backend) against
@@ -31,7 +32,10 @@ async fn cross_stack_vless_over_xhttp_over_reality_single_stream() {
 
     let backend = build_backend(&config).await.expect("build VLESS-over-xHTTP-over-Reality backend");
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), server.target_port()));
-    let mut stream = backend.connect_tcp(&target).await.expect("connect VLESS-over-xHTTP-over-Reality");
+    let mut stream = tokio::time::timeout(Duration::from_secs(2), backend.connect_tcp(&target))
+        .await
+        .expect("VLESS-over-xHTTP connect must not wait for the first downstream payload")
+        .expect("connect VLESS-over-xHTTP-over-Reality");
 
     for payload in
         [b"cross-stack xhttp reality payload".as_slice(), b"second round-trip over the same xhttp stream".as_slice()]

@@ -11,6 +11,7 @@ use tokio::sync::{OwnedSemaphorePermit, mpsc};
 use tokio::task::JoinHandle;
 
 use ripdpi_vless::addons::VlessFlow;
+use ripdpi_vless::wire::ResponseHeaderStream;
 
 use crate::config::{XhttpMode, XhttpProtocolMode, normalize_path};
 use crate::h2_body::{ChannelBody, build_get_request, build_post_request};
@@ -22,7 +23,7 @@ pub(crate) const HEADER_PADDING_MIN: usize = 100;
 pub(crate) const HEADER_PADDING_MAX: usize = 1000;
 
 pub struct XhttpStream {
-    reader: DuplexStream,
+    reader: ResponseHeaderStream<DuplexStream>,
     writer: DuplexStream,
     _permit: OwnedSemaphorePermit,
 }
@@ -163,12 +164,16 @@ impl PooledConnection {
         let mut open_tasks = OpenStreamTaskGuard::new();
         open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
         open_tasks.push(spawn_download_pump(get_response.into_body(), transport_download, "xHTTP GET stream failed"));
+        open_tasks.push(spawn_body_drain(post_response.into_body(), "xHTTP POST stream failed"));
 
         let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
         user_upload.write_all(&request).await?;
 
-        let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
-        ripdpi_vless::wire::read_response(&mut stream).await.map_err(io::Error::from)?;
+        // xray-core buffers the VLESS response header until the first
+        // downstream payload. Return the writable stream immediately and
+        // strip that header lazily on the caller's first read.
+        let stream =
+            XhttpStream { reader: ResponseHeaderStream::new(user_download), writer: user_upload, _permit: permit };
         open_tasks.disarm();
         Ok(stream)
     }
@@ -217,8 +222,8 @@ impl PooledConnection {
         let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
         user_upload.write_all(&request).await?;
 
-        let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
-        ripdpi_vless::wire::read_response(&mut stream).await.map_err(io::Error::from)?;
+        let stream =
+            XhttpStream { reader: ResponseHeaderStream::new(user_download), writer: user_upload, _permit: permit };
         open_tasks.disarm();
         Ok(stream)
     }
@@ -301,6 +306,21 @@ where
             }
         }
         let _ = transport_download.shutdown().await;
+    })
+}
+
+fn spawn_body_drain<B>(mut body: B, error_label: &'static str) -> JoinHandle<()>
+where
+    B: hyper::body::Body<Data = Bytes> + Send + Unpin + 'static,
+    B::Error: std::fmt::Display + Send,
+{
+    tokio::spawn(async move {
+        while let Some(frame) = body.frame().await {
+            if let Err(error) = frame {
+                tracing::debug!(error = %error, "{error_label}");
+                break;
+            }
+        }
     })
 }
 
