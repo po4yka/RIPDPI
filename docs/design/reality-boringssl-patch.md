@@ -15,6 +15,7 @@ Live interoperability validation on 2026-07-15 found and fixed four additional r
 - VLESS request version is the upstream byte `0x00`.
 - xray-core buffers the VLESS response header until the first outbound payload; RIPDPI therefore strips and validates it lazily on first downlink read instead of blocking `connect()` before an uplink can be written.
 - XTLS `Direct` removes the outer REALITY TLS record layer as well as Vision padding. `VisionStream` now bypasses BoringSSL and polls the underlying transport after the transition in each direction.
+- The async transport presented to BoringSSL is record-bounded, preventing a coalesced read from pulling post-`Direct` raw bytes into the outer TLS BIO before `VisionStream` observes the splice command.
 
 Cross-implementation oracle: `test-lab/reality-vector/main.go` reproduces the seal in pure Go (mirroring xray-core `reality.go`) and prints the same 32 bytes that the Rust frozen-vector test asserts on.
 

@@ -41,7 +41,7 @@ The vendored BoringSSL hook surface is declared in `reality_hook.rs`; `reality_s
 
 Vision is an addon string carried in the request `Addons` field. It controls TLS-in-TLS detection avoidance via a stream wrapper (`VisionStream` in `vision.rs`).
 
-The VLESS response header is validated lazily on the first downlink read because xray-core flushes it with the first outbound payload. When Vision emits or receives `Direct`, subsequent bytes use the transport beneath the outer REALITY TLS stream; `End` stops padding without removing that TLS layer.
+The VLESS response header is validated lazily on the first downlink read because xray-core flushes it with the first outbound payload. When Vision emits or receives `Direct`, subsequent bytes use the transport beneath the outer REALITY TLS stream; `End` stops padding without removing that TLS layer. The outer TLS reader is bounded to one complete record so it cannot consume coalesced post-`Direct` raw bytes before the splice transition.
 
 ## Known divergences from upstream
 

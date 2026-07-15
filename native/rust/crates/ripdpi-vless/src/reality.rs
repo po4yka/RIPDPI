@@ -9,7 +9,7 @@
 
 use std::io;
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use boring::ssl::SslVerifyMode;
 use foreign_types_shared::ForeignType;
@@ -29,10 +29,107 @@ struct DropOrdered<R, G> {
     guard: G,
 }
 
+const TLS_RECORD_HEADER_LEN: usize = 5;
+const RECORD_READ_SCRATCH_LEN: usize = 8192;
+
+/// Prevents BoringSSL from reading bytes beyond one complete outer TLS record.
+///
+/// XTLS `Direct` places raw inner-TLS bytes immediately after the final
+/// Reality record. Without this boundary, BoringSSL may read those raw bytes
+/// into its BIO before `VisionStream` can switch to the underlying transport,
+/// permanently stranding them inside the discarded outer TLS state.
+struct RealityRecordStream<S> {
+    inner: S,
+    header: [u8; TLS_RECORD_HEADER_LEN],
+    header_filled: usize,
+    record_remaining: usize,
+    yield_after_record: bool,
+}
+
+impl<S> RealityRecordStream<S> {
+    fn new(inner: S) -> Self {
+        Self {
+            inner,
+            header: [0; TLS_RECORD_HEADER_LEN],
+            header_filled: 0,
+            record_remaining: 0,
+            yield_after_record: false,
+        }
+    }
+}
+
+impl<S: AsyncRead + Unpin> RealityRecordStream<S> {
+    fn poll_read_raw(mut self: Pin<&mut Self>, cx: &mut Context<'_>, output: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        self.yield_after_record = false;
+        Pin::new(&mut self.inner).poll_read(cx, output)
+    }
+}
+
+impl<S: AsyncRead + Unpin> AsyncRead for RealityRecordStream<S> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, output: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        if output.remaining() == 0 {
+            return Poll::Ready(Ok(()));
+        }
+        if self.yield_after_record {
+            self.yield_after_record = false;
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        }
+
+        let reading_header = self.header_filled < TLS_RECORD_HEADER_LEN;
+        let boundary_remaining =
+            if reading_header { TLS_RECORD_HEADER_LEN - self.header_filled } else { self.record_remaining };
+        let limit = boundary_remaining.min(output.remaining()).min(RECORD_READ_SCRATCH_LEN);
+        let this = self.as_mut().get_mut();
+        let mut scratch_bytes = [0_u8; RECORD_READ_SCRATCH_LEN];
+        let mut scratch = ReadBuf::new(&mut scratch_bytes[..limit]);
+        ready!(Pin::new(&mut this.inner).poll_read(cx, &mut scratch))?;
+        let bytes = scratch.filled();
+        if bytes.is_empty() {
+            return Poll::Ready(Ok(()));
+        }
+
+        output.put_slice(bytes);
+        if reading_header {
+            let end = this.header_filled + bytes.len();
+            this.header[this.header_filled..end].copy_from_slice(bytes);
+            this.header_filled = end;
+            if this.header_filled == TLS_RECORD_HEADER_LEN {
+                this.record_remaining = usize::from(u16::from_be_bytes([this.header[3], this.header[4]]));
+                if this.record_remaining == 0 {
+                    this.header_filled = 0;
+                    this.yield_after_record = true;
+                }
+            }
+        } else {
+            this.record_remaining -= bytes.len();
+            if this.record_remaining == 0 {
+                this.header_filled = 0;
+                this.yield_after_record = true;
+            }
+        }
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl<S: AsyncWrite + Unpin> AsyncWrite for RealityRecordStream<S> {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.inner).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
 /// A Reality TLS stream that keeps its BoringSSL ClientHello callback state
 /// alive for the complete lifetime of the underlying `SSL` object.
 pub struct RealityTlsStream<S> {
-    owned: DropOrdered<SslStream<S>, crate::reality_hook::RealityHookGuard>,
+    owned: DropOrdered<SslStream<RealityRecordStream<S>>, crate::reality_hook::RealityHookGuard>,
 }
 
 impl<S> AsyncRead for RealityTlsStream<S>
@@ -78,7 +175,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     fn poll_read_direct(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        Pin::new(self.owned.resource.get_mut()).poll_read(cx, buf)
+        Pin::new(self.owned.resource.get_mut()).poll_read_raw(cx, buf)
     }
 }
 
@@ -214,7 +311,7 @@ where
 
     // 3. Perform the TLS handshake. The callback runs inside this
     //    await point during `ssl_add_client_hello`.
-    let stream_builder = tokio_boring::SslStreamBuilder::new(ssl, stream);
+    let stream_builder = tokio_boring::SslStreamBuilder::new(ssl, RealityRecordStream::new(stream));
     let mut handshake = DropOrdered { resource: Box::pin(stream_builder.connect()), guard: hook_guard };
     let tls_stream = match handshake.resource.as_mut().await {
         Ok(stream) => stream,
@@ -253,15 +350,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{DropOrdered, connect_reality_tls};
+    use super::{DropOrdered, RealityRecordStream, connect_reality_tls};
     use base64::Engine;
     use boring::ssl::{Ssl, SslContext, SslMethod, SslVersion};
-    use std::io::Write;
+    use std::future::poll_fn;
+    use std::io::{Cursor, Write};
     use std::net::TcpListener;
+    use std::pin::Pin;
     use std::sync::{Arc, Mutex};
     use std::thread;
     use std::time::Duration;
-    use tokio::io::AsyncReadExt;
+    use tokio::io::{AsyncReadExt, ReadBuf};
     use x25519_dalek::{PublicKey, StaticSecret};
 
     use crate::config::VlessRealityConfig;
@@ -343,5 +442,24 @@ mod tests {
         tls.read_exact(&mut response).await.expect("read Reality TLS fixture response");
         assert_eq!(response, *b"ok");
         server.join().expect("Reality TLS fixture thread");
+    }
+
+    #[tokio::test]
+    async fn reality_record_reader_preserves_raw_bytes_after_direct_boundary() {
+        let mut wire = vec![0x17, 0x03, 0x03, 0x00, 0x03];
+        wire.extend_from_slice(b"tls");
+        wire.extend_from_slice(b"raw");
+        let mut stream = RealityRecordStream::new(Cursor::new(wire));
+
+        let mut record = [0_u8; 8];
+        stream.read_exact(&mut record).await.expect("read exactly one outer TLS record");
+        assert_eq!(record, *b"\x17\x03\x03\x00\x03tls");
+
+        let mut raw = [0_u8; 3];
+        let mut raw_buf = ReadBuf::new(&mut raw);
+        poll_fn(|cx| Pin::new(&mut stream).poll_read_raw(cx, &mut raw_buf))
+            .await
+            .expect("read raw bytes beneath Reality TLS");
+        assert_eq!(raw_buf.filled(), b"raw", "record-bounded reads must not consume post-Direct raw bytes");
     }
 }
