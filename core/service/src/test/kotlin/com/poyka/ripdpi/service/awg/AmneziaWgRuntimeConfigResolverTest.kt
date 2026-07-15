@@ -81,6 +81,7 @@ class AmneziaWgRuntimeConfigResolverTest {
         val config = resolver.resolve(request())
 
         assertEquals("127.0.0.1", config.localSocksHost)
+        assertEquals(10808, config.localSocksPort)
     }
 
     @Test

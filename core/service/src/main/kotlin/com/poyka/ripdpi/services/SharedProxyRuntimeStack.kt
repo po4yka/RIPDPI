@@ -9,7 +9,7 @@ import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.core.withAwgEgressPort
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
-import com.poyka.ripdpi.service.awg.VpnModeAmneziaWgLocalSocksPort
+import com.poyka.ripdpi.service.awg.AmneziaWgLocalSocksPort
 
 /**
  * Composes the upstream relay, WireGuard egress, and proxy into a running stack.
@@ -45,7 +45,7 @@ internal class SharedProxyRuntimeStack(
             // AWG is the egress: start the AWG supervisor and point the proxy
             // upstream at the AWG loopback port. WARP is not started — AWG wins.
             amneziaWgRuntimeSupervisor.start(awgRequest, onAwgExit)
-            effectivePreferences = proxyPreferences.withAwgEgressPort(VpnModeAmneziaWgLocalSocksPort)
+            effectivePreferences = proxyPreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
         } else {
             val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()
             proxyPreferences.relayConfigOrNull()?.let { relayConfig ->

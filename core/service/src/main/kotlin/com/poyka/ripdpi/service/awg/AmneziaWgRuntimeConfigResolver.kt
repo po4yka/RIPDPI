@@ -61,27 +61,21 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
                 // plane dials; never an externally-reachable bind. Loopback is
                 // exempt from the VpnService.protect invariant.
                 localSocksHost = LoopbackHost,
-                localSocksPort = StandaloneAmneziaWgLocalSocksPort,
+                localSocksPort = AmneziaWgLocalSocksPort,
             )
         }
 
         private companion object {
             private const val LoopbackHost = "127.0.0.1"
-
-            // Dedicated loopback SOCKS port for the standalone AmneziaWG tunnel,
-            // kept distinct from the WARP inbound so the two cannot collide if a
-            // future composition runs both.
-            private const val StandaloneAmneziaWgLocalSocksPort = 10808
         }
     }
 
 /**
- * Loopback SOCKS port used when AmneziaWG runs as the VPN-mode egress transport
- * inside [SharedProxyRuntimeStack]. Kept distinct from both the standalone port
- * (10808) and the WARP inbound so they cannot collide in any composition.
- * The proxy core dials this port as its upstream when AWG is the active egress.
+ * Loopback SOCKS port shared by the AmneziaWG runtime and the proxy that dials it.
+ * Keeping the bind and upstream endpoint on one constant prevents a live tunnel
+ * from publishing readiness while the proxy points at a different port.
  */
-internal const val VpnModeAmneziaWgLocalSocksPort = 10809
+internal const val AmneziaWgLocalSocksPort = 10808
 
 /**
  * Map the activation-request carrier token (`udp`/`ws`, mirroring the Rust

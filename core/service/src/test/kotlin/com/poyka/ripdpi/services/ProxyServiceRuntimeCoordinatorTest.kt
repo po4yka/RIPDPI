@@ -137,6 +137,8 @@ class ProxyServiceRuntimeCoordinatorTest {
                 env.factory.lastRuntime.lastPreferences
                     ?.awgConfigOrNull(),
             )
+            val effectivePreferences = env.factory.lastRuntime.lastPreferences as RipDpiProxyUIPreferences
+            assertEquals(10808, effectivePreferences.warp.localSocksPort)
         }
 
     @Test
