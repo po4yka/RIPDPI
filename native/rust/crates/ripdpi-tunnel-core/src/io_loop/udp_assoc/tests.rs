@@ -106,6 +106,33 @@ async fn spawn_udp_recording_stub() -> (SocketAddr, tokio::sync::oneshot::Receiv
     (proxy_addr, datagram_rx)
 }
 
+async fn spawn_udp_echo_stub() -> SocketAddr {
+    let relay = UdpSocket::bind("127.0.0.1:0").await.expect("bind UDP echo relay");
+    let relay_addr = relay.local_addr().expect("relay address");
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy listener");
+    let proxy_addr = listener.local_addr().expect("proxy address");
+
+    tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.expect("accept proxy");
+        let mut buf = [0u8; 64];
+        let _ = stream.read(&mut buf).await.expect("read greeting");
+        stream.write_all(&[0x05, 0x00]).await.expect("write no-auth");
+        let _ = stream.read(&mut buf).await.expect("read UDP associate");
+        let port = relay_addr.port().to_be_bytes();
+        stream
+            .write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, port[0], port[1]])
+            .await
+            .expect("write UDP associate reply");
+
+        let mut datagram = vec![0u8; 2048];
+        let (len, peer) = relay.recv_from(&mut datagram).await.expect("receive UDP frame");
+        relay.send_to(&datagram[..len], peer).await.expect("echo UDP frame");
+        std::future::pending::<()>().await;
+    });
+
+    proxy_addr
+}
+
 #[tokio::test]
 async fn association_worker_sends_datagram_queued_during_setup() {
     let (proxy_addr, datagram_rx) = spawn_udp_recording_stub().await;
@@ -128,7 +155,9 @@ async fn association_worker_sends_datagram_queued_during_setup() {
 
     association
         .outbound
-        .try_send(OutboundDatagram::try_new(dest, b"queued-during-setup", &memory_budget).expect("reserve queue bytes"))
+        .try_send(
+            OutboundDatagram::try_new(dest, dest, b"queued-during-setup", &memory_budget).expect("reserve queue bytes"),
+        )
         .expect("queue datagram");
     let datagram = tokio::time::timeout(Duration::from_secs(1), datagram_rx)
         .await
@@ -136,6 +165,45 @@ async fn association_worker_sends_datagram_queued_during_setup() {
         .expect("recording relay should receive datagram");
 
     assert!(datagram.ends_with(b"queued-during-setup"));
+    association.cancel.cancel();
+    association.worker.abort();
+}
+
+#[tokio::test]
+async fn mapdns_udp_response_uses_synthetic_source_tuple() {
+    let proxy_addr = spawn_udp_echo_stub().await;
+    let src = "10.0.0.2:53010".parse().expect("source address");
+    let resolved = "203.0.113.20:3478".parse().expect("resolved destination");
+    let synthetic = "198.18.0.9:3478".parse().expect("synthetic destination");
+    let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel(1);
+    let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
+    let association = spawn_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        src,
+        resolved,
+        10,
+        Duration::from_secs(1),
+        None,
+        memory_budget.clone(),
+        CancellationToken::new(),
+        udp_tx,
+    );
+
+    association
+        .outbound
+        .try_send(OutboundDatagram::try_new(resolved, synthetic, b"stun", &memory_budget).expect("reserve queue bytes"))
+        .expect("queue datagram");
+    let event = tokio::time::timeout(Duration::from_secs(1), udp_rx.recv())
+        .await
+        .expect("worker response deadline")
+        .expect("worker response event");
+    let UdpEvent::Packet { raw, .. } = event else {
+        panic!("expected UDP packet event");
+    };
+
+    assert_eq!(&raw[12..16], &Ipv4Addr::new(198, 18, 0, 9).octets());
+    assert_eq!(u16::from_be_bytes([raw[20], raw[21]]), 3478);
     association.cancel.cancel();
     association.worker.abort();
 }

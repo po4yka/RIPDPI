@@ -26,6 +26,7 @@ pub(super) fn deliver_udp_datagram(
     proxy_addr: SocketAddr,
     auth: &Auth,
     src: SocketAddr,
+    attribution_dst: SocketAddr,
     resolved_dst: SocketAddr,
     synthetic_ip: Option<u32>,
     payload: &[u8],
@@ -44,7 +45,7 @@ pub(super) fn deliver_udp_datagram(
         return;
     };
     record_udp_activity(associations, eviction_heap, src);
-    let Some(datagram) = OutboundDatagram::try_new(resolved_dst, payload, memory_budget) else {
+    let Some(datagram) = OutboundDatagram::try_new(resolved_dst, attribution_dst, payload, memory_budget) else {
         debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
         return;
     };
@@ -53,7 +54,7 @@ pub(super) fn deliver_udp_datagram(
         Err(TrySendError::Full(_)) => debug!("UDP association queue full for {src}; dropping datagram"),
         Err(TrySendError::Closed(datagram)) => {
             remove_association(associations, dns_cache, src);
-            let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, datagram.dest);
+            let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, attribution_dst);
             ensure_udp_association(
                 associations,
                 eviction_heap,

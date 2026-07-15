@@ -49,6 +49,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                     state.runtime.proxy_sockaddr,
                     &state.runtime.auth,
                     src,
+                    dst,
                     resolved_dst,
                     synthetic_ip,
                     payload,

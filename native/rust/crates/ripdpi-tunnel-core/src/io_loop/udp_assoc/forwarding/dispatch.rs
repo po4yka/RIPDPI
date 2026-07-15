@@ -30,6 +30,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
     proxy_addr: SocketAddr,
     auth: &Auth,
     src: SocketAddr,
+    attribution_dst: SocketAddr,
     resolved_dst: SocketAddr,
     synthetic_ip: Option<u32>,
     payload: &[u8],
@@ -45,8 +46,11 @@ pub(in crate::io_loop) fn forward_udp_payload(
     stats: &Arc<Stats>,
     uid_policy: &UidFlowPolicy,
 ) -> UdpForwardOutcome {
-    let observation = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
-    match uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, resolved_dst) {
+    // Android's getConnectionOwnerUid sees the kernel-visible TUN tuple. For
+    // MapDNS flows that tuple still contains the synthetic destination even
+    // though the SOCKS association must use the separately resolved target.
+    let observation = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, attribution_dst);
+    match uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, attribution_dst) {
         Verdict::Allow => {}
         Verdict::Pending => return UdpForwardOutcome::PendingUid,
         Verdict::DropUdp | Verdict::ResetTcp => return UdpForwardOutcome::Dropped,
@@ -77,6 +81,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
         proxy_addr,
         auth,
         src,
+        attribution_dst,
         resolved_dst,
         synthetic_ip,
         payload,

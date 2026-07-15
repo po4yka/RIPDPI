@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -50,6 +51,7 @@ pub(super) fn spawn_udp_worker(
                 return;
             }
         };
+        let mut response_sources = HashMap::new();
 
         loop {
             // Cancel safety: recv_from, mpsc::Receiver::recv, and
@@ -60,6 +62,11 @@ pub(super) fn spawn_udp_worker(
                 outbound = outbound_rx.recv() => {
                     let Some(outbound) = outbound else { break };
                     touch_udp_activity(&last_activity);
+                    if outbound.response_source == outbound.dest {
+                        response_sources.remove(&outbound.dest);
+                    } else {
+                        response_sources.insert(outbound.dest, outbound.response_source);
+                    }
                     // send_to is message-atomic and cancel-safe. The explicit
                     // cancellation arm keeps shutdown bounded if the socket is
                     // not currently writable.
@@ -104,7 +111,8 @@ pub(super) fn spawn_udp_worker(
                 received = session.recv_from(cancel.clone()) => match received {
                     Ok(Some((resp_payload, from))) => {
                         touch_udp_activity(&last_activity);
-                        let raw = build_udp_response(from, src, &resp_payload);
+                        let response_source = response_sources.get(&from).copied().unwrap_or(from);
+                        let raw = build_udp_response(response_source, src, &resp_payload);
                         if !raw.is_empty()
                             && udp_tx.send(UdpEvent::Packet { src, association_id, raw }).await.is_err()
                         {

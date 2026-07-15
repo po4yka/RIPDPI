@@ -133,7 +133,7 @@ pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopSta
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet, VecDeque};
-    use std::net::SocketAddr;
+    use std::net::{Ipv4Addr, SocketAddr};
     use std::sync::atomic::Ordering;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -258,6 +258,38 @@ mod tests {
             2,
             "UID retries must not replay egress interceptor side effects"
         );
+        state.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn mapdns_udp_admission_uses_kernel_visible_synthetic_tuple() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        let real_ip = Ipv4Addr::new(93, 184, 216, 34);
+        let mut cache = crate::dns_cache::DnsCache::new(0xC612_0000, 0xFFFE_0000, 8).expect("valid cache");
+        let synthetic_ip = cache.find("udp-mapdns.test", u32::from(real_ip)).expect("synthetic mapping").0;
+        state.dns_cache = Some(cache);
+
+        let mut packet = ipv4_udp_packet(55_125, 3478, b"stun");
+        packet[16..20].copy_from_slice(&synthetic_ip.to_be_bytes());
+        let local = "10.0.0.2:55125".parse().expect("local endpoint");
+        let synthetic_remote = SocketAddr::new(Ipv4Addr::from(synthetic_ip).into(), 3478);
+
+        route_tun_packet(&packet, &mut state);
+        assert_eq!(state.pending_uid_udp_packets.len(), 1, "MapDNS UDP waits for UID resolution");
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local,
+            remote: synthetic_remote,
+        };
+        let job = ripdpi_flow_app_attribution::take_pending_request(request)
+            .expect("UID lookup must use the kernel-visible synthetic tuple");
+        ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
+
+        retry_pending_uid_udp(&mut state);
+
+        assert_eq!(state.udp_associations.len(), 1, "resolved MapDNS UDP may create the SOCKS association");
+        assert!(state.pending_uid_udp_packets.is_empty(), "admitted datagram must leave the pending queue");
         state.shutdown().await;
     }
 

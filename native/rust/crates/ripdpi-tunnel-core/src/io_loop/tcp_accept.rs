@@ -63,6 +63,7 @@ mod tests {
     use smoltcp::wire::IpAddress;
     use tokio_util::sync::CancellationToken;
 
+    use crate::dns_cache::DnsCache;
     use crate::{ActiveSessions, Stats, TunDevice};
 
     use super::super::TCP_SOCKET_BUF;
@@ -310,13 +311,17 @@ mod tests {
         let mut sessions = ActiveSessions::new(8);
         let cancel = CancellationToken::new();
         let stats = Arc::new(Stats::default());
-        let mut dns_cache = None;
+        let mut cache = DnsCache::new(0xC612_0000, 0xFFFE_0000, 8).expect("valid MapDNS cache");
+        let real_target_ip = Ipv4Addr::LOCALHOST;
+        let synthetic_target_ip =
+            Ipv4Addr::from(cache.find("uid-attribution.test", u32::from(real_target_ip)).expect("synthetic mapping").0);
+        let mut dns_cache = Some(cache);
         let auth = super::Auth::NoAuth;
         let proxy_sockaddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9);
         let uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
 
         let client_ip = Ipv4Addr::new(10, 0, 0, 99);
-        let target_ip = Ipv4Addr::new(127, 0, 0, 1);
+        let target_ip = synthetic_target_ip;
         let client_port = 51000;
         let target_port = 443;
 

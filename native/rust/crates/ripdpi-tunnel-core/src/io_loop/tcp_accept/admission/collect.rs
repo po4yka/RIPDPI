@@ -11,6 +11,7 @@ use crate::uid_policy::{CachedFlowUidSource, PROTO_TCP, UidFlowPolicy, Verdict};
 use crate::{ActiveSessions, Stats};
 
 use super::super::target::{pinned_synthetic_ip, tcp_session_target_addr};
+use super::super::tcp_target_endpoint;
 use super::super::unresolved::abort_unresolved_tcp_socket;
 use super::batch::{TCP_ADMISSION_WORK_BUDGET, pending_handle_batch};
 use super::pending::PendingTcpSession;
@@ -36,12 +37,17 @@ pub(super) fn collect_admissible_sessions(
         if !tcp.may_send() || sessions.contains(handle) {
             continue;
         }
+        // Android's owner-UID lookup must use the tuple the kernel sees. For
+        // MapDNS flows that is the original synthetic destination, while the
+        // SOCKS session must receive the separately resolved real target.
+        let attribution_remote = tcp_target_endpoint(tcp);
         let synthetic_ip = pinned_synthetic_ip(dns_cache, tcp);
         match tcp_session_target_addr(stats, dns_cache, tcp) {
             Some(target_addr) => collect_resolved_session(
                 handle,
                 tcp,
                 target_addr,
+                attribution_remote.unwrap_or(target_addr),
                 synthetic_ip,
                 uid_policy,
                 &mut new_sessions,
@@ -60,6 +66,7 @@ fn collect_resolved_session(
     handle: SocketHandle,
     tcp: &mut TcpSocket<'_>,
     target_addr: std::net::SocketAddr,
+    attribution_remote: std::net::SocketAddr,
     synthetic_ip: Option<u32>,
     uid_policy: &UidFlowPolicy,
     new_sessions: &mut Vec<PendingTcpSession>,
@@ -75,8 +82,8 @@ fn collect_resolved_session(
         }
         return;
     };
-    let observation = ripdpi_flow_app_attribution::note_flow(PROTO_TCP, app_src, target_addr);
-    match uid_policy.admit(&CachedFlowUidSource, PROTO_TCP, app_src, target_addr) {
+    let observation = ripdpi_flow_app_attribution::note_flow(PROTO_TCP, app_src, attribution_remote);
+    match uid_policy.admit(&CachedFlowUidSource, PROTO_TCP, app_src, attribution_remote) {
         Verdict::Allow => new_sessions.push(PendingTcpSession {
             handle,
             target_addr,
