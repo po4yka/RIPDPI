@@ -6,11 +6,13 @@ use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
 use tokio::time::{Instant, timeout};
 
-use crate::amneziawg::AwgWireCodec;
+use crate::amneziawg::{AwgMacKeys, AwgWireCodec};
 use crate::config::{ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult, resolve_endpoint};
 use crate::platform::{WarpPlatform, protect_socket_if_configured};
 use crate::support::MAX_PACKET;
-use crate::wireguard::{apply_reserved_bytes, build_awg_codec, decode_key, reserved_bytes_from_client_id};
+use crate::wireguard::{
+    apply_reserved_bytes, build_authenticated_awg_codec, decode_key, reserved_bytes_from_client_id,
+};
 
 /// Typed error returned by [`probe_endpoint`] / [`probe_endpoint_with_platform`].
 ///
@@ -73,9 +75,16 @@ pub async fn probe_endpoint_with_platform(
     let peer_public_key =
         decode_key(&request.peer_public_key).map_err(|_| WarpProbeError::InvalidKey("peer public key"))?;
     let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
-    let amnezia = build_awg_codec(&request.amnezia, &request.amnezia.special_junk_hex()).map_err(|error| {
+    let private_key = boringtun::x25519::StaticSecret::from(private_key);
+    let local_public_key = boringtun::x25519::PublicKey::from(&private_key).to_bytes();
+    let amnezia = build_authenticated_awg_codec(
+        &request.amnezia,
+        &request.amnezia.special_junk_hex(),
+        AwgMacKeys::new(local_public_key, peer_public_key),
+    )
+    .map_err(|error| {
         let crate::amneziawg::AwgParamsError::Arm64S34VersionFloor { s3, s4 } = error else {
-            unreachable!("build_awg_codec only propagates compatibility errors");
+            unreachable!("AWG codec construction only propagates compatibility errors");
         };
         WarpProbeError::Compatibility { s3, s4 }
     })?;
@@ -87,7 +96,7 @@ pub async fn probe_endpoint_with_platform(
         None => None,
     };
     let mut peer = Box::new(Tunn::new(
-        boringtun::x25519::StaticSecret::from(private_key),
+        private_key,
         boringtun::x25519::PublicKey::from(peer_public_key),
         preshared_key,
         request.amnezia.persistent_keepalive_opt(),
@@ -97,7 +106,8 @@ pub async fn probe_endpoint_with_platform(
     let udp = bind_probe_socket(endpoint, platform).map_err(WarpProbeError::Io)?;
     let mut outbound = [0u8; MAX_PACKET];
     let handshake = match peer.format_handshake_initiation(&mut outbound, true) {
-        TunnResult::WriteToNetwork(packet) => encode_probe_packet(packet, reserved, amnezia.as_ref()),
+        TunnResult::WriteToNetwork(packet) => encode_probe_packet(packet, reserved, amnezia.as_ref())
+            .ok_or_else(|| WarpProbeError::Handshake("AmneziaWG packet encoding failed".to_owned()))?,
         TunnResult::Err(error) => return Err(WarpProbeError::Handshake(format!("{error:?}"))),
         _ => return Err(WarpProbeError::Handshake("handshake initiation did not produce a packet".to_owned())),
     };
@@ -125,7 +135,9 @@ pub async fn probe_endpoint_with_platform(
         };
         match peer.decapsulate(Some(source.ip()), &packet, &mut decap_buf) {
             TunnResult::WriteToNetwork(response) => {
-                let payload = encode_probe_packet(response, reserved, amnezia.as_ref());
+                let Some(payload) = encode_probe_packet(response, reserved, amnezia.as_ref()) else {
+                    continue;
+                };
                 udp.send_to(&payload, endpoint).await.map_err(WarpProbeError::Io)?;
                 return Ok(probe_result_from_endpoint(endpoint, &request.endpoint, started_at.elapsed()));
             }
@@ -152,21 +164,20 @@ fn bind_probe_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> std::io::
     UdpSocket::from_std(socket.into())
 }
 
-fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&AwgWireCodec>) -> Vec<u8> {
-    let mut payload = packet.to_vec();
-    apply_reserved_bytes(&mut payload, reserved);
+fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&AwgWireCodec>) -> Option<Vec<u8>> {
     match amnezia {
-        Some(codec) => codec.encode(&payload),
-        None => payload,
+        Some(codec) => codec.encode_with_reserved(packet, reserved),
+        None => Some({
+            let mut payload = packet.to_vec();
+            apply_reserved_bytes(&mut payload, reserved);
+            payload
+        }),
     }
 }
 
 fn decode_probe_packet(packet: &[u8], amnezia: Option<&AwgWireCodec>) -> Option<Vec<u8>> {
     match amnezia {
-        Some(codec) => {
-            let (wg_type, tail) = codec.decode(packet)?;
-            Some(std::iter::once(wg_type).chain(tail.iter().copied()).collect())
-        }
+        Some(codec) => codec.decode(packet),
         None => Some(packet.to_vec()),
     }
 }

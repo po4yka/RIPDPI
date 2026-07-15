@@ -10,7 +10,9 @@ workspace = true
 [dependencies]
 anyhow = { workspace = true }
 base64 = { workspace = true }
+blake2 = { workspace = true }
 boringtun = { version = "0.7.1", default-features = false }
+chacha20poly1305 = "0.11"
 getrandom = "0.4"
 bytes = "1"
 # The WG-over-WebSocket carrier select: framing codec + protected-connect seam.
@@ -19,6 +21,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 smoltcp = { version = "0.13", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-udp", "socket-tcp"] }
 socket2 = { workspace = true }
+subtle = "2"
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 # Drives the WS client handshake over the protected carrier TcpStream
 # (`client_async` + `WebSocketStream`); same workspace pin the carrier crate uses.

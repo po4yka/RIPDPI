@@ -1,10 +1,11 @@
 //! JNI readiness-push callback for the AmneziaWG runtime (ADR 0003).
 //!
 //! Mirrors `ripdpi-warp-android::readiness`: a `(JavaVM, Global<JObject>)` pair
-//! behind an `Arc`, invoked once from the runtime thread the moment the SOCKS
-//! listener is bound. Replaces the Kotlin telemetry poll with a single push;
-//! the poll remains as graceful-degradation fallback on the Kotlin side. This
-//! is a strict lifecycle-class event -- exactly one attach-per-session.
+//! behind an `Arc`, invoked once from the runtime thread after the remote
+//! WireGuard handshake is authenticated and the SOCKS listener can serve it.
+//! Replaces the Kotlin telemetry poll with a single push; the poll remains as
+//! graceful-degradation fallback on the Kotlin side. This is a strict
+//! lifecycle-class event -- exactly one attach-per-session.
 
 use std::sync::Arc;
 

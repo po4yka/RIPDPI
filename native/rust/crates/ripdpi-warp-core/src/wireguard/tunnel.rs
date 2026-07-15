@@ -1,4 +1,6 @@
+use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::Context;
@@ -9,7 +11,7 @@ use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
-use crate::amneziawg::{AwgParams, AwgParamsError, AwgWireCodec, rand_u32};
+use crate::amneziawg::{AwgMacKeys, AwgParams, AwgParamsError, AwgWireCodec, rand_u32};
 use crate::config::WarpAmneziaConfig;
 use crate::platform::WarpPlatform;
 use crate::support::MAX_PACKET;
@@ -26,23 +28,33 @@ use crate::virtual_iface::{Bus, Event};
 /// rather than failing tunnel construction -- a malformed obfuscation knob must
 /// not take the whole runtime down. Platform compatibility errors are the
 /// exception and propagate so activation fails closed.
-pub(crate) fn build_awg_codec(
+pub(crate) fn build_authenticated_awg_codec(
     cfg: &WarpAmneziaConfig,
     special_junk_hex: &[&str],
+    mac_keys: AwgMacKeys,
 ) -> Result<Option<AwgWireCodec>, AwgParamsError> {
-    build_awg_codec_for_platform(cfg, special_junk_hex, cfg!(all(target_os = "android", target_arch = "aarch64")))
+    build_awg_codec_for_platform(
+        cfg,
+        special_junk_hex,
+        cfg!(all(target_os = "android", target_arch = "aarch64")),
+        Some(mac_keys),
+    )
 }
 
 fn build_awg_codec_for_platform(
     cfg: &WarpAmneziaConfig,
     special_junk_hex: &[&str],
     is_android_arm64: bool,
+    mac_keys: Option<AwgMacKeys>,
 ) -> Result<Option<AwgWireCodec>, AwgParamsError> {
     if !cfg.enabled {
         return Ok(None);
     }
     match AwgParams::from_config_for_platform(cfg, special_junk_hex, is_android_arm64) {
-        Ok(params) => Ok(Some(AwgWireCodec::new(params))),
+        Ok(params) => Ok(Some(match mac_keys {
+            Some(mac_keys) => AwgWireCodec::new_authenticated(params, mac_keys),
+            None => AwgWireCodec::new(params),
+        })),
         Err(error @ AwgParamsError::Arm64S34VersionFloor { .. }) => Err(error),
         Err(error) => {
             tracing::warn!("invalid AmneziaWG config, obfuscation disabled: {error}");
@@ -95,6 +107,24 @@ pub(crate) struct WireGuardTunnel {
     source_peer_ip: IpAddr,
     reserved: [u8; 3],
     amnezia: Option<AwgWireCodec>,
+    handshake_readiness: HandshakeReadiness,
+}
+
+#[derive(Default)]
+struct HandshakeReadiness {
+    established: AtomicBool,
+}
+
+impl HandshakeReadiness {
+    fn observe_authenticated_packet(&self, packet: &[u8]) {
+        if wireguard_message_type(packet) == Some(2) {
+            self.established.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn is_established(&self) -> bool {
+        self.established.load(Ordering::SeqCst)
+    }
 }
 
 impl WireGuardTunnel {
@@ -117,8 +147,10 @@ impl WireGuardTunnel {
             Some(value) => Some(decode_key(value).context("invalid WireGuard preshared key")?),
             None => None,
         };
+        let private_key = boringtun::x25519::StaticSecret::from(private_key);
+        let local_public_key = boringtun::x25519::PublicKey::from(&private_key).to_bytes();
         let peer = Box::new(Tunn::new(
-            boringtun::x25519::StaticSecret::from(private_key),
+            private_key,
             boringtun::x25519::PublicKey::from(peer_public_key),
             preshared_key,
             persistent_keepalive,
@@ -132,8 +164,20 @@ impl WireGuardTunnel {
             Some(carrier) => carrier,
             None => WgCarrier::Udp(bind_tunnel_socket(endpoint, platform)?),
         };
-        let amnezia = build_awg_codec(amnezia_cfg, &special_junk_hex)?;
-        Ok(Self { peer: tokio::sync::Mutex::new(peer), carrier, endpoint, source_peer_ip, reserved, amnezia })
+        let amnezia = build_authenticated_awg_codec(
+            amnezia_cfg,
+            &special_junk_hex,
+            AwgMacKeys::new(local_public_key, peer_public_key),
+        )?;
+        Ok(Self {
+            peer: tokio::sync::Mutex::new(peer),
+            carrier,
+            endpoint,
+            source_peer_ip,
+            reserved,
+            amnezia,
+            handshake_readiness: HandshakeReadiness::default(),
+        })
     }
 
     /// Emit the AmneziaWG handshake prelude -- AWG 2.0 special-junk frames
@@ -151,30 +195,59 @@ impl WireGuardTunnel {
         }
     }
 
+    /// Start a WireGuard handshake explicitly after the receive task is live.
+    ///
+    /// The runtime cannot use the local SOCKS bind as its readiness boundary:
+    /// a dead or wire-incompatible peer would otherwise look connected. The
+    /// authenticated response observed by [`Self::consume_task`] is the remote
+    /// readiness proof.
+    pub(crate) async fn initiate_handshake(&self) -> io::Result<()> {
+        let mut send_buf = [0u8; MAX_PACKET];
+        let payload = {
+            let mut peer = self.peer.lock().await;
+            match peer.format_handshake_initiation(&mut send_buf, true) {
+                TunnResult::WriteToNetwork(packet) => self
+                    .encode_outbound_packet(packet)
+                    .ok_or_else(|| io::Error::other("AmneziaWG handshake packet authentication failed"))?,
+                TunnResult::Err(error) => {
+                    return Err(io::Error::other(format!("WireGuard handshake initiation failed: {error:?}")));
+                }
+                _ => return Err(io::Error::other("WireGuard handshake initiation produced no packet")),
+            }
+        };
+        self.carrier.send_to(&payload, self.endpoint).await?;
+        Ok(())
+    }
+
+    pub(crate) fn is_handshake_established(&self) -> bool {
+        self.handshake_readiness.is_established()
+    }
+
     async fn send_ip_packet(&self, packet: &[u8]) {
         let mut send_buf = [0u8; MAX_PACKET];
         let result = { self.peer.lock().await.encapsulate(packet, &mut send_buf) };
         self.send_tunn_result(result).await;
     }
 
-    fn encode_outbound_packet(&self, packet: &[u8]) -> Vec<u8> {
+    fn encode_outbound_packet(&self, packet: &[u8]) -> Option<Vec<u8>> {
         match &self.amnezia {
             // `encode_with_reserved` overlays the reserved bytes during its
             // single output copy, dropping the redundant per-packet `to_vec`.
             Some(codec) => codec.encode_with_reserved(packet, self.reserved),
-            None => {
+            None => Some({
                 let mut payload = packet.to_vec();
                 apply_reserved_bytes(&mut payload, self.reserved);
                 payload
-            }
+            }),
         }
     }
 
     async fn send_tunn_result<'a>(&self, result: TunnResult<'a>) {
         match result {
             TunnResult::WriteToNetwork(packet) => {
-                let payload = self.encode_outbound_packet(packet);
-                let _ = self.carrier.send_to(&payload, self.endpoint).await;
+                if let Some(payload) = self.encode_outbound_packet(packet) {
+                    let _ = self.carrier.send_to(&payload, self.endpoint).await;
+                }
             }
             TunnResult::Done => {}
             TunnResult::Err(error) => tracing::warn!("WARP tunnel write failed: {error:?}"),
@@ -226,10 +299,7 @@ impl WireGuardTunnel {
             // directly into `recv_buf` and `decoded_buf` is unused.
             let decoded_buf: Vec<u8> = if let Some(codec) = &self.amnezia {
                 match codec.decode(raw) {
-                    Some((wg_type, tail)) => {
-                        // Reconstruct [type byte | rest-of-wg-packet].
-                        std::iter::once(wg_type).chain(tail.iter().copied()).collect()
-                    }
+                    Some(packet) => packet,
                     None => continue,
                 }
             } else {
@@ -246,21 +316,29 @@ impl WireGuardTunnel {
             let result = { self.peer.lock().await.decapsulate(None, data, &mut send_buf) };
             match result {
                 TunnResult::WriteToNetwork(packet) => {
-                    let payload = self.encode_outbound_packet(packet);
-                    let _ = self.carrier.send_to(&payload, self.endpoint).await;
+                    self.handshake_readiness.observe_authenticated_packet(data);
+                    if let Some(payload) = self.encode_outbound_packet(packet) {
+                        let _ = self.carrier.send_to(&payload, self.endpoint).await;
+                    }
                 }
                 TunnResult::WriteToTunnelV4(packet, _) | TunnResult::WriteToTunnelV6(packet, _) => {
                     if let Some(protocol) = route_protocol(packet, self.source_peer_ip) {
                         endpoint.send(Event::InboundInternetPacket(protocol, Bytes::copy_from_slice(packet)));
                     }
                 }
-                TunnResult::Done => {}
+                TunnResult::Done => {
+                    self.handshake_readiness.observe_authenticated_packet(data);
+                }
                 TunnResult::Err(error) => {
                     tracing::warn!("WARP tunnel decapsulation failed: {error:?}");
                 }
             }
         }
     }
+}
+
+fn wireguard_message_type(packet: &[u8]) -> Option<u32> {
+    packet.get(..4).map(|header| u32::from_le_bytes(header.try_into().expect("four-byte WireGuard header")))
 }
 
 #[cfg(test)]
@@ -322,8 +400,21 @@ mod tests {
     fn shared_codec_propagates_android_arm64_compatibility_error() {
         let config = WarpAmneziaConfig { enabled: true, s3: 1, ..WarpAmneziaConfig::default() };
 
-        let result = build_awg_codec_for_platform(&config, &[""; 5], true);
+        let result = build_awg_codec_for_platform(&config, &[""; 5], true, None);
 
         assert!(matches!(result, Err(AwgParamsError::Arm64S34VersionFloor { s3: 1, s4: 0 })));
+    }
+
+    #[test]
+    fn handshake_readiness_only_accepts_an_authenticated_response() {
+        let readiness = HandshakeReadiness::default();
+        assert!(!readiness.is_established());
+
+        readiness.observe_authenticated_packet(&[1, 0, 0, 0]);
+        readiness.observe_authenticated_packet(&[2, 0, 0]);
+        assert!(!readiness.is_established(), "an initiation or truncated header cannot publish readiness");
+
+        readiness.observe_authenticated_packet(&[2, 0, 0, 0]);
+        assert!(readiness.is_established(), "a response accepted by boringtun publishes readiness");
     }
 }

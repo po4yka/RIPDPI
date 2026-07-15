@@ -307,8 +307,9 @@ impl AmneziaWgRuntime {
         self.ws_carrier_handshake_failures.fetch_add(1, Ordering::SeqCst);
     }
 
-    /// Install a readiness observer fired once when the SOCKS listener is
-    /// bound (ADR 0003 native readiness push). Install before [`Self::run`].
+    /// Install a readiness observer fired once when the remote WireGuard
+    /// handshake is authenticated and the SOCKS listener can serve it (ADR
+    /// 0003 native readiness push). Install before [`Self::run`].
     ///
     /// Cancel-safety: synchronous; no `.await` inside.
     pub fn set_readiness_observer(&self, observer: Arc<dyn Fn() + Send + Sync>) {
@@ -405,11 +406,6 @@ impl AmneziaWgRuntime {
             .map_err(to_io_error)?,
         );
 
-        // AmneziaWG handshake prelude (I1..I5 special junk + Jc random junk)
-        // is emitted before the first WireGuard handshake. No-op when
-        // obfuscation is disabled.
-        tunnel.send_amnezia_junk().await;
-
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
         let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));
@@ -450,12 +446,30 @@ impl AmneziaWgRuntime {
             }));
         }
 
-        *self.listener_address.lock().expect("listener address") = Some(bind_addr.clone());
-        self.running.store(true, Ordering::SeqCst);
-        emit_runtime_ready(&bind_addr);
-        self.notify_ready();
+        // Arm the receive side first, then emit the AmneziaWG prelude and an
+        // explicit handshake initiation. Readiness stays idle until boringtun
+        // authenticates the peer's response; a bound local SOCKS port alone is
+        // not evidence that the configured VPN is usable.
+        tunnel.send_amnezia_junk().await;
+        if let Err(error) = tunnel.initiate_handshake().await {
+            *self.last_error.lock().expect("last error") = Some(error.to_string());
+            shutdown_runtime_tasks(&bus, tasks).await;
+            emit_runtime_stopped();
+            return Err(error);
+        }
 
-        while !self.stop_requested.load(Ordering::SeqCst) {
+        while !self.stop_requested.load(Ordering::SeqCst) && !tunnel.is_handshake_established() {
+            tokio::time::sleep(ACCEPT_POLL_INTERVAL).await;
+        }
+
+        if !self.stop_requested.load(Ordering::SeqCst) {
+            *self.listener_address.lock().expect("listener address") = Some(bind_addr.clone());
+            self.running.store(true, Ordering::SeqCst);
+            emit_runtime_ready(&bind_addr);
+            self.notify_ready();
+        }
+
+        while self.running.load(Ordering::SeqCst) && !self.stop_requested.load(Ordering::SeqCst) {
             match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
                 Ok(Ok((stream, _))) => {
                     self.active_sessions.fetch_add(1, Ordering::SeqCst);
@@ -479,11 +493,7 @@ impl AmneziaWgRuntime {
         }
 
         self.running.store(false, Ordering::SeqCst);
-        bus.shutdown();
-        for task in tasks {
-            task.abort();
-            let _ = task.await;
-        }
+        shutdown_runtime_tasks(&bus, tasks).await;
         emit_runtime_stopped();
         Ok(())
     }
@@ -552,6 +562,14 @@ impl AmneziaWgRuntime {
     }
 }
 
+async fn shutdown_runtime_tasks(bus: &Bus, tasks: Vec<JoinHandle<()>>) {
+    bus.shutdown();
+    for task in tasks {
+        task.abort();
+        let _ = task.await;
+    }
+}
+
 fn emit_runtime_ready(bind_addr: &str) {
     tracing::info!(
         ring = "amneziawg",
@@ -574,6 +592,10 @@ fn emit_runtime_stopped() {
 
 #[cfg(test)]
 mod tests {
+    use base64::Engine as _;
+    use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+    use boringtun::x25519::{PublicKey, StaticSecret};
+
     use super::*;
 
     fn obf(jc: i32, s1: i32, h1: i64) -> AmneziaWgObfuscation {
@@ -627,6 +649,48 @@ mod tests {
         let result =
             tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime").block_on(rt.run());
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn dead_peer_never_publishes_runtime_readiness() {
+        let sink = std::net::UdpSocket::bind("127.0.0.1:0").expect("reserve an unresponsive UDP endpoint");
+        let endpoint_port = i32::from(sink.local_addr().expect("sink address").port());
+        let local_private = StaticSecret::from([0x17; 32]);
+        let peer_private = StaticSecret::from([0x2b; 32]);
+        let config = AmneziaWgProfileConfig {
+            enabled: true,
+            profile_id: "dead-peer-readiness".to_string(),
+            private_key: BASE64_STANDARD.encode(local_private.to_bytes()),
+            peer_public_key: BASE64_STANDARD.encode(PublicKey::from(&peer_private).to_bytes()),
+            endpoint_host: "127.0.0.1".to_string(),
+            endpoint_ipv4: "127.0.0.1".to_string(),
+            endpoint_port,
+            interface_address_v4: "10.8.0.2/32".to_string(),
+            mtu: 1420,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 0,
+            ..Default::default()
+        };
+        let runtime = AmneziaWgRuntime::new(config);
+        let notified = Arc::new(AtomicBool::new(false));
+        let observer_flag = Arc::clone(&notified);
+        runtime.set_readiness_observer(Arc::new(move || observer_flag.store(true, Ordering::SeqCst)));
+
+        let run_task = tokio::spawn(Arc::clone(&runtime).run());
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        assert!(!run_task.is_finished(), "runtime must wait for a remote handshake rather than fail open");
+        let telemetry = runtime.telemetry();
+        assert_eq!(telemetry.state, "idle");
+        assert_eq!(telemetry.listener_address, None);
+        assert!(!notified.load(Ordering::SeqCst), "native readiness push must not fire for an unresponsive peer");
+
+        runtime.stop();
+        timeout(Duration::from_secs(1), run_task)
+            .await
+            .expect("stopped runtime must unwind")
+            .expect("runtime task must join")
+            .expect("stop before readiness is a clean shutdown");
     }
 
     #[test]

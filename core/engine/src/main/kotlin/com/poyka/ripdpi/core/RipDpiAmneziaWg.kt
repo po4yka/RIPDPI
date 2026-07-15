@@ -231,8 +231,9 @@ class RipDpiAmneziaWg(
 
         try {
             // Install the native readiness push (ADR 0003) before the blocking
-            // start() so the listener completes the startup signal the moment the
-            // tunnel binds, instead of waiting out a poll interval. Falls back to
+            // start() so an authenticated remote handshake completes the startup
+            // signal immediately, instead of waiting out a poll interval. A local
+            // SOCKS bind alone is deliberately not readiness. Falls back to
             // polling when the native push is unavailable (returns 0).
             withContext(Dispatchers.IO) {
                 nativeBindings.registerReadinessListener(createdHandle) { startupSignal.complete(Unit) }

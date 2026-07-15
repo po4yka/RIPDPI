@@ -41,8 +41,7 @@
 //   * `device/noise-protocol.go` -- `InitiationPacketMagicHeader` (H1),
 //     `ResponsePacketMagicHeader` (H2), `UnderloadPacketMagicHeader` (H3),
 //     `TransportPacketMagicHeader` (H4) replace the WireGuard type bytes
-//     `0x01..0x04`; `S1..S4` size padding inserted between the protocol
-//     payload and the MAC.
+//     `0x01..0x04`; `S1..S4` random prefixes wrap the complete packet.
 //   * `device/device.go` -- AWG 2.0 `I1..I5` "special junk" intervals:
 //     fixed hex-encoded junk frames injected at the start of the flow.
 //
@@ -52,6 +51,14 @@
 // keepalive could not occur here regardless of the upstream pin.
 
 use crate::config::WarpAmneziaConfig;
+use blake2::digest::consts::U16;
+use blake2::digest::{Digest, Mac};
+use blake2::{Blake2s256, Blake2sMac};
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chacha20poly1305::{XChaCha20Poly1305, XNonce};
+use std::sync::{Mutex, MutexGuard};
+use std::time::{Duration, Instant};
+use subtle::ConstantTimeEq;
 
 /// Upstream semantics revision used by RIPDPI's independent Rust codec.
 pub(crate) const AMNEZIAWG_UPSTREAM_SEMANTICS_VERSION: &str = "v0.2.18";
@@ -140,9 +147,8 @@ impl std::error::Error for AwgParamsError {}
 /// `amneziawg-go` enforces in practice for `Jmax`.
 pub(crate) const JUNK_PACKET_SIZE_LIMIT: u32 = 1280;
 
-/// Upper bound on a single `S1..S4` padding run. Padding is inserted between
-/// the protocol payload and the MAC inside one datagram, so it shares the
-/// same ceiling as junk packets.
+/// Upper bound on a single `S1..S4` padding run. Padding prefixes the complete
+/// WireGuard packet inside one datagram, so it shares the junk-packet ceiling.
 pub(crate) const PADDING_SIZE_LIMIT: u32 = 1280;
 
 /// Validated AmneziaWG obfuscation parameters.
@@ -161,8 +167,7 @@ pub(crate) struct AwgParams {
     junk_packet_max_size: u32,
     /// `H1..H4` -- magic headers that replace WireGuard type bytes `0x01..0x04`.
     magic_headers: [u32; WG_MESSAGE_TYPE_COUNT],
-    /// `S1..S4` -- bytes of random padding inserted before the MAC for each
-    /// message type.
+    /// `S1..S4` -- bytes of random padding prefixed to each message type.
     size_padding: [u32; WG_MESSAGE_TYPE_COUNT],
     /// `I1..I5` -- AWG 2.0 special-junk frames, already hex-decoded. An empty
     /// `Vec` means that slot is unset.
@@ -215,12 +220,15 @@ impl AwgParams {
             let value = u32::try_from(raw).map_err(|_| AwgParamsError::HeaderOutOfRange { index, value: raw })?;
             magic_headers[index] = value;
         }
-        // Reject collisions between *set* headers. A header value of 0 means
-        // "unset" (see `headers_active`): unset headers never collide.
+        // A zero means "use the standard WireGuard type". Reject collisions
+        // across those effective headers too: e.g. H1=2 collides with an
+        // unset H2 and makes receive-side classification ambiguous.
         for a in 0..WG_MESSAGE_TYPE_COUNT {
             for b in (a + 1)..WG_MESSAGE_TYPE_COUNT {
-                if magic_headers[a] != 0 && magic_headers[a] == magic_headers[b] {
-                    return Err(AwgParamsError::HeaderCollision { a, b, value: magic_headers[a] });
+                let effective_a = if magic_headers[a] == 0 { (a + 1) as u32 } else { magic_headers[a] };
+                let effective_b = if magic_headers[b] == 0 { (b + 1) as u32 } else { magic_headers[b] };
+                if effective_a == effective_b {
+                    return Err(AwgParamsError::HeaderCollision { a, b, value: effective_a });
                 }
             }
         }
@@ -257,6 +265,7 @@ impl AwgParams {
     /// `true` when no obfuscation is configured at all: no junk packets, no
     /// padding, no header substitution, no special junk. In this state the
     /// wire output is byte-identical to upstream WireGuard.
+    #[cfg(test)]
     pub(crate) fn is_passthrough(&self) -> bool {
         self.junk_packet_count == 0
             && self.size_padding.iter().all(|&s| s == 0)
@@ -270,6 +279,13 @@ impl AwgParams {
     /// for the headers-unset case).
     pub(crate) fn headers_active(&self) -> bool {
         self.magic_headers.iter().any(|&h| h != 0)
+    }
+
+    fn wire_header(&self, index: usize) -> u32 {
+        match self.magic_headers[index] {
+            0 => (index + 1) as u32,
+            header => header,
+        }
     }
 
     /// Draw a junk-packet size uniformly from `[Jmin, Jmax]` using `rng`.
@@ -315,33 +331,80 @@ impl AwgParams {
 /// AmneziaWG packet wire codec: applies H1-H4 magic-header substitution and
 /// S1-S4 size padding on send, and reverses both on receive.
 ///
-/// # Wire layout (when headers are active)
+/// # Wire layout
 ///
 /// ```text
-/// send([type_byte | body])
-///   -> [ H{type} (4 bytes LE) | body | S{type} random padding bytes ]
+/// send([WG type (4 bytes LE) | body])
+///   -> [ S{type} random prefix | H{type} (4 bytes LE) | body ]
 /// ```
 ///
-/// Padding is appended *after* the body, mirroring `amneziawg-go`'s
-/// `device/noise-protocol.go`, which inserts `S1..S4` junk between the
-/// protocol payload and the trailing MAC. boringtun hands the codec a fully
-/// built WireGuard message (MAC included), so for RIPDPI's purposes the
-/// padding sits after the whole message; the receiver strips it by length.
+/// This mirrors `amneziawg-go` v0.2.18 `device/send.go`: H1/H2 are present
+/// before `CookieGenerator.AddMacs`, then S1/S2 are prefixed after MACs are
+/// calculated. H3/H4 use the same header and prefix positions.
+///
+/// boringtun builds a vanilla packet first, so an authenticated codec also
+/// recalculates handshake MAC1/MAC2 over the AWG header. On receive it verifies
+/// the AWG MAC before reconstructing the vanilla header and MAC expected by
+/// boringtun. Cookie replies are translated between the two MAC1 associated
+/// data values so the upstream under-load challenge remains functional.
 ///
 /// # Byte-identity invariant
 ///
-/// When [`AwgParams::is_passthrough`] is true the codec is a no-op: `encode`
-/// returns the input unchanged and `decode` returns `(type_byte, body)`
-/// as-is. This is what makes the `Jc=0`, `S1..S4=0`, `H1..H4` unset case
-/// byte-identical to upstream WireGuard.
-#[derive(Debug, Clone)]
+/// With `Jc=0`, `S1..S4=0`, and `H1..H4` unset, encode and decode return the
+/// complete packet unchanged, byte-for-byte with upstream WireGuard.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct AwgMacKeys {
+    local_public_key: [u8; 32],
+    peer_public_key: [u8; 32],
+}
+
+impl AwgMacKeys {
+    pub(crate) fn new(local_public_key: [u8; 32], peer_public_key: [u8; 32]) -> Self {
+        Self { local_public_key, peer_public_key }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HandshakeMacState {
+    sender_index: u32,
+    vanilla_mac1: [u8; 16],
+    wire_mac1: [u8; 16],
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TimedCookie {
+    value: [u8; 16],
+    received_at: Instant,
+}
+
+impl TimedCookie {
+    fn is_fresh(self) -> bool {
+        self.received_at.elapsed() < COOKIE_EXPIRATION
+    }
+}
+
+#[derive(Debug, Default)]
+struct AwgMacState {
+    last_outbound: Option<HandshakeMacState>,
+    last_inbound: Option<HandshakeMacState>,
+    received_cookie: Option<TimedCookie>,
+    issued_cookie: Option<TimedCookie>,
+}
+
+#[derive(Debug)]
 pub(crate) struct AwgWireCodec {
     params: AwgParams,
+    mac_keys: Option<AwgMacKeys>,
+    mac_state: Mutex<AwgMacState>,
 }
 
 impl AwgWireCodec {
     pub(crate) fn new(params: AwgParams) -> Self {
-        Self { params }
+        Self { params, mac_keys: None, mac_state: Mutex::new(AwgMacState::default()) }
+    }
+
+    pub(crate) fn new_authenticated(params: AwgParams, mac_keys: AwgMacKeys) -> Self {
+        Self { params, mac_keys: Some(mac_keys), mac_state: Mutex::new(AwgMacState::default()) }
     }
 
     pub(crate) fn params(&self) -> &AwgParams {
@@ -356,125 +419,268 @@ impl AwgWireCodec {
         }
     }
 
+    fn mac_state(&self) -> MutexGuard<'_, AwgMacState> {
+        self.mac_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     /// Obfuscate a fully built WireGuard packet for sending.
     ///
-    /// `packet[0]` must be a WireGuard type byte. The returned `Vec` has the
-    /// type byte replaced by the configured 4-byte magic header (little
-    /// endian) when headers are active, and `S{type}` random padding bytes
-    /// appended. Packets shorter than one byte, or whose type byte is not
-    /// `0x01..=0x04`, are returned unchanged.
-    pub(crate) fn encode(&self, packet: &[u8]) -> Vec<u8> {
-        if self.params.is_passthrough() {
-            return packet.to_vec();
-        }
-        let Some(&wg_type) = packet.first() else {
-            return packet.to_vec();
-        };
-        let Some(index) = Self::type_index(wg_type) else {
-            return packet.to_vec();
-        };
-        let body = &packet[1..];
-        let pad_len = self.params.size_padding[index] as usize;
-        let headers_active = self.params.headers_active();
-        let header_len = if headers_active { 4 } else { 1 };
-        let mut out = Vec::with_capacity(header_len + body.len() + pad_len);
-        if headers_active {
-            out.extend_from_slice(&self.params.magic_headers[index].to_le_bytes());
-        } else {
-            out.push(wg_type);
-        }
-        out.extend_from_slice(body);
-        if pad_len > 0 {
-            let pad_start = out.len();
-            out.resize(pad_start + pad_len, 0u8);
-            fill_random(&mut out[pad_start..]);
-        }
-        out
+    /// The complete four-byte type field is replaced, preserving the upstream
+    /// packet length before prefix padding. Cookie replies without matching
+    /// handshake state are rejected (`None`) rather than emitted unauthenticated.
+    #[cfg(test)]
+    pub(crate) fn encode(&self, packet: &[u8]) -> Option<Vec<u8>> {
+        self.encode_with_reserved(packet, [0; 3])
     }
 
     /// Like [`AwgWireCodec::encode`], but overlays the 3 WireGuard reserved
     /// bytes (`packet[1..4]`) with `reserved` during the single output copy,
     /// avoiding a redundant per-packet `to_vec` at the call site.
     ///
-    /// Output is byte-identical to
-    /// `{ let mut p = packet.to_vec(); apply_reserved_bytes(&mut p, reserved); self.encode(&p) }`.
-    pub(crate) fn encode_with_reserved(&self, packet: &[u8], reserved: [u8; 3]) -> Vec<u8> {
-        // Fallback paths in `encode` return `packet.to_vec()` unchanged, so the
-        // reserved overlay must still be applied to preserve exact bytes.
-        let needs_reserved = packet.len() >= 4;
-        let passthrough_or_untyped =
-            self.params.is_passthrough() || packet.first().and_then(|&t| Self::type_index(t)).is_none();
-        if passthrough_or_untyped {
-            let mut out = packet.to_vec();
-            if needs_reserved {
-                out[1..4].copy_from_slice(&reserved);
-            }
-            return out;
+    pub(crate) fn encode_with_reserved(&self, packet: &[u8], reserved: [u8; 3]) -> Option<Vec<u8>> {
+        if packet.len() < 4 {
+            return Some(packet.to_vec());
+        }
+        let wg_type = packet[0];
+        let Some(index) = Self::type_index(wg_type) else {
+            return Some(packet.to_vec());
+        };
+
+        if index == 2 && self.mac_keys.is_some() {
+            return self.encode_cookie_reply(packet, index);
         }
 
-        // SAFETY of indexing: `type_index` succeeded above, so `packet[0]` is a
-        // valid WireGuard type byte and `packet` is non-empty.
-        let wg_type = packet[0];
-        let index = Self::type_index(wg_type).expect("type byte validated above");
-        let body = &packet[1..];
-        let pad_len = self.params.size_padding[index] as usize;
-        let headers_active = self.params.headers_active();
-        let header_len = if headers_active { 4 } else { 1 };
-        let mut out = Vec::with_capacity(header_len + body.len() + pad_len);
-        if headers_active {
-            out.extend_from_slice(&self.params.magic_headers[index].to_le_bytes());
+        let mut wire_packet = packet.to_vec();
+        if self.params.headers_active() {
+            wire_packet[..4].copy_from_slice(&self.params.wire_header(index).to_le_bytes());
         } else {
-            out.push(wg_type);
+            wire_packet[1..4].copy_from_slice(&reserved);
         }
-        out.extend_from_slice(body);
-        // Overlay reserved bytes at the body's [0..3] (original packet [1..4]),
-        // which now sit just after the header in `out`.
-        if needs_reserved {
-            out[header_len..header_len + 3].copy_from_slice(&reserved);
+
+        if index <= 1 {
+            self.rewrite_outbound_handshake_macs(&mut wire_packet);
         }
-        if pad_len > 0 {
-            let pad_start = out.len();
-            out.resize(pad_start + pad_len, 0u8);
-            fill_random(&mut out[pad_start..]);
-        }
-        out
+        Some(self.prefix_padding(wire_packet, index))
     }
 
     /// Reverse [`AwgWireCodec::encode`] for a packet received from the peer.
     ///
-    /// Returns `(wg_type, body)` -- the reconstructed WireGuard type byte and
-    /// the protocol body with magic header and trailing padding stripped --
-    /// or `None` when the packet matches no known message type. A `None`
-    /// result is the signal to drop the datagram (e.g. junk emitted by the
-    /// remote peer during its own handshake setup).
-    pub(crate) fn decode<'a>(&self, packet: &'a [u8]) -> Option<(u8, &'a [u8])> {
-        if self.params.is_passthrough() {
-            let (&wg_type, body) = packet.split_first()?;
-            return Some((wg_type, body));
-        }
+    /// Returns a complete vanilla WireGuard packet or `None` when the packet
+    /// has an unknown layout or fails AWG MAC/cookie authentication.
+    pub(crate) fn decode(&self, packet: &[u8]) -> Option<Vec<u8>> {
+        let index = self.classify_wire_packet(packet)?;
+        let pad_len = self.params.size_padding[index] as usize;
+        let mut vanilla_packet = packet.get(pad_len..)?.to_vec();
 
         if self.params.headers_active() {
-            if packet.len() < 4 {
-                return None;
-            }
-            let header = u32::from_le_bytes(packet[..4].try_into().ok()?);
-            let index = self.params.magic_headers.iter().position(|&h| h != 0 && h == header)?;
-            let pad_len = self.params.size_padding[index] as usize;
-            let body_end = packet.len().checked_sub(pad_len)?;
-            if body_end < 4 {
-                return None;
-            }
-            let wg_type = (index + 1) as u8;
-            Some((wg_type, &packet[4..body_end]))
-        } else {
-            // Headers unset but padding active: the type byte is intact.
-            let (&wg_type, rest) = packet.split_first()?;
-            let index = Self::type_index(wg_type)?;
-            let pad_len = self.params.size_padding[index] as usize;
-            let body_end = rest.len().checked_sub(pad_len)?;
-            Some((wg_type, &rest[..body_end]))
+            vanilla_packet[..4].copy_from_slice(&((index + 1) as u32).to_le_bytes());
         }
+        if index == 2 && self.mac_keys.is_some() {
+            return self.decode_cookie_reply(packet.get(pad_len..)?, vanilla_packet);
+        }
+        if index <= 1 && !self.rewrite_inbound_handshake_macs(packet.get(pad_len..)?, &mut vanilla_packet) {
+            return None;
+        }
+        Some(vanilla_packet)
     }
+
+    fn classify_wire_packet(&self, packet: &[u8]) -> Option<usize> {
+        (0..WG_MESSAGE_TYPE_COUNT).find(|&index| {
+            let pad_len = self.params.size_padding[index] as usize;
+            let Some(body) = packet.get(pad_len..) else {
+                return false;
+            };
+            if !packet_size_matches(index, body.len()) || body.len() < 4 {
+                return false;
+            }
+            u32::from_le_bytes(body[..4].try_into().expect("four-byte header checked"))
+                == self.params.wire_header(index)
+        })
+    }
+
+    fn prefix_padding(&self, packet: Vec<u8>, index: usize) -> Vec<u8> {
+        let pad_len = self.params.size_padding[index] as usize;
+        if pad_len == 0 {
+            return packet;
+        }
+        let mut out = vec![0u8; pad_len];
+        fill_random(&mut out);
+        out.extend_from_slice(&packet);
+        out
+    }
+
+    fn rewrite_outbound_handshake_macs(&self, packet: &mut [u8]) {
+        let Some(keys) = self.mac_keys else {
+            return;
+        };
+        let Some((mac1_offset, mac2_offset)) = handshake_mac_offsets(packet.len()) else {
+            return;
+        };
+        let vanilla_mac1 = packet[mac1_offset..mac2_offset].try_into().expect("16-byte MAC1 range");
+        let wire_mac1 = keyed_blake2s_16(&mac1_key(keys.peer_public_key), &packet[..mac1_offset]);
+        packet[mac1_offset..mac2_offset].copy_from_slice(&wire_mac1);
+
+        let mut state = self.mac_state();
+        state.received_cookie = state.received_cookie.filter(|cookie| cookie.is_fresh());
+        let cookie = state.received_cookie.map(|cookie| cookie.value);
+        let wire_mac2 = cookie.map_or([0; 16], |cookie| keyed_blake2s_16(&cookie, &packet[..mac2_offset]));
+        packet[mac2_offset..].copy_from_slice(&wire_mac2);
+        state.last_outbound = Some(HandshakeMacState {
+            sender_index: u32::from_le_bytes(packet[4..8].try_into().expect("handshake sender index")),
+            vanilla_mac1,
+            wire_mac1,
+        });
+    }
+
+    fn rewrite_inbound_handshake_macs(&self, wire_packet: &[u8], vanilla_packet: &mut [u8]) -> bool {
+        let Some(keys) = self.mac_keys else {
+            return true;
+        };
+        let Some((mac1_offset, mac2_offset)) = handshake_mac_offsets(wire_packet.len()) else {
+            return false;
+        };
+        let wire_mac1: [u8; 16] = wire_packet[mac1_offset..mac2_offset].try_into().expect("16-byte MAC1 range");
+        let expected_wire_mac1 = keyed_blake2s_16(&mac1_key(keys.local_public_key), &wire_packet[..mac1_offset]);
+        if !bool::from(wire_mac1.ct_eq(&expected_wire_mac1)) {
+            return false;
+        }
+
+        let vanilla_mac1 = keyed_blake2s_16(&mac1_key(keys.local_public_key), &vanilla_packet[..mac1_offset]);
+        vanilla_packet[mac1_offset..mac2_offset].copy_from_slice(&vanilla_mac1);
+
+        let wire_mac2: [u8; 16] = wire_packet[mac2_offset..].try_into().expect("16-byte MAC2 range");
+        let mut state = self.mac_state();
+        state.issued_cookie = state.issued_cookie.filter(|cookie| cookie.is_fresh());
+        let issued_cookie = state.issued_cookie.map(|cookie| cookie.value);
+        if bool::from(wire_mac2.ct_eq(&[0; 16])) {
+            vanilla_packet[mac2_offset..].fill(0);
+        } else {
+            let Some(cookie) = issued_cookie else {
+                return false;
+            };
+            let expected_wire_mac2 = keyed_blake2s_16(&cookie, &wire_packet[..mac2_offset]);
+            if !bool::from(wire_mac2.ct_eq(&expected_wire_mac2)) {
+                return false;
+            }
+            let vanilla_mac2 = keyed_blake2s_16(&cookie, &vanilla_packet[..mac2_offset]);
+            vanilla_packet[mac2_offset..].copy_from_slice(&vanilla_mac2);
+        }
+        state.last_inbound = Some(HandshakeMacState {
+            sender_index: u32::from_le_bytes(wire_packet[4..8].try_into().expect("handshake sender index")),
+            vanilla_mac1,
+            wire_mac1,
+        });
+        true
+    }
+
+    fn encode_cookie_reply(&self, packet: &[u8], index: usize) -> Option<Vec<u8>> {
+        if packet.len() != COOKIE_REPLY_SIZE {
+            return None;
+        }
+        let keys = self.mac_keys?;
+        let receiver = u32::from_le_bytes(packet[4..8].try_into().ok()?);
+        let mut state = self.mac_state();
+        let handshake = state.last_inbound.filter(|handshake| handshake.sender_index == receiver)?;
+        let cookie = decrypt_cookie(packet, cookie_key(keys.local_public_key), handshake.vanilla_mac1)?;
+        state.issued_cookie = Some(TimedCookie { value: cookie, received_at: Instant::now() });
+        drop(state);
+
+        let wire_packet = build_cookie_reply(
+            self.params.wire_header(index),
+            receiver,
+            cookie,
+            keys.local_public_key,
+            handshake.wire_mac1,
+        )?;
+        Some(self.prefix_padding(wire_packet, index))
+    }
+
+    fn decode_cookie_reply(&self, wire_packet: &[u8], _vanilla_packet: Vec<u8>) -> Option<Vec<u8>> {
+        if wire_packet.len() != COOKIE_REPLY_SIZE {
+            return None;
+        }
+        let keys = self.mac_keys?;
+        let receiver = u32::from_le_bytes(wire_packet[4..8].try_into().ok()?);
+        let mut state = self.mac_state();
+        let handshake = state.last_outbound.filter(|handshake| handshake.sender_index == receiver)?;
+        let cookie = decrypt_cookie(wire_packet, cookie_key(keys.peer_public_key), handshake.wire_mac1)?;
+        state.received_cookie = Some(TimedCookie { value: cookie, received_at: Instant::now() });
+        drop(state);
+
+        build_cookie_reply(3, receiver, cookie, keys.peer_public_key, handshake.vanilla_mac1)
+    }
+}
+
+const HANDSHAKE_INIT_SIZE: usize = 148;
+const HANDSHAKE_RESPONSE_SIZE: usize = 92;
+const COOKIE_REPLY_SIZE: usize = 64;
+const TRANSPORT_MIN_SIZE: usize = 32;
+const COOKIE_EXPIRATION: Duration = Duration::from_secs(120);
+
+fn packet_size_matches(index: usize, size: usize) -> bool {
+    match index {
+        0 => size == HANDSHAKE_INIT_SIZE,
+        1 => size == HANDSHAKE_RESPONSE_SIZE,
+        2 => size == COOKIE_REPLY_SIZE,
+        3 => size >= TRANSPORT_MIN_SIZE,
+        _ => false,
+    }
+}
+
+fn handshake_mac_offsets(size: usize) -> Option<(usize, usize)> {
+    matches!(size, HANDSHAKE_INIT_SIZE | HANDSHAKE_RESPONSE_SIZE).then_some((size - 32, size - 16))
+}
+
+fn mac1_key(public_key: [u8; 32]) -> [u8; 32] {
+    blake2s_hash(b"mac1----", public_key)
+}
+
+fn cookie_key(public_key: [u8; 32]) -> [u8; 32] {
+    blake2s_hash(b"cookie--", public_key)
+}
+
+fn blake2s_hash(label: &[u8], public_key: [u8; 32]) -> [u8; 32] {
+    let mut hasher = Blake2s256::new();
+    Digest::update(&mut hasher, label);
+    Digest::update(&mut hasher, public_key);
+    hasher.finalize().into()
+}
+
+fn keyed_blake2s_16(key: &[u8], message: &[u8]) -> [u8; 16] {
+    type Blake2sMac128 = Blake2sMac<U16>;
+    let mut mac = <Blake2sMac128 as Mac>::new_from_slice(key).expect("WireGuard BLAKE2s key length is valid");
+    Mac::update(&mut mac, message);
+    mac.finalize().into_bytes().into()
+}
+
+fn decrypt_cookie(packet: &[u8], key: [u8; 32], aad: [u8; 16]) -> Option<[u8; 16]> {
+    let nonce = XNonce::try_from(packet.get(8..32)?).ok()?;
+    let cipher = XChaCha20Poly1305::new_from_slice(&key).ok()?;
+    let plaintext = cipher.decrypt(&nonce, Payload { msg: packet.get(32..64)?, aad: &aad }).ok()?;
+    plaintext.try_into().ok()
+}
+
+fn build_cookie_reply(
+    header: u32,
+    receiver: u32,
+    cookie: [u8; 16],
+    public_key: [u8; 32],
+    aad: [u8; 16],
+) -> Option<Vec<u8>> {
+    let mut nonce_bytes = [0u8; 24];
+    fill_random(&mut nonce_bytes);
+    let nonce = XNonce::from(nonce_bytes);
+    let cipher = XChaCha20Poly1305::new_from_slice(&cookie_key(public_key)).ok()?;
+    let encrypted = cipher.encrypt(&nonce, Payload { msg: &cookie, aad: &aad }).ok()?;
+    if encrypted.len() != 32 {
+        return None;
+    }
+    let mut packet = vec![0u8; COOKIE_REPLY_SIZE];
+    packet[..4].copy_from_slice(&header.to_le_bytes());
+    packet[4..8].copy_from_slice(&receiver.to_le_bytes());
+    packet[8..32].copy_from_slice(&nonce_bytes);
+    packet[32..].copy_from_slice(&encrypted);
+    Some(packet)
 }
 
 /// Decode a lowercase/uppercase hex string into bytes. Returns `None` on any
@@ -590,6 +796,15 @@ mod tests {
     }
 
     #[test]
+    fn from_config_rejects_custom_header_colliding_with_unset_standard_type() {
+        let c = cfg(0, 0, 0, [2, 0, 0, 0], [0; 4]);
+        assert_eq!(
+            AwgParams::from_config(&c, &no_special()),
+            Err(AwgParamsError::HeaderCollision { a: 0, b: 1, value: 2 }),
+        );
+    }
+
+    #[test]
     fn from_config_rejects_oversized_padding() {
         let c = cfg(0, 0, 0, [0; 4], [(PADDING_SIZE_LIMIT + 1) as i32, 0, 0, 0]);
         assert_eq!(
@@ -681,22 +896,18 @@ mod tests {
         // WireGuard handshake-initiation test vector: 148 bytes total.
         let mut initiation = vec![0u8; 148];
         initiation[0] = 0x01;
-        for (i, b) in initiation[1..].iter_mut().enumerate() {
+        for (i, b) in initiation[4..].iter_mut().enumerate() {
             *b = (i % 251) as u8;
         }
-        assert_eq!(codec.encode(&initiation), initiation, "encode must be a no-op in passthrough");
-        let (wg_type, body) = codec.decode(&initiation).expect("passthrough decode");
-        assert_eq!(wg_type, 0x01);
-        assert_eq!(body, &initiation[1..]);
+        assert_eq!(codec.encode(&initiation).unwrap(), initiation, "encode must be a no-op in passthrough");
+        assert_eq!(codec.decode(&initiation).expect("passthrough decode"), initiation);
 
         // And for every other WireGuard message type.
         for (wg_type, len) in [(0x02u8, 92usize), (0x03, 64), (0x04, 128)] {
             let mut packet = vec![0xA5u8; len];
-            packet[0] = wg_type;
-            assert_eq!(codec.encode(&packet), packet);
-            let (decoded_type, body) = codec.decode(&packet).unwrap();
-            assert_eq!(decoded_type, wg_type);
-            assert_eq!(body, &packet[1..]);
+            packet[..4].copy_from_slice(&u32::from(wg_type).to_le_bytes());
+            assert_eq!(codec.encode(&packet).unwrap(), packet);
+            assert_eq!(codec.decode(&packet).unwrap(), packet);
         }
     }
 
@@ -709,35 +920,32 @@ mod tests {
         let params = AwgParams::from_config(&c, &no_special()).unwrap();
         let codec = AwgWireCodec::new(params);
 
-        for (wg_type, header) in (1u8..=4).zip(headers) {
-            let mut packet = vec![0x77u8; 80];
-            packet[0] = wg_type;
-            let encoded = codec.encode(&packet);
+        for ((wg_type, header), len) in (1u8..=4).zip(headers).zip([148, 92, 64, 80]) {
+            let mut packet = vec![0x77u8; len];
+            packet[..4].copy_from_slice(&u32::from(wg_type).to_le_bytes());
+            let encoded = codec.encode(&packet).unwrap();
             assert_eq!(u32::from_le_bytes(encoded[..4].try_into().unwrap()), header as u32);
-            assert_eq!(&encoded[4..], &packet[1..], "body preserved for type {wg_type}");
-            let (decoded_type, body) = codec.decode(&encoded).expect("decode");
-            assert_eq!(decoded_type, wg_type);
-            assert_eq!(body, &packet[1..]);
+            assert_eq!(&encoded[4..], &packet[4..], "body preserved for type {wg_type}");
+            assert_eq!(codec.decode(&encoded).expect("decode"), packet);
         }
     }
 
     #[test]
-    fn encode_appends_size_padding_per_type() {
+    fn encode_prefixes_size_padding_per_type() {
         let headers = [0xAA_00_00_01, 0xAA_00_00_02, 0xAA_00_00_03, 0xAA_00_00_04];
         let padding = [8, 4, 0, 16];
         let c = cfg(0, 0, 0, headers, padding);
         let params = AwgParams::from_config(&c, &no_special()).unwrap();
         let codec = AwgWireCodec::new(params);
 
-        for (i, wg_type) in (1u8..=4).enumerate() {
-            let mut packet = vec![0x33u8; 60];
-            packet[0] = wg_type;
-            let encoded = codec.encode(&packet);
-            // header (4) + body (59) + padding
-            assert_eq!(encoded.len(), 4 + 59 + padding[i] as usize, "len for type {wg_type}");
-            let (decoded_type, body) = codec.decode(&encoded).expect("decode");
-            assert_eq!(decoded_type, wg_type);
-            assert_eq!(body, &packet[1..], "padding stripped on decode for type {wg_type}");
+        for ((i, wg_type), len) in (1u8..=4).enumerate().zip([148, 92, 64, 80]) {
+            let mut packet = vec![0x33u8; len];
+            packet[..4].copy_from_slice(&u32::from(wg_type).to_le_bytes());
+            let encoded = codec.encode(&packet).unwrap();
+            let pad_len = padding[i] as usize;
+            assert_eq!(encoded.len(), packet.len() + pad_len, "len for type {wg_type}");
+            assert_eq!(u32::from_le_bytes(encoded[pad_len..pad_len + 4].try_into().unwrap()), headers[i] as u32);
+            assert_eq!(codec.decode(&encoded).expect("decode"), packet);
         }
     }
 
@@ -749,13 +957,12 @@ mod tests {
         let codec = AwgWireCodec::new(params);
 
         let mut packet = vec![0x5Cu8; 40];
-        packet[0] = 0x01;
-        let encoded = codec.encode(&packet);
-        assert_eq!(encoded[0], 0x01, "type byte preserved when headers unset");
-        assert_eq!(encoded.len(), 40 + 6);
-        let (wg_type, body) = codec.decode(&encoded).expect("decode");
-        assert_eq!(wg_type, 0x01);
-        assert_eq!(body, &packet[1..]);
+        packet.resize(HANDSHAKE_INIT_SIZE, 0x5C);
+        packet[..4].copy_from_slice(&1u32.to_le_bytes());
+        let encoded = codec.encode(&packet).unwrap();
+        assert_eq!(&encoded[6..10], &1u32.to_le_bytes(), "type field preserved after prefix padding");
+        assert_eq!(encoded.len(), HANDSHAKE_INIT_SIZE + 6);
+        assert_eq!(codec.decode(&encoded).expect("decode"), packet);
     }
 
     #[test]
@@ -786,7 +993,7 @@ mod tests {
         let codec = AwgWireCodec::new(params);
         // Type byte 0x05 is not a WireGuard message type.
         let packet = vec![0x05u8, 1, 2, 3];
-        assert_eq!(codec.encode(&packet), packet);
+        assert_eq!(codec.encode(&packet).unwrap(), packet);
     }
 
     // --- junk packets ------------------------------------------------------
@@ -905,12 +1112,14 @@ mod tests {
         let headers = [0x10_00_00_01, 0x10_00_00_02, 0x10_00_00_03, 0x10_00_00_04];
         let params = AwgParams::from_config(&cfg(0, 0, 0, headers, [8, 4, 6, 2]), &no_special()).unwrap();
         assert!(!params.is_passthrough(), "codec must be active for a meaningful test");
-        let codec = AwgWireCodec::new(params);
-
-        // Reconstruct a real WG packet `[type | tail]` from a decoded pair.
-        let rebuild = |wg_type: u8, tail: &[u8]| -> Vec<u8> {
-            std::iter::once(wg_type).chain(tail.iter().copied()).collect::<Vec<u8>>()
-        };
+        let client_codec = AwgWireCodec::new_authenticated(
+            params.clone(),
+            AwgMacKeys::new(client_public.to_bytes(), server_public.to_bytes()),
+        );
+        let server_codec = AwgWireCodec::new_authenticated(
+            params,
+            AwgMacKeys::new(server_public.to_bytes(), client_public.to_bytes()),
+        );
 
         // 1) Client initiates. `encapsulate(&[])` with no established session
         // yields the handshake initiation as WriteToNetwork.
@@ -923,10 +1132,14 @@ mod tests {
 
         // 2) Obfuscate, hand to the server, deobfuscate, decapsulate -> the
         // server produces the handshake response.
-        let obf_init = codec.encode(&init);
+        let obf_init = client_codec.encode(&init).expect("client encodes initiation");
         assert_ne!(obf_init[..4], [1, 0, 0, 0], "type byte must be header-substituted on the wire");
-        let (t, tail) = codec.decode(&obf_init).expect("server decodes init");
-        let dec_init = rebuild(t, tail);
+        assert_eq!(obf_init.len(), HANDSHAKE_INIT_SIZE + 8, "S1 is a prefix without changing WG body size");
+        assert_eq!(u32::from_le_bytes(obf_init[8..12].try_into().unwrap()), headers[0] as u32);
+        let mut corrupted_init = obf_init.clone();
+        corrupted_init[20] ^= 1;
+        assert!(server_codec.decode(&corrupted_init).is_none(), "AWG MAC1 must authenticate the wire header and body");
+        let dec_init = server_codec.decode(&obf_init).expect("server decodes init");
 
         let mut buf2 = [0u8; 2048];
         let response = match server.decapsulate(None, &dec_init, &mut buf2) {
@@ -936,9 +1149,8 @@ mod tests {
         assert_eq!(response[0], 2, "WireGuard handshake response is message type 2");
 
         // 3) Client consumes the (obfuscated) response, completing the handshake.
-        let obf_resp = codec.encode(&response);
-        let (t, tail) = codec.decode(&obf_resp).expect("client decodes response");
-        let dec_resp = rebuild(t, tail);
+        let obf_resp = server_codec.encode(&response).expect("server encodes response");
+        let dec_resp = client_codec.decode(&obf_resp).expect("client decodes response");
         let mut buf3 = [0u8; 2048];
         // Completing the handshake typically yields an empty keepalive
         // (WriteToNetwork) or Done; either means the session is established.
@@ -967,9 +1179,8 @@ mod tests {
         };
         assert_eq!(data_on_wire[0], 4, "WireGuard transport-data is message type 4");
 
-        let obf_data = codec.encode(&data_on_wire);
-        let (t, tail) = codec.decode(&obf_data).expect("server decodes transport data");
-        let dec_data = rebuild(t, tail);
+        let obf_data = client_codec.encode(&data_on_wire).expect("client encodes transport data");
+        let dec_data = server_codec.decode(&obf_data).expect("server decodes transport data");
         let mut buf5 = [0u8; 2048];
         match server.decapsulate(None, &dec_data, &mut buf5) {
             TunnResult::WriteToTunnelV4(plaintext, _) => {
@@ -1004,11 +1215,17 @@ mod tests {
             &no_special(),
         )
         .unwrap();
-        let codec = AwgWireCodec::new(params);
-        let through = |codec: &AwgWireCodec, packet: &[u8]| -> Vec<u8> {
-            let encoded = codec.encode(packet);
-            let (wg_type, tail) = codec.decode(&encoded).expect("codec round trip");
-            std::iter::once(wg_type).chain(tail.iter().copied()).collect()
+        let client_codec = AwgWireCodec::new_authenticated(
+            params.clone(),
+            AwgMacKeys::new(client_public.to_bytes(), server_public.to_bytes()),
+        );
+        let server_codec = AwgWireCodec::new_authenticated(
+            params,
+            AwgMacKeys::new(server_public.to_bytes(), client_public.to_bytes()),
+        );
+        let through = |sender: &AwgWireCodec, receiver: &AwgWireCodec, packet: &[u8]| -> Vec<u8> {
+            let encoded = sender.encode(packet).expect("codec encodes packet");
+            receiver.decode(&encoded).expect("codec decodes packet")
         };
 
         let mut buf = [0u8; 2048];
@@ -1016,13 +1233,13 @@ mod tests {
             TunnResult::WriteToNetwork(p) => p.to_vec(),
             other => panic!("expected init, got {other:?}"),
         };
-        let dec_init = through(&codec, &init);
+        let dec_init = through(&client_codec, &server_codec, &init);
         let mut buf2 = [0u8; 2048];
         let response = match server.decapsulate(None, &dec_init, &mut buf2) {
             TunnResult::WriteToNetwork(p) => p.to_vec(),
             other => panic!("expected response (PSK accepted), got {other:?}"),
         };
-        let dec_resp = through(&codec, &response);
+        let dec_resp = through(&server_codec, &client_codec, &response);
         let mut buf3 = [0u8; 2048];
         match client.decapsulate(None, &dec_resp, &mut buf3) {
             TunnResult::WriteToNetwork(_) | TunnResult::Done => {}
@@ -1040,7 +1257,7 @@ mod tests {
             TunnResult::WriteToNetwork(p) => p.to_vec(),
             other => panic!("expected transport data, got {other:?}"),
         };
-        let dec_data = through(&codec, &data);
+        let dec_data = through(&client_codec, &server_codec, &data);
         let mut buf5 = [0u8; 2048];
         match server.decapsulate(None, &dec_data, &mut buf5) {
             TunnResult::WriteToTunnelV4(plaintext, _) => {
@@ -1048,6 +1265,78 @@ mod tests {
             }
             other => panic!("server could not recover the inner packet under PSK: {other:?}"),
         }
+    }
+
+    #[test]
+    fn cookie_challenge_round_trips_between_awg_and_boringtun_mac_domains() {
+        use boringtun::noise::rate_limiter::RateLimiter;
+        use boringtun::noise::{Tunn, TunnResult};
+        use boringtun::x25519::{PublicKey, StaticSecret};
+        use std::net::{IpAddr, Ipv4Addr};
+        use std::sync::Arc;
+
+        let client_secret = StaticSecret::from([0x31; 32]);
+        let server_secret = StaticSecret::from([0x47; 32]);
+        let client_public = PublicKey::from(&client_secret);
+        let server_public = PublicKey::from(&server_secret);
+        let client_public_bytes = client_public.to_bytes();
+        let server_public_bytes = server_public.to_bytes();
+
+        let mut client = Tunn::new(client_secret, server_public, None, None, 0, None);
+        let limiter = Arc::new(RateLimiter::new(&PublicKey::from(server_public_bytes), 0));
+        let mut server = Tunn::new(server_secret, client_public, None, None, 1, Some(limiter));
+
+        let headers = [0x41_00_00_01, 0x41_00_00_02, 0x41_00_00_03, 0x41_00_00_04];
+        let params = AwgParams::from_config(&cfg(0, 0, 0, headers, [5, 7, 3, 0]), &no_special()).unwrap();
+        let client_codec =
+            AwgWireCodec::new_authenticated(params.clone(), AwgMacKeys::new(client_public_bytes, server_public_bytes));
+        let server_codec =
+            AwgWireCodec::new_authenticated(params, AwgMacKeys::new(server_public_bytes, client_public_bytes));
+        let source_ip = Some(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 9)));
+
+        let mut init_buf = [0u8; 2048];
+        let init = match client.format_handshake_initiation(&mut init_buf, true) {
+            TunnResult::WriteToNetwork(packet) => packet.to_vec(),
+            other => panic!("expected initial handshake, got {other:?}"),
+        };
+        let wire_init = client_codec.encode(&init).expect("encode initial handshake");
+        let vanilla_init = server_codec.decode(&wire_init).expect("decode initial handshake");
+
+        let mut cookie_buf = [0u8; 2048];
+        let vanilla_cookie = match server.decapsulate(source_ip, &vanilla_init, &mut cookie_buf) {
+            TunnResult::WriteToNetwork(packet) => packet.to_vec(),
+            other => panic!("under-load peer must issue a cookie, got {other:?}"),
+        };
+        assert_eq!(u32::from_le_bytes(vanilla_cookie[..4].try_into().unwrap()), 3);
+        let wire_cookie = server_codec.encode(&vanilla_cookie).expect("translate cookie to AWG MAC1 domain");
+        assert_eq!(u32::from_le_bytes(wire_cookie[3..7].try_into().unwrap()), headers[2] as u32);
+        let client_cookie = client_codec.decode(&wire_cookie).expect("translate cookie to boringtun MAC1 domain");
+
+        let mut consume_cookie_buf = [0u8; 2048];
+        assert!(matches!(client.decapsulate(source_ip, &client_cookie, &mut consume_cookie_buf), TunnResult::Done));
+
+        let mut retry_buf = [0u8; 2048];
+        let retry = match client.format_handshake_initiation(&mut retry_buf, true) {
+            TunnResult::WriteToNetwork(packet) => packet.to_vec(),
+            other => panic!("expected cookie-authenticated retry, got {other:?}"),
+        };
+        let wire_retry = client_codec.encode(&retry).expect("encode cookie-authenticated retry");
+        assert!(!bool::from(wire_retry[wire_retry.len() - 16..].ct_eq(&[0; 16])));
+        let vanilla_retry = server_codec.decode(&wire_retry).expect("validate AWG MAC2 and translate retry");
+
+        let mut response_buf = [0u8; 2048];
+        let response = match server.decapsulate(source_ip, &vanilla_retry, &mut response_buf) {
+            TunnResult::WriteToNetwork(packet) => packet.to_vec(),
+            other => panic!("cookie-authenticated handshake must reach response, got {other:?}"),
+        };
+        assert_eq!(u32::from_le_bytes(response[..4].try_into().unwrap()), 2);
+        let wire_response = server_codec.encode(&response).expect("encode response");
+        let client_response = client_codec.decode(&wire_response).expect("decode response");
+        let mut finish_buf = [0u8; 2048];
+        assert!(matches!(
+            client.decapsulate(source_ip, &client_response, &mut finish_buf),
+            TunnResult::WriteToNetwork(_) | TunnResult::Done
+        ));
     }
 
     #[test]
@@ -1059,17 +1348,15 @@ mod tests {
         assert!(!params.is_passthrough());
         let codec = AwgWireCodec::new(params);
 
-        for (i, wg_type) in (1u8..=4).enumerate() {
-            let mut packet = vec![0u8; 100 + i];
-            packet[0] = wg_type;
-            for (j, b) in packet[1..].iter_mut().enumerate() {
+        for ((i, wg_type), len) in (1u8..=4).enumerate().zip([148, 92, 64, 100]) {
+            let mut packet = vec![0u8; len];
+            packet[..4].copy_from_slice(&u32::from(wg_type).to_le_bytes());
+            for (j, b) in packet[4..].iter_mut().enumerate() {
                 *b = (j % 97) as u8;
             }
-            let encoded = codec.encode(&packet);
-            assert_eq!(encoded.len(), 4 + (packet.len() - 1) + padding[i] as usize);
-            let (decoded_type, body) = codec.decode(&encoded).expect("round trip decode");
-            assert_eq!(decoded_type, wg_type);
-            assert_eq!(body, &packet[1..]);
+            let encoded = codec.encode(&packet).expect("encode");
+            assert_eq!(encoded.len(), packet.len() + padding[i] as usize);
+            assert_eq!(codec.decode(&encoded).expect("round trip decode"), packet);
         }
     }
 }
