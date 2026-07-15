@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io;
 use std::sync::Arc;
 
@@ -72,6 +72,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         udp_eviction_heap: BoundedHeap::new(UDP_EVICTION_HEAP_CAPACITY),
         udp_memory_budget: UdpMemoryBudget::for_tunnel_mtu(mtu),
         next_udp_association_id: 1,
+        pending_uid_udp_packets: VecDeque::new(),
         dns_req_tx,
         dns_resp_rx,
         tun_read_buf: vec![0u8; mtu + 64],

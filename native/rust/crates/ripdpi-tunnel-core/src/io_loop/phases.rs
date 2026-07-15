@@ -7,7 +7,7 @@ use tun_rs::AsyncDevice;
 
 use super::bridge::{TunFlushOutcome, flush_device_tx_queue, pump_active_sessions};
 use super::dns_intercept::drain_dns_responses;
-use super::routing::route_tun_packet;
+use super::routing::{retry_pending_uid_udp, route_tun_packet};
 use super::state::LoopState;
 use super::tcp_accept::{gc_stale_pending_listens, spawn_new_tcp_sessions};
 use super::{IO_PHASE_WORK_BUDGET, LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
@@ -65,6 +65,10 @@ pub(in crate::io_loop) fn drain_dns(state: &mut LoopState) {
             &mut state.dns_req_tx,
         );
     }
+}
+
+pub(in crate::io_loop) fn retry_pending_udp_admission(state: &mut LoopState) {
+    retry_pending_uid_udp(state);
 }
 
 pub(in crate::io_loop) fn poll_smoltcp(state: &mut LoopState) {
@@ -128,7 +132,7 @@ pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopSta
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{HashMap, HashSet, VecDeque};
     use std::net::SocketAddr;
     use std::sync::atomic::Ordering;
     use std::sync::{Arc, Mutex};
@@ -216,7 +220,8 @@ mod tests {
 
     #[tokio::test]
     async fn udp_admission_waits_for_cached_uid_and_drops_denied_flow() {
-        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
         state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
         let packet = ipv4_udp_packet(55_123, 443, b"uid-gated");
         let request = ripdpi_flow_app_attribution::FlowResolveRequest {
@@ -227,11 +232,13 @@ mod tests {
 
         route_tun_packet(&packet, &mut state);
         assert!(state.udp_associations.is_empty(), "pending UID must not create an association");
+        assert_eq!(state.pending_uid_udp_packets.len(), 1, "pending UDP datagram must be retained");
 
         let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("denied flow job");
         ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(20_000));
-        route_tun_packet(&packet, &mut state);
+        retry_pending_uid_udp(&mut state);
         assert!(state.udp_associations.is_empty(), "denied UID must remain dropped");
+        assert!(state.pending_uid_udp_packets.is_empty(), "denied UDP datagram must be released");
 
         let allowed_packet = ipv4_udp_packet(55_124, 443, b"uid-allowed");
         let allowed_request = ripdpi_flow_app_attribution::FlowResolveRequest {
@@ -240,10 +247,17 @@ mod tests {
             remote: "93.184.216.34:443".parse().expect("remote endpoint"),
         };
         route_tun_packet(&allowed_packet, &mut state);
+        assert_eq!(state.pending_uid_udp_packets.len(), 1, "allowed flow waits for UID resolution");
         let job = ripdpi_flow_app_attribution::take_pending_request(allowed_request).expect("allowed flow job");
         ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
-        route_tun_packet(&allowed_packet, &mut state);
+        retry_pending_uid_udp(&mut state);
         assert_eq!(state.udp_associations.len(), 1, "allowed UID may create the association");
+        assert!(state.pending_uid_udp_packets.is_empty(), "admitted UDP datagram must leave pending queue");
+        assert_eq!(
+            seen_packets.lock().expect("seen packets").len(),
+            2,
+            "UID retries must not replay egress interceptor side effects"
+        );
         state.shutdown().await;
     }
 
@@ -302,6 +316,7 @@ mod tests {
             udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(UDP_EVICTION_HEAP_CAPACITY),
             udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,
+            pending_uid_udp_packets: VecDeque::new(),
             dns_req_tx: None,
             dns_resp_rx: None,
             tun_read_buf: vec![0u8; 1500],

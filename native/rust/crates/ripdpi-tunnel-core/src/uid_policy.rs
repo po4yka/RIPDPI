@@ -33,7 +33,8 @@ pub const PROTO_UDP: u8 = 17;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
     /// UID resolution is still running off the data-plane thread. TCP admission
-    /// remains parked; UDP drops the current datagram and retries on the next one.
+    /// remains parked; UDP retains the current datagram in a bounded queue and
+    /// retries admission off the packet-receive path.
     Pending,
     /// Forward the flow to the SOCKS proxy as usual.
     Allow,

@@ -5,10 +5,16 @@ use super::dns_intercept::{dns_query_name, resolve_mapped_target, route_dns_pack
 use super::packet::is_injected_rst;
 use super::state::LoopState;
 use super::tcp_accept::ensure_pending_listen_for_syn;
-use super::udp_assoc::forward_udp_payload;
+use super::udp_assoc::{UdpForwardOutcome, forward_udp_payload};
+
+const PENDING_UID_UDP_CAPACITY: usize = 256;
 
 pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
-    if state.runtime.tun_egress_interceptor.handle_packet(packet) {
+    route_tun_packet_inner(packet, state, true);
+}
+
+fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_interceptor: bool) {
+    if run_egress_interceptor && state.runtime.tun_egress_interceptor.handle_packet(packet) {
         return;
     }
 
@@ -39,7 +45,7 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
                 _ => None,
             };
             if let Some(resolved_dst) = resolve_mapped_target(&state.stats, &mut state.dns_cache, dst) {
-                forward_udp_payload(
+                let outcome = forward_udp_payload(
                     state.runtime.proxy_sockaddr,
                     &state.runtime.auth,
                     src,
@@ -58,8 +64,24 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
                     &state.stats,
                     &state.runtime.uid_policy,
                 );
+                if matches!(outcome, UdpForwardOutcome::PendingUid) {
+                    if state.pending_uid_udp_packets.len() >= PENDING_UID_UDP_CAPACITY {
+                        state.pending_uid_udp_packets.pop_front();
+                    }
+                    state.pending_uid_udp_packets.push_back(packet.to_vec());
+                }
             }
         }
+    }
+}
+
+pub(in crate::io_loop) fn retry_pending_uid_udp(state: &mut LoopState) {
+    let attempts = state.pending_uid_udp_packets.len().min(super::IO_PHASE_WORK_BUDGET);
+    for _ in 0..attempts {
+        let Some(packet) = state.pending_uid_udp_packets.pop_front() else {
+            break;
+        };
+        route_tun_packet_inner(&packet, state, false);
     }
 }
 

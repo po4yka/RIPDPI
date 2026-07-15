@@ -147,6 +147,7 @@ pub async fn io_loop_task(
             break;
         }
         phases::drain_tun(tun, &mut state).await;
+        phases::retry_pending_udp_admission(&mut state);
         phases::drain_dns(&mut state);
         phases::poll_smoltcp(&mut state);
         phases::gc_pending_listens(&mut state);

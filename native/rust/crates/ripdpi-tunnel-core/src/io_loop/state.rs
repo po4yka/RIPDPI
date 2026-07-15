@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant as StdInstant;
@@ -39,6 +39,7 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) udp_eviction_heap: BoundedHeap<UdpEvictionEntry>,
     pub(in crate::io_loop) udp_memory_budget: UdpMemoryBudget,
     pub(in crate::io_loop) next_udp_association_id: u64,
+    pub(in crate::io_loop) pending_uid_udp_packets: VecDeque<Vec<u8>>,
     pub(in crate::io_loop) dns_req_tx: Option<Sender<DnsRequest>>,
     pub(in crate::io_loop) dns_resp_rx: Option<Receiver<DnsResponse>>,
     pub(in crate::io_loop) tun_read_buf: Vec<u8>,

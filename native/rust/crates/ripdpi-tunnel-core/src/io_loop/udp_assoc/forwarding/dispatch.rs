@@ -19,6 +19,12 @@ use super::delivery::deliver_udp_datagram;
 use super::ensure::ensure_udp_association;
 use super::leases::{lease_udp_attribution, lease_udp_mapping};
 
+pub(in crate::io_loop) enum UdpForwardOutcome {
+    Forwarded,
+    PendingUid,
+    Dropped,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(in crate::io_loop) fn forward_udp_payload(
     proxy_addr: SocketAddr,
@@ -38,11 +44,12 @@ pub(in crate::io_loop) fn forward_udp_payload(
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
     stats: &Arc<Stats>,
     uid_policy: &UidFlowPolicy,
-) {
+) -> UdpForwardOutcome {
     let observation = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
     match uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, resolved_dst) {
         Verdict::Allow => {}
-        Verdict::Pending | Verdict::DropUdp | Verdict::ResetTcp => return,
+        Verdict::Pending => return UdpForwardOutcome::PendingUid,
+        Verdict::DropUdp | Verdict::ResetTcp => return UdpForwardOutcome::Dropped,
     }
 
     ensure_udp_association(
@@ -84,4 +91,5 @@ pub(in crate::io_loop) fn forward_udp_payload(
         udp_tx,
         stats,
     );
+    UdpForwardOutcome::Forwarded
 }
