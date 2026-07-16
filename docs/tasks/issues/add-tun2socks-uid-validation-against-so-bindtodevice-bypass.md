@@ -4,13 +4,13 @@ type: task
 status: doing
 area: vpn
 priority: high
-owner: unassigned
+owner: TUN adversarial lane
 parent: epic-fail-closed-android-vpn-policy-engine
-status_detail: decision core shipped + unit-tested (UidFlowPolicy in ripdpi-tunnel-core); smoltcp data-path wiring, the JNI getConnectionOwnerUid source, and the SO_BINDTODEVICE device tests are device-gated (kernel 5.7+)
+status_detail: UID enforcement is wired in TCP/UDP data plane; physical SO_BINDTODEVICE=tun0 adversarial harness and recurring privileged evidence remain
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-06-11
+updated: 2026-07-16
 source_wiki_pages:
   - "android-so-bindtodevice-vpn-bypass"
 linked_task: null
@@ -52,6 +52,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## Work log
+
+- 2026-07-16: Reassigned to the TUN adversarial lane. Current scope is the physical privileged proof: TUN/netns topology, TCP+UDP positive/negative controls, packet-path counters, IPv4/applicable IPv6, deterministic cleanup, and fail-closed CI evidence when CAP_NET_ADMIN/root/tun is unavailable.
 
 - 2026-06-05: No UID enforcement exists at the tun2socks packet-forwarding layer. `ripdpi-tun-driver` is a TUN open/configure crate only. `ripdpi-flow-app-attribution` + `FlowAppAttributionStore.kt` call `getConnectionOwnerUid` for attribution/learning only — no RST, no UDP drop, no allowlist gate. No SO_BINDTODEVICE bypass countermeasure found in Rust or Kotlin. No integration test for this scenario in `appium/`. All acceptance criteria unmet; full implementation work remains.
 - 2026-06-05: **Architecture resolved (open question in "Risks" closed):** the userspace stack is **`smoltcp`**, driven from `ripdpi-tunnel-core` (`session/`, `sessions.rs`, `io_loop.rs`, `classify.rs`) — NOT gVisor/Go. Concrete plan for the next (on-device) session:

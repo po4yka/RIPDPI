@@ -1,15 +1,15 @@
 ---
 title: "Verify no leak/black-hole window between TUN establish() and native relay readiness"
 type: task
-status: backlog
+status: doing
 area: vpn
-priority: medium
-owner: unassigned
+priority: high
+owner: Lifecycle and PMTUD lane
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-07-16
 source_wiki_pages: []
 linked_task: null
 ---
@@ -50,3 +50,7 @@ The one residual is **not verifiable by code reading** — it needs instrumentat
 - External security review, 2026-06-10 (kill-switch/DNS-leak judged correct; this is the one residual instrumentation item).
 - `docs/adr/0003-native-readiness-push.md`, `.claude/rules/vpnservice-protect-invariant.md`, `.claude/rules/android-vpn-lifecycle.md`.
 - Existing artifacts: `ProtectGate.kt`, `VpnLifecycleState.kt`, `VpnStartAbortOnProtectFailureTest.kt`, `LifecycleRegressionMatrixTest.kt`, `PacketSmokeInstrumentedTest.kt`.
+
+## Work log
+
+- 2026-07-16: Assigned to the lifecycle/PMTUD lane. Completion now requires a deterministic fault-injected `TUN establish -> native ready` barrier test proving no direct egress or false `Connected`, plus fail-closed timeout/error cleanup ownership.

@@ -3,14 +3,14 @@ title: Add QUIC path-MTU discovery regression test
 type: task
 status: doing
 area: testing
-priority: medium
-owner: unassigned
+priority: high
+owner: Lifecycle and PMTUD lane
 parent: epic-protocol-conformance-tests
-status_detail: Hysteria2 + TUIC landed; MASQUE deferred (needs a QUIC/H3 loopback fixture — the existing one is H2-CONNECT over TCP)
+status_detail: Hysteria2 + TUIC landed; implement deterministic MASQUE/H3 PMTUD success, black-hole, and recovery fixture
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-06-11
+updated: 2026-07-16
 ---
 
 ## Summary
@@ -36,6 +36,8 @@ Hysteria 2, TUIC, and MASQUE all run over Quinn. Quinn's PMTUD behaviour is conf
 - Port-hopping window soak test for Hysteria2 — closed task (shipped in commit `d8b962ea4`; git history is the audit trail)
 
 ## Work log
+
+- 2026-07-16: Reassigned to the lifecycle/PMTUD lane. Remaining scope is a real Quinn/H3 MASQUE fixture with controlled MTU/PTB-equivalent signals, boundary payloads, black-hole/recovery telemetry, and payload-integrity assertions for IPv4/applicable IPv6.
 
 - 2026-06-05: No `quic_mtu_test_util` crate or MTU test exists; no mtu/pmtud references in ripdpi-hysteria2, ripdpi-tuic, or ripdpi-masque; all acceptance criteria unmet — work not started.
 - 2026-06-11: Landed the `quic-mtu-test-util` crate (`MtuDropSocket` + `MtuThreshold`) and added `start_with_socket(Arc<dyn quinn::AsyncUdpSocket>)` to `Hysteria2Loopback` / `TuicLoopback` (refactored `build_server_endpoint` → `build_server_config` + a shared `spawn`; `start()` behavior unchanged). Hysteria 2 + TUIC mid-connection-MTU-drop survival tests in `ripdpi-bench/tests/quic_pmtud.rs` pass; two deterministic `quic-mtu-test-util` tests pass (discovery-teeth + fault-injection cliff). Empirically established (with quinn 0.11.9 source + instrumentation) that QUIC survives any size-based drop via the 1200 base MTU + always-on black-hole detection, so the DoD was reframed to the discovery-observability teeth (documented in the crate + criteria above). MASQUE deferred — needs a quinn/H3 loopback fixture (existing fixture is H2-CONNECT/TCP, PMTUD-irrelevant). `cargo fmt --check` + `cargo clippy -- -D warnings` clean on the touched crates; existing fixture consumers (hysteria2/tuic loopback e2e, protocol-throughput bench) still compile and pass.
