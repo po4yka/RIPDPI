@@ -142,15 +142,14 @@ class SingBoxRouteRulesParserTest {
 
     @Test
     fun `rejects malformed route rules shape`() {
-        val result =
-            SingBoxRouteRulesParser.parse(
-                """{"outbounds":[],"route":{"rules":{"package_name":[]}}}""",
-                groupId,
-            )
+        listOf(
+            """{"outbounds":[],"route":[]}""",
+            """{"outbounds":[],"route":{"rules":{"package_name":[]}}}""",
+        ).forEach { json ->
+            val result = SingBoxRouteRulesParser.parse(json, groupId)
 
-        assertTrue("expected error, got $result", result is SingBoxRouteRulesParseResult.Error)
-        result as SingBoxRouteRulesParseResult.Error
-        assertTrue(result.message.contains("route.rules"))
+            assertTrue("expected error, got $result", result is SingBoxRouteRulesParseResult.Error)
+        }
     }
 
     @Test
@@ -160,6 +159,7 @@ class SingBoxRouteRulesParserTest {
                 """{"package_name":"com.scalar.app","outbound":"direct"}""",
                 """{"package_name":[42],"outbound":"direct"}""",
                 """{"package_name":[""],"outbound":"direct"}""",
+                """{"package_name":["   "],"outbound":"direct"}""",
                 """42""",
             )
 
@@ -172,6 +172,38 @@ class SingBoxRouteRulesParserTest {
 
             assertTrue("expected error for $rule, got $result", result is SingBoxRouteRulesParseResult.Error)
         }
+    }
+
+    @Test
+    fun `empty package list is ignored before outbound validation`() {
+        val parsed =
+            success(
+                SingBoxRouteRulesParser.parse(
+                    """{"route":{"rules":[{"package_name":[]}]}}""",
+                    groupId,
+                ),
+            )
+
+        assertTrue(parsed.rules.isEmpty())
+    }
+
+    @Test
+    fun `later malformed rule rejects the whole bundle after a valid rule`() {
+        val result =
+            SingBoxRouteRulesParser.parse(
+                """
+                {"route":{"rules":[
+                  {"package_name":["com.valid.app"],"outbound":"direct"},
+                  {"package_name":["com.invalid.app"],"outbound":"unsupported"}
+                ]}}
+                """.trimIndent(),
+                groupId,
+            )
+
+        assertTrue(result is SingBoxRouteRulesParseResult.Error)
+        result as SingBoxRouteRulesParseResult.Error
+        assertEquals(1, result.ruleIndex)
+        assertEquals("com.invalid.app", result.packageName)
     }
 
     @Test
@@ -233,6 +265,25 @@ class SingBoxRouteRulesParserTest {
         assertEquals(2, result.ruleIndex)
         assertTrue(result.message.contains("com.dup.app"))
         assertTrue(result.message.contains("2"))
+    }
+
+    @Test
+    fun `multi-package conflict reports the first conflicting package in that rule`() {
+        val result =
+            SingBoxRouteRulesParser.parse(
+                """
+                {"route":{"rules":[
+                  {"package_name":["com.conflict.app"],"outbound":"direct"},
+                  {"package_name":["com.new.app","com.conflict.app"],"outbound":"select"}
+                ]}}
+                """.trimIndent(),
+                groupId,
+            )
+
+        assertTrue(result is SingBoxRouteRulesParseResult.Error)
+        result as SingBoxRouteRulesParseResult.Error
+        assertEquals(1, result.ruleIndex)
+        assertEquals("com.conflict.app", result.packageName)
     }
 
     @Test

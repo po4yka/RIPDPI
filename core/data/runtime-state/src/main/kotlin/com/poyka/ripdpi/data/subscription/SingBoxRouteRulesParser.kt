@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -91,17 +92,24 @@ object SingBoxRouteRulesParser {
     internal fun parse(
         root: JsonObject,
         groupId: String,
-    ): SingBoxRouteRulesParseResult {
-        val routeElement = root["route"] ?: return SingBoxRouteRulesParseResult.Success(emptyList())
-        val route =
-            routeElement as? JsonObject
-                ?: return SingBoxRouteRulesParseResult.Error("sing-box route must be an object")
-        val rulesElement = route["rules"] ?: return SingBoxRouteRulesParseResult.Success(emptyList())
-        val ruleEntries =
-            rulesElement as? JsonArray
-                ?: return SingBoxRouteRulesParseResult.Error("sing-box route.rules must be an array")
-        return collectPackageRules(ruleEntries, groupId)
-    }
+    ): SingBoxRouteRulesParseResult =
+        when (val route = root["route"]) {
+            null -> {
+                SingBoxRouteRulesParseResult.Success(emptyList())
+            }
+
+            is JsonObject -> {
+                when (val rules = route["rules"]) {
+                    null -> SingBoxRouteRulesParseResult.Success(emptyList())
+                    is JsonArray -> collectPackageRules(rules, groupId)
+                    else -> SingBoxRouteRulesParseResult.Error("sing-box route.rules must be an array")
+                }
+            }
+
+            else -> {
+                SingBoxRouteRulesParseResult.Error("sing-box route must be an object")
+            }
+        }
 
     /** Intermediate result of resolving the JSON root before rule extraction. */
     private sealed interface RootParse {
@@ -126,65 +134,123 @@ object SingBoxRouteRulesParser {
         // Track the first action seen per package so a later contradicting
         // entry can be reported with its own route.rules index.
         val seenAction = mutableMapOf<String, PackageRoutingAction>()
-        ruleEntries.forEachIndexed { index, element ->
-            val obj =
-                element as? JsonObject
-                    ?: return SingBoxRouteRulesParseResult.Error(
-                        message = "route.rules[$index] must be an object",
-                        ruleIndex = index,
-                    )
-            val packageNames =
-                when (val parsed = packageNamesOf(obj, index)) {
-                    PackageNames.Absent -> {
-                        return@forEachIndexed
-                    }
+        for ((index, element) in ruleEntries.withIndex()) {
+            collectPackageRule(element, index, groupId, rules, seenAction)?.let { return it }
+        }
+        return SingBoxRouteRulesParseResult.Success(rules)
+    }
 
-                    is PackageNames.Invalid -> {
-                        return SingBoxRouteRulesParseResult.Error(
-                            message = parsed.message,
-                            ruleIndex = index,
-                        )
-                    }
+    private fun collectPackageRule(
+        element: JsonElement,
+        index: Int,
+        groupId: String,
+        rules: MutableList<PackageRoutingRule>,
+        seenAction: MutableMap<String, PackageRoutingAction>,
+    ): SingBoxRouteRulesParseResult.Error? {
+        val obj =
+            element as? JsonObject
+                ?: return SingBoxRouteRulesParseResult.Error(
+                    message = "route.rules[$index] must be an object",
+                    ruleIndex = index,
+                )
+        return when (val packageNames = packageNamesOf(obj, index)) {
+            PackageNames.Absent -> {
+                null
+            }
 
-                    is PackageNames.Values -> {
-                        parsed.names
-                    }
-                }
-            if (packageNames.isEmpty()) return@forEachIndexed
-            val outbound = (obj["outbound"] as? JsonPrimitive)?.contentOrNull
-            val action =
-                when (outbound) {
-                    "direct" -> {
-                        PackageRoutingAction.BYPASS
-                    }
+            is PackageNames.Invalid -> {
+                SingBoxRouteRulesParseResult.Error(
+                    message = packageNames.message,
+                    ruleIndex = index,
+                )
+            }
 
-                    "select" -> {
-                        PackageRoutingAction.VIA_TUN
-                    }
+            is PackageNames.Values -> {
+                appendPackageRules(
+                    obj = obj,
+                    packageNames = packageNames.names,
+                    index = index,
+                    groupId = groupId,
+                    rules = rules,
+                    seenAction = seenAction,
+                )
+            }
+        }
+    }
 
-                    else -> {
-                        val packageName = packageNames.first()
-                        return SingBoxRouteRulesParseResult.Error(
-                            message =
-                                "route.rules[$index]: package '$packageName' uses unsupported outbound " +
-                                    "'${outbound ?: "<missing>"}'",
-                            ruleIndex = index,
-                            packageName = packageName,
-                        )
-                    }
-                }
-            for (packageName in packageNames) {
+    private fun appendPackageRules(
+        obj: JsonObject,
+        packageNames: List<String>,
+        index: Int,
+        groupId: String,
+        rules: MutableList<PackageRoutingRule>,
+        seenAction: MutableMap<String, PackageRoutingAction>,
+    ): SingBoxRouteRulesParseResult.Error? {
+        val outbound = (obj["outbound"] as? JsonPrimitive)?.contentOrNull
+        return when {
+            packageNames.isEmpty() -> {
+                null
+            }
+
+            outbound == "direct" -> {
+                appendResolvedPackageRules(
+                    packageNames,
+                    PackageRoutingAction.BYPASS,
+                    index,
+                    groupId,
+                    rules,
+                    seenAction,
+                )
+            }
+
+            outbound == "select" -> {
+                appendResolvedPackageRules(
+                    packageNames,
+                    PackageRoutingAction.VIA_TUN,
+                    index,
+                    groupId,
+                    rules,
+                    seenAction,
+                )
+            }
+
+            else -> {
+                val packageName = packageNames.first()
+                SingBoxRouteRulesParseResult.Error(
+                    message =
+                        "route.rules[$index]: package '$packageName' uses unsupported outbound " +
+                            "'${outbound ?: "<missing>"}'",
+                    ruleIndex = index,
+                    packageName = packageName,
+                )
+            }
+        }
+    }
+
+    private fun appendResolvedPackageRules(
+        packageNames: List<String>,
+        action: PackageRoutingAction,
+        index: Int,
+        groupId: String,
+        rules: MutableList<PackageRoutingRule>,
+        seenAction: MutableMap<String, PackageRoutingAction>,
+    ): SingBoxRouteRulesParseResult.Error? {
+        val conflict =
+            packageNames.firstOrNull { packageName ->
                 val previous = seenAction[packageName]
-                if (previous == action) continue
-                if (previous != null && previous != action && isBypassViaTunConflict(previous, action)) {
-                    return SingBoxRouteRulesParseResult.Error(
-                        message =
-                            "route.rules[$index]: package '$packageName' is set to both bypass and " +
-                                "via-tun — these are mutually exclusive",
-                        ruleIndex = index,
-                        packageName = packageName,
-                    )
-                }
+                previous != null && isBypassViaTunConflict(previous, action)
+            }
+        return if (conflict != null) {
+            SingBoxRouteRulesParseResult.Error(
+                message =
+                    "route.rules[$index]: package '$conflict' is set to both bypass and " +
+                        "via-tun — these are mutually exclusive",
+                ruleIndex = index,
+                packageName = conflict,
+            )
+        } else {
+            packageNames.forEach { packageName ->
+                if (seenAction[packageName] == action) return@forEach
                 seenAction[packageName] = action
                 rules +=
                     PackageRoutingRule(
@@ -193,8 +259,8 @@ object SingBoxRouteRulesParser {
                         origin = PackageRoutingRuleOrigin.Subscription(groupId),
                     )
             }
+            null
         }
-        return SingBoxRouteRulesParseResult.Success(rules)
     }
 
     private sealed interface PackageNames {
@@ -213,23 +279,29 @@ object SingBoxRouteRulesParser {
     private fun packageNamesOf(
         obj: JsonObject,
         index: Int,
-    ): PackageNames {
-        val element = obj["package_name"] ?: return PackageNames.Absent
-        val array =
-            element as? JsonArray
-                ?: return PackageNames.Invalid("route.rules[$index].package_name must be an array")
-        val names = mutableListOf<String>()
-        array.forEachIndexed { packageIndex, packageElement ->
-            val primitive = packageElement as? JsonPrimitive
-            val name = primitive?.takeIf { it.isString }?.contentOrNull
-            if (name.isNullOrBlank()) {
-                return PackageNames.Invalid(
-                    "route.rules[$index].package_name[$packageIndex] must be a non-blank string",
-                )
-            }
-            names += name
+    ): PackageNames =
+        when (val element = obj["package_name"]) {
+            null -> PackageNames.Absent
+            is JsonArray -> packageNamesFromArray(element, index)
+            else -> PackageNames.Invalid("route.rules[$index].package_name must be an array")
         }
-        return PackageNames.Values(names)
+
+    private fun packageNamesFromArray(
+        array: JsonArray,
+        index: Int,
+    ): PackageNames {
+        val invalidIndex =
+            array.indexOfFirst { element ->
+                val primitive = element as? JsonPrimitive
+                primitive?.takeIf { it.isString }?.contentOrNull.isNullOrBlank()
+            }
+        return if (invalidIndex >= 0) {
+            PackageNames.Invalid(
+                "route.rules[$index].package_name[$invalidIndex] must be a non-blank string",
+            )
+        } else {
+            PackageNames.Values(array.map { (it as JsonPrimitive).content })
+        }
     }
 
     /** A bypass-vs-via-tun pairing is the malformed case the deployer cannot emit. */

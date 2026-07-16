@@ -139,32 +139,43 @@ object SingBoxSubscriptionParser {
     fun parse(
         payload: String,
         groupId: String,
-    ): SingBoxParseResult {
-        val rootElement =
-            runCatching { singBoxJson.parseToJsonElement(payload) }.getOrElse { error ->
-                return SingBoxParseResult.Error(
+    ): SingBoxParseResult =
+        runCatching { singBoxJson.parseToJsonElement(payload) }.fold(
+            onSuccess = { rootElement -> parseRootElement(rootElement, groupId) },
+            onFailure = { error ->
+                SingBoxParseResult.Error(
                     "malformed sing-box JSON: ${error.message ?: "could not be parsed"}",
                 )
-            }
-        val packageRoutingRules =
-            when (rootElement) {
-                is JsonObject -> {
-                    when (val routeResult = SingBoxRouteRulesParser.parse(rootElement, groupId)) {
-                        is SingBoxRouteRulesParseResult.Error -> {
-                            return SingBoxParseResult.Error(routeResult.message)
-                        }
+            },
+        )
 
-                        is SingBoxRouteRulesParseResult.Success -> {
-                            routeResult.rules
-                        }
-                    }
-                }
-
-                else -> {
-                    emptyList()
-                }
+    private fun parseRootElement(
+        rootElement: JsonElement,
+        groupId: String,
+    ): SingBoxParseResult {
+        val routeResult =
+            if (rootElement is JsonObject) {
+                SingBoxRouteRulesParser.parse(rootElement, groupId)
+            } else {
+                SingBoxRouteRulesParseResult.Success(emptyList())
             }
-        return when (val extracted = extractOutboundsFromElement(rootElement)) {
+        return when (routeResult) {
+            is SingBoxRouteRulesParseResult.Error -> {
+                SingBoxParseResult.Error(routeResult.message)
+            }
+
+            is SingBoxRouteRulesParseResult.Success -> {
+                parseExtractedOutbounds(rootElement, groupId, routeResult.rules)
+            }
+        }
+    }
+
+    private fun parseExtractedOutbounds(
+        rootElement: JsonElement,
+        groupId: String,
+        packageRoutingRules: List<PackageRoutingRule>,
+    ): SingBoxParseResult =
+        when (val extracted = extractOutboundsFromElement(rootElement)) {
             is OutboundExtraction.Failure -> {
                 SingBoxParseResult.Error(extracted.message)
             }
@@ -193,7 +204,6 @@ object SingBoxSubscriptionParser {
                 )
             }
         }
-    }
 
     /** Extracted outbound entries, or a typed failure when the payload is not sing-box JSON. */
     internal sealed interface OutboundExtraction {
