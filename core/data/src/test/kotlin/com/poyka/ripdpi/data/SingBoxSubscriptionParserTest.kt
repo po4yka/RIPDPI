@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
@@ -192,6 +194,66 @@ class SingBoxSubscriptionParserTest {
         val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
 
         assertTrue(parsed.profiles.all { it.groupId == groupId })
+    }
+
+    @Test
+    fun `imports supported package routes with subscription provenance`() {
+        val json =
+            """
+            {
+              "outbounds": [
+                { "type": "trojan", "tag": "n", "server": "t.example.com",
+                  "server_port": 443, "password": "p" }
+              ],
+              "route": {
+                "rules": [
+                  { "package_name": ["com.bypass.app"], "outbound": "direct" },
+                  { "package_name": ["com.tunnel.app"], "outbound": "select" }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertEquals(2, parsed.packageRoutingRules.size)
+        assertEquals(
+            PackageRoutingAction.BYPASS,
+            parsed.packageRoutingRules.single { it.packageName == "com.bypass.app" }.action,
+        )
+        assertEquals(
+            PackageRoutingAction.VIA_TUN,
+            parsed.packageRoutingRules.single { it.packageName == "com.tunnel.app" }.action,
+        )
+        assertTrue(
+            parsed.packageRoutingRules.all {
+                it.origin == PackageRoutingRuleOrigin.Subscription(groupId)
+            },
+        )
+    }
+
+    @Test
+    fun `rejects unsupported package route before returning partial profiles`() {
+        val json =
+            """
+            {
+              "outbounds": [
+                { "type": "trojan", "tag": "n", "server": "t.example.com",
+                  "server_port": 443, "password": "p" }
+              ],
+              "route": {
+                "rules": [
+                  { "package_name": ["com.unsupported.app"], "outbound": "named-proxy" }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val result = SingBoxSubscriptionParser.parse(json, groupId)
+
+        assertTrue("expected error, got $result", result is SingBoxParseResult.Error)
+        result as SingBoxParseResult.Error
+        assertTrue(result.message.contains("named-proxy"))
     }
 
     @Test

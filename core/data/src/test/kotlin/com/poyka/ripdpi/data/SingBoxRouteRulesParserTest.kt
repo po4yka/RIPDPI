@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.data.subscription.SingBoxRouteRulesParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxRouteRulesParser
 import org.junit.Assert.assertEquals
@@ -15,6 +16,8 @@ import org.junit.Test
  * both a bypass rule and a via-tun rule makes the bundle malformed.
  */
 class SingBoxRouteRulesParserTest {
+    private val groupId = "sub-route-rules"
+
     private fun success(result: SingBoxRouteRulesParseResult): SingBoxRouteRulesParseResult.Success {
         assertTrue("expected success, got $result", result is SingBoxRouteRulesParseResult.Success)
         return result as SingBoxRouteRulesParseResult.Success
@@ -34,7 +37,7 @@ class SingBoxRouteRulesParserTest {
             }
             """.trimIndent()
 
-        val parsed = success(SingBoxRouteRulesParser.parse(json))
+        val parsed = success(SingBoxRouteRulesParser.parse(json, groupId))
 
         assertEquals(3, parsed.rules.size)
         assertEquals(
@@ -49,10 +52,15 @@ class SingBoxRouteRulesParserTest {
             PackageRoutingAction.VIA_TUN,
             parsed.rules.single { it.packageName == "com.stream.app" }.action,
         )
+        assertTrue(
+            parsed.rules.all {
+                it.origin == PackageRoutingRuleOrigin.Subscription(groupId)
+            },
+        )
     }
 
     @Test
-    fun `maps a named non-direct non-select outbound to via-outbound`() {
+    fun `rejects a named non-direct non-select outbound`() {
         val json =
             """
             {
@@ -64,10 +72,106 @@ class SingBoxRouteRulesParserTest {
             }
             """.trimIndent()
 
-        val parsed = success(SingBoxRouteRulesParser.parse(json))
+        val result = SingBoxRouteRulesParser.parse(json, groupId)
+
+        assertTrue("expected error, got $result", result is SingBoxRouteRulesParseResult.Error)
+        result as SingBoxRouteRulesParseResult.Error
+        assertEquals(0, result.ruleIndex)
+        assertEquals("com.work.app", result.packageName)
+        assertTrue(result.message.contains("corp-proxy"))
+    }
+
+    @Test
+    fun `rejects a package rule with no outbound`() {
+        val json =
+            """
+            {
+              "route": {
+                "rules": [
+                  { "package_name": ["com.missing.app"] }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val result = SingBoxRouteRulesParser.parse(json, groupId)
+
+        assertTrue("expected error, got $result", result is SingBoxRouteRulesParseResult.Error)
+        result as SingBoxRouteRulesParseResult.Error
+        assertEquals(0, result.ruleIndex)
+        assertEquals("com.missing.app", result.packageName)
+        assertTrue(result.message.contains("outbound"))
+    }
+
+    @Test
+    fun `treats outbound tags as case sensitive`() {
+        val json =
+            """
+            {
+              "route": {
+                "rules": [
+                  { "package_name": ["com.case.app"], "outbound": "Direct" }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val result = SingBoxRouteRulesParser.parse(json, groupId)
+
+        assertTrue("expected error, got $result", result is SingBoxRouteRulesParseResult.Error)
+    }
+
+    @Test
+    fun `deduplicates identical package actions`() {
+        val json =
+            """
+            {
+              "route": {
+                "rules": [
+                  { "package_name": ["com.same.app"], "outbound": "direct" },
+                  { "package_name": ["com.same.app"], "outbound": "direct" }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val parsed = success(SingBoxRouteRulesParser.parse(json, groupId))
 
         assertEquals(1, parsed.rules.size)
-        assertEquals(PackageRoutingAction.VIA_OUTBOUND, parsed.rules.single().action)
+    }
+
+    @Test
+    fun `rejects malformed route rules shape`() {
+        val result =
+            SingBoxRouteRulesParser.parse(
+                """{"outbounds":[],"route":{"rules":{"package_name":[]}}}""",
+                groupId,
+            )
+
+        assertTrue("expected error, got $result", result is SingBoxRouteRulesParseResult.Error)
+        result as SingBoxRouteRulesParseResult.Error
+        assertTrue(result.message.contains("route.rules"))
+    }
+
+    @Test
+    fun `rejects malformed package name shapes`() {
+        val invalidPackageRules =
+            listOf(
+                """{"package_name":"com.scalar.app","outbound":"direct"}""",
+                """{"package_name":[42],"outbound":"direct"}""",
+                """{"package_name":[""],"outbound":"direct"}""",
+                """42""",
+            )
+
+        invalidPackageRules.forEach { rule ->
+            val result =
+                SingBoxRouteRulesParser.parse(
+                    """{"outbounds":[],"route":{"rules":[$rule]}}""",
+                    groupId,
+                )
+
+            assertTrue("expected error for $rule, got $result", result is SingBoxRouteRulesParseResult.Error)
+        }
     }
 
     @Test
@@ -86,7 +190,7 @@ class SingBoxRouteRulesParserTest {
             }
             """.trimIndent()
 
-        val parsed = success(SingBoxRouteRulesParser.parse(json))
+        val parsed = success(SingBoxRouteRulesParser.parse(json, groupId))
 
         assertEquals(1, parsed.rules.size)
         assertEquals("com.only.app", parsed.rules.single().packageName)
@@ -100,7 +204,7 @@ class SingBoxRouteRulesParserTest {
               "server_port": 443, "password": "p" } ] }
             """.trimIndent()
 
-        val parsed = success(SingBoxRouteRulesParser.parse(json))
+        val parsed = success(SingBoxRouteRulesParser.parse(json, groupId))
 
         assertTrue(parsed.rules.isEmpty())
     }
@@ -120,7 +224,7 @@ class SingBoxRouteRulesParserTest {
             }
             """.trimIndent()
 
-        val result = SingBoxRouteRulesParser.parse(json)
+        val result = SingBoxRouteRulesParser.parse(json, groupId)
 
         assertTrue("expected error, got $result", result is SingBoxRouteRulesParseResult.Error)
         result as SingBoxRouteRulesParseResult.Error
@@ -133,7 +237,7 @@ class SingBoxRouteRulesParserTest {
 
     @Test
     fun `malformed json surfaces a typed error`() {
-        val result = SingBoxRouteRulesParser.parse("{ not json ")
+        val result = SingBoxRouteRulesParser.parse("{ not json ", groupId)
 
         assertTrue(result is SingBoxRouteRulesParseResult.Error)
         result as SingBoxRouteRulesParseResult.Error

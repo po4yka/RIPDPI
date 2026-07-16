@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
@@ -31,6 +32,8 @@ sealed interface SingBoxParseResult {
     data class Success(
         val profiles: List<ProxyProfile>,
         val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile> = emptyList(),
+        /** Supported Android package routes imported from `route.rules`. */
+        val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
         /**
          * Declared transport topology from `ripdpi.topology`, or `null` for a
          * plain sing-box bundle or one whose `schema_version` is unknown. Lets
@@ -101,8 +104,9 @@ data class RipdpiTopology(
  * `type:` values map to first-class [ProxyProfile] subtypes; every other type
  * round-trips as [ProxyProfile.RawConfig] holding the raw JSON fragment.
  * `selector` / `urltest` entries are group metadata, not profiles, and are
- * skipped here (see [SelectorUrltestGroupImport]). `inbounds`, `route`, `dns`
- * and `experimental` sections are ignored. Malformed JSON yields
+ * skipped here (see [SelectorUrltestGroupImport]). Supported Android
+ * `route.rules[].package_name` entries are returned with subscription
+ * provenance. `inbounds`, `dns` and `experimental` sections are ignored. Malformed JSON yields
  * [SingBoxParseResult.Error].
  */
 object SingBoxSubscriptionParser {
@@ -142,6 +146,24 @@ object SingBoxSubscriptionParser {
                     "malformed sing-box JSON: ${error.message ?: "could not be parsed"}",
                 )
             }
+        val packageRoutingRules =
+            when (rootElement) {
+                is JsonObject -> {
+                    when (val routeResult = SingBoxRouteRulesParser.parse(rootElement, groupId)) {
+                        is SingBoxRouteRulesParseResult.Error -> {
+                            return SingBoxParseResult.Error(routeResult.message)
+                        }
+
+                        is SingBoxRouteRulesParseResult.Success -> {
+                            routeResult.rules
+                        }
+                    }
+                }
+
+                else -> {
+                    emptyList()
+                }
+            }
         return when (val extracted = extractOutboundsFromElement(rootElement)) {
             is OutboundExtraction.Failure -> {
                 SingBoxParseResult.Error(extracted.message)
@@ -164,6 +186,7 @@ object SingBoxSubscriptionParser {
                 SingBoxParseResult.Success(
                     profiles = ripdpi.profiles,
                     amneziaWgProfiles = ripdpi.amneziaWgProfiles,
+                    packageRoutingRules = packageRoutingRules,
                     topology = ripdpi.topology,
                     tokenExpiresAtEpochMillis = ripdpi.tokenExpiresAtEpochMillis,
                     skipped = skipped,

@@ -12,8 +12,9 @@ import kotlinx.serialization.Serializable
  *   (`VpnService.Builder.addDisallowedApplication`).
  * - [VIA_TUN] — `outbound: "select"`: the package is forced through the
  *   selector group (`addAllowedApplication`).
- * - [VIA_OUTBOUND] — any other named outbound: the package is routed through a
- *   specific named outbound rather than the default selector.
+ * - [VIA_OUTBOUND] — retained for backward-compatible decoding of older stored
+ *   rules. Subscription import no longer emits it because Android's VPN API
+ *   cannot enforce a specific sing-box outbound at application granularity.
  */
 @Serializable
 enum class PackageRoutingAction {

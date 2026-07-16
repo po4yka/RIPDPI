@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.serialization.RipDpiJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,6 +30,7 @@ class ProxyGroupMembersSerializationTest {
 
         assertTrue(group.members.isEmpty())
         assertEquals(null, group.failover)
+        assertTrue(group.packageRoutingRules.isEmpty())
     }
 
     @Test
@@ -46,6 +50,7 @@ class ProxyGroupMembersSerializationTest {
         // bytes match what older builds wrote.
         assertTrue("members" !in encoded)
         assertTrue("failover" !in encoded)
+        assertTrue("packageRoutingRules" !in encoded)
     }
 
     @Test
@@ -69,6 +74,30 @@ class ProxyGroupMembersSerializationTest {
                         ),
                     ),
                 failover = SelectorFailover(probeUrl = "https://probe", intervalSeconds = 60, toleranceMs = 50),
+            )
+
+        val decoded = json.decodeFromString(serializer, json.encodeToString(serializer, group))
+
+        assertEquals(group, decoded)
+    }
+
+    @Test
+    fun `a group with package routing rules round-trips`() {
+        val group =
+            ProxyGroup(
+                id = "g1",
+                name = "Group",
+                type = ProxyGroupType.SUBSCRIPTION,
+                order = 0,
+                isSelector = true,
+                packageRoutingRules =
+                    listOf(
+                        PackageRoutingRule(
+                            packageName = "com.example.app",
+                            action = PackageRoutingAction.VIA_TUN,
+                            origin = PackageRoutingRuleOrigin.Subscription("g1"),
+                        ),
+                    ),
             )
 
         val decoded = json.decodeFromString(serializer, json.encodeToString(serializer, group))

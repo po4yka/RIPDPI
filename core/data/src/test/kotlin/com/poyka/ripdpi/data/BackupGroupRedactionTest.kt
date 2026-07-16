@@ -3,6 +3,9 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupGroupRedactor
 import com.poyka.ripdpi.data.backup.BackupVariant
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -141,5 +144,22 @@ class BackupGroupRedactionTest {
 
         val full = export(BackupVariant.FULL, listOf(group)).groups.single()
         assertEquals("FULL must preserve members verbatim", listOf(member), full.members)
+    }
+
+    @Test
+    fun `SHARE export drops package routing rules while FULL preserves them`() {
+        val rule =
+            PackageRoutingRule(
+                packageName = "com.private.application",
+                action = PackageRoutingAction.BYPASS,
+                origin = PackageRoutingRuleOrigin.Subscription(subscriptionGroup.id),
+            )
+        val group = subscriptionGroup.copy(packageRoutingRules = listOf(rule))
+
+        val share = export(BackupVariant.SHARE, listOf(group)).groups.single()
+        assertTrue("SHARE must drop application package names", share.packageRoutingRules.isEmpty())
+
+        val full = export(BackupVariant.FULL, listOf(group)).groups.single()
+        assertEquals("FULL must preserve package rules verbatim", listOf(rule), full.packageRoutingRules)
     }
 }

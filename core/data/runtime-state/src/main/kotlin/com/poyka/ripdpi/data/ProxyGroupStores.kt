@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
@@ -113,6 +114,8 @@ data class ProxyGroup(
     val subscription: Subscription? = null,
     val members: List<ProxyProfile> = emptyList(),
     val failover: SelectorFailover? = null,
+    /** Subscription-owned Android package routes from the last valid bundle. */
+    val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
 )
 
 /**
