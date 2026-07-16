@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -55,6 +57,63 @@ class BootstrapConsumeOnceTest {
         }
 
     @Test
+    fun `sing-box consume returns package routes with subscription provenance`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body(
+                            """
+                            {
+                              "outbounds":[{"type":"trojan","tag":"n","server":"n.example",
+                                "server_port":443,"password":"p"}],
+                              "route":{"rules":[{"package_name":["com.bootstrap.app"],"outbound":"direct"}]}
+                            }
+                            """.trimIndent(),
+                        ).build(),
+                )
+                server.start()
+                val consumer = BootstrapConsumer(clockMillis = { 7L })
+
+                val result = consumer.consume(server.url("/bootstrap/routes").toString(), "grp-routes")
+
+                assertTrue(result is BootstrapConsumeResult.Consumed)
+                result as BootstrapConsumeResult.Consumed
+                val rule = result.packageRoutingRules.single()
+                assertEquals("com.bootstrap.app", rule.packageName)
+                assertEquals(PackageRoutingAction.BYPASS, rule.action)
+                assertEquals(PackageRoutingRuleOrigin.Subscription("grp-routes"), rule.origin)
+            }
+        }
+
+    @Test
+    fun `AWG-only sing-box bootstrap is consumed with its profile`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body(awgOnlyPayload())
+                        .build(),
+                )
+                server.start()
+                val consumer = BootstrapConsumer(clockMillis = { 9L })
+
+                val result = consumer.consume(server.url("/bootstrap/awg").toString(), "grp-awg")
+
+                assertTrue(result is BootstrapConsumeResult.Consumed)
+                result as BootstrapConsumeResult.Consumed
+                assertTrue(result.profiles.isEmpty())
+                assertEquals(1, result.amneziaWgProfiles.size)
+                assertEquals("fixture-awg", result.amneziaWgProfiles.single().displayName)
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
     fun `thirty concurrent consume calls collapse into one request and one bundle`() =
         runTest {
             MockWebServer().use { server ->
@@ -101,4 +160,25 @@ class BootstrapConsumeOnceTest {
         assertEquals(64, hashA.length)
         assertTrue(!hashA.contains("tok-1"))
     }
+
+    private fun awgOnlyPayload(): String =
+        """
+        {
+          "outbounds": [],
+          "ripdpi": {
+            "schema_version": 1,
+            "amneziawg": [{
+              "tag": "fixture-awg",
+              "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+              "address": ["10.8.0.2/32"],
+              "peer": {
+                "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+                "endpoint": "192.0.2.10:51820",
+                "allowed_ips": ["0.0.0.0/0"]
+              }
+            }],
+            "hysteria_extras": {}
+          }
+        }
+        """.trimIndent()
 }

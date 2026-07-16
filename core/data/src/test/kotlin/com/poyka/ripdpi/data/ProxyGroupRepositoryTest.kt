@@ -1,10 +1,14 @@
 package com.poyka.ripdpi.data
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -85,6 +89,27 @@ class ProxyGroupRepositoryTest {
 
             assertEquals(listOf("g2"), repository.list().map(ProxyGroup::id))
             assertNull(repository.list().firstOrNull { it.id == "g1" })
+        }
+
+    @Test
+    fun `package rules survive reload and disappear with their group`() =
+        runTest {
+            val blobStore = FakeProxyGroupBlobStore()
+            val first = SharedPreferencesProxyGroupRepository(blobStore)
+            val rule =
+                PackageRoutingRule(
+                    packageName = "com.persisted.app",
+                    action = PackageRoutingAction.VIA_TUN,
+                    origin = PackageRoutingRuleOrigin.Subscription("g1"),
+                )
+            first.add(group("g1").copy(packageRoutingRules = listOf(rule)))
+
+            val reloaded = SharedPreferencesProxyGroupRepository(blobStore)
+            assertEquals(listOf(rule), reloaded.list().single().packageRoutingRules)
+
+            reloaded.delete("g1")
+            val afterDelete = SharedPreferencesProxyGroupRepository(blobStore)
+            assertTrue(afterDelete.list().isEmpty())
         }
 
     @Test

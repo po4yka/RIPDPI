@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -177,7 +178,7 @@ object SelectorUrltestGroupImport {
 
         return SelectorUrltestImportResult.Success(
             profiles = profiles,
-            group = selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy),
+            group = selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy, parsed.packageRoutingRules),
             memberOrder = memberOrder,
             defaultMemberTag = selectorEntry.string("default"),
             failoverPolicy = failoverPolicy,
@@ -220,6 +221,7 @@ object SelectorUrltestGroupImport {
         selector: JsonObject,
         members: List<ProxyProfile>,
         failoverPolicy: FailoverPolicy,
+        packageRoutingRules: List<PackageRoutingRule>,
     ): ProxyGroup =
         ProxyGroup(
             id = groupId,
@@ -229,6 +231,7 @@ object SelectorUrltestGroupImport {
             isSelector = true,
             members = members,
             failover = failoverPolicy.toSelectorFailover(),
+            packageRoutingRules = packageRoutingRules,
         )
 
     /**

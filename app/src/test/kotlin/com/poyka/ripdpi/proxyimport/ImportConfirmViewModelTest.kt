@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
@@ -601,6 +602,112 @@ class ImportConfirmViewModelTest {
                 assertEquals(42L, group.subscription?.consumedAt)
                 assertEquals(1, group.members.size)
                 assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
+    fun `bootstrap import persists package routes on the subscription group`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body(
+                            """
+                            {
+                              "outbounds":[{"type":"trojan","tag":"n","server":"n.example",
+                                "server_port":443,"password":"p"}],
+                              "route":{"rules":[{"package_name":["com.imported.app"],"outbound":"select"}]}
+                            }
+                            """.trimIndent(),
+                        ).build(),
+                )
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
+                        groupIdFactory = { "bootstrap-routes" },
+                    )
+                viewModel.setRequest(server.url("/bootstrap/routes").toString(), "Boot", bootstrap = true)
+
+                viewModel.importedEvents.test {
+                    viewModel.confirm()
+                    advanceUntilIdle()
+                    awaitItem()
+                }
+
+                val rule =
+                    repository
+                        .list()
+                        .single()
+                        .packageRoutingRules
+                        .single()
+                assertEquals("com.imported.app", rule.packageName)
+                assertEquals(PackageRoutingAction.VIA_TUN, rule.action)
+            }
+        }
+
+    @Test
+    fun `AWG-only bootstrap persists the profile before reporting import success`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body(
+                            """
+                            {
+                              "outbounds": [],
+                              "ripdpi": {
+                                "schema_version": 1,
+                                "amneziawg": [{
+                                  "tag": "bootstrap-awg",
+                                  "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+                                  "address": ["10.8.0.2/32"],
+                                  "peer": {
+                                    "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+                                    "endpoint": "192.0.2.10:51820",
+                                    "allowed_ips": ["0.0.0.0/0"]
+                                  }
+                                }],
+                                "hysteria_extras": {}
+                              }
+                            }
+                            """.trimIndent(),
+                        ).build(),
+                )
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val savedAwgNames = mutableListOf<String>()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
+                        groupIdFactory = { "bootstrap-awg" },
+                        saveAwgProfiles = { profiles ->
+                            savedAwgNames += profiles.map { it.displayName }
+                        },
+                    )
+                viewModel.setRequest(server.url("/bootstrap/awg").toString(), "Boot", bootstrap = true)
+
+                viewModel.importedEvents.test {
+                    viewModel.confirm()
+                    advanceUntilIdle()
+                    awaitItem()
+                }
+
+                assertEquals(listOf("bootstrap-awg"), savedAwgNames)
+                assertTrue(
+                    repository
+                        .list()
+                        .single()
+                        .members
+                        .isEmpty(),
+                )
             }
         }
 

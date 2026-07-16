@@ -8,8 +8,12 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
+import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -18,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -49,13 +54,39 @@ class SubscriptionImportConfirmViewModel
         private val repository: ProxyGroupRepository,
         private val bootstrapConsumer: BootstrapConsumer,
         private val groupIdFactory: () -> String,
+        private val saveAwgProfiles: suspend (List<AmneziaWgSubscriptionProfile>) -> Unit,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
-        constructor(repository: ProxyGroupRepository) : this(
+        constructor(
+            repository: ProxyGroupRepository,
+            awgProfileRepository: AwgProfileRepository,
+        ) : this(
             repository = repository,
             bootstrapConsumer = BootstrapConsumer(),
             groupIdFactory = { UUID.randomUUID().toString() },
+            saveAwgProfiles = { profiles ->
+                val existingByName =
+                    awgProfileRepository
+                        .observeProfiles()
+                        .first()
+                        .associateBy { it.name }
+                profiles.forEach { profile ->
+                    awgProfileRepository.save(
+                        name = profile.displayName,
+                        request = profile.toActivationRequest(),
+                        existingId = existingByName[profile.displayName]?.id,
+                    )
+                }
+            },
+            constructorMarker = Unit,
+        )
+
+        internal constructor(repository: ProxyGroupRepository) : this(
+            repository = repository,
+            bootstrapConsumer = BootstrapConsumer(),
+            groupIdFactory = { UUID.randomUUID().toString() },
+            saveAwgProfiles = {},
             constructorMarker = Unit,
         )
 
@@ -63,7 +94,8 @@ class SubscriptionImportConfirmViewModel
             repository: ProxyGroupRepository,
             bootstrapConsumer: BootstrapConsumer,
             groupIdFactory: () -> String = { UUID.randomUUID().toString() },
-        ) : this(repository, bootstrapConsumer, groupIdFactory, Unit)
+            saveAwgProfiles: suspend (List<AmneziaWgSubscriptionProfile>) -> Unit = {},
+        ) : this(repository, bootstrapConsumer, groupIdFactory, saveAwgProfiles, Unit)
 
         private val _uiState = MutableStateFlow(SubscriptionImportConfirmUiState())
         val uiState: StateFlow<SubscriptionImportConfirmUiState> = _uiState.asStateFlow()
@@ -162,6 +194,7 @@ class SubscriptionImportConfirmViewModel
         ) {
             when (val result = bootstrapConsumer.consume(state.url, groupId)) {
                 is BootstrapConsumeResult.Consumed -> {
+                    saveAwgProfiles(result.amneziaWgProfiles)
                     repository.add(
                         subscriptionGroup(
                             existing = existing,
@@ -175,6 +208,7 @@ class SubscriptionImportConfirmViewModel
                                     consumedAt = result.consumedAtMillis,
                                 ),
                             members = result.profiles,
+                            packageRoutingRules = result.packageRoutingRules,
                         ),
                     )
                     completeImport()
@@ -196,6 +230,7 @@ class SubscriptionImportConfirmViewModel
             order: Int,
             subscription: Subscription,
             members: List<ProxyProfile> = existing?.members.orEmpty(),
+            packageRoutingRules: List<PackageRoutingRule> = existing?.packageRoutingRules.orEmpty(),
         ): ProxyGroup =
             ProxyGroup(
                 id = groupId,
@@ -206,6 +241,7 @@ class SubscriptionImportConfirmViewModel
                 subscription = subscription,
                 members = members,
                 failover = existing?.failover,
+                packageRoutingRules = packageRoutingRules,
             )
 
         private suspend fun completeImport() {

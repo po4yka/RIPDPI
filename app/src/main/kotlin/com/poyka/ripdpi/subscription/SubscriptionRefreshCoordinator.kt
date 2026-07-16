@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
@@ -177,23 +178,29 @@ class SubscriptionRefreshCoordinator private constructor(
         val updated =
             repository.updateGroup(groupId) { current ->
                 val subscription = current.subscription ?: return@updateGroup current
-                SubscriptionMemberPersistence
-                    .apply(
-                        group = current,
-                        members = outcome.profiles,
-                        failover = outcome.failover,
-                    ).copy(
-                        subscription =
-                            subscription
-                                .withUserinfoHeader(outcome.subscriptionUserinfo)
-                                .copy(
-                                    lastUpdated = attemptedAt,
-                                    lastRefreshAttemptAtEpochMillis = attemptedAt,
-                                    tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
-                                    lifecycleState = SubscriptionLifecycleState.ACTIVE,
-                                    lastRefreshFailure = null,
-                                ),
-                    )
+                val withMembers =
+                    if (outcome.clearRelayMembers) {
+                        current.copy(members = emptyList())
+                    } else {
+                        SubscriptionMemberPersistence.apply(
+                            group = current,
+                            members = outcome.profiles,
+                            failover = outcome.failover,
+                        )
+                    }
+                withMembers.copy(
+                    packageRoutingRules = outcome.packageRoutingRules,
+                    subscription =
+                        subscription
+                            .withUserinfoHeader(outcome.subscriptionUserinfo)
+                            .copy(
+                                lastUpdated = attemptedAt,
+                                lastRefreshAttemptAtEpochMillis = attemptedAt,
+                                tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
+                                lifecycleState = SubscriptionLifecycleState.ACTIVE,
+                                lastRefreshFailure = null,
+                            ),
+                )
             }
         if (updated != null) {
             log.i { "refreshed subscription group $groupId: ${updated.members.size} profiles persisted" }
@@ -337,6 +344,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     selector.profiles,
                     selector.failoverPolicy.toSelectorFailover(),
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
+                    packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
                 )
             } else {
                 null
@@ -355,6 +363,8 @@ class SubscriptionRefreshCoordinator private constructor(
                     emptyList(),
                     null,
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
+                    packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
+                    clearRelayMembers = true,
                 )
         }
         return parsed
@@ -401,6 +411,8 @@ class SubscriptionRefreshCoordinator private constructor(
             val failover: SelectorFailover?,
             val subscriptionUserinfo: String = "",
             val tokenExpiresAtEpochMillis: Long? = null,
+            val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
+            val clearRelayMembers: Boolean = false,
         ) : RefreshOutcome
 
         data class Failure(

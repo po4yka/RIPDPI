@@ -22,7 +22,7 @@ internal const val SEED_PREFS_NAME = "simple_flavor_seed_state"
 internal const val SEED_KEY_SEEDED = "config_seeded"
 internal const val SEED_KEY_VERSION = "config_seed_version"
 internal const val SIMPLE_RELAY_BUNDLE_ASSET_NAME = "embedded-relay-bundle.json"
-private const val CURRENT_SEED_VERSION = 2
+private const val CURRENT_SEED_VERSION = 3
 
 /**
  * Stable group id for the seeded config. Deterministic (not a random UUID) so that if an
@@ -93,15 +93,19 @@ open class ConfigSeeder
                 }
 
                 is SingBoxParseResult.Success -> {
+                    val existingGroup = proxyGroupRepository.list().firstOrNull { it.id == groupId }
                     proxyGroupRepository.add(
-                        ProxyGroup(
-                            id = groupId,
-                            name = "Simple Config",
-                            type = ProxyGroupType.BASIC,
-                            order = proxyGroupRepository.list().size,
-                            isSelector = false,
-                            subscription = null,
-                        ),
+                        (
+                            existingGroup
+                                ?: ProxyGroup(
+                                    id = groupId,
+                                    name = "Simple Config",
+                                    type = ProxyGroupType.BASIC,
+                                    order = proxyGroupRepository.list().size,
+                                    isSelector = false,
+                                    subscription = null,
+                                )
+                        ).copy(packageRoutingRules = result.packageRoutingRules),
                     )
 
                     // Assign ids in declaration order before reversing activation. Reversing

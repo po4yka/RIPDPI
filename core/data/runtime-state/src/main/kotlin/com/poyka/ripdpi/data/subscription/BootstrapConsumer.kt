@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -30,6 +31,8 @@ sealed interface BootstrapConsumeResult {
     data class Consumed(
         val profiles: List<ProxyProfile>,
         val consumedAtMillis: Long,
+        val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
+        val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile> = emptyList(),
     ) : BootstrapConsumeResult
 
     /**
@@ -212,11 +215,22 @@ class BootstrapConsumer(
         // Try sing-box JSON first, then fall back to the base64 / plain URI list
         // parser — the same precedence the long-lived subscription path uses.
         val singBox = SingBoxSubscriptionParser.parse(body, groupId)
+        val singBoxProfileCount =
+            if (singBox is SingBoxParseResult.Success) {
+                singBox.profiles.size + singBox.amneziaWgProfiles.size
+            } else {
+                0
+            }
         if (singBox is SingBoxParseResult.Success &&
-            singBox.profiles.isNotEmpty() &&
+            singBoxProfileCount in 1..MaxSubscriptionProfiles &&
             singBox.profiles.fitsSubscriptionLimits()
         ) {
-            return BootstrapConsumeResult.Consumed(singBox.profiles, clockMillis())
+            return BootstrapConsumeResult.Consumed(
+                profiles = singBox.profiles,
+                consumedAtMillis = clockMillis(),
+                packageRoutingRules = singBox.packageRoutingRules,
+                amneziaWgProfiles = singBox.amneziaWgProfiles,
+            )
         }
         val base64 = Base64SubscriptionParser.parse(body, groupId)
         if (base64.profiles.isNotEmpty() && base64.profiles.fitsSubscriptionLimits()) {

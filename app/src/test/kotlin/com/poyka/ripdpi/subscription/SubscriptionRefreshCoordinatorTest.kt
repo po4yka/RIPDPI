@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupBlobStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
@@ -13,6 +14,9 @@ import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -104,6 +108,96 @@ class SubscriptionRefreshCoordinatorTest {
             assertEquals(now, stored.subscription?.lastUpdated)
             assertNull(stored.subscription?.lastRefreshFailure)
             assertEquals(1, stored.members.size)
+        }
+
+    @Test
+    fun `successful refresh replaces package rules including empty`() =
+        runTest {
+            server.enqueue(response(200, singBoxPackageRoutePayload("direct")))
+            server.enqueue(response(200, singBoxPackageRoutePayload("select")))
+            server.enqueue(response(200, singBoxPackageRoutePayload(null)))
+            val fixture = fixture(now = 3_000L)
+
+            fixture.coordinator.refresh("subscription-group")
+            assertEquals(
+                PackageRoutingAction.BYPASS,
+                fixture.repository
+                    .list()
+                    .single()
+                    .packageRoutingRules
+                    .single()
+                    .action,
+            )
+
+            fixture.coordinator.refresh("subscription-group")
+            assertEquals(
+                PackageRoutingAction.VIA_TUN,
+                fixture.repository
+                    .list()
+                    .single()
+                    .packageRoutingRules
+                    .single()
+                    .action,
+            )
+
+            fixture.coordinator.refresh("subscription-group")
+            assertTrue(
+                fixture.repository
+                    .list()
+                    .single()
+                    .packageRoutingRules
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `package route parse error preserves previously stored rules`() =
+        runTest {
+            val existingRule =
+                PackageRoutingRule(
+                    packageName = "com.previous.app",
+                    action = PackageRoutingAction.BYPASS,
+                    origin = PackageRoutingRuleOrigin.Subscription("subscription-group"),
+                )
+            server.enqueue(response(200, singBoxPackageRoutePayload("named-outbound")))
+            val fixture = fixture(now = 3_000L, initialRules = listOf(existingRule))
+
+            val result = fixture.coordinator.refresh("subscription-group")
+
+            assertTrue(result is SubscriptionRefreshResult.Failed)
+            result as SubscriptionRefreshResult.Failed
+            assertEquals(SubscriptionRefreshFailure.PARSE_ERROR, result.failure)
+            assertEquals(
+                listOf(existingRule),
+                fixture.repository
+                    .list()
+                    .single()
+                    .packageRoutingRules,
+            )
+        }
+
+    @Test
+    fun `AWG-only refresh persists package rules with no group members`() =
+        runTest {
+            server.enqueue(response(200, AwgOnlyPackageRoutePayload))
+            val staleMember =
+                ProxyProfile.Trojan(
+                    id = "stale-member",
+                    groupId = "subscription-group",
+                    displayName = "Stale relay",
+                    server = "stale.example",
+                    serverPort = 443,
+                    password = "fixture",
+                )
+            val fixture = fixture(now = 3_000L, initialMembers = listOf(staleMember))
+
+            val result = fixture.coordinator.refresh("subscription-group")
+
+            assertTrue(result is SubscriptionRefreshResult.Updated)
+            val stored = fixture.repository.list().single()
+            assertTrue(stored.members.isEmpty())
+            assertEquals("com.awg.app", stored.packageRoutingRules.single().packageName)
+            assertEquals(PackageRoutingAction.VIA_TUN, stored.packageRoutingRules.single().action)
         }
 
     @Test
@@ -326,9 +420,16 @@ class SubscriptionRefreshCoordinatorTest {
         now: Long,
         initialLifecycle: SubscriptionLifecycleState = SubscriptionLifecycleState.UNKNOWN,
         initialFailure: SubscriptionRefreshFailure? = null,
+        initialRules: List<PackageRoutingRule> = emptyList(),
+        initialMembers: List<ProxyProfile> = emptyList(),
     ): Fixture {
         val repository: ProxyGroupRepository = SharedPreferencesProxyGroupRepository(FakeBlobStore())
-        repository.add(subscriptionGroup("subscription-group", 0, initialLifecycle, initialFailure))
+        repository.add(
+            subscriptionGroup("subscription-group", 0, initialLifecycle, initialFailure).copy(
+                packageRoutingRules = initialRules,
+                members = initialMembers,
+            ),
+        )
         val publisher = RecordingPublisher()
         val coordinator =
             SubscriptionRefreshCoordinator(
@@ -374,6 +475,23 @@ class SubscriptionRefreshCoordinatorTest {
             .body(body)
             .build()
 
+    private fun singBoxPackageRoutePayload(outbound: String?): String {
+        val route =
+            if (outbound == null) {
+                ""
+            } else {
+                ""","route":{"rules":[{"package_name":["com.route.app"],"outbound":"$outbound"}]}"""
+            }
+        return buildString {
+            append("{\"outbounds\":[{")
+            append("\"type\":\"trojan\",\"tag\":\"node\",")
+            append("\"server\":\"node.example\",\"server_port\":443,")
+            append("\"password\":\"p\"}]")
+            append(route)
+            append('}')
+        }
+    }
+
     private data class Fixture(
         val repository: ProxyGroupRepository,
         val coordinator: SubscriptionRefreshCoordinator,
@@ -397,6 +515,30 @@ class SubscriptionRefreshCoordinatorTest {
                  "method":"aes-256-gcm","password":"fixture"}
               ],
               "ripdpi": {"schema_version":1,"amneziawg":[],"hysteria_extras":{},"expires":"2026-12-31T23:59:59Z"}
+            }
+            """.trimIndent()
+        val AwgOnlyPackageRoutePayload =
+            """
+            {
+              "outbounds": [],
+              "route": {"rules": [
+                {"package_name": ["com.awg.app"], "outbound": "select"}
+              ]},
+              "ripdpi": {
+                "schema_version": 1,
+                "amneziawg": [{
+                  "tag": "fixture-awg",
+                  "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+                  "address": ["10.8.0.2/32"],
+                  "dns": ["1.1.1.1"],
+                  "peer": {
+                    "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+                    "endpoint": "192.0.2.10:51820",
+                    "allowed_ips": ["0.0.0.0/0"]
+                  }
+                }],
+                "hysteria_extras": {}
+              }
             }
             """.trimIndent()
     }

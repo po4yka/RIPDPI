@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import kotlinx.coroutines.flow.Flow
@@ -99,7 +100,10 @@ private val FAKE_BUNDLE =
             "h4": 4
           }
         ]
-      }
+      },
+      "route": {"rules": [
+        {"package_name": ["com.simple.bypass"], "outbound": "direct"}
+      ]}
     }
     """.trimIndent()
 
@@ -192,6 +196,14 @@ class ConfigSeederTest {
             // Group was persisted
             assertEquals(1, proxyGroupRepository.addedGroups.size)
             assertEquals(ProxyGroupType.BASIC, proxyGroupRepository.addedGroups.single().type)
+            assertEquals(
+                PackageRoutingAction.BYPASS,
+                proxyGroupRepository.addedGroups
+                    .single()
+                    .packageRoutingRules
+                    .single()
+                    .action,
+            )
             // Both relay profiles were persisted (VLESS+REALITY and Hysteria2)
             assertEquals(2, relayProfileStore.list().size)
             assertEquals(
@@ -288,6 +300,33 @@ class ConfigSeederTest {
         }
 
     @Test
+    fun `version two seed migrates package routes without replacing group state`() =
+        runTest {
+            val existing =
+                ProxyGroup(
+                    id = SIMPLE_SEED_GROUP_ID,
+                    name = "Existing Simple",
+                    type = ProxyGroupType.BASIC,
+                    order = 7,
+                    isSelector = false,
+                )
+            proxyGroupRepository.add(existing)
+            application
+                .getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putInt(SEED_KEY_VERSION, 2)
+                .commit()
+
+            makeSeeder(FAKE_BUNDLE).seed()
+
+            val stored = proxyGroupRepository.addedGroups.single()
+            assertEquals("Existing Simple", stored.name)
+            assertEquals(7, stored.order)
+            assertEquals("com.simple.bypass", stored.packageRoutingRules.single().packageName)
+            assertEquals(1, awgDao.rows.value.size)
+        }
+
+    @Test
     fun `missing asset does not set the seeded flag`() =
         runTest {
             val seeder = makeSeeder(bundleJson = null)
@@ -341,6 +380,7 @@ private class RecordingProxyGroupRepository : ProxyGroupRepository {
     val addedGroups = mutableListOf<ProxyGroup>()
 
     override suspend fun add(group: ProxyGroup) {
+        addedGroups.removeAll { it.id == group.id }
         addedGroups += group
     }
 

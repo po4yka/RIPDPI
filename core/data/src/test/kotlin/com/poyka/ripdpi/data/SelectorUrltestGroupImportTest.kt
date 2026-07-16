@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.subscription.FailoverPolicy
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
@@ -34,7 +35,10 @@ class SelectorUrltestGroupImportTest {
               "outbounds": ["p0-reality-upcloud-prod","p2-hysteria2-upcloud-prod","p1-xhttp-hetzner-prod"],
               "url": "https://www.gstatic.com/generate_204",
               "interval": "5m", "tolerance": 50 }
-          ]
+          ],
+          "route": {"rules": [
+            {"package_name": ["com.selector.app"], "outbound": "select"}
+          ]}
         }
         """.trimIndent()
 
@@ -65,6 +69,8 @@ class SelectorUrltestGroupImportTest {
         assertEquals("https://www.gstatic.com/generate_204", policy.probeUrl)
         assertEquals(300, policy.intervalSeconds)
         assertEquals(50, policy.toleranceMs)
+        assertEquals("com.selector.app", group.packageRoutingRules.single().packageName)
+        assertEquals(PackageRoutingAction.VIA_TUN, group.packageRoutingRules.single().action)
     }
 
     @Test
