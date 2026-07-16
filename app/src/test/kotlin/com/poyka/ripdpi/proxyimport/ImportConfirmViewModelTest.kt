@@ -515,6 +515,12 @@ class ImportConfirmViewModelTest {
             assertEquals("alice", relayCredentials?.sshUsername)
             assertEquals(sshPassword, relayCredentials?.sshPassword)
         }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class SubscriptionImportConfirmViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
 
     @Test
     fun `confirming a subscription import persists a subscription group`() =
