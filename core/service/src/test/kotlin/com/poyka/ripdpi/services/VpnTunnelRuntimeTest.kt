@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -55,6 +56,85 @@ class VpnTunnelRuntimeTest {
             )
             assertEquals(0L, runtime.tunnelRecoveryRetryCount)
             assertEquals(1, host.underlyingNetworkSyncs)
+        }
+
+    @Test
+    fun startUsesOneAppRoutingPlanForAndroidAndNativePolicies() =
+        runTest {
+            val expectedPlan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.allowed"))
+            val expectedUidPolicy = NativeUidPolicy("allowlist", listOf(10_321))
+            val host = TestVpnServiceHost(backgroundScope).apply { appRoutingPlan = expectedPlan }
+            val sessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession())
+            val bridge = TestTun2SocksBridge()
+            var nativePlan: VpnAppRoutingPlan? = null
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = host,
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = sessionProvider,
+                    nativeUidPolicyProvider = { plan ->
+                        nativePlan = plan
+                        expectedUidPolicy
+                    },
+                )
+
+            runtime.start(
+                activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertSame(expectedPlan, nativePlan)
+            assertSame(expectedPlan, sessionProvider.lastAppRoutingPlan)
+            assertEquals(expectedUidPolicy.mode, bridge.startedConfig?.uidPolicyMode)
+            assertEquals(expectedUidPolicy.uids, bridge.startedConfig?.uidPolicyUids)
+        }
+
+    @Test
+    fun rebuildAdvancesAndroidAndNativePoliciesToTheSamePlanGeneration() =
+        runTest {
+            val initialPlan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.initial"))
+            val replacementPlan = VpnAppRoutingPlan.Disallow(setOf("com.example.replacement"))
+            val host = TestVpnServiceHost(backgroundScope).apply { appRoutingPlan = initialPlan }
+            val sessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession(tunFd = 7))
+            val bridge = TestTun2SocksBridge()
+            val nativePlans = mutableListOf<VpnAppRoutingPlan>()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = host,
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = sessionProvider,
+                    nativeUidPolicyProvider = { plan ->
+                        nativePlans += plan
+                        when (plan) {
+                            is VpnAppRoutingPlan.AllowOnly -> NativeUidPolicy("allowlist", listOf(10_321))
+                            is VpnAppRoutingPlan.Disallow -> NativeUidPolicy("denylist", listOf(10_322))
+                        }
+                    },
+                )
+            runtime.start(
+                activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+            host.appRoutingPlan = replacementPlan
+            sessionProvider.session = TestVpnTunnelSession(tunFd = 8)
+
+            runtime.rebuild(
+                activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertEquals(listOf(initialPlan, replacementPlan), nativePlans)
+            assertSame(replacementPlan, sessionProvider.lastAppRoutingPlan)
+            assertEquals("denylist", bridge.startedConfig?.uidPolicyMode)
+            assertEquals(listOf(10_322), bridge.startedConfig?.uidPolicyUids)
         }
 
     @Test

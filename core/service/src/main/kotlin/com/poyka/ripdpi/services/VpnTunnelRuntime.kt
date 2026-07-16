@@ -31,7 +31,8 @@ internal class VpnTunnelRuntime(
      * attribution. `null` disables attribution (the tunnel still runs); passed
      * straight through to [Tun2SocksBridge.start].
      */
-    private val flowAttributionBridge: Any? = null,
+    private val flowAttributionBridge: FlowAttributionBridge? = null,
+    private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
 ) {
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var retiringBridge: Tun2SocksBridge? = null
@@ -139,12 +140,13 @@ internal class VpnTunnelRuntime(
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns)
         val ipv6 = settings.ipv6Enable
         val tunnelNetworkParameters = vpnHost.currentTunnelNetworkParameters()
+        val appRoutingPlan = vpnHost.resolveAppRoutingPlan(settings)
         val proxy = settings.toSettingsSections().proxy
         val httpProxyPort =
             if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
         val uidPolicy =
-            (flowAttributionBridge as? FlowAttributionBridge)
-                ?.nativeUidPolicy(vpnHost.currentAppRoutingPlan())
+            nativeUidPolicyProvider?.invoke(appRoutingPlan)
+                ?: flowAttributionBridge?.nativeUidPolicy(appRoutingPlan)
                 ?: NativeUidPolicy.Disarmed
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
@@ -163,7 +165,13 @@ internal class VpnTunnelRuntime(
                 uidPolicy = uidPolicy,
             )
         val tunnelSession =
-            vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6, httpProxyPort)
+            vpnTunnelSessionProvider.establish(
+                host = vpnHost,
+                dns = dnsPlan.builderDnsAddress,
+                ipv6 = ipv6,
+                appRoutingPlan = appRoutingPlan,
+                httpProxyPort = httpProxyPort,
+            )
         return PendingTunnel(
             session = tunnelSession,
             config = config,

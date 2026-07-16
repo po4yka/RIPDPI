@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.AppRoutingPolicyCatalog
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.appRoutingPolicyCatalogFromJson
 import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
+import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,10 +27,13 @@ interface VpnAppExclusionPolicy {
      * Authoritative per-app routing plan for the `VpnService.Builder`. Android forbids mixing
      * `addAllowedApplication` and `addDisallowedApplication`, so the plan is expressed as exactly
      * one of [VpnAppRoutingPlan.AllowOnly] (allowlist) or [VpnAppRoutingPlan.Disallow] (blocklist).
-     * Split-tunnel selection is read from the settings store (NOT the `routing_rules` Room table),
-     * so it never reorders the user's routing rules.
+     * Split-tunnel selection comes from the caller's immutable settings snapshot (NOT the
+     * `routing_rules` Room table), so the Android builder and native UID guard use one generation.
      */
-    suspend fun appRoutingPlan(ownPackage: String): VpnAppRoutingPlan
+    suspend fun appRoutingPlan(
+        ownPackage: String,
+        settings: AppSettings,
+    ): VpnAppRoutingPlan
 }
 
 /** The two mutually-exclusive `VpnService.Builder` app-routing shapes Android permits. */
@@ -157,8 +161,10 @@ class DefaultVpnAppExclusionPolicy
             return presetExclusionsFor(settings, installedPackagesProvider.installedPackages())
         }
 
-        override suspend fun appRoutingPlan(ownPackage: String): VpnAppRoutingPlan {
-            val settings = appSettingsRepository.snapshot()
+        override suspend fun appRoutingPlan(
+            ownPackage: String,
+            settings: AppSettings,
+        ): VpnAppRoutingPlan {
             val installedPackages = installedPackagesProvider.installedPackages()
             val presetExclusions =
                 if (settings.fullTunnelMode) {
@@ -177,7 +183,7 @@ class DefaultVpnAppExclusionPolicy
         }
 
         private fun presetExclusionsFor(
-            settings: com.poyka.ripdpi.proto.AppSettings,
+            settings: AppSettings,
             installedPackages: Set<String>,
         ): List<String> {
             val presetIds = settings.effectiveAppRoutingEnabledPresetIds().toSet()

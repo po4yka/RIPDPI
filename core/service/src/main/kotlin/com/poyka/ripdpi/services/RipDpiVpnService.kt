@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
@@ -65,8 +66,6 @@ class RipDpiVpnService :
     private lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
     private val connectivityManager: ConnectivityManager
         get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    private var activeAppRoutingPlan: VpnAppRoutingPlan = VpnAppRoutingPlan.Disallow(emptySet())
-
     override val serviceScope = lifecycleScope
 
     override fun onCreate() {
@@ -137,15 +136,17 @@ class RipDpiVpnService :
         )
     }
 
-    override fun currentAppRoutingPlan(): VpnAppRoutingPlan = activeAppRoutingPlan
+    override suspend fun resolveAppRoutingPlan(settings: AppSettings): VpnAppRoutingPlan =
+        vpnAppExclusionPolicy.appRoutingPlan(applicationContext.packageName, settings)
 
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
+        appRoutingPlan: VpnAppRoutingPlan,
         httpProxyPort: Int?,
     ): VpnTunnelBuilder =
         AndroidVpnTunnelBuilder(
-            builder = createBuilder(dns, ipv6, httpProxyPort),
+            builder = createBuilder(dns, ipv6, appRoutingPlan, httpProxyPort),
         )
 
     @android.annotation.SuppressLint("MissingPermission")
@@ -161,6 +162,7 @@ class RipDpiVpnService :
     internal suspend fun createBuilder(
         dns: String,
         ipv6: Boolean,
+        appRoutingPlan: VpnAppRoutingPlan,
         httpProxyPort: Int? = null,
     ): Builder {
         Logger.v { "DNS configured" }
@@ -190,10 +192,8 @@ class RipDpiVpnService :
         }
 
         // Android forbids mixing addAllowedApplication and addDisallowedApplication on the same
-        // Builder, so the policy returns exactly one shape. The plan is derived from the settings
-        // store (NOT the routing_rules Room table), so it never reorders the user's routing rules.
-        val appRoutingPlan = vpnAppExclusionPolicy.appRoutingPlan(applicationContext.packageName)
-        activeAppRoutingPlan = appRoutingPlan
+        // Builder, so the policy returns exactly one shape. The caller passes the same immutable
+        // plan to this builder and the native UID guard so they cannot observe different generations.
         when (val plan = appRoutingPlan) {
             is VpnAppRoutingPlan.Disallow -> {
                 plan.packages.forEach { pkg ->

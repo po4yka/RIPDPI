@@ -1139,15 +1139,19 @@ internal class TestVpnTunnelSessionProvider(
         private set
     var lastIpv6: Boolean? = null
         private set
+    var lastAppRoutingPlan: VpnAppRoutingPlan? = null
+        private set
 
     override suspend fun establish(
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
+        appRoutingPlan: VpnAppRoutingPlan,
         httpProxyPort: Int?,
     ): VpnTunnelSession {
         lastDns = dns
         lastIpv6 = ipv6
+        lastAppRoutingPlan = appRoutingPlan
         events += "vpn:establish"
         beforeEstablish?.invoke()
         establishFailure?.let { throw it }
@@ -1181,6 +1185,9 @@ internal class TestVpnServiceHost(
     var underlyingNetworkSyncs: Int = 0
     var builderSession: VpnTunnelSession? = TestVpnTunnelSession()
     var tunnelNetworkParameters: VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()
+    var appRoutingPlan: VpnAppRoutingPlan = VpnAppRoutingPlan.Disallow(emptySet())
+    var lastBuilderAppRoutingPlan: VpnAppRoutingPlan? = null
+        private set
 
     override fun updateNotification(
         tunnelStats: TunnelStats,
@@ -1199,14 +1206,17 @@ internal class TestVpnServiceHost(
 
     override fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = tunnelNetworkParameters
 
+    override suspend fun resolveAppRoutingPlan(settings: AppSettings): VpnAppRoutingPlan = appRoutingPlan
+
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
+        appRoutingPlan: VpnAppRoutingPlan,
         httpProxyPort: Int?,
     ): VpnTunnelBuilder =
         object : VpnTunnelBuilder {
             override fun establish(): VpnTunnelSession? = builderSession
-        }
+        }.also { lastBuilderAppRoutingPlan = appRoutingPlan }
 }
 
 internal fun sampleFingerprint(

@@ -104,6 +104,28 @@ class VpnAppExclusionPolicyTest {
         }
 
     @Test
+    fun `app routing plan uses supplied settings snapshot`() =
+        runTest {
+            val repository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue)
+            val suppliedSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setSplitTunnelMode(SplitTunnelMode.Include)
+                    .addSplitTunnelPackages("com.example.allowed")
+                    .build()
+            val policy =
+                DefaultVpnAppExclusionPolicy(
+                    appSettingsRepository = repository,
+                    appRoutingCatalogProvider = FakeAppRoutingCatalogProvider(AppRoutingPolicyCatalog()),
+                    installedPackagesProvider = FakeInstalledPackagesProvider(setOf("com.example.allowed")),
+                )
+
+            val plan = policy.appRoutingPlan(OWN_PACKAGE, suppliedSettings)
+
+            assertEquals(VpnAppRoutingPlan.AllowOnly(setOf("com.example.allowed")), plan)
+        }
+
+    @Test
     fun `full tunnel mode plan disallows only own package`() {
         val plan =
             computeAppRoutingPlan(
