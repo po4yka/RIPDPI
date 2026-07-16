@@ -9,8 +9,8 @@ concrete, no-ship-classified gate.
 
 Run as a CI gate::
 
-    python3 scripts/ci/check_dns_ipv6_killswitch_gates.py            # validate
-    python3 scripts/ci/check_dns_ipv6_killswitch_gates.py --report   # markdown
+    python3 scripts/ci/check_dns_ipv6_killswitch_gates.py --policy-only
+    python3 scripts/ci/check_dns_ipv6_killswitch_gates.py --policy-only --report
 
 When a gate result file is supplied the script also enforces the no-ship
 policy against actual probe results::
@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -39,6 +40,7 @@ ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 
 EXPECTED_VERSION = "dns_ipv6_killswitch_release_gates_v1"
+EXPECTED_RESULTS_VERSION = "dns_ipv6_killswitch_results_v1"
 
 # Every acceptance criterion from docs/tasks/issues/
 # add-dns-ipv6-and-kill-switch-release-gates.md, expressed as the gate ids that
@@ -218,6 +220,39 @@ def evaluate_results(policy: dict, results: dict, applies_to: str | None = None)
     }
 
 
+def validate_results_document(
+    policy: dict,
+    results: dict,
+    *,
+    expected_source_sha: str,
+    applies_to: str,
+) -> dict:
+    """Validate provenance and scope before evaluating release evidence."""
+    if not isinstance(results, dict):
+        raise ValueError("results document must be a JSON object")
+    if results.get("version") != EXPECTED_RESULTS_VERSION:
+        raise ValueError(
+            f"unexpected results version: {results.get('version')!r} "
+            f"(expected {EXPECTED_RESULTS_VERSION!r})"
+        )
+    source_sha = results.get("sourceSha")
+    if not isinstance(source_sha, str) or re.fullmatch(r"[0-9a-f]{40}", source_sha) is None:
+        raise ValueError("results sourceSha must be a lowercase 40-character Git SHA-1")
+    if source_sha != expected_source_sha:
+        raise ValueError(
+            f"results sourceSha {source_sha!r} does not match expected sourceSha {expected_source_sha!r}"
+        )
+    if applies_to not in policy.get("appliesTo", []):
+        raise ValueError(f"policy does not apply to {applies_to!r}")
+    if results.get("appliesTo") != applies_to:
+        raise ValueError(
+            f"results appliesTo {results.get('appliesTo')!r} does not match requested appliesTo {applies_to!r}"
+        )
+    if not isinstance(results.get("gateResults"), dict):
+        raise ValueError("results document must contain a gateResults object")
+    return results
+
+
 def render_report(policy: dict, summary: dict) -> str:
     lines = ["# DNS / IPv6 / kill-switch release gates", ""]
     lines.append(f"- Policy version: `{policy.get('version')}`")
@@ -246,10 +281,16 @@ def main(argv: list[str] | None = None) -> int:
         default=str(POLICY_PATH),
         help="Path to the DNS/IPv6/kill-switch gate policy JSON.",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--results",
         default=None,
-        help="Optional gate-results JSON to enforce the no-ship policy against.",
+        help="Gate-results JSON to enforce the no-ship policy against.",
+    )
+    mode.add_argument(
+        "--policy-only",
+        action="store_true",
+        help="Validate only the policy schema; never treat this as release evidence.",
     )
     parser.add_argument(
         "--applies-to",
@@ -258,11 +299,35 @@ def main(argv: list[str] | None = None) -> int:
         help="Current release target for validating structured out-of-scope N/A results.",
     )
     parser.add_argument(
+        "--expected-source-sha",
+        default=None,
+        help="Exact 40-character commit SHA that the results artifact must attest.",
+    )
+    parser.add_argument(
         "--report",
         action="store_true",
         help="Print a markdown summary of the policy instead of a plain log.",
     )
     args = parser.parse_args(argv)
+
+    if args.results is None and not args.policy_only:
+        print(
+            "gate results are required; pass --results FILE or explicitly use --policy-only",
+            file=sys.stderr,
+        )
+        return 1
+    if args.results is not None and args.applies_to is None:
+        print("--applies-to is required when evaluating gate results", file=sys.stderr)
+        return 1
+    if args.results is not None and args.expected_source_sha is None:
+        print("--expected-source-sha is required when evaluating gate results", file=sys.stderr)
+        return 1
+    if args.policy_only and args.applies_to is not None:
+        print("--applies-to is only valid with --results", file=sys.stderr)
+        return 1
+    if args.policy_only and args.expected_source_sha is not None:
+        print("--expected-source-sha is only valid with --results", file=sys.stderr)
+        return 1
 
     policy_path = Path(args.policy)
     if not policy_path.is_file():
@@ -286,7 +351,13 @@ def main(argv: list[str] | None = None) -> int:
         if not results_path.is_file():
             print(f"gate results file not found: {results_path}", file=sys.stderr)
             return 1
-        evaluation = evaluate_results(policy, load_json(results_path), applies_to=args.applies_to)
+        results = validate_results_document(
+            policy,
+            load_json(results_path),
+            expected_source_sha=args.expected_source_sha,
+            applies_to=args.applies_to,
+        )
+        evaluation = evaluate_results(policy, results, applies_to=args.applies_to)
         if evaluation["violations"]:
             print("NO-SHIP: release gate violations detected:", file=sys.stderr)
             for violation in evaluation["violations"]:

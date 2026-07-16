@@ -10,6 +10,11 @@ on:
         required: false
         default: "true"
         type: boolean
+      gate_evidence_run_id:
+        description: "Workflow run containing exact-SHA DNS/IPv6/kill-switch evidence"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -18,11 +23,32 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
       id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Require DNS/IPv6/kill-switch evidence run
+        env:
+          EVIDENCE_RUN_ID: ${{ inputs.gate_evidence_run_id || vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
+        run: test -n "$EVIDENCE_RUN_ID"
+
+      - name: Download DNS/IPv6/kill-switch release evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dns-ipv6-killswitch-release-evidence
+          path: ${{ runner.temp }}/dns-ipv6-killswitch-release-evidence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.gate_evidence_run_id || vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
+
+      - name: Enforce DNS/IPv6/kill-switch release evidence
+        run: |
+          python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
+            --results "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/results.json" \
+            --applies-to android-client-release \
+            --expected-source-sha "$GITHUB_SHA"
 
       - uses: ./.github/actions/setup-android-rust
         with:
