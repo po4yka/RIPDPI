@@ -294,11 +294,14 @@ impl Topology {
         run("ip", &["link", "add", &topology.host_veth, "type", "veth", "peer", "name", &topology.peer_veth]);
         run("ip", &["link", "set", &topology.peer_veth, "netns", &topology.namespace]);
         run("ip", &["addr", "add", "192.0.2.1/24", "dev", &topology.host_veth]);
-        run("ip", &["-6", "addr", "add", "2001:db8::1/64", "dev", &topology.host_veth]);
+        run("ip", &["-6", "addr", "add", "2001:db8::1/64", "dev", &topology.host_veth, "nodad"]);
         run("ip", &["link", "set", &topology.host_veth, "up"]);
         run("ip", &["-n", &topology.namespace, "link", "set", "lo", "up"]);
         run("ip", &["-n", &topology.namespace, "addr", "add", "192.0.2.2/24", "dev", &topology.peer_veth]);
-        run("ip", &["-n", &topology.namespace, "-6", "addr", "add", "2001:db8::2/64", "dev", &topology.peer_veth]);
+        run(
+            "ip",
+            &["-n", &topology.namespace, "-6", "addr", "add", "2001:db8::2/64", "dev", &topology.peer_veth, "nodad"],
+        );
         run("ip", &["-n", &topology.namespace, "link", "set", &topology.peer_veth, "up"]);
 
         let current_exe = std::env::current_exe().expect("current test executable");
@@ -780,8 +783,7 @@ fn write_manifest(
         );
     }
     let manifest = format!(
-        "{{\"capabilities\":{{\"ipv4\":true,\"ipv6\":true,\"realTun\":true,\"unprivilegedSoBindToDevice\":true}},\"cleanupVerified\":{},\"phases\":[{}],\"provenance\":{{\"sourceSha\":\"{}\",\"testTarget\":\"so_bindtodevice_e2e\",\"workflowRunAttempt\":\"{}\",\"workflowRunId\":\"{}\"}},\"result\":\"PASS\",\"version\":\"so_bindtodevice_tun_evidence_v1\"}}\n",
-        cleanup_verified, phase_json, source_sha, run_attempt, run_id,
+        "{{\"capabilities\":{{\"ipv4\":true,\"ipv6\":true,\"realTun\":true,\"unprivilegedSoBindToDevice\":true}},\"cleanupVerified\":{cleanup_verified},\"phases\":[{phase_json}],\"provenance\":{{\"sourceSha\":\"{source_sha}\",\"testTarget\":\"so_bindtodevice_e2e\",\"workflowRunAttempt\":\"{run_attempt}\",\"workflowRunId\":\"{run_id}\"}},\"result\":\"PASS\",\"version\":\"so_bindtodevice_tun_evidence_v1\"}}\n",
     );
     fs::write(path, manifest).expect("write canonical SO_BINDTODEVICE evidence manifest");
 }

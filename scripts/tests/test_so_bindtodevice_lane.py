@@ -193,6 +193,19 @@ class SoBindToDeviceLaneTest(unittest.TestCase):
         self.assertIn("assert!(groups.is_empty()", source)
         self.assertIn('assert_eq!(no_new_privileges, "1"', source)
 
+    def test_ipv6_topology_disables_dad_before_peer_helper_binds(self) -> None:
+        source = RUST_TEST.read_text(encoding="utf-8")
+        host_address = source.index(
+            '"2001:db8::1/64", "dev", &topology.host_veth, "nodad"'
+        )
+        peer_address = source.index(
+            '"2001:db8::2/64", "dev", &topology.peer_veth, "nodad"'
+        )
+        helper_spawn = source.index("let current_exe = std::env::current_exe()")
+
+        self.assertLess(host_address, helper_spawn)
+        self.assertLess(peer_address, helper_spawn)
+
     def test_workflow_builds_as_runner_then_restores_evidence_ownership(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         build_start = workflow.index(
