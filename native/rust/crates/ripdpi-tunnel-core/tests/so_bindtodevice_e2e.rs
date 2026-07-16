@@ -8,7 +8,6 @@ use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream, UdpSocket};
 use std::os::fd::{FromRawFd, OwnedFd};
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -268,7 +267,7 @@ impl Topology {
             namespace,
             host_veth,
             peer_veth,
-            stop_path,
+            stop_path: stop_path.clone(),
             peer: None,
             table,
             rule_priority,
@@ -542,12 +541,24 @@ fn assert_phase(phase: PhaseSpec, packets: PacketCounts, socks_events: u64, peer
 
 fn run_client_helper(phase: PhaseSpec) -> Output {
     let current_exe = std::env::current_exe().expect("current test executable");
-    let mut command = Command::new(current_exe);
+    let uid = phase.uid.to_string();
+    let gid = HELPER_GID.to_string();
+    let mut command = Command::new("setpriv");
     command
+        .args([
+            "--reuid",
+            &uid,
+            "--regid",
+            &gid,
+            "--clear-groups",
+            "--inh-caps=-all",
+            "--ambient-caps=-all",
+            "--bounding-set=-all",
+            "--no-new-privs",
+            "--",
+        ])
+        .arg(current_exe)
         .args(["--exact", "so_bindtodevice_client_helper", "--ignored", "--nocapture"])
-        .uid(phase.uid)
-        .gid(HELPER_GID)
-        .groups(&[HELPER_GID])
         .env("RIPDPI_SO_BIND_HELPER", "client")
         .env("RIPDPI_SO_BIND_PHASE", phase.id)
         .env("RIPDPI_SO_BIND_FAMILY", phase.family.label())
@@ -579,7 +590,10 @@ fn so_bindtodevice_client_helper() {
     let protocol = required_env("RIPDPI_SO_BIND_PROTOCOL");
     let source_port = required_env("RIPDPI_SO_BIND_SOURCE_PORT").parse::<u16>().expect("source port");
     let expected_uid = required_env("RIPDPI_SO_BIND_EXPECTED_UID").parse::<u32>().expect("expected UID");
+    assert_eq!(unsafe { libc::getuid() }, expected_uid, "helper real UID must match the phase UID");
     assert_eq!(unsafe { libc::geteuid() }, expected_uid, "helper process must run under the phase UID");
+    assert_eq!(unsafe { libc::getgid() }, HELPER_GID, "helper real GID must be unprivileged");
+    assert_eq!(unsafe { libc::getegid() }, HELPER_GID, "helper effective GID must be unprivileged");
     assert_unprivileged_process();
     let device = required_env("RIPDPI_SO_BIND_DEVICE");
     let expected = required_env("RIPDPI_SO_BIND_EXPECTED");
@@ -835,7 +849,7 @@ fn link_is_absent(name: &str) -> bool {
 
 fn assert_unprivileged_process() {
     let status = fs::read_to_string("/proc/self/status").expect("read Linux process privilege state");
-    for field in ["CapEff:", "CapPrm:", "CapAmb:"] {
+    for field in ["CapInh:", "CapPrm:", "CapEff:", "CapBnd:", "CapAmb:"] {
         let value = status
             .lines()
             .find_map(|line| line.strip_prefix(field))
@@ -843,6 +857,12 @@ fn assert_unprivileged_process() {
             .trim();
         assert_eq!(u64::from_str_radix(value, 16).expect("hex capability mask"), 0, "{field} must be empty");
     }
+    let no_new_privileges = status
+        .lines()
+        .find_map(|line| line.strip_prefix("NoNewPrivs:"))
+        .expect("NoNewPrivs missing from /proc/self/status")
+        .trim();
+    assert_eq!(no_new_privileges, "1", "helper must prohibit privilege escalation");
     let groups = status
         .lines()
         .find_map(|line| line.strip_prefix("Groups:"))
@@ -850,7 +870,7 @@ fn assert_unprivileged_process() {
         .split_whitespace()
         .map(|group| group.parse::<u32>().expect("numeric supplementary group"))
         .collect::<Vec<_>>();
-    assert_eq!(groups, [HELPER_GID], "helper must not inherit privileged supplementary groups");
+    assert!(groups.is_empty(), "helper must not retain supplementary groups: {groups:?}");
 }
 
 fn text(bytes: &[u8]) -> String {

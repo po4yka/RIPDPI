@@ -594,19 +594,35 @@ and denied UDP must produce no TUN reply, SOCKS event, or peer delivery. Run it
 on a disposable privileged Linux host with:
 
 ```bash
+test_binary="$(bash scripts/ci/build-so-bindtodevice-e2e.sh)"
+evidence_dir=/tmp/so-bind
+source_sha="$(git rev-parse HEAD)"
+mkdir -p "$evidence_dir"
 sudo env \
   RIPDPI_RUN_SO_BINDTODEVICE_E2E=1 \
-  RIPDPI_SO_BIND_EVIDENCE_PATH=/tmp/so-bind/manifest.json \
-  RIPDPI_EVIDENCE_SOURCE_SHA="$(git rev-parse HEAD)" \
+  RIPDPI_SO_BIND_TEST_BINARY="$test_binary" \
+  RIPDPI_SO_BIND_EVIDENCE_PATH="$evidence_dir/manifest.json" \
+  RIPDPI_EVIDENCE_SOURCE_SHA="$source_sha" \
   RIPDPI_EVIDENCE_RUN_ID=1 \
   RIPDPI_EVIDENCE_RUN_ATTEMPT=1 \
   bash scripts/ci/run-so-bindtodevice-e2e.sh
+sudo chown -R "$(id -u):$(id -g)" "$evidence_dir"
+python3 scripts/ci/check_so_bindtodevice_evidence.py \
+  --manifest "$evidence_dir/manifest.json" \
+  --expected-source-sha "$source_sha" \
+  --expected-run-id 1 \
+  --expected-run-attempt 1
 ```
 
-The wrapper treats missing root/CAP_NET_ADMIN, `/dev/net/tun`, the Cargo target,
-IPv6, unprivileged `SO_BINDTODEVICE`, the redacted manifest, or deterministic
-namespace/interface cleanup as failures. The manifest validator pins all 12
-phase IDs and rejects a timeout-only TCP denial in place of a physical RST.
+The build helper compiles and resolves the exact test executable as the calling
+user. Only the runtime wrapper runs under root/CAP_NET_ADMIN, so Cargo caches and
+the target directory stay runner-owned; evidence ownership is restored before
+validation/upload. The lane treats missing `/dev/net/tun`, `setpriv`, IPv6,
+unprivileged `SO_BINDTODEVICE`, the redacted manifest, or deterministic
+namespace/interface cleanup as failures. Client helpers run with empty
+supplementary groups, all five Linux capability masks cleared, and
+`NoNewPrivs=1`. The manifest validator pins all 12 phase IDs and rejects a
+timeout-only TCP denial in place of a physical RST.
 
 Host-side native soak:
 

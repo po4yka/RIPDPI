@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
-workspace_manifest="$repo_root/native/rust/Cargo.toml"
 tun_device="${RIPDPI_TUN_DEVICE:-/dev/net/tun}"
 evidence_path="${RIPDPI_SO_BIND_EVIDENCE_PATH:?RIPDPI_SO_BIND_EVIDENCE_PATH is required}"
 ownership_path="$(dirname "$evidence_path")/ownership.env"
-source_sha="${RIPDPI_EVIDENCE_SOURCE_SHA:?RIPDPI_EVIDENCE_SOURCE_SHA is required}"
-run_id="${RIPDPI_EVIDENCE_RUN_ID:?RIPDPI_EVIDENCE_RUN_ID is required}"
-run_attempt="${RIPDPI_EVIDENCE_RUN_ATTEMPT:?RIPDPI_EVIDENCE_RUN_ATTEMPT is required}"
+test_binary="${RIPDPI_SO_BIND_TEST_BINARY:?RIPDPI_SO_BIND_TEST_BINARY is required}"
+: "${RIPDPI_EVIDENCE_SOURCE_SHA:?RIPDPI_EVIDENCE_SOURCE_SHA is required}"
+: "${RIPDPI_EVIDENCE_RUN_ID:?RIPDPI_EVIDENCE_RUN_ID is required}"
+: "${RIPDPI_EVIDENCE_RUN_ATTEMPT:?RIPDPI_EVIDENCE_RUN_ATTEMPT is required}"
 
 rule_priority_is_clear() {
     local family="$1"
@@ -106,7 +105,11 @@ if [ ! -c "$tun_device" ]; then
     echo "Linux TUN device is unavailable: $tun_device" >&2
     exit 1
 fi
-for command in cargo ip python3; do
+if [[ "$test_binary" != /* ]] || [ ! -f "$test_binary" ] || [ ! -x "$test_binary" ]; then
+    echo "SO_BINDTODEVICE test binary must be an absolute executable path: $test_binary" >&2
+    exit 1
+fi
+for command in ip setpriv; do
     command -v "$command" >/dev/null || { echo "required command is unavailable: $command" >&2; exit 1; }
 done
 netns_snapshot="$(ip netns list)" || { echo "cannot inspect network namespaces" >&2; exit 1; }
@@ -124,34 +127,6 @@ fi
 rm -f "$evidence_path" "$ownership_path"
 trap cleanup_check EXIT
 
-target_exists="$(python3 - "$workspace_manifest" <<'PY'
-import json
-import subprocess
-import sys
-
-metadata = json.loads(subprocess.run(
-    ["cargo", "metadata", "--locked", "--manifest-path", sys.argv[1], "--format-version", "1", "--no-deps"],
-    check=True, capture_output=True, text=True,
-).stdout)
-print("yes" if any(
-    package["name"] == "ripdpi-tunnel-core"
-    and any(target["name"] == "so_bindtodevice_e2e" and "test" in target["kind"] for target in package["targets"])
-    for package in metadata["packages"]
-) else "no")
-PY
-)"
-if [ "$target_exists" != "yes" ]; then
-    echo "so_bindtodevice_e2e target is not present" >&2
-    exit 1
-fi
-
 mkdir -p "$(dirname "$evidence_path")"
 export RIPDPI_SO_BIND_OWNERSHIP_PATH="$ownership_path"
-cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core \
-    --test so_bindtodevice_e2e e2e_so_bindtodevice_tun_uid_guard -- --ignored --exact --nocapture
-
-python3 "$repo_root/scripts/ci/check_so_bindtodevice_evidence.py" \
-    --manifest "$evidence_path" \
-    --expected-source-sha "$source_sha" \
-    --expected-run-id "$run_id" \
-    --expected-run-attempt "$run_attempt"
+"$test_binary" e2e_so_bindtodevice_tun_uid_guard --ignored --exact --nocapture
