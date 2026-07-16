@@ -9,7 +9,6 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlCommand
-import com.poyka.ripdpi.service.runtime.control.RuntimeControlOutcome
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlReason
 import kotlinx.coroutines.delay
@@ -23,9 +22,10 @@ import javax.inject.Singleton
  * auto-resumes it afterward when the `diagnosticsAutoResumeAfterRawScan`
  * setting is on. See `docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`.
  *
- * Service start/stop transitions are issued through [RuntimeControlPlane] —
- * the preferred seam for runtime-change requests — rather than calling the
- * service controller directly.
+ * The initial pause is issued through [RuntimeControlPlane]. Resume and
+ * reconciliation intents use [ServiceController] inside the same generation
+ * lock as explicit user intent, so their ownership check and dispatch are
+ * atomic with respect to a newer Start or accepted Stop.
  *
  * For the duration of a scan the coordinator publishes the diagnostics-scan
  * layer into [RuntimeModeProjectionStore] and logs the runtime mode the scan
@@ -40,6 +40,8 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private val runtimeModeProjectionStore: RuntimeModeProjectionStore,
         private val serviceStateStore: ServiceStateStore,
         private val appSettingsRepository: AppSettingsRepository,
+        private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
+        private val serviceController: ServiceController,
     ) : DiagnosticsRuntimeCoordinator {
         private var waitAttempts: Int = 50
         private var waitDelayMs: Long = 200L
@@ -49,14 +51,24 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             runtimeModeProjectionStore: RuntimeModeProjectionStore,
             serviceStateStore: ServiceStateStore,
             appSettingsRepository: AppSettingsRepository,
+            runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
+            serviceController: ServiceController,
             waitAttempts: Int,
             waitDelayMs: Long,
-        ) : this(runtimeControlPlane, runtimeModeProjectionStore, serviceStateStore, appSettingsRepository) {
+        ) : this(
+            runtimeControlPlane,
+            runtimeModeProjectionStore,
+            serviceStateStore,
+            appSettingsRepository,
+            runtimeResumeIntentTracker,
+            serviceController,
+        ) {
             this.waitAttempts = waitAttempts
             this.waitDelayMs = waitDelayMs
         }
 
         override suspend fun runRawPathScan(block: suspend () -> Unit) {
+            val resumeLease = runtimeResumeIntentTracker.captureResumeLease()
             reportingScanActivity("Raw-path scan") {
                 val (status, mode) = serviceStateStore.status.value
                 val diagnostics = appSettingsRepository.snapshot().toSettingsSections().diagnostics
@@ -73,15 +85,14 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     block()
                 } finally {
                     if (shouldResume) {
-                        if (resumeRuntime(mode)) {
-                            waitForStatus(AppStatus.Running)
-                        }
+                        resumeRuntimeIfOwned(mode, resumeLease)
                     }
                 }
             }
         }
 
         override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+            val resumeLease = runtimeResumeIntentTracker.captureResumeLease()
             reportingScanActivity("Automatic raw-path scan") {
                 val (status, mode) = serviceStateStore.status.value
                 val shouldResume = status == AppStatus.Running
@@ -97,35 +108,36 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     block()
                 } finally {
                     if (shouldResume) {
-                        if (resumeRuntime(mode)) {
-                            waitForStatus(AppStatus.Running)
-                        }
+                        resumeRuntimeIfOwned(mode, resumeLease)
                     }
                 }
             }
         }
 
-        private suspend fun resumeRuntime(mode: Mode): Boolean {
-            val outcome =
-                runtimeControlPlane.execute(
-                    RuntimeControlCommand.StartRuntime(mode, RuntimeControlReason.DiagnosticsRawPathScan),
-                )
-            return when (outcome) {
-                RuntimeControlOutcome.Completed -> {
+        private suspend fun resumeRuntimeIfOwned(
+            mode: Mode,
+            resumeLease: ResumeLease,
+        ) {
+            val startResult =
+                runtimeResumeIntentTracker.runIfOwned(resumeLease) {
+                    serviceController.startForDiagnostics(mode)
+                } ?: return
+            if (resumeRuntime(startResult)) {
+                waitForResumeResolution(resumeLease)
+            }
+        }
+
+        private fun resumeRuntime(startResult: ServiceStartResult): Boolean =
+            when (startResult) {
+                is ServiceStartResult.Accepted -> {
                     true
                 }
 
-                is RuntimeControlOutcome.Ignored -> {
-                    Logger.w { "Diagnostics runtime resume ignored: ${outcome.detail}" }
-                    false
-                }
-
-                is RuntimeControlOutcome.Rejected -> {
-                    Logger.w { "Diagnostics runtime resume rejected for ${outcome.mode}: ${outcome.reason}" }
+                is ServiceStartResult.Rejected -> {
+                    Logger.w { "Diagnostics runtime resume rejected for ${startResult.mode}: ${startResult.reason}" }
                     false
                 }
             }
-        }
 
         /**
          * Run a raw-path scan while keeping [RuntimeModeProjectionStore] in step:
@@ -158,4 +170,70 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             }
             error("Timed out waiting for service status $target")
         }
+
+        private suspend fun waitForResumeResolution(resumeLease: ResumeLease) {
+            var waitState = ResumeWaitState()
+            for (attempt in 0 until waitAttempts) {
+                waitState = evaluateResumeAttempt(resumeLease, waitState)
+                if (waitState.resolved) {
+                    break
+                }
+                if (attempt < waitAttempts - 1) {
+                    delay(waitDelayMs)
+                }
+            }
+            if (waitState.resolved) {
+                return
+            }
+            when (runtimeResumeIntentTracker.ownership(resumeLease)) {
+                ResumeLeaseOwnership.Owned -> {
+                    error("Timed out waiting for service status ${AppStatus.Running}")
+                }
+
+                is ResumeLeaseOwnership.Superseded -> {
+                    error("Timed out waiting for diagnostics resume or newer user intent")
+                }
+            }
+        }
+
+        private fun evaluateResumeAttempt(
+            resumeLease: ResumeLease,
+            waitState: ResumeWaitState,
+        ): ResumeWaitState {
+            val status = serviceStateStore.status.value.first
+            return when (val ownership = runtimeResumeIntentTracker.ownership(resumeLease)) {
+                ResumeLeaseOwnership.Owned -> waitState.copy(resolved = status == AppStatus.Running)
+                is ResumeLeaseOwnership.Superseded -> evaluateSupersededIntent(ownership, waitState)
+            }
+        }
+
+        private fun evaluateSupersededIntent(
+            ownership: ResumeLeaseOwnership.Superseded,
+            waitState: ResumeWaitState,
+        ): ResumeWaitState =
+            when (ownership.intent) {
+                UserRuntimeIntent.Running -> waitState.copy(resolved = true)
+                UserRuntimeIntent.Stopped -> reconcileStoppedIntent(ownership, waitState)
+                UserRuntimeIntent.Unknown -> waitState.copy(resolved = false)
+            }
+
+        private fun reconcileStoppedIntent(
+            ownership: ResumeLeaseOwnership.Superseded,
+            waitState: ResumeWaitState,
+        ): ResumeWaitState {
+            val stopped =
+                waitState.compensatedGeneration == ownership.generation ||
+                    runtimeResumeIntentTracker.runCompensatingStopIfCurrent(ownership) {
+                        serviceController.stopForDiagnosticsCompensation()
+                    }
+            return ResumeWaitState(
+                resolved = serviceStateStore.status.value.first == AppStatus.Halted,
+                compensatedGeneration = ownership.generation.takeIf { stopped },
+            )
+        }
+
+        private data class ResumeWaitState(
+            val resolved: Boolean = false,
+            val compensatedGeneration: Long? = null,
+        )
     }

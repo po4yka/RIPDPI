@@ -2,15 +2,46 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServiceShellDelegateTest {
+    @Test
+    fun `service lifecycle commands execute in accepted intent order`() =
+        runTest {
+            val releaseStart = CompletableDeferred<Unit>()
+            val operations = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "proxy",
+                    onStart = {
+                        operations += "start-begin"
+                        releaseStart.await()
+                        operations += "start-end"
+                    },
+                    onStop = { operations += "stop" },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(startAction, 1)
+            delegate.onStartCommand(stopAction, 2)
+            runCurrent()
+
+            assertEquals(listOf("start-begin"), operations)
+            releaseStart.complete(Unit)
+            runCurrent()
+
+            assertEquals(listOf("start-begin", "start-end", "stop"), operations)
+        }
+
     @Test
     fun proxyShellDelegatesStartAndStopActions() =
         runTest {
@@ -102,6 +133,124 @@ class ServiceShellDelegateTest {
 
             assertEquals(android.app.Service.START_NOT_STICKY, result)
             assertEquals(listOf(11), stopIds)
+        }
+
+    @Test
+    fun `accepted notification stop invalidates diagnostics resume lease`() =
+        runTest {
+            val tracker = RuntimeResumeIntentTracker()
+            val lease = tracker.captureResumeLease()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStop = {},
+                    onAcceptedStop = tracker::recordAcceptedStop,
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(notificationStopAction, 12)
+
+            val ownership = tracker.ownership(lease)
+            assertTrue(ownership is ResumeLeaseOwnership.Superseded)
+            assertEquals(UserRuntimeIntent.Stopped, (ownership as ResumeLeaseOwnership.Superseded).intent)
+        }
+
+    @Test
+    fun `rejected notification stop preserves diagnostics resume lease`() =
+        runTest {
+            val tracker = RuntimeResumeIntentTracker()
+            val lease = tracker.captureResumeLease()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStop = {},
+                    isStopAllowed = { false },
+                    onAcceptedStop = tracker::recordAcceptedStop,
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(notificationStopAction, 13)
+
+            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+        }
+
+    @Test
+    fun `diagnostics stop preserves its own resume lease`() =
+        runTest {
+            val tracker = RuntimeResumeIntentTracker()
+            val lease = tracker.captureResumeLease()
+            val stopIds = mutableListOf<Int?>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStop = { stopIds += it },
+                    onAcceptedStop = tracker::recordAcceptedStop,
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(diagnosticsStopAction, 14)
+            runCurrent()
+
+            assertEquals(listOf(14), stopIds)
+            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+        }
+
+    @Test
+    fun `accepted start restores request order after delayed stop acceptance`() =
+        runTest {
+            val tracker = RuntimeResumeIntentTracker()
+            val lease = tracker.captureResumeLease()
+            tracker.withUserStart(action = {})
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "proxy",
+                    onStart = {},
+                    onStop = {},
+                    onAcceptedStart = tracker::recordAcceptedStart,
+                    onAcceptedStop = tracker::recordAcceptedStop,
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(stopAction, 15)
+            delegate.onStartCommand(startAction, 16)
+            runCurrent()
+
+            val ownership = tracker.ownership(lease) as ResumeLeaseOwnership.Superseded
+            assertEquals(UserRuntimeIntent.Running, ownership.intent)
+        }
+
+    @Test
+    fun `stale diagnostics compensation is skipped after accepted start`() =
+        runTest {
+            val tracker = RuntimeResumeIntentTracker()
+            tracker.recordAcceptedStop()
+            var startCalls = 0
+            val stopIds = mutableListOf<Int?>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "proxy",
+                    onStart = { startCalls += 1 },
+                    onStop = { stopIds += it },
+                    onAcceptedStart = tracker::recordAcceptedStart,
+                    isCompensatingStopCurrent = tracker::isCurrentIntentStopped,
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(startAction, 17)
+            val result = delegate.onStartCommand(diagnosticsCompensatingStopAction, 18)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(1, startCalls)
+            assertEquals(emptyList<Int?>(), stopIds)
         }
 
     @Test

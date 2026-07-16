@@ -12,6 +12,7 @@ internal class VpnServiceSessionLifecycle(
     private val serviceStateStore: ServiceStateStore,
     private val sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>,
     private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
+    private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
 ) {
     private var sessionComponent: VpnServiceSessionComponent? = null
     private var coordinator: VpnServiceRuntimeCoordinator? = null
@@ -42,6 +43,9 @@ internal class VpnServiceSessionLifecycle(
             onStart = runtimeCoordinator::start,
             onStop = runtimeCoordinator::stop,
             isStopAllowed = service::isUserStopAllowed,
+            onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
+            onAcceptedStop = runtimeResumeIntentTracker::recordAcceptedStop,
+            isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
             onRevoke = {
                 serviceStateStore.emitFailed(
                     sender = Sender.VPN,

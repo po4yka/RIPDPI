@@ -27,6 +27,8 @@ class ServiceControllerForegroundDenialTest {
     @Test
     fun foregroundServiceDenialRejectsProxyStartWithoutReportingRunning() {
         val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
         val starter =
             RecordingForegroundServiceStarter {
                 throw IllegalStateException("foreground start denied")
@@ -38,6 +40,7 @@ class ServiceControllerForegroundDenialTest {
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
                 bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = tracker,
             )
 
         val result = controller.start(Mode.Proxy)
@@ -49,6 +52,7 @@ class ServiceControllerForegroundDenialTest {
         assertEquals(AppStatus.Halted to Mode.Proxy, serviceStateStore.status.value)
         assertEquals(1, starter.startCount)
         assertTrue(serviceStateStore.eventHistory.isEmpty())
+        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
     }
 
     @Test
@@ -155,6 +159,73 @@ class ServiceControllerForegroundDenialTest {
         controller.stop()
 
         assertFalse(store.wasRunningAtUpdate())
+    }
+
+    @Test
+    fun diagnosticsStopPreservesResumeIntentAndUpdateMarker() {
+        val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
+        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = serviceStateStore,
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = store,
+                runtimeResumeIntentTracker = tracker,
+            )
+
+        controller.stopForDiagnostics()
+
+        assertEquals(diagnosticsStopAction, starter.lastIntent?.action)
+        assertTrue(store.wasRunningAtUpdate())
+        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+    }
+
+    @Test
+    fun diagnosticsStartUsesInternalActionWithoutReplacingUserIntent() {
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
+        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = serviceStateStore,
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = tracker,
+            )
+
+        val result = controller.startForDiagnostics(Mode.Proxy)
+
+        assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+        assertEquals(diagnosticsStartAction, starter.lastIntent?.action)
+        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+    }
+
+    @Test
+    fun explicitStopRequestWaitsForServiceAcceptanceBeforeInvalidatingResume() {
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
+        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = serviceStateStore,
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = tracker,
+            )
+
+        controller.stop()
+
+        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
     }
 
     // T2 — stop routing: stop() reads the current mode from serviceStateStore and

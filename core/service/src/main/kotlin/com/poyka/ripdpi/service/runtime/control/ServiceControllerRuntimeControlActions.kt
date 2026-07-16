@@ -37,10 +37,19 @@ internal class ServiceControllerRuntimeControlActions
         override suspend fun startRuntime(
             mode: Mode,
             reason: RuntimeControlReason,
-        ): RuntimeControlOutcome = serviceController.start(mode).toRuntimeControlOutcome()
+        ): RuntimeControlOutcome =
+            if (reason == RuntimeControlReason.DiagnosticsRawPathScan) {
+                serviceController.startForDiagnostics(mode).toRuntimeControlOutcome()
+            } else {
+                serviceController.start(mode).toRuntimeControlOutcome()
+            }
 
         override suspend fun stopRuntime(reason: RuntimeControlReason): RuntimeControlOutcome {
-            serviceController.stop()
+            if (reason == RuntimeControlReason.DiagnosticsRawPathScan) {
+                serviceController.stopForDiagnostics()
+            } else {
+                serviceController.stop()
+            }
             return RuntimeControlOutcome.Completed
         }
 

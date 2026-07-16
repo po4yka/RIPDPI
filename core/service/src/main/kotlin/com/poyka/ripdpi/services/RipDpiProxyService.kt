@@ -59,6 +59,9 @@ class RipDpiProxyService :
     @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<ProxyServiceSessionComponentBuilder>
 
+    @Inject
+    lateinit var runtimeResumeIntentTracker: RuntimeResumeIntentTracker
+
     private var sessionComponent: ProxyServiceSessionComponent? = null
     private lateinit var coordinator: ProxyServiceRuntimeCoordinator
     private lateinit var shellDelegate: ServiceShellDelegate
@@ -85,6 +88,9 @@ class RipDpiProxyService :
                 serviceLabel = "proxy",
                 onStart = coordinator::start,
                 onStop = coordinator::stop,
+                onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
+                onAcceptedStop = runtimeResumeIntentTracker::recordAcceptedStop,
+                isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
             )
     }
 

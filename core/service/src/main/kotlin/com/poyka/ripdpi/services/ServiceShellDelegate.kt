@@ -3,12 +3,17 @@ package com.poyka.ripdpi.services
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
 internal const val notificationStopAction = "notification_stop"
+internal const val diagnosticsStopAction = "diagnostics_stop"
+internal const val diagnosticsStartAction = "diagnostics_start"
+internal const val diagnosticsCompensatingStopAction = "diagnostics_compensating_stop"
 
 internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
@@ -16,27 +21,73 @@ internal class ServiceShellDelegate(
     private val onStart: suspend () -> Unit,
     private val onStop: suspend (Int?) -> Unit,
     private val isStopAllowed: (String) -> Boolean = { true },
+    private val onAcceptedStart: () -> Unit = {},
+    private val onAcceptedStop: () -> Unit = {},
+    private val isCompensatingStopCurrent: () -> Boolean = { true },
     private val onRevoke: (suspend () -> Unit)? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    private val commandQueue = Channel<suspend () -> Unit>(capacity = Channel.UNLIMITED)
+
+    init {
+        serviceScope.launch(ioDispatcher) {
+            for (command in commandQueue) {
+                executeCommand(command)
+            }
+        }
+    }
+
     fun onStartCommand(
         action: String?,
         startId: Int,
     ): Int =
         when (action) {
             // null action indicates a sticky restart after process death.
-            null, startAction -> {
-                launchIo(onStart)
+            null -> {
+                enqueue(onStart)
+                android.app.Service.START_STICKY
+            }
+
+            startAction -> {
+                onAcceptedStart()
+                enqueue(onStart)
+                android.app.Service.START_STICKY
+            }
+
+            diagnosticsStartAction -> {
+                enqueue(onStart)
                 android.app.Service.START_STICKY
             }
 
             stopAction, notificationStopAction -> {
                 if (isStopAllowed(action)) {
-                    launchIo { onStop(startId) }
+                    onAcceptedStop()
+                    enqueue { onStop(startId) }
                     android.app.Service.START_NOT_STICKY
                 } else {
                     Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
-                    launchIo(onStart)
+                    enqueue(onStart)
+                    android.app.Service.START_STICKY
+                }
+            }
+
+            diagnosticsStopAction -> {
+                if (isStopAllowed(action)) {
+                    enqueue { onStop(startId) }
+                    android.app.Service.START_NOT_STICKY
+                } else {
+                    Logger.w { "Ignoring diagnostics stop for $serviceLabel service while disconnect is blocked" }
+                    enqueue(onStart)
+                    android.app.Service.START_STICKY
+                }
+            }
+
+            diagnosticsCompensatingStopAction -> {
+                if (isStopAllowed(action) && isCompensatingStopCurrent()) {
+                    enqueue { onStop(startId) }
+                    android.app.Service.START_NOT_STICKY
+                } else {
+                    Logger.d { "Skipping stale diagnostics stop for $serviceLabel service" }
                     android.app.Service.START_STICKY
                 }
             }
@@ -49,12 +100,23 @@ internal class ServiceShellDelegate(
 
     fun onRevoke() {
         val revokeHandler = onRevoke ?: return
-        launchIo(revokeHandler)
+        enqueue(revokeHandler)
     }
 
-    private fun launchIo(block: suspend () -> Unit) {
-        serviceScope.launch(ioDispatcher) {
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun executeCommand(block: suspend () -> Unit) {
+        try {
             block()
+        } catch (failure: CancellationException) {
+            throw failure
+        } catch (failure: Exception) {
+            Logger.e(failure) { "$serviceLabel service command failed" }
+        }
+    }
+
+    private fun enqueue(block: suspend () -> Unit) {
+        if (commandQueue.trySend(block).isFailure) {
+            Logger.w { "Dropping $serviceLabel service command after queue closure" }
         }
     }
 }

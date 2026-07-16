@@ -134,7 +134,10 @@ class DiagnosticsRuntimeCoordinatorTest {
 
             assertTrue(blockRan)
             assertTrue(error is IllegalStateException)
-            assertTrue(error?.message?.contains("Timed out waiting for service status Running") == true)
+            assertTrue(
+                "Unexpected resume failure: ${error?.message}",
+                error?.message?.contains("Timed out waiting for service status Running") == true,
+            )
             assertEquals(1, controller.stopCount)
             assertEquals(1, controller.startCount)
         }
@@ -202,6 +205,136 @@ class DiagnosticsRuntimeCoordinatorTest {
             assertEquals(1, controller.startCount)
             assertEquals(AppStatus.Running to Mode.Proxy, stateStore.status.value)
         }
+
+    @Test
+    fun `explicit user stop during raw path scan suppresses diagnostics resume`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val controller = FakeServiceController(stateStore)
+            val coordinator =
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
+                )
+
+            coordinator.runRawPathScan {
+                controller.stop()
+            }
+
+            assertEquals(2, controller.stopCount)
+            assertEquals(0, controller.startCount)
+            assertEquals(AppStatus.Halted to Mode.VPN, stateStore.status.value)
+        }
+
+    @Test
+    fun `user stop racing diagnostics resume remains the final operation`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = FakeServiceController(stateStore)
+            controller.afterDiagnosticsStart = controller::stop
+            val coordinator =
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
+                )
+
+            coordinator.runRawPathScan {}
+
+            assertEquals(
+                listOf("diagnostics-stop", "diagnostics-start", "user-stop", "diagnostics-stop"),
+                controller.operations,
+            )
+            assertEquals(AppStatus.Halted to Mode.Proxy, stateStore.status.value)
+        }
+
+    @Test
+    fun `user stop immediately before diagnostics resume is compensated`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = FakeServiceController(stateStore)
+            controller.beforeDiagnosticsStart = controller::stop
+            val coordinator =
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
+                )
+
+            coordinator.runRawPathScan {}
+
+            assertEquals(
+                listOf("diagnostics-stop", "user-stop", "diagnostics-start", "diagnostics-stop"),
+                controller.operations,
+            )
+            assertEquals(AppStatus.Halted to Mode.Proxy, stateStore.status.value)
+        }
+
+    @Test
+    fun `accepted stop captured with stale running status suppresses resume`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = FakeServiceController(stateStore)
+            controller.runtimeResumeIntentTracker.recordAcceptedStop()
+            val coordinator =
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
+                )
+
+            coordinator.runRawPathScan {}
+
+            assertEquals(listOf("diagnostics-stop"), controller.operations)
+            assertEquals(AppStatus.Halted to Mode.Proxy, stateStore.status.value)
+        }
+
+    @Test
+    fun `newer user start suppresses stale stop compensation`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = FakeServiceController(stateStore)
+            val coordinator =
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
+                )
+
+            coordinator.runRawPathScan {
+                controller.stop()
+                controller.start(Mode.Proxy)
+            }
+
+            assertEquals(listOf("diagnostics-stop", "user-stop", "user-start"), controller.operations)
+            assertEquals(AppStatus.Running to Mode.Proxy, stateStore.status.value)
+        }
 }
 
 private fun buildCoordinator(
@@ -215,6 +348,8 @@ private fun buildCoordinator(
         runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
         serviceStateStore = stateStore,
         appSettingsRepository = settings,
+        runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
+        serviceController = controller,
         waitAttempts = 2,
         waitDelayMs = 0,
     )
@@ -272,6 +407,7 @@ private class FakeCoordinatorStateStore(
 private class FakeServiceController(
     private val stateStore: FakeCoordinatorStateStore,
 ) : ServiceController {
+    val runtimeResumeIntentTracker = RuntimeResumeIntentTracker()
     var stopFailure: Throwable? = null
     var startFailure: Throwable? = null
     var transitionOnStop: Boolean = true
@@ -279,8 +415,28 @@ private class FakeServiceController(
     var stopCount: Int = 0
     var startCount: Int = 0
     var nextStartResult: ServiceStartResult? = null
+    var beforeDiagnosticsStart: (() -> Unit)? = null
+    var afterDiagnosticsStart: (() -> Unit)? = null
+    val operations = mutableListOf<String>()
 
-    override fun start(mode: Mode): ServiceStartResult {
+    override fun start(mode: Mode): ServiceStartResult =
+        runtimeResumeIntentTracker.withUserStart(
+            action = { start(mode, "user-start") },
+            isAccepted = { it is ServiceStartResult.Accepted },
+        )
+
+    override fun startForDiagnostics(mode: Mode): ServiceStartResult {
+        beforeDiagnosticsStart?.invoke()
+        val result = start(mode, "diagnostics-start")
+        afterDiagnosticsStart?.invoke()
+        return result
+    }
+
+    private fun start(
+        mode: Mode,
+        operation: String,
+    ): ServiceStartResult {
+        operations += operation
         startCount += 1
         startFailure?.let { throw it }
         nextStartResult?.let { return it }
@@ -291,6 +447,16 @@ private class FakeServiceController(
     }
 
     override fun stop() {
+        runtimeResumeIntentTracker.recordAcceptedStop()
+        stop("user-stop")
+    }
+
+    override fun stopForDiagnostics() {
+        stop("diagnostics-stop")
+    }
+
+    private fun stop(operation: String) {
+        operations += operation
         stopCount += 1
         stopFailure?.let { throw it }
         if (transitionOnStop) {
