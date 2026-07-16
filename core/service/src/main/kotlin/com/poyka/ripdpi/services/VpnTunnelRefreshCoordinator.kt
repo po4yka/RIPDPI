@@ -11,13 +11,10 @@ internal class VpnTunnelRefreshCoordinator(
     private val callbacks: VpnTunnelRefreshCallbacks,
 ) {
     @Suppress("TooGenericExceptionCaught")
-    suspend fun refreshIfNeeded(session: VpnRuntimeSession) {
-        val refreshPlan =
-            dependencies.dnsPolicyCoordinator.planRefresh(
-                currentSignature = dependencies.vpnTunnelRuntime.currentDnsSignature,
-                tunnelRunning = dependencies.vpnTunnelRuntime.isRunning,
-            )
-        if (!refreshPlan.requiresTunnelRebuild && !refreshPlan.requiresInterfacePolicyRebuild()) return
+    suspend fun refreshIfNeeded(
+        session: VpnRuntimeSession,
+        interfacePolicyChangeObserved: Boolean = false,
+    ) {
         dependencies.mutex.withLock {
             val activeSession = state.runtimeSession()
             val canRefresh =
@@ -31,7 +28,9 @@ internal class VpnTunnelRefreshCoordinator(
                     currentSignature = dependencies.vpnTunnelRuntime.currentDnsSignature,
                     tunnelRunning = dependencies.vpnTunnelRuntime.isRunning,
                 )
-            if (!latestRefreshPlan.requiresTunnelRebuild && !latestRefreshPlan.requiresInterfacePolicyRebuild()) {
+            if (!latestRefreshPlan.requiresTunnelRebuild &&
+                (!interfacePolicyChangeObserved || !dependencies.vpnTunnelRuntime.requiresInterfacePolicyRebuild())
+            ) {
                 return@withLock
             }
             val latestConnectionPolicy = checkNotNull(latestRefreshPlan.connectionPolicy)
@@ -68,15 +67,6 @@ internal class VpnTunnelRefreshCoordinator(
             currentDnsSignature = dependencies.vpnTunnelRuntime.currentDnsSignature ?: session.currentDnsSignature,
             telemetry = telemetry.tunnelTelemetry,
         )
-
-    private fun ResolverRefreshPlan.requiresInterfacePolicyRebuild(): Boolean {
-        val currentSignature = connectionPolicy?.settings?.let(::vpnTunnelInterfacePolicySignature)
-        val appliedSignature = dependencies.vpnTunnelRuntime.currentInterfacePolicySignature
-        return dependencies.vpnTunnelRuntime.isRunning &&
-            currentSignature != null &&
-            appliedSignature != null &&
-            currentSignature != appliedSignature
-    }
 }
 
 internal interface VpnTunnelRefreshDependencies {

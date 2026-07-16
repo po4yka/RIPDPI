@@ -3,12 +3,12 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DhtMitigationModeBypass
 import com.poyka.ripdpi.data.DhtMitigationModeDropWarn
 import com.poyka.ripdpi.data.DhtTriggerCidrsCatalog
 import com.poyka.ripdpi.data.dhtTriggerCidrsCatalogFromJson
 import com.poyka.ripdpi.data.normalizeDhtMitigationMode
+import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,7 +33,10 @@ interface DhtTriggerCidrsCatalogProvider {
 }
 
 interface VpnDhtMitigationPolicy {
-    suspend fun buildPlan(supportsRouteExclusion: Boolean): VpnDhtMitigationPlan
+    fun buildPlan(
+        settings: AppSettings,
+        supportsRouteExclusion: Boolean,
+    ): VpnDhtMitigationPlan
 }
 
 @Singleton
@@ -61,11 +64,12 @@ class AssetDhtTriggerCidrsCatalogProvider
 class DefaultVpnDhtMitigationPolicy
     @Inject
     constructor(
-        private val appSettingsRepository: AppSettingsRepository,
         private val catalogProvider: DhtTriggerCidrsCatalogProvider,
     ) : VpnDhtMitigationPolicy {
-        override suspend fun buildPlan(supportsRouteExclusion: Boolean): VpnDhtMitigationPlan {
-            val settings = appSettingsRepository.snapshot()
+        override fun buildPlan(
+            settings: AppSettings,
+            supportsRouteExclusion: Boolean,
+        ): VpnDhtMitigationPlan {
             if (settings.fullTunnelMode) {
                 return VpnDhtMitigationPlan()
             }

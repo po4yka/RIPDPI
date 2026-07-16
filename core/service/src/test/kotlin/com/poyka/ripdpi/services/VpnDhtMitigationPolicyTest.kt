@@ -14,16 +14,13 @@ class VpnDhtMitigationPolicyTest {
     @Test
     fun `bypass mode returns excluded routes when route exclusion is supported`() =
         runTest {
-            val repository =
-                TestAppSettingsRepository(
-                    AppSettingsSerializer.defaultValue
-                        .toBuilder()
-                        .setDhtMitigationMode(DhtMitigationModeBypass)
-                        .build(),
-                )
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDhtMitigationMode(DhtMitigationModeBypass)
+                    .build()
             val policy =
                 DefaultVpnDhtMitigationPolicy(
-                    appSettingsRepository = repository,
                     catalogProvider =
                         FakeDhtTriggerCidrsCatalogProvider(
                             DhtTriggerCidrsCatalog(
@@ -32,7 +29,7 @@ class VpnDhtMitigationPolicyTest {
                         ),
                 )
 
-            val plan = policy.buildPlan(supportsRouteExclusion = true)
+            val plan = policy.buildPlan(settings = settings, supportsRouteExclusion = true)
 
             assertEquals(
                 listOf(
@@ -47,20 +44,17 @@ class VpnDhtMitigationPolicyTest {
     @Test
     fun `drop warn mode emits warning without excluded routes`() =
         runTest {
-            val repository =
-                TestAppSettingsRepository(
-                    AppSettingsSerializer.defaultValue
-                        .toBuilder()
-                        .setDhtMitigationMode(DhtMitigationModeDropWarn)
-                        .build(),
-                )
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDhtMitigationMode(DhtMitigationModeDropWarn)
+                    .build()
             val policy =
                 DefaultVpnDhtMitigationPolicy(
-                    appSettingsRepository = repository,
                     catalogProvider = FakeDhtTriggerCidrsCatalogProvider(DhtTriggerCidrsCatalog(cidrs = listOf("a"))),
                 )
 
-            val plan = policy.buildPlan(supportsRouteExclusion = true)
+            val plan = policy.buildPlan(settings = settings, supportsRouteExclusion = true)
 
             assertTrue(plan.excludedRoutes.isEmpty())
             assertTrue(plan.warningMessage?.contains("drop+warn") == true)
@@ -69,24 +63,21 @@ class VpnDhtMitigationPolicyTest {
     @Test
     fun `full tunnel mode suppresses dht mitigation`() =
         runTest {
-            val repository =
-                TestAppSettingsRepository(
-                    AppSettingsSerializer.defaultValue
-                        .toBuilder()
-                        .setFullTunnelMode(true)
-                        .setDhtMitigationMode(DhtMitigationModeBypass)
-                        .build(),
-                )
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setFullTunnelMode(true)
+                    .setDhtMitigationMode(DhtMitigationModeBypass)
+                    .build()
             val policy =
                 DefaultVpnDhtMitigationPolicy(
-                    appSettingsRepository = repository,
                     catalogProvider =
                         FakeDhtTriggerCidrsCatalogProvider(
                             DhtTriggerCidrsCatalog(cidrs = listOf("134.195.196.0/22")),
                         ),
                 )
 
-            val plan = policy.buildPlan(supportsRouteExclusion = true)
+            val plan = policy.buildPlan(settings = settings, supportsRouteExclusion = true)
 
             assertTrue(plan.excludedRoutes.isEmpty())
             assertNull(plan.warningMessage)

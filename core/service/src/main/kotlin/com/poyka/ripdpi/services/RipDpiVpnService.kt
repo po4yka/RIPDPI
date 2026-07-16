@@ -10,17 +10,16 @@ import android.os.Build
 import androidx.annotation.Keep
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.RipDpiLogContext
-import com.poyka.ripdpi.core.Tun2SocksConfig
-import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -40,6 +39,9 @@ class RipDpiVpnService :
 
     @Inject
     lateinit var vpnAppExclusionPolicy: VpnAppExclusionPolicy
+
+    @Inject
+    lateinit var installedPackagesProvider: InstalledPackagesProvider
 
     @Inject
     lateinit var vpnDhtMitigationPolicy: VpnDhtMitigationPolicy
@@ -136,17 +138,31 @@ class RipDpiVpnService :
         )
     }
 
-    override suspend fun resolveAppRoutingPlan(settings: AppSettings): VpnAppRoutingPlan =
-        vpnAppExclusionPolicy.appRoutingPlan(applicationContext.packageName, settings)
+    override suspend fun resolveAppRoutingPlan(
+        settings: AppSettings,
+        packageRoutingRules: Collection<PackageRoutingRule>,
+        installedPackages: Set<String>,
+    ): VpnAppRoutingPlan =
+        vpnAppExclusionPolicy.appRoutingPlan(
+            ownPackage = applicationContext.packageName,
+            settings = settings,
+            packageRoutingRules = packageRoutingRules,
+            installedPackages = installedPackages,
+        )
+
+    override fun currentInstalledPackages(): Set<String> = installedPackagesProvider.installedPackages()
+
+    override fun observeInstalledPackages(): Flow<Set<String>> = installedPackagesProvider.observeInstalledPackages()
 
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
         appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int?,
     ): VpnTunnelBuilder =
         AndroidVpnTunnelBuilder(
-            builder = createBuilder(dns, ipv6, appRoutingPlan, httpProxyPort),
+            builder = createBuilder(dns, ipv6, appRoutingPlan, interfaceSettings, httpProxyPort),
         )
 
     @android.annotation.SuppressLint("MissingPermission")
@@ -163,6 +179,7 @@ class RipDpiVpnService :
         dns: String,
         ipv6: Boolean,
         appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int? = null,
     ): Builder {
         Logger.v { "DNS configured" }
@@ -216,7 +233,7 @@ class RipDpiVpnService :
             }
         }
 
-        applyDhtMitigation(builder)
+        applyDhtMitigation(builder, interfaceSettings)
         refreshHardKillSwitchState()
         return builder
     }
@@ -237,9 +254,16 @@ class RipDpiVpnService :
         return snapshot
     }
 
-    private suspend fun applyDhtMitigation(builder: Builder) {
+    private fun applyDhtMitigation(
+        builder: Builder,
+        settings: AppSettings,
+    ) {
         val supportsRouteExclusion = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-        val plan = vpnDhtMitigationPolicy.buildPlan(supportsRouteExclusion = supportsRouteExclusion)
+        val plan =
+            vpnDhtMitigationPolicy.buildPlan(
+                settings = settings,
+                supportsRouteExclusion = supportsRouteExclusion,
+            )
 
         if (supportsRouteExclusion) {
             plan.excludedRoutes.forEach { route ->
@@ -268,94 +292,7 @@ class RipDpiVpnService :
         private const val TunnelIpv4PrefixLen = 32
         private const val TunnelIpv6PrefixLen = 128
         private const val TUNNEL_IPV4_ADDRESS = "10.10.10.10"
-        private const val TUNNEL_IPV4_CIDR = "10.10.10.10/32"
         private const val TUNNEL_IPV6_ADDRESS = "fd00::1"
-        private const val TUNNEL_IPV6_CIDR = "fd00::1/128"
-        private const val MAPDNS_ADDRESS = "198.18.0.53"
-        private const val MAPDNS_NETWORK = "198.18.0.0"
-        private const val MAPDNS_NETMASK = "255.254.0.0"
-        private const val MAPDNS_PORT = 53
-        private const val MAPDNS_CACHE_SIZE = 10_000
-        private const val DNS_QUERY_TIMEOUT_MS = 4_000
-
-        internal fun buildTun2SocksConfig(
-            dnsPlan: VpnTunnelDnsPlan,
-            overrideReason: String?,
-            localProxyEndpoint: LocalProxyEndpoint,
-            ipv6Enabled: Boolean,
-            webrtcProtectionEnabled: Boolean = false,
-            tunnelMtu: Int = defaultTun2SocksTunnelMtu,
-            logContext: RipDpiLogContext? = null,
-            encryptedDnsTlsRootsPem: String? = null,
-            strategyChainYaml: String? = null,
-            protectPath: String? = null,
-            rootHelperSocketPath: String? = null,
-            luaScriptBaseDir: String? = null,
-            uidPolicy: NativeUidPolicy = NativeUidPolicy.Disarmed,
-        ): Tun2SocksConfig {
-            val tunnelDns = dnsPlan.resolverDns
-            val mapDnsEnabled = dnsPlan.mapDnsEnabled
-            return Tun2SocksConfig(
-                tunnelMtu = tunnelMtu,
-                tunnelIpv4 = TUNNEL_IPV4_CIDR,
-                tunnelIpv6 = if (ipv6Enabled) TUNNEL_IPV6_CIDR else null,
-                socks5Address = localProxyEndpoint.host,
-                socks5Port = localProxyEndpoint.port,
-                socks5Udp = "udp",
-                mapdnsAddress = if (mapDnsEnabled) MAPDNS_ADDRESS else null,
-                mapdnsPort = if (mapDnsEnabled) MAPDNS_PORT else null,
-                mapdnsNetwork = if (mapDnsEnabled) MAPDNS_NETWORK else null,
-                mapdnsNetmask = if (mapDnsEnabled) MAPDNS_NETMASK else null,
-                mapdnsCacheSize = if (mapDnsEnabled) MAPDNS_CACHE_SIZE else null,
-                encryptedDnsResolverId = mapDnsValue(mapDnsEnabled, tunnelDns.providerId),
-                encryptedDnsProtocol = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsProtocol),
-                encryptedDnsHost = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsHost),
-                encryptedDnsPort = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsPort),
-                encryptedDnsTlsServerName = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsTlsServerName),
-                encryptedDnsBootstrapIps = mapDnsList(mapDnsEnabled, tunnelDns.encryptedDnsBootstrapIps),
-                encryptedDnsDohUrl = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsDohUrl),
-                encryptedDnsDnscryptProviderName =
-                    mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsDnscryptProviderName),
-                encryptedDnsDnscryptPublicKey = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsDnscryptPublicKey),
-                encryptedDnsOdohProxyUrl = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohProxyUrl),
-                encryptedDnsOdohProxyOperatorId = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohProxyOperatorId),
-                encryptedDnsOdohTargetHost = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohTargetHost),
-                encryptedDnsOdohTargetPath = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohTargetPath),
-                encryptedDnsOdohTargetOperatorId =
-                    mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohTargetOperatorId),
-                encryptedDnsOdohConfigSource = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigSource),
-                encryptedDnsOdohConfigsHex = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigsHex),
-                encryptedDnsOdohConfigsRetrievedAtSecs =
-                    mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigsRetrievedAtSecs),
-                encryptedDnsOdohConfigsTtlSecs = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigsTtlSecs),
-                encryptedDnsTlsRootsPem =
-                    mapDnsValue(mapDnsEnabled, encryptedDnsTlsRootsPem?.takeIf { it.isNotBlank() }),
-                dnsQueryTimeoutMs = if (mapDnsEnabled) DNS_QUERY_TIMEOUT_MS else null,
-                resolverFallbackActive = overrideReason != null,
-                resolverFallbackReason = overrideReason,
-                routeDnsThroughSocks5 = dnsPlan.routeDnsThroughSocks5,
-                strategyChainYaml = strategyChainYaml,
-                protectPath = protectPath,
-                rootHelperSocketPath = rootHelperSocketPath,
-                luaScriptBaseDir = luaScriptBaseDir,
-                webrtcProtectionEnabled = webrtcProtectionEnabled,
-                uidPolicyMode = uidPolicy.mode,
-                uidPolicyUids = uidPolicy.uids,
-                logContext = logContext,
-                username = localProxyEndpoint.username,
-                password = localProxyEndpoint.password,
-            )
-        }
-
-        private fun <T> mapDnsValue(
-            mapDnsEnabled: Boolean,
-            value: T,
-        ): T? = if (mapDnsEnabled) value else null
-
-        private fun mapDnsList(
-            mapDnsEnabled: Boolean,
-            values: List<String>,
-        ): List<String> = if (mapDnsEnabled) values else emptyList()
 
         /** Loopback hosts/addresses excluded from the advertised HTTP proxy. */
         internal val httpProxyExclusionList: List<String> = listOf("localhost", "127.0.0.1", "::1")

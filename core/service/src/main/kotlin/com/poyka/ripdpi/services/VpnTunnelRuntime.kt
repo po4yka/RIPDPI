@@ -6,9 +6,16 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.toSettingsSections
+import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 private const val DefaultSocksListenerPort = 1080
 private const val DefaultMixedInboundListenerPort = 2080
@@ -16,6 +23,7 @@ private const val DefaultMixedInboundListenerPort = 2080
 internal class VpnTunnelRuntime(
     private val vpnHost: VpnCoordinatorHost,
     private val appSettingsRepository: AppSettingsRepository,
+    private val proxyGroupRepository: ProxyGroupRepository,
     private val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
     private val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
     private val protectPath: String? = null,
@@ -34,14 +42,21 @@ internal class VpnTunnelRuntime(
     private val flowAttributionBridge: FlowAttributionBridge? = null,
     private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
 ) {
+    @Volatile
     private var tun2SocksBridge: Tun2SocksBridge? = null
+
+    @Volatile
     private var retiringBridge: Tun2SocksBridge? = null
+
+    @Volatile
     private var tunSession: VpnTunnelSession? = null
     private var tunnelStartCount: Int = 0
 
+    @Volatile
     var currentDnsSignature: String? = null
         private set
 
+    @Volatile
     var currentInterfacePolicySignature: String? = null
         private set
 
@@ -53,6 +68,22 @@ internal class VpnTunnelRuntime(
 
     val isForwarding: Boolean
         get() = tun2SocksBridge != null
+
+    fun desiredInterfacePolicySignatures(): Flow<String> =
+        combine(
+            appSettingsRepository.settings,
+            proxyGroupRepository.groups(),
+            vpnHost.observeInstalledPackages(),
+        ) { settings, groups, installedPackages ->
+            InterfacePolicyInput(settings, groups, installedPackages)
+        }.map { input ->
+            resolveInterfacePolicy(input.settings, input.groups, input.installedPackages).signature
+        }.distinctUntilChanged()
+
+    suspend fun requiresInterfacePolicyRebuild(): Boolean {
+        val appliedSignature = currentInterfacePolicySignature ?: return false
+        return isRunning && desiredInterfacePolicySignature() != appliedSignature
+    }
 
     @Suppress("TooGenericExceptionCaught")
     suspend fun start(
@@ -140,16 +171,19 @@ internal class VpnTunnelRuntime(
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns)
         val ipv6 = settings.ipv6Enable
         val tunnelNetworkParameters = vpnHost.currentTunnelNetworkParameters()
-        val appRoutingPlan = vpnHost.resolveAppRoutingPlan(settings)
-        val proxy = settings.toSettingsSections().proxy
-        val httpProxyPort =
-            if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
+        val interfacePolicy =
+            resolveInterfacePolicy(
+                settings = settings,
+                groups = proxyGroupRepository.list(),
+                installedPackages = vpnHost.currentInstalledPackages(),
+            )
+        val appRoutingPlan = interfacePolicy.appRoutingPlan
         val uidPolicy =
             nativeUidPolicyProvider?.invoke(appRoutingPlan)
                 ?: flowAttributionBridge?.nativeUidPolicy(appRoutingPlan)
                 ?: NativeUidPolicy.Disarmed
         val config =
-            RipDpiVpnService.buildTun2SocksConfig(
+            buildVpnTun2SocksConfig(
                 dnsPlan = dnsPlan,
                 overrideReason = overrideReason,
                 localProxyEndpoint = localProxyEndpoint,
@@ -170,13 +204,40 @@ internal class VpnTunnelRuntime(
                 dns = dnsPlan.builderDnsAddress,
                 ipv6 = ipv6,
                 appRoutingPlan = appRoutingPlan,
-                httpProxyPort = httpProxyPort,
+                httpProxyPort = interfacePolicy.httpProxyPort,
+                interfaceSettings = settings,
             )
         return PendingTunnel(
             session = tunnelSession,
             config = config,
             dnsSignature = dnsSignature(activeDns, overrideReason),
-            interfacePolicySignature = vpnTunnelInterfacePolicySignature(settings),
+            interfacePolicySignature = interfacePolicy.signature,
+        )
+    }
+
+    private suspend fun desiredInterfacePolicySignature(): String {
+        val settings = appSettingsRepository.snapshot()
+        return resolveInterfacePolicy(
+            settings = settings,
+            groups = proxyGroupRepository.list(),
+            installedPackages = vpnHost.currentInstalledPackages(),
+        ).signature
+    }
+
+    private suspend fun resolveInterfacePolicy(
+        settings: AppSettings,
+        groups: List<ProxyGroup>,
+        installedPackages: Set<String>,
+    ): ResolvedVpnInterfacePolicy {
+        val packageRoutingRules = groups.flatMap { it.packageRoutingRules }
+        val appRoutingPlan = vpnHost.resolveAppRoutingPlan(settings, packageRoutingRules, installedPackages)
+        val proxy = settings.toSettingsSections().proxy
+        val httpProxyPort =
+            if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
+        return ResolvedVpnInterfacePolicy(
+            appRoutingPlan = appRoutingPlan,
+            httpProxyPort = httpProxyPort,
+            signature = vpnTunnelInterfacePolicySignature(settings, appRoutingPlan, httpProxyPort),
         )
     }
 
@@ -247,6 +308,18 @@ internal class VpnTunnelRuntime(
         val config: Tun2SocksConfig,
         val dnsSignature: String,
         val interfacePolicySignature: String,
+    )
+
+    private data class InterfacePolicyInput(
+        val settings: AppSettings,
+        val groups: List<ProxyGroup>,
+        val installedPackages: Set<String>,
+    )
+
+    private data class ResolvedVpnInterfacePolicy(
+        val appRoutingPlan: VpnAppRoutingPlan,
+        val httpProxyPort: Int?,
+        val signature: String,
     )
 }
 

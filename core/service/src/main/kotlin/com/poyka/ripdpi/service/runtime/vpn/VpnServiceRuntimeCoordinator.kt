@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -84,7 +85,6 @@ import javax.inject.Inject
 @Suppress("LongParameterList")
 internal class VpnServiceRuntimeCoordinator(
     vpnHost: VpnCoordinatorHost,
-    private val appSettingsRepository: AppSettingsRepository,
     connectionPolicyResolver: ConnectionPolicyResolver,
     private val resolverOverrideStore: ResolverOverrideStore,
     serviceRuntimeRegistry: ServiceRuntimeRegistry,
@@ -165,8 +165,6 @@ internal class VpnServiceRuntimeCoordinator(
         VpnTelemetryCoordinator(
             dependencies =
                 object : VpnTelemetryRuntimeDependencies {
-                    override val appSettingsRepository: AppSettingsRepository =
-                        this@VpnServiceRuntimeCoordinator.appSettingsRepository
                     override val host: VpnCoordinatorHost = vpnHost
                     override val ioDispatcher: CoroutineDispatcher = ioDispatcher
                     override val mutex = this@VpnServiceRuntimeCoordinator.mutex
@@ -404,6 +402,7 @@ internal class VpnServiceRuntimeRuntimeDependencies
     @Inject
     constructor(
         val appSettingsRepository: AppSettingsRepository,
+        val proxyGroupRepository: ProxyGroupRepository,
         val connectionPolicyResolver: ConnectionPolicyResolver,
         val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
         val vpnTunnelSessionProvider: VpnTunnelSessionProvider,

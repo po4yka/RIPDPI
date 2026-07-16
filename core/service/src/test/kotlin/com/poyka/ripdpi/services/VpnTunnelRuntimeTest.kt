@@ -34,6 +34,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
                     vpnTunnelSessionProvider =
                         TestVpnTunnelSessionProvider(
@@ -71,6 +72,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
                     nativeUidPolicyProvider = { plan ->
@@ -105,6 +107,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
                     nativeUidPolicyProvider = { plan ->
@@ -149,6 +152,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -176,6 +180,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(settings),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -199,6 +204,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
                     vpnTunnelSessionProvider =
                         TestVpnTunnelSessionProvider(
@@ -239,6 +245,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(settings),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider =
                         TestVpnTunnelSessionProvider(
@@ -272,6 +279,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider =
                         TestVpnTunnelSessionProvider(
@@ -308,6 +316,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
                 )
@@ -351,6 +360,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
                 )
@@ -407,6 +417,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = sessionProvider,
                 )
@@ -454,6 +465,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider =
                         TestVpnTunnelSessionProvider(
@@ -484,6 +496,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -515,6 +528,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(settings),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -538,6 +552,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -569,6 +584,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -591,6 +607,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -605,6 +622,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
@@ -621,6 +639,7 @@ class VpnTunnelRuntimeTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )

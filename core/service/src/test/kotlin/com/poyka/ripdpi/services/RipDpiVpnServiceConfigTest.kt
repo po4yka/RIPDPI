@@ -81,7 +81,7 @@ class RipDpiVpnServiceConfigTest {
     @Test
     fun buildTun2SocksConfigIncludesIpv6TunnelAddressWhenEnabled() {
         val config =
-            RipDpiVpnService.buildTun2SocksConfig(
+            buildVpnTun2SocksConfig(
                 dnsPlan = vpnTunnelDnsPlan(plainDns("2606:4700:4700::1111"), forceTunnelDns = false),
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint,
@@ -114,7 +114,7 @@ class RipDpiVpnServiceConfigTest {
     @Test
     fun buildTun2SocksConfigCarriesNativeUidAdmissionPolicy() {
         val config =
-            RipDpiVpnService.buildTun2SocksConfig(
+            buildVpnTun2SocksConfig(
                 dnsPlan = vpnTunnelDnsPlan(plainDns("1.1.1.1"), forceTunnelDns = false),
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint,
@@ -129,7 +129,7 @@ class RipDpiVpnServiceConfigTest {
     @Test
     fun buildTun2SocksConfigCarriesWebRtcProtection() {
         val config =
-            RipDpiVpnService.buildTun2SocksConfig(
+            buildVpnTun2SocksConfig(
                 dnsPlan = vpnTunnelDnsPlan(plainDns("1.1.1.1"), forceTunnelDns = false),
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint,
@@ -144,7 +144,7 @@ class RipDpiVpnServiceConfigTest {
     fun buildTun2SocksConfigUsesMapDnsAndLeavesIpv6UnsetWhenDisabled() {
         val tlsRootsPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----"
         val config =
-            RipDpiVpnService.buildTun2SocksConfig(
+            buildVpnTun2SocksConfig(
                 dnsPlan = vpnTunnelDnsPlan(encryptedDns(), forceTunnelDns = false),
                 overrideReason = "dns_probe_failed",
                 localProxyEndpoint =
@@ -176,7 +176,7 @@ class RipDpiVpnServiceConfigTest {
     fun buildTun2SocksConfigRoutesPlainDnsThroughMapDnsWhenRelayDnsIsActive() {
         val defaultEncryptedDns = canonicalDefaultEncryptedDnsSettings()
         val config =
-            RipDpiVpnService.buildTun2SocksConfig(
+            buildVpnTun2SocksConfig(
                 dnsPlan = vpnTunnelDnsPlan(plainDns("8.8.8.8"), forceTunnelDns = true),
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint.copy(port = 2080),
@@ -196,7 +196,7 @@ class RipDpiVpnServiceConfigTest {
     @Test
     fun buildTun2SocksConfigPreservesOdohConfigAndRoutesProxyLegThroughRelay() {
         val config =
-            RipDpiVpnService.buildTun2SocksConfig(
+            buildVpnTun2SocksConfig(
                 dnsPlan = vpnTunnelDnsPlan(odohDns(), forceTunnelDns = true),
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint.copy(port = 2080),

@@ -4,8 +4,15 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -29,6 +36,7 @@ class VpnTunnelRefreshCoordinatorTest {
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
                     appSettingsRepository = TestAppSettingsRepository(initialSettings),
+                    proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
                     vpnTunnelSessionProvider = sessionProvider,
                 )
@@ -110,6 +118,127 @@ class VpnTunnelRefreshCoordinatorTest {
             runtime.stop()
         }
 
+    @Test
+    fun effectivePackageRouteChangesRebuildExactlyOncePerGeneration() =
+        runTest {
+            val initialSettings = AppSettingsSerializer.defaultValue
+            val events = mutableListOf<String>()
+            val initialRule = packageRule("com.example.a")
+            val groups = TestProxyGroupRepository(listOf(proxyGroup(listOf(initialRule))))
+            val host =
+                TestVpnServiceHost(backgroundScope).apply {
+                    appRoutingPlanResolver = { _, rules, _ ->
+                        VpnAppRoutingPlan.AllowOnly(rules.mapTo(linkedSetOf()) { it.packageName })
+                    }
+                }
+            val sessionProvider =
+                TestVpnTunnelSessionProvider(
+                    events = events,
+                    session = TestVpnTunnelSession(tunFd = 7, events = events),
+                )
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = host,
+                    appSettingsRepository = TestAppSettingsRepository(initialSettings),
+                    proxyGroupRepository = groups,
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
+                    vpnTunnelSessionProvider = sessionProvider,
+                )
+            runtime.start(
+                activeDns = initialSettings.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+            val session = VpnRuntimeSession(runtimeId = "current")
+            val state = TestRefreshState { session }
+            val updates = mutableListOf<String>()
+            val resolver =
+                TestConnectionPolicyResolver(
+                    sampleResolution(
+                        mode = Mode.VPN,
+                        settings = initialSettings,
+                        activeDns = initialSettings.activeDnsSettings(),
+                    ),
+                )
+            val overrides = TestResolverOverrideStore()
+            val coordinator = buildRefreshCoordinator(runtime, state, resolver, overrides, updates)
+
+            val initialPolicyResolutions = host.appRoutingPlanResolutions
+            repeat(3) { coordinator.refreshIfNeeded(session) }
+            assertEquals(initialPolicyResolutions, host.appRoutingPlanResolutions)
+
+            groups.update(proxyGroup(listOf(initialRule), name = "Metadata only"))
+            coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
+            assertEquals(1, events.count { it == "vpn:establish" })
+
+            groups.update(proxyGroup(listOf(packageRule("com.example.b")), name = "Metadata only"))
+            sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
+            listOf(
+                async { coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true) },
+                async { coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true) },
+            ).awaitAll()
+            assertEquals(2, events.count { it == "vpn:establish" })
+
+            coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
+            assertEquals(2, events.count { it == "vpn:establish" })
+
+            groups.delete("group-1")
+            sessionProvider.session = TestVpnTunnelSession(tunFd = 9, events = events)
+            coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
+
+            assertEquals(3, events.count { it == "vpn:establish" })
+            assertEquals(listOf("current", "current"), updates)
+            runtime.stop()
+        }
+
+    private fun buildRefreshCoordinator(
+        runtime: VpnTunnelRuntime,
+        state: VpnTelemetryStateAccess,
+        resolver: TestConnectionPolicyResolver,
+        overrides: TestResolverOverrideStore,
+        updates: MutableList<String>,
+    ): VpnTunnelRefreshCoordinator =
+        VpnTunnelRefreshCoordinator(
+            dependencies =
+                object : VpnTunnelRefreshDependencies {
+                    override val mutex = Mutex()
+                    override val vpnTunnelRuntime = runtime
+                    override val dnsPolicyCoordinator =
+                        VpnDnsPolicyCoordinator(
+                            resolverRefreshPlanner =
+                                VpnResolverRefreshPlanner(
+                                    connectionPolicyResolver = resolver,
+                                    resolverOverrideStore = overrides,
+                                ),
+                            encryptedDnsFailoverController =
+                                VpnEncryptedDnsFailoverController(
+                                    resolverOverrideStore = overrides,
+                                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                                    networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
+                                    networkFingerprintProvider =
+                                        TestNetworkFingerprintProvider(sampleFingerprint()),
+                                    clock = TestServiceClock(),
+                                ),
+                        )
+                },
+            state = state,
+            callbacks =
+                object : VpnTunnelRefreshCallbacks {
+                    override fun updateRuntimeDnsState(
+                        session: VpnRuntimeSession,
+                        resolution: ConnectionPolicyResolution,
+                    ) {
+                        updates += session.runtimeId
+                    }
+
+                    override fun failTunnelRefresh(
+                        session: VpnRuntimeSession,
+                        error: Exception,
+                    ) = throw AssertionError("Unexpected refresh failure", error)
+                },
+        )
+
     private class TestRefreshState(
         private val sessionProvider: () -> VpnRuntimeSession?,
     ) : VpnTelemetryStateAccess {
@@ -142,6 +271,26 @@ class VpnTunnelRefreshCoordinatorTest {
                 port = 18080,
                 username = VpnLocalProxyUsername,
                 password = TestLocalProxyAuth,
+            )
+
+        fun packageRule(packageName: String): PackageRoutingRule =
+            PackageRoutingRule(
+                packageName = packageName,
+                action = PackageRoutingAction.VIA_TUN,
+                origin = PackageRoutingRuleOrigin.Subscription("sub-1"),
+            )
+
+        fun proxyGroup(
+            rules: List<PackageRoutingRule>,
+            name: String = "Imported",
+        ): ProxyGroup =
+            ProxyGroup(
+                id = "group-1",
+                name = name,
+                type = ProxyGroupType.SUBSCRIPTION,
+                order = 0,
+                isSelector = true,
+                packageRoutingRules = rules,
             )
     }
 }

@@ -2,18 +2,30 @@
 
 package com.poyka.ripdpi.services
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.AppRoutingPolicyCatalog
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.appRoutingPolicyCatalogFromJson
 import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.update
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +45,8 @@ interface VpnAppExclusionPolicy {
     suspend fun appRoutingPlan(
         ownPackage: String,
         settings: AppSettings,
+        packageRoutingRules: Collection<PackageRoutingRule>,
+        installedPackages: Set<String>,
     ): VpnAppRoutingPlan
 }
 
@@ -61,7 +75,11 @@ sealed interface VpnAppRoutingPlan {
  *      - "off" (or "include" with an EMPTY selection, to avoid tunneling nothing) ->
  *        [VpnAppRoutingPlan.Disallow] of own package + preset exclusions (current behavior).
  * The disallow set is a [Set] so a user-selected package that is also a preset exclusion collapses
- * to one entry (no double-matching).
+ * to one entry (no double-matching). Imported/user [packageRoutingRules] refine that base plan:
+ * [PackageRoutingAction.BYPASS] routes direct, while [PackageRoutingAction.VIA_TUN] and legacy
+ * [PackageRoutingAction.VIA_OUTBOUND] force the package into the tunnel. Forced-tunnel wins a
+ * conflict regardless of group/rule order. Only installed packages participate, and imported
+ * rules can never add [ownPackage] to the tunnel.
  */
 internal fun computeAppRoutingPlan(
     fullTunnelMode: Boolean,
@@ -70,24 +88,58 @@ internal fun computeAppRoutingPlan(
     presetExclusions: Collection<String>,
     installedPackages: Set<String>,
     ownPackage: String,
+    packageRoutingRules: Collection<PackageRoutingRule> = emptyList(),
 ): VpnAppRoutingPlan {
     if (fullTunnelMode) return VpnAppRoutingPlan.Disallow(setOf(ownPackage))
     val selection = splitTunnelPackages.filter { it in installedPackages }.toSet()
-    return when (splitTunnelMode) {
-        SplitTunnelMode.Include -> {
-            if (selection.isEmpty()) {
+    val basePlan =
+        when (splitTunnelMode) {
+            SplitTunnelMode.Include -> {
+                if (selection.isEmpty()) {
+                    VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions)
+                } else {
+                    VpnAppRoutingPlan.AllowOnly(selection)
+                }
+            }
+
+            SplitTunnelMode.Exclude -> {
+                VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions + selection)
+            }
+
+            else -> {
                 VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions)
-            } else {
-                VpnAppRoutingPlan.AllowOnly(selection)
             }
         }
-
-        SplitTunnelMode.Exclude -> {
-            VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions + selection)
+    val applicableRules =
+        packageRoutingRules.filter { rule ->
+            rule.packageName != ownPackage && rule.packageName in installedPackages
+        }
+    val forcedTunnel =
+        applicableRules
+            .filter { it.action != PackageRoutingAction.BYPASS }
+            .mapTo(mutableSetOf()) { it.packageName }
+    val bypass =
+        applicableRules
+            .filter { it.action == PackageRoutingAction.BYPASS }
+            .mapTo(mutableSetOf()) { it.packageName }
+            .minus(forcedTunnel)
+    return when (basePlan) {
+        is VpnAppRoutingPlan.Disallow -> {
+            VpnAppRoutingPlan.Disallow(
+                packages = ((basePlan.packages + bypass) - forcedTunnel) + ownPackage,
+            )
         }
 
-        else -> {
-            VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions)
+        is VpnAppRoutingPlan.AllowOnly -> {
+            val allowedPackages = ((basePlan.packages + forcedTunnel) - bypass) - ownPackage
+            if (allowedPackages.isEmpty()) {
+                // Android treats a Builder with no allow/disallow calls as "tunnel every app".
+                // Preserve the empty allowlist meaning by explicitly disallowing every installed
+                // package; the native UID policy then receives the matching non-empty denylist.
+                VpnAppRoutingPlan.Disallow(installedPackages + ownPackage)
+            } else {
+                VpnAppRoutingPlan.AllowOnly(allowedPackages)
+            }
         }
     }
 }
@@ -105,6 +157,40 @@ interface AppRoutingCatalogProvider {
 
 interface InstalledPackagesProvider {
     fun installedPackages(): Set<String>
+
+    fun observeInstalledPackages(): Flow<Set<String>> = flowOf(installedPackages())
+}
+
+internal fun applyInstalledPackageEvent(
+    current: Set<String>,
+    action: String?,
+    packageName: String,
+    replacing: Boolean,
+    installed: Boolean,
+): Set<String> =
+    when (action) {
+        Intent.ACTION_PACKAGE_ADDED,
+        Intent.ACTION_PACKAGE_CHANGED,
+        Intent.ACTION_PACKAGE_REPLACED,
+        -> if (installed) current + packageName else current - packageName
+
+        Intent.ACTION_PACKAGE_REMOVED,
+        Intent.ACTION_PACKAGE_FULLY_REMOVED,
+        -> if (replacing) current else current - packageName
+
+        else -> current
+    }
+
+internal fun initializeInstalledPackageSnapshot(
+    packages: MutableStateFlow<Set<String>>,
+    loadInstalledPackages: () -> Set<String>,
+    registerReceiver: () -> Unit,
+) {
+    packages.value = loadInstalledPackages()
+    registerReceiver()
+    // Package broadcasts are non-sticky. Close the snapshot-to-registration gap so an add or
+    // removal in that window cannot leave the cache stale until another package event arrives.
+    packages.value = loadInstalledPackages()
 }
 
 @Singleton
@@ -134,13 +220,74 @@ class PackageManagerInstalledPackagesProvider
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : InstalledPackagesProvider {
-        override fun installedPackages(): Set<String> =
+        private val packages = MutableStateFlow(emptySet<String>())
+        private val packageChangeReceiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    context: Context?,
+                    intent: Intent?,
+                ) {
+                    val packageName = intent?.data?.schemeSpecificPart?.takeIf(String::isNotBlank) ?: return
+                    val action = intent.action
+                    val requiresPresenceCheck =
+                        action == Intent.ACTION_PACKAGE_ADDED ||
+                            action == Intent.ACTION_PACKAGE_CHANGED ||
+                            action == Intent.ACTION_PACKAGE_REPLACED
+                    packages.update { current ->
+                        applyInstalledPackageEvent(
+                            current = current,
+                            action = action,
+                            packageName = packageName,
+                            replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false),
+                            installed = !requiresPresenceCheck || isInstalled(packageName),
+                        )
+                    }
+                }
+            }
+
+        init {
+            val filter =
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_PACKAGE_ADDED)
+                    addAction(Intent.ACTION_PACKAGE_CHANGED)
+                    addAction(Intent.ACTION_PACKAGE_REPLACED)
+                    addAction(Intent.ACTION_PACKAGE_REMOVED)
+                    addAction(Intent.ACTION_PACKAGE_FULLY_REMOVED)
+                    addDataScheme("package")
+                }
+            initializeInstalledPackageSnapshot(
+                packages = packages,
+                loadInstalledPackages = ::loadInstalledPackages,
+                registerReceiver = {
+                    ContextCompat.registerReceiver(
+                        context,
+                        packageChangeReceiver,
+                        filter,
+                        ContextCompat.RECEIVER_NOT_EXPORTED,
+                    )
+                },
+            )
+        }
+
+        override fun installedPackages(): Set<String> = packages.value
+
+        override fun observeInstalledPackages(): Flow<Set<String>> = packages.asStateFlow()
+
+        private fun loadInstalledPackages(): Set<String> =
             context.packageManager
                 .getInstalledApplications(0)
                 .asSequence()
                 .map(ApplicationInfo::packageName)
                 .filter(String::isNotBlank)
                 .toSet()
+
+        private fun isInstalled(packageName: String): Boolean =
+            try {
+                context.packageManager.getApplicationInfo(packageName, 0)
+                true
+            } catch (_: PackageManager.NameNotFoundException) {
+                false
+            }
     }
 
 @Singleton
@@ -164,8 +311,9 @@ class DefaultVpnAppExclusionPolicy
         override suspend fun appRoutingPlan(
             ownPackage: String,
             settings: AppSettings,
+            packageRoutingRules: Collection<PackageRoutingRule>,
+            installedPackages: Set<String>,
         ): VpnAppRoutingPlan {
-            val installedPackages = installedPackagesProvider.installedPackages()
             val presetExclusions =
                 if (settings.fullTunnelMode) {
                     emptyList()
@@ -179,6 +327,7 @@ class DefaultVpnAppExclusionPolicy
                 presetExclusions = presetExclusions,
                 installedPackages = installedPackages,
                 ownPackage = ownPackage,
+                packageRoutingRules = packageRoutingRules,
             )
         }
 

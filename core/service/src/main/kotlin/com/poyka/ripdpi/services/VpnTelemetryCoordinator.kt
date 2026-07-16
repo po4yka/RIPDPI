@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStatus
@@ -13,7 +12,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 
 internal interface VpnTelemetryRuntimeDependencies {
-    val appSettingsRepository: AppSettingsRepository
     val host: VpnCoordinatorHost
     val ioDispatcher: CoroutineDispatcher
     val mutex: Mutex
@@ -129,13 +127,10 @@ internal class VpnTelemetryCoordinator(
         }
 
     private suspend fun observeBuilderAffectingSettings(tunnelRefreshCoordinator: VpnTunnelRefreshCoordinator) {
-        dependencies.appSettingsRepository.settings.collect { settings ->
+        dependencies.vpnTunnelRuntime.desiredInterfacePolicySignatures().collect {
             if (state.status() != ServiceStatus.Connected) return@collect
-            val appliedSignature = dependencies.vpnTunnelRuntime.currentInterfacePolicySignature ?: return@collect
-            val currentSignature = vpnTunnelInterfacePolicySignature(settings)
-            if (currentSignature == appliedSignature) return@collect
             val session = state.runtimeSession() ?: return@collect
-            tunnelRefreshCoordinator.refreshIfNeeded(session)
+            tunnelRefreshCoordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
         }
     }
 }

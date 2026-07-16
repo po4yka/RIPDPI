@@ -1,8 +1,13 @@
 package com.poyka.ripdpi.services
 
+import android.content.Intent
 import com.poyka.ripdpi.data.AppRoutingPolicyCatalog
 import com.poyka.ripdpi.data.AppRoutingPolicyPreset
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.routing.PackageRoutingAction
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -120,7 +125,13 @@ class VpnAppExclusionPolicyTest {
                     installedPackagesProvider = FakeInstalledPackagesProvider(setOf("com.example.allowed")),
                 )
 
-            val plan = policy.appRoutingPlan(OWN_PACKAGE, suppliedSettings)
+            val plan =
+                policy.appRoutingPlan(
+                    ownPackage = OWN_PACKAGE,
+                    settings = suppliedSettings,
+                    packageRoutingRules = emptyList(),
+                    installedPackages = setOf("com.example.allowed"),
+                )
 
             assertEquals(VpnAppRoutingPlan.AllowOnly(setOf("com.example.allowed")), plan)
         }
@@ -234,6 +245,152 @@ class VpnAppExclusionPolicyTest {
         // and not-installed RuStore is dropped by the installed-set filter.
         assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE, sber)), plan)
     }
+
+    @Test
+    fun `subscription rules refine disallow plan and forced tunnel wins conflicts`() {
+        val forced = "com.example.forced"
+        val bypass = "com.example.bypass"
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Exclude,
+                splitTunnelPackages = listOf(forced),
+                presetExclusions = listOf(forced),
+                installedPackages = setOf(forced, bypass, OWN_PACKAGE),
+                ownPackage = OWN_PACKAGE,
+                packageRoutingRules =
+                    listOf(
+                        packageRule(forced, PackageRoutingAction.BYPASS),
+                        packageRule(bypass, PackageRoutingAction.BYPASS),
+                        packageRule(forced, PackageRoutingAction.VIA_TUN),
+                    ),
+            )
+
+        assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE, bypass)), plan)
+    }
+
+    @Test
+    fun `subscription rules refine allowlist and ignore own and uninstalled packages`() {
+        val selected = "com.example.selected"
+        val forced = "com.example.forced"
+        val bypass = "com.example.bypass"
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Include,
+                splitTunnelPackages = listOf(selected, bypass),
+                presetExclusions = emptyList(),
+                installedPackages = setOf(selected, forced, bypass, OWN_PACKAGE),
+                ownPackage = OWN_PACKAGE,
+                packageRoutingRules =
+                    listOf(
+                        packageRule(bypass, PackageRoutingAction.BYPASS),
+                        packageRule(forced, PackageRoutingAction.VIA_OUTBOUND),
+                        packageRule(OWN_PACKAGE, PackageRoutingAction.VIA_TUN),
+                        packageRule("com.example.stale", PackageRoutingAction.VIA_TUN),
+                    ),
+            )
+
+        assertEquals(VpnAppRoutingPlan.AllowOnly(setOf(selected, forced)), plan)
+    }
+
+    @Test
+    fun `bypassing the last allowlisted package does not fall back to tunneling every app`() {
+        val selected = "com.example.selected"
+        val other = "com.example.other"
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Include,
+                splitTunnelPackages = listOf(selected),
+                presetExclusions = emptyList(),
+                installedPackages = setOf(selected, other, OWN_PACKAGE),
+                ownPackage = OWN_PACKAGE,
+                packageRoutingRules = listOf(packageRule(selected, PackageRoutingAction.BYPASS)),
+            )
+
+        assertEquals(VpnAppRoutingPlan.Disallow(setOf(selected, other, OWN_PACKAGE)), plan)
+    }
+
+    @Test
+    fun `full tunnel ignores subscription package rules`() {
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = true,
+                splitTunnelMode = SplitTunnelMode.Include,
+                splitTunnelPackages = emptyList(),
+                presetExclusions = emptyList(),
+                installedPackages = setOf("com.example.app", OWN_PACKAGE),
+                ownPackage = OWN_PACKAGE,
+                packageRoutingRules = listOf(packageRule("com.example.app", PackageRoutingAction.BYPASS)),
+            )
+
+        assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE)), plan)
+    }
+
+    @Test
+    fun `package install and removal events advance the cached installed set`() {
+        val installed =
+            applyInstalledPackageEvent(
+                current = setOf("com.example.old"),
+                action = Intent.ACTION_PACKAGE_ADDED,
+                packageName = "com.example.new",
+                replacing = false,
+                installed = true,
+            )
+        val removed =
+            applyInstalledPackageEvent(
+                current = installed,
+                action = Intent.ACTION_PACKAGE_REMOVED,
+                packageName = "com.example.old",
+                replacing = false,
+                installed = false,
+            )
+
+        assertEquals(setOf("com.example.new"), removed)
+    }
+
+    @Test
+    fun `package replacement removal preserves the cached package`() {
+        val packages = setOf("com.example.app")
+
+        assertEquals(
+            packages,
+            applyInstalledPackageEvent(
+                current = packages,
+                action = Intent.ACTION_PACKAGE_REMOVED,
+                packageName = "com.example.app",
+                replacing = true,
+                installed = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `package cache resnapshots after receiver registration`() {
+        val packages = MutableStateFlow(emptySet<String>())
+        var installed = setOf("com.example.before")
+
+        initializeInstalledPackageSnapshot(
+            packages = packages,
+            loadInstalledPackages = { installed },
+            registerReceiver = {
+                installed = setOf("com.example.after")
+            },
+        )
+
+        assertEquals(setOf("com.example.after"), packages.value)
+    }
+
+    private fun packageRule(
+        packageName: String,
+        action: PackageRoutingAction,
+    ): PackageRoutingRule =
+        PackageRoutingRule(
+            packageName = packageName,
+            action = action,
+            origin = PackageRoutingRuleOrigin.Subscription("fixture-group"),
+        )
 
     private companion object {
         const val OWN_PACKAGE = "com.poyka.ripdpi"

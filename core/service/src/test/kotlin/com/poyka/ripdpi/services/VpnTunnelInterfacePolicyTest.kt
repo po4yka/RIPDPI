@@ -7,21 +7,45 @@ import org.junit.Test
 
 class VpnTunnelInterfacePolicyTest {
     @Test
-    fun signatureChangesWhenAppRoutingPresetChanges() {
-        val initial =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setAppRoutingPolicyMode("off")
-                .clearAppRoutingEnabledPresetIds()
-                .build()
+    fun signatureChangesWhenEffectiveAppRoutingPlanChanges() {
+        val initial = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi", "com.example.a"))
+        val updated = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi", "com.example.b"))
+
+        assertNotEquals(signature(initial), signature(updated))
+    }
+
+    @Test
+    fun signatureDistinguishesAllowlistAndDenylistPlans() {
+        val packages = setOf("com.example.app")
+
+        assertNotEquals(
+            signature(VpnAppRoutingPlan.AllowOnly(packages)),
+            signature(VpnAppRoutingPlan.Disallow(packages)),
+        )
+    }
+
+    @Test
+    fun signatureCanonicalizesEffectivePackageOrder() {
+        val first = VpnAppRoutingPlan.AllowOnly(linkedSetOf("com.example.b", "com.example.a"))
+        val second = VpnAppRoutingPlan.AllowOnly(linkedSetOf("com.example.a", "com.example.b"))
+
+        assertEquals(signature(first), signature(second))
+    }
+
+    @Test
+    fun signatureIgnoresRoutingMetadataWhenEffectivePlanIsUnchanged() {
+        val initial = AppSettingsSerializer.defaultValue
         val updated =
             initial
                 .toBuilder()
+                .setSplitTunnelMode(SplitTunnelMode.Exclude)
+                .addSplitTunnelPackages("com.example.app")
                 .setAppRoutingPolicyMode("prompt")
                 .addAppRoutingEnabledPresetIds("russian-mainstream")
                 .build()
+        val plan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi"))
 
-        assertNotEquals(vpnTunnelInterfacePolicySignature(initial), vpnTunnelInterfacePolicySignature(updated))
+        assertEquals(signature(plan, initial), signature(plan, updated))
     }
 
     @Test
@@ -31,136 +55,38 @@ class VpnTunnelInterfacePolicyTest {
                 .toBuilder()
                 .setDhtMitigationMode("off")
                 .build()
-        val updated =
-            initial
-                .toBuilder()
-                .setDhtMitigationMode("bypass")
-                .build()
+        val updated = initial.toBuilder().setDhtMitigationMode("bypass").build()
+        val plan = VpnAppRoutingPlan.Disallow(emptySet())
 
-        assertNotEquals(vpnTunnelInterfacePolicySignature(initial), vpnTunnelInterfacePolicySignature(updated))
+        assertNotEquals(signature(plan, initial), signature(plan, updated))
     }
 
     @Test
-    fun signatureSortsAppRoutingPresetIds() {
-        val first =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .addAppRoutingEnabledPresetIds("vk")
-                .addAppRoutingEnabledPresetIds("russian-mainstream")
-                .build()
-        val second =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .addAppRoutingEnabledPresetIds("russian-mainstream")
-                .addAppRoutingEnabledPresetIds("vk")
-                .build()
-
-        assertEquals(vpnTunnelInterfacePolicySignature(first), vpnTunnelInterfacePolicySignature(second))
-    }
-
-    @Test
-    fun signatureChangesWhenSplitTunnelModeChanges() {
+    fun signatureChangesWhenIpv6Changes() {
         val initial =
             AppSettingsSerializer.defaultValue
                 .toBuilder()
-                .setSplitTunnelMode(SplitTunnelMode.Off)
+                .setIpv6Enable(false)
                 .build()
-        val updated = initial.toBuilder().setSplitTunnelMode(SplitTunnelMode.Exclude).build()
+        val updated = initial.toBuilder().setIpv6Enable(true).build()
+        val plan = VpnAppRoutingPlan.Disallow(emptySet())
 
-        assertNotEquals(vpnTunnelInterfacePolicySignature(initial), vpnTunnelInterfacePolicySignature(updated))
+        assertNotEquals(signature(plan, initial), signature(plan, updated))
     }
 
     @Test
-    fun signatureChangesWhenSplitTunnelPackageSetChanges() {
-        val initial =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setSplitTunnelMode(SplitTunnelMode.Exclude)
-                .addSplitTunnelPackages("com.example.first")
-                .build()
-        val updated = initial.toBuilder().addSplitTunnelPackages("com.example.second").build()
-
-        assertNotEquals(vpnTunnelInterfacePolicySignature(initial), vpnTunnelInterfacePolicySignature(updated))
-    }
-
-    @Test
-    fun signatureCanonicalizesSplitTunnelSettings() {
-        val first =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setSplitTunnelMode(SplitTunnelMode.Exclude)
-                .addSplitTunnelPackages("com.example.second")
-                .addSplitTunnelPackages("")
-                .addSplitTunnelPackages("com.example.first")
-                .addSplitTunnelPackages("com.example.first")
-                .build()
-        val second =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setSplitTunnelMode(SplitTunnelMode.Exclude)
-                .addSplitTunnelPackages("com.example.first")
-                .addSplitTunnelPackages("com.example.second")
-                .build()
-
-        assertEquals(vpnTunnelInterfacePolicySignature(first), vpnTunnelInterfacePolicySignature(second))
-    }
-
-    @Test
-    fun signatureDistinguishesNonCanonicalSplitTunnelValues() {
-        val nonCanonicalMode =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setSplitTunnelMode("EXCLUDE")
-                .build()
-        val canonicalMode = nonCanonicalMode.toBuilder().setSplitTunnelMode(SplitTunnelMode.Exclude).build()
-        val paddedPackage =
-            canonicalMode
-                .toBuilder()
-                .addSplitTunnelPackages(" com.example.app ")
-                .build()
-        val canonicalPackage =
-            canonicalMode
-                .toBuilder()
-                .addSplitTunnelPackages("com.example.app")
-                .build()
+    fun signatureChangesWhenHttpProxyListenerChanges() {
+        val plan = VpnAppRoutingPlan.Disallow(emptySet())
 
         assertNotEquals(
-            vpnTunnelInterfacePolicySignature(nonCanonicalMode),
-            vpnTunnelInterfacePolicySignature(canonicalMode),
-        )
-        assertNotEquals(
-            vpnTunnelInterfacePolicySignature(paddedPackage),
-            vpnTunnelInterfacePolicySignature(canonicalPackage),
+            signature(plan, httpProxyPort = null),
+            signature(plan, httpProxyPort = 2080),
         )
     }
 
-    @Test
-    fun signatureIgnoresSplitTunnelPackagesWhenModeIsOff() {
-        val first =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setSplitTunnelMode(SplitTunnelMode.Off)
-                .build()
-        val second = first.toBuilder().addSplitTunnelPackages("com.example.app").build()
-
-        assertEquals(vpnTunnelInterfacePolicySignature(first), vpnTunnelInterfacePolicySignature(second))
-    }
-
-    @Test
-    fun signatureIgnoresSplitTunnelSettingsWhenFullTunnelWins() {
-        val first =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setFullTunnelMode(true)
-                .setSplitTunnelMode(SplitTunnelMode.Off)
-                .build()
-        val second =
-            first
-                .toBuilder()
-                .setSplitTunnelMode(SplitTunnelMode.Include)
-                .addSplitTunnelPackages("com.example.app")
-                .build()
-
-        assertEquals(vpnTunnelInterfacePolicySignature(first), vpnTunnelInterfacePolicySignature(second))
-    }
+    private fun signature(
+        plan: VpnAppRoutingPlan,
+        settings: com.poyka.ripdpi.proto.AppSettings = AppSettingsSerializer.defaultValue,
+        httpProxyPort: Int? = null,
+    ): String = vpnTunnelInterfacePolicySignature(settings, plan, httpProxyPort)
 }

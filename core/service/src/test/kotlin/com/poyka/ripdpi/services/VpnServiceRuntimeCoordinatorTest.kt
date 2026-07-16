@@ -886,7 +886,6 @@ class VpnServiceRuntimeCoordinatorTest {
         val tunnelRuntime = buildTestVpnTunnelRuntime(host, appSettingsRepository, events)
         return VpnServiceRuntimeCoordinator(
             vpnHost = host,
-            appSettingsRepository = appSettingsRepository,
             connectionPolicyResolver = resolver,
             resolverOverrideStore = overrides,
             serviceRuntimeRegistry = runtimeRegistry,
@@ -940,6 +939,7 @@ class VpnServiceRuntimeCoordinatorTest {
         VpnTunnelRuntime(
             vpnHost = host,
             appSettingsRepository = appSettingsRepository,
+            proxyGroupRepository = TestProxyGroupRepository(),
             tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
             vpnTunnelSessionProvider =
                 TestVpnTunnelSessionProvider(
@@ -1044,6 +1044,9 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                     appSettingsRepository = repository,
                 )
+            env.host.appRoutingPlanResolver = { settings, _, _ ->
+                VpnAppRoutingPlan.Disallow(settings.appRoutingEnabledPresetIdsList.toSet())
+            }
 
             env.coordinator.start()
             runCurrent()
@@ -1131,13 +1134,13 @@ class VpnServiceRuntimeCoordinatorTest {
             VpnTunnelRuntime(
                 vpnHost = host,
                 appSettingsRepository = appSettingsRepository,
+                proxyGroupRepository = TestProxyGroupRepository(),
                 tun2SocksBridgeFactory = bridgeFactory,
                 vpnTunnelSessionProvider = tunnelProvider,
             )
         val coordinator =
             VpnServiceRuntimeCoordinator(
                 vpnHost = host,
-                appSettingsRepository = appSettingsRepository,
                 connectionPolicyResolver = resolver,
                 resolverOverrideStore = overrides,
                 serviceRuntimeRegistry = runtimeRegistry,

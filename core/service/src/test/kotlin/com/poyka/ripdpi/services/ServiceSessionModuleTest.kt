@@ -301,6 +301,7 @@ class ServiceSessionModuleTest {
     ): VpnServiceRuntimeRuntimeDependencies =
         VpnServiceRuntimeRuntimeDependencies(
             appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+            proxyGroupRepository = TestProxyGroupRepository(),
             connectionPolicyResolver = resolver,
             tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
             vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),

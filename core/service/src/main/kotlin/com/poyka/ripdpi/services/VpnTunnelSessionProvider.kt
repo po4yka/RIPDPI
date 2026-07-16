@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.os.ParcelFileDescriptor
+import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -31,6 +32,7 @@ interface VpnTunnelSessionProvider {
         dns: String,
         ipv6: Boolean,
         appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int? = null,
     ): VpnTunnelSession
 }
@@ -44,10 +46,13 @@ class DefaultVpnTunnelSessionProvider
             dns: String,
             ipv6: Boolean,
             appRoutingPlan: VpnAppRoutingPlan,
+            interfaceSettings: AppSettings,
             httpProxyPort: Int?,
         ): VpnTunnelSession {
             val descriptor =
-                host.createTunnelBuilder(dns, ipv6, appRoutingPlan, httpProxyPort).establish()
+                host
+                    .createTunnelBuilder(dns, ipv6, appRoutingPlan, interfaceSettings, httpProxyPort)
+                    .establish()
                     ?: error("VPN connection failed")
             return descriptor
         }

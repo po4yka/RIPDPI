@@ -2,9 +2,12 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 internal interface ServiceHost {
     val serviceScope: CoroutineScope
@@ -31,12 +34,21 @@ interface VpnTunnelBuilderHost {
         dns: String,
         ipv6: Boolean,
         appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int? = null,
     ): VpnTunnelBuilder
 
     fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()
 
-    suspend fun resolveAppRoutingPlan(settings: AppSettings): VpnAppRoutingPlan
+    fun currentInstalledPackages(): Set<String> = emptySet()
+
+    fun observeInstalledPackages(): Flow<Set<String>> = flowOf(currentInstalledPackages())
+
+    suspend fun resolveAppRoutingPlan(
+        settings: AppSettings,
+        packageRoutingRules: Collection<PackageRoutingRule>,
+        installedPackages: Set<String>,
+    ): VpnAppRoutingPlan
 }
 
 internal interface VpnServiceHost :

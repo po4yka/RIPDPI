@@ -94,6 +94,7 @@ internal object VpnServiceSessionModule {
         VpnTunnelRuntime(
             vpnHost = host,
             appSettingsRepository = dependencies.appSettingsRepository,
+            proxyGroupRepository = dependencies.proxyGroupRepository,
             tun2SocksBridgeFactory = dependencies.tun2SocksBridgeFactory,
             vpnTunnelSessionProvider = dependencies.vpnTunnelSessionProvider,
             protectPath = protectSocketServer.socketPath,
@@ -280,7 +281,6 @@ internal object VpnServiceSessionModule {
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
             vpnHost = host,
-            appSettingsRepository = runtimeDependencies.appSettingsRepository,
             connectionPolicyResolver = runtimeDependencies.connectionPolicyResolver,
             resolverOverrideStore = runtimeDependencies.resolverOverrideStore,
             serviceRuntimeRegistry = runtimeDependencies.serviceRuntimeRegistry,

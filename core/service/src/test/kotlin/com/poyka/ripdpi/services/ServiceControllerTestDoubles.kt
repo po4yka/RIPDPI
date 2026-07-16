@@ -32,6 +32,8 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -66,6 +68,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
+import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.service.awg.AmneziaWgRuntimeConfigResolver
 import com.poyka.ripdpi.service.warp.WarpRuntimeConfigResolver
@@ -601,6 +604,28 @@ internal class TestAppSettingsRepository(
     override suspend fun replace(settings: AppSettings) {
         state.value = settings
     }
+}
+
+internal class TestProxyGroupRepository(
+    initial: List<ProxyGroup> = emptyList(),
+) : ProxyGroupRepository {
+    private val state = MutableStateFlow(initial)
+
+    override suspend fun add(group: ProxyGroup) {
+        state.value = state.value.filterNot { it.id == group.id } + group
+    }
+
+    override suspend fun update(group: ProxyGroup) {
+        state.value = state.value.map { if (it.id == group.id) group else it }
+    }
+
+    override suspend fun delete(id: String) {
+        state.value = state.value.filterNot { it.id == id }
+    }
+
+    override suspend fun list(): List<ProxyGroup> = state.value
+
+    override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
 }
 
 internal class TestConnectionPolicyResolver(
@@ -1141,17 +1166,21 @@ internal class TestVpnTunnelSessionProvider(
         private set
     var lastAppRoutingPlan: VpnAppRoutingPlan? = null
         private set
+    var lastInterfaceSettings: AppSettings? = null
+        private set
 
     override suspend fun establish(
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
         appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int?,
     ): VpnTunnelSession {
         lastDns = dns
         lastIpv6 = ipv6
         lastAppRoutingPlan = appRoutingPlan
+        lastInterfaceSettings = interfaceSettings
         events += "vpn:establish"
         beforeEstablish?.invoke()
         establishFailure?.let { throw it }
@@ -1180,12 +1209,21 @@ internal class TestProxyServiceHost(
 internal class TestVpnServiceHost(
     override val serviceScope: CoroutineScope,
 ) : VpnCoordinatorHost {
+    private val installedPackagesState = MutableStateFlow<Set<String>>(emptySet())
     val notifications = mutableListOf<Pair<TunnelStats, NativeRuntimeSnapshot>>()
     val stopRequests = mutableListOf<Int?>()
     var underlyingNetworkSyncs: Int = 0
     var builderSession: VpnTunnelSession? = TestVpnTunnelSession()
     var tunnelNetworkParameters: VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()
     var appRoutingPlan: VpnAppRoutingPlan = VpnAppRoutingPlan.Disallow(emptySet())
+    var appRoutingPlanResolver:
+        ((AppSettings, Collection<PackageRoutingRule>, Set<String>) -> VpnAppRoutingPlan)? = null
+    var lastPackageRoutingRules: Collection<PackageRoutingRule> = emptyList()
+        private set
+    var lastInstalledPackages: Set<String> = emptySet()
+        private set
+    var appRoutingPlanResolutions: Int = 0
+        private set
     var lastBuilderAppRoutingPlan: VpnAppRoutingPlan? = null
         private set
 
@@ -1206,12 +1244,30 @@ internal class TestVpnServiceHost(
 
     override fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = tunnelNetworkParameters
 
-    override suspend fun resolveAppRoutingPlan(settings: AppSettings): VpnAppRoutingPlan = appRoutingPlan
+    override fun currentInstalledPackages(): Set<String> = installedPackagesState.value
+
+    override fun observeInstalledPackages(): Flow<Set<String>> = installedPackagesState.asStateFlow()
+
+    fun updateInstalledPackages(packages: Set<String>) {
+        installedPackagesState.value = packages
+    }
+
+    override suspend fun resolveAppRoutingPlan(
+        settings: AppSettings,
+        packageRoutingRules: Collection<PackageRoutingRule>,
+        installedPackages: Set<String>,
+    ): VpnAppRoutingPlan {
+        appRoutingPlanResolutions += 1
+        lastPackageRoutingRules = packageRoutingRules
+        lastInstalledPackages = installedPackages
+        return appRoutingPlanResolver?.invoke(settings, packageRoutingRules, installedPackages) ?: appRoutingPlan
+    }
 
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
         appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int?,
     ): VpnTunnelBuilder =
         object : VpnTunnelBuilder {
