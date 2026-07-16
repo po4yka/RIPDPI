@@ -77,7 +77,6 @@ class DefaultConnectionPolicyResolver
         private val serverCapabilityStore: ServerCapabilityStore,
         private val antiCorrelationRoutingPolicy: AntiCorrelationRoutingPolicy,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
         private val awgEgressSelectionProvider: AwgEgressSelectionProvider,
@@ -85,7 +84,6 @@ class DefaultConnectionPolicyResolver
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
                 networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
-                startupDnsProbe = startupDnsProbe,
                 resolverMappingPolicy = ResolverMappingPolicy(),
                 resolverMappingCache = ResolverMappingCache(),
             )

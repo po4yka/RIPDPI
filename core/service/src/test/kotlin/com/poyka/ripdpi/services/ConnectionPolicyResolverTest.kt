@@ -122,6 +122,70 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
+    fun `vpn cold start without network fingerprint uses encrypted dns default`() =
+        runTest {
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(null),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
+            assertEquals(EncryptedDnsProtocolDoh, resolution.activeDns.encryptedDnsProtocol)
+            assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
+        }
+
+    @Test
+    fun `remembered vpn dns policy beats cold start encrypted default`() =
+        runTest {
+            val rememberedStore =
+                TestRememberedNetworkPolicyStore().apply {
+                    validatedMatch =
+                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                            proxyConfigJson = RipDpiProxyUIPreferences().toNativeConfigJson(),
+                            vpnDnsPolicyJson = Json.encodeToString(cloudflareRememberedPolicy()),
+                        )
+                }
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository =
+                        TestAppSettingsRepository(
+                            plainUdpSettings()
+                                .toBuilder()
+                                .setNetworkStrategyMemoryEnabled(true)
+                                .build(),
+                        ),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
+            assertEquals(DnsProviderCloudflare, resolution.activeDns.providerId)
+            assertEquals("cloudflare-dns.com", resolution.activeDns.encryptedDnsHost)
+        }
+
+    @Test
     fun `proxy mode ignores vpn-only preferred and remembered dns state`() =
         runTest {
             val baseDns = resolveEffectiveDns(encryptedGoogleSettings(), override = null).activeDns
@@ -168,7 +232,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = edgeStore,
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
@@ -208,7 +271,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = rootHelper,
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
@@ -244,7 +306,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
@@ -306,7 +367,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = rememberedStore,
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
@@ -355,7 +415,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = rememberedStore,
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
@@ -409,7 +468,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
@@ -457,7 +515,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
@@ -499,7 +556,6 @@ class ConnectionPolicyResolverTest {
                     networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                     antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,

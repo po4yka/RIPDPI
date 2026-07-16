@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.TransportPolicyEnvelope
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
+import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.toActiveDnsSettings
 import javax.inject.Inject
@@ -27,7 +28,6 @@ internal class ConnectionPolicyDnsSelector
     @Inject
     constructor(
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
-        private val startupDnsProbe: VpnStartupDnsProbe,
         private val resolverMappingPolicy: ResolverMappingPolicy,
         private val resolverMappingCache: ResolverMappingCache,
     ) {
@@ -36,18 +36,35 @@ internal class ConnectionPolicyDnsSelector
             dnsResolution: EffectiveDnsResolution,
             networkScopeKey: String?,
             directPathCapabilities: List<RipDpiDirectPathCapability>,
-        ): VpnDnsSelection =
-            resolveVpnDnsSelection(
+        ): VpnDnsSelection {
+            val preferredPath =
+                resolvePreferredVpnDnsPath(
+                    mode = mode,
+                    dnsResolution = dnsResolution,
+                    networkScopeKey = networkScopeKey,
+                    directPathCapabilities = directPathCapabilities,
+                )
+            val baseDns =
+                if (shouldUseEncryptedFallback(mode, dnsResolution, preferredPath)) {
+                    canonicalDefaultEncryptedDnsPathCandidate().toActiveDnsSettings()
+                } else {
+                    dnsResolution.activeDns
+                }
+            return resolveVpnDnsSelection(
                 mode = mode,
-                baseDns = dnsResolution.activeDns,
-                preferredPath =
-                    resolvePreferredVpnDnsPath(
-                        mode = mode,
-                        dnsResolution = dnsResolution,
-                        networkScopeKey = networkScopeKey,
-                        directPathCapabilities = directPathCapabilities,
-                    ),
+                baseDns = baseDns,
+                preferredPath = preferredPath,
             )
+        }
+
+        private fun shouldUseEncryptedFallback(
+            mode: Mode,
+            dnsResolution: EffectiveDnsResolution,
+            preferredPath: EncryptedDnsPathCandidate?,
+        ): Boolean {
+            if (mode != Mode.VPN || dnsResolution.override != null) return false
+            return preferredPath == null && dnsResolution.activeDns.isPlainUdp
+        }
 
         fun rememberedSelection(
             mode: Mode,
@@ -68,14 +85,16 @@ internal class ConnectionPolicyDnsSelector
             dnsResolution: EffectiveDnsResolution,
             networkScopeKey: String?,
             directPathCapabilities: List<RipDpiDirectPathCapability>,
-        ): EncryptedDnsPathCandidate? =
-            if (mode == Mode.VPN && dnsResolution.override == null && networkScopeKey != null) {
-                networkDnsPathPreferenceStore.getPreferredPath(networkScopeKey)
-                    ?: derivePreferredVpnDnsPathFromDirectPathCapabilities(networkScopeKey, directPathCapabilities)
-                    ?: startupDnsProbe.probeIfTampered(dnsResolution.activeDns.mode)
-            } else {
-                null
-            }
+        ): EncryptedDnsPathCandidate? {
+            if (mode != Mode.VPN || dnsResolution.override != null) return null
+
+            val learnedPath =
+                networkScopeKey?.let { scopeKey ->
+                    networkDnsPathPreferenceStore.getPreferredPath(scopeKey)
+                        ?: derivePreferredVpnDnsPathFromDirectPathCapabilities(scopeKey, directPathCapabilities)
+                }
+            return learnedPath
+        }
 
         private fun derivePreferredVpnDnsPathFromDirectPathCapabilities(
             networkScopeKey: String,

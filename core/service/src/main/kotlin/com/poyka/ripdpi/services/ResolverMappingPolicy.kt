@@ -5,7 +5,6 @@ import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.TransportPolicyEnvelope
-import java.net.InetAddress
 import javax.inject.Inject
 
 internal enum class ResolvedIpFamily {
@@ -118,16 +117,57 @@ internal class ResolverMappingPolicy
             }
 
         private fun String.parseIpFamily(): ResolvedIpFamily? =
-            runCatching { InetAddress.getByName(trim()) }
-                .getOrNull()
-                ?.hostAddress
-                ?.let { parsed ->
-                    if (":" in parsed) {
-                        ResolvedIpFamily.IPV6
-                    } else {
-                        ResolvedIpFamily.IPV4
-                    }
+            trim().let { value ->
+                when {
+                    value.isIpv4Literal() -> ResolvedIpFamily.IPV4
+                    value.isIpv6Literal() -> ResolvedIpFamily.IPV6
+                    else -> null
                 }
+            }
     }
 
+private fun String.isIpv4Literal(): Boolean {
+    val octets = split('.')
+    return octets.size == Ipv4OctetCount &&
+        octets.all { octet ->
+            octet.isNotEmpty() &&
+                octet.all(Char::isDigit) &&
+                octet.toIntOrNull()?.let(Ipv4OctetRange::contains) == true
+        }
+}
+
+private fun String.isIpv6Literal(): Boolean {
+    val compressionIndex = indexOf("::")
+    val components = split(':').filter(String::isNotEmpty)
+    val ipv4Index = components.indexOfFirst { component -> '.' in component }
+    val structureValid =
+        ':' in this &&
+            '%' !in this &&
+            compressionIndex == lastIndexOf("::") &&
+            (compressionIndex >= 0 || (!startsWith(':') && !endsWith(':')))
+    val ipv4Valid =
+        ipv4Index < 0 ||
+            (ipv4Index == components.lastIndex && components[ipv4Index].isIpv4Literal())
+    val hextetsValid =
+        components.withIndex().all { (index, component) ->
+            index == ipv4Index ||
+                (component.length in Ipv6HextetLength && component.all(Char::isHexDigit))
+        }
+    val unitCount = components.size + if (ipv4Index >= 0) 1 else 0
+    val unitCountValid =
+        if (compressionIndex >= 0) {
+            unitCount < Ipv6HextetCount
+        } else {
+            unitCount == Ipv6HextetCount
+        }
+    return structureValid && ipv4Valid && hextetsValid && unitCountValid
+}
+
+private fun Char.isHexDigit(): Boolean = isDigit() || lowercaseChar() in 'a'..'f'
+
 private fun String.normalizeDigest(): String = trim().lowercase()
+
+private const val Ipv4OctetCount = 4
+private val Ipv4OctetRange = 0..255
+private const val Ipv6HextetCount = 8
+private val Ipv6HextetLength = 1..4

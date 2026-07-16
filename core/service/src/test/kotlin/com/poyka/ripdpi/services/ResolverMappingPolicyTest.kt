@@ -105,6 +105,48 @@ class ResolverMappingPolicyTest {
         assertNull(mapping)
     }
 
+    @Test
+    fun `hostname candidate is rejected in favor of numeric encrypted mapping`() {
+        val mapping =
+            policy.select(
+                request(
+                    classification = DirectDnsClassification.CLEAN,
+                    systemCandidates = listOf(candidate("resolver.example", DnsMode.SYSTEM, latencyMs = 1)),
+                    encryptedCandidates = listOf(candidate("203.0.113.10", DnsMode.DOH_PRIMARY, latencyMs = 20)),
+                ),
+            )
+
+        assertEquals(ResolvedMapping("203.0.113.10", ResolvedIpFamily.IPV4, DnsMode.DOH_PRIMARY), mapping)
+    }
+
+    @Test
+    fun `compressed ipv6 candidate remains valid without system resolution`() {
+        val mapping =
+            policy.select(
+                request(
+                    classification = DirectDnsClassification.CLEAN,
+                    systemCandidates = listOf(candidate("2001:db8::10", DnsMode.SYSTEM, latencyMs = 1)),
+                    encryptedCandidates = emptyList(),
+                ),
+            )
+
+        assertEquals(ResolvedMapping("2001:db8::10", ResolvedIpFamily.IPV6, DnsMode.SYSTEM), mapping)
+    }
+
+    @Test
+    fun `malformed numeric candidate is rejected`() {
+        val mapping =
+            policy.select(
+                request(
+                    classification = DirectDnsClassification.CLEAN,
+                    systemCandidates = listOf(candidate("2001:db8:::10", DnsMode.SYSTEM, latencyMs = 1)),
+                    encryptedCandidates = emptyList(),
+                ),
+            )
+
+        assertNull(mapping)
+    }
+
     private fun request(
         classification: DirectDnsClassification?,
         systemCandidates: List<ResolverMappingCandidate>,
