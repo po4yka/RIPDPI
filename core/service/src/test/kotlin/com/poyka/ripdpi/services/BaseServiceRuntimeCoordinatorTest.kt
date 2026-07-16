@@ -7,12 +7,14 @@ import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -262,6 +264,38 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun `internal handover timeout is retried instead of treated as external cancellation`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverTimeoutsRemaining = 1
+                }
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            advanceTimeBy(2_001L)
+            runCurrent()
+
+            assertEquals(2, env.coordinator.restartCalls)
+            assertEquals(
+                newFingerprint.scopeKey(),
+                env.handoverEvents.published
+                    .single()
+                    .currentFingerprintHash,
+            )
+        }
+
+    @Test
     fun stopCancelsScheduledHandoverRetry() =
         runTest {
             val initialFingerprint = sampleFingerprint()
@@ -295,6 +329,177 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(1, env.coordinator.stopCalls)
             assertTrue(env.handoverEvents.published.isEmpty())
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun `stop invalidates active retry and completes suspending runtime shutdown`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val retryGate = CompletableDeferred<Unit>()
+            val runtimeStopGate = CompletableDeferred<Unit>()
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverFailuresRemaining = 1
+                    it.coordinator.handoverRestartGate = retryGate
+                    it.coordinator.stopGate = runtimeStopGate
+                }
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+            advanceTimeBy(2_000L)
+            runCurrent()
+            assertEquals(2, env.coordinator.restartCalls)
+
+            backgroundScope.launch { env.coordinator.stop() }
+            runCurrent()
+            retryGate.complete(Unit)
+            runCurrent()
+
+            assertEquals(1, env.coordinator.stopCalls)
+            assertTrue(env.handoverEvents.published.isEmpty())
+            runtimeStopGate.complete(Unit)
+            runCurrent()
+
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(
+                listOf(ServiceStatus.Connected, ServiceStatus.Disconnected),
+                env.coordinator.statusTransitions,
+            )
+        }
+
+    @Test
+    fun `stop cancels handover while policy resolution is pending`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val resolutionGate = CompletableDeferred<Unit>()
+            val env = newEnv(fingerprint = initialFingerprint)
+            env.coordinator.handoverResolutionGates[newFingerprint.scopeKey()] = resolutionGate
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+
+            backgroundScope.launch { env.coordinator.stop() }
+            runCurrent()
+
+            assertTrue(!resolutionGate.isCompleted)
+            assertEquals(0, env.coordinator.restartCalls)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun `new handover suppresses stale retry from older event`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val fingerprintA = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val fingerprintB = sampleFingerprint(dnsServers = listOf("9.9.9.9"))
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverFailuresRemaining = 1
+                }
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = fingerprintA,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+            assertEquals(1, env.coordinator.restartCalls)
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = fingerprintA,
+                    currentFingerprint = fingerprintB,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+            assertEquals(2, env.coordinator.restartCalls)
+            assertEquals(
+                fingerprintB.scopeKey(),
+                env.handoverEvents.published
+                    .single()
+                    .currentFingerprintHash,
+            )
+
+            advanceTimeBy(31_000L)
+            repeat(4) { runCurrent() }
+
+            assertEquals(2, env.coordinator.restartCalls)
+            assertEquals(
+                fingerprintB.scopeKey(),
+                env.handoverEvents.published
+                    .single()
+                    .currentFingerprintHash,
+            )
+        }
+
+    @Test
+    fun `new handover invalidates older event while policy resolution is pending`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val fingerprintA = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val fingerprintB = sampleFingerprint(dnsServers = listOf("9.9.9.9"))
+            val resolutionGate = CompletableDeferred<Unit>()
+            val env = newEnv(fingerprint = initialFingerprint)
+            env.coordinator.handoverResolutionGates[fingerprintA.scopeKey()] = resolutionGate
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = fingerprintA,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = fingerprintA,
+                    currentFingerprint = fingerprintB,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+
+            assertTrue(!resolutionGate.isCompleted)
+            assertEquals(1, env.coordinator.restartCalls)
+            assertEquals(
+                fingerprintB.scopeKey(),
+                env.handoverEvents.published
+                    .single()
+                    .currentFingerprintHash,
+            )
         }
 
     @Test
@@ -395,6 +600,9 @@ private class TestCoordinator(
     var stopCalls: Int = 0
     var restartCalls: Int = 0
     var handoverFailuresRemaining: Int = 0
+    var handoverTimeoutsRemaining: Int = 0
+    var handoverRestartGate: CompletableDeferred<Unit>? = null
+    val handoverResolutionGates = mutableMapOf<String, CompletableDeferred<Unit>>()
     val statusTransitions = mutableListOf<ServiceStatus>()
 
     override val runtimeHooks: ServiceRuntimeModeHooks<ProxyRuntimeSession> =
@@ -434,7 +642,10 @@ private class TestCoordinator(
     private suspend fun resolveHandoverConnectionPolicy(
         fingerprint: NetworkFingerprint,
         handoverClassification: String,
-    ): ConnectionPolicyResolution = sampleResolution(mode = Mode.Proxy, policySignature = "handover")
+    ): ConnectionPolicyResolution {
+        handoverResolutionGates[fingerprint.scopeKey()]?.await()
+        return sampleResolution(mode = Mode.Proxy, policySignature = "handover")
+    }
 
     private fun applyActiveConnectionPolicy(
         session: ProxyRuntimeSession,
@@ -489,6 +700,11 @@ private class TestCoordinator(
             handoverFailuresRemaining -= 1
             error("handover boom")
         }
+        if (handoverTimeoutsRemaining > 0) {
+            handoverTimeoutsRemaining -= 1
+            withTimeout(1L) { awaitCancellation() }
+        }
+        handoverRestartGate?.await()
         applyActiveConnectionPolicy(
             session = session,
             resolution = resolution,

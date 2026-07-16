@@ -56,7 +56,6 @@ class VpnRuntimeSession(
     override var networkHandoverState: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
-    override var handoverRetryCount: Int = 0
     var currentDns: ActiveDnsSettings? = null
     var currentDnsSignature: String? = null
     var currentNetworkScopeKey: String? = null
@@ -74,7 +73,6 @@ class ProxyRuntimeSession(
     override var networkHandoverState: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
-    override var handoverRetryCount: Int = 0
 }
 
 interface ServiceRuntimeRegistry {

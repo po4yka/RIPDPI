@@ -60,9 +60,9 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         skipRuntimeShutdown: Boolean = false,
     ) {
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
+        dependencies.handoverProcessor.cancel()
 
         dependencies.lifecycleRunner.stop {
-            dependencies.handoverProcessor.cancel()
             dependencies.loopOwner.cancelPermissionWatchdog()
             runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
                 .onFailure { failure ->

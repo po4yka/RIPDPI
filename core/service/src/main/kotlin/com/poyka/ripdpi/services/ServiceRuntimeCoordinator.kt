@@ -33,7 +33,6 @@ internal interface HandoverAwareSession {
     var networkHandoverState: String?
     var lastSuccessfulHandoverFingerprintHash: String?
     var lastSuccessfulHandoverAt: Long
-    var handoverRetryCount: Int
 }
 
 /**
@@ -61,6 +60,9 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     @Volatile
     protected var stopping: Boolean = false
 
+    @Volatile
+    protected var handoverRestarting: Boolean = false
+
     protected var status: ServiceStatus = ServiceStatus.Disconnected
     protected var runtimeSession: TSession? = null
 
@@ -80,6 +82,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             currentStatus = { status },
             isStopping = { stopping },
             setStopping = { stopping = it },
+            setHandoverRestarting = { handoverRestarting = it },
         )
     private val sessionLifecycle: ServiceRuntimeSessionLifecycle<TSession> by lazy {
         ServiceRuntimeSessionLifecycle(

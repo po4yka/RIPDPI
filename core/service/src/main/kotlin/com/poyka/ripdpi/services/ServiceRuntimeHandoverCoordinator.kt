@@ -29,7 +29,7 @@ internal class ServiceRuntimeHandoverCoordinator<TSession>(
             currentSession = state.currentSession,
             currentStatus = state.currentStatus,
             isStopping = state.isStopping,
-            setStopping = state.setStopping,
+            setHandoverRestarting = state.setHandoverRestarting,
             resolveConnectionPolicy = hooks.handoverHooks.resolveConnectionPolicy,
             restartAfterHandover = hooks.handoverHooks.restartAfterHandover,
         )

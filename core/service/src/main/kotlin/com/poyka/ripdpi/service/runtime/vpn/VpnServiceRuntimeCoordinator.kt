@@ -194,7 +194,7 @@ internal class VpnServiceRuntimeCoordinator(
                 object : VpnTelemetryStateAccess {
                     override fun status(): ServiceStatus = status
 
-                    override fun stopping(): Boolean = stopping
+                    override fun stopping(): Boolean = stopping || handoverRestarting
 
                     override fun runtimeSession(): VpnRuntimeSession? = runtimeSession
 
@@ -235,7 +235,7 @@ internal class VpnServiceRuntimeCoordinator(
                 object : VpnTelemetryStateAccess {
                     override fun status(): ServiceStatus = status
 
-                    override fun stopping(): Boolean = stopping
+                    override fun stopping(): Boolean = stopping || handoverRestarting
 
                     override fun runtimeSession(): VpnRuntimeSession? = runtimeSession
 

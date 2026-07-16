@@ -50,4 +50,5 @@ internal class ServiceRuntimeSharedState<TSession>(
     val currentStatus: () -> ServiceStatus,
     val isStopping: () -> Boolean,
     val setStopping: (Boolean) -> Unit,
+    val setHandoverRestarting: (Boolean) -> Unit,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
