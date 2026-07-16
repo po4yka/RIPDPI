@@ -191,6 +191,8 @@ class VpnResolverRuntimeTest {
         assertEquals("link_refresh", classifyNetworkHandover(wifi, refreshedWifi))
         assertEquals("transport_switch", classifyNetworkHandover(wifi, cellular))
         assertEquals("connectivity_loss", classifyNetworkHandover(wifi, null))
+        assertEquals("connectivity_restore", classifyNetworkHandover(null, cellular))
         assertNull(classifyNetworkHandover(wifi, wifi))
+        assertNull(classifyNetworkHandover(null, null))
     }
 }

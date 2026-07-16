@@ -95,7 +95,8 @@ internal class NetworkHandoverProcessor<TSession>(
         val fingerprintHash = currentFingerprint.scopeKey()
         val now = clock.nowMillis()
         val isCoolingDown =
-            session.lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
+            event.classification != "connectivity_restore" &&
+                session.lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
                 now - session.lastSuccessfulHandoverAt < handoverCooldownMillis
         if (isCoolingDown) {
             updateHandoverState(NetworkHandoverStates.Revalidated)

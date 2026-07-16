@@ -178,6 +178,53 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun `connectivity restore rebinds runtime and replays policy`() =
+        runTest {
+            val restoredFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val env = newEnv(fingerprint = null)
+
+            env.coordinator.start()
+            runCurrent()
+
+            (env.runtimeRegistry.current(Mode.Proxy) as ProxyRuntimeSession).apply {
+                lastSuccessfulHandoverFingerprintHash = restoredFingerprint.scopeKey()
+                lastSuccessfulHandoverAt = env.clock.nowMillis()
+            }
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = null,
+                    currentFingerprint = restoredFingerprint,
+                    classification = "connectivity_restore",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+
+            assertEquals(1, env.coordinator.restartCalls)
+            assertEquals(
+                "handover",
+                env.runtimeRegistry
+                    .current(Mode.Proxy)
+                    ?.activeConnectionPolicy
+                    ?.value
+                    ?.restartReason,
+            )
+            assertEquals(
+                "connectivity_restore",
+                env.handoverEvents.published
+                    .single()
+                    .classification,
+            )
+            assertEquals(
+                restoredFingerprint.scopeKey(),
+                env.handoverEvents.published
+                    .single()
+                    .currentFingerprintHash,
+            )
+        }
+
+    @Test
     fun handoverRetryExhaustionTransitionsToFailedAndStops() =
         runTest {
             val initialFingerprint = sampleFingerprint()

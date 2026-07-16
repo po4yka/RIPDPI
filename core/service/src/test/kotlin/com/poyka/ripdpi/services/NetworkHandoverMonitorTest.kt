@@ -86,6 +86,67 @@ class NetworkHandoverMonitorTest {
             job.cancel()
         }
 
+    @Test
+    fun `network restoration after debounced loss emits actionable restore`() =
+        runTest {
+            val signals = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+            var currentFingerprint: NetworkFingerprint? = wifiFingerprint(dnsServer = "1.1.1.1")
+            val events = mutableListOf<NetworkHandoverEvent>()
+            val job =
+                backgroundScope.launch {
+                    observeNetworkHandoverEvents(
+                        signals = signals,
+                        captureFingerprint = { currentFingerprint },
+                        debounceMs = 2_000L,
+                        clock = { testScheduler.currentTime },
+                    ).toList(events)
+                }
+
+            runCurrent()
+            currentFingerprint = null
+            signals.emit(Unit)
+            testScheduler.advanceTimeBy(2_000L)
+            runCurrent()
+
+            currentFingerprint = cellularFingerprint()
+            signals.emit(Unit)
+            testScheduler.advanceTimeBy(2_000L)
+            runCurrent()
+
+            assertEquals(listOf("connectivity_loss", "connectivity_restore"), events.map { it.classification })
+            assertFalse(events.first().isActionable)
+            assertTrue(events.last().isActionable)
+            assertEquals(null, events.last().previousFingerprint)
+            assertEquals(currentFingerprint, events.last().currentFingerprint)
+
+            job.cancel()
+        }
+
+    @Test
+    fun `initial callback for an unchanged network emits no restore`() =
+        runTest {
+            val signals = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val fingerprint = wifiFingerprint(dnsServer = "1.1.1.1")
+            val events = mutableListOf<NetworkHandoverEvent>()
+            val job =
+                backgroundScope.launch {
+                    observeNetworkHandoverEvents(
+                        signals = signals,
+                        captureFingerprint = { fingerprint },
+                        debounceMs = 2_000L,
+                        clock = { testScheduler.currentTime },
+                    ).toList(events)
+                }
+
+            runCurrent()
+            signals.emit(Unit)
+            testScheduler.advanceTimeBy(2_000L)
+            runCurrent()
+
+            assertTrue(events.isEmpty())
+            job.cancel()
+        }
+
     private fun wifiFingerprint(dnsServer: String): NetworkFingerprint =
         NetworkFingerprint(
             transport = "wifi",

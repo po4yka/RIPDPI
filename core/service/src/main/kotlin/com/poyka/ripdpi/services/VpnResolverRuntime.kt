@@ -94,7 +94,8 @@ internal fun classifyNetworkHandover(
     current: NetworkFingerprint?,
 ): String? =
     when {
-        previous == null || previous == current -> null
+        previous == current -> null
+        previous == null -> "connectivity_restore"
         current == null -> "connectivity_loss"
         previous.transport != current.transport -> "transport_switch"
         previous != current -> "link_refresh"
