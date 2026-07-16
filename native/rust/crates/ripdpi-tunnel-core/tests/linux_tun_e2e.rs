@@ -285,16 +285,16 @@ fn e2e_real_tun_no_fd_leak_after_stop() {
         let cancel = CancellationToken::new();
         let stats = Arc::new(Stats::new());
         let cancel_clone = cancel.clone();
-        let stats_clone = stats.clone();
 
         let tunnel_thread = std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
-            rt.block_on(run_tunnel(config, owned_fd, cancel_clone, stats_clone))
+            rt.block_on(run_tunnel(config, owned_fd, cancel_clone, stats))
         });
 
+        // Give the worker a chance to adopt and poll the real TUN before stopping it.
+        // The kernel may enqueue legitimate background traffic immediately, so packet
+        // counters are intentionally not part of this fd-lifecycle contract.
         std::thread::sleep(Duration::from_millis(50));
-        assert_eq!(stats.tx_packets.load(Ordering::Relaxed), 0, "cycle {i}: stats should start at 0");
-
         cancel.cancel();
         let result = tunnel_thread.join().expect("tunnel thread panicked");
         assert!(result.is_ok(), "cycle {i}: run_tunnel should return Ok: {result:?}");
