@@ -1,7 +1,9 @@
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, mpsc};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::types::{DomainTarget, QuicTarget};
 
@@ -57,6 +59,8 @@ fn ordered_connect_targets(host: Option<&str>, connect_ip: Option<&str>, connect
 const DNS_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
 const DNS_RESOLVER_WORKERS: usize = 4;
 const DNS_RESOLVER_QUEUE_CAPACITY: usize = 64;
+const DNS_RESOLVER_REPLACEMENT_FACTOR: usize = 2;
+const DNS_SUPERVISOR_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
 type ResolveFn = dyn Fn(&str, u16) -> Result<Vec<SocketAddr>, String> + Send + Sync + 'static;
 
@@ -71,38 +75,102 @@ static DNS_RESOLVER: LazyLock<Result<ResolverExecutor, String>> = LazyLock::new(
 struct ResolveJob {
     host: String,
     port: u16,
+    deadline: Instant,
     response: mpsc::Sender<Result<Vec<SocketAddr>, String>>,
 }
 
 struct ResolverExecutor {
     jobs: Option<mpsc::SyncSender<ResolveJob>>,
+    shutdown: Arc<AtomicBool>,
     workers: Vec<thread::JoinHandle<()>>,
+}
+
+struct LookupBudget {
+    active: AtomicUsize,
+    limit: usize,
+}
+
+struct LookupPermit {
+    budget: Arc<LookupBudget>,
+}
+
+impl LookupBudget {
+    fn try_acquire(self: &Arc<Self>) -> Option<LookupPermit> {
+        // Ordering: this atomic is only a capacity counter; it does not publish lookup data.
+        self.active
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |active| (active < self.limit).then_some(active + 1))
+            .ok()
+            .map(|_| LookupPermit { budget: Arc::clone(self) })
+    }
+}
+
+impl Drop for LookupPermit {
+    fn drop(&mut self) {
+        // Ordering: this atomic is only a capacity counter; the result channel provides synchronization.
+        let previous = self.budget.active.fetch_sub(1, Ordering::Relaxed);
+        debug_assert!(previous > 0, "DNS lookup permit counter underflow");
+    }
 }
 
 impl ResolverExecutor {
     fn new(worker_count: usize, queue_capacity: usize, resolver: Arc<ResolveFn>) -> Result<Self, String> {
-        if worker_count == 0 || queue_capacity == 0 {
-            return Err("dns resolver executor requires non-zero workers and queue capacity".to_string());
+        let lookup_limit = worker_count
+            .checked_mul(DNS_RESOLVER_REPLACEMENT_FACTOR)
+            .ok_or_else(|| "dns resolver executor capacity overflow".to_string())?;
+        Self::new_with_lookup_limit(worker_count, queue_capacity, lookup_limit, resolver)
+    }
+
+    fn new_with_lookup_limit(
+        worker_count: usize,
+        queue_capacity: usize,
+        lookup_limit: usize,
+        resolver: Arc<ResolveFn>,
+    ) -> Result<Self, String> {
+        if worker_count == 0 || queue_capacity == 0 || lookup_limit < worker_count {
+            return Err(
+                "dns resolver executor requires non-zero capacity and at least one lookup per worker".to_string()
+            );
         }
         let (jobs, receiver) = mpsc::sync_channel::<ResolveJob>(queue_capacity);
         let receiver = Arc::new(Mutex::new(receiver));
-        let mut workers = Vec::with_capacity(worker_count);
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let lookup_budget = Arc::new(LookupBudget { active: AtomicUsize::new(0), limit: lookup_limit });
+        let mut workers: Vec<thread::JoinHandle<()>> = Vec::with_capacity(worker_count);
         for index in 0..worker_count {
             let receiver = Arc::clone(&receiver);
             let resolver = Arc::clone(&resolver);
-            let worker = thread::Builder::new()
+            let worker_shutdown = Arc::clone(&shutdown);
+            let lookup_budget = Arc::clone(&lookup_budget);
+            let worker = match thread::Builder::new()
                 .name(format!("ripdpi-dns-resolver-{index}"))
-                .spawn(move || resolver_worker(receiver, resolver))
-                .map_err(|error| format!("failed to spawn diagnostics DNS resolver worker: {error}"))?;
+                .spawn(move || resolver_worker(receiver, resolver, lookup_budget, worker_shutdown))
+            {
+                Ok(worker) => worker,
+                Err(error) => {
+                    // Ordering: publish shutdown before disconnecting the queue and joining supervisors.
+                    shutdown.store(true, Ordering::Release);
+                    drop(jobs);
+                    for worker in workers {
+                        let _ = worker.join();
+                    }
+                    return Err(format!("failed to spawn diagnostics DNS resolver worker: {error}"));
+                }
+            };
             workers.push(worker);
         }
-        Ok(Self { jobs: Some(jobs), workers })
+        Ok(Self { jobs: Some(jobs), shutdown, workers })
     }
 
-    fn submit(&self, host: String, port: u16) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, String>>, String> {
+    fn submit(
+        &self,
+        host: String,
+        port: u16,
+        timeout: Duration,
+    ) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, String>>, String> {
         let (response, result) = mpsc::channel();
         let jobs = self.jobs.as_ref().ok_or_else(|| "dns_resolver_unavailable".to_string())?;
-        jobs.try_send(ResolveJob { host, port, response }).map_err(|error| match error {
+        let deadline = Instant::now().checked_add(timeout).ok_or_else(|| "dns_resolve_timeout".to_string())?;
+        jobs.try_send(ResolveJob { host, port, deadline, response }).map_err(|error| match error {
             mpsc::TrySendError::Full(_) => "dns_resolver_busy".to_string(),
             mpsc::TrySendError::Disconnected(_) => "dns_resolver_unavailable".to_string(),
         })?;
@@ -110,7 +178,10 @@ impl ResolverExecutor {
     }
 
     fn resolve(&self, host: String, port: u16, timeout: Duration) -> Result<Vec<SocketAddr>, String> {
-        match self.submit(host, port)?.recv_timeout(timeout) {
+        let started = Instant::now();
+        let result = self.submit(host, port, timeout)?;
+        let remaining = timeout.saturating_sub(started.elapsed());
+        match result.recv_timeout(remaining) {
             Ok(result) => result,
             Err(mpsc::RecvTimeoutError::Timeout) => Err("dns_resolve_timeout".to_string()),
             Err(mpsc::RecvTimeoutError::Disconnected) => Err("dns_resolver_unavailable".to_string()),
@@ -120,6 +191,8 @@ impl ResolverExecutor {
 
 impl Drop for ResolverExecutor {
     fn drop(&mut self) {
+        // Ordering: publish shutdown before disconnecting the queue; Acquire polls make active supervisors exit.
+        self.shutdown.store(true, Ordering::Release);
         self.jobs.take();
         for worker in self.workers.drain(..) {
             let _ = worker.join();
@@ -127,8 +200,17 @@ impl Drop for ResolverExecutor {
     }
 }
 
-fn resolver_worker(receiver: Arc<Mutex<mpsc::Receiver<ResolveJob>>>, resolver: Arc<ResolveFn>) {
+fn resolver_worker(
+    receiver: Arc<Mutex<mpsc::Receiver<ResolveJob>>>,
+    resolver: Arc<ResolveFn>,
+    lookup_budget: Arc<LookupBudget>,
+    shutdown: Arc<AtomicBool>,
+) {
     loop {
+        // Ordering: pairs with the Release store during executor shutdown.
+        if shutdown.load(Ordering::Acquire) {
+            break;
+        }
         let job = {
             let receiver = receiver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             receiver.recv()
@@ -136,7 +218,73 @@ fn resolver_worker(receiver: Arc<Mutex<mpsc::Receiver<ResolveJob>>>, resolver: A
         let Ok(job) = job else {
             break;
         };
-        let _ = job.response.send(resolver(&job.host, job.port));
+        resolve_job(job, &resolver, &lookup_budget, &shutdown);
+    }
+}
+
+fn resolve_job(
+    job: ResolveJob,
+    resolver: &Arc<ResolveFn>,
+    lookup_budget: &Arc<LookupBudget>,
+    shutdown: &Arc<AtomicBool>,
+) {
+    let ResolveJob { host, port, deadline, response } = job;
+    if deadline <= Instant::now() {
+        let _ = response.send(Err("dns_resolve_timeout".to_string()));
+        return;
+    }
+    // Ordering: pairs with the Release store during executor shutdown.
+    if shutdown.load(Ordering::Acquire) {
+        let _ = response.send(Err("dns_resolver_unavailable".to_string()));
+        return;
+    }
+    let Some(permit) = lookup_budget.try_acquire() else {
+        let _ = response.send(Err("dns_resolver_busy".to_string()));
+        return;
+    };
+    let (lookup_response, lookup_result) = mpsc::channel();
+    let resolver = Arc::clone(resolver);
+    let lookup = thread::Builder::new().name("ripdpi-dns-lookup".to_string()).spawn(move || {
+        let _permit = permit;
+        let result = if deadline <= Instant::now() {
+            Err("dns_resolve_timeout".to_string())
+        } else {
+            catch_unwind(AssertUnwindSafe(|| resolver(&host, port)))
+                .unwrap_or_else(|_| Err("dns_resolver_unavailable".to_string()))
+        };
+        let _ = lookup_response.send(result);
+    });
+    let Ok(lookup) = lookup else {
+        let _ = response.send(Err("dns_resolver_unavailable".to_string()));
+        return;
+    };
+    drop(lookup);
+    let _ = response.send(wait_for_lookup(lookup_result, deadline, shutdown));
+}
+
+fn wait_for_lookup(
+    result: mpsc::Receiver<Result<Vec<SocketAddr>, String>>,
+    deadline: Instant,
+    shutdown: &AtomicBool,
+) -> Result<Vec<SocketAddr>, String> {
+    loop {
+        // Ordering: pairs with the Release store during executor shutdown.
+        if shutdown.load(Ordering::Acquire) {
+            return Err("dns_resolver_unavailable".to_string());
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return match result.try_recv() {
+                Ok(result) => result,
+                Err(mpsc::TryRecvError::Empty) => Err("dns_resolve_timeout".to_string()),
+                Err(mpsc::TryRecvError::Disconnected) => Err("dns_resolver_unavailable".to_string()),
+            };
+        }
+        match result.recv_timeout(remaining.min(DNS_SUPERVISOR_POLL_INTERVAL)) {
+            Ok(result) => return result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => return Err("dns_resolver_unavailable".to_string()),
+        }
     }
 }
 
@@ -174,6 +322,7 @@ fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> R
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Condvar, Mutex};
+    use std::time::Instant;
 
     use super::*;
 
@@ -276,6 +425,7 @@ mod tests {
     fn timed_out_dns_requests_do_not_create_unbounded_resolver_threads() {
         const REQUESTS: usize = 8;
         const MAX_WORKERS: usize = 4;
+        const MAX_LOOKUPS: usize = MAX_WORKERS * DNS_RESOLVER_REPLACEMENT_FACTOR;
         let active = Arc::new(AtomicUsize::new(0));
         let release = Arc::new((Mutex::new(false), Condvar::new()));
         let resolver: Arc<ResolveFn> = Arc::new({
@@ -296,13 +446,203 @@ mod tests {
             let result = executor.resolve(format!("blocked-{index}.example"), 443, Duration::from_millis(10));
             assert_eq!(result, Err("dns_resolve_timeout".to_string()));
         }
-        let peak = active.load(Ordering::SeqCst);
+        let observed = active.load(Ordering::SeqCst);
         let (released, wake) = &*release;
         *released.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
         wake.notify_all();
         drop(executor);
 
-        assert!(peak <= MAX_WORKERS, "resolver threads must be bounded to {MAX_WORKERS}, observed {peak}");
+        assert!(observed <= MAX_LOOKUPS, "resolver lookups must be bounded to {MAX_LOOKUPS}, observed {observed}");
+    }
+
+    #[test]
+    fn exhausted_primary_workers_use_bounded_replacement_capacity() {
+        const WORKERS: usize = 2;
+        const LOOKUP_LIMIT: usize = 4;
+        let active = Arc::new(AtomicUsize::new(0));
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let active = Arc::clone(&active);
+            let release = Arc::clone(&release);
+            move |host, port| {
+                if host.starts_with("blocked-") {
+                    active.fetch_add(1, Ordering::SeqCst);
+                    let (released, wake) = &*release;
+                    let guard = released.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    drop(wake.wait_while(guard, |released| !*released));
+                    active.fetch_sub(1, Ordering::SeqCst);
+                }
+                Ok(vec![SocketAddr::new("192.0.2.53".parse().expect("fixture IP"), port)])
+            }
+        });
+        let executor = ResolverExecutor::new_with_lookup_limit(WORKERS, 8, LOOKUP_LIMIT, resolver)
+            .expect("create resolver executor");
+
+        for index in 0..WORKERS {
+            let result = executor.resolve(format!("blocked-{index}.example"), 443, Duration::from_millis(10));
+            assert_eq!(result, Err("dns_resolve_timeout".to_string()));
+        }
+        wait_for_count(&active, WORKERS);
+
+        let recovered = executor
+            .resolve("recovery.example".to_string(), 443, Duration::from_millis(100))
+            .expect("replacement lookup must run while primary lookups remain blocked");
+
+        assert_eq!(recovered, vec!["192.0.2.53:443".parse().expect("fixture socket")]);
+        assert_eq!(active.load(Ordering::SeqCst), WORKERS);
+        release_all(&release);
+        wait_for_count(&active, 0);
+    }
+
+    #[test]
+    fn lookup_thread_limit_recovers_after_exhaustion() {
+        const WORKERS: usize = 2;
+        const LOOKUP_LIMIT: usize = 4;
+        let active = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let active = Arc::clone(&active);
+            let peak = Arc::clone(&peak);
+            let release = Arc::clone(&release);
+            move |host, port| {
+                if host.starts_with("blocked-") {
+                    let current = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    peak.fetch_max(current, Ordering::SeqCst);
+                    let (released, wake) = &*release;
+                    let guard = released.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    drop(wake.wait_while(guard, |released| !*released));
+                    active.fetch_sub(1, Ordering::SeqCst);
+                }
+                Ok(vec![SocketAddr::new("192.0.2.54".parse().expect("fixture IP"), port)])
+            }
+        });
+        let executor = ResolverExecutor::new_with_lookup_limit(WORKERS, 8, LOOKUP_LIMIT, resolver)
+            .expect("create resolver executor");
+
+        for index in 0..LOOKUP_LIMIT {
+            let result = executor.resolve(format!("blocked-{index}.example"), 443, Duration::from_millis(10));
+            assert_eq!(result, Err("dns_resolve_timeout".to_string()));
+            wait_for_count(&active, index + 1);
+        }
+        let overflow = executor.resolve("overflow.example".to_string(), 443, Duration::from_millis(100));
+
+        assert_eq!(overflow, Err("dns_resolver_busy".to_string()));
+        assert_eq!(peak.load(Ordering::SeqCst), LOOKUP_LIMIT);
+
+        release_all(&release);
+        wait_for_count(&active, 0);
+        let recovered = executor
+            .resolve("recovered.example".to_string(), 443, Duration::from_millis(100))
+            .expect("lookup capacity must return after blocked calls exit");
+        assert_eq!(recovered, vec!["192.0.2.54:443".parse().expect("fixture socket")]);
+    }
+
+    #[test]
+    fn panicking_lookup_is_replaced_without_losing_capacity() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let calls = Arc::clone(&calls);
+            move |host, port| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                if host == "panic.example" {
+                    panic!("injected resolver panic");
+                }
+                Ok(vec![SocketAddr::new("192.0.2.55".parse().expect("fixture IP"), port)])
+            }
+        });
+        let executor = ResolverExecutor::new_with_lookup_limit(1, 2, 1, resolver).expect("create resolver executor");
+
+        let panicked = executor.resolve("panic.example".to_string(), 443, Duration::from_millis(100));
+        let recovered = executor
+            .resolve("recovered.example".to_string(), 443, Duration::from_millis(100))
+            .expect("replacement lookup must succeed after panic");
+
+        assert_eq!(panicked, Err("dns_resolver_unavailable".to_string()));
+        assert_eq!(recovered, vec!["192.0.2.55:443".parse().expect("fixture socket")]);
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn expired_queued_lookup_is_skipped_without_network_work() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let active = Arc::clone(&active);
+            let calls = Arc::clone(&calls);
+            let release = Arc::clone(&release);
+            move |host, port| {
+                calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(host.to_string());
+                if host == "blocked.example" {
+                    active.store(1, Ordering::SeqCst);
+                    let (released, wake) = &*release;
+                    let guard = released.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    drop(wake.wait_while(guard, |released| !*released));
+                    active.store(0, Ordering::SeqCst);
+                }
+                Ok(vec![SocketAddr::new("192.0.2.56".parse().expect("fixture IP"), port)])
+            }
+        });
+        let executor = ResolverExecutor::new_with_lookup_limit(1, 4, 2, resolver).expect("create resolver executor");
+
+        let blocked =
+            executor.submit("blocked.example".to_string(), 443, Duration::from_secs(1)).expect("submit blocked lookup");
+        wait_for_count(&active, 1);
+        let expired = executor
+            .submit("expired.example".to_string(), 443, Duration::from_millis(10))
+            .expect("queue expiring lookup");
+        thread::sleep(Duration::from_millis(20));
+        release_all(&release);
+
+        blocked.recv_timeout(Duration::from_millis(100)).expect("blocked response").expect("blocked result");
+        assert_eq!(
+            expired.recv_timeout(Duration::from_millis(100)).expect("expired response"),
+            Err("dns_resolve_timeout".to_string())
+        );
+        assert_eq!(
+            *calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
+            vec!["blocked.example".to_string()]
+        );
+    }
+
+    #[test]
+    fn dropping_executor_does_not_wait_for_hung_lookup_thread() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let resolver: Arc<ResolveFn> = Arc::new({
+            let active = Arc::clone(&active);
+            let release = Arc::clone(&release);
+            move |_host, _port| {
+                active.store(1, Ordering::SeqCst);
+                let (released, wake) = &*release;
+                let guard = released.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                drop(wake.wait_while(guard, |released| !*released));
+                active.store(0, Ordering::SeqCst);
+                Ok(Vec::new())
+            }
+        });
+        let executor = ResolverExecutor::new_with_lookup_limit(1, 2, 2, resolver).expect("create resolver executor");
+        let response = executor
+            .submit("blocked.example".to_string(), 443, Duration::from_secs(60))
+            .expect("submit blocked lookup");
+        wait_for_count(&active, 1);
+
+        let (dropped, drop_result) = mpsc::channel();
+        let drop_thread = thread::spawn(move || {
+            let started = Instant::now();
+            drop(executor);
+            let _ = dropped.send(started.elapsed());
+        });
+        let elapsed = drop_result.recv_timeout(Duration::from_millis(500));
+        drop(response);
+        release_all(&release);
+        drop_thread.join().expect("join executor drop thread");
+        wait_for_count(&active, 0);
+        assert!(
+            elapsed.expect("executor drop must complete before hung lookup exits") < Duration::from_millis(500),
+            "executor drop exceeded bounded shutdown"
+        );
     }
 
     #[test]
@@ -322,12 +662,14 @@ mod tests {
         });
         let executor = ResolverExecutor::new(1, 1, resolver).expect("create resolver executor");
 
-        let first = executor.submit("first.example".to_string(), 443).expect("submit running lookup");
+        let first =
+            executor.submit("first.example".to_string(), 443, Duration::from_secs(1)).expect("submit running lookup");
         while active.load(Ordering::Acquire) == 0 {
             thread::yield_now();
         }
-        let second = executor.submit("second.example".to_string(), 443).expect("fill resolver queue");
-        let third = executor.submit("third.example".to_string(), 443);
+        let second =
+            executor.submit("second.example".to_string(), 443, Duration::from_secs(1)).expect("fill resolver queue");
+        let third = executor.submit("third.example".to_string(), 443, Duration::from_secs(1));
 
         let (released, wake) = &*release;
         *released.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
@@ -336,5 +678,19 @@ mod tests {
         drop(second);
         drop(executor);
         assert_eq!(third.expect_err("full resolver queue must reject work"), "dns_resolver_busy");
+    }
+
+    fn wait_for_count(counter: &AtomicUsize, expected: usize) {
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while counter.load(Ordering::SeqCst) != expected {
+            assert!(Instant::now() < deadline, "counter did not reach {expected}");
+            thread::yield_now();
+        }
+    }
+
+    fn release_all(release: &(Mutex<bool>, Condvar)) {
+        let (released, wake) = release;
+        *released.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+        wake.notify_all();
     }
 }
