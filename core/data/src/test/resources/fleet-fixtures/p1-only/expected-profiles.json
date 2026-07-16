@@ -2,7 +2,7 @@
   {
     "type": "vless",
     "name": "p1-xhttp-upcloud-prod",
-    "server": "203.0.113.20",
+    "server": "203.0.113.10",
     "port": "443"
   }
 ]

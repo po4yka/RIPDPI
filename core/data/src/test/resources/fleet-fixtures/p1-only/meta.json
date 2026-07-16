@@ -1,7 +1,8 @@
 {
   "scenario": "p1-only",
-  "description": "VLESS + xHTTP, plain TLS, single host",
-  "deployer_git_sha": "0000000000000000000000000000000000000000-fixture",
+  "description": "COHORTS=p1-web: VLESS + xHTTP, plain TLS, single host",
+  "deployer_git_sha": "ac1504e3465fece96ba2e544b3d94539b58b7fdc",
+  "provenance": "emitted",
   "generated_at": "2026-05-14T00:00:00Z",
   "frozen_secret_set": "all UUIDs/shortIds/keys are fixed -fixture test values, never production tokens"
 }

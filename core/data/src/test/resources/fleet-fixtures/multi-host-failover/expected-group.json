@@ -1,6 +1,6 @@
 {
   "name": "select",
   "isSelector": "true",
-  "memberOrder": "p0-reality-upcloud-prod,p2-hysteria2-upcloud-prod,p0-reality-hetzner-prod,p2-hysteria2-hetzner-prod",
+  "memberOrder": "p0-reality-upcloud-prod,p0-reality-upcloud-prod-fallback,p0-reality-hetzner-prod,p0-reality-hetzner-prod-fallback",
   "default": "auto"
 }

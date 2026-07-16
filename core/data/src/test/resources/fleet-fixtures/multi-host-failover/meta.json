@@ -1,7 +1,8 @@
 {
   "scenario": "multi-host-failover",
-  "description": "HOSTS=upcloud:prod,hetzner:prod — two hosts x P0 + P2a, selector + urltest",
-  "deployer_git_sha": "0000000000000000000000000000000000000000-fixture",
+  "description": "Two p0-minimal hosts, each with REALITY primary/fallback, selector + urltest",
+  "deployer_git_sha": "ac1504e3465fece96ba2e544b3d94539b58b7fdc",
+  "provenance": "emitted",
   "generated_at": "2026-05-14T00:00:00Z",
   "frozen_secret_set": "all UUIDs/keys/passwords are fixed -fixture test values, never production tokens"
 }

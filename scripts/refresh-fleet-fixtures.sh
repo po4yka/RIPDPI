@@ -1,39 +1,22 @@
 #!/usr/bin/env bash
-# Regenerate the ripdpi-vpn-deploy fleet-compat golden fixtures under
-#   core/data/src/test/resources/fleet-fixtures/<scenario>/bundle.json
-# by running the sibling repo's scripts/emit-singbox.sh against a frozen,
-# fully-synthetic secret-set -- no production tokens, no real infra.
+# Regenerate the fleet-compat fixtures from an exact ripdpi-vpn-deploy commit.
+#
+# The gate uses only frozen synthetic credentials and RFC-5737 addresses. It
+# never reads live Terraform state or production SOPS data. Supported scenarios
+# are emitted by the real deploy repository, validated by its bundle validator,
+# compared byte-for-structure with the committed fixture, and then parsed by the
+# JVM FleetCompat suite in .github/workflows/fleet-fixtures.yml.
 #
 # Usage:
-#   scripts/refresh-fleet-fixtures.sh            # --check (default): diff vs committed
-#   scripts/refresh-fleet-fixtures.sh --check    # explicit check mode
-#   scripts/refresh-fleet-fixtures.sh --write    # overwrite the committed fixtures
-#
-# --check  regenerates each bundle.json into a temp dir and diffs it against
-#          the committed copy; non-zero exit on drift. When the sibling repo
-#          is absent or not at the pinned SHA, the emitter-diff portion is
-#          skipped (CI has no sibling checkout) but the structural checks
-#          still run via scripts/ci/check_fleet_fixtures.py.
-# --write  overwrites the committed bundle.json files and refreshes each
-#          meta.json's deployer_git_sha to the pin below. Use locally only.
-#
-# emit-singbox.sh needs `terraform` + `sops` + real infra, so this script
-# shims both: a temp PATH dir provides a fake `terraform` (echoes the frozen
-# RFC-5737 doc IPs / hostnames for `output -raw ...`) and a fake `sops` (emits
-# the frozen-secrets file as JSON for `-d`). `jq` and `python3` are real.
+#   RIPDPI_VPN_DEPLOY_DIR=/path/to/exact/checkout scripts/refresh-fleet-fixtures.sh --check
+#   RIPDPI_VPN_DEPLOY_DIR=/path/to/exact/checkout scripts/refresh-fleet-fixtures.sh --write
 
 set -euo pipefail
-
-# --- The pinned deployer git SHA -------------------------------------------
-# This is the deliberate operator knob: bumping it signals a deployer contract
-# change. It MUST equal `deployer_git_sha` in every fixture meta.json, and
-# scripts/ci/check_fleet_fixtures.py fails CI if the two drift apart.
-DEPLOYER_GIT_SHA="0000000000000000000000000000000000000000-fixture"
-# ---------------------------------------------------------------------------
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 fixtures_root="$repo_root/core/data/src/test/resources/fleet-fixtures"
 frozen_secrets="$repo_root/scripts/fleet-fixtures/frozen-secrets.yaml"
+pin_file="$repo_root/scripts/fleet-fixtures/deployer-git-sha.txt"
 deployer_dir="${RIPDPI_VPN_DEPLOY_DIR:-$repo_root/../ripdpi-vpn-deploy}"
 
 mode="check"
@@ -47,16 +30,36 @@ case "${1:-}" in
         ;;
 esac
 
-if [[ ! -d "$fixtures_root" ]]; then
-    echo "error: fixtures root not found: $fixtures_root" >&2
+die() {
+    echo "error: $*" >&2
     exit 1
-fi
-if [[ ! -f "$frozen_secrets" ]]; then
-    echo "error: frozen secret-set not found: $frozen_secrets" >&2
-    exit 1
-fi
+}
 
-# Scenarios the harness (FleetCompatGoldenFileTest) iterates.
+[[ -d "$fixtures_root" ]] || die "fixtures root not found: $fixtures_root"
+[[ -f "$frozen_secrets" ]] || die "frozen secret-set not found: $frozen_secrets"
+[[ -f "$pin_file" ]] || die "deployer pin not found: $pin_file"
+command -v git >/dev/null 2>&1 || die "git is required"
+command -v jq >/dev/null 2>&1 || die "jq is required"
+command -v python3 >/dev/null 2>&1 || die "python3 is required"
+
+deployer_git_sha="$(tr -d '[:space:]' <"$pin_file")"
+[[ "$deployer_git_sha" =~ ^[0-9a-f]{40}$ && "$deployer_git_sha" != "0000000000000000000000000000000000000000" ]] ||
+    die "deployer pin must be one non-zero 40-character lowercase git SHA"
+
+[[ -d "$deployer_dir/.git" || -f "$deployer_dir/.git" ]] ||
+    die "deployer git checkout not found: $deployer_dir"
+actual_deployer_sha="$(git -C "$deployer_dir" rev-parse HEAD 2>/dev/null)" ||
+    die "cannot read deployer HEAD: $deployer_dir"
+[[ "$actual_deployer_sha" == "$deployer_git_sha" ]] ||
+    die "deployer checkout mismatch: expected $deployer_git_sha, got $actual_deployer_sha"
+[[ -z "$(git -C "$deployer_dir" status --porcelain --untracked-files=all)" ]] ||
+    die "deployer checkout must be clean at pinned commit $deployer_git_sha"
+
+emitter="$deployer_dir/scripts/emit-bundle.sh"
+validator="$deployer_dir/scripts/validate-bundle.py"
+[[ -x "$emitter" ]] || die "deployer emitter missing or not executable: $emitter"
+[[ -f "$validator" ]] || die "deployer validator missing: $validator"
+
 scenarios=(
     p0-only
     p1-only
@@ -68,68 +71,43 @@ scenarios=(
     bootstrap-bundle
 )
 
-# --- meta.json: always refresh the pinned SHA in place --------------------
-# This is cheap, deployer-independent, and the drift signal the CI gate keys
-# off, so it runs in both modes (in --check it would only change the file if
-# the pin and the committed meta disagree, which the CI gate also catches).
 refresh_meta_sha() {
     local scenario="$1"
     local meta="$fixtures_root/$scenario/meta.json"
-    [[ -f "$meta" ]] || {
-        echo "error: missing $scenario/meta.json" >&2
-        return 1
-    }
-    local updated
-    updated="$(jq --arg sha "$DEPLOYER_GIT_SHA" '.deployer_git_sha = $sha' "$meta")"
+    [[ -f "$meta" ]] || die "missing $scenario/meta.json"
     if [[ "$mode" == "write" ]]; then
+        local updated
+        updated="$(jq --arg sha "$deployer_git_sha" '.deployer_git_sha = $sha' "$meta")"
         printf '%s\n' "$updated" >"$meta"
     fi
 }
 
-# --- emitter shims ---------------------------------------------------------
-# Build a temp PATH dir with fake `terraform` + `sops` so the real
-# emit-singbox.sh runs with no infra. Both shims only ever echo frozen,
-# synthetic values sourced from this repo.
-emitter_available=false
-shim_dir=""
+work_dir="$(mktemp -d -t fleet-fixtures.XXXXXX)"
+shim_dir="$work_dir/bin"
+mkdir -p "$shim_dir"
 cleanup() {
-    [[ -n "$shim_dir" && -d "$shim_dir" ]] && rm -rf "$shim_dir"
+    rm -rf "$work_dir"
 }
 trap cleanup EXIT
 
-prepare_shims() {
-    if [[ ! -d "$deployer_dir" ]]; then
-        echo "note: sibling deployer repo not found at $deployer_dir" >&2
-        echo "note: set RIPDPI_VPN_DEPLOY_DIR to enable emitter regeneration" >&2
-        return 1
-    fi
-    if [[ ! -x "$deployer_dir/scripts/emit-singbox.sh" ]]; then
-        echo "note: $deployer_dir/scripts/emit-singbox.sh missing or not executable" >&2
-        return 1
-    fi
-    if ! command -v sops >/dev/null 2>&1 && ! command -v jq >/dev/null 2>&1; then
-        echo "note: jq is required for the emitter path" >&2
-        return 1
-    fi
-
-    shim_dir="$(mktemp -d -t fleet-fixtures.XXXXXX)"
-
-    # Fake terraform: emit-singbox.sh calls `terraform -chdir=<dir> output -raw
-    # server_ipv4` (and optionally server_hostname). Key the frozen value off
-    # the provider directory name so multi-host scenarios get distinct IPs.
-    cat >"$shim_dir/terraform" <<'SHIM'
+# The real emitter only sees these deterministic shims. Terraform output is
+# selected by provider name, SOPS always returns the frozen fixture payload,
+# and wg derives a fixed synthetic public key without inspecting a live key.
+cat >"$shim_dir/terraform" <<'SHIM'
 #!/usr/bin/env bash
 set -euo pipefail
 chdir=""
 args=()
-for a in "$@"; do
-    case "$a" in
-        -chdir=*) chdir="${a#-chdir=}" ;;
-        *) args+=("$a") ;;
+for arg in "$@"; do
+    case "$arg" in
+        -chdir=*) chdir="${arg#-chdir=}" ;;
+        *) args+=("$arg") ;;
     esac
 done
 provider="$(basename "$chdir")"
-# args is: output -raw <key>
+if [[ "${args[0]:-}" == "workspace" && "${args[1]:-}" == "select" ]]; then
+    exit 0
+fi
 key="${args[2]:-}"
 case "$provider:$key" in
     upcloud:server_ipv4) echo "203.0.113.10" ;;
@@ -144,141 +122,135 @@ case "$provider:$key" in
 esac
 SHIM
 
-    # Fake sops: emit-singbox.sh calls `sops --decrypt --output-type json
-    # <file>`. Convert the frozen-secrets YAML to JSON on stdout. The path
-    # argument is ignored -- every host gets the same frozen secret-set.
-    cat >"$shim_dir/sops" <<SHIM
+cat >"$shim_dir/sops" <<'SHIM'
 #!/usr/bin/env bash
 set -euo pipefail
-python3 -c 'import json, sys, yaml; json.dump(yaml.safe_load(open("$frozen_secrets")), sys.stdout)'
+python3 - "$FLEET_FROZEN_SECRETS" <<'PY'
+import json
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    json.dump(yaml.safe_load(handle), sys.stdout)
+PY
 SHIM
 
-    chmod +x "$shim_dir/terraform" "$shim_dir/sops"
-    emitter_available=true
-    return 0
-}
+cat >"$shim_dir/wg" <<'SHIM'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${1:-}" == "pubkey" ]] || { echo "fake-wg: only pubkey is supported" >&2; exit 1; }
+cat >/dev/null
+echo "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+SHIM
 
-# Per-scenario emitter invocation. Echoes the bundle JSON on stdout, or
-# returns non-zero (with a note on stderr) when the scenario needs deployer
-# state this shim cannot synthesise.
-#
-# emit-singbox.sh checks the SOPS file physically exists before invoking
-# `sops`, so SOPS_FILE points at the frozen-secrets file itself -- the fake
-# `sops` shim ignores its path argument and always emits the frozen set.
+chmod +x "$shim_dir/terraform" "$shim_dir/sops" "$shim_dir/wg"
+export FLEET_FROZEN_SECRETS="$frozen_secrets"
+
 emit_bundle() {
     local scenario="$1"
-    local emit="$deployer_dir/scripts/emit-singbox.sh"
     case "$scenario" in
-        p0-only)
+        p0-only | bootstrap-bundle)
             PATH="$shim_dir:$PATH" PROVIDER=upcloud ENV=prod COHORTS=p0 \
                 SOPS_FILE="$frozen_secrets" \
-                bash "$emit" laptop
+                "$emitter" laptop
             ;;
         p1-only)
-            # P1-only cohort: xhttp on, reality off. The deployer's p1p2
-            # cohort also enables hysteria, so a pure p1-only bundle needs a
-            # cohort the sibling does not ship -- regenerate structurally only.
-            return 2
+            PATH="$shim_dir:$PATH" PROVIDER=upcloud ENV=prod COHORTS=p1-web \
+                SOPS_FILE="$frozen_secrets" \
+                "$emitter" laptop
+            ;;
+        p2a-hysteria-only)
+            PATH="$shim_dir:$PATH" PROVIDER=upcloud ENV=prod COHORTS=p2-udp \
+                SOPS_FILE="$frozen_secrets" \
+                "$emitter" laptop
+            ;;
+        multi-cohort-p0-p1-p2a)
+            PATH="$shim_dir:$PATH" PROVIDER=upcloud ENV=prod COHORTS=device-full \
+                SOPS_FILE="$frozen_secrets" \
+                "$emitter" laptop
+            ;;
+        multi-host-failover)
+            PATH="$shim_dir:$PATH" \
+                HOSTS=upcloud:prod,hetzner:prod \
+                COHORTS=p0-minimal,p0-minimal \
+                SOPS_FILES="$frozen_secrets,$frozen_secrets" \
+                "$emitter" laptop
             ;;
         per-app-bypass-and-via-tun)
             PATH="$shim_dir:$PATH" PROVIDER=upcloud ENV=prod COHORTS=p0 \
                 SOPS_FILE="$frozen_secrets" \
-                bash "$emit" laptop \
+                "$emitter" laptop \
                 --per-app-bypass com.example.bankapp,com.example.localmedia \
                 --per-app-via-tun com.example.browser
             ;;
-        bootstrap-bundle)
-            # Same content as p0-only, served one-shot; the bundle bytes are
-            # identical to the p0-only emitter output.
-            PATH="$shim_dir:$PATH" PROVIDER=upcloud ENV=prod COHORTS=p0 \
-                SOPS_FILE="$frozen_secrets" \
-                bash "$emit" laptop
-            ;;
-        p2a-hysteria-only | p2a-hysteria-port-hop | multi-cohort-p0-p1-p2a | multi-host-failover)
-            # These need deployer state (hysteria-only cohort, port-hop range,
-            # multi-cohort xray.cohorts, two-provider terraform state) that the
-            # sibling repo does not check in. The committed fixtures stay
-            # hand-authored; the structural CI gate still guards them.
-            return 2
-            ;;
         *)
-            echo "error: no emitter recipe for scenario: $scenario" >&2
-            return 1
+            die "no emitter recipe for scenario: $scenario"
             ;;
     esac
 }
 
-# --- main ------------------------------------------------------------------
 drift=0
 emitted=0
-skipped=0
-
-prepare_shims || true
+reference_only=0
 
 for scenario in "${scenarios[@]}"; do
     scenario_dir="$fixtures_root/$scenario"
-    if [[ ! -d "$scenario_dir" ]]; then
-        echo "error: missing scenario directory: $scenario" >&2
-        exit 1
-    fi
+    [[ -d "$scenario_dir" ]] || die "missing scenario directory: $scenario"
     refresh_meta_sha "$scenario"
 
-    if [[ "$emitter_available" != true ]]; then
-        skipped=$((skipped + 1))
-        continue
-    fi
+    case "$scenario" in
+        p2a-hysteria-port-hop)
+            echo "reference: $scenario is parser coverage not claimed as emitted provenance"
+            reference_only=$((reference_only + 1))
+            continue
+            ;;
+        p0-only | p1-only | p2a-hysteria-only | multi-cohort-p0-p1-p2a | multi-host-failover | per-app-bypass-and-via-tun | bootstrap-bundle) ;;
+        *) die "unknown fleet fixture scenario: $scenario" ;;
+    esac
 
+    generated_file="$work_dir/$scenario.json"
+    emitter_error="$work_dir/$scenario.stderr"
     set +e
-    generated="$(emit_bundle "$scenario" 2>/tmp/fleet-fixtures-emit-err)"
+    emit_bundle "$scenario" >"$generated_file" 2>"$emitter_error"
     emit_status=$?
     set -e
-    if [[ $emit_status -eq 2 ]]; then
-        echo "note: $scenario -- structural-only (emitter needs unavailable deployer state)" >&2
-        skipped=$((skipped + 1))
-        continue
-    fi
+
     if [[ $emit_status -ne 0 ]]; then
-        echo "error: emit-singbox.sh failed for $scenario:" >&2
-        cat /tmp/fleet-fixtures-emit-err >&2
-        rm -f /tmp/fleet-fixtures-emit-err
+        echo "error: pinned emit-bundle.sh failed for $scenario" >&2
+        sed -n '1,120p' "$emitter_error" >&2
         exit 1
     fi
-    rm -f /tmp/fleet-fixtures-emit-err
+    [[ -s "$generated_file" ]] || die "pinned emitter produced an empty bundle for $scenario"
+    jq -e 'type == "object" and (.outbounds | type == "array" and length > 0) and (.ripdpi | type == "object")' \
+        "$generated_file" >/dev/null || die "pinned emitter produced an incomplete bundle for $scenario"
 
-    # Normalise both sides through jq so formatting differences don't show up
-    # as drift -- only structural content matters.
+    python3 "$validator" "$generated_file"
+
     committed="$(jq -S . "$scenario_dir/bundle.json")"
-    regenerated="$(jq -S . <<<"$generated")"
-
+    regenerated="$(jq -S . "$generated_file")"
     if [[ "$mode" == "write" ]]; then
-        jq . <<<"$generated" >"$scenario_dir/bundle.json"
-        echo "ok: wrote $scenario/bundle.json"
-        emitted=$((emitted + 1))
+        jq . "$generated_file" >"$scenario_dir/bundle.json"
+        echo "ok: wrote emitted and deploy-validated $scenario/bundle.json"
+    elif [[ "$committed" != "$regenerated" ]]; then
+        echo "drift: $scenario/bundle.json differs from pinned emitter output" >&2
+        diff <(printf '%s\n' "$committed") <(printf '%s\n' "$regenerated") >&2 || true
+        drift=1
     else
-        if [[ "$committed" != "$regenerated" ]]; then
-            echo "drift: $scenario/bundle.json differs from emitter output" >&2
-            diff <(echo "$committed") <(echo "$regenerated") >&2 || true
-            drift=1
-        else
-            echo "ok: $scenario/bundle.json matches emitter output"
-        fi
-        emitted=$((emitted + 1))
+        echo "ok: $scenario/bundle.json matches pinned emitter and deploy validator"
     fi
+    emitted=$((emitted + 1))
 done
 
-# Structural checks always run -- this is the deployer-independent subset and
-# the portion CI relies on.
-echo "==> running structural fixture checks"
+echo "==> running committed fixture provenance and structural checks"
 python3 "$repo_root/scripts/ci/check_fleet_fixtures.py"
 
 if [[ "$mode" == "write" ]]; then
-    echo "done: regenerated $emitted bundle(s), $skipped structural-only, meta.json SHAs pinned to $DEPLOYER_GIT_SHA"
+    echo "done: regenerated $emitted emitted bundle(s), retained $reference_only explicit parser-reference scenario(s)"
     exit 0
 fi
-
 if [[ $drift -ne 0 ]]; then
-    echo "error: fixture drift detected; run '$0 --write' to regenerate" >&2
-    exit 1
+    die "fixture drift detected; run '$0 --write' against the pinned clean deployer checkout"
 fi
 
-echo "ok: $emitted bundle(s) match the emitter, $skipped structural-only, no drift"
+echo "ok: pinned deployer $deployer_git_sha emitted and validated $emitted bundle(s); generated structures match committed fixtures"

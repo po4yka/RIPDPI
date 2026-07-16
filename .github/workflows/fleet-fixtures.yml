@@ -3,11 +3,13 @@ name: fleet-fixtures
 # Gates the ripdpi-vpn-deploy fleet-compat golden-file suite on every PR that
 # touches the client-side parsers/models it locks (subscription parser, relay
 # model, routing model, AmneziaWG model), the fixtures themselves, or the
-# regenerator + structural-drift tooling. The emitter cannot run in CI (it
-# needs Terraform + SOPS + real infra), so this runs the deployer-independent
-# structural gate plus the JVM golden-file suite.
+# regenerator + structural-drift tooling. CI checks out the exact pinned public
+# deploy commit and feeds its real emitter synthetic Terraform/SOPS inputs,
+# then runs the deploy validator and the app's production-parser golden suite.
 
 on:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - "core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/**"
@@ -35,16 +37,46 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      - name: Read exact deployer pin
+        id: deployer-pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(tr -d '[:space:]' < scripts/fleet-fixtures/deployer-git-sha.txt)"
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ || "$sha" == "0000000000000000000000000000000000000000" ]]; then
+            echo "invalid ripdpi-vpn-deploy commit pin" >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check out pinned ripdpi-vpn-deploy emitter
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: po4yka/ripdpi-vpn-deploy
+          ref: ${{ steps.deployer-pin.outputs.sha }}
+          path: .fleet-deployer
+          persist-credentials: false
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
+
+      - name: Install pinned emitter contract dependencies
+        run: python3 -m pip install jsonschema==4.26.0 PyYAML==6.0.3
 
       - name: Run fleet-fixtures structural drift tests
         run: python3 -m unittest scripts.tests.test_fleet_fixtures
 
       - name: Run fleet-fixtures structural drift gate
         run: python3 scripts/ci/check_fleet_fixtures.py
+
+      - name: Materialize and deploy-validate pinned fleet bundles
+        env:
+          RIPDPI_VPN_DEPLOY_DIR: ${{ github.workspace }}/.fleet-deployer
+        run: |
+          scripts/refresh-fleet-fixtures.sh --write
+          git diff --exit-code -- core/data/src/test/resources/fleet-fixtures
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -55,7 +87,7 @@ jobs:
           rust-cache-save: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Run fleet-compat golden-file suite
+      - name: Parse materialized fleet bundles through the app contract
         run: >-
           ./gradlew :core:data:testDebugUnitTest
           --tests "*FleetCompat*"

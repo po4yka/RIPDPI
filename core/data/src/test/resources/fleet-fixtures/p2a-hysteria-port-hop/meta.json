@@ -1,7 +1,9 @@
 {
   "scenario": "p2a-hysteria-port-hop",
   "description": "Hysteria2 with server_ports range + hop_interval, single host",
-  "deployer_git_sha": "0000000000000000000000000000000000000000-fixture",
+  "deployer_git_sha": "ac1504e3465fece96ba2e544b3d94539b58b7fdc",
+  "provenance": "parser-reference",
+  "reference_reason": "The pinned deployer has no deterministic synthetic cohort that emits Hysteria2 port-hopping metadata.",
   "generated_at": "2026-05-14T00:00:00Z",
   "frozen_secret_set": "all passwords are fixed -fixture test values, never production tokens"
 }

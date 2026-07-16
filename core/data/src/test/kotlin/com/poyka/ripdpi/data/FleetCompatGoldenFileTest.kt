@@ -9,10 +9,11 @@ import org.junit.Test
 
 /**
  * Golden-file regression suite that locks the client <-> ripdpi-vpn-deploy
- * interface. Every fixture under `src/test/resources/fleet-fixtures/<scenario>/`
- * is a literal `emit-singbox.sh`-style bundle plus its `expected-*.json`
- * snapshots. The harness imports `bundle.json` through the phase-1 production
- * parsers and diffs the resulting profiles / group / routing against the
+ * interface. Emitted fixtures under `src/test/resources/fleet-fixtures/` are
+ * byte-for-structure matches of the pinned `emit-bundle.sh` output; explicitly
+ * marked parser-reference scenarios extend coverage beyond emitter-supported
+ * synthetic cohorts. The harness imports every `bundle.json` through the
+ * phase-1 production parsers and diffs profiles / group / routing against the
  * expectations with a readable structural diff.
  *
  * A deployer schema change that the parsers silently absorb makes this suite
@@ -47,10 +48,10 @@ class FleetCompatGoldenFileTest {
     }
 
     @Test
-    fun `p0-only REALITY Vision bundle imports to the expected single VLESS profile`() {
+    fun `p0-only REALITY Vision bundle imports primary and fallback VLESS profiles`() {
         val result = FleetCompatHarness.run("p0-only")
         assertTrue(result.diff, result.matches)
-        assertEquals(1, result.importedProfiles.size)
+        assertEquals(2, result.importedProfiles.size)
     }
 
     @Test
@@ -73,10 +74,10 @@ class FleetCompatGoldenFileTest {
     }
 
     @Test
-    fun `multi-cohort p0 p1 p2a bundle imports three transports with a selector group`() {
+    fun `multi-cohort p0 p1 p2a bundle imports primary fallback and web UDP transports`() {
         val result = FleetCompatHarness.run("multi-cohort-p0-p1-p2a")
         assertTrue(result.diff, result.matches)
-        assertEquals(3, result.importedProfiles.size)
+        assertEquals(4, result.importedProfiles.size)
         assertTrue("a selector group is expected", result.importedGroup != null)
     }
 

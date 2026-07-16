@@ -2,7 +2,7 @@
   {
     "type": "hysteria2",
     "name": "p2-hysteria2-upcloud-prod",
-    "server": "203.0.113.30",
+    "server": "203.0.113.10",
     "port": "443"
   }
 ]

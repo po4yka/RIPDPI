@@ -475,12 +475,13 @@ Semantic fields remain strict:
 
 ### Fleet-compat golden fixtures
 
-A separate golden set locks RIPDPI's importers against the sibling `ripdpi-vpn-deploy` repo's emitter output. Hand-authored, fully-synthetic fixtures (RFC-5737 doc IPs, `-fixture` credentials) live under `core/data/src/test/resources/fleet-fixtures/<scenario>/`; the `FleetCompatGoldenFileTest` JVM suite parses each `bundle.json` through the production subscription parser and asserts the imported profiles, selector groups, and per-app routing rules.
+A separate golden set locks RIPDPI's importers against the sibling `ripdpi-vpn-deploy` repo's emitter output. Fully synthetic fixtures (RFC-5737 doc IPs, `-fixture` credentials) live under `core/data/src/test/resources/fleet-fixtures/<scenario>/`; each `meta.json` identifies whether the scenario is emitted or an explicit parser reference. The `FleetCompatGoldenFileTest` JVM suite parses each `bundle.json` through the production subscription parser and asserts the imported profiles, selector groups, and per-app routing rules.
 
-The sibling emitter (`emit-singbox.sh`) needs Terraform + SOPS + real infra, so it cannot run in CI. Two tools bridge that gap:
+The workflow reads the exact public deploy commit from `scripts/fleet-fixtures/deployer-git-sha.txt`, checks out that commit, and runs one closed cross-repo chain:
 
-- `scripts/refresh-fleet-fixtures.sh` -- local regenerator. Pins the deployer git SHA on a single line, shims `terraform` + `sops` against a checked-in frozen synthetic secret-set, and runs the real emitter. `--check` (default) diffs vs the committed fixtures; `--write` overwrites them.
-- `scripts/ci/check_fleet_fixtures.py` -- deployer-independent structural drift gate (required files, JSON shape, `meta.json` SHA vs the script pin, no production-token leaks). Run on every relevant PR by `fleet-fixtures.yml`.
+- `scripts/refresh-fleet-fixtures.sh` requires an exact clean deploy checkout, shims `terraform`, `sops`, and `wg` against checked-in synthetic inputs, runs its real `emit-bundle.sh`, then runs the deploy repository's `validate-bundle.py`. Seven scenarios are real emissions; only the port-hopping negative case remains a `parser-reference` with an explicit reason. `--check` diffs emitted scenarios against the committed bytes; `--write` refreshes them.
+- `scripts/ci/check_fleet_fixtures.py` rejects placeholder pins, provenance mismatches, malformed artifacts, metadata drift, and production-token shapes.
+- `fleet-fixtures.yml` materializes the real emitted bundles with `--write`, rejects any resulting Git diff, and then passes those materialized bytes to the JVM `*FleetCompat*` production parsers. This closes `emit -> validate -> app parse` in one job without substituting committed examples for emitter output.
 
 ## Load/stress tests
 
@@ -605,7 +606,7 @@ PR CI runs:
 - `rust-turmoil` -- deterministic fault-injection network tests
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
-- `fleet-fixtures` -- structural drift gate + `*FleetCompat*` golden-file suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures
+- `fleet-fixtures` -- exact deploy checkout + real bundle emission + deploy validation + `*FleetCompat*` production-parser suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures
 - `l7-dryrun` -- L7 adversarial emulator matrix-runner dry-run + unittest suite, on PRs touching the harness or its CI script. Uploads `verdict-report.json` and per-cell `.pcap` artifacts for triage.
 - `l7-live` -- L7 adversarial emulator live-mode smoke. Installs `nftables` and `python3-netfilterqueue` on an ubuntu-latest runner, loads the CI nft ruleset that funnels TCP:8443 into nfqueue 0, runs the live handler with a watchdog `--timeout-seconds`, sends a synthetic TLS ClientHello with a fixture-denylisted SNI, and asserts that the resulting `verdict-report.json` records at least one `blocked` cell. Uploads `verdict-report.json` and `handler.log` as artifacts.
 

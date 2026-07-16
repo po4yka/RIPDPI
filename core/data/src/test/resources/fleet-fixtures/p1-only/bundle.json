@@ -1,18 +1,26 @@
 {
-  "log": { "level": "warn", "timestamp": true },
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
   "dns": {
     "servers": [
-      { "tag": "remote", "address": "https://1.1.1.1/dns-query", "detour": "select" },
-      { "tag": "local", "address": "local", "detour": "direct" }
-    ],
-    "rules": [{ "outbound": ["any"], "server": "local" }]
+      {
+        "tag": "remote",
+        "address": "https://1.1.1.1/dns-query",
+        "detour": "select"
+      }
+    ]
   },
   "inbounds": [
     {
       "type": "tun",
       "tag": "tun-in",
       "interface_name": "tun0",
-      "inet4_address": "172.19.0.1/30",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
       "auto_route": true,
       "strict_route": true,
       "stack": "system",
@@ -23,13 +31,16 @@
     {
       "type": "vless",
       "tag": "p1-xhttp-upcloud-prod",
-      "server": "203.0.113.20",
+      "server": "203.0.113.10",
       "server_port": 443,
-      "uuid": "00000000-0000-0000-0000-000000000002",
+      "uuid": "00000000-0000-0000-0000-000000000001",
       "tls": {
         "enabled": true,
         "server_name": "cdn.fixture-host.example",
-        "utls": { "enabled": true, "fingerprint": "chrome" }
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
       },
       "transport": {
         "type": "xhttp",
@@ -40,28 +51,54 @@
     {
       "type": "selector",
       "tag": "select",
-      "outbounds": ["p1-xhttp-upcloud-prod", "auto"],
+      "outbounds": [
+        "p1-xhttp-upcloud-prod",
+        "auto"
+      ],
       "default": "auto",
       "interrupt_exist_connections": false
     },
     {
       "type": "urltest",
       "tag": "auto",
-      "outbounds": ["p1-xhttp-upcloud-prod"],
+      "outbounds": [
+        "p1-xhttp-upcloud-prod"
+      ],
       "url": "https://www.gstatic.com/generate_204",
       "interval": "5m",
       "tolerance": 50
     },
-    { "type": "direct", "tag": "direct" },
-    { "type": "block", "tag": "block" },
-    { "type": "dns", "tag": "dns-out" }
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "dns",
+      "tag": "dns-out"
+    }
   ],
   "route": {
     "rules": [
-      { "protocol": "dns", "outbound": "dns-out" },
-      { "ip_is_private": true, "outbound": "direct" }
+      {
+        "protocol": "dns",
+        "action": "route",
+        "outbound": "dns-out"
+      }
     ],
     "final": "select",
     "auto_detect_interface": true
+  },
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [],
+    "hysteria_extras": {},
+    "topology": {
+      "split_hop_egress": false,
+      "hysteria_realm": null
+    }
   }
 }

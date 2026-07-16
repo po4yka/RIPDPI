@@ -6,15 +6,21 @@
     "port": "443"
   },
   {
+    "type": "vless-reality",
+    "name": "p0-reality-upcloud-prod-fallback",
+    "server": "203.0.113.10",
+    "port": "2053"
+  },
+  {
     "type": "vless",
     "name": "p1-xhttp-upcloud-prod",
-    "server": "203.0.113.20",
-    "port": "443"
+    "server": "203.0.113.10",
+    "port": "8443"
   },
   {
     "type": "hysteria2",
     "name": "p2-hysteria2-upcloud-prod",
-    "server": "203.0.113.30",
+    "server": "203.0.113.10",
     "port": "443"
   }
 ]

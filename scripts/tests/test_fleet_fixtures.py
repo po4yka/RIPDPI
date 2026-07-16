@@ -2,9 +2,12 @@
 """Unit tests for scripts/ci/check_fleet_fixtures.py."""
 from __future__ import annotations
 
-import copy
 import importlib.util
 import json
+import os
+import re
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -48,9 +51,10 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
     def test_main_against_repo_fixtures(self) -> None:
         self.assertEqual(fixtures.main([]), 0)
 
-    def test_pinned_sha_is_read_from_the_refresh_script(self) -> None:
+    def test_pinned_sha_is_a_real_commit_and_matches_all_metadata(self) -> None:
         sha = fixtures.pinned_sha()
-        self.assertTrue(sha)
+        self.assertRegex(sha, re.compile(r"^[0-9a-f]{40}$"))
+        self.assertNotEqual("0" * 40, sha)
         # The pin must be exactly what every committed meta.json carries.
         for scenario in fixtures.REQUIRED_SCENARIOS:
             meta = json.loads(
@@ -59,6 +63,122 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
                 )
             )
             self.assertEqual(sha, meta["deployer_git_sha"])
+
+    def test_every_expressible_scenario_has_emitted_provenance(self) -> None:
+        self.assertEqual(
+            set(fixtures.REQUIRED_SCENARIOS) - {"p2a-hysteria-port-hop"},
+            set(fixtures.EMITTED_SCENARIOS),
+        )
+
+    def test_cross_repo_gate_requires_the_exact_deployer_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env = os.environ.copy()
+            env["RIPDPI_VPN_DEPLOY_DIR"] = str(Path(tmp) / "missing-deployer")
+            result = subprocess.run(
+                [str(fixtures.ROOT / "scripts/refresh-fleet-fixtures.sh"), "--check"],
+                cwd=fixtures.ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("deployer", result.stderr.lower())
+
+    def test_cross_repo_gate_emits_and_validates_a_bundle(self) -> None:
+        source = (fixtures.ROOT / "scripts/refresh-fleet-fixtures.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("scripts/emit-bundle.sh", source)
+        self.assertIn("scripts/validate-bundle.py", source)
+        self.assertNotIn("emitter_available", source)
+
+    def test_emitted_scenario_exit_two_is_a_hard_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = root / "app"
+            deploy = root / "deploy"
+            refresh = app / "scripts/refresh-fleet-fixtures.sh"
+            refresh.parent.mkdir(parents=True)
+            shutil.copy2(fixtures.ROOT / "scripts/refresh-fleet-fixtures.sh", refresh)
+
+            frozen = app / "scripts/fleet-fixtures/frozen-secrets.yaml"
+            frozen.parent.mkdir(parents=True)
+            frozen.write_text("xray: {}\n", encoding="utf-8")
+            pin_file = frozen.parent / "deployer-git-sha.txt"
+
+            checker = app / "scripts/ci/check_fleet_fixtures.py"
+            checker.parent.mkdir(parents=True)
+            checker.write_text("print('fake structural check')\n", encoding="utf-8")
+
+            fixture_root = app / "core/data/src/test/resources/fleet-fixtures"
+            for scenario in fixtures.REQUIRED_SCENARIOS:
+                scenario_dir = fixture_root / scenario
+                scenario_dir.mkdir(parents=True)
+                (scenario_dir / "meta.json").write_text("{}\n", encoding="utf-8")
+
+            scripts = deploy / "scripts"
+            scripts.mkdir(parents=True)
+            emitter = scripts / "emit-bundle.sh"
+            emitter.write_text("#!/usr/bin/env bash\nexit 2\n", encoding="utf-8")
+            emitter.chmod(0o755)
+            (scripts / "validate-bundle.py").write_text(
+                "raise SystemExit('validator must not run')\n", encoding="utf-8"
+            )
+            subprocess.run(["git", "init", "-q", str(deploy)], check=True)
+            subprocess.run(
+                ["git", "-C", str(deploy), "config", "user.email", "test@example.invalid"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(deploy), "config", "user.name", "Fleet test"],
+                check=True,
+            )
+            subprocess.run(["git", "-C", str(deploy), "add", "."], check=True)
+            subprocess.run(
+                ["git", "-C", str(deploy), "commit", "-qm", "fixture"], check=True
+            )
+            sha = subprocess.check_output(
+                ["git", "-C", str(deploy), "rev-parse", "HEAD"], text=True
+            ).strip()
+            pin_file.write_text(sha + "\n", encoding="utf-8")
+
+            env = os.environ.copy()
+            env["RIPDPI_VPN_DEPLOY_DIR"] = str(deploy)
+            result = subprocess.run(
+                [str(refresh), "--check"],
+                cwd=app,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("emit-bundle.sh failed for p0-only", result.stderr)
+
+    def test_workflow_checks_out_the_pinned_deployer_before_the_gate(self) -> None:
+        source = (fixtures.ROOT / ".github/workflows/fleet-fixtures.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("repository: po4yka/ripdpi-vpn-deploy", source)
+        self.assertIn("ref: ${{ steps.deployer-pin.outputs.sha }}", source)
+        self.assertIn("scripts/refresh-fleet-fixtures.sh --write", source)
+        self.assertIn(
+            "git diff --exit-code -- core/data/src/test/resources/fleet-fixtures",
+            source,
+        )
+        self.assertIn("RIPDPI_VPN_DEPLOY_DIR", source)
+        self.assertIn("push:\n    branches: [main]", source)
+        self.assertLess(
+            source.index("scripts/refresh-fleet-fixtures.sh --write"),
+            source.index("git diff --exit-code"),
+        )
+        self.assertLess(
+            source.index("git diff --exit-code"),
+            source.index("./gradlew :core:data:testDebugUnitTest"),
+        )
 
 
 class FleetFixturesDefectTest(unittest.TestCase):
@@ -141,6 +261,32 @@ class FleetFixturesDefectTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "production-token"):
             fixtures.validate_fixtures(self.tree, self.sha)
 
+    def test_production_password_is_detected_in_parser_reference(self) -> None:
+        bundle_path = self.tree / "p2a-hysteria-only" / "bundle.json"
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        bundle["outbounds"][0]["password"] = "live-hysteria-password"
+        bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "production-token.*password"):
+            fixtures.validate_fixtures(self.tree, self.sha)
+
+    def test_non_documentation_server_ip_is_detected_in_parser_reference(self) -> None:
+        bundle_path = self.tree / "p2a-hysteria-only" / "bundle.json"
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        bundle["outbounds"][0]["server"] = "8.8.8.8"
+        bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "production-token.*server"):
+            fixtures.validate_fixtures(self.tree, self.sha)
+
+    def test_unmarked_public_key_is_detected_in_parser_reference(self) -> None:
+        bundle_path = self.tree / "multi-host-failover" / "bundle.json"
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        bundle["outbounds"][0]["tls"]["reality"]["public_key"] = (
+            "wD3J4Yv4mA9y0nQb3P2L1K8jH7gF6dS5aZ4xC3vB2nM="
+        )
+        bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "production-token.*public_key"):
+            fixtures.validate_fixtures(self.tree, self.sha)
+
     def test_frozen_zero_uuid_is_not_flagged(self) -> None:
         # The all-zero / -fixture frozen shapes must not trip the guard.
         summary = fixtures.validate_fixtures(self.tree, self.sha)
@@ -151,6 +297,28 @@ class FleetFixturesDefectTest(unittest.TestCase):
 
         shutil.rmtree(self.tree / "bootstrap-bundle")
         with self.assertRaisesRegex(ValueError, "bootstrap-bundle"):
+            fixtures.validate_fixtures(self.tree, self.sha)
+
+    def test_placeholder_pin_is_rejected(self) -> None:
+        pin_file = self.tmp / "deployer-git-sha.txt"
+        pin_file.write_text("0" * 40 + "-fixture\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "40-character lowercase git SHA"):
+            fixtures.pinned_sha(pin_file)
+
+    def test_parser_reference_scenario_cannot_claim_emitted_provenance(self) -> None:
+        meta_path = self.tree / "p2a-hysteria-port-hop" / "meta.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta["provenance"] = "emitted"
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "provenance"):
+            fixtures.validate_fixtures(self.tree, self.sha)
+
+    def test_parser_reference_requires_an_explicit_reason(self) -> None:
+        meta_path = self.tree / "p2a-hysteria-port-hop" / "meta.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta.pop("reference_reason", None)
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "reference_reason"):
             fixtures.validate_fixtures(self.tree, self.sha)
 
 
