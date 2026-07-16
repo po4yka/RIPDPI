@@ -107,6 +107,7 @@ internal class TestServiceStateStore(
     override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
 
     val eventHistory = mutableListOf<ServiceEvent>()
+    val statusHistory = mutableListOf(initialStatus)
 
     override fun setStatus(
         status: AppStatus,
@@ -114,6 +115,7 @@ internal class TestServiceStateStore(
     ) {
         val previousStatus = statusState.value.first
         statusState.value = status to mode
+        statusHistory += status to mode
         val currentTelemetry = telemetryState.value
         telemetryState.value =
             currentTelemetry.copy(
@@ -1097,6 +1099,7 @@ internal class TestTun2SocksBridge(
         private set
     var stopCount: Int = 0
         private set
+    var beforeStart: (suspend () -> Unit)? = null
     var startFailure: Throwable? = null
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
@@ -1118,6 +1121,7 @@ internal class TestTun2SocksBridge(
         startedConfigs += config
         startedTunFd = tunFd
         startedFlowAttributionBridge = flowAttributionBridge
+        beforeStart?.invoke()
         startFailure?.let { throw it }
     }
 
@@ -1147,8 +1151,10 @@ internal class TestVpnTunnelSession(
 ) : VpnTunnelSession {
     var closed: Boolean = false
         private set
+    var beforeClose: (() -> Unit)? = null
 
     override fun close() {
+        beforeClose?.invoke()
         closed = true
         events += "vpn:session-close"
     }

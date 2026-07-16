@@ -22,8 +22,20 @@ pub(crate) struct TunnelSession {
 
 pub(crate) enum TunnelSessionState {
     Ready,
-    Starting { cancel: Arc<CancellationToken> },
-    Running { cancel: Arc<CancellationToken>, stats: Arc<Stats>, worker: JoinHandle<()> },
+    Starting {
+        cancel: Arc<CancellationToken>,
+    },
+    /// Startup timed out or failed before readiness. The worker join is owned
+    /// by a runtime reaper, so JNI teardown remains bounded while its TUN-fd
+    /// duplicate is still closed exactly once by the worker.
+    CleanupPending {
+        cancel: Arc<CancellationToken>,
+    },
+    Running {
+        cancel: Arc<CancellationToken>,
+        stats: Arc<Stats>,
+        worker: JoinHandle<()>,
+    },
     Destroyed,
 }
 

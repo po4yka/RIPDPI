@@ -102,8 +102,10 @@ fn loom_concurrent_start_check_and_destroy_check() {
                 // Both are valid; just confirm ensure_tunnel_destroyable now fails.
                 assert!(ensure_tunnel_destroyable(&s).is_err());
             }
-            TunnelSessionState::Running { .. } | TunnelSessionState::Destroyed => {
-                panic!("unexpected Running/Destroyed state in loom test");
+            TunnelSessionState::CleanupPending { .. }
+            | TunnelSessionState::Running { .. }
+            | TunnelSessionState::Destroyed => {
+                panic!("unexpected cleanup/running/destroyed state in loom test");
             }
         }
     });

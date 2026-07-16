@@ -7,12 +7,12 @@
 
 mod support;
 
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::time::Duration;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
-use ripdpi_tunnel_core::{Stats, run_tunnel};
+use ripdpi_tunnel_core::{Stats, run_tunnel, run_tunnel_with_ready};
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -105,6 +105,72 @@ fn tcp_packet_summary(pkt: &[u8]) -> String {
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn run_tunnel_emits_runtime_ready_only_after_device_and_routes_initialize() {
+    let (tunnel_fd, _harness) = socketpair_tun().expect("create socketpair");
+    let config = test_tunnel_config("127.0.0.1:9".parse().expect("SOCKS address"));
+    let cancel = CancellationToken::new();
+    let worker_cancel = cancel.clone();
+    let (ready_tx, ready_rx) = mpsc::sync_channel(1);
+    let tunnel_thread = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
+        rt.block_on(run_tunnel_with_ready(config, tunnel_fd, worker_cancel, Arc::new(Stats::new()), move || {
+            ready_tx.send(()).expect("publish readiness");
+        }))
+    });
+
+    ready_rx.recv_timeout(Duration::from_secs(2)).expect("readiness after packet-loop setup");
+    cancel.cancel();
+    let result = tunnel_thread.join().expect("tunnel thread panicked");
+    assert!(result.is_ok(), "ready tunnel must stop cleanly: {result:?}");
+}
+
+#[test]
+fn tunnel_initialization_failure_never_emits_runtime_ready() {
+    let (tunnel_fd, _harness) = socketpair_tun().expect("create socketpair");
+    let base = test_tunnel_config("127.0.0.1:9".parse().expect("SOCKS address"));
+    let mut invalid = (*base).clone();
+    invalid.tunnel.mtu = 0;
+    let ready = Arc::new(AtomicBool::new(false));
+    let ready_observer = Arc::clone(&ready);
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
+
+    let result = rt.block_on(run_tunnel_with_ready(
+        Arc::new(invalid),
+        tunnel_fd,
+        CancellationToken::new(),
+        Arc::new(Stats::new()),
+        move || ready_observer.store(true, Ordering::Relaxed),
+    ));
+
+    assert!(result.is_err(), "invalid setup must fail");
+    assert!(!ready.load(Ordering::Relaxed), "failed initialization must never publish readiness");
+}
+
+#[test]
+fn packet_loop_setup_failure_never_emits_runtime_ready() {
+    let (tunnel_fd, _harness) = socketpair_tun().expect("create socketpair");
+    let base = test_tunnel_config("127.0.0.1:9".parse().expect("SOCKS address"));
+    let mut setup_failure = (*base).clone();
+    setup_failure.socks5.address = "not-an-ip-address".to_string();
+    setup_failure.validate().expect("non-IP SOCKS host passes the envelope validation stage");
+    let ready = Arc::new(AtomicBool::new(false));
+    let ready_observer = Arc::clone(&ready);
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
+
+    let result = rt.block_on(run_tunnel_with_ready(
+        Arc::new(setup_failure),
+        tunnel_fd,
+        CancellationToken::new(),
+        Arc::new(Stats::new()),
+        move || ready_observer.store(true, Ordering::Relaxed),
+    ));
+
+    let error = result.expect_err("packet-loop setup must reject a non-IP SOCKS address");
+    assert!(error.to_string().contains("resolve SOCKS5 proxy address"), "unexpected setup error: {error}");
+    assert!(!ready.load(Ordering::Relaxed), "fallible packet-loop setup must complete before readiness");
+}
 
 /// E2E-01: TCP round-trip through the full tunnel data path.
 ///

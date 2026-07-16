@@ -90,9 +90,23 @@ Start path:
 
 `RipDpiVpnService.startTun2Socks()` -> `Tun2SocksTunnel.start(config, tunFd)` -> `jniCreate(configJson)` -> `jniStart(handle, tunFd)` -> native worker thread -> `ripdpi_tunnel_core::run_tunnel()`
 
-Stop path:
+`jniStart` does not declare the data plane ready merely because the worker was
+spawned. The worker signals a bounded readiness barrier only after fd adoption,
+smoltcp interface/address/default-route construction, and session allocation,
+immediately before entering `io_loop_task`. Until that signal arrives the
+already-established Android TUN remains open as a fail-closed routing barrier,
+and the service cannot publish `Connected`. Initialization failure or the
+five-second native timeout is reported synchronously; `Failed` is published
+before orchestrated cleanup closes the pending TUN.
+
+Normal stop path:
 
 `RipDpiVpnService.stopTun2Socks()` -> `Tun2SocksTunnel.stop()` -> `jniStop(handle)` -> `CancellationToken::cancel()` -> worker thread join
+
+If the five-second readiness deadline expires, `jniStart` requests cancellation
+and moves the worker join to a shared-runtime reaper instead of blocking the JNI
+caller past the deadline. The session becomes destroyable while that reaper owns
+the worker and its duplicated TUN fd.
 
 Relevant sources:
 
@@ -108,7 +122,10 @@ The TUN fd travels through two independent ownership tiers that must never alias
 
 `VpnService.Builder.establish()` returns a `ParcelFileDescriptor` wrapped in `ParcelFileDescriptorVpnTunnelSession`. The property `tunFd` returns `descriptor.fd` — a `.fd()` peek, NOT `detachFd()`. Kotlin retains full ownership of the original fd. `VpnTunnelRuntime` closes it exactly once:
 
-- Error unwind (tunnelBridge.start() throws before `tunSession` is assigned): catch block calls `tunnelSession.close()`.
+- Startup failure after `establish()`: `VpnTunnelRuntime` retains the session as
+  `pendingSession` until the coordinator publishes `Failed`; orchestrated
+  `stop()` then closes it. This keeps Android routing fail-closed throughout
+  the error transition.
 - Normal stop, cancel, handover-restart: `VpnTunnelRuntime.stop()` finally block calls `session.close()` and immediately nulls `tunSession`. The null-guard prevents any second close.
 
 **Tier 2 — Rust / dup (one dup per session, independent fd number)**
@@ -169,7 +186,9 @@ adopt_tun_fd() → OwnedFd (RAII live)
 
 Compatibility details preserved by the Rust JNI shim:
 
-- `jniStart(handle, tunFd)` still returns `Unit` immediately.
+- `jniStart(handle, tunFd)` returns `Unit` only after fallible packet-loop setup
+  has completed and native forwarding is ready; it fails within the bounded
+  five-second readiness deadline otherwise.
 - The Rust bridge owns the worker thread internally.
 - `jniGetStats(handle)` keeps the array order `[tx_pkt, tx_bytes, rx_pkt, rx_bytes]`, and Kotlin maps it into `TunnelStats`.
 - `jniGetTelemetry(handle)` returns a JSON snapshot that Kotlin maps into `NativeRuntimeSnapshot`.

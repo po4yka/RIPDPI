@@ -1,4 +1,5 @@
 use std::os::fd::OwnedFd;
+use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, Mutex};
 
 use ripdpi_tunnel_core::Stats;
@@ -20,6 +21,7 @@ pub(crate) struct WorkerLaunch {
     pub(crate) stats: Arc<Stats>,
     pub(crate) telemetry: Arc<TunnelTelemetryState>,
     pub(crate) last_error: Arc<Mutex<Option<String>>>,
+    pub(crate) startup_ready: SyncSender<()>,
 }
 
 pub(crate) fn launch_tunnel_worker(launch: WorkerLaunch) -> std::io::Result<std::thread::JoinHandle<()>> {
@@ -27,8 +29,8 @@ pub(crate) fn launch_tunnel_worker(launch: WorkerLaunch) -> std::io::Result<std:
 }
 
 fn run_worker(launch: WorkerLaunch) {
-    let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error } = launch;
-    let root_helper_registered = register_for_worker(&config);
+    let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error, startup_ready } = launch;
+    let root_helper_generation = register_for_worker(&config);
     let worker_cancel = cancel.clone();
     // cancel-safe: run_tunnel holds a CancellationToken and exits the io_loop
     // cleanly when cancelled.  OwnedFd ownership transfers into run_tunnel's
@@ -38,12 +40,20 @@ fn run_worker(launch: WorkerLaunch) {
     // future's first poll: OwnedFd remains live inside the pinned async future
     // until run_tunnel's first statement (into_raw_fd) executes.
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        runtime.block_on(ripdpi_tunnel_core::run_tunnel(config, owned_fd, (*worker_cancel).clone(), stats))
+        runtime.block_on(ripdpi_tunnel_core::run_tunnel_with_ready(
+            config,
+            owned_fd,
+            (*worker_cancel).clone(),
+            stats,
+            move || {
+                let _ = startup_ready.send(());
+            },
+        ))
     }));
 
     record_worker_result(result, &telemetry, &last_error);
-    if root_helper_registered {
-        unregister_for_worker();
+    if let Some(generation) = root_helper_generation {
+        unregister_for_worker(generation);
     }
     telemetry.mark_stopped();
 }

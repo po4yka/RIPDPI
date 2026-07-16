@@ -270,7 +270,7 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
-    fun tunnelStartFailureClosesEstablishedSession() =
+    fun tunnelStartFailureRetainsEstablishedSessionUntilOrchestratedStop() =
         runTest {
             val events = mutableListOf<String>()
             val bridge = TestTun2SocksBridge(events).apply { startFailure = IllegalStateException("boom") }
@@ -288,17 +288,23 @@ class VpnTunnelRuntimeTest {
                         ),
                 )
 
-            runCatching {
-                runtime.start(
-                    AppSettingsSerializer.defaultValue.activeDnsSettings(),
-                    overrideReason = null,
-                    logContext = null,
-                    localProxyEndpoint = localProxyEndpoint,
-                )
-            }
+            val failure =
+                runCatching {
+                    runtime.start(
+                        AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                        overrideReason = null,
+                        logContext = null,
+                        localProxyEndpoint = localProxyEndpoint,
+                    )
+                }
+
+            assertTrue(failure.isFailure)
+            assertFalse(session.closed)
+            assertFalse(runtime.isRunning)
+
+            runtime.stop()
 
             assertTrue(session.closed)
-            assertFalse(runtime.isRunning)
         }
 
     @Test

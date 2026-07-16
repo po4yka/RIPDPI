@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -70,6 +71,62 @@ class VpnServiceRuntimeCoordinatorTest {
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))
             assertEquals(listOf("proxy:start", "vpn:establish", "tunnel:start"), env.events.take(3))
             assertEquals(1, env.host.underlyingNetworkSyncs)
+        }
+
+    @Test
+    fun establishedTunStaysFailClosedUntilNativeForwardingIsReady() =
+        runTest {
+            val nativeReady = CompletableDeferred<Unit>()
+            val env = newEnv().also { it.bridgeFactory.bridge.beforeStart = { nativeReady.await() } }
+
+            val startup = backgroundScope.launch { env.coordinator.start() }
+            runCurrent()
+
+            assertEquals(listOf("proxy:start", "vpn:establish", "tunnel:start"), env.events.take(3))
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertFalse(env.tunnelProvider.session.closed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(startup.isCompleted)
+
+            nativeReady.complete(Unit)
+            runCurrent()
+
+            assertTrue(startup.isCompleted)
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun nativeReadinessTimeoutNeverPublishesRunningAndKeepsTunUntilFailedCleanup() =
+        runTest {
+            val nativeReady = CompletableDeferred<Unit>()
+            val env =
+                newEnv().also {
+                    it.bridgeFactory.bridge.beforeStart = { nativeReady.await() }
+                    it.tunnelProvider.session.beforeClose = {
+                        assertTrue(
+                            "Failed must be published before a timed-out blocking TUN is released",
+                            it.store.eventHistory.lastOrNull() is ServiceEvent.Failed,
+                        )
+                    }
+                }
+
+            val startup = backgroundScope.launch { env.coordinator.start() }
+            runCurrent()
+
+            assertFalse(env.tunnelProvider.session.closed)
+            assertFalse(startup.isCompleted)
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+
+            advanceTimeBy(6_001)
+            runCurrent()
+
+            assertTrue(startup.isCompleted)
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertTrue(env.tunnelProvider.session.closed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
         }
 
     @Test
@@ -153,7 +210,16 @@ class VpnServiceRuntimeCoordinatorTest {
     @Test
     fun tunnelStartFailureEmitsFailureAndStopsProxy() =
         runTest {
-            val env = newEnv().also { it.bridgeFactory.bridge.startFailure = IllegalStateException("boom") }
+            val env =
+                newEnv().also {
+                    it.bridgeFactory.bridge.startFailure = IllegalStateException("boom")
+                    it.tunnelProvider.session.beforeClose = {
+                        assertTrue(
+                            "Failed must be published before the blocking TUN is released",
+                            it.store.eventHistory.lastOrNull() is ServiceEvent.Failed,
+                        )
+                    }
+                }
 
             env.coordinator.start()
             runCurrent()

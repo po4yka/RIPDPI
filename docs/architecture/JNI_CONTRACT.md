@@ -328,8 +328,8 @@ hold the token, so no JNI round-trip is needed there.
 
 - **TUN fd.** Kotlin's `VpnService.Builder.establish()` yields a
   `ParcelFileDescriptor`; its raw `int` is passed as `tunFd` to
-  `Tun2SocksNativeBindings.jniStart(handle, tunFd)`. Rust **adopts** the TUN fd
-  on `start` — fd handling lives in
+  `Tun2SocksNativeBindings.jniStart(handle, tunFd)`. Rust duplicates and adopts
+  the duplicate TUN fd on `start` — fd handling lives in
   `ripdpi-tunnel-android/src/session/lifecycle/fd.rs`. Kotlin must keep the
   `ParcelFileDescriptor` open for the lifetime of the native session and close
   it only after `destroy`. The TUN device is the data-plane ingress/egress and
@@ -447,9 +447,13 @@ granularity.
   - `RipDpiProxyNativeBindings.jniStart` runs the **blocking** native proxy
     event loop on the caller thread — `RipDpiProxy` invokes it under
     `withContext(Dispatchers.IO)` and `yield()`s first.
-  - `Tun2SocksNativeBindings.jniStart` is **non-blocking**: it adopts the TUN
-    fd, spawns the tunnel worker, and returns. `stop` may block briefly waiting
-    for that worker to exit.
+  - `Tun2SocksNativeBindings.jniStart` is **bounded-blocking**: it duplicates
+    the TUN fd, spawns the tunnel worker, and waits up to five seconds for the
+    packet-loop readiness barrier after all fallible loop setup. Long-running
+    packet I/O stays on the worker; `stop` may block briefly waiting for a
+    running worker to exit. A pre-readiness timeout never joins on the JNI
+    caller: a shared-runtime reaper owns the cancelled worker and duplicated fd
+    until exit while the failed-start session remains safe to destroy.
 
 ---
 

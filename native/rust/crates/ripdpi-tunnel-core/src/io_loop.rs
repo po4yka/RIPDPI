@@ -129,6 +129,8 @@ pub struct IoUringTunContext {
 }
 
 #[allow(clippy::too_many_arguments)]
+// cancel-safe: delegates to `io_loop_task_with_ready`; cancellation is owned by
+// the loop state's `CancellationToken` and shutdown drains the owned resources.
 pub async fn io_loop_task(
     tun: &AsyncDevice,
     device: TunDevice,
@@ -140,7 +142,29 @@ pub async fn io_loop_task(
     stats: Arc<Stats>,
     dns_cache: Option<DnsCache>,
 ) -> io::Result<()> {
+    io_loop_task_with_ready(tun, device, iface, socket_set, sessions, config, cancel, stats, dns_cache, || {}).await
+}
+
+#[allow(clippy::too_many_arguments)]
+// cancel-safe: all fallible setup completes before `on_ready`; after the
+// callback, cancellation is observed by the loop and runs normal shutdown.
+pub(crate) async fn io_loop_task_with_ready<F>(
+    tun: &AsyncDevice,
+    device: TunDevice,
+    iface: Interface,
+    socket_set: SocketSet<'static>,
+    sessions: ActiveSessions,
+    config: Arc<Config>,
+    cancel: CancellationToken,
+    stats: Arc<Stats>,
+    dns_cache: Option<DnsCache>,
+    on_ready: F,
+) -> io::Result<()>
+where
+    F: FnOnce(),
+{
     let mut state = setup_io_loop(device, iface, socket_set, sessions, config, cancel, stats, dns_cache)?;
+    on_ready();
 
     loop {
         if state.cancel.is_cancelled() {

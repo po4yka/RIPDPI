@@ -26,16 +26,20 @@ import javax.inject.Inject
  * One session runs through [create] -> [start] -> [stop] -> [destroy], in that
  * order. [create] returns an opaque non-zero `Long` handle (a native registry
  * key, not a pointer) for a session in the `Ready` state, or `0` on failure.
- * [start] adopts the TUN fd and moves `Ready -> Running`; [stop] cancels the
- * worker and moves it out of `Running`; [destroy] retires the handle. After
- * [destroy] returns the handle is dead and must never be reused.
+ * [start] adopts the TUN fd and moves `Ready -> Starting -> Running`; [stop]
+ * cancels the worker and moves it out of `Running`; [destroy] retires the
+ * handle. A readiness timeout moves through native cleanup ownership so the
+ * JNI deadline remains bounded. After [destroy] returns the handle is dead and
+ * must never be reused.
  *
  * ## Idempotency
  * None of the lifecycle calls are idempotent on the native side. [start] throws
  * `IllegalStateException` unless the session is `Ready`; [stop] throws
- * `IllegalStateException` unless it is `Running`; [destroy] throws
- * `IllegalStateException` if the worker is still running. [Tun2SocksTunnel]
- * provides the idempotent wrapper by gating on its own handle field.
+ * `IllegalStateException` unless it is `Running`; [destroy] throws while a
+ * normally running worker is still owned by the session, but accepts a failed
+ * startup whose worker is already owned by the native reaper.
+ * [Tun2SocksTunnel] provides the idempotent wrapper by gating on its own handle
+ * field.
  *
  * ## fd ownership
  * [start] **dups** the TUN fd it is handed (`adopt_tun_fd`). The caller keeps
@@ -53,9 +57,12 @@ import javax.inject.Inject
  * return (`0` handle / no-op) rather than crossing the boundary.
  *
  * ## Blocking
- * [start] returns after the worker thread is spawned — it does **not** run
- * packet IO on the caller thread. [stop] is the one blocking lifecycle call: it
- * cancels the worker and joins it, so keep it on the IO dispatcher. [create],
+ * [start] returns after the worker has completed packet-loop initialization —
+ * it does **not** run packet IO on the caller thread. Native startup waits at
+ * most five seconds for that readiness barrier. A readiness timeout requests
+ * cancellation and transfers the join to a native runtime reaper instead of
+ * blocking past the deadline. [stop] cancels a running worker and joins it, so
+ * both lifecycle calls belong on the IO dispatcher. [create],
  * [getStats], [getTelemetry] and [destroy] are non-blocking.
  *
  * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §9 (TUN fd
@@ -67,9 +74,10 @@ interface Tun2SocksBindings {
 
     /**
      * Starts the native session: validates and **dups** [tunFd], adopts the dup,
-     * and spawns the tunnel worker. Returns after worker launch, not after
-     * tunnel termination. The caller retains ownership of the original [tunFd]
-     * and must close it; the native dup is closed by the worker on exit.
+     * and spawns the tunnel worker. Returns only after the worker has adopted
+     * the fd and initialized the smoltcp packet loop; startup timeout/failure is
+     * thrown synchronously. The caller retains ownership of the original
+     * [tunFd] and must close it; the native dup is closed by the worker on exit.
      */
     fun start(
         handle: Long,
@@ -83,7 +91,7 @@ interface Tun2SocksBindings {
 
     fun getTelemetry(handle: Long): String?
 
-    /** Retires the session for [handle]; throws `IllegalStateException` if the worker is still running. */
+    /** Retires [handle]; a failed-start reaper may still own the cancelled worker and duplicated fd. */
     fun destroy(handle: Long)
 
     /**

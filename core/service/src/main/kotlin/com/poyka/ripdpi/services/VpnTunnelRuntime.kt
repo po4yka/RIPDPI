@@ -16,9 +16,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeout
 
 private const val DefaultSocksListenerPort = 1080
 private const val DefaultMixedInboundListenerPort = 2080
+private const val NativeTunnelStartTimeoutMillis = 6_000L
 
 internal class VpnTunnelRuntime(
     private val vpnHost: VpnCoordinatorHost,
@@ -50,6 +52,9 @@ internal class VpnTunnelRuntime(
 
     @Volatile
     private var tunSession: VpnTunnelSession? = null
+
+    @Volatile
+    private var pendingSession: VpnTunnelSession? = null
     private var tunnelStartCount: Int = 0
 
     @Volatile
@@ -103,12 +108,13 @@ internal class VpnTunnelRuntime(
                 localProxyEndpoint = localProxyEndpoint,
                 forceTunnelDns = forceTunnelDns,
             )
-        try {
-            startBridge(pendingTunnel, retainFailedBridge = false)
-        } catch (error: Exception) {
-            pendingTunnel.session.close()
-            throw error
-        }
+        // Builder.establish() has already installed Android's default routes.
+        // Retain this session as a fail-closed barrier until native forwarding
+        // reaches its readiness point or the orchestrated Failed cleanup closes
+        // it. Closing it here would briefly restore direct routing before the
+        // service can publish Failed.
+        pendingSession = pendingTunnel.session
+        startBridge(pendingTunnel, retainFailedBridge = false)
 
         vpnHost.syncUnderlyingNetworksFromActiveNetwork()
     }
@@ -248,13 +254,18 @@ internal class VpnTunnelRuntime(
     ) {
         val tunnelBridge = tun2SocksBridgeFactory.create()
         try {
-            tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, flowAttributionBridge)
+            withTimeout(NativeTunnelStartTimeoutMillis) {
+                tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, flowAttributionBridge)
+            }
         } catch (error: Exception) {
             if (retainFailedBridge) retiringBridge = tunnelBridge
             throw error
         }
         tun2SocksBridge = tunnelBridge
         tunSession = pendingTunnel.session
+        if (pendingSession === pendingTunnel.session) {
+            pendingSession = null
+        }
         currentDnsSignature = pendingTunnel.dnsSignature
         currentInterfacePolicySignature = pendingTunnel.interfacePolicySignature
         if (tunnelStartCount > 0) {
@@ -264,7 +275,7 @@ internal class VpnTunnelRuntime(
     }
 
     suspend fun stop() {
-        val session = tunSession ?: return
+        val session = tunSession ?: pendingSession ?: return
         val activeBridge = tun2SocksBridge
         val inactiveBridge = retiringBridge
 
@@ -278,6 +289,7 @@ internal class VpnTunnelRuntime(
                 retiringBridge = null
                 session.close()
                 tunSession = null
+                pendingSession = null
             }
         }
     }

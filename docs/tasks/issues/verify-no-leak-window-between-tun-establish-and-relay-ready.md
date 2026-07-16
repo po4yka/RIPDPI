@@ -53,4 +53,6 @@ The one residual is **not verifiable by code reading** — it needs instrumentat
 
 ## Work log
 
+- 2026-07-16: Independent review found and closed two startup gaps before commit: readiness now fires after all fallible `setup_io_loop` work (with a valid-config/non-IP SOCKS fault test), and the five-second JNI deadline no longer performs an unbounded worker join. Timeout cancellation transfers join/fd ownership to a runtime reaper; a native injected-stall test proves the startup thread returns while cleanup ownership remains tracked.
+- 2026-07-16: Implemented the deterministic half of the invariant. Native `start` now waits for a one-shot barrier emitted only after TUN fd adoption, smoltcp addresses/routes, and packet-loop setup; service status remains non-running while the established TUN blocks traffic. Virtual-time tests cover delayed readiness, timeout, and failure-before-TUN-close ordering. The physical Android dual-vantage capture acceptance criteria remain open and must not be inferred from JVM/Rust ownership tests.
 - 2026-07-16: Assigned to the lifecycle/PMTUD lane. Completion now requires a deterministic fault-injected `TUN establish -> native ready` barrier test proving no direct egress or false `Connected`, plus fail-closed timeout/error cleanup ownership.

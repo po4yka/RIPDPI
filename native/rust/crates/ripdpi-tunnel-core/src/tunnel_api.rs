@@ -17,7 +17,8 @@ use tun_rs::AsyncDevice;
 
 use ripdpi_tunnel_config::Config;
 
-use crate::{ActiveSessions, Stats, TunDevice, io_loop_task};
+use crate::io_loop::io_loop_task_with_ready;
+use crate::{ActiveSessions, Stats, TunDevice};
 
 fn parse_tunnel_address(value: &str) -> Option<(IpAddress, u8)> {
     let (ip_part, prefix_part) = value.split_once('/').map_or((value, None), |(ip, prefix)| (ip, Some(prefix)));
@@ -84,6 +85,32 @@ pub async fn run_tunnel(
     cancel: CancellationToken,
     stats: Arc<Stats>,
 ) -> io::Result<()> {
+    run_tunnel_with_ready(config, tun_fd, cancel, stats, || {}).await
+}
+
+/// Start the tunnel and invoke `on_ready` after all fallible packet-loop setup
+/// has completed, immediately before the loop begins polling the TUN fd.
+///
+/// The Android adapter uses this barrier to keep the service out of `Connected`
+/// during the otherwise invisible window between `VpnService.Builder.establish()`
+/// and native packet forwarding readiness. If setup fails, the callback is not
+/// invoked and the returned error remains the source of truth.
+///
+/// # Cancel safety
+///
+/// cancel-safe: identical to [`run_tunnel`]. Dropping the future before the
+/// barrier drops `on_ready` without invoking it; after the barrier the regular
+/// `CancellationToken` shutdown contract applies.
+pub async fn run_tunnel_with_ready<F>(
+    config: Arc<Config>,
+    tun_fd: OwnedFd,
+    cancel: CancellationToken,
+    stats: Arc<Stats>,
+    on_ready: F,
+) -> io::Result<()>
+where
+    F: FnOnce() + Send,
+{
     config.validate().map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
 
     // Consume the OwnedFd RAII guard immediately.  From this point the raw fd
@@ -161,7 +188,8 @@ pub async fn run_tunnel(
     let socket_set = SocketSet::new(vec![]);
     let sessions = ActiveSessions::new(config.misc.max_session_count as usize);
 
-    io_loop_task(&tun_async, device, iface, socket_set, sessions, config, cancel, stats, None).await
+    io_loop_task_with_ready(&tun_async, device, iface, socket_set, sessions, config, cancel, stats, None, on_ready)
+        .await
 }
 
 #[cfg(test)]

@@ -98,6 +98,17 @@ Scores (threadSafety / cancelCorrectness / testFeasibility / auditCost / latency
 
 ## Consequences
 
+The TUN worker uses a separate readiness mechanism because its JNI `start` call
+already runs on `Dispatchers.IO`: a bounded native one-shot channel gates the
+return from `jniStart` until `ripdpi-tunnel-core` has completed packet-loop
+initialization. It adds no JNI callback or `GlobalRef`, keeps the established
+TUN as a fail-closed barrier, and prevents the service from publishing
+`Connected` after worker spawn but before packet forwarding is ready.
+The readiness callback runs only after `setup_io_loop` has completed. If the
+five-second deadline expires, cancellation is requested and a runtime-owned
+blocking reaper retains the worker join and duplicated TUN fd; the JNI call
+returns on time and the session can be destroyed without detaching ownership.
+
 **Positive:** P99 readiness latency drops from ~50 ms to sub-millisecond; the periodic 50 ms
 CPU wake is eliminated; the Kotlin wait stays cancel-safe and unchanged in shape; no new
 terminal-failure code on any runtime; the shared poll helper is retained as a fallback, not
