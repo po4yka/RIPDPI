@@ -530,7 +530,7 @@ RIPDPI_RUN_TUN_E2E=1 RIPDPI_SOAK_PROFILE=smoke \
   bash scripts/ci/run-linux-tun-soak.sh
 ```
 
-The native workspace registers separate `linux_tun_e2e` and `linux_tun_soak` targets. The E2E lane fails closed when its target, Linux host, explicit opt-in, or `/dev/net/tun` is unavailable; its TCP case requires an exact echo roundtrip plus non-zero TUN TX/RX counters and fixture relay events.
+The native workspace registers separate `linux_tun_e2e` and `linux_tun_soak` entrypoints. Both wrappers fail closed when the target, Linux host, or `/dev/net/tun` is unavailable. The E2E TCP case requires an exact echo roundtrip plus non-zero TUN TX/RX counters and fixture relay events. The soak wrapper records the resolved profile and iteration count in `effective-profile.txt` beside its log.
 
 Host-side native soak:
 
@@ -540,8 +540,10 @@ RIPDPI_SOAK_PROFILE=smoke bash scripts/ci/run-rust-native-soak.sh
 
 Profiles:
 
-- `smoke`: shorter local/manual runs
-- `full`: nightly profile used by scheduled CI
+- `smoke`: 50 start/stop/handover iterations for local/manual runs
+- `full`: 500 iterations for scheduled CI
+
+`RIPDPI_SOAK_ITERS=<positive integer>` overrides either profile explicitly.
 
 ## Known gaps & coverage roadmap
 

@@ -55,4 +55,4 @@ path = "tests/linux_tun_e2e.rs"
 
 [[test]]
 name = "linux_tun_soak"
-path = "tests/linux_tun_e2e.rs"
+path = "tests/linux_tun_soak.rs"

@@ -48,6 +48,20 @@ fn require_soak() {
     }
 }
 
+fn soak_iterations() -> usize {
+    if let Ok(value) = std::env::var("RIPDPI_SOAK_ITERS") {
+        let parsed = value.parse::<usize>().expect("RIPDPI_SOAK_ITERS must be a positive integer");
+        assert!(parsed > 0, "RIPDPI_SOAK_ITERS must be a positive integer");
+        return parsed;
+    }
+
+    match std::env::var("RIPDPI_SOAK_PROFILE").as_deref() {
+        Ok("full") => 500,
+        Ok("smoke") | Err(_) => 50,
+        Ok(profile) => panic!("unsupported RIPDPI_SOAK_PROFILE: {profile}"),
+    }
+}
+
 // ── Fixture ports (disjoint from socketpair E2E) ─────────────────────────────
 
 const TUN_LINUX_TCP_ECHO_PORT: u16 = 47301;
@@ -311,7 +325,7 @@ fn e2e_real_tun_no_fd_leak_after_stop() {
 /// Final assertion: count returned to within 2 of baseline.
 #[test]
 #[ignore = "requires RIPDPI_RUN_TUN_E2E=1 and CAP_NET_ADMIN and RIPDPI_RUN_SOAK=1"]
-fn real_tun_soak_start_stop_handover() {
+fn soak_real_tun_start_stop_handover() {
     require_tun_e2e();
     require_soak();
     let _guard = test_guard();
@@ -320,7 +334,7 @@ fn real_tun_soak_start_stop_handover() {
     let manifest = fixture.manifest();
     let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port).parse().expect("parse socks5 addr");
 
-    let iters: usize = std::env::var("RIPDPI_SOAK_ITERS").ok().and_then(|v| v.parse().ok()).unwrap_or(50);
+    let iters = soak_iterations();
 
     let fd_baseline = count_open_fds();
 
