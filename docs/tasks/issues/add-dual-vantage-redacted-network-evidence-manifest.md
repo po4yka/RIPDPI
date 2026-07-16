@@ -10,6 +10,7 @@ blocks: [run-recurring-real-vps-awg-nat-lane]
 blocked_by: []
 created: 2026-07-16
 updated: 2026-07-16
+status_detail: Repository contract implemented; awaiting a real physical dual-vantage run.
 ---
 
 ## Goal
@@ -32,3 +33,4 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 ## Work log
 
 - 2026-07-16: Assigned to the serialized evidence/schema lane for the active network-evidence hardening goal.
+- 2026-07-16: Added strict canonical observation/manifest validation, runner-stamped collector/vantage/APK provenance, full process-tree cleanup, exact-SHA physical-client install verification, release workflow provenance checks, and fail-closed regression coverage. No physical ADB device is attached locally, so real capture evidence remains pending.

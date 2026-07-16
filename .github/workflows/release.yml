@@ -22,6 +22,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      EVIDENCE_RUN_ID: ${{ inputs.gate_evidence_run_id || vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
     permissions:
       actions: read
       contents: write
@@ -31,9 +33,42 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Require DNS/IPv6/kill-switch evidence run
-        env:
-          EVIDENCE_RUN_ID: ${{ inputs.gate_evidence_run_id || vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
         run: test -n "$EVIDENCE_RUN_ID"
+
+      - name: Verify DNS/IPv6/kill-switch evidence provenance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          run_id = os.environ["EVIDENCE_RUN_ID"]
+          completed = subprocess.run(
+              ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          run = json.loads(completed.stdout)
+          expected = {
+              "path": ".github/workflows/dns-ipv6-killswitch-evidence.yml",
+              "head_sha": os.environ["EXPECTED_SHA"],
+              "conclusion": "success",
+          }
+          for field, value in expected.items():
+              if run.get(field) != value:
+                  raise SystemExit(f"evidence run {field} does not match release")
+          if run.get("event") not in {"workflow_dispatch", "schedule"}:
+              raise SystemExit("evidence run event is not an approved capture trigger")
+          attempt = run.get("run_attempt")
+          if not isinstance(attempt, int) or attempt < 1:
+              raise SystemExit("evidence run attempt is invalid")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"EVIDENCE_RUN_ATTEMPT={attempt}\n")
+          PY
 
       - name: Download DNS/IPv6/kill-switch release evidence
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -41,14 +76,16 @@ jobs:
           name: dns-ipv6-killswitch-release-evidence
           path: ${{ runner.temp }}/dns-ipv6-killswitch-release-evidence
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ inputs.gate_evidence_run_id || vars.DNS_IPV6_KILLSWITCH_EVIDENCE_RUN_ID }}
+          run-id: ${{ env.EVIDENCE_RUN_ID }}
 
       - name: Enforce DNS/IPv6/kill-switch release evidence
         run: |
           python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
-            --results "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/results.json" \
+            --evidence-manifest "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/manifest.json" \
             --applies-to android-client-release \
-            --expected-source-sha "$GITHUB_SHA"
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-evidence-run-id "$EVIDENCE_RUN_ID" \
+            --expected-evidence-run-attempt "$EVIDENCE_RUN_ATTEMPT"
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -67,7 +104,7 @@ jobs:
         run: python3 scripts/ci/check_app_identity_review.py --report | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $GITHUB_WORKSPACE/release.keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
 
       - name: Verify release version
         run: ./gradlew :app:verifyReleaseVersion
@@ -148,11 +185,11 @@ jobs:
       - name: Generate Android SBOM
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          syft packages dir:. --output cyclonedx-json=$GITHUB_WORKSPACE/android-bom.json
+          syft packages dir:. --output "cyclonedx-json=$GITHUB_WORKSPACE/android-bom.json"
 
       - name: Generate SHA-256 checksums
         run: |
-          cd $GITHUB_WORKSPACE
+          cd "$GITHUB_WORKSPACE"
           sha256sum \
             app/build/outputs/bundle/playFullRelease/*.aab \
             app/build/outputs/apk/fdroidFull/release/*.apk \

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for scripts/ci/check_dns_ipv6_killswitch_gates.py."""
+
 from __future__ import annotations
 
 import copy
@@ -10,6 +11,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -41,6 +43,69 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             "appliesTo": "android-client-release",
             "gateResults": {g["id"]: "PASS" for g in self.policy["gates"]},
         }
+
+    def evidence_bundle(
+        self,
+        directory: Path,
+        *,
+        failed_gate: str | None = None,
+        capture_error_gate: str | None = None,
+    ) -> Path:
+        now = int(time.time())
+        correlation_id = "b" * 64
+
+        def observation(role: str) -> dict:
+            return {
+                "version": "network_evidence_observation_v1",
+                "sourceSha": "a" * 40,
+                "correlationId": correlation_id,
+                "role": role,
+                "vantageIdSha256": ("1" if role == "client-underlay" else "2") * 64,
+                "collectorSha256": ("3" if role == "client-underlay" else "4") * 64,
+                "captureStartedAtEpoch": now - 21,
+                "captureFinishedAtEpoch": now - 8,
+                "rawCaptureSha256": ("c" if role == "client-underlay" else "d") * 64,
+                "windows": [
+                    {
+                        "id": gate["id"],
+                        "kind": gates.network_evidence_manifest.expected_kind(
+                            gate["id"]
+                        ),
+                        "startedAtEpoch": now - 20,
+                        "finishedAtEpoch": now - 10,
+                        "expectedPacketCount": 2,
+                        "unexpectedPacketCount": 1 if gate["id"] == failed_gate else 0,
+                        "captureErrorCount": (
+                            1 if gate["id"] == capture_error_gate else 0
+                        ),
+                    }
+                    for gate in self.policy["gates"]
+                ],
+            }
+
+        client_path = directory / "client-observation.json"
+        observer_path = directory / "observer-observation.json"
+        gates.network_evidence_manifest.write_canonical_json(
+            client_path, observation("client-underlay")
+        )
+        gates.network_evidence_manifest.write_canonical_json(
+            observer_path, observation("external-observer")
+        )
+        manifest = gates.network_evidence_manifest.assemble_manifest(
+            client_path=client_path,
+            observer_path=observer_path,
+            source_sha="a" * 40,
+            applies_to="android-client-release",
+            generated_at_epoch=now - 7,
+            workflow_path=gates.network_evidence_manifest.EVIDENCE_WORKFLOW_PATH,
+            workflow_run_id=42,
+            workflow_run_attempt=1,
+            workload_sha256="9" * 64,
+            client_artifact_sha256="8" * 64,
+        )
+        manifest_path = directory / "manifest.json"
+        gates.network_evidence_manifest.write_canonical_json(manifest_path, manifest)
+        return manifest_path
 
     def test_repo_policy_is_valid(self) -> None:
         summary = gates.validate_policy(self.policy)
@@ -153,8 +218,12 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         results["not-a-policy-gate"] = "PASS"
         evaluation = gates.evaluate_results(self.policy, {"gateResults": results})
         self.assertEqual(len(evaluation["violations"]), 2)
-        self.assertTrue(any("missing string state" in item for item in evaluation["violations"]))
-        self.assertTrue(any("unknown gate id" in item for item in evaluation["violations"]))
+        self.assertTrue(
+            any("missing string state" in item for item in evaluation["violations"])
+        )
+        self.assertTrue(
+            any("unknown gate id" in item for item in evaluation["violations"])
+        )
 
     def test_results_missing_gate_is_violation(self) -> None:
         gates.validate_policy(self.policy)
@@ -232,14 +301,18 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         results = {g["id"]: "PASS" for g in self.policy["gates"]}
         with tempfile.TemporaryDirectory() as directory:
             results_path = Path(directory) / "results.json"
-            results_path.write_text(json.dumps({"gateResults": results}), encoding="utf-8")
+            results_path.write_text(
+                json.dumps({"gateResults": results}), encoding="utf-8"
+            )
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(gates.main(["--results", str(results_path)]), 1)
 
     def test_main_requires_expected_source_sha_with_results(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             results_path = Path(directory) / "results.json"
-            results_path.write_text(json.dumps(self.results_document()), encoding="utf-8")
+            results_path.write_text(
+                json.dumps(self.results_document()), encoding="utf-8"
+            )
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(
                     gates.main(
@@ -256,7 +329,9 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
     def test_main_accepts_complete_exact_sha_results(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             results_path = Path(directory) / "results.json"
-            results_path.write_text(json.dumps(self.results_document()), encoding="utf-8")
+            results_path.write_text(
+                json.dumps(self.results_document()), encoding="utf-8"
+            )
             self.assertEqual(
                 gates.main(
                     [
@@ -270,6 +345,81 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 ),
                 0,
             )
+
+    def test_main_accepts_derived_dual_vantage_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = self.evidence_bundle(Path(directory))
+            self.assertEqual(
+                gates.main(
+                    [
+                        "--evidence-manifest",
+                        str(manifest_path),
+                        "--applies-to",
+                        "android-client-release",
+                        "--expected-source-sha",
+                        "a" * 40,
+                    ]
+                ),
+                0,
+            )
+
+    def test_main_rejects_noncanonical_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = self.evidence_bundle(Path(directory))
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "not canonical JSON"):
+                gates.main(
+                    [
+                        "--evidence-manifest",
+                        str(manifest_path),
+                        "--applies-to",
+                        "android-client-release",
+                        "--expected-source-sha",
+                        "a" * 40,
+                    ]
+                )
+
+    def test_main_rejects_derived_capture_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = self.evidence_bundle(
+                Path(directory), failed_gate="killswitch-wifi-lte-switch"
+            )
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(
+                    gates.main(
+                        [
+                            "--evidence-manifest",
+                            str(manifest_path),
+                            "--applies-to",
+                            "android-client-release",
+                            "--expected-source-sha",
+                            "a" * 40,
+                        ]
+                    ),
+                    1,
+                )
+
+    def test_main_rejects_inconclusive_capture(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = self.evidence_bundle(
+                Path(directory), capture_error_gate="dns-network-switch-behavior"
+            )
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(
+                    gates.main(
+                        [
+                            "--evidence-manifest",
+                            str(manifest_path),
+                            "--applies-to",
+                            "android-client-release",
+                            "--expected-source-sha",
+                            "a" * 40,
+                        ]
+                    ),
+                    1,
+                )
 
     def test_main_rejects_missing_results_file(self) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
@@ -294,7 +444,10 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             completed = subprocess.run(
                 [
                     sys.executable,
-                    str(Path(__file__).resolve().parents[1] / "ci/check_dns_ipv6_killswitch_gates.py"),
+                    str(
+                        Path(__file__).resolve().parents[1]
+                        / "ci/check_dns_ipv6_killswitch_gates.py"
+                    ),
                     "--results",
                     str(results_path),
                     "--applies-to",
@@ -323,24 +476,32 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         ci = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         release = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        evidence = (root / ".github/workflows/dns-ipv6-killswitch-evidence.yml").read_text(encoding="utf-8")
+        evidence = (
+            root / ".github/workflows/dns-ipv6-killswitch-evidence.yml"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("check_dns_ipv6_killswitch_gates.py --policy-only", ci)
         self.assertIn("actions/download-artifact@", release)
         self.assertIn("dns-ipv6-killswitch-release-evidence", release)
-        self.assertIn("--results", release)
+        self.assertIn("--evidence-manifest", release)
+        self.assertNotIn("--results", release)
         self.assertIn("--applies-to android-client-release", release)
         self.assertIn('--expected-source-sha "$GITHUB_SHA"', release)
+        self.assertIn("actions/runs/", release)
+        self.assertIn("--expected-evidence-run-id", release)
         self.assertIn("run-id:", release)
 
-        self.assertIn("ref: ${{ inputs.source_sha }}", evidence)
-        self.assertIn('[[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]', evidence)
-        self.assertIn('--expected-source-sha "$SOURCE_SHA"', evidence)
-        self.assertNotIn('--expected-source-sha "${{ inputs.source_sha }}"', evidence)
+        self.assertIn("ripdpi-network-evidence", evidence)
+        self.assertIn("physical-android", evidence)
+        self.assertIn("run-dual-vantage-network-evidence.sh", evidence)
+        self.assertIn('--expected-source-sha "$GITHUB_SHA"', evidence)
+        self.assertNotIn("results_json", evidence)
         self.assertIn("check_dns_ipv6_killswitch_gates.py", evidence)
-        self.assertIn("--results", evidence)
+        self.assertIn("--evidence-manifest", evidence)
         self.assertIn("actions/upload-artifact@", evidence)
         self.assertIn("dns-ipv6-killswitch-release-evidence", evidence)
+        self.assertIn("scripts.tests.test_network_evidence_manifest", ci)
+        self.assertIn("test-dual-vantage-network-evidence.sh", ci)
 
 
 if __name__ == "__main__":

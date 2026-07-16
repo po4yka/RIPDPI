@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-dual-vantage-test.XXXXXX")"
+cleanup_test() {
+  for pid_file in "$tmpdir"/*.pid; do
+    if [[ -f "$pid_file" ]]; then
+      kill "$(<"$pid_file")" 2>/dev/null || true
+    fi
+  done
+  rm -rf "$tmpdir"
+}
+trap cleanup_test EXIT
+
+client_collector="$tmpdir/client-collector.py"
+observer_collector="$tmpdir/observer-collector.py"
+workload="$tmpdir/workload.py"
+config="$tmpdir/runner.json"
+output="$tmpdir/output"
+source_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+client_artifact_sha256="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+cp "$repo_root/test-lab/scripts/fixtures/network-evidence-fake-collector.py" "$client_collector"
+cp "$repo_root/test-lab/scripts/fixtures/network-evidence-fake-collector.py" "$observer_collector"
+cp "$repo_root/test-lab/scripts/fixtures/network-evidence-fake-workload.py" "$workload"
+chmod 700 "$client_collector" "$observer_collector" "$workload"
+python3 - "$config" "$client_collector" "$observer_collector" "$workload" <<'PY'
+import json
+import sys
+
+path, client_collector, observer_collector, workload = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "version": "ripdpi_network_evidence_runner_v1",
+            "clientHook": client_collector,
+            "observerHook": observer_collector,
+            "workloadHook": workload,
+            "clientVantageId": "1" * 64,
+            "observerVantageId": "2" * 64,
+        },
+        handle,
+    )
+PY
+chmod 600 "$config"
+
+RIPDPI_TEST_REPO_ROOT="$repo_root" \
+GITHUB_RUN_ID=42 \
+GITHUB_RUN_ATTEMPT=1 \
+  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
+  --config "$config" \
+  --output-dir "$output" \
+  --source-sha "$source_sha" \
+  --client-artifact-sha256 "$client_artifact_sha256" >/dev/null
+
+[[ "$(find "$output" -maxdepth 1 -type f | wc -l | tr -d ' ')" == "3" ]]
+[[ ! -e "$output/capture.pcap" ]]
+python3 "$repo_root/scripts/ci/check_dns_ipv6_killswitch_gates.py" \
+  --evidence-manifest "$output/manifest.json" \
+  --applies-to android-client-release \
+  --expected-source-sha "$source_sha" \
+  --expected-evidence-run-id 42 \
+  --expected-evidence-run-attempt 1 >/dev/null
+
+bad_config="$tmpdir/bad-runner.json"
+python3 - "$bad_config" "$client_collector" "$observer_collector" <<'PY'
+import json
+import sys
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "version": "ripdpi_network_evidence_runner_v1",
+            "clientHook": sys.argv[2],
+            "observerHook": sys.argv[3],
+            "workloadHook": "/does/not/exist",
+            "clientVantageId": "1" * 64,
+            "observerVantageId": "2" * 64,
+        },
+        handle,
+    )
+PY
+chmod 600 "$bad_config"
+if GITHUB_RUN_ID=43 GITHUB_RUN_ATTEMPT=1 \
+  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
+  --config "$bad_config" --output-dir "$tmpdir/bad-output" --source-sha "$source_sha" \
+  --client-artifact-sha256 "$client_artifact_sha256" \
+  >/dev/null 2>&1; then
+  echo "invalid private runner config unexpectedly passed" >&2
+  exit 1
+fi
+[[ ! -e "$tmpdir/bad-output/manifest.json" ]]
+
+descendant_pid_file="$tmpdir/descendant.pid"
+if RIPDPI_TEST_REPO_ROOT="$repo_root" \
+  RIPDPI_TEST_CHILD_PID_FILE="$descendant_pid_file" \
+  GITHUB_RUN_ID=45 GITHUB_RUN_ATTEMPT=1 \
+  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
+  --config "$config" --output-dir "$tmpdir/descendant-output" --source-sha "$source_sha" \
+  --client-artifact-sha256 "$client_artifact_sha256" \
+  >/dev/null 2>&1; then
+  echo "collector descendant unexpectedly produced publishable evidence" >&2
+  exit 1
+fi
+descendant_pid="$(<"$descendant_pid_file")"
+for _ in {1..20}; do
+  kill -0 "$descendant_pid" 2>/dev/null || break
+  sleep 0.1
+done
+if kill -0 "$descendant_pid" 2>/dev/null; then
+  echo "collector descendant survived fail-closed cleanup" >&2
+  exit 1
+fi
+[[ ! -e "$tmpdir/descendant-output/manifest.json" ]]
+
+failure_child_pid="$tmpdir/failure-child.pid"
+if RIPDPI_TEST_REPO_ROOT="$repo_root" \
+  RIPDPI_TEST_CHILD_PID_FILE="$failure_child_pid" \
+  RIPDPI_TEST_WORKLOAD_FAIL=1 \
+  GITHUB_RUN_ID=44 GITHUB_RUN_ATTEMPT=1 \
+  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
+  --config "$config" --output-dir "$tmpdir/failure-output" --source-sha "$source_sha" \
+  --client-artifact-sha256 "$client_artifact_sha256" \
+  >/dev/null 2>&1; then
+  echo "failing workload unexpectedly passed" >&2
+  exit 1
+fi
+failure_child="$(<"$failure_child_pid")"
+for _ in {1..20}; do
+  kill -0 "$failure_child" 2>/dev/null || break
+  sleep 0.1
+done
+if kill -0 "$failure_child" 2>/dev/null; then
+  echo "collector child survived failure cleanup" >&2
+  exit 1
+fi
+[[ ! -e "$tmpdir/failure-output/manifest.json" ]]
+
+echo "Dual-vantage network evidence runner self-test passed."

@@ -2,58 +2,95 @@ name: DNS IPv6 kill-switch evidence
 
 on:
   workflow_dispatch:
-    inputs:
-      source_sha:
-        description: Exact 40-character commit SHA measured by the device or lab run
-        required: true
-        type: string
-      results_json:
-        description: Complete dns_ipv6_killswitch_results_v1 JSON from the measured run
-        required: true
-        type: string
+  schedule:
+    - cron: "17 4 * * 3"
 
 permissions:
   contents: read
 
 jobs:
-  validate-and-publish:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+  capture-validate-publish:
+    runs-on: [self-hosted, linux, ripdpi-network-evidence, physical-android]
+    timeout-minutes: 90
+    env:
+      EVIDENCE_CONFIG: /etc/ripdpi/network-evidence-runner.json
     steps:
-      - name: Validate measured source SHA
-        env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
-        run: |
-          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "source_sha must be a lowercase 40-character Git SHA-1" >&2
-            exit 1
-          fi
-
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
         with:
-          ref: ${{ inputs.source_sha }}
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
 
-      - name: Materialize measured gate results
-        env:
-          GATE_RESULTS_JSON: ${{ inputs.results_json }}
+      - name: Require physical dual-vantage runner
         run: |
-          install -d "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence"
-          printf '%s\n' "$GATE_RESULTS_JSON" \
-            > "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/results.json"
+          test -r "$EVIDENCE_CONFIG"
+          for command in adb ssh tcpdump tshark python3; do
+            command -v "$command" >/dev/null
+          done
+          device_count="$(adb devices | awk '$2 == "device" { count++ } END { print count + 0 }')"
+          test "$device_count" -eq 1
+          device_serial="$(adb devices | awk '$2 == "device" { print $1 }')"
+          test -n "$device_serial"
+          test "${device_serial#emulator-}" = "$device_serial"
+          test "$(adb -s "$device_serial" shell getprop ro.kernel.qemu | tr -d '\r')" != "1"
 
-      - name: Validate complete exact-SHA release evidence
-        env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
+      - name: Build, install, and measure the exact-SHA client
+        run: |
+          device_serial="$(adb devices | awk '$2 == "device" { print $1 }')"
+          device_abi="$(adb -s "$device_serial" shell getprop ro.product.cpu.abi | tr -d '\r')"
+          case "$device_abi" in
+            arm64-v8a|armeabi-v7a|x86|x86_64) ;;
+            *) echo "unsupported physical device ABI" >&2; exit 1 ;;
+          esac
+          rm -rf app/build/outputs/apk
+          ./gradlew --no-daemon :app:assembleGithubFullDebug \
+            "-Pripdpi.localNativeAbis=$device_abi" \
+            -Pripdpi.enableAbiSplits=false
+          mapfile -t apks < <(find app/build/outputs/apk -type f -name '*.apk' ! -name '*androidTest*')
+          test "${#apks[@]}" -eq 1
+          apk="${apks[0]}"
+          adb -s "$device_serial" install -r -d "$apk"
+          remote_apk="$(adb -s "$device_serial" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r')"
+          test -n "$remote_apk"
+          adb -s "$device_serial" pull "$remote_apk" "$RUNNER_TEMP/installed-ripdpi.apk" >/dev/null
+          cmp -s "$apk" "$RUNNER_TEMP/installed-ripdpi.apk"
+          client_artifact_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$apk")"
+          echo "CLIENT_ARTIFACT_SHA256=$client_artifact_sha256" >> "$GITHUB_ENV"
+
+      - name: Capture client and external-observer evidence
+        run: |
+          test-lab/scripts/run-dual-vantage-network-evidence.sh \
+            --config "$EVIDENCE_CONFIG" \
+            --output-dir "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence" \
+            --source-sha "$GITHUB_SHA" \
+            --client-artifact-sha256 "$CLIENT_ARTIFACT_SHA256" \
+            --applies-to android-client-release
+
+      - name: Reconfirm installed client after capture
+        run: |
+          device_serial="$(adb devices | awk '$2 == "device" { print $1 }')"
+          remote_apk="$(adb -s "$device_serial" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r')"
+          test -n "$remote_apk"
+          adb -s "$device_serial" pull "$remote_apk" "$RUNNER_TEMP/post-capture-ripdpi.apk" >/dev/null
+          installed_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$RUNNER_TEMP/post-capture-ripdpi.apk")"
+          test "$installed_sha256" = "$CLIENT_ARTIFACT_SHA256"
+
+      - name: Enforce complete exact-SHA release evidence
         run: |
           python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
-            --results "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/results.json" \
+            --evidence-manifest "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/manifest.json" \
             --applies-to android-client-release \
-            --expected-source-sha "$SOURCE_SHA"
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-evidence-run-id "$GITHUB_RUN_ID" \
+            --expected-evidence-run-attempt "$GITHUB_RUN_ATTEMPT"
 
-      - name: Publish validated release evidence
+      - name: Publish validated redacted release evidence
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dns-ipv6-killswitch-release-evidence
-          path: ${{ runner.temp }}/dns-ipv6-killswitch-release-evidence/results.json
+          path: ${{ runner.temp }}/dns-ipv6-killswitch-release-evidence
           if-no-files-found: error
           retention-days: 30

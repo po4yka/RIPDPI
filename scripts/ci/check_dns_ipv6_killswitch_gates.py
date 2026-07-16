@@ -17,23 +17,37 @@ policy against actual probe results::
 
     python3 scripts/ci/check_dns_ipv6_killswitch_gates.py --results run.json
 
+Release evidence must use a validated dual-vantage capture bundle::
+
+    python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
+      --evidence-manifest evidence/manifest.json \
+      --applies-to android-client-release \
+      --expected-source-sha "$GITHUB_SHA"
+
 Exit code is 0 when the policy artifact is well-formed (and, when supplied,
 every no-ship gate result is PASS or a structured, scoped out-of-scope N/A);
 non-zero otherwise.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 CI_DIR = Path(__file__).resolve().parent
 if str(CI_DIR) not in sys.path:
     sys.path.insert(0, str(CI_DIR))
 
-from release_gate_results import VALID_RESULT_STATES, na_out_of_scope_violation, normalize_gate_result
+from release_gate_results import (  # noqa: E402
+    VALID_RESULT_STATES,
+    na_out_of_scope_violation,
+    normalize_gate_result,
+)
+import network_evidence_manifest  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -173,7 +187,9 @@ def validate_policy(policy: dict) -> dict:
     }
 
 
-def evaluate_results(policy: dict, results: dict, applies_to: str | None = None) -> dict:
+def evaluate_results(
+    policy: dict, results: dict, applies_to: str | None = None
+) -> dict:
     """Evaluate actual gate results against the no-ship policy.
 
     ``results`` maps gate id -> result state or structured result object. Any
@@ -236,7 +252,10 @@ def validate_results_document(
             f"(expected {EXPECTED_RESULTS_VERSION!r})"
         )
     source_sha = results.get("sourceSha")
-    if not isinstance(source_sha, str) or re.fullmatch(r"[0-9a-f]{40}", source_sha) is None:
+    if (
+        not isinstance(source_sha, str)
+        or re.fullmatch(r"[0-9a-f]{40}", source_sha) is None
+    ):
         raise ValueError("results sourceSha must be a lowercase 40-character Git SHA-1")
     if source_sha != expected_source_sha:
         raise ValueError(
@@ -259,8 +278,7 @@ def render_report(policy: dict, summary: dict) -> str:
     lines.append(f"- Gates: {summary['gateCount']}")
     lines.append(f"- Categories: {', '.join(summary['categories'])}")
     lines.append(
-        "- No-ship classifications: "
-        + ", ".join(summary["noShipClassifications"])
+        "- No-ship classifications: " + ", ".join(summary["noShipClassifications"])
     )
     lines.append("")
     lines.append("| Gate | Category | Failure class | No-ship |")
@@ -288,6 +306,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Gate-results JSON to enforce the no-ship policy against.",
     )
     mode.add_argument(
+        "--evidence-manifest",
+        default=None,
+        help="Validated dual-vantage network evidence manifest to enforce.",
+    )
+    mode.add_argument(
         "--policy-only",
         action="store_true",
         help="Validate only the policy schema; never treat this as release evidence.",
@@ -304,23 +327,49 @@ def main(argv: list[str] | None = None) -> int:
         help="Exact 40-character commit SHA that the results artifact must attest.",
     )
     parser.add_argument(
+        "--max-evidence-age-seconds",
+        type=int,
+        default=2_592_000,
+        help="Maximum age of dual-vantage release evidence (default: 30 days).",
+    )
+    parser.add_argument(
+        "--expected-evidence-run-id",
+        type=int,
+        default=None,
+        help="GitHub Actions run id that the evidence manifest must attest.",
+    )
+    parser.add_argument(
+        "--expected-evidence-run-attempt",
+        type=int,
+        default=None,
+        help="GitHub Actions run attempt that the evidence manifest must attest.",
+    )
+    parser.add_argument(
         "--report",
         action="store_true",
         help="Print a markdown summary of the policy instead of a plain log.",
     )
     args = parser.parse_args(argv)
 
-    if args.results is None and not args.policy_only:
+    evidence_supplied = args.evidence_manifest is not None
+    results_supplied = args.results is not None
+    if not evidence_supplied and not results_supplied and not args.policy_only:
         print(
-            "gate results are required; pass --results FILE or explicitly use --policy-only",
+            "release evidence is required; pass --evidence-manifest FILE, --results FILE, "
+            "or explicitly use --policy-only",
             file=sys.stderr,
         )
         return 1
-    if args.results is not None and args.applies_to is None:
-        print("--applies-to is required when evaluating gate results", file=sys.stderr)
+    if (evidence_supplied or results_supplied) and args.applies_to is None:
+        print(
+            "--applies-to is required when evaluating release evidence", file=sys.stderr
+        )
         return 1
-    if args.results is not None and args.expected_source_sha is None:
-        print("--expected-source-sha is required when evaluating gate results", file=sys.stderr)
+    if (evidence_supplied or results_supplied) and args.expected_source_sha is None:
+        print(
+            "--expected-source-sha is required when evaluating release evidence",
+            file=sys.stderr,
+        )
         return 1
     if args.policy_only and args.applies_to is not None:
         print("--applies-to is only valid with --results", file=sys.stderr)
@@ -331,7 +380,10 @@ def main(argv: list[str] | None = None) -> int:
 
     policy_path = Path(args.policy)
     if not policy_path.is_file():
-        print(f"DNS/IPv6/kill-switch gate policy not found: {policy_path}", file=sys.stderr)
+        print(
+            f"DNS/IPv6/kill-switch gate policy not found: {policy_path}",
+            file=sys.stderr,
+        )
         return 1
 
     policy = load_json(policy_path)
@@ -342,11 +394,41 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("DNS / IPv6 / kill-switch release gate check")
         print(f"Policy: {policy_path}")
-        print(f"Gates: {summary['gateCount']} across {len(summary['categories'])} categories")
+        print(
+            f"Gates: {summary['gateCount']} across {len(summary['categories'])} categories"
+        )
         print("Categories: " + ", ".join(summary["categories"]))
         print("All gates are no-ship blockers.")
 
-    if args.results:
+    if evidence_supplied:
+        manifest_path = Path(args.evidence_manifest)
+        if not manifest_path.is_file():
+            print(
+                f"network evidence manifest not found: {manifest_path}", file=sys.stderr
+            )
+            return 1
+        manifest, manifest_raw = network_evidence_manifest.load_json_bytes(
+            manifest_path
+        )
+        if manifest_raw != network_evidence_manifest.canonical_json_bytes(manifest):
+            raise ValueError("network evidence manifest is not canonical JSON")
+        evidence_summary = network_evidence_manifest.validate_manifest(
+            manifest,
+            artifact_root=manifest_path.parent,
+            expected_source_sha=args.expected_source_sha,
+            applies_to=args.applies_to,
+            current_epoch=int(time.time()),
+            max_age_seconds=args.max_evidence_age_seconds,
+            expected_workflow_run_id=args.expected_evidence_run_id,
+            expected_workflow_run_attempt=args.expected_evidence_run_attempt,
+        )
+        results = {
+            "version": EXPECTED_RESULTS_VERSION,
+            "sourceSha": args.expected_source_sha,
+            "appliesTo": args.applies_to,
+            "gateResults": evidence_summary["gateResults"],
+        }
+    elif results_supplied:
         results_path = Path(args.results)
         if not results_path.is_file():
             print(f"gate results file not found: {results_path}", file=sys.stderr)
@@ -357,13 +439,27 @@ def main(argv: list[str] | None = None) -> int:
             expected_source_sha=args.expected_source_sha,
             applies_to=args.applies_to,
         )
-        evaluation = evaluate_results(policy, results, applies_to=args.applies_to)
+    else:
+        results = None
+
+    if results is not None:
+        validated_results = validate_results_document(
+            policy,
+            results,
+            expected_source_sha=args.expected_source_sha,
+            applies_to=args.applies_to,
+        )
+        evaluation = evaluate_results(
+            policy, validated_results, applies_to=args.applies_to
+        )
         if evaluation["violations"]:
             print("NO-SHIP: release gate violations detected:", file=sys.stderr)
             for violation in evaluation["violations"]:
                 print(f"  - {violation}", file=sys.stderr)
             return 1
-        print(f"All {evaluation['evaluated']} gate results PASS or scoped out-of-scope N/A.")
+        print(
+            f"All {evaluation['evaluated']} gate results PASS or scoped out-of-scope N/A."
+        )
 
     return 0
 

@@ -247,6 +247,58 @@ Private real-provider runner config stays outside the repository and uses only s
 
 The prepare hook owns the private modem/SIM mapping for those namespace keys. It must not print IMSI, subscriber IDs, APN secrets, carrier IPs, or modem identifiers; the repo runner discards real-provider hook output as a second boundary and emits only `phase16-prepare-hook.json` with entry id, symbolic namespace, status, and exit code.
 
+## Redacted dual-vantage release evidence
+
+DNS, IPv6, kill-switch, and direct-window release evidence is produced only by
+the physical self-hosted workflow in
+`.github/workflows/dns-ipv6-killswitch-evidence.yml`. The runner requires one
+connected Android device and a private mode-0600 config outside the checkout:
+
+```json
+{
+  "version": "ripdpi_network_evidence_runner_v1",
+  "clientHook": "/opt/ripdpi/bin/evidence-client",
+  "observerHook": "/opt/ripdpi/bin/evidence-observer",
+  "workloadHook": "/opt/ripdpi/bin/evidence-workload",
+  "clientVantageId": "<64 lowercase hex characters>",
+  "observerVantageId": "<different 64 lowercase hex characters>"
+}
+```
+
+Generate each private vantage identifier with `openssl rand -hex 32`; labels,
+IP addresses, hostnames, and device identifiers are forbidden. The two random
+identifiers must be distinct. They are domain-separated and SHA-256 hashed before publication; their raw values and hook paths never
+leave the runner. The runner also records executable digests for both collectors
+and the workload, rejects a shared collector path, and requires a non-emulated
+ADB device. Before capture, the workflow builds `GithubFullDebug` from the
+checked-out SHA for the physical device ABI, installs it, pulls the installed
+base APK back, verifies byte equality, and records its SHA-256 in provenance.
+The observer hook owns the authenticated remote capture transport;
+its credentials and endpoint stay in the runner-owned installation.
+
+The fixed hooks receive only a correlation digest, source SHA, marker paths,
+and output paths. `run-dual-vantage-network-evidence.sh` starts both collectors
+in isolated process groups before the workload, stops their complete process
+trees on every exit path, and publishes exactly
+`manifest.json`, `client-observation.json`, and `observer-observation.json`.
+Raw PCAP and private logs remain in the mode-0700 scratch directory and are
+deleted; only their SHA-256 digests and allowlisted packet counters are kept.
+
+The manifest validator rejects missing/duplicate vantages, unknown fields,
+wrong source or workflow provenance, stale or non-overlapping windows, missing
+positive controls, digest tampering, path traversal, and a declared result that
+does not match the two observations. Capture errors derive `INCONCLUSIVE`, while
+observed forbidden packets derive `FAIL`; both are release-blocking. Observations
+must be canonical JSON and cannot be repackaged after their freshness window.
+Run the local contract checks with:
+
+```bash
+python3 -m unittest \
+  scripts.tests.test_dns_ipv6_killswitch_gates \
+  scripts.tests.test_network_evidence_manifest
+bash test-lab/scripts/test-dual-vantage-network-evidence.sh
+```
+
 ## Docker Local Network Test Lab
 
 The Docker-backed lab in [`test-lab/`](../test-lab/README.md) provides a MacBook-hosted network target set for debug Android builds:
