@@ -4,13 +4,13 @@ type: task
 status: doing
 area: vpn
 priority: high
-owner: TUN adversarial lane
+owner: Android device lane
 parent: epic-fail-closed-android-vpn-policy-engine
-status_detail: UID enforcement is wired in TCP/UDP data plane; physical SO_BINDTODEVICE=tun0 adversarial harness and recurring privileged evidence remain
+status_detail: TCP/UDP UID enforcement and the recurring physical Linux TUN oracle are complete; Android app/kernel/adb checks and ICMP policy remain
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-07-16
+updated: 2026-07-17
 source_wiki_pages:
   - "android-so-bindtodevice-vpn-bypass"
 linked_task: null
@@ -38,9 +38,9 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 ## Acceptance criteria
 
 - [x] PR description confirms current state of `ripdpi-tun-driver` UID validation (present or absent). **Absent** — `ripdpi-tun-driver` is TUN open/configure only; `ripdpi-flow-app-attribution` calls `getConnectionOwnerUid` for attribution/learning, not as an enforcement gate. The userspace stack is `smoltcp` in `ripdpi-tunnel-core`, not gVisor/Go.
-- [~] If absent: per-packet UID validation implemented in the tun2socks layer. **Decision core shipped + unit-tested** (`ripdpi_tunnel_core::uid_policy`): `UidFlowPolicy::evaluate(uid, proto)` / `admit(source, …)` returning `Allow`/`ResetTcp`/`DropUdp`, fail-closed by default, plus a `FlowUidSource` port mirroring `AppUidResolver` (off the hot path). The live smoltcp consultation at the admission seams (TCP `io_loop::tcp_accept::admission`, UDP `io_loop::udp_assoc::forwarding::ensure`) and the JNI `getConnectionOwnerUid` source are **device-gated** — an unverified data-plane gate either breaks all traffic or fails open silently.
-- [~] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle. **Verdict mapping implemented + tested** (UDP→`DropUdp`, TCP/other→`ResetTcp`). The actual smoltcp `abort()`/RST emission, the UDP drop + 5-tuple/port-binding cache, and the ICMP toggle are the device-gated data-path half.
-- [ ] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, RST'd. **DEVICE-GATED** (kernel 5.7+; needs `tun0` + a real socket).
+- [x] If absent: per-packet UID validation implemented in the tun2socks layer. `UidFlowPolicy` is consulted at the live smoltcp TCP and UDP admission seams, the JNI `getConnectionOwnerUid` attribution source is registered with the native session, and readiness remains fail-closed until the bridge is installed. Unit, lifecycle, and physical harness coverage exercise the armed policy rather than only the decision enum.
+- [~] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle. TCP `abort()`/RST delivery, UDP drop/attribution-token retention, and allowlist fail-closed construction are implemented and physically verified. The explicit ICMP policy toggle remains open.
+- [~] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, RST'd. The platform-neutral unprivileged Linux process oracle now proves the real-socket/TUN control and enforcement paths for TCP and UDP. An Android `appium`/`journeys` synthetic-app run remains device-gated.
 - [ ] Verified on kernel 5.7+ device (Android 12+) and kernel <5.7 device to confirm version gating. **DEVICE-GATED.**
 - [ ] Verify via `adb shell cat /proc/net/tcp` that no leaked connection appears to the remote host post-countermeasure. **DEVICE-GATED.**
 
@@ -52,6 +52,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## Work log
+
+- 2026-07-17: The `so-bindtodevice-e2e` job in the corrected recurring privileged run passed on source SHA `e7e2f19d3358fe75b925d728859c291737fbf8aa`: [run 29541621476](https://github.com/po4yka/RIPDPI/actions/runs/29541621476), [job 87764872159](https://github.com/po4yka/RIPDPI/actions/runs/29541621476/job/87764872159). All 12 ordered IPv4/IPv6 TCP/UDP direct, allowed, and denied phases passed with a real `tun0`, unprivileged `SO_BINDTODEVICE`, packet-path/RST/zero-delivery proofs, and verified cleanup. The strict in-run validator accepted exact source/run provenance and the published `so-bindtodevice-tun-evidence` artifact (archive SHA-256 `ff720236699c1553968f8052a7407adc204bf4cae1e9112b9e522ae06f7993be`). The recurring physical Linux oracle is complete. The task remains `doing` for the Android synthetic-app run, kernel 5.7+/pre-5.7 device coverage, `adb /proc/net/tcp` leak check, and explicit ICMP policy.
 
 - 2026-07-17: The corrected privileged job built successfully and reached the physical runtime, but the namespace peer raced IPv6 Duplicate Address Detection: its immediate `bind(2001:db8::2)` failed with `EADDRNOTAVAIL`, so no manifest was produced. Marked both static veth IPv6 addresses `nodad` before spawning the peer helper and added a source contract that preserves that ordering. The same Linux run exposed an `uninlined_format_args` lint in the evidence writer; the arguments are now captured directly. The task stays open pending a valid artifact from the rerun.
 

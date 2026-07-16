@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-06-11
+updated: 2026-07-17
 ---
 
 ## Goal
@@ -47,7 +47,7 @@ New cross-cutting hardening epic derived from the client-problem analysis. It co
 - Harden DoH POST resolver client (closed task)
 - Add authoritative DNS leak-test harness (closed task)
 - Add Android VPN leak-test instrumentation matrix (closed task)
-- Add tun2socks UID validation to close SO_BINDTODEVICE escape — `add-tun2socks-uid-validation-against-so-bindtodevice-bypass` (doing — `UidFlowPolicy` decision core shipped + unit-tested; smoltcp data-path wiring + JNI source + device tests device-gated)
+- Add tun2socks UID validation to close SO_BINDTODEVICE escape — `add-tun2socks-uid-validation-against-so-bindtodevice-bypass` (doing — TCP/UDP data-plane enforcement, JNI UID source, and recurring physical Linux TUN evidence complete; Android app/kernel/adb checks and ICMP policy remain)
 - Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS — `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion` (doing — version-gated delegation + fallback shipped + unit-tested; reconnect-persistence device-gated)
 - Adopt process-based per-package routing via VpnService.Builder app filters — `adopt-process-based-per-package-routing-via-xray-tun-routeonly` (doing — criterion 4 policy half unit-tested; egress-IP half device-gated)
 - Spike FakeIP mode compatibility on Android — **resolved 2026-06-11 → [ADR 0008](../../adr/0008-fakeip-mode-android.md) (no-go for a user-facing FakeIP mode; MapDNS already ships the primitive in TUN mode)**; spike task closed/deleted.
@@ -72,6 +72,7 @@ This epic intentionally removes an entire class of client problems rather than m
 
 ## Work log
 
+- 2026-07-17: **SO_BINDTODEVICE child reached its CI/privileged completion bar.** The smoltcp TCP/UDP admission gate and JNI UID attribution contract were covered by the integrated suite, and job `87764872159` in recurring physical Linux run `29541621476` passed all 12 IPv4/IPv6 direct/allowed/denied TCP/UDP phases plus strict evidence validation. The child remains `doing` for its Android synthetic-app/kernel-version/`adb` oracles and explicit ICMP policy.
 - 2026-06-05: NOT done — deletion refuted. The 5 milestones are largely implemented in live code (DeviceProfile.kt/SplitStrictDnsPolicy.kt typed bundle; DnsInterceptorDispatcher.kt full-device DNS interception; AndroidHardKillSwitchState.kt + HardKillSwitchUiState.kt lockdown UX; LifecycleRegressionMatrixTest.kt/DnsLeakMatrixTest.kt fail-closed tests; DiagnosticsRedactor.kt + DiagnosticsBundleRedactionTest.kt redaction). BUT the `## Child work` list above is stale: two later-added children parented to this epic remain open in backlog — `add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md` (status: backlog, all acceptance criteria unmet per its 2026-06-05 work log; no UID enforcement at the tun2socks layer) and `spike-fakeip-mode-compatibility-on-android.md` (status: backlog). Epic stays open until those close.
 - 2026-06-05: Epic audit (child rollup). Re-verified all 5 milestones against live source and marked them [x]: typed bundle (core/data/model/.../DeviceProfile.kt, core/service/.../SplitStrictDnsPolicy.kt), full-device DNS interception (core/service/.../DnsInterceptorDispatcher.kt), kill-switch UX (core/service/.../AndroidHardKillSwitchState.kt + app/.../HardKillSwitchUiState.kt), fail-closed tests (core/service/src/test/.../lifecycle/LifecycleRegressionMatrixTest.kt + leak/DnsLeakMatrixTest.kt), redaction (core/service/.../keystore/ProfileDiagnosticsRedactor.kt + src/test/.../redaction/DiagnosticsBundleRedactionTest.kt; keystore encryption via EncryptedProfileStore.kt/KeystoreKeyManager.kt). Both tracked children remain `backlog` per their freshly-audited 2026-06-05 logs (no `UidFlowPolicy` in native/rust/crates; no FakeIP implementation anywhere). Status stays `doing` (not `done`): milestones met but two children open. `updated: 2026-06-05`.
 - 2026-06-11: **Child rollup — advanced all four open children to their CI-achievable limit.** (1) tun2socks UID validation: shipped the unit-tested `ripdpi_tunnel_core::uid_policy` decision core (`UidFlowPolicy`/`FlowUidSource`), fail-closed; data-path wiring + JNI source + `SO_BINDTODEVICE` device tests device-gated → `backlog`→`doing`. (2) Android 17 split-tunnel UI: shipped the version-gated `ACTION_VPN_APP_EXCLUSION_SETTINGS` delegation + in-app fallback + 8-locale strings + unit test; corrected the (incorrect) manifest-declaration criterion; reconnect-persistence device-gated → `backlog`→`doing`. (3) Per-package routing: added the criterion-4 policy-decision unit test; egress-IP verification device-gated → stays `doing`. (4) FakeIP spike: resolved as **ADR 0008** (no-go for a user-facing mode — MapDNS already ships the FakeIP primitive in TUN mode); spike task deleted (`done`). Epic stays `doing`: all 5 milestones [x] and all CI-achievable child work is done, but three children carry device-gated remainders (an on-device kernel-5.7+/Android-17 session) so they cannot close in CI. pr-reviewer pass applied across the code.

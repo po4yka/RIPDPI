@@ -6,11 +6,11 @@ area: testing
 priority: high
 owner: Evidence contract lane
 parent: null
-blocks: [run-recurring-real-vps-awg-nat-lane]
+blocks: []
 blocked_by: []
 created: 2026-07-16
-updated: 2026-07-16
-status_detail: Repository contract implemented; awaiting a real physical dual-vantage run.
+updated: 2026-07-17
+status_detail: Repository contract implemented; zero physical-Android runners/devices and no runner config currently block the first real dual-vantage run
 ---
 
 ## Goal
@@ -32,5 +32,6 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-17: Live infrastructure audit found zero registered repository runners, zero locally attached ADB devices, and no `/etc/ripdpi/network-evidence-runner.json`. The active workflow requires labels `self-hosted, linux, ripdpi-network-evidence, physical-android`, exactly one authorized physical device, and independent client/observer hooks. No run was dispatched because it could only remain queued; no physical artifact or PASS is claimed.
 - 2026-07-16: Assigned to the serialized evidence/schema lane for the active network-evidence hardening goal.
 - 2026-07-16: Added strict canonical observation/manifest validation, runner-stamped collector/vantage/APK provenance, full process-tree cleanup, exact-SHA physical-client install verification, release workflow provenance checks, and fail-closed regression coverage. No physical ADB device is attached locally, so real capture evidence remains pending.

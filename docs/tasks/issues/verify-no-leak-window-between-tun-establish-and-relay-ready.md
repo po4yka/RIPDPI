@@ -9,7 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-07-16
+updated: 2026-07-17
+status_detail: Deterministic readiness, timeout, and cleanup ownership regressions are complete; physical Android dual-vantage packet evidence remains blocked on runner/device provisioning
 source_wiki_pages: []
 linked_task: null
 ---
@@ -34,10 +35,10 @@ The one residual is **not verifiable by code reading** — it needs instrumentat
 
 ## Acceptance criteria
 
-- [ ] Instrumented test exercises the `establish()` → readiness-push window with real or simulated app traffic.
-- [ ] Test asserts no unprotected egress and no silent black-hole of first packets before readiness.
-- [ ] Lifecycle ordering (route installed ⇒ relay accepting) is asserted, not assumed.
-- [ ] If a window exists, it is closed and the test proves the fix; if none exists, the test pins the invariant against regression.
+- [~] Instrumented test exercises the `establish()` → readiness-push window with real or simulated app traffic. Deterministic Kotlin/Rust tests exercise delayed readiness, setup failure, timeout, and a retained blocking TUN; physical app traffic remains open.
+- [~] Test asserts no unprotected egress and no silent black-hole of first packets before readiness. Deterministic tests prove no false `Connected`, no early TUN close/direct fallback, and bounded fail-closed cleanup; packet-capture confirmation remains open.
+- [x] Lifecycle ordering (route installed ⇒ relay accepting) is asserted, not assumed. Native readiness fires only after fallible packet-loop setup, and service status history cannot publish `Connected` before the callback returns.
+- [x] The code-level window is closed and regression-pinned: failure/timeout retains cleanup ownership and transitions fail closed instead of reporting a live VPN.
 - [ ] Runs in the existing instrumented lane (`:app:ciDevicesGroupGithubDebugAndroidTest` or the managed-device matrix).
 
 ## Risks / open questions
@@ -53,6 +54,7 @@ The one residual is **not verifiable by code reading** — it needs instrumentat
 
 ## Work log
 
+- 2026-07-17: The remaining physical Android capture cannot run: the repository has zero self-hosted runners matching `self-hosted, linux, ripdpi-network-evidence, physical-android`, and the local host has zero ADB devices and no runner config. Deterministic acceptance is complete; physical packet evidence remains open without being green-skipped.
 - 2026-07-16: Independent review found and closed two startup gaps before commit: readiness now fires after all fallible `setup_io_loop` work (with a valid-config/non-IP SOCKS fault test), and the five-second JNI deadline no longer performs an unbounded worker join. Timeout cancellation transfers join/fd ownership to a runtime reaper; a native injected-stall test proves the startup thread returns while cleanup ownership remains tracked.
 - 2026-07-16: Implemented the deterministic half of the invariant. Native `start` now waits for a one-shot barrier emitted only after TUN fd adoption, smoltcp addresses/routes, and packet-loop setup; service status remains non-running while the established TUN blocks traffic. Virtual-time tests cover delayed readiness, timeout, and failure-before-TUN-close ordering. The physical Android dual-vantage capture acceptance criteria remain open and must not be inferred from JVM/Rust ownership tests.
 - 2026-07-16: Assigned to the lifecycle/PMTUD lane. Completion now requires a deterministic fault-injected `TUN establish -> native ready` barrier test proving no direct egress or false `Connected`, plus fail-closed timeout/error cleanup ownership.
