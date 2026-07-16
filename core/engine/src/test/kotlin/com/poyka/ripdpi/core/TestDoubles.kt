@@ -364,9 +364,11 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     var flowAttributionUnregisteredToken: Long? = null
         private set
 
+    var flowAttributionTokenResult: Long = FLOW_ATTRIBUTION_TOKEN
+
     override fun registerFlowAttribution(bridge: Any): Long {
         lastFlowAttributionBridge = bridge
-        return FLOW_ATTRIBUTION_TOKEN
+        return flowAttributionTokenResult
     }
 
     override fun unregisterFlowAttribution(token: Long) {

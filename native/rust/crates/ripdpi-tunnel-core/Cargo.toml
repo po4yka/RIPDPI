@@ -56,3 +56,7 @@ path = "tests/linux_tun_e2e.rs"
 [[test]]
 name = "linux_tun_soak"
 path = "tests/linux_tun_soak.rs"
+
+[[test]]
+name = "so_bindtodevice_e2e"
+path = "tests/so_bindtodevice_e2e.rs"

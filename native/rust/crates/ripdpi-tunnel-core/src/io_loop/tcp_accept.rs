@@ -54,7 +54,7 @@ pub(super) fn proxy_addr(config: &Config) -> io::Result<SocketAddr> {
 mod tests {
     use std::collections::{HashMap, HashSet};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     use smoltcp::iface::{Interface, SocketSet};
@@ -68,11 +68,13 @@ mod tests {
 
     use super::super::TCP_SOCKET_BUF;
     use super::super::packet::{
-        build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr, tcp_syn_flow_key,
+        build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr, is_injected_rst, tcp_syn_flow_key,
     };
     use super::{
         ensure_pending_listen_for_syn, socketaddr_to_listen_endpoint, spawn_new_tcp_sessions, tcp_session_target_addr,
     };
+
+    static UID_ADMISSION_TEST_GUARD: Mutex<()> = Mutex::new(());
 
     fn build_ipv4_tcp_ack_packet(
         src_ip: Ipv4Addr,
@@ -293,6 +295,8 @@ mod tests {
 
     #[tokio::test]
     async fn spawn_new_tcp_sessions_waits_for_handshake_and_uid_resolution() {
+        let _guard = UID_ADMISSION_TEST_GUARD.lock().expect("UID admission test guard");
+        ripdpi_flow_app_attribution::clear();
         let mut device = TunDevice::new(1500);
         let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
         let mut iface = Interface::new(config, &mut device, Instant::now());
@@ -330,7 +334,7 @@ mod tests {
         device.rx_queue.push_back(syn);
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
-        spawn_new_tcp_sessions(
+        let resetting = spawn_new_tcp_sessions(
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
@@ -345,6 +349,7 @@ mod tests {
             &mut dns_cache,
             &uid_policy,
         );
+        assert!(resetting.is_empty(), "half-open socket must not be reset");
         assert!(sessions.is_empty(), "half-open SYN-RECEIVED sockets must not spawn upstream sessions");
 
         let syn_ack = device.tx_queue.pop_front().expect("syn-ack");
@@ -353,7 +358,7 @@ mod tests {
         device.rx_queue.push_back(ack);
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
-        spawn_new_tcp_sessions(
+        let resetting = spawn_new_tcp_sessions(
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
@@ -368,6 +373,7 @@ mod tests {
             &mut dns_cache,
             &uid_policy,
         );
+        assert!(resetting.is_empty(), "pending UID socket must not be reset");
         assert!(sessions.is_empty(), "established sockets must remain parked while UID resolution is pending");
 
         let request = ripdpi_flow_app_attribution::FlowResolveRequest {
@@ -377,7 +383,7 @@ mod tests {
         };
         let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("TCP flow job");
         ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
-        spawn_new_tcp_sessions(
+        let resetting = spawn_new_tcp_sessions(
             &mut socket_set,
             &mut sessions,
             &mut pending_listens,
@@ -392,6 +398,7 @@ mod tests {
             &mut dns_cache,
             &uid_policy,
         );
+        assert!(resetting.is_empty(), "allowed UID socket must not be reset");
         assert_eq!(sessions.len(), 1, "an authorized resolved UID must open one upstream session");
 
         let handles: Vec<_> = sessions.iter_mut().map(|(handle, _)| handle).collect();
@@ -402,5 +409,103 @@ mod tests {
             }
             socket_set.remove(handle);
         }
+        ripdpi_flow_app_attribution::clear();
+    }
+
+    #[tokio::test]
+    async fn denied_uid_tcp_admission_emits_reset_before_socket_removal() {
+        let _guard = UID_ADMISSION_TEST_GUARD.lock().expect("UID admission test guard");
+        ripdpi_flow_app_attribution::clear();
+        let mut device = TunDevice::new(1500);
+        let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
+        let mut iface = Interface::new(config, &mut device, Instant::now());
+        iface.update_ip_addrs(|addrs| {
+            addrs.push(smoltcp::wire::IpCidr::new(IpAddress::v4(10, 0, 0, 2), 24)).unwrap();
+        });
+        iface
+            .routes_mut()
+            .add_default_ipv4_route(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2))
+            .expect("default ipv4 route");
+        iface.set_any_ip(true);
+
+        let mut socket_set = SocketSet::new(vec![]);
+        let mut pending_listens = HashMap::new();
+        let mut admission_cursor = 0;
+        let mut sessions = ActiveSessions::new(8);
+        let cancel = CancellationToken::new();
+        let stats = Arc::new(Stats::default());
+        let mut dns_cache = None;
+        let auth = super::Auth::NoAuth;
+        let proxy_sockaddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9);
+        let uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+
+        let client_ip = Ipv4Addr::new(10, 0, 0, 99);
+        let target_ip = Ipv4Addr::new(198, 18, 0, 10);
+        let client_port = 51_001;
+        let target_port = 443;
+
+        let syn = build_ipv4_tcp_syn_packet(client_ip, target_ip, client_port, target_port);
+        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+        device.rx_queue.push_back(syn);
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+        let syn_ack = device.tx_queue.pop_front().expect("syn-ack");
+        let (server_seq, _) = tcp_seq_ack(&syn_ack);
+        let ack = build_ipv4_tcp_ack_packet(client_ip, target_ip, client_port, target_port, 1, server_seq + 1);
+        device.rx_queue.push_back(ack);
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+
+        let resetting = spawn_new_tcp_sessions(
+            &mut socket_set,
+            &mut sessions,
+            &mut pending_listens,
+            &mut admission_cursor,
+            proxy_sockaddr,
+            &auth,
+            None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+            &cancel,
+            &stats,
+            &mut dns_cache,
+            &uid_policy,
+        );
+        assert!(resetting.is_empty(), "pending UID socket must not be reset");
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_TCP,
+            local: SocketAddr::new(IpAddr::V4(client_ip), client_port),
+            remote: SocketAddr::new(IpAddr::V4(target_ip), target_port),
+        };
+        let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("TCP flow job");
+        ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(20_000));
+
+        let resetting = spawn_new_tcp_sessions(
+            &mut socket_set,
+            &mut sessions,
+            &mut pending_listens,
+            &mut admission_cursor,
+            proxy_sockaddr,
+            &auth,
+            None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+            &cancel,
+            &stats,
+            &mut dns_cache,
+            &uid_policy,
+        );
+        assert_eq!(resetting.len(), 1, "denied established socket must be scheduled for reset cleanup");
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+        for handle in resetting {
+            socket_set.remove(handle);
+        }
+
+        assert!(sessions.is_empty(), "denied UID must never open an upstream session");
+        assert!(pending_listens.is_empty(), "denied flow must leave the pending-listen index");
+        let mut reset_emitted = false;
+        while let Some(packet) = device.tx_queue.pop_front() {
+            reset_emitted |= is_injected_rst(&packet);
+        }
+        assert!(reset_emitted, "denied established TCP flow must emit a RST before its smoltcp socket is removed");
+        ripdpi_flow_app_attribution::clear();
     }
 }

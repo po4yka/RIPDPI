@@ -585,6 +585,29 @@ RIPDPI_RUN_TUN_E2E=1 RIPDPI_SOAK_PROFILE=smoke \
 
 The native workspace registers separate `linux_tun_e2e` and `linux_tun_soak` entrypoints. Both wrappers fail closed when the target, Linux host, or `/dev/net/tun` is unavailable. The E2E TCP case requires an exact echo roundtrip plus non-zero TUN TX/RX counters and fixture relay events. The soak wrapper records the resolved profile and iteration count in `effective-profile.txt` beside its log.
 
+The scheduled/manual `so-bindtodevice-e2e` job is a separate physical-kernel
+adversarial gate. It creates an isolated IPv4/IPv6 veth peer, a real interface
+named `tun0`, and two subprocesses with distinct non-root UIDs. Unbound direct
+TCP/UDP controls must avoid TUN and SOCKS, the allowed UID must round-trip exact
+payloads through TUN and SOCKS, denied TCP must observe an actual outbound RST,
+and denied UDP must produce no TUN reply, SOCKS event, or peer delivery. Run it
+on a disposable privileged Linux host with:
+
+```bash
+sudo env \
+  RIPDPI_RUN_SO_BINDTODEVICE_E2E=1 \
+  RIPDPI_SO_BIND_EVIDENCE_PATH=/tmp/so-bind/manifest.json \
+  RIPDPI_EVIDENCE_SOURCE_SHA="$(git rev-parse HEAD)" \
+  RIPDPI_EVIDENCE_RUN_ID=1 \
+  RIPDPI_EVIDENCE_RUN_ATTEMPT=1 \
+  bash scripts/ci/run-so-bindtodevice-e2e.sh
+```
+
+The wrapper treats missing root/CAP_NET_ADMIN, `/dev/net/tun`, the Cargo target,
+IPv6, unprivileged `SO_BINDTODEVICE`, the redacted manifest, or deterministic
+namespace/interface cleanup as failures. The manifest validator pins all 12
+phase IDs and rejects a timeout-only TCP denial in place of a physical RST.
+
 Host-side native soak:
 
 ```bash
@@ -667,6 +690,7 @@ Nightly/manual lanes add:
 - `rust-native-soak` -- endurance tests (restart, sustained traffic, fault recovery)
 - `rust-native-load` -- high-concurrency ramp-up, burst, and saturation tests
 - `linux-tun-e2e` -- privileged TUN data-plane roundtrip tests in `ripdpi-tunnel-core --test linux_tun_e2e`
+- `so-bindtodevice-e2e` -- privileged real-`tun0` UID-admission adversarial evidence with non-root clients
 - `linux-tun-soak` -- privileged TUN endurance tests in `ripdpi-tunnel-core --test linux_tun_soak`
 - `nightly-rust-coverage` -- coverage including ignored tests
 

@@ -53,7 +53,10 @@ pub(in crate::io_loop) fn forward_udp_payload(
     match uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, attribution_dst) {
         Verdict::Allow => {}
         Verdict::Pending => return UdpForwardOutcome::PendingUid,
-        Verdict::DropUdp | Verdict::ResetTcp => return UdpForwardOutcome::Dropped,
+        Verdict::DropUdp | Verdict::ResetTcp => {
+            let _ = ripdpi_flow_app_attribution::evict_flow(observation.token);
+            return UdpForwardOutcome::Dropped;
+        }
     }
 
     ensure_udp_association(

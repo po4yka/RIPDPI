@@ -449,6 +449,56 @@ class NativeBridgeWrappersTest {
         }
 
     @Test
+    fun tunnelWrapperFailsClosedWhenUidAttributionRegistrationFails() =
+        runTest {
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    flowAttributionTokenResult = 0L
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            val error =
+                runCatching {
+                    tunnel.start(
+                        Tun2SocksConfig(
+                            socks5Port = 1080,
+                            uidPolicyMode = "allowlist",
+                            uidPolicyUids = listOf(10123),
+                        ),
+                        tunFd = 89,
+                        flowAttributionBridge = Any(),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+            assertEquals(1L, bindings.lastStopHandle)
+            assertEquals(1L, bindings.lastDestroyedHandle)
+        }
+
+    @Test
+    fun tunnelWrapperRejectsEnforcingUidPolicyWithoutAttributionBridge() =
+        runTest {
+            val bindings = FakeTun2SocksBindings()
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            val error =
+                runCatching {
+                    tunnel.start(
+                        Tun2SocksConfig(
+                            socks5Port = 1080,
+                            uidPolicyMode = "denylist",
+                            uidPolicyUids = listOf(10123),
+                        ),
+                        tunFd = 90,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+            assertEquals(null, bindings.lastStartHandle)
+            assertEquals(1L, bindings.lastDestroyedHandle)
+        }
+
+    @Test
     fun tunnelWrapperRejectsStopWhenIdle() =
         runTest {
             val tunnel = Tun2SocksTunnel(FakeTun2SocksBindings())

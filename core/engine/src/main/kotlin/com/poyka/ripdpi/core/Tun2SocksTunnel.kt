@@ -214,16 +214,23 @@ class Tun2SocksTunnel(
             handle = createdHandle
             var startAttempted = false
             try {
+                if (config.uidPolicyMode != "disarmed" && flowAttributionBridge == null) {
+                    throw NativeError.SessionCreationFailed("tunnel flow attribution")
+                }
                 startAttempted = true
                 withContext(Dispatchers.IO) {
                     nativeBindings.start(createdHandle, tunFd)
                 }
                 Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
                 if (flowAttributionBridge != null) {
-                    flowAttributionToken =
+                    val registrationToken =
                         withContext(Dispatchers.IO) {
                             nativeBindings.registerFlowAttribution(flowAttributionBridge)
                         }
+                    if (registrationToken == 0L && config.uidPolicyMode != "disarmed") {
+                        throw NativeError.SessionCreationFailed("tunnel flow attribution")
+                    }
+                    flowAttributionToken = registrationToken
                 }
             } catch (error: Exception) {
                 withContext(NonCancellable) {

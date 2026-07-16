@@ -28,7 +28,7 @@ internal fun nativeUidPolicyFor(
             is VpnAppRoutingPlan.Disallow -> "denylist" to plan.packages
         }
     val uids = packages.mapNotNull(uidForPackage).distinct().sorted()
-    return if (mode == "allowlist" && uids.isEmpty()) NativeUidPolicy.Disarmed else NativeUidPolicy(mode, uids)
+    return NativeUidPolicy(mode, uids)
 }
 
 /**

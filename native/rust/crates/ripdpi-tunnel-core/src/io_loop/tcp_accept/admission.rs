@@ -38,7 +38,7 @@ pub(crate) fn spawn_new_tcp_sessions(
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
     uid_policy: &UidFlowPolicy,
-) {
+) -> Vec<smoltcp::iface::SocketHandle> {
     let (new_sessions, unresolvable) = collect_admissible_sessions(
         socket_set,
         sessions,
@@ -48,7 +48,7 @@ pub(crate) fn spawn_new_tcp_sessions(
         dns_cache,
         uid_policy,
     );
-    abort_unresolved_sessions(socket_set, pending_listens, unresolvable);
+    let resetting = abort_unresolved_sessions(pending_listens, unresolvable);
 
     for pending in new_sessions {
         admit_session(
@@ -66,4 +66,5 @@ pub(crate) fn spawn_new_tcp_sessions(
             pending,
         );
     }
+    resetting
 }

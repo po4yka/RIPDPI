@@ -97,7 +97,7 @@ pub(in crate::io_loop) fn emit_loss_sample(state: &mut LoopState) {
 }
 
 pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
-    spawn_new_tcp_sessions(
+    let resetting = spawn_new_tcp_sessions(
         &mut state.socket_set,
         &mut state.sessions,
         &mut state.pending_listens,
@@ -112,6 +112,16 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
         &mut state.dns_cache,
         &state.runtime.uid_policy,
     );
+    if resetting.is_empty() {
+        return;
+    }
+
+    // `TcpSocket::abort()` schedules a RST; smoltcp must poll the socket once
+    // before it is removed or the reset never reaches the kernel-side peer.
+    state.iface.poll(Instant::now(), &mut state.device, &mut state.socket_set);
+    for handle in resetting {
+        state.socket_set.remove(handle);
+    }
 }
 
 pub(in crate::io_loop) async fn pump_bridges(state: &mut LoopState) {
@@ -239,6 +249,11 @@ mod tests {
         retry_pending_uid_udp(&mut state);
         assert!(state.udp_associations.is_empty(), "denied UID must remain dropped");
         assert!(state.pending_uid_udp_packets.is_empty(), "denied UDP datagram must be released");
+        assert_eq!(
+            ripdpi_flow_app_attribution::lookup_flow_uid(request.protocol, request.local, request.remote,),
+            ripdpi_flow_app_attribution::FlowUidLookup::Missing,
+            "denied UDP admission must evict its exact-tuple UID cache token",
+        );
 
         let allowed_packet = ipv4_udp_packet(55_124, 443, b"uid-allowed");
         let allowed_request = ripdpi_flow_app_attribution::FlowResolveRequest {

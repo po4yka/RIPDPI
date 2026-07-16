@@ -91,7 +91,7 @@ class FlowAppAttributionStoreTest {
     }
 
     @Test
-    fun `native uid allowlist is disarmed when no package remains installed`() {
+    fun `native uid allowlist fails closed when no package remains installed`() {
         val policy =
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.missing")),
@@ -99,7 +99,7 @@ class FlowAppAttributionStoreTest {
                 uidForPackage = { null },
             )
 
-        assertEquals(NativeUidPolicy.Disarmed, policy)
+        assertEquals(NativeUidPolicy("allowlist", emptyList()), policy)
     }
 
     @Test

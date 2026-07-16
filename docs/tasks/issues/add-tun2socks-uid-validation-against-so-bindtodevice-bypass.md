@@ -53,6 +53,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 
 ## Work log
 
+- 2026-07-16: Added the recurring physical Linux gate: isolated IPv4/IPv6 veth peer, real `tun0`, distinct non-root allowed/denied client UIDs, direct-path controls, exact TCP/UDP payloads, TUN packet counters, exact TCP RST proof, zero-delivery UDP denial, strict redacted evidence validation, and deterministic orphan checks. The gate also exposed and fixed premature smoltcp socket removal (RST was lost), denied-UDP attribution-token retention, empty-allowlist fail-open construction, and native attribution registration sentinel handling. Repo-side checks can reach review, but this task remains open until the scheduled privileged job publishes a valid artifact for the integrated commit.
+
 - 2026-07-16: Reassigned to the TUN adversarial lane. Current scope is the physical privileged proof: TUN/netns topology, TCP+UDP positive/negative controls, packet-path counters, IPv4/applicable IPv6, deterministic cleanup, and fail-closed CI evidence when CAP_NET_ADMIN/root/tun is unavailable.
 
 - 2026-06-05: No UID enforcement exists at the tun2socks packet-forwarding layer. `ripdpi-tun-driver` is a TUN open/configure crate only. `ripdpi-flow-app-attribution` + `FlowAppAttributionStore.kt` call `getConnectionOwnerUid` for attribution/learning only — no RST, no UDP drop, no allowlist gate. No SO_BINDTODEVICE bypass countermeasure found in Rust or Kotlin. No integration test for this scenario in `appium/`. All acceptance criteria unmet; full implementation work remains.
