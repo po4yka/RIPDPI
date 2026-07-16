@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -1059,6 +1060,28 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertEquals(2, env.events.count { it == "vpn:establish" })
+        }
+
+    @Test
+    fun tunnelRefreshFailureTransitionsToFailedAndKeepsReplacementTunOpen() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val originalSession = env.tunnelProvider.session
+            val replacementSession = TestVpnTunnelSession(tunFd = 8, events = env.events)
+            env.tunnelProvider.session = replacementSession
+            env.bridgeFactory.bridge.startFailure = IllegalStateException("replacement tunnel failed")
+            env.resolver.enqueue(plainDnsResolution())
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertTrue(env.store.eventHistory.last() is ServiceEvent.Failed)
+            assertTrue(originalSession.closed)
+            assertFalse(replacementSession.closed)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
         }
 
     private fun plainDnsResolution(): ConnectionPolicyResolution {

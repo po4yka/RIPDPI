@@ -83,9 +83,11 @@ internal class VpnTelemetryCoordinator(
             while (state.status() == ServiceStatus.Connected) {
                 val session = state.runtimeSession() ?: return@replaceTelemetryJob
                 tunnelRefreshCoordinator.refreshIfNeeded(session)
+                if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
                 val telemetry = pollCurrentTelemetry()
                 if (tunnelRefreshCoordinator.recoverIfNeeded(session, telemetry)) {
                     tunnelRefreshCoordinator.refreshIfNeeded(session)
+                    if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
                 }
                 if (failureHandler.handle(telemetry)) return@replaceTelemetryJob
                 dependencies.telemetryReporter.report(telemetry, state)

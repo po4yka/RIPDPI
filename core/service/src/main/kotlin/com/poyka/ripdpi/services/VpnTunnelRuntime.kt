@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxySettingsSection
@@ -33,6 +34,7 @@ internal class VpnTunnelRuntime(
     private val flowAttributionBridge: Any? = null,
 ) {
     private var tun2SocksBridge: Tun2SocksBridge? = null
+    private var retiringBridge: Tun2SocksBridge? = null
     private var tunSession: VpnTunnelSession? = null
     private var tunnelStartCount: Int = 0
 
@@ -48,6 +50,9 @@ internal class VpnTunnelRuntime(
     val isRunning: Boolean
         get() = tunSession != null
 
+    val isForwarding: Boolean
+        get() = tun2SocksBridge != null
+
     @Suppress("TooGenericExceptionCaught")
     suspend fun start(
         activeDns: ActiveDnsSettings,
@@ -58,6 +63,78 @@ internal class VpnTunnelRuntime(
     ) {
         check(tunSession == null) { "VPN field not null" }
 
+        val pendingTunnel =
+            prepareTunnel(
+                activeDns = activeDns,
+                overrideReason = overrideReason,
+                logContext = logContext,
+                localProxyEndpoint = localProxyEndpoint,
+                forceTunnelDns = forceTunnelDns,
+            )
+        try {
+            startBridge(pendingTunnel, retainFailedBridge = false)
+        } catch (error: Exception) {
+            pendingTunnel.session.close()
+            throw error
+        }
+
+        vpnHost.syncUnderlyingNetworksFromActiveNetwork()
+    }
+
+    /**
+     * Replaces an active Android VPN interface without exposing a direct-path gap.
+     *
+     * Android keeps the old interface active when establishing the replacement fails,
+     * and switches routes to the replacement only after establishment succeeds. From
+     * that point this runtime deliberately retains the replacement session even if the
+     * native bridge cannot start, so the TUN remains a fail-closed traffic barrier.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun rebuild(
+        activeDns: ActiveDnsSettings,
+        overrideReason: String?,
+        logContext: RipDpiLogContext?,
+        localProxyEndpoint: LocalProxyEndpoint,
+        forceTunnelDns: Boolean = false,
+    ) {
+        val previousSession = checkNotNull(tunSession) { "VPN tunnel is not running" }
+        val previousBridge = checkNotNull(tun2SocksBridge) { "VPN tunnel is not forwarding" }
+        val pendingTunnel =
+            prepareTunnel(
+                activeDns = activeDns,
+                overrideReason = overrideReason,
+                logContext = logContext,
+                localProxyEndpoint = localProxyEndpoint,
+                forceTunnelDns = forceTunnelDns,
+            )
+
+        // Establishment has already moved Android routing to this replacement TUN.
+        // Publish it before retiring the old bridge so every subsequent failure keeps
+        // a live interface that captures traffic instead of falling back to direct.
+        tunSession = pendingTunnel.session
+        tun2SocksBridge = null
+        try {
+            try {
+                previousBridge.stop()
+            } catch (error: Exception) {
+                retiringBridge = previousBridge
+                throw error
+            }
+        } finally {
+            previousSession.close()
+        }
+        startBridge(pendingTunnel, retainFailedBridge = true)
+
+        vpnHost.syncUnderlyingNetworksFromActiveNetwork()
+    }
+
+    private suspend fun prepareTunnel(
+        activeDns: ActiveDnsSettings,
+        overrideReason: String?,
+        logContext: RipDpiLogContext?,
+        localProxyEndpoint: LocalProxyEndpoint,
+        forceTunnelDns: Boolean,
+    ): PendingTunnel {
         val settings = appSettingsRepository.snapshot()
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns)
         val ipv6 = settings.ipv6Enable
@@ -65,8 +142,6 @@ internal class VpnTunnelRuntime(
         val proxy = settings.toSettingsSections().proxy
         val httpProxyPort =
             if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
-        val tunnelSession =
-            vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6, httpProxyPort)
         val uidPolicy =
             (flowAttributionBridge as? FlowAttributionBridge)
                 ?.nativeUidPolicy(vpnHost.currentAppRoutingPlan())
@@ -87,34 +162,54 @@ internal class VpnTunnelRuntime(
                 luaScriptBaseDir = luaScriptBaseDir,
                 uidPolicy = uidPolicy,
             )
+        val tunnelSession =
+            vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6, httpProxyPort)
+        return PendingTunnel(
+            session = tunnelSession,
+            config = config,
+            dnsSignature = dnsSignature(activeDns, overrideReason),
+            interfacePolicySignature = vpnTunnelInterfacePolicySignature(settings),
+        )
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun startBridge(
+        pendingTunnel: PendingTunnel,
+        retainFailedBridge: Boolean,
+    ) {
+        val tunnelBridge = tun2SocksBridgeFactory.create()
         try {
-            val tunnelBridge = tun2SocksBridgeFactory.create()
-            tunnelBridge.start(config, tunnelSession.tunFd, flowAttributionBridge)
-            tun2SocksBridge = tunnelBridge
-            tunSession = tunnelSession
-            currentDnsSignature = dnsSignature(activeDns, overrideReason)
-            currentInterfacePolicySignature = vpnTunnelInterfacePolicySignature(settings)
-            if (tunnelStartCount > 0) {
-                tunnelRecoveryRetryCount += 1
-            }
-            tunnelStartCount += 1
+            tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, flowAttributionBridge)
         } catch (error: Exception) {
-            tunnelSession.close()
+            if (retainFailedBridge) retiringBridge = tunnelBridge
             throw error
         }
-
-        vpnHost.syncUnderlyingNetworksFromActiveNetwork()
+        tun2SocksBridge = tunnelBridge
+        tunSession = pendingTunnel.session
+        currentDnsSignature = pendingTunnel.dnsSignature
+        currentInterfacePolicySignature = pendingTunnel.interfacePolicySignature
+        if (tunnelStartCount > 0) {
+            tunnelRecoveryRetryCount += 1
+        }
+        tunnelStartCount += 1
     }
 
     suspend fun stop() {
         val session = tunSession ?: return
+        val activeBridge = tun2SocksBridge
+        val inactiveBridge = retiringBridge
 
         try {
-            tun2SocksBridge?.stop()
+            activeBridge?.stop()
         } finally {
-            tun2SocksBridge = null
-            session.close()
-            tunSession = null
+            try {
+                if (inactiveBridge !== activeBridge) inactiveBridge?.stop()
+            } finally {
+                tun2SocksBridge = null
+                retiringBridge = null
+                session.close()
+                tunSession = null
+            }
         }
     }
 
@@ -138,6 +233,13 @@ internal class VpnTunnelRuntime(
         tunnelStartCount = 0
         tunnelRecoveryRetryCount = 0L
     }
+
+    private data class PendingTunnel(
+        val session: VpnTunnelSession,
+        val config: Tun2SocksConfig,
+        val dnsSignature: String,
+        val interfacePolicySignature: String,
+    )
 }
 
 /**

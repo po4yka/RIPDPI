@@ -12,7 +12,7 @@ internal class VpnTelemetryFailureHandler(
     suspend fun handle(telemetry: VpnTelemetrySnapshot): Boolean {
         val telemetryFailure = telemetry.failureReason()
         val tunnelStoppedUnexpectedly =
-            dependencies.vpnTunnelRuntime.isRunning && telemetry.tunnelTelemetry.state != "running"
+            dependencies.vpnTunnelRuntime.isForwarding && telemetry.tunnelTelemetry.state != "running"
         val session = state.runtimeSession()
         val dnsFailoverPending =
             session != null &&

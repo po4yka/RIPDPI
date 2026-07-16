@@ -214,6 +214,157 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
+    fun rebuildEstablishFailureKeepsExistingTunnelRunning() =
+        runTest {
+            val events = mutableListOf<String>()
+            val bridge = TestTun2SocksBridge(events)
+            val originalSession = TestVpnTunnelSession(events = events)
+            val sessionProvider =
+                TestVpnTunnelSessionProvider(
+                    events = events,
+                    session = originalSession,
+                )
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = sessionProvider,
+                )
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+            sessionProvider.establishFailure = IllegalStateException("replacement establish failed")
+
+            val failure =
+                runCatching {
+                    runtime.rebuild(
+                        AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                        overrideReason = null,
+                        logContext = null,
+                        localProxyEndpoint = localProxyEndpoint,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertFalse(originalSession.closed)
+            assertTrue(runtime.isRunning)
+            assertTrue(runtime.isForwarding)
+            assertEquals(0, bridge.stopCount)
+        }
+
+    @Test
+    fun rebuildStartFailureKeepsReplacementTunOpenAsFailClosedBarrier() =
+        runTest {
+            val events = mutableListOf<String>()
+            val bridge = TestTun2SocksBridge(events)
+            val originalSession = TestVpnTunnelSession(tunFd = 7, events = events)
+            val sessionProvider =
+                TestVpnTunnelSessionProvider(
+                    events = events,
+                    session = originalSession,
+                )
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = sessionProvider,
+                )
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+            val replacementSession = TestVpnTunnelSession(tunFd = 8, events = events)
+            sessionProvider.session = replacementSession
+            bridge.startFailure = IllegalStateException("replacement bridge failed")
+
+            val failure =
+                runCatching {
+                    runtime.rebuild(
+                        AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                        overrideReason = null,
+                        logContext = null,
+                        localProxyEndpoint = localProxyEndpoint,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertTrue(originalSession.closed)
+            assertFalse(replacementSession.closed)
+            assertTrue(runtime.isRunning)
+            assertFalse(runtime.isForwarding)
+            assertEquals(
+                listOf(
+                    "vpn:establish",
+                    "tunnel:start",
+                    "vpn:establish",
+                    "tunnel:stop",
+                    "vpn:session-close",
+                    "tunnel:start",
+                ),
+                events,
+            )
+        }
+
+    @Test
+    fun rebuildStopFailureRetainsBridgeForCleanupAndReplacementTunBarrier() =
+        runTest {
+            val events = mutableListOf<String>()
+            val bridge = TestTun2SocksBridge(events)
+            val originalSession = TestVpnTunnelSession(tunFd = 7, events = events)
+            val sessionProvider =
+                TestVpnTunnelSessionProvider(
+                    events = events,
+                    session = originalSession,
+                )
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = sessionProvider,
+                )
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+            val replacementSession = TestVpnTunnelSession(tunFd = 8, events = events)
+            sessionProvider.session = replacementSession
+            bridge.stopFailure = IllegalStateException("old bridge stop failed")
+
+            val failure =
+                runCatching {
+                    runtime.rebuild(
+                        AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                        overrideReason = null,
+                        logContext = null,
+                        localProxyEndpoint = localProxyEndpoint,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertTrue(originalSession.closed)
+            assertFalse(replacementSession.closed)
+            assertTrue(runtime.isRunning)
+            assertFalse(runtime.isForwarding)
+            bridge.stopFailure = null
+
+            runtime.stop()
+
+            assertEquals(2, bridge.stopCount)
+            assertTrue(replacementSession.closed)
+            assertFalse(runtime.isRunning)
+        }
+
+    @Test
     fun stopClosesBridgeAndSessionEvenWhenBridgeStopFails() =
         runTest {
             val events = mutableListOf<String>()

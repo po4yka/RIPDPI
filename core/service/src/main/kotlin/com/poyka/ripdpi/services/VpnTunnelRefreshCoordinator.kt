@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.ServiceStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -9,6 +10,7 @@ internal class VpnTunnelRefreshCoordinator(
     private val state: VpnTelemetryStateAccess,
     private val callbacks: VpnTunnelRefreshCallbacks,
 ) {
+    @Suppress("TooGenericExceptionCaught")
     suspend fun refreshIfNeeded(session: VpnRuntimeSession) {
         val refreshPlan =
             dependencies.dnsPolicyCoordinator.planRefresh(
@@ -33,17 +35,27 @@ internal class VpnTunnelRefreshCoordinator(
                 return@withLock
             }
             val latestConnectionPolicy = checkNotNull(latestRefreshPlan.connectionPolicy)
-            dependencies.vpnTunnelRuntime.stop()
-            dependencies.vpnTunnelRuntime.start(
-                activeDns = latestConnectionPolicy.activeDns,
-                overrideReason = latestConnectionPolicy.resolverFallbackReason,
-                logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
-                localProxyEndpoint =
-                    checkNotNull(state.currentLocalProxyEndpoint()) {
-                        "VPN tunnel refresh requires an active local proxy endpoint"
-                    },
-            )
-            callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
+            try {
+                dependencies.vpnTunnelRuntime.rebuild(
+                    activeDns = latestConnectionPolicy.activeDns,
+                    overrideReason = latestConnectionPolicy.resolverFallbackReason,
+                    logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
+                    localProxyEndpoint =
+                        checkNotNull(state.currentLocalProxyEndpoint()) {
+                            "VPN tunnel refresh requires an active local proxy endpoint"
+                        },
+                )
+                callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                val isCurrentRuntimeGeneration =
+                    state.runtimeSession()?.runtimeId == refreshSession.runtimeId &&
+                        state.status() == ServiceStatus.Connected
+                if (isCurrentRuntimeGeneration) {
+                    callbacks.failTunnelRefresh(refreshSession, error)
+                }
+            }
         }
     }
 
@@ -77,5 +89,10 @@ internal interface VpnTunnelRefreshCallbacks {
     fun updateRuntimeDnsState(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
+    )
+
+    fun failTunnelRefresh(
+        session: VpnRuntimeSession,
+        error: Exception,
     )
 }

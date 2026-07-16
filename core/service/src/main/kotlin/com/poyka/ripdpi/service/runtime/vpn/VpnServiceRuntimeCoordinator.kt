@@ -258,6 +258,14 @@ internal class VpnServiceRuntimeCoordinator(
                     ) {
                         runtimeCompositionCoordinator.updateRuntimeDnsState(session, resolution)
                     }
+
+                    override fun failTunnelRefresh(
+                        session: VpnRuntimeSession,
+                        error: Exception,
+                    ) {
+                        if (runtimeSession?.runtimeId != session.runtimeId) return
+                        updateStatus(ServiceStatus.Failed, classifyFailureReason(error, isTunnelContext = true))
+                    }
                 },
         )
 

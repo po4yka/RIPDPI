@@ -1133,6 +1133,7 @@ internal class TestVpnTunnelSessionProvider(
     private val events: MutableList<String> = mutableListOf(),
     var session: TestVpnTunnelSession = TestVpnTunnelSession(events = events),
 ) : VpnTunnelSessionProvider {
+    var beforeEstablish: (() -> Unit)? = null
     var establishFailure: Throwable? = null
     var lastDns: String? = null
         private set
@@ -1148,6 +1149,7 @@ internal class TestVpnTunnelSessionProvider(
         lastDns = dns
         lastIpv6 = ipv6
         events += "vpn:establish"
+        beforeEstablish?.invoke()
         establishFailure?.let { throw it }
         return session
     }
