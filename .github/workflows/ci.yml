@@ -129,6 +129,9 @@ jobs:
       - name: Run native architecture contract tests
         run: python3 scripts/ci/test_native_architecture_contracts.py
 
+      - name: Run Linux TUN wrapper contract tests
+        run: python3 -m unittest scripts.tests.test_linux_tun_wrappers
+
       - name: Run native architecture contracts
         run: python3 scripts/ci/check_native_architecture_contracts.py
 

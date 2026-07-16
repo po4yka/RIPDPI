@@ -530,7 +530,7 @@ RIPDPI_RUN_TUN_E2E=1 RIPDPI_SOAK_PROFILE=smoke \
   bash scripts/ci/run-linux-tun-soak.sh
 ```
 
-The current native workspace has `ripdpi-tunnel-core --test linux_tun_e2e`; no `linux_tun_soak` target is registered today, so the soak wrapper exits after reporting that the privileged soak lane is unavailable.
+The native workspace registers separate `linux_tun_e2e` and `linux_tun_soak` targets. The E2E lane fails closed when its target, Linux host, explicit opt-in, or `/dev/net/tun` is unavailable; its TCP case requires an exact echo roundtrip plus non-zero TUN TX/RX counters and fixture relay events.
 
 Host-side native soak:
 
@@ -611,8 +611,8 @@ Nightly/manual lanes add:
 
 - `rust-native-soak` -- endurance tests (restart, sustained traffic, fault recovery)
 - `rust-native-load` -- high-concurrency ramp-up, burst, and saturation tests
-- `linux-tun-e2e` -- privileged TUN data-plane tests in `ripdpi-tunnel-core --test linux_tun_e2e`
-- `linux-tun-soak` -- reserved privileged TUN endurance wrapper; currently skips because no `linux_tun_soak` test target is registered
+- `linux-tun-e2e` -- privileged TUN data-plane roundtrip tests in `ripdpi-tunnel-core --test linux_tun_e2e`
+- `linux-tun-soak` -- privileged TUN endurance tests in `ripdpi-tunnel-core --test linux_tun_soak`
 - `nightly-rust-coverage` -- coverage including ignored tests
 
 The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and coverage reports when available.

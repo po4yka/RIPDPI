@@ -50,5 +50,9 @@ libc = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [[test]]
+name = "linux_tun_e2e"
+path = "tests/linux_tun_e2e.rs"
+
+[[test]]
 name = "linux_tun_soak"
 path = "tests/linux_tun_e2e.rs"

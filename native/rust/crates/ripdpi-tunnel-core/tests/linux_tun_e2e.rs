@@ -7,17 +7,19 @@
 //!
 //! They are `#[ignore]`d by default and run via:
 //! ```bash
-//! RIPDPI_RUN_TUN_E2E=1 cargo test -p ripdpi-tunnel-core --test linux_tun_e2e -- --ignored
+//! RIPDPI_RUN_TUN_E2E=1 cargo test -p ripdpi-tunnel-core --test linux_tun_e2e e2e_ -- --ignored
 //! ```
 #![cfg(target_os = "linux")]
 
 mod support;
 
-use std::net::Ipv4Addr;
+use std::io::{Read, Write};
+use std::net::{Ipv4Addr, SocketAddr, TcpStream};
 use std::os::fd::{FromRawFd, OwnedFd};
+use std::process::Command;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_tun_driver::{LinuxTunnel, TunnelDriver};
@@ -97,13 +99,39 @@ fn fd_is_closed(raw_fd: libc::c_int) -> bool {
     errno == libc::EBADF
 }
 
+struct HostRoute {
+    destination: String,
+    interface: String,
+}
+
+impl HostRoute {
+    fn install(destination: Ipv4Addr, interface: &str) -> std::io::Result<Self> {
+        let destination = format!("{destination}/32");
+        let status = Command::new("ip").args(["route", "add", destination.as_str(), "dev", interface]).status()?;
+        if !status.success() {
+            return Err(std::io::Error::other(format!(
+                "ip route add {destination} dev {interface} exited with {status}"
+            )));
+        }
+        Ok(Self { destination, interface: interface.to_string() })
+    }
+}
+
+impl Drop for HostRoute {
+    fn drop(&mut self) {
+        let _ = Command::new("ip")
+            .args(["route", "del", self.destination.as_str(), "dev", self.interface.as_str()])
+            .status();
+    }
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 /// Real TUN TCP echo: open /dev/net/tun, configure IP, run tunnel, verify
 /// that a TCP connection through the TUN device reaches the echo server.
 #[test]
 #[ignore = "requires RIPDPI_RUN_TUN_E2E=1 and CAP_NET_ADMIN"]
-fn real_tun_tcp_echo() {
+fn e2e_real_tun_tcp_echo() {
     require_tun_e2e();
     let _guard = test_guard();
 
@@ -116,6 +144,9 @@ fn real_tun_tcp_echo() {
     tun.set_mtu(1500).expect("set MTU");
     tun.set_ipv4(Ipv4Addr::new(10, 0, 0, 1), 24).expect("set IPv4");
     tun.set_up().expect("bring TUN up");
+    let interface = tun.name().to_string();
+    let fixture_ip = manifest.fixture_ipv4.parse::<Ipv4Addr>().expect("parse fixture IPv4");
+    let _route = HostRoute::install(fixture_ip, &interface).expect("route fixture traffic through TUN");
 
     // Extract the raw fd then forget the LinuxTunnel to avoid double-close.
     // Wrap in OwnedFd so run_tunnel's type system enforces ownership transfer.
@@ -142,19 +173,51 @@ fn real_tun_tcp_echo() {
     // Give the tunnel time to initialize.
     std::thread::sleep(Duration::from_millis(200));
 
-    // Verify the tunnel is running by checking that stats are accessible.
-    assert_eq!(stats.tx_packets.load(Ordering::Relaxed), 0);
+    fixture.events().clear();
+    let traffic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let target = SocketAddr::from((fixture_ip, manifest.tcp_echo_port));
+        let mut stream = TcpStream::connect_timeout(&target, Duration::from_secs(5)).expect("connect through TUN");
+        stream.set_read_timeout(Some(Duration::from_secs(5))).expect("set read timeout");
+        stream.set_write_timeout(Some(Duration::from_secs(5))).expect("set write timeout");
 
-    // Shutdown
+        let payload = b"ripdpi-linux-tun-e2e-roundtrip";
+        stream.write_all(payload).expect("write echo payload through TUN");
+        let mut echoed = vec![0u8; payload.len()];
+        stream.read_exact(&mut echoed).expect("read echo payload through TUN");
+        assert_eq!(echoed, payload, "TCP payload must round-trip through the TUN and SOCKS5 relay");
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while (stats.tx_packets.load(Ordering::Relaxed) == 0 || stats.rx_packets.load(Ordering::Relaxed) == 0)
+            && Instant::now() < deadline
+        {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(stats.tx_packets.load(Ordering::Relaxed) > 0, "TUN must consume at least one outbound packet");
+        assert!(stats.rx_packets.load(Ordering::Relaxed) > 0, "TUN must emit at least one inbound packet");
+
+        let events = fixture.events().snapshot();
+        assert!(
+            events.iter().any(|event| event.service == "socks5_relay" && event.protocol == "tcp"),
+            "fixture must observe a SOCKS5 TCP relay event: {events:?}"
+        );
+        assert!(
+            events.iter().any(|event| event.service == "tcp_echo" && event.protocol == "tcp" && event.detail == "echo"),
+            "fixture must observe the TCP echo payload: {events:?}"
+        );
+    }));
+
     cancel.cancel();
     let result = tunnel_thread.join().expect("tunnel thread panicked");
     assert!(result.is_ok(), "run_tunnel should return Ok: {result:?}");
+    if let Err(payload) = traffic_result {
+        std::panic::resume_unwind(payload);
+    }
 }
 
 /// Real TUN MTU edge case: verify packets near MTU boundary are handled.
 #[test]
 #[ignore = "requires RIPDPI_RUN_TUN_E2E=1 and CAP_NET_ADMIN"]
-fn real_tun_mtu_edge_case() {
+fn e2e_real_tun_mtu_edge_case() {
     require_tun_e2e();
     let _guard = test_guard();
 
@@ -181,7 +244,7 @@ fn real_tun_mtu_edge_case() {
 /// 3. Assert total fd count did not grow (proves no silent leak).
 #[test]
 #[ignore = "requires RIPDPI_RUN_TUN_E2E=1 and CAP_NET_ADMIN"]
-fn real_tun_no_fd_leak_after_stop() {
+fn e2e_real_tun_no_fd_leak_after_stop() {
     require_tun_e2e();
     let _guard = test_guard();
 
