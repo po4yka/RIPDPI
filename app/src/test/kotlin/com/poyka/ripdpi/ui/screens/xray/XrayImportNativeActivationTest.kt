@@ -12,9 +12,11 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
@@ -530,6 +532,53 @@ class XrayImportNativeActivationTest {
             // Native relay activated (existing behaviour) and mode is proxy.
             assertTrue(settingsRepository.snapshot().relayEnabled)
             assertEquals(Mode.Proxy.preferenceValue, settingsRepository.snapshot().ripdpiMode)
+            assertEquals(1, repository.list().size)
+        }
+
+    @Test
+    fun `native option activates translated plain tls vless xhttp`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val durableProfileStore = FakeDurableXrayProfileStore()
+            val durableSelectionStore = FakeDurableXrayProviderSelectionStore()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val persistence =
+                persistence(
+                    settingsRepository,
+                    durableProfileStore,
+                    durableSelectionStore,
+                    XrayProviderSelectionStore(),
+                    activator,
+                )
+            val config =
+                """
+                { "outbounds": [ { "protocol": "vless", "tag": "plain-xhttp",
+                  "settings": { "vnext": [ { "address": "203.0.113.4", "port": 443,
+                    "users": [ { "id": "$uuid", "flow": "" } ] } ] },
+                  "streamSettings": { "network": "xhttp", "security": "tls",
+                    "tlsSettings": { "serverName": "cdn.example", "fingerprint": "firefox" },
+                    "xhttpSettings": { "path": "", "host": "", "mode": "auto" } } } ] }
+                """.trimIndent()
+
+            persistence.persist(
+                XrayServiceModeOption.NativeProxy,
+                listOf(firstProfile(config)),
+                acceptedProfile = null,
+            )
+
+            val stored = relayProfileStore.load(DefaultRelayProfileId)
+            assertTrue(settingsRepository.snapshot().relayEnabled)
+            assertEquals(RelayKindVless, stored?.kind)
+            assertEquals(RelaySecurityLayerTls, stored?.securityLayer)
+            assertEquals(RelayVlessTransportXhttp, stored?.vlessTransport)
+            assertEquals(uuid, relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid)
             assertEquals(1, repository.list().size)
         }
 }

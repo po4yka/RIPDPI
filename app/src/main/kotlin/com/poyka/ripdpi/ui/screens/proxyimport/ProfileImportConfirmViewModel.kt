@@ -94,7 +94,7 @@ class ProfileImportConfirmViewModel
                 // relay-protocol share link (vless/tuic/ss/trojan/ssh/...) and is
                 // expected to tunnel. activate() returns false (a no-op) only for
                 // kinds that build NO native relay backend — plain ProxyProfile.Vless
-                // (no REALITY material) and ProxyProfile.RawConfig (e.g. an imported
+                // without XHTTP (and no REALITY material) and ProxyProfile.RawConfig (e.g. an imported
                 // tuic:// link with no first-class subtype). There is no legitimate
                 // "store-only, non-relay" import on this surface, so activate()==false
                 // is a dead-end import, NOT a success: we must surface an error and
