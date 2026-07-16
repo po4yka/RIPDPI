@@ -1,5 +1,5 @@
 use std::io::{self, ErrorKind, Read, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
@@ -46,7 +46,7 @@ pub(crate) fn start_socks5_server(
                                         payload.len(),
                                         None,
                                     ));
-                                    if let Ok(forward) = UdpSocket::bind((config.bind_host.as_str(), 0)) {
+                                    if let Ok(forward) = UdpSocket::bind(udp_forward_bind_address(mapped)) {
                                         let _ = forward.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
                                         let _ = forward.send_to(&payload, mapped);
                                         let mut response = [0u8; 4096];
@@ -221,6 +221,15 @@ pub(crate) fn start_socks5_server(
         }),
         local_port,
     ))
+}
+
+fn udp_forward_bind_address(destination: SocketAddr) -> SocketAddr {
+    // Keep the relay on `config.bind_host`, but let the kernel select a
+    // routable source address for each outbound destination family.
+    match destination {
+        SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+        SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -418,5 +427,24 @@ pub(crate) fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u
             Ok((SocketAddr::new(IpAddr::from(raw), u16::from_be_bytes([frame[20], frame[21]])), frame[22..].to_vec()))
         }
         atyp => Err(io::Error::new(ErrorKind::InvalidData, format!("SOCKS5 UDP atyp unsupported: {atyp}"))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn udp_forward_uses_ipv4_wildcard_source_family() {
+        let destination = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 2)), 53);
+
+        assert_eq!(udp_forward_bind_address(destination), SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),);
+    }
+
+    #[test]
+    fn udp_forward_uses_ipv6_wildcard_source_family() {
+        let destination = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 2)), 53);
+
+        assert_eq!(udp_forward_bind_address(destination), SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),);
     }
 }
