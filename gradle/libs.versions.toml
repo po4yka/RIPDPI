@@ -1,7 +1,7 @@
 [versions]
 agp = "9.2.1"
 benchmark = "1.4.1"
-kotlin-compose = "2.4.0"
+kotlin-compose = "2.4.10"
 ksp = "2.3.10"
 hilt = "2.60.1"
 hilt-lifecycle-viewmodel-compose = "1.4.0"
@@ -39,7 +39,7 @@ room = "2.8.4"
 robolectric = "4.16.1"
 roborazzi = "1.68.0"
 leakcanary = "2.14"
-compose-preview-plugin = "0.16.44"
+compose-preview-plugin = "0.16.47"
 module-graph = "0.13.0"
 retrofit = "3.0.0"
 okhttp = "5.4.0"
@@ -148,7 +148,7 @@ hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt"
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 # Pinned onto the KSP/Hilt processor classpath so Dagger (>=2.57, unshaded) can parse
-# Kotlin 2.4.0 class metadata; tracks "kotlin-compose" so it follows every Kotlin bump.
+# Kotlin 2.4.10 class metadata; tracks "kotlin-compose" so it follows every Kotlin bump.
 kotlin-metadata-jvm = { module = "org.jetbrains.kotlin:kotlin-metadata-jvm", version.ref = "kotlin-compose" }
 androidx-hilt-lifecycle-viewmodel-compose = { module = "androidx.hilt:hilt-lifecycle-viewmodel-compose", version.ref = "hilt-lifecycle-viewmodel-compose" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
