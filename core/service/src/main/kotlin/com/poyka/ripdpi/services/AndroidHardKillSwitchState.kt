@@ -30,6 +30,15 @@ data class AndroidHardKillSwitchSnapshot(
         get() = status == AndroidHardKillSwitchStatus.ENABLED
 }
 
+internal fun AndroidHardKillSwitchSnapshot.allowsServiceStop(action: String): Boolean =
+    when (action) {
+        // A notification is not the only way to recover on platforms where the
+        // public VpnService lockdown flags are unavailable, so fail closed here.
+        notificationStopAction -> status == AndroidHardKillSwitchStatus.NOT_ENABLED
+
+        else -> status != AndroidHardKillSwitchStatus.ENABLED
+    }
+
 interface AndroidHardKillSwitchStateStore {
     val snapshot: StateFlow<AndroidHardKillSwitchSnapshot>
 

@@ -65,6 +65,7 @@ internal class VpnForegroundNotificationController(
                 subText = subText,
                 service = RipDpiVpnService::class.java,
                 whenTimestamp = startedAt,
+                showStopAction = shouldShowStopAction(service),
             )
         @Suppress("SwallowedException")
         try {
@@ -83,7 +84,11 @@ internal class VpnForegroundNotificationController(
             R.string.notification_title,
             R.string.vpn_notification_content,
             RipDpiVpnService::class.java,
+            showStopAction = shouldShowStopAction(service),
         )
+
+    private fun shouldShowStopAction(service: RipDpiVpnService): Boolean =
+        AndroidHardKillSwitchStateReader.read(service).allowsServiceStop(notificationStopAction)
 
     private companion object {
         private const val ForegroundServiceId: Int = 1

@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
-import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.services.notificationStopAction
 
 fun registerNotificationChannel(
     context: Context,
@@ -48,6 +48,7 @@ fun createConnectionNotification(
     @StringRes title: Int,
     @StringRes content: Int,
     service: Class<*>,
+    showStopAction: Boolean = true,
 ): Notification =
     NotificationCompat
         .Builder(context, channelId)
@@ -55,16 +56,15 @@ fun createConnectionNotification(
         .setSilent(true)
         .setContentTitle(context.getString(title))
         .setContentText(context.getString(content))
-        .addAction(
-            R.drawable.ic_notification,
-            context.getString(R.string.notification_stop),
-            PendingIntent.getService(
-                context,
-                0,
-                Intent(context, service).setAction(stopAction),
-                PendingIntent.FLAG_IMMUTABLE,
-            ),
-        ).setContentIntent(
+        .apply {
+            if (showStopAction) {
+                addAction(
+                    R.drawable.ic_notification,
+                    context.getString(R.string.notification_stop),
+                    stopPendingIntent(context, service),
+                )
+            }
+        }.setContentIntent(
             PendingIntent.getActivity(
                 context,
                 0,
@@ -81,6 +81,7 @@ fun createDynamicConnectionNotification(
     subText: String?,
     service: Class<*>,
     whenTimestamp: Long,
+    showStopAction: Boolean = true,
 ): Notification =
     NotificationCompat
         .Builder(context, channelId)
@@ -94,16 +95,15 @@ fun createDynamicConnectionNotification(
         .setWhen(whenTimestamp)
         .setShowWhen(true)
         .setUsesChronometer(true)
-        .addAction(
-            R.drawable.ic_notification,
-            context.getString(R.string.notification_stop),
-            PendingIntent.getService(
-                context,
-                0,
-                Intent(context, service).setAction(stopAction),
-                PendingIntent.FLAG_IMMUTABLE,
-            ),
-        ).setContentIntent(
+        .apply {
+            if (showStopAction) {
+                addAction(
+                    R.drawable.ic_notification,
+                    context.getString(R.string.notification_stop),
+                    stopPendingIntent(context, service),
+                )
+            }
+        }.setContentIntent(
             PendingIntent.getActivity(
                 context,
                 0,
@@ -111,3 +111,14 @@ fun createDynamicConnectionNotification(
                 PendingIntent.FLAG_IMMUTABLE,
             ),
         ).build()
+
+private fun stopPendingIntent(
+    context: Context,
+    service: Class<*>,
+): PendingIntent =
+    PendingIntent.getService(
+        context,
+        0,
+        Intent(context, service).setAction(notificationStopAction),
+        PendingIntent.FLAG_IMMUTABLE,
+    )

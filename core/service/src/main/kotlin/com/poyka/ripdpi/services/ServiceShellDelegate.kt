@@ -8,11 +8,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+internal const val notificationStopAction = "notification_stop"
+
 internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
     private val serviceLabel: String,
     private val onStart: suspend () -> Unit,
     private val onStop: suspend (Int?) -> Unit,
+    private val isStopAllowed: (String) -> Boolean = { true },
     private val onRevoke: (suspend () -> Unit)? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
@@ -27,9 +30,15 @@ internal class ServiceShellDelegate(
                 android.app.Service.START_STICKY
             }
 
-            stopAction -> {
-                launchIo { onStop(startId) }
-                android.app.Service.START_NOT_STICKY
+            stopAction, notificationStopAction -> {
+                if (isStopAllowed(action)) {
+                    launchIo { onStop(startId) }
+                    android.app.Service.START_NOT_STICKY
+                } else {
+                    Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
+                    launchIo(onStart)
+                    android.app.Service.START_STICKY
+                }
             }
 
             else -> {

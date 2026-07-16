@@ -41,6 +41,7 @@ internal class VpnServiceSessionLifecycle(
             serviceLabel = "vpn",
             onStart = runtimeCoordinator::start,
             onStop = runtimeCoordinator::stop,
+            isStopAllowed = service::isUserStopAllowed,
             onRevoke = {
                 serviceStateStore.emitFailed(
                     sender = Sender.VPN,

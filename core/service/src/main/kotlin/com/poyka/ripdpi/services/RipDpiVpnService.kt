@@ -229,8 +229,12 @@ class RipDpiVpnService :
         return VpnTunnelNetworkPolicy.parameters(linkProperties, capabilities)
     }
 
-    private fun refreshHardKillSwitchState() {
-        hardKillSwitchStateStore.update(AndroidHardKillSwitchStateReader.read(this))
+    internal fun isUserStopAllowed(action: String): Boolean = refreshHardKillSwitchState().allowsServiceStop(action)
+
+    private fun refreshHardKillSwitchState(): AndroidHardKillSwitchSnapshot {
+        val snapshot = AndroidHardKillSwitchStateReader.read(this)
+        hardKillSwitchStateStore.update(snapshot)
+        return snapshot
     }
 
     private suspend fun applyDhtMitigation(builder: Builder) {

@@ -37,6 +37,74 @@ class ServiceShellDelegateTest {
         }
 
     @Test
+    fun `stop action is rejected when service policy forbids disconnect`() =
+        runTest {
+            var startCalls = 0
+            val stopIds = mutableListOf<Int?>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { startCalls += 1 },
+                    onStop = { stopIds += it },
+                    isStopAllowed = { false },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            val result = delegate.onStartCommand(stopAction, 7)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(1, startCalls)
+            assertEquals(emptyList<Int?>(), stopIds)
+        }
+
+    @Test
+    fun `stop action checks current policy for stale notification intent`() =
+        runTest {
+            var stopAllowed = true
+            var startCalls = 0
+            val stopIds = mutableListOf<Int?>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { startCalls += 1 },
+                    onStop = { stopIds += it },
+                    isStopAllowed = { stopAllowed },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            stopAllowed = false
+            val result = delegate.onStartCommand(notificationStopAction, 9)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(1, startCalls)
+            assertEquals(emptyList<Int?>(), stopIds)
+        }
+
+    @Test
+    fun `proxy notification stop remains allowed by default`() =
+        runTest {
+            val stopIds = mutableListOf<Int?>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "proxy",
+                    onStart = {},
+                    onStop = { stopIds += it },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            val result = delegate.onStartCommand(notificationStopAction, 11)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_NOT_STICKY, result)
+            assertEquals(listOf(11), stopIds)
+        }
+
+    @Test
     fun `null action triggers start for sticky service restart`() =
         runTest {
             var startCalls = 0
