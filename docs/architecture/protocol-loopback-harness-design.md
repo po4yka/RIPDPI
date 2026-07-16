@@ -1,12 +1,14 @@
 # Protocol Loopback Harness — Design
 
-> Status: **active shared test infrastructure**. Authored: 2026-05-15, refreshed 2026-07-14. `ripdpi-protocol-loopback` ships `EchoLoopback` (plain TCP) and `QuicLoopback` (generic QUIC echo with a self-signed certificate, `QUIC_LOOPBACK_ALPN`, and a one-call client helper). `ripdpi-hysteria2` consumes the QUIC harness for its port-hopping soak. Protocol-specific fixtures intentionally remain next to the code they exercise: ShadowTLS uses its `test-server` feature, while `local-network-fixture` owns the VLESS Reality, xHTTP Reality, AnyTLS, Trojan, Shadowsocks, Naive H2 padding, and MASQUE fixtures. The shared crate is therefore not intended to become a registry of every transport.
+> Status: **active shared test infrastructure**. Authored: 2026-05-15, refreshed 2026-07-16. `ripdpi-protocol-loopback` ships `EchoLoopback` (plain TCP) and `QuicLoopback` (generic QUIC echo with a self-signed certificate, `QUIC_LOOPBACK_ALPN`, and a one-call client helper). `ripdpi-hysteria2` consumes the QUIC harness for its port-hopping soak. Protocol-specific fixtures intentionally remain next to the code they exercise: ShadowTLS uses its `test-server` feature, while `local-network-fixture` owns the VLESS Reality, xHTTP Reality, AnyTLS, Trojan, Shadowsocks, Naive H2 padding, and MASQUE HTTP/2 + HTTP/3 CONNECT-UDP fixtures. The shared crate is therefore not intended to become a registry of every transport.
 
 ## Why this design exists
 
 The harness was introduced so transport tests could run client and server back-to-back without an external network or upstream service. The original plan assumed one shared server per protocol; implementation showed that only generic TCP and QUIC primitives benefit from centralization, while wire-specific fixtures are easier to maintain beside their protocol implementation.
 
-- `docs/tasks/issues/add-quic-path-mtu-discovery-regression-test.md`
+The MASQUE/H3 PMTUD regression uses the protocol-specific fixture in
+`local-network-fixture` and the reusable `quic-mtu-test-util` fault socket; the
+closed task remains available in git history.
 
 ## Shape
 

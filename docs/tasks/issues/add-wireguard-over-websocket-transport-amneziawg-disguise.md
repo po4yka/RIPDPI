@@ -33,7 +33,7 @@ WireGuard's UDP fingerprint is one of the easiest DPI signatures in the wild: a 
 ## Risks / open questions
 
 - WG userspace implementation: use `boringtun` or implement Noise_IK directly. `boringtun` is simpler but pulls in another crate dep with its own pinning concerns.
-- Mobile MTU: tunneling WG inside WS inside TLS easily blows through 1500-byte MTU. PMTU discovery (see `add-quic-path-mtu-discovery-regression-test`) is relevant.
+- Mobile MTU: tunneling WG inside WS inside TLS easily blows through 1500-byte MTU. The reusable fault model and recovery assertions live in `quic-mtu-test-util` and `native/rust/crates/ripdpi-bench/tests/quic_pmtud.rs`.
 - Production use still requires an operator-provided WSS->UDP terminator. This repo owns the Android client carrier and local tests only; adding/deploying a backend is out of scope for RIPDPI's no-backend rule.
 
 ## Links

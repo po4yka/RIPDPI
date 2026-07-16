@@ -1,12 +1,12 @@
 //! `ripdpi-protocol-loopback` — dev-only loopback test-server harness.
 //!
-//! Shared infrastructure for four backlog tasks that all need an
+//! Shared infrastructure for protocol tests that need an
 //! in-process echo server per protocol:
 //!
 //! - `add-shadowtls-loopback-test-server-for-soak-runs`
-//! - `add-quic-path-mtu-discovery-regression-test`
 //! - `add-protocol-throughput-benchmarks-for-each-transport`
 //! - `add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality`
+//! - QUIC PMTUD regression primitives shared with protocol-specific fixtures
 //!
 //! Design doc: `docs/architecture/protocol-loopback-harness-design.md`.
 //!

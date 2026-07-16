@@ -295,7 +295,7 @@ pub(crate) async fn attempt_h2_connect_udp(
         }
     });
 
-    Ok(MasqueUdpFlow::new(MasqueUdpSender::H2(outgoing_tx), writer_task, reader_task))
+    Ok(MasqueUdpFlow::new(MasqueUdpSender::H2(outgoing_tx), None, writer_task, reader_task, None, 0))
 }
 
 #[cfg(test)]

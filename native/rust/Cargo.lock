@@ -3538,6 +3538,7 @@ dependencies = [
  "crypto_box",
  "futures",
  "h3",
+ "h3-datagram",
  "h3-quinn",
  "hex",
  "hickory-proto",

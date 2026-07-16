@@ -30,6 +30,27 @@ pub(crate) fn load_client_identity(
     }
 }
 
+/// Add the configured PEM trust anchor to the HTTP/3 rustls store while
+/// preserving normal chain and hostname verification.
+pub(crate) fn apply_h3_root_certificate(roots: &mut rustls::RootCertStore, config: &MasqueConfig) -> io::Result<()> {
+    let Some(root_pem) = config.root_certificate_pem.as_deref().filter(|value| !value.trim().is_empty()) else {
+        return Ok(());
+    };
+    let certificates =
+        CertificateDer::pem_slice_iter(root_pem.as_bytes()).collect::<Result<Vec<_>, _>>().map_err(|error| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE root certificate PEM: {error}"))
+        })?;
+    if certificates.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "MASQUE root certificate PEM is empty"));
+    }
+    for certificate in certificates {
+        roots.add(certificate).map_err(|error| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE root certificate: {error}"))
+        })?;
+    }
+    Ok(())
+}
+
 /// Add the configured PEM trust anchor (if any) to the H2 connector's
 /// certificate store. This PINS a self-signed / private-CA proxy certificate;
 /// it does NOT relax verification — `tokio_boring::connect` still performs full

@@ -2,7 +2,7 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (26)
+## Doing (25)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -13,7 +13,6 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
 | high | outbound | [Package libXray for Android ABIs](issues/package-libxray-for-android-abis.md) | unassigned | 2026-07-14 |
-| high | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | Lifecycle and PMTUD lane | 2026-07-16 |
 | high | testing | [Add a redacted dual-vantage network evidence manifest](issues/add-dual-vantage-redacted-network-evidence-manifest.md) | Evidence contract lane | 2026-07-16 |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | unassigned | 2026-06-05 |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | unassigned | 2026-06-10 |

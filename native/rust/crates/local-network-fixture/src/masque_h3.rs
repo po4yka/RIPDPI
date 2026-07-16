@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
 use h3::ext::Protocol;
+use h3_datagram::datagram_handler::HandleDatagramsExt;
 use http::{Method, Request, Response, StatusCode, Version};
 use quinn::crypto::rustls::{QuicClientConfig, QuicServerConfig};
 use rcgen::generate_simple_self_signed;
@@ -43,7 +44,7 @@ pub struct MasqueH3ClassicConnectFixture {
 
 impl MasqueH3ClassicConnectFixture {
     pub async fn start() -> io::Result<Self> {
-        let (server_config, certificate) = server_config()?;
+        let (server_config, certificate, _certificate_pem) = server_config()?;
         let endpoint = quinn::Endpoint::server(server_config, (Ipv4Addr::LOCALHOST, 0).into())
             .map_err(|error| io::Error::other(format!("create MASQUE H3 fixture endpoint: {error}")))?;
         let address = endpoint.local_addr()?;
@@ -104,9 +105,166 @@ impl Drop for MasqueH3ClassicConnectFixture {
     }
 }
 
-fn server_config() -> io::Result<(quinn::ServerConfig, CertificateDer<'static>)> {
+/// Real single-flow RFC 9298 CONNECT-UDP fixture over Quinn/H3 DATAGRAM.
+///
+/// The caller owns the injected UDP socket, which lets PMTUD tests place the
+/// production MASQUE client behind an observable black-hole fault without
+/// weakening the strict classic-CONNECT oracle above.
+pub struct MasqueH3ConnectUdpFixture {
+    address: SocketAddr,
+    certificate_pem: String,
+    observed: Arc<Mutex<Vec<MasqueH3ObservedRequest>>>,
+    echoed_datagrams: Arc<AtomicUsize>,
+    endpoint: quinn::Endpoint,
+    server_task: tokio::task::JoinHandle<()>,
+}
+
+impl MasqueH3ConnectUdpFixture {
+    pub fn start() -> io::Result<Self> {
+        let (server_config, _certificate, certificate_pem) = server_config()?;
+        let endpoint = quinn::Endpoint::server(server_config, (Ipv4Addr::LOCALHOST, 0).into())
+            .map_err(|error| io::Error::other(format!("create MASQUE H3 CONNECT-UDP endpoint: {error}")))?;
+        Self::spawn(endpoint, certificate_pem)
+    }
+
+    pub fn start_with_socket(socket: Arc<dyn quinn::AsyncUdpSocket>) -> io::Result<Self> {
+        let (server_config, _certificate, certificate_pem) = server_config()?;
+        let endpoint = quinn::Endpoint::new_with_abstract_socket(
+            quinn::EndpointConfig::default(),
+            Some(server_config),
+            socket,
+            Arc::new(quinn::TokioRuntime),
+        )
+        .map_err(|error| io::Error::other(format!("create MASQUE H3 CONNECT-UDP endpoint: {error}")))?;
+        Self::spawn(endpoint, certificate_pem)
+    }
+
+    fn spawn(endpoint: quinn::Endpoint, certificate_pem: String) -> io::Result<Self> {
+        let address = endpoint.local_addr()?;
+        let allowed_target = FIXTURE_TARGET.parse().expect("fixed fixture target");
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let echoed_datagrams = Arc::new(AtomicUsize::new(0));
+        let server_task = tokio::spawn(serve_h3_connect_udp(
+            endpoint.clone(),
+            allowed_target,
+            Arc::clone(&observed),
+            Arc::clone(&echoed_datagrams),
+        ));
+        Ok(Self { address, certificate_pem, observed, echoed_datagrams, endpoint, server_task })
+    }
+
+    pub fn proxy_address(&self) -> SocketAddr {
+        self.address
+    }
+
+    pub fn masque_url(&self) -> String {
+        format!("https://{SERVER_NAME}:{}/", self.address.port())
+    }
+
+    pub fn udp_target(&self) -> &'static str {
+        FIXTURE_TARGET
+    }
+
+    pub fn certificate_pem(&self) -> &str {
+        &self.certificate_pem
+    }
+
+    pub fn observed_requests(&self) -> Vec<MasqueH3ObservedRequest> {
+        self.observed.lock().expect("MASQUE H3 CONNECT-UDP observations").clone()
+    }
+
+    pub fn echoed_datagram_count(&self) -> usize {
+        self.echoed_datagrams.load(Ordering::Relaxed)
+    }
+}
+
+impl Drop for MasqueH3ConnectUdpFixture {
+    fn drop(&mut self) {
+        self.server_task.abort();
+        self.endpoint.close(0_u32.into(), b"fixture drop");
+    }
+}
+
+/// Serve exactly one CONNECT-UDP request per QUIC connection and echo context-0
+/// H3 DATAGRAM payloads without retaining their bytes.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: the endpoint and each connection are fixture-owned; aborting
+/// the task closes them and cannot expose partial state outside the test.
+// cancel-safe: all endpoint and connection ownership is local to the fixture task.
+async fn serve_h3_connect_udp(
+    endpoint: quinn::Endpoint,
+    allowed_target: SocketAddr,
+    observed: Arc<Mutex<Vec<MasqueH3ObservedRequest>>>,
+    echoed_datagrams: Arc<AtomicUsize>,
+) {
+    while let Some(incoming) = endpoint.accept().await {
+        let observed = Arc::clone(&observed);
+        let echoed_datagrams = Arc::clone(&echoed_datagrams);
+        tokio::spawn(async move {
+            let Ok(connection) = incoming.await else {
+                return;
+            };
+            let mut builder = h3::server::builder();
+            builder.enable_extended_connect(true);
+            builder.enable_datagram(true);
+            let Ok(mut h3_connection) = builder.build(h3_quinn::Connection::new(connection)).await else {
+                return;
+            };
+            let Ok(Some(resolver)) = h3_connection.accept().await else {
+                return;
+            };
+            let Ok((request, mut stream)) = resolver.resolve_request().await else {
+                return;
+            };
+            let accepted = is_valid_connect_udp(&request, allowed_target);
+            observed.lock().expect("MASQUE H3 CONNECT-UDP observations").push(observation(&request, accepted));
+            if !accepted {
+                send_status(&mut stream, StatusCode::BAD_REQUEST).await;
+                return;
+            }
+
+            let stream_id = stream.id();
+            let response = Response::builder()
+                .status(StatusCode::OK)
+                .header("capsule-protocol", "?1")
+                .body(())
+                .expect("valid CONNECT-UDP response");
+            if stream.send_response(response).await.is_err() {
+                return;
+            }
+            let _response_stream = stream;
+            let mut datagram_sender = h3_connection.get_datagram_sender(stream_id);
+            let mut datagram_reader = h3_connection.get_datagram_reader();
+            while let Ok(datagram) = datagram_reader.read_datagram().await {
+                if datagram.stream_id() != stream_id {
+                    continue;
+                }
+                if datagram_sender.send_datagram(datagram.into_payload()).is_err() {
+                    break;
+                }
+                echoed_datagrams.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+    }
+}
+
+fn is_valid_connect_udp(request: &Request<()>, allowed_target: SocketAddr) -> bool {
+    let expected_path = format!("/.well-known/masque/udp/{}/{}/", allowed_target.ip(), allowed_target.port(),);
+    request.version() == Version::HTTP_3
+        && request.method() == Method::CONNECT
+        && request.uri().scheme_str() == Some("https")
+        && request.uri().authority().is_some()
+        && request.uri().path() == expected_path
+        && request.extensions().get::<Protocol>() == Some(&Protocol::CONNECT_UDP)
+        && request.headers().get("capsule-protocol").is_some_and(|value| value == "?1")
+}
+
+fn server_config() -> io::Result<(quinn::ServerConfig, CertificateDer<'static>, String)> {
     let certified = generate_simple_self_signed(vec![SERVER_NAME.to_string()])
         .map_err(|error| io::Error::other(format!("generate MASQUE H3 fixture certificate: {error}")))?;
+    let certificate_pem = certified.cert.pem();
     let certificate = CertificateDer::from(certified.cert.der().to_vec());
     let private_key = PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der());
     let mut tls = rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
@@ -118,7 +276,7 @@ fn server_config() -> io::Result<(quinn::ServerConfig, CertificateDer<'static>)>
     tls.alpn_protocols = vec![b"h3".to_vec()];
     let quic = QuicServerConfig::try_from(tls)
         .map_err(|error| io::Error::other(format!("build fixture QUIC server config: {error}")))?;
-    Ok((quinn::ServerConfig::with_crypto(Arc::new(quic)), certificate))
+    Ok((quinn::ServerConfig::with_crypto(Arc::new(quic)), certificate, certificate_pem))
 }
 
 async fn serve_h3(

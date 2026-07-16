@@ -22,7 +22,7 @@
 
 use std::fmt;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -62,6 +62,20 @@ impl MtuThreshold {
 pub struct MtuDropSocket {
     io: tokio::net::UdpSocket,
     max_short_header_payload: Arc<AtomicUsize>,
+    dropped_tx: AtomicUsize,
+    dropped_rx: AtomicUsize,
+    max_dropped_tx_len: AtomicUsize,
+    max_dropped_rx_len: AtomicUsize,
+}
+
+/// Redacted fault-injection evidence. Counts and sizes are retained; packet
+/// bytes and peer addresses are deliberately never captured.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MtuDropEvidence {
+    pub dropped_tx: usize,
+    pub dropped_rx: usize,
+    pub max_dropped_tx_len: usize,
+    pub max_dropped_rx_len: usize,
 }
 
 impl fmt::Debug for MtuDropSocket {
@@ -79,15 +93,41 @@ impl MtuDropSocket {
     /// a loopback fixture's `start_with_socket`), a threshold handle, and the
     /// bound address. Starts in pass-all mode.
     pub fn bind_localhost() -> io::Result<(Arc<Self>, MtuThreshold, SocketAddr)> {
-        let std_socket = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))?;
+        Self::bind_loopback(IpAddr::V4(Ipv4Addr::LOCALHOST))
+    }
+
+    /// IPv6 counterpart to [`Self::bind_localhost`].
+    pub fn bind_localhost_v6() -> io::Result<(Arc<Self>, MtuThreshold, SocketAddr)> {
+        Self::bind_loopback(IpAddr::V6(Ipv6Addr::LOCALHOST))
+    }
+
+    /// Bind the selected loopback family and start in pass-all mode.
+    pub fn bind_loopback(ip: IpAddr) -> io::Result<(Arc<Self>, MtuThreshold, SocketAddr)> {
+        if !ip.is_loopback() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "MTU-drop fixture requires a loopback address"));
+        }
+        let std_socket = std::net::UdpSocket::bind(SocketAddr::new(ip, 0))?;
         std_socket.set_nonblocking(true)?;
         let local_addr = std_socket.local_addr()?;
         let threshold = Arc::new(AtomicUsize::new(PASS_ALL));
         let socket = Arc::new(Self {
             io: tokio::net::UdpSocket::from_std(std_socket)?,
             max_short_header_payload: Arc::clone(&threshold),
+            dropped_tx: AtomicUsize::new(0),
+            dropped_rx: AtomicUsize::new(0),
+            max_dropped_tx_len: AtomicUsize::new(0),
+            max_dropped_rx_len: AtomicUsize::new(0),
         });
         Ok((socket, MtuThreshold { max_short_header_payload: threshold }, local_addr))
+    }
+
+    pub fn evidence(&self) -> MtuDropEvidence {
+        MtuDropEvidence {
+            dropped_tx: self.dropped_tx.load(Ordering::Relaxed),
+            dropped_rx: self.dropped_rx.load(Ordering::Relaxed),
+            max_dropped_tx_len: self.max_dropped_tx_len.load(Ordering::Relaxed),
+            max_dropped_rx_len: self.max_dropped_rx_len.load(Ordering::Relaxed),
+        }
     }
 
     /// Whether this datagram should be silently dropped: a QUIC short-header
@@ -113,6 +153,8 @@ impl AsyncUdpSocket for MtuDropSocket {
         // GSO is disabled (`max_transmit_segments() == 1`), so `contents` is a
         // single datagram.
         if self.should_drop(transmit.contents) {
+            self.dropped_tx.fetch_add(1, Ordering::Relaxed);
+            self.max_dropped_tx_len.fetch_max(transmit.contents.len(), Ordering::Relaxed);
             // Report the datagram as sent; the peer never receives it, so the
             // sender's DPLPMTUD must detect the black hole and probe down.
             return Ok(());
@@ -139,6 +181,8 @@ impl AsyncUdpSocket for MtuDropSocket {
             match self.io.try_io(tokio::io::Interest::READABLE, || self.io.try_recv_from(&mut scratch)) {
                 Ok((received, addr)) => {
                     if self.should_drop(&scratch[..received]) {
+                        self.dropped_rx.fetch_add(1, Ordering::Relaxed);
+                        self.max_dropped_rx_len.fetch_max(received, Ordering::Relaxed);
                         // Simulate the datagram lost on the path: keep polling.
                         continue;
                     }
@@ -213,10 +257,43 @@ mod tests {
     use std::time::Duration;
 
     use quinn::{
-        ClientConfig, Endpoint, EndpointConfig, MtuDiscoveryConfig, ServerConfig, TokioRuntime, TransportConfig,
+        AsyncUdpSocket, ClientConfig, Endpoint, EndpointConfig, MtuDiscoveryConfig, ServerConfig, TokioRuntime,
+        TransportConfig,
     };
 
     use super::MtuDropSocket;
+
+    #[tokio::test]
+    // cancel-safe: the bound socket is test-owned and has no externally visible state.
+    async fn mtu_drop_socket_supports_ipv6_loopback() {
+        let (_socket, _threshold, address) = MtuDropSocket::bind_localhost_v6().expect("bind IPv6 MTU-drop socket");
+        assert!(address.is_ipv6());
+        assert!(address.ip().is_loopback());
+    }
+
+    #[tokio::test]
+    // cancel-safe: socket, peer, threshold, and counters are confined to this test future.
+    async fn mtu_drop_socket_reports_redacted_drop_evidence() {
+        let (socket, threshold, _address) = MtuDropSocket::bind_localhost().expect("bind MTU-drop socket");
+        let peer = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind peer");
+        threshold.set(100);
+        let payload = vec![0x40; 101];
+        socket
+            .try_send(&quinn::udp::Transmit {
+                destination: peer.local_addr().expect("peer address"),
+                ecn: None,
+                contents: &payload,
+                segment_size: None,
+                src_ip: None,
+            })
+            .expect("silent drop reports send success");
+
+        let evidence = socket.evidence();
+        assert_eq!(evidence.dropped_tx, 1);
+        assert_eq!(evidence.max_dropped_tx_len, payload.len());
+        assert_eq!(evidence.dropped_rx, 0);
+        assert_eq!(evidence.max_dropped_rx_len, 0);
+    }
 
     /// Steady-state transfer size — enough 1-RTT packets that a path-MTU change
     /// is exercised across many sends.

@@ -20,16 +20,19 @@
 //! by dropping only oversized datagrams — see the note in `quic-mtu-test-util`)
 //! live in that crate's `pmtud_enabled_discovers_larger_path_mtu_than_disabled`.
 //!
-//! MASQUE is intentionally absent: its only loopback fixture is H2-CONNECT over
-//! TCP (no QUIC datapath, so PMTUD does not apply); a quinn/H3 MASQUE fixture is
-//! tracked as deferred in the task issue.
+//! MASQUE/H3 uses a dedicated CONNECT-UDP fixture and checks both IPv4 and IPv6
+//! black-hole recovery with exact context-0 DATAGRAM payload integrity. The
+//! fixture models silent oversized-packet loss; real ICMP Packet Too Big remains
+//! the responsibility of the privileged network lane.
 //!
 //! These run in the standard `cargo nextest run --workspace` lane.
 
 use std::time::Duration;
 
-use local_network_fixture::{Hysteria2Loopback, TuicLoopback};
+use local_network_fixture::{Hysteria2Loopback, MasqueH3ConnectUdpFixture, TuicLoopback};
 use quic_mtu_test_util::MtuDropSocket;
+use ripdpi_masque::config::{MasqueConfig, MasqueTcpProtocol};
+use ripdpi_masque::{MasqueClient, MasqueUdpRelay};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Small warm-up transfer to let DPLPMTUD validate a high path MTU before the
@@ -44,6 +47,7 @@ const DROP_THRESHOLD: usize = 1300;
 /// Generous ceiling for black-hole detection + re-probe on loopback (ms in
 /// practice); only a real stall (PMTUD broken) blows it.
 const RECOVERY_TIMEOUT: Duration = Duration::from_secs(30);
+const MASQUE_SAFE_PAYLOAD_LEN: usize = 1_000;
 
 /// One full-duplex round-trip: write `payload` while concurrently reading its
 /// echo into `recv`. The concurrency is load-bearing — writing the whole payload
@@ -139,4 +143,122 @@ async fn tuic_survives_mid_connection_mtu_drop() {
 
     drop((reader, writer));
     server.shutdown().await;
+}
+
+fn masque_fixture_config(fixture: &MasqueH3ConnectUdpFixture) -> MasqueConfig {
+    MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        url: fixture.masque_url(),
+        proxy_socket_addr: Some(fixture.proxy_address()),
+        tcp_protocol: MasqueTcpProtocol::Http3,
+        use_http2_fallback: false,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: Some(fixture.certificate_pem().to_string()),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    }
+}
+
+/// Send one DATAGRAM and require its exact context-0 echo.
+///
+/// # Cancel safety
+///
+/// Not cancel-safe: cancelling after send may leave the echo queued. Each PMTUD
+/// scenario owns one flow and only calls this helper under a bounded timeout.
+// NOT cancel-safe: cancellation after send can leave the matching echo queued.
+async fn masque_echo(udp: &mut MasqueUdpRelay, target: &str, payload: &[u8]) {
+    udp.send_to(target, payload).await.expect("send MASQUE H3 DATAGRAM");
+    let (echo_target, echoed) = udp.recv_from().await.expect("receive MASQUE H3 DATAGRAM echo");
+    assert_eq!(echo_target, target);
+    assert_eq!(echoed, payload);
+}
+
+/// Exercise production MASQUE/H3 until Quinn validates a high MTU, inject a
+/// mid-connection black hole, and prove the path falls back while base-sized
+/// DATAGRAMs retain exact payload integrity.
+///
+/// # Cancel safety
+///
+/// Not cancel-safe: the scenario deliberately observes loss across sequential
+/// sends. The outer test owns and drops the entire fixture on timeout.
+// NOT cancel-safe: the sequential loss/recovery observations form one transaction.
+async fn run_masque_h3_black_hole(socket: std::sync::Arc<MtuDropSocket>, threshold: quic_mtu_test_util::MtuThreshold) {
+    let fixture = MasqueH3ConnectUdpFixture::start_with_socket(socket.clone()).expect("start H3 PMTUD fixture");
+    let client = MasqueClient::new(masque_fixture_config(&fixture)).expect("MASQUE client");
+    let target = fixture.udp_target();
+    let mut udp = client.udp_session();
+    let safe_payload = vec![0x39; MASQUE_SAFE_PAYLOAD_LEN];
+
+    let discovery_deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        masque_echo(&mut udp, target, &safe_payload).await;
+        let snapshot = udp.quic_path_snapshot(target).expect("H3 QUIC path snapshot");
+        if snapshot.current_mtu >= 1_400 {
+            break;
+        }
+        assert!(tokio::time::Instant::now() < discovery_deadline, "MASQUE H3 did not discover a high path MTU");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    let before = udp.quic_path_snapshot(target).expect("pre-cliff path snapshot");
+    let max_datagram = before.max_datagram_size.expect("negotiated H3 DATAGRAM size");
+    let lossy_payload = vec![0xD7; max_datagram.saturating_sub(2)];
+    threshold.set(DROP_THRESHOLD);
+
+    let recovery_deadline = tokio::time::Instant::now() + RECOVERY_TIMEOUT;
+    let recovered = loop {
+        match udp.send_to(target, &lossy_payload).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {}
+            Err(error) => panic!("unexpected MASQUE loss injection error: {error}"),
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        masque_echo(&mut udp, target, &safe_payload).await;
+        let snapshot = udp.quic_path_snapshot(target).expect("post-cliff path snapshot");
+        if snapshot.black_holes_detected > before.black_holes_detected && snapshot.current_mtu <= DROP_THRESHOLD as u16
+        {
+            break snapshot;
+        }
+        assert!(tokio::time::Instant::now() < recovery_deadline, "MASQUE H3 did not detect the MTU black hole");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+
+    assert!(recovered.lost_packets > before.lost_packets, "the injected cliff must produce observable packet loss");
+    assert!(
+        recovered.lost_plpmtud_probes >= before.lost_plpmtud_probes,
+        "PLPMTUD loss telemetry must remain monotonic",
+    );
+    let evidence = socket.evidence();
+    assert!(evidence.dropped_rx + evidence.dropped_tx > 0, "fault injector must record redacted drop evidence");
+    assert!(
+        evidence.max_dropped_rx_len.max(evidence.max_dropped_tx_len) > DROP_THRESHOLD,
+        "drop evidence must cross the configured cliff",
+    );
+    masque_echo(&mut udp, target, b"post-recovery-integrity").await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+// NOT cancel-safe: the timeout owns and drops the whole fixture/flow transaction.
+async fn masque_h3_recovers_from_mid_connection_mtu_black_hole_ipv4() {
+    let (socket, threshold, _address) = MtuDropSocket::bind_localhost().expect("bind IPv4 MTU-drop socket");
+    tokio::time::timeout(RECOVERY_TIMEOUT + Duration::from_secs(15), run_masque_h3_black_hole(socket, threshold))
+        .await
+        .expect("MASQUE IPv4 PMTUD scenario timeout");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+// NOT cancel-safe: the timeout owns and drops the whole fixture/flow transaction.
+async fn masque_h3_recovers_from_mid_connection_mtu_black_hole_ipv6() {
+    let (socket, threshold, _address) = MtuDropSocket::bind_localhost_v6().expect("bind IPv6 MTU-drop socket");
+    tokio::time::timeout(RECOVERY_TIMEOUT + Duration::from_secs(15), run_masque_h3_black_hole(socket, threshold))
+        .await
+        .expect("MASQUE IPv6 PMTUD scenario timeout");
 }

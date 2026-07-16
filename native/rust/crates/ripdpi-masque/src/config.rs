@@ -57,8 +57,8 @@ pub struct MasqueConfig {
     pub privacy_pass_provider_auth_token: Option<String>,
     /// TLS fingerprint profile used for HTTP/2 handshakes.
     pub tls_fingerprint_profile: String,
-    /// Optional PEM trust anchor for the H2 proxy's TLS certificate. When set,
-    /// the certificate is added to the connector's trust store (verification
+    /// Optional PEM trust anchor for the H2 or H3 proxy TLS certificate. When set,
+    /// every PEM certificate is added to the connector's trust store (verification
     /// stays ON — this PINS the proxy cert, it does not disable verification),
     /// which lets a self-signed or private-CA MASQUE proxy be trusted without
     /// relaxing verification. Mirrors `root_certificate_pem` on the Trojan and

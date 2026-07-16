@@ -5,7 +5,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use http::{HeaderMap, Request, StatusCode};
 use hyper::ext::Protocol as H2Protocol;
-use local_network_fixture::{MasqueH2ConnectUdpFixture, MasqueH3ClassicConnectFixture};
+use local_network_fixture::{MasqueH2ConnectUdpFixture, MasqueH3ClassicConnectFixture, MasqueH3ConnectUdpFixture};
 use serde_json::to_string;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -633,6 +633,109 @@ async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
     assert_eq!(observed.len(), 1);
     assert_eq!(observed[0].protocol.as_deref(), Some("connect-udp"));
     assert_eq!(observed[0].capsule_protocol.as_deref(), Some("?1"));
+}
+
+fn h3_connect_udp_fixture_config(fixture: &MasqueH3ConnectUdpFixture) -> MasqueConfig {
+    MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        url: fixture.masque_url(),
+        proxy_socket_addr: Some(fixture.proxy_address()),
+        tcp_protocol: MasqueTcpProtocol::Http3,
+        use_http2_fallback: false,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: Some(fixture.certificate_pem().to_string()),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    }
+}
+
+#[tokio::test]
+// NOT cancel-safe: cancelling after send can leave the fixture echo queued until teardown.
+async fn h3_connect_udp_honors_root_certificate_and_echoes_context_zero_datagrams() {
+    let fixture = MasqueH3ConnectUdpFixture::start().expect("start H3 CONNECT-UDP fixture");
+    let client = MasqueClient::new(h3_connect_udp_fixture_config(&fixture)).expect("client");
+    let mut udp = client.udp_session();
+
+    udp.send_to(fixture.udp_target(), b"h3-pinned-root").await.expect("send H3 DATAGRAM");
+    let received = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from()).await;
+    let (target, payload) = received
+        .unwrap_or_else(|error| {
+            panic!(
+                "H3 echo timeout: {error}; fixture_echoes={} observed={:?}",
+                fixture.echoed_datagram_count(),
+                (fixture.observed_requests(), udp.quic_path_snapshot(fixture.udp_target())),
+            )
+        })
+        .expect("receive H3 echo");
+
+    assert_eq!(target, fixture.udp_target());
+    assert_eq!(payload, b"h3-pinned-root");
+    assert_eq!(fixture.echoed_datagram_count(), 1);
+    let observed = fixture.observed_requests();
+    assert_eq!(observed.len(), 1);
+    assert!(observed[0].accepted);
+    assert_eq!(observed[0].protocol.as_deref(), Some("connect-udp"));
+    assert_eq!(observed[0].capsule_protocol.as_deref(), Some("?1"));
+}
+
+#[tokio::test]
+// NOT cancel-safe: boundary discovery and post-error liveness are one flow transaction.
+async fn h3_connect_udp_boundary_rejects_one_byte_over_limit_without_closing_flow() {
+    let fixture = MasqueH3ConnectUdpFixture::start().expect("start H3 CONNECT-UDP fixture");
+    let client = MasqueClient::new(h3_connect_udp_fixture_config(&fixture)).expect("client");
+    let mut udp = client.udp_session();
+    udp.send_to(fixture.udp_target(), b"open").await.expect("open H3 flow");
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
+        .await
+        .expect("open echo timeout")
+        .expect("open echo");
+
+    let discovery_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let snapshot = udp.quic_path_snapshot(fixture.udp_target()).expect("active QUIC path");
+        if snapshot.current_mtu == crate::h3::H3_MTU_DISCOVERY_UPPER_BOUND {
+            break;
+        }
+        assert!(tokio::time::Instant::now() < discovery_deadline, "PMTUD did not converge: {snapshot:?}");
+        udp.send_to(fixture.udp_target(), b"pmtud-probe").await.expect("drive PMTUD");
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(1), udp.recv_from())
+            .await
+            .expect("PMTUD probe echo timeout")
+            .expect("PMTUD probe echo");
+        tokio::task::yield_now().await;
+    }
+
+    let max_datagram = udp
+        .quic_path_snapshot(fixture.udp_target())
+        .and_then(|snapshot| snapshot.max_datagram_size)
+        .expect("negotiated QUIC DATAGRAM limit");
+    let boundary = vec![0xA5; max_datagram.saturating_sub(2)];
+    udp.send_to(fixture.udp_target(), &boundary).await.expect("boundary H3 DATAGRAM");
+    let (_, echoed_boundary) = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
+        .await
+        .expect("boundary echo timeout")
+        .expect("boundary echo");
+    assert_eq!(echoed_boundary, boundary);
+
+    let oversized = vec![0x5A; boundary.len() + 1];
+    let error = udp.send_to(fixture.udp_target(), &oversized).await.expect_err("one byte over limit must fail");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    assert!(error.to_string().contains("masque_h3_datagram_too_large"));
+
+    udp.send_to(fixture.udp_target(), b"still-open").await.expect("flow remains open");
+    let (_, final_payload) = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
+        .await
+        .expect("final echo timeout")
+        .expect("final echo");
+    assert_eq!(final_payload, b"still-open");
 }
 
 /// Integration coverage for the provider-adapter decoupling: the auth header the

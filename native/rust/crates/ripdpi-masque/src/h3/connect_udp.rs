@@ -23,7 +23,7 @@ pub(crate) async fn attempt_h3_connect_udp(
 ) -> Result<MasqueUdpFlow, AttemptError> {
     let target = parse_target(target)?;
     let proxy_origin = parse_proxy_origin(config)?;
-    let (mut driver, mut send_request) = connect_h3_transport(config, true).await?;
+    let (mut driver, mut send_request, path_connection) = connect_h3_transport(config, true).await?;
 
     let request_uri = format!("https://{}{}", proxy_origin.authority, build_connect_udp_path(&proxy_origin, &target));
     let request = Request::builder().method("CONNECT").uri(request_uri).header("capsule-protocol", "?1");
@@ -44,7 +44,7 @@ pub(crate) async fn attempt_h3_connect_udp(
     validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())?;
 
     let stream_id = stream.id();
-    let datagram_sender = driver.get_datagram_sender(stream_id);
+    let datagram_stream_id_len = quic_varint_len(stream_id.index());
     let mut datagram_reader = driver.get_datagram_reader();
     let target_label = target.authority();
 
@@ -83,5 +83,21 @@ pub(crate) async fn attempt_h3_connect_udp(
         tracing::debug!(error = %error, "MASQUE H3 UDP driver closed");
     });
 
-    Ok(MasqueUdpFlow::new(MasqueUdpSender::H3(datagram_sender), driver_task, reader_task))
+    Ok(MasqueUdpFlow::new(
+        MasqueUdpSender::H3 { connection: path_connection.clone(), stream_id },
+        Some(send_request),
+        driver_task,
+        reader_task,
+        Some(path_connection),
+        datagram_stream_id_len,
+    ))
+}
+
+fn quic_varint_len(value: u64) -> usize {
+    match value {
+        0..=63 => 1,
+        64..=16_383 => 2,
+        16_384..=1_073_741_823 => 4,
+        _ => 8,
+    }
 }

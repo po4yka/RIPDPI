@@ -13,7 +13,8 @@ workspace = true
 crypto_box = { workspace = true }
 futures = { workspace = true }
 h3 = { workspace = true }
-h3-quinn = { workspace = true }
+h3-quinn = { workspace = true, features = ["datagram"] }
+h3-datagram = { workspace = true }
 hickory-proto = { workspace = true }
 http = { workspace = true }
 hex = { workspace = true }

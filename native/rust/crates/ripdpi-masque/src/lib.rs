@@ -17,7 +17,7 @@ mod url;
 mod validation;
 
 pub use client::{AsyncIo, MasqueClient};
-pub use udp::MasqueUdpRelay;
+pub use udp::{MasqueQuicPathSnapshot, MasqueUdpRelay};
 
 #[cfg(test)]
 mod tests;
