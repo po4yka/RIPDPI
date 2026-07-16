@@ -590,9 +590,13 @@ fn so_bindtodevice_client_helper() {
     let protocol = required_env("RIPDPI_SO_BIND_PROTOCOL");
     let source_port = required_env("RIPDPI_SO_BIND_SOURCE_PORT").parse::<u16>().expect("source port");
     let expected_uid = required_env("RIPDPI_SO_BIND_EXPECTED_UID").parse::<u32>().expect("expected UID");
+    // SAFETY: getuid has no arguments or caller preconditions and only queries this process's real UID.
     assert_eq!(unsafe { libc::getuid() }, expected_uid, "helper real UID must match the phase UID");
+    // SAFETY: geteuid has no arguments or caller preconditions and only queries this process's effective UID.
     assert_eq!(unsafe { libc::geteuid() }, expected_uid, "helper process must run under the phase UID");
+    // SAFETY: getgid has no arguments or caller preconditions and only queries this process's real GID.
     assert_eq!(unsafe { libc::getgid() }, HELPER_GID, "helper real GID must be unprivileged");
+    // SAFETY: getegid has no arguments or caller preconditions and only queries this process's effective GID.
     assert_eq!(unsafe { libc::getegid() }, HELPER_GID, "helper effective GID must be unprivileged");
     assert_unprivileged_process();
     let device = required_env("RIPDPI_SO_BIND_DEVICE");
