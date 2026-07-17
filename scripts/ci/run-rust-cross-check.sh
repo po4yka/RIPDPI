@@ -78,10 +78,6 @@ for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x
   export "CARGO_TARGET_${target_upper}_AR=$ndk_bin/llvm-ar"
 done
 
-# Disable sccache for cross-compilation: aws-lc-sys invokes the NDK C
-# compiler through cargo's cc crate, and sccache cannot wrap cross-
-# compiler toolchains like aarch64-linux-android-clang.
-#
 # Exclude ripdpi-io-uring: the upstream io-uring crate (0.7.x) has
 # broken cross-compilation for ARM/i686 targets (u16/u32 type mismatch
 # in prebuilt sys.rs).  The crate is a Linux-only optional dependency
@@ -89,6 +85,6 @@ done
 for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
   echo "  -> $target"
   clean_android_boring_sys_build_cache "${CARGO_TARGET_DIR:-$repo_root/native/rust/target}" "$target"
-  RUSTC_WRAPPER="" cargo check --locked --manifest-path "$workspace_manifest" --workspace \
+  cargo check --locked --manifest-path "$workspace_manifest" --workspace \
     --exclude ripdpi-io-uring --target "$target"
 done

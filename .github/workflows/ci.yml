@@ -766,6 +766,8 @@ jobs:
           setup-gradle: "false"
 
       - name: Run Android ABI cross-compilation checks
+        env:
+          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-cross-check.sh
 
   rust-workspace-tests:
