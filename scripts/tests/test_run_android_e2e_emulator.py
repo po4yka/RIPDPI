@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Process-level contract tests for the Android network E2E runner."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import tempfile
+import textwrap
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+RUNNER = ROOT / "scripts/ci/run-android-e2e-emulator.sh"
+VALIDATOR = ROOT / "scripts/ci/validate_android_junit_results.py"
+WORKFLOW = ROOT / ".github/workflows/ci.yml"
+RESULTS_RELATIVE = Path("app/build/outputs/androidTest-results/connected")
+VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "debug/flavors/githubFull"
+WRONG_VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "githubFullDebug"
+
+FAKE_GRADLE = r'''#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+
+runner_temp = Path(os.environ["RUNNER_TEMP"])
+count_file = runner_temp / "gradle-count"
+count = int(count_file.read_text(encoding="utf-8")) + 1 if count_file.exists() else 1
+count_file.write_text(str(count), encoding="utf-8")
+
+results_root = Path(
+    "app/build/outputs/androidTest-results/connected/debug/flavors/githubFull"
+)
+if results_root.exists():
+    print("result directory was not cleaned before Gradle", file=sys.stderr)
+    raise SystemExit(90)
+if count == 2 and os.environ.get("OMIT_SECOND_RESULTS") == "1":
+    raise SystemExit(0)
+
+if count == 2 and os.environ.get("WRITE_WRONG_VARIANT_ONLY") == "1":
+    results_dir = Path("app/build/outputs/androidTest-results/connected/githubFullDebug")
+else:
+    results_dir = results_root
+results_dir.mkdir(parents=True)
+if count == 1:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuite tests="1" skipped="0" failures="0" errors="0">
+  <testcase classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
+      name="environmentSupportsFixtureReachabilityAndVpnConsent" />
+</testsuite>
+"""
+else:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuite tests="2" skipped="1" failures="0" errors="0">
+  <testcase classname="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
+      name="vpnStartupWindowHoldsDnsPacketUntilNativeReady" />
+  <testcase classname="com.poyka.ripdpi.e2e.OptionalCapabilityTest"
+      name="unsupportedOnThisEmulator"><skipped /></testcase>
+</testsuite>
+"""
+(results_dir / "TEST-network-e2e.xml").write_text(xml, encoding="utf-8")
+'''
+
+
+def write_executable(path: Path, content: str) -> None:
+    path.write_text(textwrap.dedent(content), encoding="utf-8")
+    path.chmod(0o755)
+
+
+class RunAndroidE2eEmulatorTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.repo = Path(self.temp.name)
+        self.ci_dir = self.repo / "scripts/ci"
+        self.ci_dir.mkdir(parents=True)
+        shutil.copyfile(RUNNER, self.ci_dir / RUNNER.name)
+        shutil.copyfile(VALIDATOR, self.ci_dir / VALIDATOR.name)
+        write_executable(
+            self.ci_dir / "android-emulator-helpers.sh",
+            "#!/usr/bin/env bash\nadb_cmd() { return 0; }\n",
+        )
+        write_executable(
+            self.ci_dir / "wait-for-android-package-manager.sh",
+            "#!/usr/bin/env bash\nexit 0\n",
+        )
+        write_executable(self.repo / "gradlew", FAKE_GRADLE)
+        self.runner_temp = self.repo / "runner-temp"
+        self.runner_temp.mkdir()
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def run_runner(self, **environment: str) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env.update({"RUNNER_TEMP": str(self.runner_temp), **environment})
+        return subprocess.run(
+            [
+                "bash",
+                "scripts/ci/run-android-e2e-emulator.sh",
+                "push",
+                "false",
+                "false",
+            ],
+            cwd=self.repo,
+            capture_output=True,
+            check=False,
+            env=env,
+            text=True,
+        )
+
+    def test_runner_removes_stale_results_before_each_target(self) -> None:
+        stale = self.repo / VARIANT_RESULTS_RELATIVE / "stale.xml"
+        stale.parent.mkdir(parents=True)
+        stale.write_text("<testsuite tests='0' />", encoding="utf-8")
+        wrong_variant = self.repo / WRONG_VARIANT_RESULTS_RELATIVE / "keep.txt"
+        wrong_variant.parent.mkdir(parents=True)
+        wrong_variant.write_text("unrelated variant", encoding="utf-8")
+
+        completed = self.run_runner()
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(
+            (self.runner_temp / "gradle-count").read_text(encoding="utf-8"), "2"
+        )
+        self.assertIn("validated 1 testcases", completed.stdout)
+        self.assertIn("validated 2 testcases", completed.stdout)
+        self.assertTrue(wrong_variant.is_file())
+
+    def test_runner_rejects_missing_second_run_results(self) -> None:
+        completed = self.run_runner(OMIT_SECOND_RESULTS="1")
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("no JUnit XML files", completed.stderr)
+
+    def test_runner_rejects_report_from_wrong_variant(self) -> None:
+        completed = self.run_runner(WRITE_WRONG_VARIANT_ONLY="1")
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("no JUnit XML files", completed.stderr)
+
+    def test_runner_stops_before_gradle_when_result_cleanup_fails(self) -> None:
+        bin_dir = self.repo / "bin"
+        bin_dir.mkdir()
+        write_executable(bin_dir / "rm", "#!/usr/bin/env bash\nexit 73\n")
+
+        completed = self.run_runner(PATH=f"{bin_dir}:{os.environ['PATH']}")
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("Failed to clear Android JUnit results", completed.stderr)
+        self.assertFalse((self.runner_temp / "gradle-count").exists())
+        self.assertEqual(
+            (self.runner_temp / "android-instrumented-target.txt")
+            .read_text(encoding="utf-8")
+            .strip(),
+            "com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest",
+        )
+
+    def test_ci_always_runs_android_junit_contract_tests(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        job_start = workflow.index("  android-e2e-result-contracts:\n")
+        job_end = workflow.index("\n  design-md-lint:\n", job_start)
+        job = workflow[job_start:job_end]
+
+        self.assertNotIn("\n    if:", job)
+        self.assertNotIn("\n    needs:", job)
+        self.assertIn("scripts.tests.test_validate_android_junit_results", job)
+        self.assertIn("scripts.tests.test_run_android_e2e_emulator", job)
+
+
+if __name__ == "__main__":
+    unittest.main()

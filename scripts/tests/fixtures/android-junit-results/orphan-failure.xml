@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="network-e2e" tests="1" skipped="0" failures="0" errors="0">
+  <testcase
+      classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
+      name="environmentSupportsFixtureReachabilityAndVpnConsent" />
+  <failure message="not attached to a testcase">java.lang.AssertionError</failure>
+</testsuite>
