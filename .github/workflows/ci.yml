@@ -1531,6 +1531,7 @@ jobs:
   nightly-rust-coverage:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true')
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     env:
       RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "1"
     steps:
@@ -1548,7 +1549,7 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Generate Kotlin coverage reports
-        run: ./gradlew coverageReport
+        run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
 
       - name: Generate Rust coverage reports
         run: bash scripts/ci/run-rust-coverage.sh

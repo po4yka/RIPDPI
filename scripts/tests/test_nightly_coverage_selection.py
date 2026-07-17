@@ -27,6 +27,8 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
     def test_nightly_coverage_does_not_enable_all_ignored_tests(self) -> None:
         job = nightly_coverage_job(CI_WORKFLOW.read_text(encoding="utf-8"))
         self.assertNotIn("RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED", job)
+        self.assertIn("timeout-minutes: 90", job)
+        self.assertIn("coverageReport -Pripdpi.skipNativeBuild=true", job)
         self.assertIn("bash scripts/ci/run-rust-coverage.sh", job)
 
     def test_coverage_script_keeps_ignored_tests_opt_in(self) -> None:
