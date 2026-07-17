@@ -252,10 +252,10 @@ jobs:
       - name: Run REALITY BoringSSL hook vector guard
         run: python3 scripts/ci/check_reality_boring_vector.py
 
-  # Builds the CI-default android-jni Rust libraries + helpers once per ABI.
-  # Debug and release consumers use this same profile in CI.
-  # Each shard gets a full 4-vCPU runner for a single-ABI cross-compile.
-  rust-native:
+  # Builds the non-x86_64 CI-default android-jni libraries + helpers. APK and
+  # release consumers need the complete ABI set, while instrumented tests use
+  # the separately-produced x86_64 shard below and can start sooner.
+  rust-native-packaging:
     needs: change-routing
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
@@ -267,7 +267,6 @@ jobs:
           - { name: arm64-v8a,   rust-target: aarch64-linux-android }
           - { name: armeabi-v7a, rust-target: armv7-linux-androideabi }
           - { name: x86,         rust-target: i686-linux-android }
-          - { name: x86_64,      rust-target: x86_64-linux-android }
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -318,12 +317,69 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Assembles the debug APK using prebuilt native artifacts from the rust-native
+  # Produces the only shard required by the Android instrumented-test matrix.
+  # Keeping it outside the packaging matrix removes the wait for arm/x86 jobs.
+  rust-native-x86_64:
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: rust-android-x86_64
+          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Build Rust native libraries + helper binaries for x86_64
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          ./gradlew \
+            :core:engine:buildRustNativeLibs \
+            :core:engine:buildRustRootHelper \
+            :core:engine:buildRustNaiveProxy \
+            :core:engine:buildRustCloudflareOrigin \
+            -Pripdpi.nativeAbisOverride=x86_64
+
+      - name: Stage native artifacts for x86_64
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/native-shard"
+          if [ -d "core/engine/build/generated/jniLibs/x86_64" ]; then
+            cp -r "core/engine/build/generated/jniLibs/x86_64" \
+              "$RUNNER_TEMP/native-shard/jniLibs-x86_64"
+          else
+            echo "::error::JNI lib outputs missing for x86_64"
+            exit 1
+          fi
+          if [ -d "core/engine/build/generated/rootHelperAssets/bin/x86_64" ]; then
+            cp -r "core/engine/build/generated/rootHelperAssets/bin/x86_64" \
+              "$RUNNER_TEMP/native-shard/assetsBin-x86_64"
+          else
+            echo "::error::Helper-binary outputs missing for x86_64"
+            exit 1
+          fi
+          ls -la "$RUNNER_TEMP/native-shard"
+
+      - name: Upload native artifacts for x86_64
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-shard-x86_64
+          path: ${{ runner.temp }}/native-shard/*
+          if-no-files-found: error
+          retention-days: 7
+
+  # Assembles the debug APK using prebuilt native artifacts from the native
   # matrix. Skips cargo entirely via -Pripdpi.prebuilt*Dir properties, which the
   # rust-native Gradle plugin honors by copying instead of running cargo.
   build-android-debug:
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
-    needs: [change-routing, rust-native]
+    needs: [change-routing, rust-native-packaging, rust-native-x86_64]
     runs-on: ubuntu-latest
     # Builds three debug APK flavors (~22-23 min typical); 25 was too tight a
     # cap and flaked on slower runners. 40 matches the headroom of the other
@@ -512,7 +568,7 @@ jobs:
 
   release-verification:
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
-    needs: [change-routing, rust-native]
+    needs: [change-routing, rust-native-packaging, rust-native-x86_64]
     runs-on: ubuntu-latest
     # --max-workers=1 serialises the assembleRelease variant compiles to stay within the
     # Kotlin daemon heap (the experience dimension doubled the release variant count), which
@@ -1398,11 +1454,11 @@ jobs:
           retention-days: 7
 
   # Runs :app instrumented smoke tests across minSdk, modern-runtime, and targetSdk x86_64 emulators.
-  # Prebuilt x86_64 native shards from the rust-native matrix are staged via
+  # The dedicated x86_64 native shard is staged via
   # -Pripdpi.prebuilt*Dir so cargo is skipped.
   android-instrumented-tests:
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
-    needs: [change-routing, rust-native]
+    needs: [change-routing, rust-native-x86_64]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
