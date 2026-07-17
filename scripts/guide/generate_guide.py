@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import struct
@@ -669,6 +670,7 @@ class PageCaptureResult:
     text_samples: list[str]
     ui_dump: str | None = None
     error: str | None = None
+    theme_results: dict[str, PageCaptureResult] = field(default_factory=dict, repr=False)
 
 
 def expected_root_for(page: PageSpec) -> str:
@@ -739,6 +741,14 @@ def aggregate_theme_results(
     results: list[tuple[str, PageCaptureResult]],
 ) -> PageCaptureResult:
     expected_root = expected_root_for(page)
+    results_by_theme = {theme: result for theme, result in results}
+    duplicate_themes = sorted(
+        theme
+        for theme in results_by_theme
+        if sum(1 for candidate, _ in results if candidate == theme) > 1
+    )
+    missing_themes = [theme for theme in CAPTURE_THEMES if theme not in results_by_theme]
+    unexpected_themes = sorted(set(results_by_theme) - set(CAPTURE_THEMES))
     if not results:
         return PageCaptureResult(
             page_id=page.id,
@@ -759,11 +769,16 @@ def aggregate_theme_results(
         for theme, result in results
         for selector in result.missing_elements
     ]
+    missing_elements.extend(f"{theme}: capture result" for theme in missing_themes)
     errors = [
         f"{theme}: {result.error}"
         for theme, result in results
         if result.error
     ]
+    if duplicate_themes:
+        errors.append(f"Duplicate theme results: {', '.join(duplicate_themes)}")
+    if unexpected_themes:
+        errors.append(f"Unexpected theme results: {', '.join(unexpected_themes)}")
     text_samples: list[str] = []
     for _, result in results:
         if len(text_samples) >= 8:
@@ -778,7 +793,12 @@ def aggregate_theme_results(
         page_id=page.id,
         route=page.route,
         expected_root=expected_root,
-        reachable=all(result.reachable for _, result in results),
+        reachable=(
+            not missing_themes
+            and not duplicate_themes
+            and not unexpected_themes
+            and all(result.reachable for _, result in results)
+        ),
         missing_elements=missing_elements,
         node_count=min(result.node_count for _, result in results),
         clickable_count=min(result.clickable_count for _, result in results),
@@ -791,6 +811,7 @@ def aggregate_theme_results(
             if result.ui_dump
         ) or None,
         error="; ".join(errors) or None,
+        theme_results=results_by_theme,
     )
 
 
@@ -970,8 +991,12 @@ def write_flow_svg(spec: GuideSpec, output_path: Path) -> Path:
     return _render_flow_svg(spec.flow_title, f"{len(section_pages)} screens and states", section_pages, edges, output_path)
 
 
-def _result_to_dict(result: PageCaptureResult) -> dict[str, Any]:
-    return {
+def _result_to_dict(
+    result: PageCaptureResult,
+    *,
+    include_theme_results: bool = True,
+) -> dict[str, Any]:
+    data = {
         "page_id": result.page_id,
         "route": result.route,
         "expected_root": result.expected_root,
@@ -985,6 +1010,12 @@ def _result_to_dict(result: PageCaptureResult) -> dict[str, Any]:
         "ui_dump": result.ui_dump,
         "error": result.error,
     }
+    if include_theme_results:
+        data["theme_results"] = {
+            theme: _result_to_dict(theme_result, include_theme_results=False)
+            for theme, theme_result in result.theme_results.items()
+        }
+    return data
 
 
 def _exclusion_to_dict(exclusion: RouteExclusion) -> dict[str, str]:
@@ -995,28 +1026,70 @@ def _exclusion_to_dict(exclusion: RouteExclusion) -> dict[str, str]:
     }
 
 
-def load_cached_audit_results(audit_json: Path) -> list[PageCaptureResult]:
+def audit_contract_fingerprint(spec: GuideSpec) -> str:
+    contract = {
+        "capture_themes": list(CAPTURE_THEMES),
+        "defaults": {
+            "permission_preset": spec.permission_preset,
+            "service_preset": spec.service_preset,
+            "data_preset": spec.data_preset,
+            "settle_ms": spec.settle_ms,
+        },
+        "pages": [
+            {
+                "id": page.id,
+                "route": page.route,
+                "expected_root": expected_root_for(page),
+                "required_elements": page.required_elements,
+                "scroll_to": page.scroll_to,
+                "permission_preset": page.permission_preset,
+                "service_preset": page.service_preset,
+                "data_preset": page.data_preset,
+                "settle_ms": page.settle_ms,
+            }
+            for page in spec.pages
+        ],
+        "exclusions": [_exclusion_to_dict(exclusion) for exclusion in spec.route_exclusions],
+    }
+    encoded = json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _result_from_dict(item: dict[str, Any]) -> PageCaptureResult:
+    return PageCaptureResult(
+        page_id=item["page_id"],
+        route=item["route"],
+        expected_root=item["expected_root"],
+        reachable=bool(item["reachable"]),
+        missing_elements=list(item.get("missing_elements", [])),
+        node_count=int(item.get("node_count", 0)),
+        clickable_count=int(item.get("clickable_count", 0)),
+        enabled_count=int(item.get("enabled_count", 0)),
+        scrollable_count=int(item.get("scrollable_count", 0)),
+        text_samples=list(item.get("text_samples", [])),
+        ui_dump=item.get("ui_dump"),
+        error=item.get("error"),
+        theme_results={
+            theme: _result_from_dict(theme_result)
+            for theme, theme_result in item.get("theme_results", {}).items()
+        },
+    )
+
+
+def load_cached_audit_results(
+    audit_json: Path,
+    spec: GuideSpec,
+) -> list[PageCaptureResult]:
     if not audit_json.exists():
         return []
     raw = json.loads(audit_json.read_text(encoding="utf-8"))
-    results = []
-    for item in raw.get("pages", []):
-        results.append(
-            PageCaptureResult(
-                page_id=item["page_id"],
-                route=item["route"],
-                expected_root=item["expected_root"],
-                reachable=bool(item["reachable"]),
-                missing_elements=list(item.get("missing_elements", [])),
-                node_count=int(item.get("node_count", 0)),
-                clickable_count=int(item.get("clickable_count", 0)),
-                enabled_count=int(item.get("enabled_count", 0)),
-                scrollable_count=int(item.get("scrollable_count", 0)),
-                text_samples=list(item.get("text_samples", [])),
-                ui_dump=item.get("ui_dump"),
-                error=item.get("error"),
-            )
-        )
+    if raw.get("audit_contract_fingerprint") != audit_contract_fingerprint(spec):
+        return []
+    if raw.get("capture_themes") != list(CAPTURE_THEMES):
+        return []
+    results = [_result_from_dict(item) for item in raw.get("pages", [])]
+    if any(set(result.theme_results) != set(CAPTURE_THEMES) for result in results):
+        return []
     return results
 
 
@@ -1024,9 +1097,12 @@ def write_audit_results(
     results: list[PageCaptureResult],
     exclusions: list[RouteExclusion],
     output_path: Path,
+    spec: GuideSpec,
 ) -> None:
     data = {
         "generated_date": date.today().isoformat(),
+        "audit_contract_fingerprint": audit_contract_fingerprint(spec),
+        "capture_themes": list(CAPTURE_THEMES),
         "pages": [_result_to_dict(result) for result in results],
         "exclusions": [_exclusion_to_dict(exclusion) for exclusion in exclusions],
     }
@@ -1069,9 +1145,14 @@ def write_guide_data(
 
     for page in spec.pages:
         screenshots: list[dict[str, Any]] = []
-        for theme_name, theme_dir in screenshot_dirs.items():
+        for theme_name in CAPTURE_THEMES:
+            theme_dir = screenshot_dirs.get(theme_name)
+            if theme_dir is None:
+                missing.append(f"{page.id} ({theme_name})")
+                continue
             screenshot = theme_dir / f"{page.id}.png"
             if not screenshot.exists():
+                missing.append(f"{page.id} ({theme_name})")
                 continue
 
             px_w, px_h = _png_dimensions(screenshot)
@@ -1085,7 +1166,6 @@ def write_guide_data(
             })
 
         if not screenshots:
-            missing.append(page.id)
             continue
 
         primary = screenshots[0]
@@ -1402,10 +1482,10 @@ def main() -> None:
                 teardown_demo_mode(args.device)
             except subprocess.CalledProcessError:
                 pass  # Best-effort cleanup
-        write_audit_results(audit_results, spec.route_exclusions, audit_json)
+        write_audit_results(audit_results, spec.route_exclusions, audit_json, spec)
     else:
         print("Skipping capture (using cached screenshots)")
-        audit_results = load_cached_audit_results(audit_json)
+        audit_results = load_cached_audit_results(audit_json, spec)
         if not audit_results:
             print(f"WARNING: No cached audit metadata found at {audit_json}")
 

@@ -93,6 +93,27 @@ class GenerateGuideTest(unittest.TestCase):
         self.assertFalse(result.reachable)
         self.assertEqual(["light: config-section-navigation"], result.missing_elements)
 
+    def test_theme_results_fail_closed_when_one_theme_is_absent(self) -> None:
+        guide = load_generate_guide_module()
+        page = guide.PageSpec(id="config", title="Config", route="config")
+        dark = guide.PageCaptureResult(
+            page_id="config",
+            route="config",
+            expected_root="config-screen",
+            reachable=True,
+            missing_elements=[],
+            node_count=10,
+            clickable_count=3,
+            enabled_count=10,
+            scrollable_count=1,
+            text_samples=["Config"],
+        )
+
+        result = guide.aggregate_theme_results(page, [("dark", dark)])
+
+        self.assertFalse(result.reachable)
+        self.assertEqual(["light: capture result"], result.missing_elements)
+
     def test_screenshot_has_app_content_rejects_blank_app_surface(self) -> None:
         guide = load_generate_guide_module()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -259,6 +280,86 @@ class GenerateGuideTest(unittest.TestCase):
         self.assertEqual(1, data["audit"]["excluded_count"])
         self.assertEqual("profile/share", data["audit"]["exclusions"][0]["route"])
         self.assertEqual(2, data["audit"]["coverage_total"])
+
+    def test_write_guide_data_reports_each_missing_theme_screenshot(self) -> None:
+        guide = load_generate_guide_module()
+        spec = guide.GuideSpec(
+            title="Audit",
+            pages=[guide.PageSpec(id="home", title="Home", route="home")],
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dark_dir = root / "screenshots" / "dark"
+            light_dir = root / "screenshots" / "light"
+            dark_dir.mkdir(parents=True)
+            light_dir.mkdir(parents=True)
+            Image.new("RGB", (100, 200), "black").save(dark_dir / "home.png")
+            mermaid = root / "user-flow.mmd"
+            mermaid.write_text("flowchart TD\n", encoding="utf-8")
+            flow = root / "user-flow.svg"
+            flow.write_text("<svg></svg>", encoding="utf-8")
+
+            missing = guide.write_guide_data(
+                spec,
+                {"dark": dark_dir, "light": light_dir},
+                root / "guide-data.json",
+                root,
+                [],
+                mermaid,
+                "flowchart TD\n",
+                flow,
+                [],
+            )
+
+        self.assertEqual(["home (light)"], missing)
+
+    def test_cached_audit_results_reject_changed_selector_contract(self) -> None:
+        guide = load_generate_guide_module()
+        page = guide.PageSpec(
+            id="config",
+            title="Config",
+            route="config",
+            required_elements=["config-section-navigation"],
+        )
+        spec = guide.GuideSpec(title="Audit", pages=[page])
+        per_theme = {
+            theme: guide.PageCaptureResult(
+                page_id="config",
+                route="config",
+                expected_root="config-screen",
+                reachable=True,
+                missing_elements=[],
+                node_count=10,
+                clickable_count=3,
+                enabled_count=10,
+                scrollable_count=1,
+                text_samples=["Config"],
+            )
+            for theme in guide.CAPTURE_THEMES
+        }
+        result = guide.aggregate_theme_results(page, list(per_theme.items()))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache = Path(temp_dir) / "ui-audit.json"
+            guide.write_audit_results([result], [], cache, spec)
+            self.assertEqual(1, len(guide.load_cached_audit_results(cache, spec)))
+
+            changed_spec = guide.GuideSpec(
+                title="Audit",
+                pages=[
+                    guide.PageSpec(
+                        id="config",
+                        title="Config",
+                        route="config",
+                        required_elements=[
+                            "config-section-navigation",
+                            "config-traffic-endpoint-selection",
+                        ],
+                    ),
+                ],
+            )
+            self.assertEqual([], guide.load_cached_audit_results(cache, changed_spec))
 
     def test_strict_audit_completion_reports_missing_results_failures_and_screenshots(self) -> None:
         guide = load_generate_guide_module()

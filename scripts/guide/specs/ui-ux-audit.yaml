@@ -120,16 +120,16 @@ pages:
       Primary status surface with per-mode connection cards and bottom navigation.
 
   - id: home_vpn_missing
-    title: "Home Permission Banner"
+    title: "Home Setup Health"
     route: "home"
     flow_from: "home_idle"
-    flow_label: "VPN permission missing"
+    flow_label: "VPN setup incomplete"
     permission_preset: "vpn_missing"
     expected_root: "home-screen"
     required_elements: ["home-setup-health-row"]
-    state: "permission repair"
+    state: "setup health"
     description: |
-      Missing VPN permission state with a repair banner shown on the home status surface.
+      Home status surface with the VPN setup issue represented in the setup health row.
 
   - id: home_connected_proxy
     title: "Home Connected Proxy"
