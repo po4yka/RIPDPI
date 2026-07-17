@@ -134,8 +134,6 @@ jobs:
       - run: 'echo "Documentation-only change: heavy CI jobs intentionally skipped."'
 
   android-e2e-result-contracts:
-    needs: change-routing
-    if: needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
