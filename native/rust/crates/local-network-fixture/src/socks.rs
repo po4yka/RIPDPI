@@ -132,8 +132,7 @@ pub(crate) fn start_socks5_server(
                                             return;
                                         }
                                     };
-                                    let mapped =
-                                        map_target(target, &config).and_then(|target| resolve_socket_addr(&target));
+                                    let mapped = map_target(target, &config).and_then(|target| resolve_target(&target));
                                     let Some(mapped) = mapped.ok() else {
                                         events.record(event(
                                             "socks5_error",
@@ -243,8 +242,7 @@ fn read_socks_greeting(stream: &mut TcpStream) -> io::Result<()> {
     read_exact_with_retry(stream, &mut header)?;
     let methods_len = header[1] as usize;
     let mut methods = vec![0u8; methods_len];
-    read_exact_with_retry(stream, &mut methods)?;
-    Ok(())
+    read_exact_with_retry(stream, &mut methods)
 }
 
 fn consume_socks_addr(stream: &mut TcpStream, atyp: u8) -> io::Result<()> {
@@ -330,7 +328,7 @@ pub(crate) fn map_target(target: SocksTarget, config: &FixtureConfig) -> io::Res
     })
 }
 
-fn resolve_socket_addr(target: &SocksTarget) -> io::Result<SocketAddr> {
+fn resolve_target(target: &SocksTarget) -> io::Result<SocketAddr> {
     match target {
         SocksTarget::Socket(address) => Ok(*address),
         SocksTarget::Domain(domain, port) => (domain.as_str(), *port)
