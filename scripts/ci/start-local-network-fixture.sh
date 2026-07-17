@@ -8,6 +8,12 @@ log_file="${1:-$repo_root/build/local-network-fixture/fixture.log}"
 manifest_file="${2:-$repo_root/build/local-network-fixture/fixture-manifest.json}"
 pid_file="${3:-$repo_root/build/local-network-fixture/fixture.pid}"
 control_port="${RIPDPI_FIXTURE_CONTROL_PORT:-46090}"
+startup_timeout_seconds="${RIPDPI_FIXTURE_STARTUP_TIMEOUT_SECONDS:-300}"
+
+if [[ ! "$startup_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+    echo "RIPDPI_FIXTURE_STARTUP_TIMEOUT_SECONDS must be a positive integer" >&2
+    exit 2
+fi
 
 mkdir -p "$(dirname "$log_file")" "$(dirname "$manifest_file")" "$(dirname "$pid_file")"
 rm -f "$log_file" "$manifest_file" "$pid_file"
@@ -20,7 +26,7 @@ nohup cargo run --locked \
 fixture_pid=$!
 echo "$fixture_pid" >"$pid_file"
 
-for _ in $(seq 1 60); do
+for _ in $(seq 1 "$startup_timeout_seconds"); do
     if curl -fsS "http://127.0.0.1:${control_port}/health" >/dev/null 2>&1; then
         curl -fsS "http://127.0.0.1:${control_port}/manifest" >"$manifest_file"
         echo "fixture_pid=$fixture_pid"

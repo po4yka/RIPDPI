@@ -101,7 +101,8 @@ jobs:
         run: |
           python3 -m unittest \
             scripts.tests.test_validate_android_junit_results \
-            scripts.tests.test_run_android_e2e_emulator
+            scripts.tests.test_run_android_e2e_emulator \
+            scripts.tests.test_start_local_network_fixture
 
   design-md-lint:
     if: github.event_name != 'schedule'

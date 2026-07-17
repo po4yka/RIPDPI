@@ -167,6 +167,7 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
         self.assertNotIn("\n    needs:", job)
         self.assertIn("scripts.tests.test_validate_android_junit_results", job)
         self.assertIn("scripts.tests.test_run_android_e2e_emulator", job)
+        self.assertIn("scripts.tests.test_start_local_network_fixture", job)
 
 
 if __name__ == "__main__":
