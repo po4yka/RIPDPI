@@ -8,6 +8,7 @@ import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -182,8 +183,9 @@ class ImportIntentFilterTest {
                 packageManager.getActivityInfo(component, 0).exported,
             )
         } else {
-            runCatching { packageManager.getActivityInfo(component, 0) }
-                .onSuccess { throw AssertionError("Simple experience must not declare ImportHandlerActivity") }
+            assertThrows(PackageManager.NameNotFoundException::class.java) {
+                packageManager.getActivityInfo(component, 0)
+            }
         }
     }
 
