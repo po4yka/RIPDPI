@@ -106,6 +106,8 @@ private const val DebugNetworkProbeExtraErrorClass = "error_class"
 private const val DebugNetworkProbeExtraErrorMessage = "error_message"
 private const val DebugNetworkProbeTimeoutMs = 3_000L
 private const val DebugNetworkProbeBroadcastTimeoutMs = 10_000L
+private const val TestProbeNetworkAllowlistDurationMs = 60_000L
+private const val FixturePreflightPayload = "ripdpi-fixture-preflight"
 
 data class FixtureManifestDto(
     val bindHost: String,
@@ -825,26 +827,24 @@ fun selectReachableFixtureManifest(
 ): FixtureManifestDto {
     val candidates =
         buildList {
-            if (isLikelyEmulator()) {
-                add(LoopbackFixtureHost)
-            }
+            add(fixture.androidHost)
             if (fixture.androidHost != LoopbackFixtureHost) {
-                add(fixture.androidHost)
-            }
-            if (!isLikelyEmulator()) {
                 add(LoopbackFixtureHost)
             }
         }.distinct()
     val probes =
         candidates.map { host ->
-            probeAppProcessTcpConnect(
+            appProcessTcpRoundTrip(
                 context = context,
                 host = host,
                 port = fixture.tcpEchoPort,
+                payload = FixturePreflightPayload,
             )
         }
     val reachable =
-        probes.firstOrNull(AppProcessTcpProbeResult::ok) ?: throw AssertionError(
+        probes.firstOrNull { probe ->
+            probe.ok && probe.response == FixturePreflightPayload
+        } ?: throw AssertionError(
             buildString {
                 append("App process could not reach the local fixture TCP endpoint. ")
                 append("Candidates: ")
@@ -930,7 +930,10 @@ fun awaitServiceStatus(
             )
         },
     ) {
-        serviceStateStore.status.value == status to mode
+        val telemetry = serviceStateStore.telemetry.value
+        serviceStateStore.status.value == status to mode &&
+            telemetry.status == status &&
+            telemetry.mode == mode
     }
 }
 
@@ -1017,6 +1020,7 @@ fun testProcessTcpConnect(
     port: Int,
     timeoutMs: Long = DebugNetworkProbeTimeoutMs,
 ): AppProcessTcpProbeResult {
+    ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
     val latch = CountDownLatch(1)
     val probeResult = AtomicReference<AppProcessTcpProbeResult?>()
@@ -1072,6 +1076,7 @@ fun testProcessTcpRoundTrip(
     readTimeoutMs: Long = 5_000L,
     throwOnBroadcastTimeout: Boolean = true,
 ): AppProcessTcpProbeResult {
+    ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
     val latch = CountDownLatch(1)
     val probeResult = AtomicReference<AppProcessTcpProbeResult?>()
@@ -1200,6 +1205,7 @@ fun testProcessDnsProbe(
     serverPort: Int = PacketSmokeMapDnsPort,
     timeoutMs: Long = DebugNetworkProbeTimeoutMs,
 ): AppProcessDnsProbeResult {
+    ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
     val latch = CountDownLatch(1)
     val probeResult = AtomicReference<AppProcessDnsProbeResult?>()
@@ -1678,6 +1684,16 @@ private fun tlsHandshake(
 fun execShell(command: String): String {
     val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
     return ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
+}
+
+private fun ensureTestProbeNetworkEligibility() {
+    if (!isLikelyEmulator()) return
+    val testPackage = InstrumentationRegistry.getInstrumentation().context.packageName
+    check(testPackage.matches(Regex("[A-Za-z0-9_.]+"))) {
+        "Unexpected instrumentation package name"
+    }
+    execShell("am set-standby-bucket $testPackage active")
+    execShell("cmd deviceidle tempwhitelist -d $TestProbeNetworkAllowlistDurationMs $testPackage")
 }
 
 private fun parseManifest(body: String): FixtureManifestDto {

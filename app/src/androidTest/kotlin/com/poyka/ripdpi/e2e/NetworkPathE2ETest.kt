@@ -217,8 +217,13 @@ class NetworkPathE2ETest {
             )
         }
 
+        val restartCountBeforeStart = serviceStateStore.telemetry.value.restartCount
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        val expectedStartupRestartCount = restartCountBeforeStart + 1
+        awaitUntil {
+            serviceStateStore.telemetry.value.restartCount == expectedStartupRestartCount
+        }
 
         val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
         val payload = httpEchoPayloadText("vpn-hostname")
@@ -256,6 +261,7 @@ class NetworkPathE2ETest {
             stablePollCount = 5,
             failureMessage = {
                 "VPN service did not remain stable after successful hostname traffic.\n" +
+                    "baselineRestartCount=$baselineRestartCount\n" +
                     serviceStateDebugSummary(serviceStateStore, fixtureClient)
             },
         ) {
@@ -293,6 +299,10 @@ class NetworkPathE2ETest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        val baselineTelemetry = serviceStateStore.telemetry.value
+        val baselineRestartCount = baselineTelemetry.restartCount
+        val baselineTunnelRecoveryRetryCount = baselineTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount
+        fixtureClient.resetEvents()
         fixtureClient.setFault(
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_HTTP,
@@ -305,12 +315,19 @@ class NetworkPathE2ETest {
         val output = vpnTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
 
         assertFalse(output.contains("GET /vpn-dns-timeout HTTP/1.1"))
-        awaitUntil(timeoutMs = 20_000L) {
+        awaitUntil(
+            timeoutMs = 20_000L,
+            failureMessage = { serviceStateDebugSummary(serviceStateStore, fixtureClient) },
+        ) {
             val snapshot = serviceStateStore.telemetry.value
             val events = fixtureClient.events()
-            snapshot.tunnelTelemetry.dnsFailuresTotal > 0L &&
-                !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank() &&
-                events.any { it.service == "dns_http" } &&
+            snapshot.status == AppStatus.Running &&
+                snapshot.mode == Mode.VPN &&
+                snapshot.restartCount == baselineRestartCount &&
+                snapshot.runtimeFieldTelemetry.tunnelRecoveryRetryCount > baselineTunnelRecoveryRetryCount &&
+                snapshot.tunnelTelemetry.resolverFallbackActive &&
+                !snapshot.tunnelTelemetry.resolverFallbackReason.isNullOrBlank() &&
+                events.any { it.service == "dns_http" && it.detail == "fault:DnsTimeout" } &&
                 events.none { it.service == "tcp_echo" && it.detail == "echo" }
         }
     }
