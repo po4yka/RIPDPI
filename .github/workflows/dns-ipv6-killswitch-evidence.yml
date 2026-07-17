@@ -47,7 +47,7 @@ jobs:
           esac
           rm -rf app/build/outputs/apk
           ./gradlew --no-daemon :app:assembleGithubFullDebug \
-            "-Pripdpi.localNativeAbis=$device_abi" \
+            "-Pripdpi.nativeAbisOverride=$device_abi" \
             -Pripdpi.enableAbiSplits=false
           mapfile -t apks < <(find app/build/outputs/apk -type f -name '*.apk' ! -name '*androidTest*')
           test "${#apks[@]}" -eq 1

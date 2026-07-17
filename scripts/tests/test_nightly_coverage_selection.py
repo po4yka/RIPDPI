@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
 COVERAGE_SCRIPT = ROOT / "scripts/ci/run-rust-coverage.sh"
 RELAY_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-relay-emulator-smoke.sh"
+PACKET_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-packet-smoke.sh"
+DNS_IPV6_EVIDENCE_WORKFLOW = ROOT / ".github/workflows/dns-ipv6-killswitch-evidence.yml"
 
 
 def nightly_coverage_job(source: str) -> str:
@@ -57,6 +59,15 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         source = RELAY_SMOKE_SCRIPT.read_text(encoding="utf-8")
         self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", source)
         self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", source)
+
+    def test_device_smokes_use_the_ci_native_abi_override(self) -> None:
+        packet_smoke = PACKET_SMOKE_SCRIPT.read_text(encoding="utf-8")
+        evidence_workflow = DNS_IPV6_EVIDENCE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("-Pripdpi.nativeAbisOverride=${gradle_abi}", packet_smoke)
+        self.assertNotIn("-Pripdpi.localNativeAbis=", packet_smoke)
+        self.assertIn("-Pripdpi.nativeAbisOverride=$device_abi", evidence_workflow)
+        self.assertNotIn("-Pripdpi.localNativeAbis=", evidence_workflow)
 
 
 if __name__ == "__main__":
