@@ -25,7 +25,22 @@ def upload_block(source: str, name: str) -> str:
     return match.group(0)
 
 
+def release_verification_job(source: str) -> str:
+    match = re.search(r"(?ms)^  release-verification:\n.*?(?=^  [\w-]+:\n|\Z)", source)
+    if match is None:
+        raise AssertionError("missing release-verification CI job")
+    return match.group(0)
+
+
 class ReleaseArtifactUploadsTest(unittest.TestCase):
+    def test_ci_release_verification_uses_isolated_variant_matrix(self) -> None:
+        source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        job = release_verification_job(source)
+        self.assertIn("matrix:\n        variant:", job)
+        self.assertEqual(6, job.count("id: "))
+        self.assertIn('./gradlew "${{ matrix.variant.task }}" "${common_args[@]}"', job)
+        self.assertNotIn("for task in \\", job)
+
     def test_retrace_uploads_are_variant_aware_and_fail_closed(self) -> None:
         for workflow in WORKFLOWS:
             block = upload_block(
@@ -39,6 +54,9 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             )
             self.assertIn("if-no-files-found: error", block)
 
+        ci_source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertIn("name: release-retrace-inputs-${{ matrix.variant.id }}", ci_source)
+
     def test_native_symbol_uploads_are_variant_aware_and_fail_closed(self) -> None:
         for workflow in WORKFLOWS:
             block = upload_block(
@@ -50,6 +68,9 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
                 block,
             )
             self.assertIn("if-no-files-found: error", block)
+
+        ci_source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertIn("name: release-native-symbols-${{ matrix.variant.id }}", ci_source)
 
 
 if __name__ == "__main__":

@@ -570,10 +570,20 @@ jobs:
     if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     needs: [change-routing, rust-native-packaging, rust-native-x86_64]
     runs-on: ubuntu-latest
-    # --max-workers=1 serialises the assembleRelease variant compiles to stay within the
-    # Kotlin daemon heap (the experience dimension doubled the release variant count), which
-    # is slower than the parallel build, so allow extra wall-clock headroom.
+    # Each variant is isolated in its own runner. Keep one Gradle worker per
+    # runner to retain the Kotlin-heap OOM protection without serializing six
+    # independent release builds in one job.
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - { id: fdroid-full, task: ':app:assembleFdroidFullRelease' }
+          - { id: fdroid-simple, task: ':app:assembleFdroidSimpleRelease' }
+          - { id: github-full, task: ':app:assembleGithubFullRelease' }
+          - { id: github-simple, task: ':app:assembleGithubSimpleRelease' }
+          - { id: play-full, task: ':app:assemblePlayFullRelease' }
+          - { id: play-simple, task: ':app:assemblePlaySimpleRelease' }
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -616,7 +626,7 @@ jobs:
           echo "Assets-bin staging:"
           ls -la "$assets_root" || true
 
-      - name: Verify minified release build with prebuilt natives
+      - name: Verify ${{ matrix.variant.id }} minified release build with prebuilt natives
         env:
           RUSTC_WRAPPER: sccache
         run: |
@@ -629,17 +639,7 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
           )
-          for task in \
-            :app:assembleFdroidFullRelease \
-            :app:assembleFdroidSimpleRelease \
-            :app:assembleGithubFullRelease \
-            :app:assembleGithubSimpleRelease \
-            :app:assemblePlayFullRelease \
-            :app:assemblePlaySimpleRelease
-          do
-            ./gradlew "$task" "${common_args[@]}"
-            ./gradlew --stop
-          done
+          ./gradlew "${{ matrix.variant.task }}" "${common_args[@]}"
 
       - name: Verify packaged release native ELFs
         run: |
@@ -658,7 +658,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-retrace-inputs
+          name: release-retrace-inputs-${{ matrix.variant.id }}
           path: |
             app/build/outputs/mapping/*Release/mapping.txt
             app/build/intermediates/compose_mapping/*Release/compose-mapping.txt
@@ -669,7 +669,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-native-symbols
+          name: release-native-symbols-${{ matrix.variant.id }}
           path: app/build/intermediates/native_symbol_tables/*Release/*/out/**
           if-no-files-found: error
           retention-days: 7
