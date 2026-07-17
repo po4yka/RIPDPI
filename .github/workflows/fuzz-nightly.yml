@@ -26,4 +26,12 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --quiet
       - name: Run fuzz targets
-        run: env RIPDPI_FUZZ_SECONDS=${{ inputs.fuzz_seconds || 1200 }} bash scripts/ci/run-rust-fuzz-smoke.sh
+        run: env RIPDPI_FUZZ_SECONDS=${{ inputs.fuzz_seconds || 1200 }} RIPDPI_FUZZ_ARTIFACTS_DIR="$RUNNER_TEMP/fuzz-artifacts" bash scripts/ci/run-rust-fuzz-smoke.sh
+      - name: Upload fuzz artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-artifacts
+          path: ${{ runner.temp }}/fuzz-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
