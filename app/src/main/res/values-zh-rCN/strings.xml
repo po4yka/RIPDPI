@@ -719,7 +719,7 @@
     <string name="home_mode_card_diagnostic_status_review_format">查看 %1$d/%2$d 个阶段</string>
     <string name="home_mode_card_enable">启用</string>
     <string name="home_mode_card_status_active">活动</string>
-    <string name="home_mode_local_dpi_bypass">Local bypass</string>
+    <string name="home_mode_local_dpi_bypass">本地绕过</string>
     <string name="home_quality_connecting">连接中</string>
     <string name="home_remediation_browser_relay_step_choose_preset">选择浏览器伪装预设,如 NaiveProxy 或 ShadowTLS,然后重新运行分析。</string>
     <string name="home_remediation_browser_relay_title">优先使用浏览器伪装中继</string>

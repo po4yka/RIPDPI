@@ -7,6 +7,38 @@ import java.io.File
 
 class TerminologyCanonTest {
     @Test
+    fun `home local bypass label stays localized in every translated resource set`() {
+        val resourcesDir = File("src/main/res")
+        val englishStrings = stringValues(File(resourcesDir, "values/strings.xml"))
+        val englishHomeLabel = englishStrings.getValue("home_mode_local_dpi_bypass")
+        val translatedDirectories =
+            listOf(
+                "values-ru",
+                "values-es",
+                "values-de",
+                "values-fr",
+                "values-fa",
+                "values-ar",
+                "values-zh-rCN",
+                "values-hi",
+            )
+
+        val offenders =
+            translatedDirectories.mapNotNull { directory ->
+                val values = stringValues(File(resourcesDir, "$directory/strings.xml"))
+                val homeLabel = values.getValue("home_mode_local_dpi_bypass")
+                val configLabel = values.getValue("config_local_bypass_simple_title")
+                if (homeLabel == configLabel && homeLabel != englishHomeLabel) {
+                    null
+                } else {
+                    "$directory:home=$homeLabel:config=$configLabel"
+                }
+            }
+
+        assertEquals("Local bypass labels leaked English or drifted: $offenders", emptyList<String>(), offenders)
+    }
+
+    @Test
     fun `app string resources do not expose retired M1 terminology`() {
         val resourcesDir = File("src/main/res")
         val stringFiles =
@@ -60,5 +92,12 @@ class TerminologyCanonTest {
                 """<string\s+name="([^"]+)"(?:\s+[^>]*)?>(.*?)</string>""",
                 RegexOption.DOT_MATCHES_ALL,
             )
+
+        fun stringValues(file: File): Map<String, String> =
+            stringValueRegex
+                .findAll(file.readText())
+                .associate { match ->
+                    match.groups[1]!!.value to match.groups[2]!!.value
+                }
     }
 }

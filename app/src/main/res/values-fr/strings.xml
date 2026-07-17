@@ -2498,7 +2498,7 @@ Source : %2$s</string>
     <string name="home_mode_card_diagnostic_empty">Aucune analyse pour le moment</string>
     <string name="home_mode_card_diagnostic_status_stale">Le réseau a changé - relancez le scan</string>
     <string name="home_mode_card_run_scan">Lancer le scan</string>
-    <string name="home_mode_local_dpi_bypass">Local bypass</string>
+    <string name="home_mode_local_dpi_bypass">Contournement local</string>
     <string name="home_permission_issue_with_retry">%1$s Utilisez le bouton de connexion pour poursuivre le flux d\'autorisation.</string>
     <string name="home_quality_offline">Hors ligne</string>
     <string name="home_remediation_browser_relay_title">Préférer un relais avec camouflage de navigateur</string>

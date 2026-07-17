@@ -2498,7 +2498,7 @@ Origen: %2$s</string>
     <string name="home_mode_card_diagnostic_empty">Aún no hay análisis</string>
     <string name="home_mode_card_diagnostic_status_stale">La red cambió - vuelve a ejecutar el escaneo</string>
     <string name="home_mode_card_run_scan">Ejecutar escaneo</string>
-    <string name="home_mode_local_dpi_bypass">Local bypass</string>
+    <string name="home_mode_local_dpi_bypass">Bypass local</string>
     <string name="home_permission_issue_with_retry">%1$s Usa el botón de conexión para continuar el flujo de permisos.</string>
     <string name="home_quality_offline">Sin conexión</string>
     <string name="home_remediation_browser_relay_title">Preferir un relay con camuflaje de navegador</string>

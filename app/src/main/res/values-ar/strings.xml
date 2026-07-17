@@ -559,7 +559,7 @@
     <string name="home_quality_offline">غير متصل</string>
     <string name="home_mode_vpn">VPN محلي</string>
     <string name="home_mode_proxy">وكيل محلي</string>
-    <string name="home_mode_local_dpi_bypass">Local bypass</string>
+    <string name="home_mode_local_dpi_bypass">تجاوز محلي</string>
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">فحص تشخيصي</string>
     <string name="home_mode_card_connected_format">متصل %1$s</string>

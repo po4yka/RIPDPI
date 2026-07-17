@@ -563,7 +563,7 @@
     <string name="home_quality_offline">آفلاین</string>
     <string name="home_mode_vpn">VPN محلی</string>
     <string name="home_mode_proxy">پراکسی محلی</string>
-    <string name="home_mode_local_dpi_bypass">Local bypass</string>
+    <string name="home_mode_local_dpi_bypass">عبور محلی</string>
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">پویش تشخیصی</string>
     <string name="home_mode_card_connected_format">متصل %1$s</string>
