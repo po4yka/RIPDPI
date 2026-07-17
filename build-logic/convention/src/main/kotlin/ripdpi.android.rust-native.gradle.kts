@@ -1242,7 +1242,9 @@ fun rustWorkspaceCrateSources() =
         exclude("**/.git/**")
     }
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
-val generatedAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
+val generatedRootHelperAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
+val generatedNaiveProxyAssetsDir = layout.buildDirectory.dir("generated/naiveProxyAssets")
+val generatedCloudflareOriginAssetsDir = layout.buildDirectory.dir("generated/cloudflareOriginAssets")
 val generatedPtAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportAssets")
 val rustNativeLibsBuildDir = layout.buildDirectory.dir("intermediates/rust-native-libs")
 val rustRootHelperBuildDir = layout.buildDirectory.dir("intermediates/rust-root-helper")
@@ -1266,7 +1268,9 @@ val rustCloudflareOriginArtifactSpecs =
 
 extensions.configure<LibraryExtension> {
     sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
-    sourceSets["main"].assets.directories.add(generatedAssetsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.directories.add(generatedRootHelperAssetsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.directories.add(generatedNaiveProxyAssetsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.directories.add(generatedCloudflareOriginAssetsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedPtAssetsDir.get().asFile.absolutePath)
 }
 
@@ -1355,7 +1359,7 @@ val buildRustRootHelper =
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustRootHelperBuildDir)
         // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
-        outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+        outputDir.set(generatedRootHelperAssetsDir.map { it.dir("bin") })
         providers
             .gradleProperty("ripdpi.prebuiltRootHelperDir")
             .orNull
@@ -1399,7 +1403,7 @@ val buildRustNaiveProxy =
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-naiveproxy"))
-        outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+        outputDir.set(generatedNaiveProxyAssetsDir.map { it.dir("bin") })
         providers
             .gradleProperty("ripdpi.prebuiltNaiveProxyDir")
             .orNull
@@ -1443,7 +1447,7 @@ val buildRustCloudflareOrigin =
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-cloudflare-origin"))
-        outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+        outputDir.set(generatedCloudflareOriginAssetsDir.map { it.dir("bin") })
         providers
             .gradleProperty("ripdpi.prebuiltCloudflareOriginDir")
             .orNull
