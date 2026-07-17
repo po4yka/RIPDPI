@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       soak_profile:
@@ -105,22 +105,18 @@ jobs:
       - id: resolve
         env:
           EVENT_NAME: ${{ github.event_name }}
-          EVENT_ACTION: ${{ github.event.action }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           paths_file="$RUNNER_TEMP/changed-files.txt"
-          force_full=()
-          if [[ "$EVENT_NAME" != "pull_request" || "$EVENT_ACTION" == "labeled" ]]; then
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
             : > "$paths_file"
-            force_full+=(--force-full)
           else
             git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$paths_file"
           fi
           python3 scripts/ci/resolve_change_routing.py \
             --paths-file "$paths_file" \
-            --github-output "$GITHUB_OUTPUT" \
-            "${force_full[@]}"
+            --github-output "$GITHUB_OUTPUT"
 
   docs-only-gate:
     name: Documentation-only CI gate
@@ -1659,8 +1655,7 @@ jobs:
       ((github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_network_e2e == 'true') ||
       (
         github.event_name == 'pull_request' &&
-        github.event.action == 'labeled' &&
-        github.event.label.name == 'run-android-e2e'
+        contains(github.event.pull_request.labels.*.name, 'run-android-e2e')
       ))
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -1773,8 +1768,7 @@ jobs:
       ((github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_journeys == 'true') ||
       (
         github.event_name == 'pull_request' &&
-        github.event.action == 'labeled' &&
-        github.event.label.name == 'run-android-journeys'
+        contains(github.event.pull_request.labels.*.name, 'run-android-journeys')
       ))
     runs-on: ubuntu-latest
     timeout-minutes: 60
