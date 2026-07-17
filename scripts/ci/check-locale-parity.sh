@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # scripts/ci/check-locale-parity.sh
-#   Diffs every locale strings.xml against the source strings and exits 1 if
-#   any locale is missing keys. Stale extra keys in a locale are a warning only.
+#   Diffs every locale's complete values XML set against the source values XML
+#   set and exits 1 if any locale is missing keys. Stale extra keys are a warning.
 #   Read-only: never modifies any file.
 #
 #   Satisfies: weekly CI gate that detects per-locale missing/extra keys vs.
-#   app/src/main/res/values/strings.xml and
-#   core/service/src/main/res/values/strings.xml.
+#   app/src/main/res/values, app/src/simple/res/values, and
+#   core/service/src/main/res/values.
 #
 #   Runnable from the repository root:
 #     scripts/ci/check-locale-parity.sh
@@ -16,11 +16,20 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-APP_STRINGS="app/src/main/res/values/strings.xml"
-SERVICE_STRINGS="core/service/src/main/res/values/strings.xml"
-
-# Must be kept in sync with app/src/main/res/xml/locales_config.xml.
-LOCALES=(ru es de fr fa ar zh-rCN)
+LOCALES=()
+while IFS= read -r locale; do
+    [[ "$locale" == "en" ]] && continue
+    if [[ "$locale" == *-* ]]; then
+        language="${locale%%-*}"
+        region="${locale##*-}"
+        LOCALES+=("${language}-r${region}")
+    else
+        LOCALES+=("$locale")
+    fi
+done < <(
+    sed -nE 's/.*android:name="([^"]+)".*/\1/p' \
+        app/src/main/res/xml/locales_config.xml
+)
 
 FAIL=0
 TOTAL_MISSING=0
@@ -33,33 +42,48 @@ extract_keys() {
         echo "ERROR: source file not found: $file" >&2
         exit 1
     fi
-    grep -oE '<string[[:space:]][^>]*name="[^"]+"[^>]*>' "$file" \
+    local tags
+    tags="$(grep -oE '<string[[:space:]][^>]*name="[^"]+"[^>]*>' "$file" || true)"
+    [[ -z "$tags" ]] && return
+    printf '%s\n' "$tags" \
         | grep -v 'translatable="false"' \
-        | sed -E 's/.*name="([^"]+)".*/\1/'
+        | sed -E 's/.*name="([^"]+)".*/\1/' \
+        || true
+}
+
+extract_directory_keys() {
+    local directory="$1"
+    if [[ ! -d "$directory" ]]; then
+        echo "ERROR: values directory not found: $directory" >&2
+        exit 1
+    fi
+    while IFS= read -r file; do
+        extract_keys "$file"
+    done < <(find "$directory" -maxdepth 1 -type f -name '*.xml' | sort)
 }
 
 check_module() {
-    local src="$1"
+    local source_dir="$1"
     local values_dir="$2"
     local module="$3"
 
     local src_keys
-    src_keys="$(extract_keys "$src" | sort -u)"
+    src_keys="$(extract_directory_keys "$source_dir" | sort -u)"
     local src_count
     src_count="$(echo "$src_keys" | wc -l | tr -d '[:space:]')"
 
     echo "==> $module: $src_count translatable source keys"
 
     for loc in "${LOCALES[@]}"; do
-        local loc_file="${values_dir}/values-${loc}/strings.xml"
-        if [[ ! -f "$loc_file" ]]; then
-            echo "  MISSING FILE: $loc_file" >&2
+        local loc_dir="${values_dir}/values-${loc}"
+        if [[ ! -d "$loc_dir" ]]; then
+            echo "  MISSING DIRECTORY: $loc_dir" >&2
             FAIL=1
             continue
         fi
 
         local loc_keys
-        loc_keys="$(extract_keys "$loc_file" | sort -u)"
+        loc_keys="$(extract_directory_keys "$loc_dir" | sort -u)"
 
         local missing
         missing="$(comm -23 <(echo "$src_keys") <(echo "$loc_keys") || true)"
@@ -89,8 +113,9 @@ check_module() {
     done
 }
 
-check_module "$APP_STRINGS"     "app/src/main/res"          "app"
-check_module "$SERVICE_STRINGS" "core/service/src/main/res" "core/service"
+check_module "app/src/main/res/values"          "app/src/main/res"          "app"
+check_module "app/src/simple/res/values"        "app/src/simple/res"        "app/simple"
+check_module "core/service/src/main/res/values" "core/service/src/main/res" "core/service"
 
 echo ""
 if [[ "$FAIL" -ne 0 ]]; then

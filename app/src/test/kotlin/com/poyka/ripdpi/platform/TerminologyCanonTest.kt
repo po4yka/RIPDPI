@@ -97,17 +97,37 @@ class TerminologyCanonTest {
     @Test
     fun `app string resources do not expose retired M1 terminology`() {
         val resourcesDir = File("src/main/res")
-        val stringFiles =
+        val configuredLocales =
+            Regex("""android:name="([^"]+)"""")
+                .findAll(File(resourcesDir, "xml/locales_config.xml").readText())
+                .map { match -> match.groupValues[1] }
+                .toSet()
+        val expectedValueDirectories =
+            configuredLocales.mapTo(linkedSetOf()) { locale ->
+                when {
+                    locale == "en" -> "values"
+                    '-' in locale -> "values-${locale.substringBefore('-')}-r${locale.substringAfter('-')}"
+                    else -> "values-$locale"
+                }
+            }
+        val existingValueDirectories =
             resourcesDir
-                .walkTopDown()
-                .filter { file ->
-                    file.isFile &&
-                        file.name == "strings.xml" &&
-                        file.parentFile?.name?.startsWith("values") == true
-                }.toList()
+                .listFiles()
+                .orEmpty()
+                .filter { directory ->
+                    directory.isDirectory && directory.name.startsWith("values")
+                }.mapTo(linkedSetOf()) { directory -> directory.name }
 
-        // 9 locales: en (values) + ru, es, de, fr, fa, ar, zh-rCN, hi (Hindi added in 9c76d550a).
-        assertEquals(9, stringFiles.size)
+        assertEquals(emptySet<String>(), expectedValueDirectories - existingValueDirectories)
+
+        val stringFiles =
+            expectedValueDirectories
+                .asSequence()
+                .flatMap { directory ->
+                    File(resourcesDir, directory)
+                        .walkTopDown()
+                        .filter { file -> file.isFile && file.extension == "xml" }
+                }.toList()
 
         val retiredTerms =
             listOf(

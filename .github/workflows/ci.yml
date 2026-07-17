@@ -383,14 +383,17 @@ jobs:
           -x :app:testPlaySimpleDebugUnitTest
           -Pripdpi.skipNativeBuild=true
 
-      - name: Compile app unit tests
+      - name: Run app unit tests
         run: >-
           ./gradlew
-          :app:compileGithubFullDebugUnitTestKotlin
-          :app:compileGithubSimpleDebugUnitTestKotlin
-          :app:hiltJavaCompileGithubFullDebugUnitTest
-          :app:hiltJavaCompileGithubSimpleDebugUnitTest
+          :app:testGithubFullDebugUnitTest
+          :app:testGithubSimpleDebugUnitTest
           -Pripdpi.skipNativeBuild=true
+
+      - name: Run UI audit generator unit tests
+        run: |
+          python3 -m pip install -r scripts/guide/requirements.txt
+          python3 -m unittest scripts.tests.test_generate_guide
 
       - name: Run diagnostics boundary unit tests
         run: python3 -m unittest scripts.tests.test_verify_diagnostics_boundary
