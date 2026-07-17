@@ -408,6 +408,9 @@ jobs:
       - name: Run release artifact upload contract tests
         run: python3 -m unittest scripts.tests.test_release_artifact_uploads
 
+      - name: Run nightly coverage selection contract tests
+        run: python3 -m unittest scripts.tests.test_nightly_coverage_selection
+
       - name: Run UI audit generator unit tests
         run: |
           python3 -m pip install -r scripts/guide/requirements.txt
@@ -1530,7 +1533,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "1"
-      RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED: "1"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -1548,7 +1550,7 @@ jobs:
       - name: Generate Kotlin coverage reports
         run: ./gradlew coverageReport
 
-      - name: Generate Rust coverage reports with ignored tests
+      - name: Generate Rust coverage reports
         run: bash scripts/ci/run-rust-coverage.sh
 
       - name: Upload nightly coverage artifacts
