@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -187,6 +188,48 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
         self.assertIn("scripts.tests.test_validate_android_junit_results", job)
         self.assertIn("scripts.tests.test_run_android_e2e_emulator", job)
         self.assertIn("scripts.tests.test_start_local_network_fixture", job)
+
+    def test_ci_bounds_connected_e2e_before_always_cleanup(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        job_start = workflow.index("  android-network-e2e:\n")
+        job_end = workflow.index("\n  android-journeys:\n", job_start)
+        job = workflow[job_start:job_end]
+        step_start = job.index("      - name: Run connected Android network E2E tests\n")
+        step_end = job.index("\n      - name: Capture fixture state\n", step_start)
+
+        job_timeout_match = re.search(r"^    timeout-minutes: ([0-9]+)$", job, re.MULTILINE)
+        step_timeout_match = re.search(
+            r"^        timeout-minutes: ([0-9]+)$",
+            job[step_start:step_end],
+            re.MULTILINE,
+        )
+        self.assertIsNotNone(job_timeout_match)
+        self.assertIsNotNone(step_timeout_match)
+        assert job_timeout_match is not None
+        assert step_timeout_match is not None
+        job_timeout = int(job_timeout_match.group(1))
+        step_timeout = int(step_timeout_match.group(1))
+        self.assertGreaterEqual(job_timeout - step_timeout, 90)
+        for cleanup_step in (
+            "Capture fixture state",
+            "Capture network E2E emulator diagnostics",
+            "Stop emulator",
+            "Stop local network fixture",
+            "Upload Android network E2E artifacts",
+        ):
+            cleanup_start = job.index(f"      - name: {cleanup_step}\n")
+            cleanup_end = job.find("\n      - name:", cleanup_start + 1)
+            cleanup = job[cleanup_start:] if cleanup_end == -1 else job[cleanup_start:cleanup_end]
+            self.assertGreater(cleanup_start, step_end)
+            self.assertIn("\n        if: always()\n", cleanup)
+            cleanup_timeout = re.search(
+                r"^        timeout-minutes: ([0-9]+)$",
+                cleanup,
+                re.MULTILINE,
+            )
+            self.assertIsNotNone(cleanup_timeout)
+            assert cleanup_timeout is not None
+            self.assertLessEqual(int(cleanup_timeout.group(1)), 10)
 
 
 if __name__ == "__main__":

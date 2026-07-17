@@ -1565,7 +1565,7 @@ jobs:
         github.event.label.name == 'run-android-e2e'
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -1616,16 +1616,19 @@ jobs:
             --target google_apis
 
       - name: Run connected Android network E2E tests
+        timeout-minutes: 60
         run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
 
       - name: Capture fixture state
         if: always()
+        timeout-minutes: 2
         run: |
           curl -fsS http://127.0.0.1:46090/manifest > "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json" || true
           curl -fsS http://127.0.0.1:46090/events > "$RUNNER_TEMP/local-network-fixture/fixture-events.json" || true
 
       - name: Capture network E2E emulator diagnostics
         if: always()
+        timeout-minutes: 5
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
             --avd network-e2e \
@@ -1634,14 +1637,17 @@ jobs:
 
       - name: Stop emulator
         if: always()
+        timeout-minutes: 5
         run: bash scripts/ci/stop-android-emulator.sh --avd network-e2e
 
       - name: Stop local network fixture
         if: always()
+        timeout-minutes: 2
         run: scripts/ci/stop-local-network-fixture.sh "$RUNNER_TEMP/local-network-fixture/fixture.pid"
 
       - name: Upload Android network E2E artifacts
         if: always()
+        timeout-minutes: 10
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-network-e2e-artifacts
