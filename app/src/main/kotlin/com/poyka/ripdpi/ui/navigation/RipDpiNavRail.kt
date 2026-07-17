@@ -18,9 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -59,14 +63,27 @@ fun RipDpiNavRail(
     val surfaces = RipDpiThemeTokens.surfaces
     val railSurface = surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBar)
     val destinations = Route.topLevel
+    val fontScale = LocalDensity.current.fontScale
+    val railWidth =
+        when {
+            fontScale >= 1.75f -> 168.dp
+            fontScale >= 1.25f -> 136.dp
+            else -> 104.dp
+        }
+    val showBrand = fontScale <= 1f
+    val verticalPadding =
+        if (showBrand) RipDpiThemeTokens.spacing.lg else RipDpiThemeTokens.spacing.sm
+    val itemSpacing = if (showBrand) RipDpiThemeTokens.spacing.sm else RipDpiThemeTokens.spacing.xs
 
-    Box(modifier = modifier.fillMaxHeight().width(80.dp).background(railSurface.container)) {
+    Box(modifier = modifier.fillMaxHeight().width(railWidth).background(railSurface.container)) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(vertical = RipDpiThemeTokens.spacing.lg),
+            modifier = Modifier.fillMaxSize().padding(vertical = verticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(itemSpacing),
         ) {
-            BrandBadge()
+            if (showBrand) {
+                BrandBadge()
+            }
             destinations.forEach { destination ->
                 NavRailItem(
                     destination = destination,
@@ -113,10 +130,13 @@ private fun NavRailItem(
     val colors = RipDpiThemeTokens.colors
     val container = if (selected) colors.accent else androidx.compose.ui.graphics.Color.Transparent
     val content = if (selected) colors.foreground else colors.mutedForeground
+    val label = stringResource(destination.titleRes)
     Column(
         modifier =
             Modifier
-                .clip(RipDpiThemeTokens.shapes.lg)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = label
+                }.clip(RipDpiThemeTokens.shapes.lg)
                 .background(container)
                 .ripDpiSelectable(
                     selected = selected,
@@ -137,8 +157,10 @@ private fun NavRailItem(
             )
         }
         Text(
-            text = stringResource(destination.titleRes),
+            text = label,
             style = RipDpiThemeTokens.type.navLabel.copy(color = content),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
