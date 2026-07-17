@@ -76,9 +76,14 @@ fn parse_tunnel_address(value: &str) -> Option<(IpAddress, u8)> {
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: `cancel` is a `CancellationToken`; the io_loop_task select!
-/// arm observes cancellation and exits cleanly, dropping `tun_async` exactly
-/// once.  No state is left inconsistent on cancel.
+/// NOT cancel-safe: dropping this future directly, or letting it lose a
+/// `select!`/`timeout` race, can lose a packet already removed from the
+/// userspace tx queue before an awaited TUN write readiness completes, and can
+/// skip supervised TCP session and UDP association shutdown.
+///
+/// Graceful stop requires calling [`CancellationToken::cancel`] on `cancel` and
+/// continuing to poll this future until it returns. Then the io loop observes
+/// the token, runs shutdown, and drops `tun_async` exactly once.
 pub async fn run_tunnel(
     config: Arc<Config>,
     tun_fd: OwnedFd,
@@ -98,9 +103,17 @@ pub async fn run_tunnel(
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: identical to [`run_tunnel`]. Dropping the future before the
-/// barrier drops `on_ready` without invoking it; after the barrier the regular
-/// `CancellationToken` shutdown contract applies.
+/// NOT cancel-safe: after the readiness barrier, dropping this future directly
+/// or letting it lose a `select!`/`timeout` race can lose a packet already
+/// removed from the userspace tx queue before an awaited TUN write readiness
+/// completes, and can skip supervised TCP session and UDP association
+/// shutdown.
+///
+/// Graceful stop requires calling [`CancellationToken::cancel`] on `cancel` and
+/// continuing to poll this future until it returns. Before the readiness
+/// barrier, direct future drop only abandons setup and drops `on_ready` without
+/// invoking it; after the barrier, the loop observes the token and runs normal
+/// shutdown.
 pub async fn run_tunnel_with_ready<F>(
     config: Arc<Config>,
     tun_fd: OwnedFd,

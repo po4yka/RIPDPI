@@ -129,8 +129,15 @@ pub struct IoUringTunContext {
 }
 
 #[allow(clippy::too_many_arguments)]
-// cancel-safe: delegates to `io_loop_task_with_ready`; cancellation is owned by
-// the loop state's `CancellationToken` and shutdown drains the owned resources.
+/// # Cancel safety
+///
+/// NOT cancel-safe: delegates to [`io_loop_task_with_ready`], so direct future
+/// drop can lose a packet already removed from the userspace tx queue before an
+/// awaited TUN write readiness completes, and can skip supervised TCP session
+/// and UDP association shutdown.
+///
+/// Graceful stop requires calling [`CancellationToken::cancel`] on `cancel` and
+/// continuing to poll this future until it returns.
 pub async fn io_loop_task(
     tun: &AsyncDevice,
     device: TunDevice,
@@ -146,8 +153,18 @@ pub async fn io_loop_task(
 }
 
 #[allow(clippy::too_many_arguments)]
-// cancel-safe: all fallible setup completes before `on_ready`; after the
-// callback, cancellation is observed by the loop and runs normal shutdown.
+/// # Cancel safety
+///
+/// NOT cancel-safe: after `on_ready` runs, dropping this future directly or
+/// letting it lose a `select!`/`timeout` race can lose a packet already removed
+/// from the userspace tx queue by [`flush_tun`] before an awaited TUN write
+/// readiness completes, and can skip supervised TCP session and UDP association
+/// shutdown.
+///
+/// Graceful stop requires calling [`CancellationToken::cancel`] on `cancel` and
+/// continuing to poll this future until it returns. All fallible setup
+/// completes before `on_ready`; after the callback, the loop observes the token
+/// and runs normal shutdown.
 pub(crate) async fn io_loop_task_with_ready<F>(
     tun: &AsyncDevice,
     device: TunDevice,

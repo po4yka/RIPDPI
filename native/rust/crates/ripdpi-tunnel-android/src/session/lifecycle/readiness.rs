@@ -17,14 +17,23 @@ pub(super) fn defer_failed_tunnel_start_cleanup(
     message: String,
 ) {
     cancel.cancel();
-    {
-        let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        *guard = Some(message.clone());
-    }
-    session.telemetry.record_error(message);
-    {
+    let cleanup_cancel = Arc::clone(&cancel);
+    let matched_start_generation = {
         let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        *state = TunnelSessionState::CleanupPending { cancel };
+        if matches!(&*state, TunnelSessionState::Starting { cancel: state_cancel } if Arc::ptr_eq(state_cancel, &cancel))
+        {
+            *state = TunnelSessionState::CleanupPending { cancel };
+            true
+        } else {
+            false
+        }
+    };
+    if matched_start_generation {
+        {
+            let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            *guard = Some(message.clone());
+        }
+        session.telemetry.record_error(message);
     }
 
     // The startup JNI call must honor its readiness deadline even if fallible
@@ -37,7 +46,7 @@ pub(super) fn defer_failed_tunnel_start_cleanup(
             cleanup_session.telemetry.log_line("worker", "error", "tunnel worker panicked during startup cleanup");
         }
         let mut state = cleanup_session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if matches!(*state, TunnelSessionState::CleanupPending { .. }) {
+        if matches!(&*state, TunnelSessionState::CleanupPending { cancel } if Arc::ptr_eq(cancel, &cleanup_cancel)) {
             *state = TunnelSessionState::Ready;
         }
     }));
@@ -61,6 +70,7 @@ mod tests {
     use std::sync::{Arc, Mutex, mpsc};
     use std::time::{Duration, Instant};
 
+    use ripdpi_tunnel_core::DnsStatsSnapshot;
     use tokio_util::sync::CancellationToken;
 
     use crate::config::{config_from_payload, sample_payload};
@@ -122,5 +132,37 @@ mod tests {
             std::thread::yield_now();
         }
         assert_eq!(session.last_error.lock().expect("last error").as_deref(), Some("readiness timed out"));
+        let snapshot = session.telemetry.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        assert_eq!(snapshot.total_errors, 1);
+        assert_eq!(snapshot.last_error.as_deref(), Some("readiness timed out"));
+    }
+
+    #[test]
+    fn stale_generation_cleanup_leaves_current_diagnostics_untouched() {
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_multi_thread().worker_threads(1).enable_all().build().expect("test runtime"),
+        );
+        let stale_cancel = Arc::new(CancellationToken::new());
+        let current_cancel = Arc::new(CancellationToken::new());
+        let session = Arc::new(TunnelSession {
+            runtime,
+            config: Arc::new(config_from_payload(sample_payload()).expect("config")),
+            last_error: Arc::new(Mutex::new(Some("current generation marker".to_string()))),
+            telemetry: Arc::new(TunnelTelemetryState::new(None)),
+            state: Mutex::new(TunnelSessionState::Starting { cancel: Arc::clone(&current_cancel) }),
+        });
+        session.telemetry.record_error("current generation marker".to_string());
+        let worker = std::thread::spawn(|| {});
+
+        defer_failed_tunnel_start_cleanup(&session, Arc::clone(&stale_cancel), worker, "stale failure".to_string());
+
+        assert!(stale_cancel.is_cancelled(), "stale worker must be cancelled");
+        assert!(!current_cancel.is_cancelled(), "current startup generation must remain live");
+        assert_eq!(session.last_error.lock().expect("last error").as_deref(), Some("current generation marker"),);
+        let snapshot = session.telemetry.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        assert_eq!(snapshot.total_errors, 1);
+        assert_eq!(snapshot.last_error.as_deref(), Some("current generation marker"));
+        let state = session.state.lock().expect("state lock");
+        assert!(matches!(&*state, TunnelSessionState::Starting { cancel } if Arc::ptr_eq(cancel, &current_cancel)));
     }
 }

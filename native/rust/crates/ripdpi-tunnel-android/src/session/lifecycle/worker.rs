@@ -32,13 +32,14 @@ fn run_worker(launch: WorkerLaunch) {
     let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error, startup_ready } = launch;
     let root_helper_generation = register_for_worker(&config);
     let worker_cancel = cancel.clone();
-    // cancel-safe: run_tunnel holds a CancellationToken and exits the io_loop
-    // cleanly when cancelled.  OwnedFd ownership transfers into run_tunnel's
-    // async frame; tun-rs AsyncDevice::Drop closes the fd exactly once on any
-    // exit path (normal return, cancellation, or panic unwind inside
-    // catch_unwind).  No fd is orphaned even if block_on panics before the
-    // future's first poll: OwnedFd remains live inside the pinned async future
-    // until run_tunnel's first statement (into_raw_fd) executes.
+    // Callsite cancellation contract: run_tunnel_with_ready is NOT cancel-safe
+    // if its future is dropped directly. Running stop cancels the token and
+    // joins this worker while block_on keeps polling the future to shutdown.
+    // Starting stop only cancels the token; the start-side fail-closed reaper
+    // later owns the join so JNI stop does not block on a hung startup. OwnedFd
+    // ownership transfers into the async frame before polling; if block_on
+    // panics before the first poll, unwind drops that future-owned fd. After
+    // polling, tun-rs AsyncDevice::Drop closes the fd exactly once.
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         runtime.block_on(ripdpi_tunnel_core::run_tunnel_with_ready(
             config,
