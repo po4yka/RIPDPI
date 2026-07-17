@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
@@ -85,6 +86,7 @@ private const val PacketSmokeScenarioIdArg = "ripdpi.packetSmokeScenarioId"
 private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_DEVICES"
 private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val DebugDnsProbeAction = "com.poyka.ripdpi.debug.PROBE_DNS"
+private const val DebugProbeWarmupAction = "com.poyka.ripdpi.debug.PROBE_WARMUP"
 private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.DebugNetworkProbeReceiver"
 private const val TestNetworkProbeReceiverClass = "com.poyka.ripdpi.e2e.TestNetworkProbeReceiver"
 private const val DebugNetworkProbeExtraHost = "host"
@@ -1205,7 +1207,11 @@ fun testProcessDnsProbe(
     serverPort: Int = PacketSmokeMapDnsPort,
     timeoutMs: Long = DebugNetworkProbeTimeoutMs,
     signalId: String? = null,
+    probeSignalBinder: IBinder? = null,
 ): AppProcessDnsProbeResult {
+    require((signalId == null) == (probeSignalBinder == null)) {
+        "Probe signal id and Binder must be supplied together"
+    }
     ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
     val latch = CountDownLatch(1)
@@ -1219,9 +1225,12 @@ fun testProcessDnsProbe(
             putExtra(DebugNetworkProbeExtraQueryHost, queryHost)
             signalId?.let {
                 putExtra(ExtraProbeSignalId, it)
-                putExtra(
-                    ExtraProbeSignalPackage,
-                    InstrumentationRegistry.getInstrumentation().targetContext.packageName,
+            }
+            if (probeSignalBinder != null) {
+                putExtras(
+                    Bundle().apply {
+                        putBinder(ExtraProbeSignalBinder, probeSignalBinder)
+                    },
                 )
             }
         }
@@ -1269,6 +1278,37 @@ fun testProcessDnsProbe(
     return requireNotNull(probeResult.get()) {
         "Test-process DNS probe did not deliver a result for $queryHost via $serverHost:$serverPort"
     }
+}
+
+fun warmTestNetworkProbeReceiver() {
+    ensureTestProbeNetworkEligibility()
+    val context = InstrumentationRegistry.getInstrumentation().context
+    val latch = CountDownLatch(1)
+    val warmupSucceeded = AtomicReference(false)
+    context.sendOrderedBroadcast(
+        Intent(DebugProbeWarmupAction).setClassName(context.packageName, TestNetworkProbeReceiverClass),
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                warmupSucceeded.set(
+                    resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out warming the test-process network probe receiver"
+    }
+    check(warmupSucceeded.get()) { "Test-process network probe receiver warmup failed" }
 }
 
 fun probeInstrumentationDns(

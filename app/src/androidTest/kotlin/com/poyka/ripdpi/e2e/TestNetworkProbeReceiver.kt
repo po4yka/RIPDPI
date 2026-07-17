@@ -5,8 +5,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.IBinder
+import android.os.Parcel
 import android.os.SystemClock
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.DatagramPacket
@@ -22,7 +25,7 @@ import java.util.Random
 
 private const val ActionProbeTcp = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val ActionProbeDns = "com.poyka.ripdpi.debug.PROBE_DNS"
-internal const val ActionProbeSignal = "com.poyka.ripdpi.debug.PROBE_SIGNAL"
+private const val ActionProbeWarmup = "com.poyka.ripdpi.debug.PROBE_WARMUP"
 private const val ExtraHost = "host"
 private const val ExtraPort = "port"
 private const val ExtraConnectTimeoutMs = "connect_timeout_ms"
@@ -30,9 +33,8 @@ private const val ExtraReadTimeoutMs = "read_timeout_ms"
 private const val ExtraPayload = "payload"
 private const val ExtraQueryHost = "query_host"
 internal const val ExtraProbeSignalId = "probe_signal_id"
-internal const val ExtraProbeSignalPackage = "probe_signal_package"
-internal const val ExtraProbeSignalEvent = "probe_signal_event"
-internal const val ProbeSignalDnsDatagramSent = "dns_datagram_sent"
+internal const val ExtraProbeSignalBinder = "probe_signal_binder"
+internal const val ProbeSignalDnsDatagramSentCode = 1
 private const val ExtraOk = "ok"
 private const val ExtraLocalAddress = "local_address"
 private const val ExtraLocalPort = "local_port"
@@ -73,7 +75,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         }
 
         val action = intent.action
-        if (!ActionProbeTcp.equals(action) && !ActionProbeDns.equals(action)) {
+        if (!ActionProbeTcp.equals(action) && !ActionProbeDns.equals(action) && !ActionProbeWarmup.equals(action)) {
             return
         }
 
@@ -82,7 +84,6 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             Thread(
                 ProbeRunnable(
                     receiver = this,
-                    context = context,
                     action = action,
                     intent = intent,
                     pendingResult = pendingResult,
@@ -94,7 +95,6 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     }
 
     fun completeProbe(
-        context: Context?,
         action: String?,
         intent: Intent?,
         pendingResult: PendingResult?,
@@ -106,10 +106,10 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val extras = Bundle()
         val resultCode =
             try {
-                if (ActionProbeDns.equals(action)) {
-                    runDnsProbe(context, intent, extras)
-                } else {
-                    runTcpProbe(intent, extras)
+                when {
+                    ActionProbeDns.equals(action) -> runDnsProbe(intent, extras)
+                    ActionProbeTcp.equals(action) -> runTcpProbe(intent, extras)
+                    else -> extras.putBoolean(ExtraOk, true)
                 }
                 Activity.RESULT_OK
             } catch (error: Throwable) {
@@ -160,7 +160,6 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     }
 
     private fun runDnsProbe(
-        context: Context?,
         intent: Intent,
         extras: Bundle,
     ) {
@@ -173,7 +172,6 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         requireProbePort(serverPort, "Invalid port extra: $serverPort")
         requireProbeHost(queryHost, "Missing query host extra")
         val checkedQueryHost = queryHost ?: throw IllegalArgumentException("Missing query host extra")
-
         val requestId = Random().nextInt(0x1_0000)
         val query = buildDnsQuery(checkedQueryHost, requestId)
         val startedAt = SystemClock.elapsedRealtime()
@@ -184,12 +182,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             putLocalDatagramSocket(extras, socket)
 
             socket.send(DatagramPacket(query, query.size))
-            sendProbeSignal(
-                context = context,
-                signalId = intent.getStringExtra(ExtraProbeSignalId),
-                packageName = intent.getStringExtra(ExtraProbeSignalPackage),
-                event = ProbeSignalDnsDatagramSent,
-            )
+            sendProbeSignal(intent)
 
             val responseBytes = ByteArray(DnsPacketMaxBytes)
             val incomingPacket = DatagramPacket(responseBytes, responseBytes.size)
@@ -229,22 +222,28 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         extras.putInt(ExtraLocalPort, socket.localPort)
     }
 
-    private fun sendProbeSignal(
-        context: Context?,
-        signalId: String?,
-        packageName: String?,
-        event: String,
-    ) {
-        if (context == null || signalId == null || packageName == null) {
-            return
+    private fun sendProbeSignal(intent: Intent) {
+        val signalId = intent.getStringExtra(ExtraProbeSignalId) ?: return
+        val binder =
+            intent.probeSignalBinder()
+                ?: throw IOException("Missing probe signal binder for signal id $signalId")
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeString(signalId)
+            if (!binder.transact(ProbeSignalDnsDatagramSentCode, data, reply, 0)) {
+                throw IOException("Probe signal binder rejected the datagram-sent transaction")
+            }
+            if (reply.readInt() != 1) {
+                throw IOException("Probe signal binder rejected the datagram-sent signal")
+            }
+        } finally {
+            reply.recycle()
+            data.recycle()
         }
-        context.sendBroadcast(
-            Intent(ActionProbeSignal)
-                .setPackage(packageName)
-                .putExtra(ExtraProbeSignalId, signalId)
-                .putExtra(ExtraProbeSignalEvent, event),
-        )
     }
+
+    private fun Intent.probeSignalBinder(): IBinder? = extras?.getBinder(ExtraProbeSignalBinder)
 
     private fun readTcpProbeResponse(
         input: InputStream,
@@ -547,13 +546,12 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
 
 private class ProbeRunnable(
     private val receiver: TestNetworkProbeReceiver?,
-    private val context: Context?,
     private val action: String?,
     private val intent: Intent?,
     private val pendingResult: BroadcastReceiver.PendingResult?,
 ) : Runnable {
     override fun run() {
         val checkedReceiver = receiver ?: return
-        checkedReceiver.completeProbe(context, action, intent, pendingResult)
+        checkedReceiver.completeProbe(action, intent, pendingResult)
     }
 }

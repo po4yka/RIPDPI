@@ -1,10 +1,11 @@
 package com.poyka.ripdpi.e2e
 
 import android.Manifest
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
+import android.os.Binder
+import android.os.IBinder
+import android.os.Parcel
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
@@ -60,11 +61,12 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 private const val GateStartTimeoutMs = 10_000L
-private const val GateClosedObservationMs = 500L
-private const val ProbeDatagramSentTimeoutMs = 2_000L
+private const val GateClosedObservationMs = 250L
+private const val ProbeDatagramSentTimeoutMs = 1_500L
 private const val ProbeResponseTimeoutMs = 12_000L
 private const val GateReleaseTimeoutMs = 10_000L
-private const val ControlReadTimeoutMs = 2_000L
+private const val StartupWindowAssertionBudgetMs = 4_000L
+private const val ControlReadTimeoutMs = 750L
 private const val ControlRequestPaddingBytes = 4_096
 
 @HiltAndroidTest
@@ -166,13 +168,13 @@ class VpnStartupWindowE2ETest {
             val gateCycle = VpnStartupWindowGate.arm()
             val signalId = "vpn-startup-${UUID.randomUUID()}"
             val probeSignalAwaiter = ProbeSignalAwaiter(signalId)
-            probeSignalAwaiter.register()
             var dnsProbe: Deferred<AppProcessDnsProbeResult>? = null
 
             try {
+                warmTestNetworkProbeReceiver()
                 startService(RipDpiVpnService::class.java)
                 gateCycle.awaitStartEntered()
-
+                val startupWindowAssertionStartedAt = SystemClock.elapsedRealtime()
                 val queryHost = "startup-${SystemClock.elapsedRealtime()}.${fixture.fixtureDomain}"
                 dnsProbe =
                     async(Dispatchers.IO) {
@@ -182,13 +184,15 @@ class VpnStartupWindowE2ETest {
                             serverPort = fixture.dnsUdpPort,
                             timeoutMs = ProbeResponseTimeoutMs,
                             signalId = signalId,
+                            probeSignalBinder = probeSignalAwaiter.signalBinder,
                         )
                     }
 
                 assertTrue(
-                    "Test-process DNS probe never sent its UDP datagram into the startup window",
+                    "Warm test-process DNS probe never sent its UDP datagram into the startup window",
                     probeSignalAwaiter.awaitDnsDatagramSent(ProbeDatagramSentTimeoutMs),
                 )
+                probeSignalAwaiter.assertNoUnexpectedEvents()
                 delay(GateClosedObservationMs)
                 assertFalse(
                     "DNS probe completed before native tunnel start was released",
@@ -205,6 +209,13 @@ class VpnStartupWindowE2ETest {
                     events = closedWindowEvents,
                     queryHost = queryHost,
                     message = "Fixture observed DNS UDP before native tunnel start was released",
+                )
+                val startupWindowAssertionElapsedMs =
+                    SystemClock.elapsedRealtime() - startupWindowAssertionStartedAt
+                assertTrue(
+                    "Startup-window assertions exceeded the fail-closed native-start budget: " +
+                        "$startupWindowAssertionElapsedMs ms",
+                    startupWindowAssertionElapsedMs < StartupWindowAssertionBudgetMs,
                 )
 
                 gateCycle.release()
@@ -260,7 +271,6 @@ class VpnStartupWindowE2ETest {
                 gateCycle.release()
                 dnsProbe?.takeIf { it.isActive }?.cancelAndJoin()
                 statusCollector.cancelAndJoin()
-                probeSignalAwaiter.close()
             }
         }
 
@@ -343,44 +353,51 @@ class VpnStartupWindowE2ETest {
 private class ProbeSignalAwaiter(
     private val signalId: String,
 ) {
-    private val context: Context = ApplicationProvider.getApplicationContext()
+    private val unexpectedEvents = CopyOnWriteArrayList<String>()
     private val dnsDatagramSent = CountDownLatch(1)
-    private var registered = false
-    private val receiver =
-        object : BroadcastReceiver() {
-            override fun onReceive(
-                context: Context?,
-                intent: Intent?,
-            ) {
-                if (
-                    intent?.action == ActionProbeSignal &&
-                    intent.getStringExtra(ExtraProbeSignalId) == signalId &&
-                    intent.getStringExtra(ExtraProbeSignalEvent) == ProbeSignalDnsDatagramSent
-                ) {
-                    dnsDatagramSent.countDown()
+    private val observedState = AtomicInteger(0)
+    val signalBinder: IBinder =
+        object : Binder() {
+            override fun onTransact(
+                code: Int,
+                data: Parcel,
+                reply: Parcel?,
+                flags: Int,
+            ): Boolean =
+                when (code) {
+                    ProbeSignalDnsDatagramSentCode -> handleProbeSignal(data, reply)
+                    else -> super.onTransact(code, data, reply, flags)
                 }
-            }
         }
 
-    fun register() {
-        check(!registered) { "Probe signal receiver already registered" }
-        ContextCompat.registerReceiver(
-            context,
-            receiver,
-            IntentFilter(ActionProbeSignal),
-            ContextCompat.RECEIVER_EXPORTED,
-        )
-        registered = true
+    private fun handleProbeSignal(
+        data: Parcel,
+        reply: Parcel?,
+    ): Boolean {
+        val receivedSignalId = data.readString()
+        if (receivedSignalId != signalId) {
+            unexpectedEvents += "datagram_sent id=$receivedSignalId"
+            reply?.writeInt(0)
+            return true
+        }
+        if (!observedState.compareAndSet(0, 1)) {
+            unexpectedEvents += "duplicate datagram_sent at state=${observedState.get()}"
+            reply?.writeInt(0)
+            return true
+        }
+        dnsDatagramSent.countDown()
+        reply?.writeInt(1)
+        return true
     }
 
-    fun awaitDnsDatagramSent(timeoutMs: Long): Boolean = dnsDatagramSent.await(timeoutMs, TimeUnit.MILLISECONDS)
+    fun awaitDnsDatagramSent(timeoutMs: Long): Boolean {
+        val sent = dnsDatagramSent.await(timeoutMs, TimeUnit.MILLISECONDS)
+        assertNoUnexpectedEvents()
+        return sent
+    }
 
-    fun close() {
-        if (!registered) {
-            return
-        }
-        context.unregisterReceiver(receiver)
-        registered = false
+    fun assertNoUnexpectedEvents() {
+        assertTrue("Unexpected probe signal events: $unexpectedEvents", unexpectedEvents.isEmpty())
     }
 }
 
