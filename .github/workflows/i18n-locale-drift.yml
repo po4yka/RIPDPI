@@ -16,18 +16,18 @@ on:
   push:
     branches: [main]
     paths:
-      - "app/src/main/res/values/strings.xml"
-      - "app/src/main/res/values-*/strings.xml"
-      - "core/service/src/main/res/values/strings.xml"
-      - "core/service/src/main/res/values-*/strings.xml"
+      - "app/src/main/res/values*/*.xml"
+      - "app/src/main/res/xml/locales_config.xml"
+      - "app/src/simple/res/values*/*.xml"
+      - "core/service/src/main/res/values*/*.xml"
       - "scripts/ci/check-locale-parity.sh"
       - ".github/workflows/i18n-locale-drift.yml"
   pull_request:
     paths:
-      - "app/src/main/res/values/strings.xml"
-      - "app/src/main/res/values-*/strings.xml"
-      - "core/service/src/main/res/values/strings.xml"
-      - "core/service/src/main/res/values-*/strings.xml"
+      - "app/src/main/res/values*/*.xml"
+      - "app/src/main/res/xml/locales_config.xml"
+      - "app/src/simple/res/values*/*.xml"
+      - "core/service/src/main/res/values*/*.xml"
       - "scripts/ci/check-locale-parity.sh"
       - ".github/workflows/i18n-locale-drift.yml"
 
