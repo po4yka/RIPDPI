@@ -588,7 +588,7 @@
     <string name="config_overview_title">نمایه</string>
     <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_vpn_config">پیکربندی VPN</string>
-    <string name="config_mode_sections_title">جزئیات حالت</string>
+    <string name="config_mode_sections_title">پیکربندی</string>
     <string name="config_local_bypass_section_body">مسیر پراکسی روی دستگاه، DNS و کنترل‌های راهبرد عبور را تنظیم کنید.</string>
     <string name="config_local_bypass_simple_title">عبور محلی</string>
     <string name="config_local_bypass_simple_body">از مسیر عبور روی دستگاه با راهبرد عبور خودکار پیشنهادی استفاده کنید.</string>

@@ -74,17 +74,31 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `mode section chips expose radio button semantics`() {
+    fun `mode section tabs expose tab semantics`() {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.LocalBypass.stableKey))
-            .assertHasRole(Role.RadioButton)
+            .assertHasRole(Role.Tab)
             .assertIsSelected()
         composeRule
             .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.Vpn.stableKey))
-            .assertHasRole(Role.RadioButton)
+            .assertHasRole(Role.Tab)
             .assertIsNotSelected()
+    }
+
+    @Test
+    fun `connection card labels section navigation and traffic endpoint selection`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
+
+        composeRule.onNodeWithText("Configure").assertExists()
+        composeRule
+            .onNodeWithTag("config-section-navigation")
+            .assertContentDescription("Configure")
+        composeRule.onNodeWithText("Choose traffic mode").assertExists()
+        composeRule
+            .onNodeWithTag("config-traffic-endpoint-selection")
+            .assertContentDescription("Choose traffic mode")
     }
 
     @Test
@@ -99,6 +113,26 @@ class ConfigScreenTest {
             .onNodeWithTag(RipDpiTestTags.configMode(Mode.Proxy.name))
             .assertHasRole(Role.RadioButton)
             .assertIsNotSelected()
+    }
+
+    @Test
+    fun `traffic endpoint choice invokes mode callback without changing section`() {
+        val selectedModes = mutableListOf<Mode>()
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.LocalBypass,
+            onModeSelected = { selectedModes += it },
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configMode(Mode.Proxy.name))
+            .performClick()
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.LocalBypass.stableKey))
+            .assertIsSelected()
+        composeRule.runOnIdle {
+            assertEquals(listOf(Mode.Proxy), selectedModes)
+        }
     }
 
     @Test

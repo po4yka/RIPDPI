@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
@@ -18,6 +19,7 @@ import kotlinx.collections.immutable.persistentListOf
 data class RipDpiTab(
     val key: String,
     val label: String,
+    val testTag: String? = null,
 )
 
 /**
@@ -54,6 +56,7 @@ fun RipDpiTabs(
             Tab(
                 selected = isSelected,
                 onClick = { onSelect(index) },
+                modifier = Modifier.ripDpiTestTag(tab.testTag),
                 selectedContentColor = colors.foreground,
                 unselectedContentColor = colors.mutedForeground,
             ) {

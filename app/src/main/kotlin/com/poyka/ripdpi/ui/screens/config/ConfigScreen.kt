@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,6 +40,8 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
@@ -49,6 +52,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 enum class ConfigEditorTarget {
     Bypass,
@@ -182,6 +186,8 @@ fun ConfigScreen(
             ConfigModeChips(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
+                label = stringResource(R.string.onboarding_setup_mode_title),
+                groupTestTag = RipDpiTestTags.ConfigTrafficEndpointSelection,
             )
         }
 
@@ -246,31 +252,35 @@ internal fun ConfigModeSectionSwitcher(
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val groupLabel = stringResource(R.string.config_mode_sections_title)
+    val sections = ConfigModeSection.entries
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(
-            text = stringResource(R.string.config_mode_sections_title),
+            text = groupLabel,
             style = RipDpiThemeTokens.type.secondaryBody,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
-        FlowRow(
-            modifier = Modifier.selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            ConfigModeSection.entries.forEach { section ->
-                RipDpiChip(
-                    text = stringResource(configModeSectionTitleRes(section)),
-                    selected = selectedSection == section,
-                    onClick = { onSectionSelected(section) },
-                    role = Role.RadioButton,
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configModeSection(section.stableKey)),
-                )
-            }
-        }
+        RipDpiTabs(
+            tabs =
+                sections
+                    .map { section ->
+                        RipDpiTab(
+                            key = section.stableKey,
+                            label = stringResource(configModeSectionTitleRes(section)),
+                            testTag = RipDpiTestTags.configModeSection(section.stableKey),
+                        )
+                    }.toImmutableList(),
+            selectedIndex = sections.indexOf(selectedSection),
+            onSelect = { index -> sections.getOrNull(index)?.let(onSectionSelected) },
+            modifier =
+                Modifier
+                    .ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation)
+                    .semantics { contentDescription = groupLabel },
+        )
     }
 }
 
@@ -320,27 +330,52 @@ internal fun ConfigModeChips(
     selectedMode: Mode,
     onModeSelected: (Mode) -> Unit,
     modifier: Modifier = Modifier,
+    label: String? = null,
+    groupTestTag: String? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
-    Row(
-        modifier = modifier.fillMaxWidth().selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        RipDpiChip(
-            text = stringResource(modeLabelRes(Mode.VPN)),
-            selected = selectedMode == Mode.VPN,
-            onClick = { onModeSelected(Mode.VPN) },
-            role = Role.RadioButton,
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.VPN.name)),
-        )
-        RipDpiChip(
-            text = stringResource(modeLabelRes(Mode.Proxy)),
-            selected = selectedMode == Mode.Proxy,
-            onClick = { onModeSelected(Mode.Proxy) },
-            role = Role.RadioButton,
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.Proxy.name)),
-        )
+        label?.let {
+            Text(
+                text = it,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .selectableGroup()
+                    .ripDpiTestTag(groupTestTag)
+                    .then(
+                        if (label == null) {
+                            Modifier
+                        } else {
+                            Modifier.semantics { contentDescription = label }
+                        },
+                    ),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            RipDpiChip(
+                text = stringResource(modeLabelRes(Mode.VPN)),
+                selected = selectedMode == Mode.VPN,
+                onClick = { onModeSelected(Mode.VPN) },
+                role = Role.RadioButton,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.VPN.name)),
+            )
+            RipDpiChip(
+                text = stringResource(modeLabelRes(Mode.Proxy)),
+                selected = selectedMode == Mode.Proxy,
+                onClick = { onModeSelected(Mode.Proxy) },
+                role = Role.RadioButton,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.Proxy.name)),
+            )
+        }
     }
 }
 

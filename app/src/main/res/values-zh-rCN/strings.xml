@@ -1126,7 +1126,7 @@ fakeddisorder endhost</string>
     <string name="config_error_invalid_marker">请输入有效的标记表达式。</string>
     <string name="config_error_required">此字段为必填项。</string>
     <string name="config_listen_address_summary">本地代理监听器绑定的位置</string>
-    <string name="config_mode_sections_title">模式详情</string>
+    <string name="config_mode_sections_title">配置</string>
     <string name="config_overview_title">配置档</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>

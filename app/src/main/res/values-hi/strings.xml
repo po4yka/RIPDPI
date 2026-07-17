@@ -587,7 +587,7 @@
     <string name="config_overview_title">प्रोफ़ाइल</string>
     <string name="title_local_bypass_config">लोकल बायपास कॉन्फ़िग</string>
     <string name="title_vpn_config">VPN कॉन्फ़िग</string>
-    <string name="config_mode_sections_title">मोड विवरण</string>
+    <string name="config_mode_sections_title">कॉन्फ़िगर करें</string>
     <string name="config_local_bypass_section_body">डिवाइस पर मौजूद प्रॉक्सी पथ, DNS, और बायपास रणनीति नियंत्रण समायोजित करें.</string>
     <string name="config_local_bypass_simple_title">लोकल बायपास</string>
     <string name="config_local_bypass_simple_body">अनुशंसित स्वचालित बायपास रणनीति के साथ डिवाइस पर मौजूद बायपास पथ का उपयोग करें.</string>

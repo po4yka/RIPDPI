@@ -597,7 +597,7 @@
     <string name="config_overview_title">Profile</string>
     <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_vpn_config">VPN config</string>
-    <string name="config_mode_sections_title">Mode details</string>
+    <string name="config_mode_sections_title">Configure</string>
     <string name="config_local_bypass_section_body">Tune the on-device proxy path, DNS, and bypass strategy controls.</string>
     <string name="config_local_bypass_simple_title">Local bypass</string>
     <string name="config_local_bypass_simple_body">Use the on-device bypass path with the recommended automatic bypass strategy.</string>

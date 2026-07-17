@@ -584,7 +584,7 @@
     <string name="config_overview_title">الملف الشخصي</string>
     <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_vpn_config">إعدادات VPN</string>
-    <string name="config_mode_sections_title">تفاصيل الوضع</string>
+    <string name="config_mode_sections_title">الإعداد</string>
     <string name="config_local_bypass_section_body">اضبط مسار الوكيل المحلي وDNS وعناصر التحكم في استراتيجية التجاوز.</string>
     <string name="config_local_bypass_simple_title">تجاوز محلي</string>
     <string name="config_local_bypass_simple_body">استخدم مسار التجاوز على الجهاز مع استراتيجية التجاوز التلقائية الموصى بها.</string>
