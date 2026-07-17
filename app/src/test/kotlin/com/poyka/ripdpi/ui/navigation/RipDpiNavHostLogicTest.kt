@@ -164,6 +164,15 @@ class RipDpiNavHostLogicTest {
     @Test
     fun `UI audit spec covers or explains every registered route`() {
         val auditSpec = File("../scripts/guide/specs/ui-ux-audit.yaml").readText()
+
+        assertAuditRouteCoverage(auditSpec)
+        assertAuditRequiredTags(auditSpec)
+        assertAuditExpectedRoots(auditSpec)
+        assertFalse(auditSpec.contains("strategy_import"))
+        assertFalse(auditSpec.contains("profile_variants"))
+    }
+
+    private fun assertAuditRouteCoverage(auditSpec: String) {
         val pageRoutes =
             Regex("""(?m)^    route: "([^"]+)"$""")
                 .findAll(auditSpec)
@@ -184,9 +193,9 @@ class RipDpiNavHostLogicTest {
         assertEquals("Every exclusion needs a prerequisite and reason", declaredExclusionRoutes, excludedRoutes)
         assertEquals(emptySet<String>(), pageRoutes intersect excludedRoutes)
         assertEquals("Audit route coverage drifted", registeredRoutes, pageRoutes + excludedRoutes)
-        assertFalse(auditSpec.contains("strategy_import"))
-        assertFalse(auditSpec.contains("profile_variants"))
+    }
 
+    private fun assertAuditRequiredTags(auditSpec: String) {
         val testTagsSource = File("src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt").readText()
         val staticTestTags =
             Regex("""const val [A-Za-z0-9_]+ = "([^"]+)"""")
@@ -248,7 +257,9 @@ class RipDpiNavHostLogicTest {
             emptySet<String>(),
             requiredTestTags - usedStaticTestTags - generatedTestTags,
         )
+    }
 
+    private fun assertAuditExpectedRoots(auditSpec: String) {
         Regex("""(?ms)^  - id: .*?(?=^  - id: |\z)""").findAll(auditSpec).forEach { match ->
             val block = match.value
             val route = Regex("""(?m)^    route: "([^"]+)"$""").find(block)?.groupValues?.get(1)
