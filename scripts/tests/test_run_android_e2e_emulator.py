@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -21,6 +22,7 @@ VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "debug/flavors/githubFull"
 WRONG_VARIANT_RESULTS_RELATIVE = RESULTS_RELATIVE / "githubFullDebug"
 
 FAKE_GRADLE = r'''#!/usr/bin/env python3
+import json
 import os
 import sys
 from pathlib import Path
@@ -29,6 +31,8 @@ runner_temp = Path(os.environ["RUNNER_TEMP"])
 count_file = runner_temp / "gradle-count"
 count = int(count_file.read_text(encoding="utf-8")) + 1 if count_file.exists() else 1
 count_file.write_text(str(count), encoding="utf-8")
+with (runner_temp / "gradle-args.jsonl").open("a", encoding="utf-8") as output:
+    output.write(json.dumps(sys.argv[1:]) + "\n")
 
 results_root = Path(
     "app/build/outputs/androidTest-results/connected/debug/flavors/githubFull"
@@ -127,6 +131,21 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
         self.assertIn("validated 1 testcases", completed.stdout)
         self.assertIn("validated 2 testcases", completed.stdout)
         self.assertTrue(wrong_variant.is_file())
+
+    def test_runner_uses_ci_native_abi_override(self) -> None:
+        completed = self.run_runner()
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        invocations = [
+            json.loads(line)
+            for line in (self.runner_temp / "gradle-args.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        self.assertEqual(len(invocations), 2)
+        for arguments in invocations:
+            self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", arguments)
+            self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", arguments)
 
     def test_runner_rejects_missing_second_run_results(self) -> None:
         completed = self.run_runner(OMIT_SECOND_RESULTS="1")

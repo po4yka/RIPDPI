@@ -11,7 +11,7 @@ event_name="${1:-}"
 run_maestro="${2:-false}"
 run_appium="${3:-false}"
 
-GRADLE_ABI="-Pripdpi.localNativeAbis=x86_64"
+GRADLE_ABI="-Pripdpi.nativeAbisOverride=x86_64"
 TARGET_FILE="${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
 RESULTS_DIR="app/build/outputs/androidTest-results/connected/debug/flavors/githubFull"
 RESULT_VALIDATOR="$script_dir/validate_android_junit_results.py"
