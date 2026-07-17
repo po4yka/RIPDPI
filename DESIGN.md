@@ -698,14 +698,14 @@ Contrast changes tighten readability rather than recolor the app:
 
 Agents should preserve semantic role names across variants rather than introducing theme-specific content branches unless a screen is intentionally showing theme comparison.
 
-## Persona (Simple/Advanced)
+## Persona (Guided/Advanced)
 
-RIPDPI uses one global persona, `Simple` or `Advanced`, set during onboarding and changeable from Settings.
+RIPDPI uses one global persona, `Guided` or `Advanced`, set during onboarding and changeable from Settings.
 
-- Simple keeps state visible but collapses low-level controls behind in-place Advanced expanders; it may choose defaults such as Auto bypass strategy and one-tap apply only when verdict confidence is HIGH
-- Simple must present a choice at MEDIUM or LOW verdict confidence instead of silently applying a recommendation
+- Guided keeps state visible but collapses low-level controls behind in-place Advanced expanders; it may choose defaults such as an automatic traffic-path strategy and one-tap apply only when verdict confidence is HIGH
+- Guided must present a choice at MEDIUM or LOW verdict confidence instead of silently applying a recommendation
 - Advanced exposes the full operator surface: probe matrix, replay, PCAP, archive export, profile binding, chain editing, TTL, engine parameters, CLI overrides, protocol grids, and manual strategy controls
-- every Advanced-only control remains reachable from Simple through an in-place `Advanced` expander on the same screen or flow, not by requiring a separate hidden route
+- every Advanced-only control remains reachable from Guided through an in-place `Advanced` expander on the same screen or flow, not by requiring a separate hidden route
 - persona changes must not fork the visual language; they adjust disclosure depth, autonomy, and defaults while preserving the same scaffolds, tokens, and status semantics
 
 ## Screen Recipes
@@ -723,11 +723,11 @@ Settings and advanced settings:
 - use `RipDpiSettingsScaffold` or `RipDpiContentScreenScaffold` with form-width constraints
 - compose with `SettingsRow`, `RipDpiCard`, and section labels
 - keep controls dense, aligned, and monotone by default
-- include the global Simple/Advanced persona toggle and navigation entries for advanced destinations such as Logs
+- include the global Guided/Advanced persona toggle and navigation entries for advanced destinations such as Logs
 
 Diagnose:
 
-- structure Simple Diagnose as a diagnostics-first funnel: run a check, show a per-network verdict, then offer one-tap apply for the recommended traffic path when confidence allows it
+- structure Guided Diagnose as a diagnostics-first funnel: run a check, show a per-network verdict, then offer one-tap apply for the recommended traffic path when confidence allows it
 - keep Advanced Diagnose available through in-place disclosure for the probe matrix, replay, PCAP, archive export, sessions, and events
 - prefer card and banner groupings over unstructured long text
 - use monospace styles for probes, labels, and low-level evidence where the data is operator-facing
@@ -743,7 +743,7 @@ Connection and profiles:
 
 - use filled text fields and monospace values for exact strings and protocol-oriented inputs
 - fold preset and mode editing into one user-facing Profile concept; "Starter profile" names built-in recommended starting points, while saved user bundles are Profiles
-- present Simple Connection as the configuration surface for the two traffic paths, with on/off, automatic strategy, Add server, and re-test entry points
+- present Guided Connection as the configuration surface for the two traffic paths, with on/off, automatic strategy, Add server, and re-test entry points
 - expose Advanced Connection controls for profile binding, protocol grids, chain relay, TTL, engine parameters, Finalmask, manual strategy, and CLI overrides through dense forms
 - show validation and destructive affordances explicitly, never implicitly
 
@@ -773,8 +773,8 @@ Dense settings list:
 Diagnostics evidence panel:
 
 - use cards, headers, rows, and monospace values to group evidence into scannable blocks
-- separate the Simple funnel, progress, verdict, recommendation, and latest evidence into clear section boundaries
-- keep Advanced evidence controls in expanders, sheets, or dialogs when Simple persona is active
+- separate the Guided funnel, progress, verdict, recommendation, and latest evidence into clear section boundaries
+- keep Advanced evidence controls in expanders, sheets, or dialogs when Guided persona is active
 - move deep detail into sheets or dialogs instead of endlessly expanding the main stack
 - use semantic tone only when it changes operator judgment
 
@@ -794,10 +794,10 @@ Intro hero plus footer flow:
 
 Persona disclosure:
 
-- use an in-place Advanced expander for every Simple screen that owns expert controls
-- keep collapsed summaries factual enough that Simple users can see what state exists before expanding
-- preserve route reachability for Advanced-only destinations through the owning Simple surface or Settings
-- do not create parallel Simple and Advanced screen trees for the same task
+- use an in-place Advanced expander for every Guided screen that owns expert controls
+- keep collapsed summaries factual enough that Guided users can see what state exists before expanding
+- preserve route reachability for Advanced-only destinations through the owning Guided surface or Settings
+- do not create parallel Guided and Advanced screen trees for the same task
 
 ## Screen Contracts
 
@@ -816,7 +816,7 @@ Status:
 Diagnose:
 
 - anchor the screen with `RipDpiScreenScaffold`, `RipDpiTopAppBar`, and `DiagnosticsSectionSwitcher`
-- make the Simple entry a diagnostics-first funnel: one check button, plain-language per-network verdict, and one-tap apply for the recommended traffic path
+- make the Guided entry a diagnostics-first funnel: one check button, plain-language per-network verdict, and one-tap apply for the recommended traffic path
 - auto-apply recommendations only at HIGH confidence; at MEDIUM or LOW confidence, present choices and explain uncertainty
 - surface remembered per-network evidence, such as "worked last time on this network," without implying certainty beyond the stored verdict
 - keep dashboard, scan, and tools responsibilities separated instead of mixing them into one card stack
@@ -840,7 +840,7 @@ Settings:
 - compose sections from `SettingsCategoryHeader`, `RipDpiCard`, and `SettingsRow`
 - let banners precede the affected card, not replace the card structure
 - use banners for cautions and permission guidance, and dialogs or form controls for edits and confirmations
-- expose the global Simple/Advanced persona control and keep persona state persistent across process death
+- expose the global Guided/Advanced persona control and keep persona state persistent across process death
 - include a Logs navigation row and any Advanced-only utility destinations that do not have a better owning surface
 - keep advanced settings in the same dense list language instead of switching to a different visual system
 
@@ -849,7 +849,7 @@ Connection:
 - treat Connection as the replacement for the former Config and Mode editor user-facing IA
 - collapse preset and mode into one Profile concept; Starter profiles are built-in starting points, and saved user bundles are Profiles
 - configure the two traffic paths here: Local bypass and VPN
-- Simple Connection exposes on/off, "Bypass strategy: Auto", re-test strategies, Add server, paste/QR/scan import, and inferred protocol handling without a protocol grid
-- Advanced Connection exposes the full protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual bypass strategy, CLI overrides, and exact text fields
+- Guided Connection exposes on/off, "Path strategy: Auto", re-test strategies, Add server, paste/QR/scan import, and inferred protocol handling without a protocol grid
+- Advanced Connection exposes the full protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields
 - use Profile cards for profile choice and `SettingsRow` for summary values
 - keep exact editing as a bounded form with network, relay, engine, and override sections, plus a persistent cancel/save bottom bar and explicit validation feedback

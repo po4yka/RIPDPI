@@ -2097,6 +2097,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_provider_body">resolver %1$s که از %2$s به‌عنوان نشانی اصلی استفاده می‌کند.</string>
     <string name="onboarding_setup_finish">پایان</string>
     <string name="onboarding_setup_mode_title">حالت ترافیک را انتخاب کنید</string>
+    <string name="config_traffic_mode_title">حالت ترافیک را انتخاب کنید</string>
     <string name="onboarding_setup_next">بعدی</string>
     <string name="onboarding_setup_test_run">اجرای تست</string>
     <string name="onboarding_setup_test_title">اتصال خود را تست کنید</string>

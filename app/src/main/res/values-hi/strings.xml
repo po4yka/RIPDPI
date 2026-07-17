@@ -1590,6 +1590,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_privacy_body">कोई टेलीमेट्री नहीं, कोई ट्रैकिंग नहीं, कोई अकाउंट नहीं। सेटिंग्स और डायग्नोस्टिक्स इतिहास आपके डिवाइस पर ही रहते हैं, जब तक आप उन्हें स्पष्ट रूप से एक्सपोर्ट न करें।</string>
 
     <string name="onboarding_setup_mode_title">ट्रैफ़िक मोड चुनें</string>
+    <string name="config_traffic_mode_title">ट्रैफ़िक मोड चुनें</string>
     <string name="onboarding_setup_mode_vpn_title">VPN मोड</string>
     <string name="onboarding_setup_mode_vpn_body">सभी ऐप ट्रैफ़िक को डिवाइस पर मौजूद स्थानीय VPN के ज़रिए रूट करता है। पूर्ण कवरेज, कोई मैन्युअल सेटअप नहीं।</string>
     <string name="onboarding_setup_mode_proxy_title">Proxy मोड</string>

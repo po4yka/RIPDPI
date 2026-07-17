@@ -18,8 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -186,7 +184,7 @@ fun ConfigScreen(
             ConfigModeChips(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
-                label = stringResource(R.string.onboarding_setup_mode_title),
+                label = stringResource(R.string.config_traffic_mode_title),
                 groupTestTag = RipDpiTestTags.ConfigTrafficEndpointSelection,
             )
         }
@@ -276,10 +274,7 @@ internal fun ConfigModeSectionSwitcher(
                     }.toImmutableList(),
             selectedIndex = sections.indexOf(selectedSection),
             onSelect = { index -> sections.getOrNull(index)?.let(onSectionSelected) },
-            modifier =
-                Modifier
-                    .ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation)
-                    .semantics { contentDescription = groupLabel },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation),
         )
     }
 }
@@ -351,14 +346,7 @@ internal fun ConfigModeChips(
                 Modifier
                     .fillMaxWidth()
                     .selectableGroup()
-                    .ripDpiTestTag(groupTestTag)
-                    .then(
-                        if (label == null) {
-                            Modifier
-                        } else {
-                            Modifier.semantics { contentDescription = label }
-                        },
-                    ),
+                    .ripDpiTestTag(groupTestTag),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiChip(

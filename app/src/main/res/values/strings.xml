@@ -1617,6 +1617,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_privacy_body">No telemetry, no tracking, no accounts. Settings and diagnostics history stay on your device unless you explicitly export them.</string>
 
     <string name="onboarding_setup_mode_title">Choose traffic mode</string>
+    <string name="config_traffic_mode_title">Choose traffic mode</string>
     <string name="onboarding_setup_mode_vpn_title">VPN mode</string>
     <string name="onboarding_setup_mode_vpn_body">Routes all app traffic through a local on-device VPN. Full coverage, no manual setup.</string>
     <string name="onboarding_setup_mode_proxy_title">Proxy mode</string>

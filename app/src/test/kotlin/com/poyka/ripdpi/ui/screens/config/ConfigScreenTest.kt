@@ -88,17 +88,17 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `connection card labels section navigation and traffic endpoint selection`() {
+    fun `connection card exposes visible group labels without duplicate descriptions`() {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
 
         composeRule.onNodeWithText("Configure").assertExists()
         composeRule
-            .onNodeWithTag("config-section-navigation")
-            .assertContentDescription("Configure")
+            .onNodeWithTag(RipDpiTestTags.ConfigSectionNavigation)
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
         composeRule.onNodeWithText("Choose traffic mode").assertExists()
         composeRule
-            .onNodeWithTag("config-traffic-endpoint-selection")
-            .assertContentDescription("Choose traffic mode")
+            .onNodeWithTag(RipDpiTestTags.ConfigTrafficEndpointSelection)
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
     }
 
     @Test
@@ -132,6 +132,27 @@ class ConfigScreenTest {
             .assertIsSelected()
         composeRule.runOnIdle {
             assertEquals(listOf(Mode.Proxy), selectedModes)
+        }
+    }
+
+    @Test
+    fun `traffic endpoint choice can return from proxy to vpn without changing section`() {
+        val selectedModes = mutableListOf<Mode>()
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.LocalBypass,
+            onModeSelected = { selectedModes += it },
+            activeMode = Mode.Proxy,
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configMode(Mode.VPN.name))
+            .performClick()
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.LocalBypass.stableKey))
+            .assertIsSelected()
+        composeRule.runOnIdle {
+            assertEquals(listOf(Mode.VPN), selectedModes)
         }
     }
 

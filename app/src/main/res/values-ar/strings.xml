@@ -1585,6 +1585,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_privacy_title">شفَّافية بالتصميم</string>
     <string name="onboarding_privacy_body">بدون قياس عن بُعد، بدون تتبُّع، بدون حسابات. تبقى الإعدادات وسجل التشخيصات على جهازك ما لم تصدِّرها صراحةً.</string>
     <string name="onboarding_setup_mode_title">اختر وضع الحركة</string>
+    <string name="config_traffic_mode_title">اختر وضع الحركة</string>
     <string name="onboarding_setup_mode_vpn_title">وضع VPN</string>
     <string name="onboarding_setup_mode_vpn_body">يوجِّه جميع حركة التطبيقات عبر VPN محلي على الجهاز. تغطية كاملة، بدون إعداد يدوي.</string>
     <string name="onboarding_setup_mode_proxy_title">وضع الوكيل</string>

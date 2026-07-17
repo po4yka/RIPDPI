@@ -1976,6 +1976,7 @@ Quelle: %2$s</string>
     <string name="onboarding_setup_dns_system_body">Verwenden Sie die DNS-Server Ihres Netzwerks unverändert.</string>
     <string name="onboarding_setup_dns_provider_body">%1$s-Resolver mit %2$s als primärer Adresse.</string>
     <string name="onboarding_setup_mode_title">Datenverkehrsmodus wählen</string>
+    <string name="config_traffic_mode_title">Datenverkehrsmodus wählen</string>
     <string name="onboarding_setup_test_hint">Überprüfen Sie Ihre Internetverbindung, bevor Sie loslegen.</string>
     <string name="onboarding_setup_validate_title">Verbindung testen</string>
     <string name="onboarding_setup_validate_mode_title">%1$s validieren</string>

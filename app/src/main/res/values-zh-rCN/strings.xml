@@ -1941,6 +1941,7 @@ fake_burst 3</string>
     <string name="onboarding_setup_dns_google_body">由 Google 提供的可靠 DNS。</string>
     <string name="onboarding_setup_dns_title">选择 DNS</string>
     <string name="onboarding_setup_mode_title">选择流量模式</string>
+    <string name="config_traffic_mode_title">选择流量模式</string>
     <string name="onboarding_setup_test_failed">连接失败:%1$s</string>
     <string name="onboarding_setup_test_success">已在 %1$d 毫秒内连接</string>
     <string name="onboarding_validation_checking_proxy">正在通过代理模式检查流量…</string>
