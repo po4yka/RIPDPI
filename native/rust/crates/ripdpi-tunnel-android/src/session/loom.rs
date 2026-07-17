@@ -23,11 +23,9 @@ fn loom_starting_blocks_concurrent_start() {
             ensure_tunnel_start_allowed(&s).is_ok()
         });
 
-        let r1 = t1.join().unwrap();
-        let r2 = t2.join().unwrap();
         // Both threads observe Starting; neither is allowed to start.
-        assert!(!r1, "start must be rejected when Starting");
-        assert!(!r2, "start must be rejected when Starting");
+        assert!(!t1.join().unwrap(), "start must be rejected when Starting");
+        assert!(!t2.join().unwrap(), "start must be rejected when Starting");
     });
 }
 

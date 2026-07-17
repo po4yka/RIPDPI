@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
 
-use super::super::registry::{TunnelSession, TunnelSessionState};
+use super::super::registry::TunnelSessionState;
 
 pub(crate) fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<(), &'static str> {
     match state {
@@ -47,18 +47,5 @@ pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<()
         TunnelSessionState::CleanupPending { .. } => Ok(()),
         TunnelSessionState::Running { .. } => Err("Cannot destroy a running tunnel session"),
         TunnelSessionState::Destroyed => Err("Tunnel session has already been destroyed"),
-    }
-}
-
-pub(crate) fn rollback_failed_tunnel_start(session: &TunnelSession, message: String) {
-    {
-        let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        *guard = Some(message.clone());
-    }
-    session.telemetry.record_error(message);
-    session.telemetry.mark_stopped();
-    {
-        let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        *state = TunnelSessionState::Ready;
     }
 }

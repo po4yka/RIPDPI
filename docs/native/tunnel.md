@@ -150,8 +150,8 @@ adopt_tun_fd() → OwnedFd (RAII live)
 | Failure point | Who closes the dup |
 |---|---|
 | `fstat` validation fails in `adopt_tun_fd` | `OwnedFd` drop in `adopt_tun_fd` |
-| `ensure_tunnel_start_allowed` fails | explicit `drop(owned_fd)` at lifecycle.rs line 55 |
-| thread spawn fails in `launch_tunnel_worker` | `WorkerLaunch` drop at the Err arm in lifecycle.rs |
+| `ensure_tunnel_start_allowed` fails | explicit `drop(owned_fd)` in `session/lifecycle/start.rs::start_session` |
+| thread spawn fails in `launch_tunnel_worker` | `WorkerLaunch` drop in the `launch_tunnel_worker` error arm of `session/lifecycle/start.rs::start_session` |
 | `AsyncDevice::from_fd` fails inside `run_tunnel` | tun-rs `Fd{borrow:false}` drop inside `DeviceImpl::from_fd` before Err propagates |
 | Route setup (`add_default_ipv4/ipv6_route`) fails | `tun_async` (AsyncDevice) drop at run_tunnel return |
 | `CancellationToken::cancel()` (normal stop or cancel path) | `tun_async` drop after io_loop_task returns `WaitOutcome::Cancelled` |
