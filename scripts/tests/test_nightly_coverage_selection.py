@@ -39,6 +39,12 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
             source,
         )
 
+    def test_coverage_tests_default_to_the_report_package_scope(self) -> None:
+        source = COVERAGE_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('test_package_specs="$report_package_specs"', source)
+        self.assertIn('test_scope_args+=(--package "$package")', source)
+        self.assertIn('"${test_scope_args[@]}"', source)
+
     def test_macrobenchmark_uses_the_ci_native_abi_override(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertRegex(

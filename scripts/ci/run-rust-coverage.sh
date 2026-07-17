@@ -27,12 +27,26 @@ if [[ -n "${RIPDPI_RUST_COVERAGE_REPORT_PACKAGES+x}" ]]; then
 else
     report_package_specs="${default_report_package_specs[*]}"
 fi
+if [[ -n "${RIPDPI_RUST_COVERAGE_TEST_PACKAGES+x}" ]]; then
+    test_package_specs="$RIPDPI_RUST_COVERAGE_TEST_PACKAGES"
+else
+    test_package_specs="$report_package_specs"
+fi
 
 report_scope_args=()
 if [[ -n "${report_package_specs//[[:space:]]/}" ]]; then
     for package in $report_package_specs; do
         report_scope_args+=(--package "$package")
     done
+fi
+
+test_scope_args=()
+if [[ -n "${test_package_specs//[[:space:]]/}" ]]; then
+    for package in $test_package_specs; do
+        test_scope_args+=(--package "$package")
+    done
+else
+    test_scope_args+=(--workspace)
 fi
 
 mkdir -p "$target_dir"
@@ -67,7 +81,7 @@ IGNORED_SKIP_PATTERNS=(
 run_coverage() {
     RUST_TEST_THREADS=1 cargo llvm-cov --locked test \
         --manifest-path "$workspace_manifest" \
-        --workspace \
+        "${test_scope_args[@]}" \
         --no-report \
         -- \
         --test-threads=1 \
@@ -77,7 +91,7 @@ run_coverage() {
     if [[ "$include_ignored" == "1" ]]; then
         RUST_TEST_THREADS=1 cargo llvm-cov --locked test \
             --manifest-path "$workspace_manifest" \
-            --workspace \
+            "${test_scope_args[@]}" \
             --no-report \
             -- \
             --ignored \
