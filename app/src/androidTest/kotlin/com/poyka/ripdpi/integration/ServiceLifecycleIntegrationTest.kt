@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -659,7 +660,7 @@ class ServiceLifecycleIntegrationTest {
     }
 
     @Test
-    fun vpnServiceTelemetryFailureFallsBackToIdleTunnelSnapshot() {
+    fun vpnServiceTelemetryFailureFailsClosedAndCleansUpTunnel() {
         runBlocking {
             IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.telemetryValue =
                 NativeRuntimeSnapshot(
@@ -674,6 +675,7 @@ class ServiceLifecycleIntegrationTest {
 
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
+            awaitActivePolicy(Mode.VPN)
             awaitTelemetrySnapshot { snapshot ->
                 snapshot.mode == Mode.VPN && snapshot.tunnelTelemetry.state == "running"
             }
@@ -687,14 +689,35 @@ class ServiceLifecycleIntegrationTest {
                 ),
             )
 
+            val failure = awaitFailure(Sender.VPN)
+            assertEquals(FailureReason.NativeError("tunnel telemetry failed"), failure.reason)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+            awaitOrderEventCount("tunnel:stop", 1)
+            awaitOrderEventCount("vpn:session-close", 1)
+            awaitOrderEventCount("proxy:stop", 1)
+            awaitProxyStopCount(1)
+            awaitVpnSessionClosed()
+            awaitClearedActivePolicy(Mode.VPN)
             awaitTelemetrySnapshot { snapshot ->
-                snapshot.mode == Mode.VPN &&
-                    snapshot.status == AppStatus.Running &&
-                    snapshot.tunnelTelemetry.state == "idle" &&
-                    snapshot.tunnelStats ==
-                    com.poyka.ripdpi.data
-                        .TunnelStats()
+                snapshot.mode == Mode.VPN && snapshot.status == AppStatus.Halted
             }
+
+            assertEquals(
+                AppStatus.Halted to Mode.VPN,
+                IntegrationTestOverrides.serviceStateStore.status.value,
+            )
+            assertEquals(AppStatus.Halted, IntegrationTestOverrides.serviceStateStore.telemetry.value.status)
+            assertEquals(1, failedEvents(Sender.VPN).size)
+            assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
+            assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
+            assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "tunnel:stop" })
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "vpn:session-close" })
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "proxy:stop" })
+            assertContainsSubsequence(
+                IntegrationTestOverrides.orderSnapshot(),
+                listOf("tunnel:stop", "vpn:session-close", "proxy:stop"),
+            )
         }
     }
 
@@ -720,16 +743,20 @@ class ServiceLifecycleIntegrationTest {
         }
     }
 
-    private suspend fun awaitFailure(sender: Sender) {
+    private suspend fun awaitFailure(sender: Sender): ServiceEvent.Failed =
         withTimeout(10.seconds) {
-            while (IntegrationTestOverrides.serviceStateStore.eventHistory.none {
-                    it is ServiceEvent.Failed && it.sender == sender
-                }
-            ) {
+            while (true) {
+                val failure = failedEvents(sender).firstOrNull()
+                if (failure != null) return@withTimeout failure
                 delay(50)
             }
+            error("Unreachable")
         }
-    }
+
+    private fun failedEvents(sender: Sender): List<ServiceEvent.Failed> =
+        IntegrationTestOverrides.serviceStateStore.eventHistory
+            .filterIsInstance<ServiceEvent.Failed>()
+            .filter { it.sender == sender }
 
     private suspend fun awaitProxyStopCount(expected: Int) {
         withTimeout(10.seconds) {
