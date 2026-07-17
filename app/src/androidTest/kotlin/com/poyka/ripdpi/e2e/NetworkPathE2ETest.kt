@@ -37,6 +37,7 @@ import org.junit.Test
 import javax.inject.Inject
 
 private const val VpnEncryptedDnsAutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover: "
+private const val FixtureDnsTimeoutFaultDelayMs = 5_000L
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -346,6 +347,7 @@ class NetworkPathE2ETest {
                     target = FixtureFaultTargetDto.DNS_HTTP,
                     outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
                     scope = FixtureFaultScopeDto.PERSISTENT,
+                    delayMs = FixtureDnsTimeoutFaultDelayMs,
                 ),
             )
 
