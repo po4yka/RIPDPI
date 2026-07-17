@@ -543,6 +543,19 @@ jobs:
             ./gradlew --stop
           done
 
+      - name: Verify packaged release native ELFs
+        run: |
+          set -euo pipefail
+          found=0
+          while IFS= read -r lib_dir; do
+            found=1
+            python3 scripts/ci/verify_native_elfs.py --lib-dir "$lib_dir"
+          done < <(find app/build/intermediates/merged_native_libs -path '*/merge*ReleaseNativeLibs/out/lib' -type d | sort -u)
+          if [[ "$found" -ne 1 ]]; then
+            echo "error: no packaged release native library directories found" >&2
+            exit 1
+          fi
+
       - name: Upload release retrace inputs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

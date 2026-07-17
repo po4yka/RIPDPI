@@ -15,6 +15,13 @@ EXPECTED_NEEDED = {
     "libripdpi-tunnel.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
     "libripdpi-amneziawg.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
 }
+EXPECTED_NATIVE_LIBRARIES = (
+    "libripdpi.so",
+    "libripdpi-relay.so",
+    "libripdpi-warp.so",
+    "libripdpi-amneziawg.so",
+    "libripdpi-tunnel.so",
+)
 REQUIRED_PAGE_ALIGNMENT = 16 * 1024
 DEFAULT_LIB_DIR = "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"
 
@@ -106,13 +113,14 @@ def verify(lib_dir: Path, expected_abis: set[str], objdump_path: str) -> None:
 
     for abi in sorted(expected_abis):
         abi_dir = lib_dir / abi
-        for lib_name, expected_needed in EXPECTED_NEEDED.items():
+        for lib_name in EXPECTED_NATIVE_LIBRARIES:
             elf_path = abi_dir / lib_name
             if not elf_path.is_file():
                 raise ValueError(f"Missing {lib_name} for ABI {abi}: {elf_path}")
 
             needed, alignments = inspect_elf(elf_path, objdump_path)
-            if needed != expected_needed:
+            expected_needed = EXPECTED_NEEDED.get(lib_name)
+            if expected_needed is not None and needed != expected_needed:
                 raise ValueError(
                     f"Unexpected NEEDED libs for {elf_path}. expected={sorted(expected_needed)} actual={sorted(needed)}",
                 )

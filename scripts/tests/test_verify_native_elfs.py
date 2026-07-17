@@ -64,14 +64,32 @@ class VerifyNativeElfsTest(unittest.TestCase):
             arm64_dir.mkdir()
             extra_dir.mkdir()
 
-            for lib_name in verify_native_elfs.EXPECTED_NEEDED:
+            for lib_name in verify_native_elfs.EXPECTED_NATIVE_LIBRARIES:
                 (arm64_dir / lib_name).write_bytes(b"stub")
 
             def fake_inspect_elf(elf_path: Path, _objdump_path: str) -> tuple[set[str], list[int]]:
-                return verify_native_elfs.EXPECTED_NEEDED[elf_path.name], [verify_native_elfs.REQUIRED_PAGE_ALIGNMENT]
+                return verify_native_elfs.EXPECTED_NEEDED.get(elf_path.name, set()), [verify_native_elfs.REQUIRED_PAGE_ALIGNMENT]
 
             with patch("scripts.ci.verify_native_elfs.inspect_elf", side_effect=fake_inspect_elf):
                 verify_native_elfs.verify(lib_dir, {"arm64-v8a"}, "objdump")
+
+    def test_verify_requires_all_packaged_jni_libraries(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lib_dir = Path(temp_dir)
+            arm64_dir = lib_dir / "arm64-v8a"
+            arm64_dir.mkdir()
+            for lib_name in verify_native_elfs.EXPECTED_NATIVE_LIBRARIES[:-1]:
+                (arm64_dir / lib_name).write_bytes(b"stub")
+
+            with patch(
+                "scripts.ci.verify_native_elfs.inspect_elf",
+                side_effect=lambda elf_path, _objdump: (
+                    verify_native_elfs.EXPECTED_NEEDED.get(elf_path.name, set()),
+                    [verify_native_elfs.REQUIRED_PAGE_ALIGNMENT],
+                ),
+            ):
+                with self.assertRaisesRegex(ValueError, "libripdpi-tunnel.so"):
+                    verify_native_elfs.verify(lib_dir, {"arm64-v8a"}, "objdump")
 
     def test_discover_default_lib_dirs_finds_flavored_debug_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
