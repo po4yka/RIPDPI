@@ -738,6 +738,50 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun tunnelStoppedUnexpectedlyTransitionsToFailedWhileEncryptedDnsFailoverIsPending() =
+        runTest {
+            val env = newEnv()
+
+            env.coordinator.start()
+            runCurrent()
+            val session = env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession
+            assertTrue(session.currentDns?.isEncrypted == true)
+
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "idle",
+                    health = "healthy",
+                    lastError = "tunnel process exited",
+                )
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+        }
+
+    @Test
+    fun tunnelTelemetryFailureTransitionsToFailedWhileEncryptedDnsFailoverIsPending() =
+        runTest {
+            val env = newEnv()
+
+            env.coordinator.start()
+            runCurrent()
+            val session = env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession
+            assertTrue(session.currentDns?.isEncrypted == true)
+            env.bridgeFactory.bridge.telemetryFailure = IOException("telemetry boom")
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertTrue(env.tunnelProvider.session.closed)
+        }
+
+    @Test
     fun vpnTunnelEstablishFailureHaltsAndClosesProxy() =
         runTest {
             val env =
