@@ -429,6 +429,7 @@ sealed class Route {
                     Logs,
                     ConnectionHealth,
                     SubscriptionFailover,
+                    SubscriptionStatus,
                     StrategyTuner,
                     Settings,
                     BackupRestore,

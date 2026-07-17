@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.ui.navigation
 
+import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class RipDpiNavHostLogicTest {
     @Test
@@ -104,6 +106,103 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
+    fun `route registry and stable matchers cover every NavHost destination`() {
+        val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
+        val registeredDestinationTypes =
+            Regex("""composable<Route\.([A-Za-z0-9_]+)>""")
+                .findAll(navHostSource)
+                .map { match -> match.groupValues[1] }
+                .toSet()
+        val registeredRouteTypes = Route.all.map { route -> route::class.java.simpleName }.toSet()
+        val matcherTypes =
+            Regex("""hasRoute<Route\.([A-Za-z0-9_]+)>""")
+                .findAll(
+                    navHostSource
+                        .substringAfter("private val stableRouteMatchers")
+                        .substringBefore("internal fun shouldNavigateToHomeFromLaunchRequest"),
+                ).map { match -> match.groupValues[1] }
+                .toSet()
+
+        assertEquals("Route.all drifted from NavHost", registeredDestinationTypes, registeredRouteTypes)
+        assertEquals("Stable route matchers drifted from NavHost", registeredDestinationTypes, matcherTypes)
+    }
+
+    @Test
+    fun `UI audit spec covers or explains every registered route`() {
+        val auditSpec = File("../scripts/guide/specs/ui-ux-audit.yaml").readText()
+        val pageRoutes =
+            Regex("""(?m)^    route: "([^"]+)"$""")
+                .findAll(auditSpec)
+                .map { match -> match.groupValues[1] }
+                .toSet()
+        val exclusionMatches =
+            Regex(
+                """(?m)^    - route: "([^"]+)"\n      prerequisite: "([^"]+)"\n      reason: "([^"]+)"$""",
+            ).findAll(auditSpec).toList()
+        val excludedRoutes = exclusionMatches.map { match -> match.groupValues[1] }.toSet()
+        val declaredExclusionRoutes =
+            Regex("""(?m)^    - route: "([^"]+)"$""")
+                .findAll(auditSpec)
+                .map { match -> match.groupValues[1] }
+                .toSet()
+        val registeredRoutes = Route.all.map(Route::stableRoute).toSet()
+
+        assertEquals("Every exclusion needs a prerequisite and reason", declaredExclusionRoutes, excludedRoutes)
+        assertEquals(emptySet<String>(), pageRoutes intersect excludedRoutes)
+        assertEquals("Audit route coverage drifted", registeredRoutes, pageRoutes + excludedRoutes)
+        assertFalse(auditSpec.contains("strategy_import"))
+        assertFalse(auditSpec.contains("profile_variants"))
+
+        val testTagsSource = File("src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt").readText()
+        val staticTestTags =
+            Regex("""const val [A-Za-z0-9_]+ = "([^"]+)"""")
+                .findAll(testTagsSource)
+                .map { match -> match.groupValues[1] }
+                .toSet()
+        val advancedSectionTags =
+            File("src/main/kotlin")
+                .walkTopDown()
+                .filter { file -> file.isFile && file.extension == "kt" }
+                .flatMap { file ->
+                    Regex("""RipDpiTestTags\.advancedSection\("([^"]+)"\)""")
+                        .findAll(file.readText())
+                        .map { match -> RipDpiTestTags.advancedSection(match.groupValues[1]) }
+                }.toSet()
+        val generatedTestTags =
+            Route.topLevel.map(RipDpiTestTags.bottomNav).toSet() +
+                HomeMode.entries.flatMap { mode ->
+                    listOf(
+                        RipDpiTestTags.homeModeCard(mode.name),
+                        RipDpiTestTags.homeModePrimaryAction(mode.name),
+                    )
+                } +
+                advancedSectionTags
+        val requiredTestTags =
+            Regex("""required_elements: \[([^]]+)]""")
+                .findAll(auditSpec)
+                .flatMap { match ->
+                    Regex(""""([^"]+)"""")
+                        .findAll(match.groupValues[1])
+                        .map { quoted -> quoted.groupValues[1] }
+                }.toSet()
+
+        assertEquals(
+            "Audit spec references stale test tags",
+            emptySet<String>(),
+            requiredTestTags - staticTestTags - generatedTestTags,
+        )
+
+        Regex("""(?ms)^  - id: .*?(?=^  - id: |\z)""").findAll(auditSpec).forEach { match ->
+            val block = match.value
+            val route = Regex("""(?m)^    route: "([^"]+)"$""").find(block)?.groupValues?.get(1)
+            val expectedRoot = Regex("""(?m)^    expected_root: "([^"]+)"$""").find(block)?.groupValues?.get(1)
+            if (route != null) {
+                assertEquals("$route expected_root drifted", ExpectedRootScreenTags.getValue(route), expectedRoot)
+            }
+        }
+    }
+
+    @Test
     fun `every registered route has a reachable navigation mechanism and root tag`() {
         val registeredRoutes = Route.all.map(Route::stableRoute)
         val missingReachability = registeredRoutes.filterNot(ReachableRouteMechanisms::containsKey)
@@ -165,6 +264,7 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.Logs.stableRoute to "logs-screen",
         Route.ConnectionHealth.stableRoute to "connection_health-screen",
         Route.SubscriptionFailover.stableRoute to "subscription_failover-screen",
+        Route.SubscriptionStatus.stableRoute to "subscription_status-screen",
         Route.StrategyTuner.stableRoute to "strategy_tuner-screen",
         Route.ModeEditor.stableRoute to "mode_editor-screen",
         Route.DnsSettings.stableRoute to "dns_settings-screen",
@@ -233,6 +333,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.Logs.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.ConnectionHealth.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.SubscriptionFailover.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.SubscriptionStatus.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.StrategyTuner.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.ModeEditor.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DnsSettings.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),

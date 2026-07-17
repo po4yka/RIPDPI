@@ -15,6 +15,27 @@ defaults:
   data_preset: "settings_ready"
   settle_ms: 1500
 
+route_contract:
+  exclusions:
+    - route: "pcap_viewer"
+      prerequisite: "A capture must be selected from PCAP Captures."
+      reason: "The viewer reads capture selection from runtime state and has no stable empty audit fixture."
+    - route: "owned_stack_browser"
+      prerequisite: "A trusted non-empty owned-stack URL must be supplied."
+      reason: "The embedded browser cannot render a meaningful or safe audit state without a validated URL."
+    - route: "import/profile_confirm"
+      prerequisite: "A profile import token must be staged by an import flow."
+      reason: "The confirmation screen consumes transient staged import state rather than a standalone fixture."
+    - route: "import/subscription_confirm"
+      prerequisite: "A subscription import token must be staged by an import flow."
+      reason: "The confirmation screen consumes transient staged import state rather than a standalone fixture."
+    - route: "support/settings"
+      prerequisite: "A validated support-package JSON payload must be supplied."
+      reason: "The route is a payload-driven support surface and rejects an absent or malformed package."
+    - route: "profile/share"
+      prerequisite: "An existing profile identifier must be supplied."
+      reason: "The share screen is only meaningful for a profile already persisted in app data."
+
 pages:
   - id: onboarding
     title: "Onboarding"
@@ -32,7 +53,7 @@ pages:
     flow_from: "onboarding"
     flow_label: "finish setup"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-vpn", "home-mode-card-proxy", "home-mode-primary-vpn", "bottom-nav-config", "bottom-nav-diagnostics", "bottom-nav-settings"]
+    required_elements: ["home-mode-card-local-dpi-bypass", "home-mode-card-remote-vpn", "home-mode-primary-local-dpi-bypass", "bottom-nav-config", "bottom-nav-diagnostics", "bottom-nav-settings"]
     state: "idle"
     description: |
       Primary status surface with per-mode connection cards and bottom navigation.
@@ -56,7 +77,7 @@ pages:
     flow_label: "proxy connected"
     service_preset: "connected_proxy"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-proxy", "home-mode-primary-proxy"]
+    required_elements: ["home-mode-card-local-dpi-bypass", "home-mode-primary-local-dpi-bypass"]
     state: "connected proxy"
     description: |
       Connected proxy state with the per-mode stop action and route context on the home surface.
@@ -68,7 +89,7 @@ pages:
     flow_label: "VPN connected"
     service_preset: "connected_vpn"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-vpn", "home-mode-primary-vpn"]
+    required_elements: ["home-mode-card-remote-vpn", "home-mode-primary-remote-vpn"]
     state: "connected VPN"
     description: |
       Connected VPN state with tunnel status and the per-mode stop action visible.
@@ -123,16 +144,6 @@ pages:
     state: "strategy settings"
     description: |
       Strategy configuration state with DPI bypass parameters and recovery controls.
-
-  - id: strategy_import
-    title: "Strategy Import"
-    route: "strategy_import"
-    flow_from: "strategy_config"
-    flow_label: "import"
-    expected_root: "strategy_import-screen"
-    state: "import"
-    description: |
-      Strategy import state for bringing existing configuration into the app.
 
   - id: dns_settings
     title: "DNS Settings"
@@ -197,6 +208,36 @@ pages:
     description: |
       Domain bypass management state with list actions and domain-rule content.
 
+  - id: remembered_networks
+    title: "Remembered Networks"
+    route: "remembered_networks"
+    flow_from: "advanced_settings_top"
+    flow_label: "network memory"
+    expected_root: "remembered_networks-screen"
+    state: "remembered networks"
+    description: |
+      Remembered-network state with learned recommendations and per-network controls.
+
+  - id: root_mode_strategies
+    title: "Root Mode Strategies"
+    route: "root_mode_strategies"
+    flow_from: "settings"
+    flow_label: "root mode"
+    expected_root: "root_mode_strategies-screen"
+    state: "root unavailable"
+    description: |
+      Root-only strategy state, including the non-root fallback and configuration entry points.
+
+  - id: asset_provider
+    title: "Asset Provider"
+    route: "asset_provider"
+    flow_from: "advanced_settings_top"
+    flow_label: "assets"
+    expected_root: "asset_provider-screen"
+    state: "provider selection"
+    description: |
+      Static asset-provider selection with update checks and custom import controls.
+
   - id: diagnostics
     title: "Diagnostics"
     route: "diagnostics"
@@ -208,6 +249,28 @@ pages:
     state: "demo data"
     description: |
       Diagnostics state seeded with demo data, scan controls, recent reports, and history access.
+
+  - id: connection_health
+    title: "Connection Health"
+    route: "connection_health"
+    flow_from: "home_idle"
+    flow_label: "connection health"
+    data_preset: "diagnostics_demo"
+    expected_root: "connection_health-screen"
+    state: "health summary"
+    description: |
+      Connection-health summary with current path status, recovery guidance, and recent evidence.
+
+  - id: strategy_tuner
+    title: "Strategy Tuner"
+    route: "strategy_tuner"
+    flow_from: "diagnostics"
+    flow_label: "tune strategy"
+    data_preset: "diagnostics_demo"
+    expected_root: "strategy_tuner-screen"
+    state: "recommendation tuning"
+    description: |
+      Strategy-tuning state backed by seeded diagnostics and recommendation controls.
 
   - id: scanner
     title: "Scanner"
@@ -253,6 +316,17 @@ pages:
     description: |
       History state seeded with prior diagnostics and service events.
 
+  - id: replay_history
+    title: "Replay History"
+    route: "replay_history"
+    flow_from: "history"
+    flow_label: "replay"
+    data_preset: "diagnostics_demo"
+    expected_root: "replay_history-screen"
+    state: "replay list"
+    description: |
+      Replay-history state with prior diagnostic replay records and empty-state handling.
+
   - id: logs
     title: "Logs"
     route: "logs"
@@ -297,6 +371,26 @@ pages:
     state: "main"
     description: |
       Settings hub with secondary settings surfaces and navigation entries.
+
+  - id: subscription_failover
+    title: "Subscription Failover"
+    route: "subscription_failover"
+    flow_from: "settings"
+    flow_label: "subscription failover"
+    expected_root: "subscription_failover-screen"
+    state: "failover settings"
+    description: |
+      Subscription failover configuration with provider ordering and recovery controls.
+
+  - id: subscription_status
+    title: "Subscription Status"
+    route: "subscription_status"
+    flow_from: "settings"
+    flow_label: "subscription status"
+    expected_root: "subscription_status-screen"
+    state: "status summary"
+    description: |
+      Subscription lifecycle summary with availability, expiry, and refresh state.
 
   - id: app_customization
     title: "App Customization"
@@ -369,20 +463,10 @@ pages:
     description: |
       Rule editor state with match fields, validation, and save controls.
 
-  - id: profile_variants
-    title: "Profile Variants"
-    route: "profile_variants"
-    flow_from: "config"
-    flow_label: "profiles"
-    expected_root: "profile_variants-screen"
-    state: "variants"
-    description: |
-      Profile variants state with profile comparison and selection content.
-
   - id: anytls_profile
     title: "AnyTLS Profile"
     route: "profile/anytls"
-    flow_from: "profile_variants"
+    flow_from: "config"
     flow_label: "AnyTLS"
     expected_root: "profile/anytls-screen"
     state: "relay profile"
@@ -392,12 +476,32 @@ pages:
   - id: amneziawg_profile
     title: "AmneziaWG Profile"
     route: "profile/amneziawg"
-    flow_from: "profile_variants"
+    flow_from: "config"
     flow_label: "AmneziaWG"
     expected_root: "profile/amneziawg-screen"
     state: "VPN profile"
     description: |
       AmneziaWG profile settings state with endpoint, key, and obfuscation fields.
+
+  - id: mieru_profile
+    title: "Mieru Profile"
+    route: "profile/mieru"
+    flow_from: "config"
+    flow_label: "Mieru"
+    expected_root: "profile/mieru-screen"
+    state: "relay profile"
+    description: |
+      Mieru relay profile editor with endpoint, credentials, transport, and validation fields.
+
+  - id: ssh_profile
+    title: "SSH Profile"
+    route: "profile/ssh"
+    flow_from: "config"
+    flow_label: "SSH"
+    expected_root: "profile/ssh-screen"
+    state: "relay profile"
+    description: |
+      SSH relay profile editor with host, authentication, forwarding, and validation fields.
 
   - id: xray_import
     title: "Xray Import"
