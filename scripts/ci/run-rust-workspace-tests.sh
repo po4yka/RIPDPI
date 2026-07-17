@@ -43,9 +43,6 @@ echo "==> native architecture contracts"
 python3 "$repo_root/scripts/ci/check_native_architecture_contracts.py"
 
 echo "==> tests (workspace)"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android "${NEXTEST_ARGS[@]}"
-cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-android "${NEXTEST_ARGS[@]}"
 # Exclude integration test binaries that have their own dedicated CI jobs
 # (rust-network-e2e, rust-turmoil) and platform tests needing CAP_NET_ADMIN.
 cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace \
