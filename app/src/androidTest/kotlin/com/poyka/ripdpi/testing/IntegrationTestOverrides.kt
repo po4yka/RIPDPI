@@ -29,6 +29,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.PermissionChangeEvent
 import com.poyka.ripdpi.services.PermissionWatchdog
+import com.poyka.ripdpi.services.VpnAppRoutingPlan
 import com.poyka.ripdpi.services.VpnTunnelSession
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import kotlinx.coroutines.CompletableDeferred
@@ -324,6 +325,10 @@ class RecordingVpnTunnelSessionProvider(
         private set
     var lastIpv6: Boolean? = null
         private set
+    var lastAppRoutingPlan: VpnAppRoutingPlan? = null
+        private set
+    var lastInterfaceSettings: AppSettings? = null
+        private set
     var session: RecordingVpnTunnelSession = RecordingVpnTunnelSession.open(events)
         private set
 
@@ -331,6 +336,8 @@ class RecordingVpnTunnelSessionProvider(
         host: com.poyka.ripdpi.services.VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
+        appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int?,
     ): VpnTunnelSession {
         if (session.isClosed) {
@@ -338,6 +345,8 @@ class RecordingVpnTunnelSessionProvider(
         }
         lastDns = dns
         lastIpv6 = ipv6
+        lastAppRoutingPlan = appRoutingPlan
+        lastInterfaceSettings = interfaceSettings
         events += "vpn:establish"
         faults.next(VpnSessionFaultTarget.ESTABLISH)?.throwOrIgnore()
         establishFailure?.let { throw it }
@@ -348,6 +357,8 @@ class RecordingVpnTunnelSessionProvider(
         session = RecordingVpnTunnelSession.open(events)
         lastDns = null
         lastIpv6 = null
+        lastAppRoutingPlan = null
+        lastInterfaceSettings = null
         establishFailure = null
         faults.clear()
     }

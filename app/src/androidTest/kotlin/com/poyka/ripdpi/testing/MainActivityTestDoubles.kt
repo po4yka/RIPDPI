@@ -64,6 +64,7 @@ import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.VpnAppRoutingPlan
 import com.poyka.ripdpi.services.VpnTunnelBuilderHost
 import com.poyka.ripdpi.services.VpnTunnelSession
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
@@ -411,6 +412,8 @@ class StubInstrumentedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
+        appRoutingPlan: VpnAppRoutingPlan,
+        interfaceSettings: AppSettings,
         httpProxyPort: Int?,
     ): VpnTunnelSession = StubInstrumentedVpnTunnelSession()
 }

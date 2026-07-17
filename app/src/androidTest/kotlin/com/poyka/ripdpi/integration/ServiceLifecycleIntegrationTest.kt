@@ -275,7 +275,11 @@ class ServiceLifecycleIntegrationTest {
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
 
-            assertEquals("9.9.9.9", IntegrationTestOverrides.vpnTunnelSessionProvider.lastDns)
+            assertEquals("198.18.0.53", IntegrationTestOverrides.vpnTunnelSessionProvider.lastDns)
+            assertEquals(
+                "9.9.9.9",
+                IntegrationTestOverrides.vpnTunnelSessionProvider.lastInterfaceSettings?.dnsIp,
+            )
             assertEquals(true, IntegrationTestOverrides.vpnTunnelSessionProvider.lastIpv6)
             assertEquals(
                 1090,
