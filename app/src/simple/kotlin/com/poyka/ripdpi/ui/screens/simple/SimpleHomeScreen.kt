@@ -13,6 +13,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -74,12 +78,9 @@ fun SimpleHomeScreen(
                 color = colors.foreground,
                 textAlign = TextAlign.Center,
             )
-            Text(
+            SimpleConnectionStatus(
+                connectionState = uiState.connectionState,
                 modifier = Modifier.padding(top = spacing.sm),
-                text = stringResource(simpleStatusLabel(uiState.connectionState)),
-                style = RipDpiThemeTokens.type.body,
-                color = if (connected) colors.success else colors.mutedForeground,
-                textAlign = TextAlign.Center,
             )
 
             if (protocolLabel != null) {
@@ -121,6 +122,31 @@ fun SimpleHomeScreen(
             )
         }
     }
+}
+
+@Composable
+internal fun SimpleConnectionStatus(
+    connectionState: ConnectionState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val statusLabel = stringResource(simpleStatusLabel(connectionState))
+    Text(
+        modifier =
+            modifier.clearAndSetSemantics {
+                stateDescription = statusLabel
+                liveRegion = LiveRegionMode.Polite
+            },
+        text = statusLabel,
+        style = RipDpiThemeTokens.type.body,
+        color =
+            if (connectionState == ConnectionState.Connected) {
+                colors.success
+            } else {
+                colors.mutedForeground
+            },
+        textAlign = TextAlign.Center,
+    )
 }
 
 private fun simpleStatusLabel(state: ConnectionState): Int =
