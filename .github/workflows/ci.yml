@@ -479,6 +479,8 @@ jobs:
           rust-targets: ""
           rust-cache-shared-key: rust-android-tests
           rust-cache-save: "false"
+          setup-rust: "false"
+          setup-android-ndk: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Run JVM unit tests
@@ -548,6 +550,8 @@ jobs:
           rust-targets: ""
           rust-cache-shared-key: rust-android-roborazzi
           rust-cache-save: "false"
+          setup-rust: "false"
+          setup-android-ndk: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Verify screenshot baselines
@@ -694,6 +698,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
+          setup-java: "false"
           setup-gradle: "false"
 
       - name: Install cargo-bloat
@@ -879,6 +884,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-cross-check
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          setup-java: "false"
           setup-gradle: "false"
 
       - name: Run Android ABI cross-compilation checks
@@ -1011,6 +1017,8 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
+          setup-rust: "false"
+          setup-android-ndk: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Resolve release application IDs
@@ -1174,6 +1182,9 @@ jobs:
           rust-components: llvm-tools
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
+          rust-targets: ""
+          setup-android-ndk: "false"
+          setup-sccache: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Install cargo-llvm-cov
@@ -1680,6 +1691,9 @@ jobs:
           rust-components: llvm-tools
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
+          rust-targets: ""
+          setup-android-ndk: "false"
+          setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2

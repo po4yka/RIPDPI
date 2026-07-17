@@ -26,6 +26,18 @@ inputs:
     description: Java version to install
     required: false
     default: "17"
+  setup-java:
+    description: Whether to install Java toolchains
+    required: false
+    default: "true"
+  setup-rust:
+    description: Whether to install Rust, its cache, and targets
+    required: false
+    default: "true"
+  setup-sccache:
+    description: Whether to install sccache for Rust compilation
+    required: false
+    default: "true"
   setup-gradle:
     description: Whether to set up Gradle
     required: false
@@ -34,6 +46,10 @@ inputs:
     description: Skip Android SDK + NDK installation (for Rust-only jobs that don't touch Android)
     required: false
     default: "false"
+  setup-android-ndk:
+    description: Whether to install the Android NDK when Android SDK setup is enabled
+    required: false
+    default: "true"
 
 runs:
   using: composite
@@ -45,6 +61,7 @@ runs:
     # The compile version is listed last so JAVA_HOME is unchanged for back-compat;
     # setup-gradle wires every installed JDK into Gradle's toolchain discovery.
     - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      if: inputs.setup-java == 'true'
       with:
         distribution: temurin
         java-version: |
@@ -53,6 +70,7 @@ runs:
 
     # Keep in sync with native/rust/rust-toolchain.toml
     - uses: dtolnay/rust-toolchain@master
+      if: inputs.setup-rust == 'true'
       with:
         toolchain: "1.96.0"
         components: ${{ inputs.rust-components }}
@@ -124,6 +142,7 @@ runs:
           "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}"
 
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      if: inputs.setup-rust == 'true'
       with:
         workspaces: native/rust -> target
         cache-on-failure: true
@@ -131,16 +150,17 @@ runs:
         save-if: ${{ inputs.rust-cache-save }}
 
     - name: Install Rust Android targets
-      if: inputs.rust-targets != ''
+      if: inputs.setup-rust == 'true' && inputs.rust-targets != ''
       shell: bash
       run: rustup target add ${{ inputs.rust-targets }}
 
     - name: Install NDK via android CLI
-      if: inputs.skip-android-sdk-ndk != 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
+      if: inputs.skip-android-sdk-ndk != 'true' && inputs.setup-android-ndk == 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
       shell: bash
       run: bash scripts/ci/android-sdk-install.sh "ndk/${{ steps.native-toolchain.outputs.ndk }}"
 
     - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+      if: inputs.setup-rust == 'true' && inputs.setup-sccache == 'true'
       env:
         FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 

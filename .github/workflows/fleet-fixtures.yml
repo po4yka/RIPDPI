@@ -85,6 +85,8 @@ jobs:
           rust-targets: ""
           rust-cache-shared-key: rust-fleet-fixtures
           rust-cache-save: "false"
+          setup-rust: "false"
+          setup-android-ndk: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Parse materialized fleet bundles through the app contract

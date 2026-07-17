@@ -10,20 +10,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
+FLEET_FIXTURES_WORKFLOW = ROOT / ".github/workflows/fleet-fixtures.yml"
+SETUP_ACTION = ROOT / ".github/actions/setup-android-rust/action.yml"
 COVERAGE_SCRIPT = ROOT / "scripts/ci/run-rust-coverage.sh"
 RELAY_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-relay-emulator-smoke.sh"
 PACKET_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-packet-smoke.sh"
 DNS_IPV6_EVIDENCE_WORKFLOW = ROOT / ".github/workflows/dns-ipv6-killswitch-evidence.yml"
 
 
-def nightly_coverage_job(source: str) -> str:
+def workflow_job(source: str, job_name: str) -> str:
     match = re.search(
-        r"(?ms)^  nightly-rust-coverage:\n.*?(?=^  [\w-]+:\n|\Z)",
+        rf"(?ms)^  {re.escape(job_name)}:\n.*?(?=^  [\w-]+:\n|\Z)",
         source,
     )
     if match is None:
-        raise AssertionError("missing nightly-rust-coverage job")
+        raise AssertionError(f"missing {job_name} job")
     return match.group(0)
+
+
+def nightly_coverage_job(source: str) -> str:
+    return workflow_job(source, "nightly-rust-coverage")
 
 
 class NightlyCoverageSelectionTest(unittest.TestCase):
@@ -46,6 +52,40 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         self.assertIn('test_package_specs="$report_package_specs"', source)
         self.assertIn('test_scope_args+=(--package "$package")', source)
         self.assertIn('"${test_scope_args[@]}"', source)
+
+    def test_kotlin_only_jobs_do_not_provision_rust_or_ndk(self) -> None:
+        ci_source = CI_WORKFLOW.read_text(encoding="utf-8")
+        for job_name in (
+            "build-android-tests",
+            "verify-roborazzi",
+            "gradle-static-analysis",
+        ):
+            job = workflow_job(ci_source, job_name)
+            self.assertIn('setup-rust: "false"', job)
+            self.assertIn('setup-android-ndk: "false"', job)
+
+        fleet_job = workflow_job(
+            FLEET_FIXTURES_WORKFLOW.read_text(encoding="utf-8"), "fleet-fixtures"
+        )
+        self.assertIn('setup-rust: "false"', fleet_job)
+        self.assertIn('setup-android-ndk: "false"', fleet_job)
+
+    def test_composite_setup_can_skip_unused_toolchains(self) -> None:
+        source = SETUP_ACTION.read_text(encoding="utf-8")
+        self.assertIn("setup-java:\n", source)
+        self.assertIn("setup-rust:\n", source)
+        self.assertIn("setup-sccache:\n", source)
+        self.assertIn("setup-android-ndk:\n", source)
+        self.assertIn("if: inputs.setup-java == 'true'", source)
+        self.assertIn("if: inputs.setup-rust == 'true'", source)
+        self.assertIn("inputs.setup-android-ndk == 'true'", source)
+
+    def test_coverage_skips_unused_android_targets_and_ndk(self) -> None:
+        for job_name in ("coverage", "nightly-rust-coverage"):
+            job = workflow_job(CI_WORKFLOW.read_text(encoding="utf-8"), job_name)
+            self.assertIn('rust-targets: ""', job)
+            self.assertIn('setup-android-ndk: "false"', job)
+            self.assertIn('setup-sccache: "false"', job)
 
     def test_macrobenchmark_uses_the_ci_native_abi_override(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
