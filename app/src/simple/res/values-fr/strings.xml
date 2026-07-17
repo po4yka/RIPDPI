@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="simple_title">RIPDPI</string>
+    <string name="simple_title">RIPDPI Connexion rapide</string>
     <string name="simple_connect">Se connecter</string>
     <string name="simple_disconnect">Se déconnecter</string>
     <string name="simple_run_report">Lancer le rapport de diagnostic</string>

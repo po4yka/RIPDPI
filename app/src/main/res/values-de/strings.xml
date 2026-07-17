@@ -1902,12 +1902,12 @@ Quelle: %2$s</string>
     <string name="http_fake_profile_title">HTTP-Fake-Payload</string>
     <string name="language_name_fr">Français</string>
     <string name="logs">Logs</string>
-    <string name="persona_simple">Einfach</string>
+    <string name="persona_simple">Geführt</string>
     <string name="persona_advanced">Erweitert</string>
-    <string name="settings_persona_title">Persona</string>
+    <string name="settings_persona_title">Oberflächenmodus</string>
     <string name="settings_persona_body">Wählt, ob Bildschirme mit Alltagssteuerung oder erweiterten Bedienfunktionen geöffnet werden.</string>
     <string name="onboarding_persona_title">Oberfläche wählen</string>
-    <string name="onboarding_persona_body">Du kannst später in den Einstellungen zwischen Einfach und Erweitert wechseln.</string>
+    <string name="onboarding_persona_body">Später kannst du in den Einstellungen zwischen Geführt und Erweitert wechseln.</string>
     <string name="onboarding_persona_simple_body">Alltagssteuerung bleibt sichtbar, Expertendetails bleiben eingeklappt.</string>
     <string name="onboarding_persona_advanced_body">Öffnet die vollständige Bedienoberfläche mit Diagnose, Profilen und Detailsteuerung.</string>
     <string name="settings_logs_body">Öffnet den Live-Protokollstrom für App, Dienst und Diagnose.</string>

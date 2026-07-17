@@ -14,12 +14,12 @@
     <string name="settings">الإعدادات</string>
     <string name="diagnostics">التشخيص</string>
     <string name="logs">السجلات</string>
-    <string name="persona_simple">بسيط</string>
+    <string name="persona_simple">موجّه</string>
     <string name="persona_advanced">متقدم</string>
     <string name="settings_persona_title">نمط الواجهة</string>
     <string name="settings_persona_body">اختر ما إذا كانت الشاشات تفتح بعناصر يومية أو بعناصر تحكم متقدمة.</string>
     <string name="onboarding_persona_title">اختر الواجهة</string>
-    <string name="onboarding_persona_body">يمكنك التبديل بين البسيط والمتقدم لاحقاً من الإعدادات.</string>
+    <string name="onboarding_persona_body">يمكنك التبديل بين الموجّه والمتقدم لاحقاً من الإعدادات.</string>
     <string name="onboarding_persona_simple_body">تبقى عناصر التحكم اليومية ظاهرة وتبقى التفاصيل الخبيرة مطوية.</string>
     <string name="onboarding_persona_advanced_body">يفتح سطح التشغيل الكامل مع التشخيصات والملفات الشخصية وعناصر التحكم منخفضة المستوى.</string>
     <string name="settings_logs_body">افتح بث السجلات الحي للتطبيق والخدمة والتشخيص.</string>

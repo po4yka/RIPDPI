@@ -13,12 +13,12 @@
     <string name="settings">सेटिंग्स</string>
     <string name="diagnostics">जाँच करें</string>
     <string name="logs">लॉग</string>
-    <string name="persona_simple">सरल</string>
+    <string name="persona_simple">निर्देशित</string>
     <string name="persona_advanced">उन्नत</string>
-    <string name="settings_persona_title">पर्सोना</string>
+    <string name="settings_persona_title">इंटरफ़ेस मोड</string>
     <string name="settings_persona_body">चुनें कि स्क्रीन रोज़मर्रा के नियंत्रणों के साथ खुलें या उन्नत ऑपरेटर नियंत्रण विस्तृत रूप में खुलें।</string>
     <string name="onboarding_persona_title">अपना इंटरफ़ेस चुनें</string>
-    <string name="onboarding_persona_body">आप बाद में सेटिंग्स में सरल और उन्नत के बीच स्विच कर सकते हैं।</string>
+    <string name="onboarding_persona_body">आप बाद में सेटिंग्स में निर्देशित और उन्नत के बीच स्विच कर सकते हैं।</string>
     <string name="onboarding_persona_simple_body">रोज़मर्रा के नियंत्रण दिखते रहते हैं जबकि विशेषज्ञ विवरण संकुचित रहते हैं।</string>
     <string name="onboarding_persona_advanced_body">जाँच, प्रोफ़ाइल और निम्न-स्तरीय नियंत्रणों के साथ पूरा ऑपरेटर सरफ़ेस खोलें।</string>
     <string name="settings_logs_body">लाइव ऐप, सेवा और जाँच लॉग स्ट्रीम खोलें।</string>

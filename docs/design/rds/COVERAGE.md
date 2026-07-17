@@ -104,7 +104,7 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - **Home/Connect Screen** (`vpn-*`) — `HomeScreen.kt`; connection toggle, status, metrics
 - **Profile Switcher** (`vpn-profile-switcher.html`) — profile selection UI
 - **Presets Gallery** (`vpn-presets-gallery.html`) — preset card grid and selection
-- **Quick vs Advanced** (`vpn-quick-vs-advanced.html`) — UI mode toggle in settings
+- **Guided vs Advanced** (`vpn-quick-vs-advanced.html`) — full-app interface mode toggle; the separate stripped distribution is named **RIPDPI Quick Connect**
 - **History** (`vpn-state-history.html`) — `HistoryScreen.kt`; session list, filtering
 - **DNS Picker** (`vpn-dns-picker.html`) — `DnsSettingsScreen.kt`; DNS server selection
 - **Configuration** (`vpn-awg-editor.html`) — `ConfigScreen.kt`; WireGuard, Amnesia config UI
@@ -112,7 +112,7 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - **Kill Switch** (`vpn-kill-switch.html`) — kill switch toggle in settings
 - **Per-App Routing** (`vpn-per-app-routing.html`) — split-tunnel app selection UI
 - **Permission Summary** (`vpn-permission-summary.html`) — `VpnPermissionScreen.kt`
-- **Block Check** (`vpn-block-check.html`) — block/censorship detection results
+- **Block Check** (`vpn-block-check.html`) — network-path anomaly detection results
 - **Data Transparency** (`vpn-data-transparency.html`) — `DataTransparencyScreen.kt`
 - **Identity Card** (`vpn-identity-card.html`) — session/identity display card
 - **Session Card** (`vpn-session-card.html`) — connection session details
@@ -210,7 +210,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 ### ✅ Full Implementation Continued
 
 - **Port Matrix** (`diagnostic-port-matrix.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PortMatrixScreen.kt`; 12-port-column grid keyed to RipDpiPortVerdict tier (Ok/Warn/Bad/Skipped) with legend chips + horizontal scroll
-- **Censorship Signature** (`diagnostic-censorship-signature.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/CensorshipSignatureScreen.kt`; severity-coded row list with mono evidence blocks + worst-tier header pill (CLEAR/OBSERVED/ANOMALOUS/BLOCKING)
+- **Middlebox Signature** (`diagnostic-censorship-signature.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/CensorshipSignatureScreen.kt`; severity-coded row list with mono evidence blocks + worst-tier header pill (CLEAR/OBSERVED/ANOMALOUS/BLOCKING)
 
 ---
 

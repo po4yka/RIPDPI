@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="simple_title">RIPDPI</string>
+    <string name="app_name" translatable="false">RIPDPI Quick Connect</string>
+    <string name="simple_title">RIPDPI Quick Connect</string>
     <string name="simple_connect">Connect</string>
     <string name="simple_disconnect">Disconnect</string>
     <string name="simple_run_report">Run diagnostic report</string>

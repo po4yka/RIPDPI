@@ -7,6 +7,62 @@ import java.io.File
 
 class TerminologyCanonTest {
     @Test
+    fun `guided persona and quick connect distribution use distinct user vocabulary`() {
+        val resourcesDir = File("src/main/res")
+        val simpleResourcesDir = File("src/simple/res")
+        val expectedGuidedLabels =
+            mapOf(
+                "values" to "Guided",
+                "values-ru" to "С подсказками",
+                "values-es" to "Guiado",
+                "values-de" to "Geführt",
+                "values-fr" to "Guidé",
+                "values-fa" to "راهنمایی‌شده",
+                "values-ar" to "موجّه",
+                "values-zh-rCN" to "引导",
+                "values-hi" to "निर्देशित",
+            )
+        val expectedDistributionTitles =
+            mapOf(
+                "values" to "RIPDPI Quick Connect",
+                "values-ru" to "RIPDPI Быстрое подключение",
+                "values-es" to "RIPDPI Conexión rápida",
+                "values-de" to "RIPDPI Schnellverbindung",
+                "values-fr" to "RIPDPI Connexion rapide",
+                "values-fa" to "RIPDPI اتصال سریع",
+                "values-ar" to "RIPDPI اتصال سريع",
+                "values-zh-rCN" to "RIPDPI 快速连接",
+                "values-hi" to "RIPDPI त्वरित कनेक्ट",
+            )
+
+        expectedGuidedLabels.forEach { (directory, expected) ->
+            val values = stringValues(File(resourcesDir, "$directory/strings.xml"))
+            assertEquals("$directory persona label", expected, values.getValue("persona_simple"))
+        }
+        expectedDistributionTitles.forEach { (directory, expected) ->
+            val values = stringValues(File(simpleResourcesDir, "$directory/strings.xml"))
+            assertEquals("$directory distribution title", expected, values.getValue("simple_title"))
+        }
+
+        val simpleEnglishStrings = File(simpleResourcesDir, "values/strings.xml")
+        val simpleEnglishValues = stringValues(simpleEnglishStrings)
+        assertEquals("RIPDPI Quick Connect", simpleEnglishValues.getValue("app_name"))
+        assertTrue(
+            "Quick Connect application label must stay locale-independent",
+            simpleEnglishStrings.readText().contains(
+                "<string name=\"app_name\" translatable=\"false\">RIPDPI Quick Connect</string>",
+            ),
+        )
+
+        val englishValues = stringValues(File(resourcesDir, "values/strings.xml"))
+        assertEquals("Interface mode", englishValues.getValue("settings_persona_title"))
+        assertEquals(
+            "You can switch between Guided and Advanced later in Settings.",
+            englishValues.getValue("onboarding_persona_body"),
+        )
+    }
+
+    @Test
     fun `home local bypass label stays localized in every translated resource set`() {
         val resourcesDir = File("src/main/res")
         val englishStrings = stringValues(File(resourcesDir, "values/strings.xml"))

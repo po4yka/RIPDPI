@@ -1902,12 +1902,12 @@ Source : %2$s</string>
     <string name="http_fake_profile_title">Charge utile factice HTTP</string>
     <string name="language_name_fr">Français</string>
     <string name="logs">Journaux</string>
-    <string name="persona_simple">Simple</string>
+    <string name="persona_simple">Guidé</string>
     <string name="persona_advanced">Avancé</string>
-    <string name="settings_persona_title">Persona</string>
+    <string name="settings_persona_title">Mode d’interface</string>
     <string name="settings_persona_body">Choisissez si les écrans s’ouvrent avec les contrôles courants ou les contrôles avancés.</string>
     <string name="onboarding_persona_title">Choisir l’interface</string>
-    <string name="onboarding_persona_body">Vous pourrez basculer entre Simple et Avancé plus tard dans Paramètres.</string>
+    <string name="onboarding_persona_body">Vous pourrez basculer entre Guidé et Avancé plus tard dans Paramètres.</string>
     <string name="onboarding_persona_simple_body">Les contrôles courants restent visibles et les détails experts restent repliés.</string>
     <string name="onboarding_persona_advanced_body">Ouvre toute la surface opérateur avec diagnostics, profils et contrôles bas niveau.</string>
     <string name="settings_logs_body">Ouvre le flux en direct des journaux de l’application, du service et des diagnostics.</string>

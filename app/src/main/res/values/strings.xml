@@ -14,12 +14,12 @@
     <string name="settings">Settings</string>
     <string name="diagnostics">Diagnose</string>
     <string name="logs">Logs</string>
-    <string name="persona_simple">Simple</string>
+    <string name="persona_simple">Guided</string>
     <string name="persona_advanced">Advanced</string>
-    <string name="settings_persona_title">Persona</string>
+    <string name="settings_persona_title">Interface mode</string>
     <string name="settings_persona_body">Choose whether screens open with everyday controls or advanced operator controls expanded.</string>
     <string name="onboarding_persona_title">Choose your interface</string>
-    <string name="onboarding_persona_body">You can switch between Simple and Advanced later in Settings.</string>
+    <string name="onboarding_persona_body">You can switch between Guided and Advanced later in Settings.</string>
     <string name="onboarding_persona_simple_body">Everyday controls stay visible while expert details stay collapsed.</string>
     <string name="onboarding_persona_advanced_body">Open the full operator surface with diagnostics, profiles, and low-level controls.</string>
     <string name="settings_logs_body">Open the live app, service, and diagnostics log stream.</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="simple_title">RIPDPI</string>
+    <string name="simple_title">RIPDPI اتصال سريع</string>
     <string name="simple_connect">اتصال</string>
     <string name="simple_disconnect">قطع الاتصال</string>
     <string name="simple_run_report">تشغيل تقرير التشخيص</string>
