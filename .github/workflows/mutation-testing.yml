@@ -45,9 +45,33 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cmake ninja-build pkg-config build-essential libclang-dev
 
+      # Scheduled runs rotate the whole workspace over four weeks. Manual
+      # dispatches retain the full-workspace default unless packages are chosen.
+      - name: Resolve mutation scope
+        id: mutation-scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            week="$(date -u +%V)"
+            {
+              echo "shard-count=4"
+              echo "shard-index=$((10#$week % 4))"
+              echo "label=weekly-${week}"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "shard-count=1"
+              echo "shard-index=0"
+              echo "label=manual"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run mutation testing
         env:
           MUTANTS_PACKAGES: ${{ github.event.inputs.packages || '' }}
+          MUTANTS_SHARD_COUNT: ${{ steps.mutation-scope.outputs.shard-count }}
+          MUTANTS_SHARD_INDEX: ${{ steps.mutation-scope.outputs.shard-index }}
           RIPDPI_REPO_ROOT: ${{ github.workspace }}
         run: |
           extra_args=()
@@ -60,6 +84,6 @@ jobs:
         if: always() && env.ACT != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: mutants-output
+          name: mutants-output-${{ steps.mutation-scope.outputs.label }}
           path: target/mutants-output/
           retention-days: 14

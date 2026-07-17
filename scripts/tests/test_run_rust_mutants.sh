@@ -102,6 +102,22 @@ assert_log_contains "--package ripdpi-desync"
 assert_log_not_contains "--package missing-package"
 
 : >"$log_path"
+MUTANTS_SHARD_COUNT=2 MUTANTS_SHARD_INDEX=0 run_wrapper
+assert_log_contains "--package"
+
+: >"$log_path"
+if MUTANTS_SHARD_COUNT=2 MUTANTS_SHARD_INDEX=2 run_wrapper 2>"$err_path"; then
+  echo "expected out-of-range MUTANTS_SHARD_INDEX to fail" >&2
+  exit 1
+fi
+grep -Fq "MUTANTS_SHARD_INDEX must be an integer in 0..1" "$err_path"
+if [ -s "$log_path" ]; then
+  echo "expected invalid MUTANTS_SHARD_INDEX to fail before invoking cargo" >&2
+  cat "$log_path" >&2
+  exit 1
+fi
+
+: >"$log_path"
 if MUTANTS_JOBS=auto run_wrapper 2>"$err_path"; then
   echo "expected non-numeric MUTANTS_JOBS to fail" >&2
   exit 1
