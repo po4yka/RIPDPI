@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.navigation
 
 import com.poyka.ripdpi.activities.HomeMode
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -112,19 +114,51 @@ class RipDpiNavHostLogicTest {
             Regex("""composable<Route\.([A-Za-z0-9_]+)>""")
                 .findAll(navHostSource)
                 .map { match -> match.groupValues[1] }
-                .toSet()
-        val registeredRouteTypes = Route.all.map { route -> route::class.java.simpleName }.toSet()
-        val matcherTypes =
-            Regex("""hasRoute<Route\.([A-Za-z0-9_]+)>""")
-                .findAll(
-                    navHostSource
-                        .substringAfter("private val stableRouteMatchers")
-                        .substringBefore("internal fun shouldNavigateToHomeFromLaunchRequest"),
-                ).map { match -> match.groupValues[1] }
-                .toSet()
+                .toList()
+        val registeredRouteTypes = Route.all.map { route -> route::class.java.simpleName }
+        val matcherPairs =
+            Regex(
+                """Route\.([A-Za-z0-9_]+)(?:\(\))?\.stableRoute to \{ hasRoute<Route\.([A-Za-z0-9_]+)>\(\) }""",
+            ).findAll(
+                navHostSource
+                    .substringAfter("private val stableRouteMatchers")
+                    .substringBefore("internal fun shouldNavigateToHomeFromLaunchRequest"),
+            ).map { match -> match.groupValues[1] to match.groupValues[2] }
+                .toList()
 
-        assertEquals("Route.all drifted from NavHost", registeredDestinationTypes, registeredRouteTypes)
-        assertEquals("Stable route matchers drifted from NavHost", registeredDestinationTypes, matcherTypes)
+        assertEquals(
+            "NavHost declares duplicate destination types",
+            registeredDestinationTypes.size,
+            registeredDestinationTypes.toSet().size,
+        )
+        assertEquals(
+            "Route.all declares duplicate route types",
+            registeredRouteTypes.size,
+            registeredRouteTypes.toSet().size,
+        )
+        assertEquals(
+            "Route.all declares duplicate stable routes",
+            Route.all.size,
+            Route.all
+                .map(Route::stableRoute)
+                .toSet()
+                .size,
+        )
+        assertEquals("Stable route matcher count drifted", registeredDestinationTypes.size, matcherPairs.size)
+        assertTrue(
+            "Stable route matcher keys must match their typed destination: $matcherPairs",
+            matcherPairs.all { (keyType, destinationType) -> keyType == destinationType },
+        )
+        assertEquals(
+            "Route.all drifted from NavHost",
+            registeredDestinationTypes.toSet(),
+            registeredRouteTypes.toSet(),
+        )
+        assertEquals(
+            "Stable route matchers drifted from NavHost",
+            registeredDestinationTypes.toSet(),
+            matcherPairs.map { it.second }.toSet(),
+        )
     }
 
     @Test
@@ -157,8 +191,26 @@ class RipDpiNavHostLogicTest {
         val staticTestTags =
             Regex("""const val [A-Za-z0-9_]+ = "([^"]+)"""")
                 .findAll(testTagsSource)
-                .map { match -> match.groupValues[1] }
-                .toSet()
+                .associate { match ->
+                    match.groupValues[1] to
+                        match.value.substringAfter("const val ").substringBefore(" =")
+                }
+        val usedStaticTagNames =
+            File("src/main/kotlin")
+                .walkTopDown()
+                .filter { file ->
+                    file.isFile &&
+                        file.extension == "kt" &&
+                        file.name != "RipDpiTestTags.kt"
+                }.flatMap { file ->
+                    Regex("""RipDpiTestTags\.([A-Za-z0-9_]+)""")
+                        .findAll(file.readText())
+                        .map { match -> match.groupValues[1] }
+                }.toSet()
+        val usedStaticTestTags =
+            staticTestTags
+                .filterValues(usedStaticTagNames::contains)
+                .keys
         val advancedSectionTags =
             File("src/main/kotlin")
                 .walkTopDown()
@@ -176,20 +228,25 @@ class RipDpiNavHostLogicTest {
                         RipDpiTestTags.homeModePrimaryAction(mode.name),
                     )
                 } +
+                Mode.entries.map { mode -> RipDpiTestTags.configMode(mode.name) } +
+                ConfigModeSection.entries.map { section ->
+                    RipDpiTestTags.configModeSection(section.stableKey)
+                } +
                 advancedSectionTags
         val requiredTestTags =
-            Regex("""required_elements: \[([^]]+)]""")
-                .findAll(auditSpec)
+            Regex(
+                """(?m)^    required_elements:(?: \[([^]]+)]|((?:\n      - "[^"]+")+))""",
+            ).findAll(auditSpec)
                 .flatMap { match ->
                     Regex(""""([^"]+)"""")
-                        .findAll(match.groupValues[1])
+                        .findAll(match.groupValues.drop(1).joinToString("\n"))
                         .map { quoted -> quoted.groupValues[1] }
                 }.toSet()
 
         assertEquals(
             "Audit spec references stale test tags",
             emptySet<String>(),
-            requiredTestTags - staticTestTags - generatedTestTags,
+            requiredTestTags - usedStaticTestTags - generatedTestTags,
         )
 
         Regex("""(?ms)^  - id: .*?(?=^  - id: |\z)""").findAll(auditSpec).forEach { match ->

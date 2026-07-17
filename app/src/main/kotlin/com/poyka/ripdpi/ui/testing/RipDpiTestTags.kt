@@ -51,7 +51,6 @@ internal object RipDpiTestTags {
     const val HomeStatsGrid = "home-stats-grid"
     const val WarningBannerDismiss = "warning-banner-dismiss"
     const val HomeErrorBanner = "home-error-banner"
-    const val HomePermissionIssueBanner = "home-permission-issue-banner"
     const val HomePermissionRecommendationBanner = "home-permission-recommendation-banner"
     const val HomeBackgroundGuidanceBanner = "home-background-guidance-banner"
     const val HomeHardKillSwitchBanner = "home-hard-kill-switch-banner"

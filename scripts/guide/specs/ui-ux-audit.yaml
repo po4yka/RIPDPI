@@ -35,6 +35,67 @@ route_contract:
     - route: "profile/share"
       prerequisite: "An existing profile identifier must be supplied."
       reason: "The share screen is only meaningful for a profile already persisted in app data."
+    - route: "shared_diagnostic_result"
+      prerequisite: "A valid encoded diagnostic-share fragment must be supplied."
+      reason: "The standalone renderer shows an error for the empty default route and needs a real shared report payload."
+
+flow_sections:
+  - title: "Start, Home, and Config"
+    subtitle: "Onboarding, home states, configuration entry points, and strategy setup."
+    pages:
+      - onboarding
+      - home_idle
+      - home_vpn_missing
+      - home_connected_proxy
+      - home_connected_vpn
+      - config
+      - local_bypass_config
+      - vpn_config
+      - mode_editor
+      - strategy_config
+      - routes
+      - rule_editor
+  - title: "Diagnostics"
+    subtitle: "Diagnostics hub, scans, history, logs, and packet captures."
+    pages:
+      - diagnostics
+      - connection_health
+      - strategy_tuner
+      - scanner
+      - detection_check
+      - blockcheck
+      - history
+      - replay_history
+      - logs
+      - pcap_capture_list
+  - title: "Settings"
+    subtitle: "Settings hub, advanced preferences, privacy, customization, backup, and providers."
+    pages:
+      - settings
+      - dns_settings
+      - advanced_settings_top
+      - advanced_settings_activation
+      - detection_settings
+      - split_tunnel
+      - domain_bypass_list
+      - remembered_networks
+      - root_mode_strategies
+      - asset_provider
+      - subscription_failover
+      - subscription_status
+      - app_customization
+      - data_transparency
+      - backup_restore
+      - about
+      - biometric_prompt
+  - title: "Profiles and Imports"
+    subtitle: "Standalone profile and import surfaces available through validated launch requests."
+    pages:
+      - anytls_profile
+      - amneziawg_profile
+      - mieru_profile
+      - ssh_profile
+      - xray_import
 
 pages:
   - id: onboarding
@@ -65,7 +126,7 @@ pages:
     flow_label: "VPN permission missing"
     permission_preset: "vpn_missing"
     expected_root: "home-screen"
-    required_elements: ["home-permission-issue-banner"]
+    required_elements: ["home-setup-health-row"]
     state: "permission repair"
     description: |
       Missing VPN permission state with a repair banner shown on the home status surface.
@@ -100,7 +161,16 @@ pages:
     flow_from: "home_idle"
     flow_label: "Config tab"
     expected_root: "config-screen"
-    required_elements: ["bottom-nav-home", "bottom-nav-diagnostics", "bottom-nav-settings"]
+    required_elements:
+      - "bottom-nav-home"
+      - "bottom-nav-diagnostics"
+      - "bottom-nav-settings"
+      - "config-section-navigation"
+      - "config-traffic-endpoint-selection"
+      - "config-mode-section-local-bypass"
+      - "config-mode-section-vpn"
+      - "config-mode-vpn"
+      - "config-mode-proxy"
     state: "preset selection"
     description: |
       Configuration hub for choosing and editing bypass modes.
@@ -319,7 +389,7 @@ pages:
   - id: replay_history
     title: "Replay History"
     route: "replay_history"
-    flow_from: "history"
+    flow_from: "diagnostics"
     flow_label: "replay"
     data_preset: "diagnostics_demo"
     expected_root: "replay_history-screen"
@@ -338,17 +408,6 @@ pages:
     state: "seeded"
     description: |
       Logs state with export, clear, filter, and log-content controls.
-
-  - id: shared_diagnostic_result
-    title: "Shared Diagnostic Result"
-    route: "shared_diagnostic_result"
-    flow_from: "diagnostics"
-    flow_label: "share"
-    data_preset: "diagnostics_report_demo"
-    expected_root: "shared_diagnostic_result-screen"
-    state: "report demo"
-    description: |
-      Shared diagnostic result state rendered as a standalone report.
 
   - id: pcap_capture_list
     title: "PCAP Captures"
@@ -466,8 +525,7 @@ pages:
   - id: anytls_profile
     title: "AnyTLS Profile"
     route: "profile/anytls"
-    flow_from: "config"
-    flow_label: "AnyTLS"
+    flow_from: null
     expected_root: "profile/anytls-screen"
     state: "relay profile"
     description: |
@@ -476,8 +534,7 @@ pages:
   - id: amneziawg_profile
     title: "AmneziaWG Profile"
     route: "profile/amneziawg"
-    flow_from: "config"
-    flow_label: "AmneziaWG"
+    flow_from: null
     expected_root: "profile/amneziawg-screen"
     state: "VPN profile"
     description: |
@@ -486,8 +543,7 @@ pages:
   - id: mieru_profile
     title: "Mieru Profile"
     route: "profile/mieru"
-    flow_from: "config"
-    flow_label: "Mieru"
+    flow_from: null
     expected_root: "profile/mieru-screen"
     state: "relay profile"
     description: |
@@ -496,8 +552,7 @@ pages:
   - id: ssh_profile
     title: "SSH Profile"
     route: "profile/ssh"
-    flow_from: "config"
-    flow_label: "SSH"
+    flow_from: null
     expected_root: "profile/ssh-screen"
     state: "relay profile"
     description: |
@@ -506,8 +561,7 @@ pages:
   - id: xray_import
     title: "Xray Import"
     route: "xray/import"
-    flow_from: "config"
-    flow_label: "Xray"
+    flow_from: null
     expected_root: "xray/import-screen"
     state: "import"
     description: |

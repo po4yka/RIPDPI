@@ -105,6 +105,7 @@ class PageSpec:
     expected_root: str | None = None
     required_elements: list[str] = field(default_factory=list)
     flow_from: str | None = None
+    flow_from_explicit: bool = False
     flow_label: str = ""
     state: str = ""
     annotations: list[Annotation] = field(default_factory=list)
@@ -116,12 +117,28 @@ class PageSpec:
 
 
 @dataclass
+class RouteExclusion:
+    route: str
+    prerequisite: str
+    reason: str
+
+
+@dataclass
+class FlowSection:
+    title: str
+    subtitle: str
+    page_ids: list[str]
+
+
+@dataclass
 class GuideSpec:
     title: str
     pages: list[PageSpec]
     subtitle: str = ""
     theme: Theme = field(default_factory=Theme)
     flow_title: str = "Current user flow"
+    route_exclusions: list[RouteExclusion] = field(default_factory=list)
+    flow_sections: list[FlowSection] = field(default_factory=list)
     # Defaults
     permission_preset: str = "granted"
     service_preset: str = "idle"
@@ -174,6 +191,7 @@ def load_spec(path: Path) -> GuideSpec:
                 expected_root=p.get("expected_root"),
                 required_elements=list(p.get("required_elements", [])),
                 flow_from=p.get("flow_from"),
+                flow_from_explicit="flow_from" in p,
                 flow_label=p.get("flow_label", ""),
                 state=p.get("state", ""),
                 annotations=annotations,
@@ -190,17 +208,92 @@ def load_spec(path: Path) -> GuideSpec:
         if key in theme_raw:
             setattr(theme, key, _hex_to_rgb(theme_raw[key]))
 
-    return GuideSpec(
+    route_exclusions = [
+        RouteExclusion(
+            route=item["route"].strip(),
+            prerequisite=item["prerequisite"].strip(),
+            reason=item["reason"].strip(),
+        )
+        for item in raw.get("route_contract", {}).get("exclusions", [])
+    ]
+    flow_sections = [
+        FlowSection(
+            title=item["title"].strip(),
+            subtitle=item.get("subtitle", "").strip(),
+            page_ids=list(item.get("pages", [])),
+        )
+        for item in raw.get("flow_sections", [])
+    ]
+
+    spec = GuideSpec(
         title=raw.get("title", "RIPDPI Guide"),
         pages=pages,
         subtitle=raw.get("subtitle", ""),
         theme=theme,
         flow_title=raw.get("flow_title", "Current user flow"),
+        route_exclusions=route_exclusions,
+        flow_sections=flow_sections,
         permission_preset=defaults.get("permission_preset", "granted"),
         service_preset=defaults.get("service_preset", "idle"),
         data_preset=defaults.get("data_preset", "settings_ready"),
         settle_ms=defaults.get("settle_ms", 1500),
     )
+    validate_spec(spec)
+    return spec
+
+
+def _duplicates(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for value in values:
+        if value in seen:
+            duplicates.add(value)
+        seen.add(value)
+    return sorted(duplicates)
+
+
+def validate_spec(spec: GuideSpec) -> None:
+    page_ids = [page.id for page in spec.pages]
+    duplicate_page_ids = _duplicates(page_ids)
+    if duplicate_page_ids:
+        raise ValueError(f"Duplicate page IDs: {duplicate_page_ids}")
+
+    page_id_set = set(page_ids)
+    unknown_parents = sorted({
+        page.flow_from
+        for page in spec.pages
+        if page.flow_from and page.flow_from not in page_id_set
+    })
+    if unknown_parents:
+        raise ValueError(f"Unknown flow_from page IDs: {unknown_parents}")
+
+    exclusion_routes = [item.route for item in spec.route_exclusions]
+    duplicate_exclusions = _duplicates(exclusion_routes)
+    if duplicate_exclusions:
+        raise ValueError(f"Duplicate route exclusions: {duplicate_exclusions}")
+    invalid_exclusions = [
+        item.route
+        for item in spec.route_exclusions
+        if not item.route or not item.prerequisite or not item.reason
+    ]
+    if invalid_exclusions:
+        raise ValueError(f"Route exclusions require route, prerequisite, and reason: {invalid_exclusions}")
+    covered_routes = {page.route for page in spec.pages}
+    overlap = sorted(covered_routes.intersection(exclusion_routes))
+    if overlap:
+        raise ValueError(f"Routes cannot be both captured and excluded: {overlap}")
+
+    if spec.flow_sections:
+        section_page_ids = [page_id for section in spec.flow_sections for page_id in section.page_ids]
+        duplicate_section_ids = _duplicates(section_page_ids)
+        missing_section_ids = sorted(page_id_set.difference(section_page_ids))
+        unknown_section_ids = sorted(set(section_page_ids).difference(page_id_set))
+        if duplicate_section_ids or missing_section_ids or unknown_section_ids:
+            raise ValueError(
+                "Flow sections must partition pages exactly: "
+                f"duplicates={duplicate_section_ids}, missing={missing_section_ids}, "
+                f"unknown={unknown_section_ids}",
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -630,7 +723,7 @@ def analyze_ui_tree(page: PageSpec, ui_xml: str, ui_dump_path: Path) -> PageCapt
         page_id=page.id,
         route=page.route,
         expected_root=expected_root,
-        reachable=expected_root not in missing,
+        reachable=not missing,
         missing_elements=missing,
         node_count=len(nodes),
         clickable_count=sum(1 for node in nodes if node.attrib.get("clickable") == "true"),
@@ -638,6 +731,66 @@ def analyze_ui_tree(page: PageSpec, ui_xml: str, ui_dump_path: Path) -> PageCapt
         scrollable_count=sum(1 for node in nodes if node.attrib.get("scrollable") == "true"),
         text_samples=text_samples,
         ui_dump=str(ui_dump_path),
+    )
+
+
+def aggregate_theme_results(
+    page: PageSpec,
+    results: list[tuple[str, PageCaptureResult]],
+) -> PageCaptureResult:
+    expected_root = expected_root_for(page)
+    if not results:
+        return PageCaptureResult(
+            page_id=page.id,
+            route=page.route,
+            expected_root=expected_root,
+            reachable=False,
+            missing_elements=[expected_root] + page.required_elements,
+            node_count=0,
+            clickable_count=0,
+            enabled_count=0,
+            scrollable_count=0,
+            text_samples=[],
+            error="No theme capture results were produced",
+        )
+
+    missing_elements = [
+        f"{theme}: {selector}"
+        for theme, result in results
+        for selector in result.missing_elements
+    ]
+    errors = [
+        f"{theme}: {result.error}"
+        for theme, result in results
+        if result.error
+    ]
+    text_samples: list[str] = []
+    for _, result in results:
+        if len(text_samples) >= 8:
+            break
+        for sample in result.text_samples:
+            if sample not in text_samples:
+                text_samples.append(sample)
+            if len(text_samples) >= 8:
+                break
+
+    return PageCaptureResult(
+        page_id=page.id,
+        route=page.route,
+        expected_root=expected_root,
+        reachable=all(result.reachable for _, result in results),
+        missing_elements=missing_elements,
+        node_count=min(result.node_count for _, result in results),
+        clickable_count=min(result.clickable_count for _, result in results),
+        enabled_count=min(result.enabled_count for _, result in results),
+        scrollable_count=min(result.scrollable_count for _, result in results),
+        text_samples=text_samples,
+        ui_dump=", ".join(
+            f"{theme}: {result.ui_dump}"
+            for theme, result in results
+            if result.ui_dump
+        ) or None,
+        error="; ".join(errors) or None,
     )
 
 
@@ -655,12 +808,7 @@ def generate_mermaid(spec: GuideSpec) -> str:
     for page in spec.pages:
         lines.append(f'  {_mermaid_id(page.id)}["{_mermaid_label(page)}"]')
     for index, page in enumerate(spec.pages):
-        if page.flow_from:
-            parent = page.flow_from
-        elif index > 0:
-            parent = spec.pages[index - 1].id
-        else:
-            parent = ""
+        parent = _page_parent(spec, page, index)
         if parent:
             label = f'|{page.flow_label}|' if page.flow_label else ""
             lines.append(f"  {_mermaid_id(parent)} -->{label} {_mermaid_id(page.id)}")
@@ -692,72 +840,23 @@ def _svg_text_lines(text: str, max_chars: int) -> list[str]:
 
 
 def _page_parent(spec: GuideSpec, page: PageSpec, index: int) -> str:
+    if page.flow_from_explicit:
+        return page.flow_from or ""
     return page.flow_from or (spec.pages[index - 1].id if index > 0 else "")
 
 
 def _flow_sections(spec: GuideSpec) -> list[tuple[str, str, list[str]]]:
+    if spec.flow_sections:
+        return [
+            (section.title, section.subtitle, section.page_ids)
+            for section in spec.flow_sections
+        ]
     return [
         (
-            "Start, Home, and Config",
-            "Onboarding, home states, configuration entry points, and strategy setup.",
-            [
-                "onboarding",
-                "home_idle",
-                "home_vpn_missing",
-                "home_connected_proxy",
-                "home_connected_vpn",
-                "config",
-                "local_bypass_config",
-                "vpn_config",
-                "mode_editor",
-                "strategy_config",
-                "strategy_import",
-                "dns_settings",
-            ],
-        ),
-        (
-            "Diagnostics",
-            "Diagnostics hub, scans, history, logs, shared reports, and packet captures.",
-            [
-                "diagnostics",
-                "scanner",
-                "detection_check",
-                "blockcheck",
-                "history",
-                "logs",
-                "shared_diagnostic_result",
-                "pcap_capture_list",
-            ],
-        ),
-        (
-            "Settings",
-            "Settings hub, advanced preferences, privacy, customization, backup, and routing.",
-            [
-                "settings",
-                "advanced_settings_top",
-                "advanced_settings_activation",
-                "detection_settings",
-                "split_tunnel",
-                "domain_bypass_list",
-                "app_customization",
-                "data_transparency",
-                "backup_restore",
-                "about",
-                "biometric_prompt",
-                "routes",
-                "rule_editor",
-            ],
-        ),
-        (
-            "Profiles and Imports",
-            "Profile variants and import/edit surfaces.",
-            [
-                "profile_variants",
-                "anytls_profile",
-                "amneziawg_profile",
-                "xray_import",
-            ],
-        ),
+            spec.flow_title,
+            f"{len(spec.pages)} screens and states",
+            [page.id for page in spec.pages],
+        )
     ]
 
 
@@ -888,6 +987,14 @@ def _result_to_dict(result: PageCaptureResult) -> dict[str, Any]:
     }
 
 
+def _exclusion_to_dict(exclusion: RouteExclusion) -> dict[str, str]:
+    return {
+        "route": exclusion.route,
+        "prerequisite": exclusion.prerequisite,
+        "reason": exclusion.reason,
+    }
+
+
 def load_cached_audit_results(audit_json: Path) -> list[PageCaptureResult]:
     if not audit_json.exists():
         return []
@@ -913,10 +1020,15 @@ def load_cached_audit_results(audit_json: Path) -> list[PageCaptureResult]:
     return results
 
 
-def write_audit_results(results: list[PageCaptureResult], output_path: Path) -> None:
+def write_audit_results(
+    results: list[PageCaptureResult],
+    exclusions: list[RouteExclusion],
+    output_path: Path,
+) -> None:
     data = {
         "generated_date": date.today().isoformat(),
         "pages": [_result_to_dict(result) for result in results],
+        "exclusions": [_exclusion_to_dict(exclusion) for exclusion in exclusions],
     }
     output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
@@ -996,6 +1108,10 @@ def write_guide_data(
     audit_pages = [_result_to_dict(results_by_page[page.id]) for page in spec.pages if page.id in results_by_page]
     reachable_count = sum(1 for result in audit_pages if result["reachable"])
     failed_count = len(audit_pages) - reachable_count
+    audit_exclusions = [_exclusion_to_dict(item) for item in spec.route_exclusions]
+    covered_route_count = len(
+        {page.route for page in spec.pages}.union(item.route for item in spec.route_exclusions),
+    )
 
     data = {
         "title": spec.title,
@@ -1010,8 +1126,11 @@ def write_guide_data(
         },
         "audit": {
             "total": len(audit_pages),
+            "coverage_total": covered_route_count,
             "reachable": reachable_count,
             "failed": failed_count,
+            "excluded_count": len(audit_exclusions),
+            "exclusions": audit_exclusions,
             "pages": audit_pages,
         },
         "theme": {
@@ -1090,12 +1209,35 @@ def capture_page(
     has_content = capture_screenshot_when_ready(output, device)
     if not has_content:
         print("  WARNING: Screenshot appears blank after retries")
+        result.reachable = False
+        result.error = "Screenshot remained blank after capture retries"
     optimize_screenshot(output)
     if result.reachable:
         print(f"  Reachable: {result.expected_root}")
     else:
         print(f"  WARNING: Missing selectors: {', '.join(result.missing_elements)}")
     return result
+
+
+def audit_completion_errors(
+    pages: list[PageSpec],
+    results: list[PageCaptureResult],
+    missing_screenshots: list[str],
+) -> list[str]:
+    page_ids = {page.id for page in pages}
+    results_by_page = {result.page_id: result for result in results if result.page_id in page_ids}
+    errors = [
+        f"{page.id}: no audit result"
+        for page in pages
+        if page.id not in results_by_page
+    ]
+    errors.extend(
+        f"{result.page_id}: {', '.join(result.missing_elements) or result.error or 'unreachable'}"
+        for result in results_by_page.values()
+        if not result.reachable
+    )
+    errors.extend(f"{page_id}: screenshot missing" for page_id in missing_screenshots)
+    return errors
 
 
 def main() -> None:
@@ -1140,6 +1282,11 @@ def main() -> None:
         "--emulator",
         action="store_true",
         help=f"Auto-launch the {GUIDE_AVD_NAME} emulator for capture",
+    )
+    parser.add_argument(
+        "--strict-audit",
+        action="store_true",
+        help="Exit non-zero when a page/theme/required selector or screenshot fails",
     )
     args = parser.parse_args()
 
@@ -1215,7 +1362,7 @@ def main() -> None:
         try:
             for page in spec.pages:
                 print(f"[{page.id}] Capturing...")
-                page_result: PageCaptureResult | None = None
+                theme_results: list[tuple[str, PageCaptureResult]] = []
                 for theme in CAPTURE_THEMES:
                     try:
                         result = capture_page(
@@ -1226,34 +1373,36 @@ def main() -> None:
                             args.device,
                             theme,
                         )
-                        if page_result is None:
-                            page_result = result
+                        theme_results.append((theme, result))
                     except subprocess.CalledProcessError as e:
                         print(f"  ERROR: ADB command failed: {e.cmd}")
                         print(f"  stderr: {e.stderr}")
-                        if page_result is None:
-                            page_result = PageCaptureResult(
-                                page_id=page.id,
-                                route=page.route,
-                                expected_root=expected_root_for(page),
-                                reachable=False,
-                                missing_elements=[expected_root_for(page)] + page.required_elements,
-                                node_count=0,
-                                clickable_count=0,
-                                enabled_count=0,
-                                scrollable_count=0,
-                                text_samples=[],
-                                error=f"ADB command failed: {e.cmd}",
+                        theme_results.append(
+                            (
+                                theme,
+                                PageCaptureResult(
+                                    page_id=page.id,
+                                    route=page.route,
+                                    expected_root=expected_root_for(page),
+                                    reachable=False,
+                                    missing_elements=[expected_root_for(page)] + page.required_elements,
+                                    node_count=0,
+                                    clickable_count=0,
+                                    enabled_count=0,
+                                    scrollable_count=0,
+                                    text_samples=[],
+                                    error=f"ADB command failed: {e.cmd}",
+                                ),
                             )
-                if page_result is not None:
-                    audit_results.append(page_result)
+                        )
+                audit_results.append(aggregate_theme_results(page, theme_results))
         finally:
             print("Disabling demo mode...")
             try:
                 teardown_demo_mode(args.device)
             except subprocess.CalledProcessError:
                 pass  # Best-effort cleanup
-        write_audit_results(audit_results, audit_json)
+        write_audit_results(audit_results, spec.route_exclusions, audit_json)
     else:
         print("Skipping capture (using cached screenshots)")
         audit_results = load_cached_audit_results(audit_json)
@@ -1318,6 +1467,13 @@ def main() -> None:
         print("Shutting down emulator...")
         subprocess.run(["adb", "emu", "kill"], capture_output=True)
         emulator_proc.wait(timeout=30)
+
+    completion_errors = audit_completion_errors(spec.pages, audit_results, missing)
+    if args.strict_audit and completion_errors:
+        print("ERROR: Strict UI audit failed:", file=sys.stderr)
+        for error in completion_errors:
+            print(f"  - {error}", file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":

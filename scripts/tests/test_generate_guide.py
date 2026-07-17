@@ -43,6 +43,56 @@ class GenerateGuideTest(unittest.TestCase):
         self.assertTrue(result.reachable)
         self.assertEqual([], result.missing_elements)
 
+    def test_required_selector_failure_marks_page_unreachable(self) -> None:
+        guide = load_generate_guide_module()
+        page = guide.PageSpec(
+            id="config",
+            title="Config",
+            route="config",
+            expected_root="config-screen",
+            required_elements=["config-section-navigation"],
+        )
+        xml = """<hierarchy><node resource-id="config-screen" /></hierarchy>"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = guide.analyze_ui_tree(page, xml, Path(temp_dir) / "config.xml")
+
+        self.assertFalse(result.reachable)
+        self.assertEqual(["config-section-navigation"], result.missing_elements)
+
+    def test_theme_results_fail_closed_when_one_theme_is_unreachable(self) -> None:
+        guide = load_generate_guide_module()
+        page = guide.PageSpec(id="config", title="Config", route="config")
+        dark = guide.PageCaptureResult(
+            page_id="config",
+            route="config",
+            expected_root="config-screen",
+            reachable=True,
+            missing_elements=[],
+            node_count=10,
+            clickable_count=3,
+            enabled_count=10,
+            scrollable_count=1,
+            text_samples=["Config"],
+        )
+        light = guide.PageCaptureResult(
+            page_id="config",
+            route="config",
+            expected_root="config-screen",
+            reachable=False,
+            missing_elements=["config-section-navigation"],
+            node_count=8,
+            clickable_count=2,
+            enabled_count=8,
+            scrollable_count=1,
+            text_samples=["Config"],
+        )
+
+        result = guide.aggregate_theme_results(page, [("dark", dark), ("light", light)])
+
+        self.assertFalse(result.reachable)
+        self.assertEqual(["light: config-section-navigation"], result.missing_elements)
+
     def test_screenshot_has_app_content_rejects_blank_app_surface(self) -> None:
         guide = load_generate_guide_module()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -95,7 +145,10 @@ class GenerateGuideTest(unittest.TestCase):
                 guide.PageSpec(id="home_idle", title="Home", route="home", flow_from="onboarding"),
                 guide.PageSpec(id="diagnostics", title="Diagnostics", route="diagnostics"),
                 guide.PageSpec(id="settings", title="Settings", route="settings"),
-                guide.PageSpec(id="profile_variants", title="Profile Variants", route="profile_variants"),
+            ],
+            flow_sections=[
+                guide.FlowSection("Start", "Start states", ["onboarding", "home_idle"]),
+                guide.FlowSection("Tools", "Tool states", ["diagnostics", "settings"]),
             ],
         )
 
@@ -103,8 +156,57 @@ class GenerateGuideTest(unittest.TestCase):
             root = Path(temp_dir)
             sections = guide.write_flow_svgs(spec, root, root)
 
-        self.assertGreaterEqual(len(sections), 4)
+        self.assertEqual(2, len(sections))
+        self.assertEqual(["Start", "Tools"], [section["title"] for section in sections])
         self.assertTrue(all(section["path"].endswith(".svg") for section in sections))
+
+    def test_ui_audit_spec_has_typed_exclusions_and_exact_flow_partition(self) -> None:
+        guide = load_generate_guide_module()
+        spec_path = MODULE_PATH.parent / "specs" / "ui-ux-audit.yaml"
+
+        spec = guide.load_spec(spec_path)
+
+        self.assertEqual(7, len(spec.route_exclusions))
+        self.assertIn("shared_diagnostic_result", [item.route for item in spec.route_exclusions])
+        self.assertTrue(all(item.prerequisite and item.reason for item in spec.route_exclusions))
+        section_ids = [page_id for section in spec.flow_sections for page_id in section.page_ids]
+        self.assertCountEqual([page.id for page in spec.pages], section_ids)
+        self.assertEqual(len(section_ids), len(set(section_ids)))
+        self.assertNotIn("strategy_import", section_ids)
+        self.assertNotIn("profile_variants", section_ids)
+
+    def test_spec_validation_rejects_duplicate_ids_unknown_edges_and_section_drift(self) -> None:
+        guide = load_generate_guide_module()
+        cases = [
+            guide.GuideSpec(
+                title="duplicate",
+                pages=[
+                    guide.PageSpec(id="same", title="One", route="one"),
+                    guide.PageSpec(id="same", title="Two", route="two"),
+                ],
+            ),
+            guide.GuideSpec(
+                title="edge",
+                pages=[
+                    guide.PageSpec(
+                        id="one",
+                        title="One",
+                        route="one",
+                        flow_from="missing",
+                        flow_from_explicit=True,
+                    ),
+                ],
+            ),
+            guide.GuideSpec(
+                title="section",
+                pages=[guide.PageSpec(id="one", title="One", route="one")],
+                flow_sections=[guide.FlowSection("Section", "", ["missing"])],
+            ),
+        ]
+
+        for spec in cases:
+            with self.subTest(spec=spec.title), self.assertRaises(ValueError):
+                guide.validate_spec(spec)
 
     def test_write_guide_data_includes_dark_and_light_screenshots(self) -> None:
         guide = load_generate_guide_module()
@@ -112,6 +214,13 @@ class GenerateGuideTest(unittest.TestCase):
             title="Audit",
             pages=[
                 guide.PageSpec(id="home", title="Home", route="home"),
+            ],
+            route_exclusions=[
+                guide.RouteExclusion(
+                    route="profile/share",
+                    prerequisite="A profile exists.",
+                    reason="The route needs a profile ID.",
+                ),
             ],
         )
 
@@ -147,6 +256,34 @@ class GenerateGuideTest(unittest.TestCase):
         self.assertEqual("/screenshots/dark/home.png", page["screenshot"])
         self.assertEqual(["Dark", "Light"], [shot["label"] for shot in page["screenshots"]])
         self.assertEqual("/screenshots/light/home.png", page["screenshots"][1]["path"])
+        self.assertEqual(1, data["audit"]["excluded_count"])
+        self.assertEqual("profile/share", data["audit"]["exclusions"][0]["route"])
+        self.assertEqual(2, data["audit"]["coverage_total"])
+
+    def test_strict_audit_completion_reports_missing_results_failures_and_screenshots(self) -> None:
+        guide = load_generate_guide_module()
+        pages = [
+            guide.PageSpec(id="home", title="Home", route="home"),
+            guide.PageSpec(id="config", title="Config", route="config"),
+        ]
+        result = guide.PageCaptureResult(
+            page_id="home",
+            route="home",
+            expected_root="home-screen",
+            reachable=False,
+            missing_elements=["home-mode-card-local-dpi-bypass"],
+            node_count=1,
+            clickable_count=0,
+            enabled_count=1,
+            scrollable_count=0,
+            text_samples=[],
+        )
+
+        errors = guide.audit_completion_errors(pages, [result], ["config"])
+
+        self.assertIn("config: no audit result", errors)
+        self.assertIn("home: home-mode-card-local-dpi-bypass", errors)
+        self.assertIn("config: screenshot missing", errors)
 
 
 if __name__ == "__main__":

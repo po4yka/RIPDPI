@@ -84,7 +84,7 @@ SERIAL="$(adb devices | awk '/device$/{print $1; exit}')"
 ./gradlew :app:installGithubFullDebug -Pandroid.injected.device.serial="$SERIAL" --console=plain
 python3 -m venv build/guide-test-venv
 build/guide-test-venv/bin/python -m pip install -r scripts/guide/requirements.txt
-build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --device "$SERIAL" --output build/guide/ripdpi-ui-ux-audit.pdf
+build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --device "$SERIAL" --strict-audit --output build/guide/ripdpi-ui-ux-audit.pdf
 ```
 
 The generator captures every spec page twice, once with `THEME=dark` and once with `THEME=light`, then places the paired screenshots next to each other in the PDF. It also pre-grants runtime permissions that would otherwise produce Android system dialogs during capture (`CAMERA`, notifications, and coarse location), drains any already-visible permission dialog, enables Android demo mode for a stable status bar, and disables demo mode at the end.
@@ -95,7 +95,7 @@ Generated artifacts are written under `build/guide/`:
 - `screenshots/dark/` and `screenshots/light/` -- raw optimized device screenshots.
 - `framed/dark/` and `framed/light/` -- screenshots composited into the Pixel device frame used by the PDF.
 - `ui-dumps/dark/` and `ui-dumps/light/` -- UiAutomator XML dumps for selector debugging.
-- `ui-audit.json` -- selector reachability results and UI-tree counters.
+- `ui-audit.json` -- selector reachability results, UI-tree counters, and route exclusions with their prerequisites and reasons.
 - `guide-data.json` -- Typst input data.
 - `user-flow.mmd`, `user-flow.svg`, and `user-flow-*.svg` -- generated flow source and rendered diagram sections.
 
@@ -108,7 +108,7 @@ build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/
 build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --no-frame --pages scanner --device "$SERIAL" --output build/guide/ripdpi-ui-ux-audit-scanner.pdf
 ```
 
-Use `--pages` for a focused live pass, `--no-frame` for faster layout/debug iteration, and `--skip-capture` when only the Typst template, palette, captions, or flow diagrams changed. A skipped capture reuses the cached screenshots, `ui-audit.json`, and generated diagram inputs from `build/guide/`.
+Use `--pages` for a focused live pass, `--no-frame` for faster layout/debug iteration, and `--skip-capture` when only the Typst template, palette, captions, or flow diagrams changed. Add `--strict-audit` to completion checks so any failed theme, missing required selector, absent audit result, or missing screenshot exits non-zero. A skipped capture reuses the cached screenshots, `ui-audit.json`, and generated diagram inputs from `build/guide/`.
 
 Before committing generator or spec changes, run:
 

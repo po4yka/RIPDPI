@@ -12,8 +12,10 @@
 #let theme = resolve-theme(data.theme)
 #let audit = data.at("audit", default: (:))
 #let audit-total = audit.at("total", default: 0)
+#let audit-coverage-total = audit.at("coverage_total", default: audit-total)
 #let audit-reachable = audit.at("reachable", default: 0)
 #let audit-failed = audit.at("failed", default: 0)
+#let audit-excluded = audit.at("excluded_count", default: 0)
 
 // ---------------------------------------------------------------------------
 // Document settings
@@ -77,7 +79,7 @@
 #v(8mm)
 
 #grid(
-  columns: (1fr, 1fr, 1fr),
+  columns: (1fr, 1fr, 1fr, 1fr),
   gutter: 5mm,
   box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 9pt)[
     #text(fill: theme.muted, size: 9pt)[Captured screens]
@@ -94,6 +96,11 @@
     #linebreak()
     #text(fill: theme.text, weight: "bold", size: 22pt)[#audit-failed]
   ],
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 9pt)[
+    #text(fill: theme.muted, size: 9pt)[Excluded routes]
+    #linebreak()
+    #text(fill: theme.text, weight: "bold", size: 22pt)[#audit-excluded]
+  ],
 )
 
 #v(6mm)
@@ -104,7 +111,7 @@
   [
     #text(weight: "bold", size: 13pt)[Audit package]
     #v(3mm)
-    #text(fill: theme.text, size: 10.5pt)[This report combines Pixel 7 screenshots, accessibility-tree reachability checks, route/state metadata, and the generated Mermaid user-flow source for the current RIPDPI UI.]
+    #text(fill: theme.text, size: 10.5pt)[This report combines captured device screenshots, accessibility-tree reachability checks, route/state metadata, and the generated Mermaid user-flow source for the current RIPDPI UI.]
     #v(5mm)
     #text(fill: theme.muted, size: 9pt)[Scope]
     #v(2mm)
@@ -154,12 +161,12 @@
 #v(10mm)
 
 #grid(
-  columns: (1fr, 1fr, 1fr),
+  columns: (1fr, 1fr, 1fr, 1fr),
   gutter: 6mm,
   box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 8pt)[
-    #text(fill: theme.muted, size: 9pt)[Screens]
+    #text(fill: theme.muted, size: 9pt)[Route coverage]
     #linebreak()
-    #text(fill: theme.text, weight: "bold", size: 20pt)[#audit-total]
+    #text(fill: theme.text, weight: "bold", size: 20pt)[#audit-coverage-total]
   ],
   box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 8pt)[
     #text(fill: theme.muted, size: 9pt)[Reachable]
@@ -170,6 +177,11 @@
     #text(fill: theme.muted, size: 9pt)[Needs review]
     #linebreak()
     #text(fill: theme.text, weight: "bold", size: 20pt)[#audit-failed]
+  ],
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 8pt)[
+    #text(fill: theme.muted, size: 9pt)[Excluded]
+    #linebreak()
+    #text(fill: theme.text, weight: "bold", size: 20pt)[#audit-excluded]
   ],
 )
 
@@ -203,6 +215,29 @@
       }
     },
   )
+}
+
+#if audit.at("exclusions", default: ()).len() > 0 {
+  v(7mm)
+  text(weight: "bold", size: 13pt)[Excluded routes and prerequisites]
+  v(3mm)
+  for exclusion in audit.at("exclusions", default: ()) {
+    block(
+      width: 100%,
+      below: 4pt,
+      fill: rgb("#F7F7F7"),
+      stroke: 0.5pt + rgb("#D9D9D9"),
+      radius: 3pt,
+      inset: 7pt,
+      {
+        text(weight: "bold", size: 10pt)[#exclusion.route]
+        linebreak()
+        text(fill: theme.muted, size: 9pt)[prerequisite: #exclusion.prerequisite]
+        linebreak()
+        text(fill: theme.muted, size: 9pt)[reason: #exclusion.reason]
+      },
+    )
+  }
 }
 
 // ---------------------------------------------------------------------------
