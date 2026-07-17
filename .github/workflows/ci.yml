@@ -213,9 +213,8 @@ jobs:
       - name: Run REALITY BoringSSL hook vector guard
         run: python3 scripts/ci/check_reality_boring_vector.py
 
-  # Builds Rust native libraries + helper binaries for each ABI × profile combination.
-  # debug profile: standard dev build used by the debug APK.
-  # release profile (android-jni): optimised build used by release-verification.
+  # Builds the CI-default android-jni Rust libraries + helpers once per ABI.
+  # Debug and release consumers use this same profile in CI.
   # Each shard gets a full 4-vCPU runner for a single-ABI cross-compile.
   rust-native:
     if: github.event_name != 'schedule'
@@ -229,9 +228,6 @@ jobs:
           - { name: armeabi-v7a, rust-target: armv7-linux-androideabi }
           - { name: x86,         rust-target: i686-linux-android }
           - { name: x86_64,      rust-target: x86_64-linux-android }
-        profile:
-          - { name: debug,   cargo-profile-flag: "" }
-          - { name: release, cargo-profile-flag: "-Pripdpi.nativeCargoProfile=android-jni" }
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -239,11 +235,11 @@ jobs:
         with:
           rust-components: ""
           rust-targets: ${{ matrix.abi.rust-target }}
-          rust-cache-shared-key: rust-android-${{ matrix.profile.name }}-${{ matrix.abi.name }}
+          rust-cache-shared-key: rust-android-${{ matrix.abi.name }}
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Build Rust native libraries + helper binaries (${{ matrix.profile.name }}) for ${{ matrix.abi.name }}
+      - name: Build Rust native libraries + helper binaries for ${{ matrix.abi.name }}
         env:
           RUSTC_WRAPPER: sccache
         run: |
@@ -252,10 +248,9 @@ jobs:
             :core:engine:buildRustRootHelper \
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
-            -Pripdpi.nativeAbisOverride=${{ matrix.abi.name }} \
-            ${{ matrix.profile.cargo-profile-flag }}
+            -Pripdpi.nativeAbisOverride=${{ matrix.abi.name }}
 
-      - name: Stage native artifacts (${{ matrix.profile.name }}, ${{ matrix.abi.name }})
+      - name: Stage native artifacts for ${{ matrix.abi.name }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/native-shard"
@@ -275,10 +270,10 @@ jobs:
           fi
           ls -la "$RUNNER_TEMP/native-shard"
 
-      - name: Upload native artifacts (${{ matrix.profile.name }}, ${{ matrix.abi.name }})
+      - name: Upload native artifacts for ${{ matrix.abi.name }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: native-shard-${{ matrix.profile.name }}-${{ matrix.abi.name }}
+          name: native-shard-${{ matrix.abi.name }}
           path: ${{ runner.temp }}/native-shard/*
           if-no-files-found: error
           retention-days: 7
@@ -307,7 +302,7 @@ jobs:
       - name: Download native shards
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: native-shard-debug-*
+          pattern: native-shard-*
           path: ${{ runner.temp }}/native-shards
 
       - name: Stage prebuilt native artifacts
@@ -316,7 +311,7 @@ jobs:
           jni_root="$RUNNER_TEMP/prebuilt/jniLibs"
           assets_root="$RUNNER_TEMP/prebuilt/assetsBin"
           mkdir -p "$jni_root" "$assets_root"
-          for shard in "$RUNNER_TEMP/native-shards"/native-shard-debug-*; do
+          for shard in "$RUNNER_TEMP/native-shards"/native-shard-*; do
             for d in "$shard"/jniLibs-*; do
               [ -d "$d" ] || continue
               abi="${d##*/jniLibs-}"
@@ -497,7 +492,7 @@ jobs:
       - name: Download native release shards
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: native-shard-release-*
+          pattern: native-shard-*
           path: ${{ runner.temp }}/native-shards-release
 
       - name: Stage prebuilt release native artifacts
@@ -506,7 +501,7 @@ jobs:
           jni_root="$RUNNER_TEMP/prebuilt-release/jniLibs"
           assets_root="$RUNNER_TEMP/prebuilt-release/assetsBin"
           mkdir -p "$jni_root" "$assets_root"
-          for shard in "$RUNNER_TEMP/native-shards-release"/native-shard-release-*; do
+          for shard in "$RUNNER_TEMP/native-shards-release"/native-shard-*; do
             for d in "$shard"/jniLibs-*; do
               [ -d "$d" ] || continue
               abi="${d##*/jniLibs-}"
@@ -1353,11 +1348,11 @@ jobs:
           rust-cache-save: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Download x86_64 debug native shard
+      - name: Download x86_64 native shard
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: native-shard-debug-x86_64
-          path: ${{ runner.temp }}/native-shard-debug-x86_64
+          name: native-shard-x86_64
+          path: ${{ runner.temp }}/native-shard-x86_64
 
       - name: Stage prebuilt x86_64 native artifacts
         run: |
@@ -1365,8 +1360,8 @@ jobs:
           jni_root="$RUNNER_TEMP/prebuilt-integration/jniLibs"
           assets_root="$RUNNER_TEMP/prebuilt-integration/assetsBin"
           mkdir -p "$jni_root" "$assets_root"
-          cp -r "$RUNNER_TEMP/native-shard-debug-x86_64/jniLibs-x86_64" "$jni_root/x86_64"
-          cp -r "$RUNNER_TEMP/native-shard-debug-x86_64/assetsBin-x86_64" "$assets_root/x86_64"
+          cp -r "$RUNNER_TEMP/native-shard-x86_64/jniLibs-x86_64" "$jni_root/x86_64"
+          cp -r "$RUNNER_TEMP/native-shard-x86_64/assetsBin-x86_64" "$assets_root/x86_64"
           find "$RUNNER_TEMP/prebuilt-integration" -maxdepth 3 -type f -print
 
       - name: Enable KVM for emulator
