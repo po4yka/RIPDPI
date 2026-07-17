@@ -57,20 +57,26 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         ci_source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertIn("name: release-retrace-inputs-${{ matrix.variant.id }}", ci_source)
 
-    def test_native_symbol_uploads_are_variant_aware_and_fail_closed(self) -> None:
-        for workflow in WORKFLOWS:
-            block = upload_block(
-                workflow.read_text(encoding="utf-8"),
-                "Upload release native symbols",
-            )
-            self.assertIn(
-                "app/build/intermediates/native_symbol_tables/*Release/*/out/**",
-                block,
-            )
-            self.assertIn("if-no-files-found: error", block)
-
+    def test_native_symbol_bundle_uses_one_shared_fail_closed_packager(self) -> None:
         ci_source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        self.assertIn("name: release-native-symbols-${{ matrix.variant.id }}", ci_source)
+        release_source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+
+        self.assertEqual(1, ci_source.count("name: release-native-symbols\n"))
+        self.assertIn("matrix.variant.id == 'github-full'", ci_source)
+        for source in (ci_source, release_source):
+            self.assertIn("python3 scripts/ci/package_native_symbols.py", source)
+            block = upload_block(source, "Upload release native symbols")
+            self.assertIn("release-native-symbols/manifest.json", block)
+            self.assertIn("release-native-symbols/release-native-symbols.zip", block)
+            self.assertIn("if-no-files-found: error", block)
+            self.assertNotIn("native_symbol_tables", source)
+
+    def test_native_producers_upload_separate_symbol_sidecars(self) -> None:
+        source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertEqual(2, source.count("Upload native symbol sidecar"))
+        self.assertIn("name: native-symbols-${{ matrix.abi.name }}", source)
+        self.assertIn("name: native-symbols-x86_64", source)
+        self.assertIn("if-no-files-found: error", source)
 
 
 if __name__ == "__main__":

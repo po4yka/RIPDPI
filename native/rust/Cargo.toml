@@ -545,6 +545,8 @@ inherits = "release"
 lto = "fat"
 opt-level = "z"
 panic = "unwind"
+debug = "line-tables-only"
+strip = "none"
 
 [profile.android-jni-dev]
 inherits = "dev"

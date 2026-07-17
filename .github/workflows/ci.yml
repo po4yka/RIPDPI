@@ -342,6 +342,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload native symbol sidecar for ${{ matrix.abi.name }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-symbols-${{ matrix.abi.name }}
+          path: core/engine/build/generated/nativeSymbols/${{ matrix.abi.name }}/*.dbg
+          if-no-files-found: error
+          retention-days: 7
+
   # Produces the only shard required by the Android instrumented-test matrix.
   # Keeping it outside the packaging matrix removes the wait for arm/x86 jobs.
   rust-native-x86_64:
@@ -416,6 +424,14 @@ jobs:
         with:
           name: native-shard-x86_64
           path: ${{ runner.temp }}/native-shard/*
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload native symbol sidecar for x86_64
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-symbols-x86_64
+          path: core/engine/build/generated/nativeSymbols/x86_64/*.dbg
           if-no-files-found: error
           retention-days: 7
 
@@ -547,7 +563,11 @@ jobs:
           -Pripdpi.skipNativeBuild=true
 
       - name: Run release artifact upload contract tests
-        run: python3 -m unittest scripts.tests.test_release_artifact_uploads
+        run: |
+          python3 -m unittest \
+            scripts.tests.test_package_native_symbols \
+            scripts.tests.test_release_artifact_uploads \
+            scripts.tests.test_rust_native_task_layout
 
       - name: Run nightly coverage selection contract tests
         run: python3 -m unittest scripts.tests.test_nightly_coverage_selection
@@ -652,6 +672,13 @@ jobs:
           pattern: native-shard-*
           path: ${{ runner.temp }}/native-shards-release
 
+      - name: Download native symbol sidecars
+        if: matrix.variant.id == 'github-full'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: native-symbols-*
+          path: ${{ runner.temp }}/native-symbols-release
+
       - name: Stage prebuilt release native artifacts
         run: |
           set -euo pipefail
@@ -703,6 +730,27 @@ jobs:
             exit 1
           fi
 
+      - name: Package deterministic release native symbols
+        if: matrix.variant.id == 'github-full'
+        run: |
+          set -euo pipefail
+          symbols_root="$RUNNER_TEMP/release-symbol-inputs"
+          mkdir -p "$symbols_root"
+          for shard in "$RUNNER_TEMP/native-symbols-release"/native-symbols-*; do
+            test -d "$shard"
+            abi="${shard##*/native-symbols-}"
+            mkdir -p "$symbols_root/$abi"
+            cp "$shard"/*.dbg "$symbols_root/$abi/"
+          done
+          ndk_version="$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)"
+          readelf="$ANDROID_SDK_ROOT/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          test -x "$readelf"
+          python3 scripts/ci/package_native_symbols.py \
+            --symbols-dir "$symbols_root" \
+            --stripped-libs-dir "$RUNNER_TEMP/prebuilt-release/jniLibs" \
+            --output-dir "$RUNNER_TEMP/release-native-symbols" \
+            --readelf "$readelf"
+
       - name: Upload release retrace inputs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -715,11 +763,13 @@ jobs:
           retention-days: 7
 
       - name: Upload release native symbols
-        if: always()
+        if: matrix.variant.id == 'github-full'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-native-symbols-${{ matrix.variant.id }}
-          path: app/build/intermediates/native_symbol_tables/*Release/*/out/**
+          name: release-native-symbols
+          path: |
+            ${{ runner.temp }}/release-native-symbols/manifest.json
+            ${{ runner.temp }}/release-native-symbols/release-native-symbols.zip
           if-no-files-found: error
           retention-days: 7
 

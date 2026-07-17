@@ -96,6 +96,9 @@ abstract class BuildRustNativeLibsTask
         @get:Input
         abstract val pruneUnknownArtifacts: Property<Boolean>
 
+        @get:Input
+        abstract val stripReleaseOutputs: Property<Boolean>
+
         // When set (e.g. by CI's build-android-debug job after a per-ABI matrix
         // prebuild), the task copies expected artifacts from
         // `<prebuiltSourceDir>/<abi>/<outputName>` instead of running cargo.
@@ -107,11 +110,16 @@ abstract class BuildRustNativeLibsTask
         @get:OutputDirectory
         abstract val outputDir: DirectoryProperty
 
+        @get:OutputDirectory
+        @get:Optional
+        abstract val debugSymbolsDir: DirectoryProperty
+
         @get:LocalState
         abstract val cargoTargetDir: DirectoryProperty
 
         init {
             pruneUnknownArtifacts.convention(true)
+            stripReleaseOutputs.convention(false)
         }
 
         @TaskAction
@@ -132,6 +140,19 @@ abstract class BuildRustNativeLibsTask
             val cargoTargetRoot = cargoTargetDir.get().asFile
             val cargoExecutablePath = cargoExecutable.get()
             val cargoProfileName = cargoProfile.get()
+            val shouldStripReleaseOutputs = stripReleaseOutputs.get() && cargoProfileName == "android-jni"
+            val debugSymbolsRoot =
+                debugSymbolsDir.orNull?.asFile?.takeIf { shouldStripReleaseOutputs }
+            val llvmObjcopy = hostBinDir.resolve("llvm-objcopy")
+            val llvmStrip = hostBinDir.resolve("llvm-strip")
+            if (shouldStripReleaseOutputs) {
+                if (!llvmObjcopy.isFile) {
+                    throw GradleException("Android llvm-objcopy not found: ${llvmObjcopy.absolutePath}")
+                }
+                if (!llvmStrip.isFile) {
+                    throw GradleException("Android llvm-strip not found: ${llvmStrip.absolutePath}")
+                }
+            }
             val abiList = abis.get()
             val configuredAbiParallelism = abiParallelism.get()
             if (configuredAbiParallelism < 1) {
@@ -160,6 +181,7 @@ abstract class BuildRustNativeLibsTask
             }
 
             pruneStaleAbiOutputs(outputRoot)
+            debugSymbolsRoot?.let(::pruneStaleAbiOutputs)
 
             // Validate all ABIs upfront before spawning parallel builds.
             val abiConfigs =
@@ -211,6 +233,10 @@ abstract class BuildRustNativeLibsTask
                                 artifacts,
                                 cargoJobs,
                                 androidSdkCmake,
+                                shouldStripReleaseOutputs,
+                                debugSymbolsRoot,
+                                llvmObjcopy,
+                                llvmStrip,
                             )
                         }
                     }
@@ -250,6 +276,10 @@ abstract class BuildRustNativeLibsTask
             artifacts: List<RustNativeArtifact>,
             cargoJobs: Int,
             androidCmakePath: String?,
+            shouldStripReleaseOutputs: Boolean,
+            debugSymbolsRoot: File?,
+            llvmObjcopy: File,
+            llvmStrip: File,
         ) {
             val targetEnv = config.target.replace('-', '_').uppercase()
             val ccTargetKey = "CC_${config.target.replace('-', '_')}"
@@ -258,8 +288,16 @@ abstract class BuildRustNativeLibsTask
             val abiCargoTargetDir = cargoTargetRoot.resolve(config.abi)
             val abiOutputDir = outputRoot.resolve(config.abi)
             abiOutputDir.mkdirs()
+            val abiDebugSymbolsDir = debugSymbolsRoot?.resolve(config.abi)
+            abiDebugSymbolsDir?.mkdirs()
             if (shouldPruneUnknownArtifacts) {
                 pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
+                abiDebugSymbolsDir?.let { symbolsDir ->
+                    pruneStaleArtifactOutputs(
+                        symbolsDir,
+                        expectedOutputNames.mapTo(mutableSetOf()) { "$it.dbg" },
+                    )
+                }
             }
 
             // Delete stale BoringSSL cmake build directories whose cached cmake binary,
@@ -404,6 +442,46 @@ abstract class BuildRustNativeLibsTask
 
                 val packagedLibrary = abiOutputDir.resolve(artifact.outputName)
                 copyIfChanged(builtLibrary, packagedLibrary)
+                if (shouldStripReleaseOutputs) {
+                    val debugSidecar = abiDebugSymbolsDir?.resolve("${artifact.outputName}.dbg")
+                    if (debugSidecar != null) {
+                        execOperations
+                            .exec {
+                                commandLine(
+                                    llvmObjcopy.absolutePath,
+                                    "--only-keep-debug",
+                                    builtLibrary.absolutePath,
+                                    debugSidecar.absolutePath,
+                                )
+                            }.assertNormalExitValue()
+                    }
+                    execOperations
+                        .exec {
+                            commandLine(
+                                llvmStrip.absolutePath,
+                                "--strip-all",
+                                packagedLibrary.absolutePath,
+                            )
+                        }.assertNormalExitValue()
+                    execOperations
+                        .exec {
+                            commandLine(
+                                llvmObjcopy.absolutePath,
+                                "--remove-section=.debug_gdb_scripts",
+                                packagedLibrary.absolutePath,
+                            )
+                        }.assertNormalExitValue()
+                    if (debugSidecar != null) {
+                        execOperations
+                            .exec {
+                                commandLine(
+                                    llvmObjcopy.absolutePath,
+                                    "--add-gnu-debuglink=${debugSidecar.absolutePath}",
+                                    packagedLibrary.absolutePath,
+                                )
+                            }.assertNormalExitValue()
+                    }
+                }
             }
         }
 
@@ -707,6 +785,33 @@ abstract class BuildPluggableTransportAssetsTask
                             val upstreamBinary = abiBinDir.resolve("$outputName.upstream")
                             if (sourceBuildResult != null) {
                                 copyIfChanged(sourceBuildResult, upstreamBinary)
+                                if (source.sourceType == "rust" && cargoProfile.get() == "android-jni") {
+                                    val hostBinDir = resolveNdkToolchainBinDir()
+                                    val llvmStrip = hostBinDir.resolve("llvm-strip")
+                                    val llvmObjcopy = hostBinDir.resolve("llvm-objcopy")
+                                    require(llvmStrip.isFile) {
+                                        "Android llvm-strip not found for pluggable transport build: ${llvmStrip.absolutePath}"
+                                    }
+                                    require(llvmObjcopy.isFile) {
+                                        "Android llvm-objcopy not found for pluggable transport build: ${llvmObjcopy.absolutePath}"
+                                    }
+                                    execOperations
+                                        .exec {
+                                            commandLine(
+                                                llvmStrip.absolutePath,
+                                                "--strip-all",
+                                                upstreamBinary.absolutePath,
+                                            )
+                                        }.assertNormalExitValue()
+                                    execOperations
+                                        .exec {
+                                            commandLine(
+                                                llvmObjcopy.absolutePath,
+                                                "--remove-section=.debug_gdb_scripts",
+                                                upstreamBinary.absolutePath,
+                                            )
+                                        }.assertNormalExitValue()
+                                }
                                 launcher.writeText(
                                     sourceBuildLauncherScript(upstreamBinary.name),
                                     Charsets.UTF_8,
@@ -1242,6 +1347,7 @@ fun rustWorkspaceCrateSources() =
         exclude("**/.git/**")
     }
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
+val generatedNativeSymbolsDir = layout.buildDirectory.dir("generated/nativeSymbols")
 val generatedRootHelperAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
 val generatedNaiveProxyAssetsDir = layout.buildDirectory.dir("generated/naiveProxyAssets")
 val generatedCloudflareOriginAssetsDir = layout.buildDirectory.dir("generated/cloudflareOriginAssets")
@@ -1310,8 +1416,10 @@ val buildRustNativeLibs =
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustNativeArtifactSpecs)
+        stripReleaseOutputs.set(true)
         cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedJniLibsDir)
+        debugSymbolsDir.set(generatedNativeSymbolsDir)
         providers
             .gradleProperty("ripdpi.prebuiltJniLibsDir")
             .orNull
@@ -1358,6 +1466,7 @@ val buildRustRootHelper =
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
+        stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustNativeLibsBuildDir)
         // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
@@ -1403,6 +1512,7 @@ val buildRustNaiveProxy =
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
+        stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedNaiveProxyAssetsDir.map { it.dir("bin") })
@@ -1447,6 +1557,7 @@ val buildRustCloudflareOrigin =
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
+        stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedCloudflareOriginAssetsDir.map { it.dir("bin") })
