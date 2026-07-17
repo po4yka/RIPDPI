@@ -1246,8 +1246,10 @@ val generatedRootHelperAssetsDir = layout.buildDirectory.dir("generated/rootHelp
 val generatedNaiveProxyAssetsDir = layout.buildDirectory.dir("generated/naiveProxyAssets")
 val generatedCloudflareOriginAssetsDir = layout.buildDirectory.dir("generated/cloudflareOriginAssets")
 val generatedPtAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportAssets")
+// All native Cargo tasks share this local state. They build different output
+// directories, but a shard's packages have a large common Rust/C/BoringSSL
+// graph; keeping one target root per ABI lets Cargo reuse it across tasks.
 val rustNativeLibsBuildDir = layout.buildDirectory.dir("intermediates/rust-native-libs")
-val rustRootHelperBuildDir = layout.buildDirectory.dir("intermediates/rust-root-helper")
 val ptAssetsBuildDir = layout.buildDirectory.dir("intermediates/pluggable-transport-assets")
 val ptSourcesManifestFile =
     rootProject.layout.projectDirectory
@@ -1357,7 +1359,7 @@ val buildRustRootHelper =
         abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
         pruneUnknownArtifacts.set(false)
-        cargoTargetDir.set(rustRootHelperBuildDir)
+        cargoTargetDir.set(rustNativeLibsBuildDir)
         // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
         outputDir.set(generatedRootHelperAssetsDir.map { it.dir("bin") })
         providers
@@ -1402,7 +1404,7 @@ val buildRustNaiveProxy =
         abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
         pruneUnknownArtifacts.set(false)
-        cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-naiveproxy"))
+        cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedNaiveProxyAssetsDir.map { it.dir("bin") })
         providers
             .gradleProperty("ripdpi.prebuiltNaiveProxyDir")
@@ -1446,7 +1448,7 @@ val buildRustCloudflareOrigin =
         abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
         pruneUnknownArtifacts.set(false)
-        cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-cloudflare-origin"))
+        cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedCloudflareOriginAssetsDir.map { it.dir("bin") })
         providers
             .gradleProperty("ripdpi.prebuiltCloudflareOriginDir")
