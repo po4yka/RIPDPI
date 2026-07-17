@@ -1230,7 +1230,10 @@ jobs:
           retention-days: 7
 
   phase0-baseline:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_phase0_baseline == 'true')
+    # This aggregates benchmarks, load, Android packaging, and bloat checks that
+    # the scheduled lanes already execute independently. Keep the composite
+    # snapshot manual to avoid paying for the same native work twice every night.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_phase0_baseline == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
