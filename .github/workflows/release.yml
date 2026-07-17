@@ -252,6 +252,7 @@ jobs:
           path: |
             app/build/outputs/mapping/*Release/mapping.txt
             app/build/intermediates/compose_mapping/*Release/compose-mapping.txt
+          if-no-files-found: error
           retention-days: 90
 
       - name: Upload release native symbols
@@ -259,7 +260,7 @@ jobs:
         with:
           name: release-native-symbols
           path: app/build/intermediates/native_symbol_tables/*Release/*/out/**
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 90
 
       - name: Create GitHub Release
