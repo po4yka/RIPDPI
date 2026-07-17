@@ -22,12 +22,17 @@ import java.util.Random
 
 private const val ActionProbeTcp = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val ActionProbeDns = "com.poyka.ripdpi.debug.PROBE_DNS"
+internal const val ActionProbeSignal = "com.poyka.ripdpi.debug.PROBE_SIGNAL"
 private const val ExtraHost = "host"
 private const val ExtraPort = "port"
 private const val ExtraConnectTimeoutMs = "connect_timeout_ms"
 private const val ExtraReadTimeoutMs = "read_timeout_ms"
 private const val ExtraPayload = "payload"
 private const val ExtraQueryHost = "query_host"
+internal const val ExtraProbeSignalId = "probe_signal_id"
+internal const val ExtraProbeSignalPackage = "probe_signal_package"
+internal const val ExtraProbeSignalEvent = "probe_signal_event"
+internal const val ProbeSignalDnsDatagramSent = "dns_datagram_sent"
 private const val ExtraOk = "ok"
 private const val ExtraLocalAddress = "local_address"
 private const val ExtraLocalPort = "local_port"
@@ -77,6 +82,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             Thread(
                 ProbeRunnable(
                     receiver = this,
+                    context = context,
                     action = action,
                     intent = intent,
                     pendingResult = pendingResult,
@@ -88,6 +94,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     }
 
     fun completeProbe(
+        context: Context?,
         action: String?,
         intent: Intent?,
         pendingResult: PendingResult?,
@@ -100,7 +107,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val resultCode =
             try {
                 if (ActionProbeDns.equals(action)) {
-                    runDnsProbe(intent, extras)
+                    runDnsProbe(context, intent, extras)
                 } else {
                     runTcpProbe(intent, extras)
                 }
@@ -153,6 +160,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     }
 
     private fun runDnsProbe(
+        context: Context?,
         intent: Intent,
         extras: Bundle,
     ) {
@@ -176,6 +184,12 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             putLocalDatagramSocket(extras, socket)
 
             socket.send(DatagramPacket(query, query.size))
+            sendProbeSignal(
+                context = context,
+                signalId = intent.getStringExtra(ExtraProbeSignalId),
+                packageName = intent.getStringExtra(ExtraProbeSignalPackage),
+                event = ProbeSignalDnsDatagramSent,
+            )
 
             val responseBytes = ByteArray(DnsPacketMaxBytes)
             val incomingPacket = DatagramPacket(responseBytes, responseBytes.size)
@@ -213,6 +227,23 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             extras.putString(ExtraLocalAddress, localAddress.hostAddress)
         }
         extras.putInt(ExtraLocalPort, socket.localPort)
+    }
+
+    private fun sendProbeSignal(
+        context: Context?,
+        signalId: String?,
+        packageName: String?,
+        event: String,
+    ) {
+        if (context == null || signalId == null || packageName == null) {
+            return
+        }
+        context.sendBroadcast(
+            Intent(ActionProbeSignal)
+                .setPackage(packageName)
+                .putExtra(ExtraProbeSignalId, signalId)
+                .putExtra(ExtraProbeSignalEvent, event),
+        )
     }
 
     private fun readTcpProbeResponse(
@@ -516,12 +547,13 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
 
 private class ProbeRunnable(
     private val receiver: TestNetworkProbeReceiver?,
+    private val context: Context?,
     private val action: String?,
     private val intent: Intent?,
     private val pendingResult: BroadcastReceiver.PendingResult?,
 ) : Runnable {
     override fun run() {
         val checkedReceiver = receiver ?: return
-        checkedReceiver.completeProbe(action, intent, pendingResult)
+        checkedReceiver.completeProbe(context, action, intent, pendingResult)
     }
 }

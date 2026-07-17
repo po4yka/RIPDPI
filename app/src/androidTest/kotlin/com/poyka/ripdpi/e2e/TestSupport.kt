@@ -1204,6 +1204,7 @@ fun testProcessDnsProbe(
     serverHost: String = PacketSmokeMapDnsAddress,
     serverPort: Int = PacketSmokeMapDnsPort,
     timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+    signalId: String? = null,
 ): AppProcessDnsProbeResult {
     ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
@@ -1216,6 +1217,13 @@ fun testProcessDnsProbe(
             putExtra(DebugNetworkProbeExtraPort, serverPort)
             putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
             putExtra(DebugNetworkProbeExtraQueryHost, queryHost)
+            signalId?.let {
+                putExtra(ExtraProbeSignalId, it)
+                putExtra(
+                    ExtraProbeSignalPackage,
+                    InstrumentationRegistry.getInstrumentation().targetContext.packageName,
+                )
+            }
         }
     context.sendOrderedBroadcast(
         intent,
