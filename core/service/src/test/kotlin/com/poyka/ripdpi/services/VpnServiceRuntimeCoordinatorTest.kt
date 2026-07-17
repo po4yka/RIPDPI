@@ -763,7 +763,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun tunnelTelemetryFailureTransitionsToFailedWhileEncryptedDnsFailoverIsPending() =
+    fun tunnelTelemetryEngineErrorFailsClosedWithEncryptedDnsActive() =
         runTest {
             val env = newEnv()
 
@@ -777,8 +777,15 @@ class VpnServiceRuntimeCoordinatorTest {
             repeat(3) { runCurrent() }
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
-            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertEquals(AppStatus.Halted, env.store.telemetry.value.status)
+            assertEquals(
+                FailureReason.NativeError("telemetry boom"),
+                (env.store.eventHistory.last() as ServiceEvent.Failed).reason,
+            )
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertTrue(env.tunnelProvider.session.closed)
+            assertEquals(1, env.factory.lastRuntime.stopCount)
         }
 
     @Test
