@@ -1437,9 +1437,7 @@ jobs:
       - name: Run loom concurrency tests
         env:
           LOOM_MAX_PREEMPTIONS: 3
-        run: |
-          cd native/rust
-          cargo test --locked --features loom -- loom
+        run: bash scripts/ci/run-rust-loom.sh
 
   rust-native-soak:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true')
