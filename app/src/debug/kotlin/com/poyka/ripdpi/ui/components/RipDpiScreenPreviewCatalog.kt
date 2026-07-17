@@ -17,6 +17,7 @@ import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
@@ -47,7 +48,9 @@ private fun HomeExpandedPreview() {
 }
 
 @Composable
-internal fun RipDpiHomeExpandedPreviewScene() {
+internal fun RipDpiHomeExpandedPreviewScene(
+    connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
+) {
     RipDpiTheme(themePreference = "light") {
         HomeScreen(
             uiState =
@@ -56,6 +59,7 @@ internal fun RipDpiHomeExpandedPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
+                    connectionActuator = connectionActuator,
                     dataTransferred = 54_321_987L,
                     modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),

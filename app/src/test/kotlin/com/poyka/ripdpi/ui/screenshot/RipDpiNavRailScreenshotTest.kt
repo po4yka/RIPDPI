@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screenshot
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.RipDpiHomeExpandedPreviewScene
 import com.poyka.ripdpi.ui.navigation.RipDpiNavRail
 import com.poyka.ripdpi.ui.navigation.Route
@@ -29,12 +30,21 @@ class RipDpiNavRailScreenshotTest {
 
     @Test
     fun navRailAt700DpAndMaximumAccessibilityFont() {
-        captureNavigationShell(widthDp = 700, fontScale = 2f)
+        captureNavigationShell(
+            widthDp = 700,
+            fontScale = 2f,
+            connectionActuator =
+                HomeConnectionActuatorUiState(
+                    trailingLabel = "Direct",
+                    routeLabel = "Local bypass",
+                ),
+        )
     }
 
     private fun captureNavigationShell(
         widthDp: Int,
         fontScale: Float,
+        connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
     ) {
         captureRipDpiScreenshot(
             widthDp = widthDp,
@@ -48,7 +58,7 @@ class RipDpiNavRailScreenshotTest {
                         onNavigate = {},
                     )
                     androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-                        RipDpiHomeExpandedPreviewScene()
+                        RipDpiHomeExpandedPreviewScene(connectionActuator = connectionActuator)
                     }
                 }
             }
