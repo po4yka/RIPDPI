@@ -1,5 +1,11 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -17,6 +23,9 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
@@ -153,6 +162,42 @@ class RipDpiConnectionActuatorTest {
                 .onNodeWithTag(RipDpiTestTags.homeConnectionStage(stage.stableKey))
                 .assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun `direct terminal label is not ellipsized at maximum accessibility font scale`() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(532.dp)) {
+                        RipDpiConnectionActuator(
+                            state =
+                                actuatorState(HomeConnectionActuatorStatus.Locked).copy(
+                                    trailingLabel = "Direct",
+                                ),
+                            onActivate = {},
+                            onDeactivate = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = RipDpiTestTags.ConnectionActuatorButton,
+                        )
+                    }
+                }
+            }
+        }
+
+        val textLayouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorTerminalLabel, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+                action(textLayouts)
+            }
+
+        val layout = textLayouts.single()
+        assertEquals(1, layout.lineCount)
+        assertFalse(
+            "Direct layout size=${layout.size}, lineWidth=${layout.getLineRight(0)}",
+            layout.isLineEllipsized(0),
+        )
     }
 
     private fun setActuator(

@@ -26,6 +26,7 @@ internal object RipDpiTestTags {
 
     const val ConnectionActuatorButton = "connection-actuator-button"
     const val ConnectionActuatorRouteLabel = "connection-actuator-route-label"
+    const val ConnectionActuatorTerminalLabel = "connection-actuator-terminal-label"
     const val RouteStack = "route-stack"
     const val RouteOpportunityPanel = "route-opportunity-panel"
     const val HomeStatusCard = "home-status-card"

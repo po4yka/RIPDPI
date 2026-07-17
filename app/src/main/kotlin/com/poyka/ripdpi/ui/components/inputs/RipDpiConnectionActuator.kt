@@ -339,11 +339,12 @@ private fun TerminalSlot(
     val metrics = RipDpiThemeTokens.components.actuator
     val type = RipDpiThemeTokens.type
     val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
+    val terminalSlotWidth = metrics.terminalSlotWidth * LocalDensity.current.fontScale.coerceAtLeast(1f)
 
     Row(
         modifier =
             Modifier
-                .size(width = metrics.terminalSlotWidth, height = metrics.terminalSlotHeight)
+                .size(width = terminalSlotWidth, height = metrics.terminalSlotHeight)
                 .clip(shape)
                 .drawBehind { drawRect(container.value) }
                 .border(RipDpiStroke.Thin, border, shape)
@@ -359,6 +360,7 @@ private fun TerminalSlot(
         )
         Spacer(modifier = Modifier.width(RipDpiThemeTokens.spacing.xs))
         Text(
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
             text = label,
             style = type.smallLabel,
             color = content,
