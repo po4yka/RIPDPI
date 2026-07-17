@@ -38,6 +38,14 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
             source,
         )
 
+    def test_macrobenchmark_uses_the_ci_native_abi_override(self) -> None:
+        source = CI_WORKFLOW.read_text(encoding="utf-8")
+        self.assertRegex(
+            source,
+            r"(?m):baselineprofile:pixel6Api34AtdDebugAndroidTest .*\n\s*-Pripdpi.nativeAbisOverride=x86_64",
+        )
+        self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1297,7 +1297,7 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: |
           ./gradlew :baselineprofile:pixel6Api34AtdDebugAndroidTest \
-            -Pripdpi.localNativeAbis=x86_64 \
+            -Pripdpi.nativeAbisOverride=x86_64 \
             -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
