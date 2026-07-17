@@ -10,7 +10,7 @@ blocks: []
 blocked_by: []
 created: 2026-07-16
 updated: 2026-07-17
-status_detail: Repository contract implemented; zero physical-Android runners/devices and no runner config currently block the first real dual-vantage run
+status_detail: Repository contract includes independently hashed network and vantage identities; zero configured physical-Android runners and no runner config block the first real dual-vantage run
 ---
 
 ## Goal
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
-- 2026-07-17: Live infrastructure audit found zero registered repository runners, zero locally attached ADB devices, and no `/etc/ripdpi/network-evidence-runner.json`. The active workflow requires labels `self-hosted, linux, ripdpi-network-evidence, physical-android`, exactly one authorized physical device, and independent client/observer hooks. No run was dispatched because it could only remain queued; no physical artifact or PASS is claimed.
+- 2026-07-17: Commit `0b1eac50f276405d02f4f4cccff60f3ab54f9cad` made `networkIdSha256` independent from `vantageIdSha256`, domain-separated both hashes, rejected missing/duplicate/cross-type identities, and added executable Draft 2020-12 validation for emitted observations and manifests. The private runner config must now provide four distinct high-entropy identifiers.
+- 2026-07-17: Live infrastructure audit found zero registered repository runners and no `/etc/ripdpi/network-evidence-runner.json`. A physical Android device is locally attached, but the active workflow still requires a configured runner with labels `self-hosted, linux, ripdpi-network-evidence, physical-android` plus independent client/observer hooks. No dual-vantage run or PASS artifact is claimed.
 - 2026-07-16: Assigned to the serialized evidence/schema lane for the active network-evidence hardening goal.
-- 2026-07-16: Added strict canonical observation/manifest validation, runner-stamped collector/vantage/APK provenance, full process-tree cleanup, exact-SHA physical-client install verification, release workflow provenance checks, and fail-closed regression coverage. No physical ADB device is attached locally, so real capture evidence remains pending.
+- 2026-07-16: Added strict canonical observation/manifest validation, runner-stamped collector/vantage/APK provenance, full process-tree cleanup, exact-SHA physical-client install verification, release workflow provenance checks, and fail-closed regression coverage. No physical ADB device was attached during that implementation pass, so real capture evidence remained pending.

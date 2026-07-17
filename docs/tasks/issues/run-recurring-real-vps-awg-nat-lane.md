@@ -31,5 +31,6 @@ Exercise AmneziaWG and NAT against a real recurring VPS through initial connecti
 
 ## Work log
 
+- 2026-07-17: Deploy commit `5429f6d39c0e2816febfd1935c9932b138c8629e` added the fail-closed `INFRA_UNAVAILABLE/MISSING_CREDENTIALS` reason, exact `PrivateKey`/`PresharedKey` cardinality checks, and runtime/rollback regressions. Malformed inventory, unsafe paths, and missing operator hooks remain separately classified as `CONFIG_INVALID`.
 - 2026-07-17: Dispatched [run 29541767920](https://github.com/po4yka/ripdpi-vpn-deploy/actions/runs/29541767920) on deploy SHA `a4e28e9fc67c78720c7d1f2db934a0029fd0c194`. Job [87765296645](https://github.com/po4yka/ripdpi-vpn-deploy/actions/runs/29541767920/job/87765296645) remained queued for 6m52s with `runner_id=0`, no runner name/group, labels `self-hosted, linux, ripdpi-awg-vps`, and zero steps/artifacts; the repository runners API reported `total_count=0`. The run was cancelled as cleanup. No AWG restart/reload, TCP/UDP, NAT, teardown, manifest, or PASS can be claimed until that runner is provisioned.
 - 2026-07-16: Assigned to the real-VPS lane; implementation waits on the shared evidence schema but read-only contract audit may proceed.
