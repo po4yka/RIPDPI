@@ -36,6 +36,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 /** Width breakpoint at which the bottom-nav switches to a left-anchored nav rail. */
 const val NavRailMinWidthDp = 600
 
+private const val NavRailLargeFontScale = 1.25f
+private const val NavRailMaximumFontScale = 1.75f
+
 /**
  * Returns true when the current screen width is at the foldable / tablet
  * threshold (>= 600dp) — host code uses this to decide between
@@ -66,8 +69,8 @@ fun RipDpiNavRail(
     val fontScale = LocalDensity.current.fontScale
     val railWidth =
         when {
-            fontScale >= 1.75f -> 168.dp
-            fontScale >= 1.25f -> 136.dp
+            fontScale >= NavRailMaximumFontScale -> 168.dp
+            fontScale >= NavRailLargeFontScale -> 136.dp
             else -> 104.dp
         }
     val showBrand = fontScale <= 1f
