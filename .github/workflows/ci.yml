@@ -297,6 +297,22 @@ jobs:
       - name: Stage native artifacts for ${{ matrix.abi.name }}
         run: |
           set -euo pipefail
+          stage_asset() {
+            local source_dir="$1"
+            local executable="$2"
+            local destination_dir="$3"
+            if [ ! -f "$source_dir/$executable" ]; then
+              echo "::error::Native helper missing: $source_dir/$executable"
+              exit 1
+            fi
+            cp -a "$source_dir/." "$destination_dir/"
+            chmod 0755 "$destination_dir/$executable"
+            if [ ! -x "$destination_dir/$executable" ]; then
+              echo "::error::Staged native helper is not executable: $destination_dir/$executable"
+              exit 1
+            fi
+          }
+
           mkdir -p "$RUNNER_TEMP/native-shard"
           if [ -d "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" ]; then
             cp -r "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" \
@@ -305,13 +321,17 @@ jobs:
             echo "::error::JNI lib outputs missing for ${{ matrix.abi.name }}"
             exit 1
           fi
-          if [ -d "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" ]; then
-            cp -r "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" \
-              "$RUNNER_TEMP/native-shard/assetsBin-${{ matrix.abi.name }}"
-          else
-            echo "::error::Helper-binary outputs missing for ${{ matrix.abi.name }}"
-            exit 1
-          fi
+          assets_dir="$RUNNER_TEMP/native-shard/assetsBin-${{ matrix.abi.name }}"
+          mkdir -p "$assets_dir"
+          stage_asset \
+            "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" \
+            "ripdpi-root-helper" "$assets_dir"
+          stage_asset \
+            "core/engine/build/generated/naiveProxyAssets/bin/${{ matrix.abi.name }}" \
+            "ripdpi-naiveproxy" "$assets_dir"
+          stage_asset \
+            "core/engine/build/generated/cloudflareOriginAssets/bin/${{ matrix.abi.name }}" \
+            "ripdpi-cloudflare-origin" "$assets_dir"
           ls -la "$RUNNER_TEMP/native-shard"
 
       - name: Upload native artifacts for ${{ matrix.abi.name }}
@@ -354,6 +374,22 @@ jobs:
       - name: Stage native artifacts for x86_64
         run: |
           set -euo pipefail
+          stage_asset() {
+            local source_dir="$1"
+            local executable="$2"
+            local destination_dir="$3"
+            if [ ! -f "$source_dir/$executable" ]; then
+              echo "::error::Native helper missing: $source_dir/$executable"
+              exit 1
+            fi
+            cp -a "$source_dir/." "$destination_dir/"
+            chmod 0755 "$destination_dir/$executable"
+            if [ ! -x "$destination_dir/$executable" ]; then
+              echo "::error::Staged native helper is not executable: $destination_dir/$executable"
+              exit 1
+            fi
+          }
+
           mkdir -p "$RUNNER_TEMP/native-shard"
           if [ -d "core/engine/build/generated/jniLibs/x86_64" ]; then
             cp -r "core/engine/build/generated/jniLibs/x86_64" \
@@ -362,13 +398,17 @@ jobs:
             echo "::error::JNI lib outputs missing for x86_64"
             exit 1
           fi
-          if [ -d "core/engine/build/generated/rootHelperAssets/bin/x86_64" ]; then
-            cp -r "core/engine/build/generated/rootHelperAssets/bin/x86_64" \
-              "$RUNNER_TEMP/native-shard/assetsBin-x86_64"
-          else
-            echo "::error::Helper-binary outputs missing for x86_64"
-            exit 1
-          fi
+          assets_dir="$RUNNER_TEMP/native-shard/assetsBin-x86_64"
+          mkdir -p "$assets_dir"
+          stage_asset \
+            "core/engine/build/generated/rootHelperAssets/bin/x86_64" \
+            "ripdpi-root-helper" "$assets_dir"
+          stage_asset \
+            "core/engine/build/generated/naiveProxyAssets/bin/x86_64" \
+            "ripdpi-naiveproxy" "$assets_dir"
+          stage_asset \
+            "core/engine/build/generated/cloudflareOriginAssets/bin/x86_64" \
+            "ripdpi-cloudflare-origin" "$assets_dir"
           ls -la "$RUNNER_TEMP/native-shard"
 
       - name: Upload native artifacts for x86_64
