@@ -20,7 +20,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | Android device lane | 2026-07-17 |
 | high | vpn | [Verify no leak/black-hole window between TUN establish() and native relay readiness](issues/verify-no-leak-window-between-tun-establish-and-relay-ready.md) | Lifecycle and PMTUD lane | 2026-07-17 |
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | unassigned | 2026-06-05 |
-| medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | unassigned | 2026-06-11 |
+| medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | unassigned | 2026-07-16 |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-10 |
 | medium | outbound | [Add SSH outbound client crate and profile editor](issues/add-ssh-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-05 |
 | medium | outbound | [Add Xray profile UX and import flow](issues/add-xray-profile-ux-and-import-flow.md) | unassigned | 2026-06-05 |
@@ -32,12 +32,10 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture](issues/audit-relay-mux-default-nested-handshake-conformance.md) | unassigned | 2026-07-14 |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 
-## Review (7)
+## Review (5)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
-| high | ci | [Package deterministic release native symbols](issues/package-deterministic-release-native-symbols.md) | Release native-symbol lane | 2026-07-17 |
-| high | ci | [Stage every native helper in Android CI shards](issues/fix-native-shard-helper-assets.md) | Native asset shard lane | 2026-07-17 |
 | high | diagnostics | [Add connection-concurrency as an independent evidence axis](issues/add-connection-concurrency-evidence-axis.md) | Codex | 2026-07-10 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | high | transport | [Add a parallel active-probe race for initial transport selection](issues/parallel-active-probe-race-initial-transport-selection.md) | Codex | 2026-07-10 |
