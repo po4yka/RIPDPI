@@ -114,7 +114,6 @@ internal fun OverviewSection(
                 overview = overview,
                 scan = scan,
                 isActiveScan = isActiveScan,
-                onRunScan = onRunScan,
                 onReviewChoices = { onSelectSection(DiagnosticsSection.Scan) },
                 onApplyRecommendedPath = onApplyRecommendedPath,
             )
@@ -215,7 +214,6 @@ private fun DiagnosticsSimpleFunnelCard(
     overview: DiagnosticsOverviewUiModel,
     scan: DiagnosticsScanUiModel,
     isActiveScan: Boolean,
-    onRunScan: () -> Unit,
     onReviewChoices: () -> Unit,
     onApplyRecommendedPath: () -> Unit,
 ) {
@@ -250,35 +248,23 @@ private fun DiagnosticsSimpleFunnelCard(
             style = RipDpiThemeTokens.type.body,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-            RipDpiButton(
-                text = stringResource(R.string.diagnostics_simple_funnel_check_action),
-                onClick = onRunScan,
-                enabled = !isActiveScan,
-                variant = RipDpiButtonVariant.Primary,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleCheck),
-            )
-            RipDpiButton(
-                text =
-                    stringResource(
-                        if (hasHighConfidence) {
-                            R.string.diagnostics_simple_funnel_apply_action
-                        } else {
-                            R.string.diagnostics_simple_funnel_review_action
-                        },
-                    ),
-                onClick = if (hasHighConfidence) onApplyRecommendedPath else onReviewChoices,
-                enabled = action != DiagnosticsSimpleFunnelAction.Unavailable,
-                variant = RipDpiButtonVariant.Outline,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleApply),
-            )
-        }
+        RipDpiButton(
+            text =
+                stringResource(
+                    if (hasHighConfidence) {
+                        R.string.diagnostics_simple_funnel_apply_action
+                    } else {
+                        R.string.diagnostics_simple_funnel_review_action
+                    },
+                ),
+            onClick = if (hasHighConfidence) onApplyRecommendedPath else onReviewChoices,
+            enabled = action != DiagnosticsSimpleFunnelAction.Unavailable,
+            variant = RipDpiButtonVariant.Outline,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleApply),
+        )
     }
 }
 

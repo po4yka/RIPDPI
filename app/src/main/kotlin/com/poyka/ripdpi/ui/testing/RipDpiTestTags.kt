@@ -244,7 +244,6 @@ internal object RipDpiTestTags {
     const val DiagnosticsOverviewAutomaticProbeCard = "diagnostics-overview-automatic-probe-card"
     const val DiagnosticsOverviewHero = "diagnostics-overview-hero"
     const val DiagnosticsSimpleFunnel = "diagnostics-simple-funnel"
-    const val DiagnosticsSimpleCheck = "diagnostics-simple-check"
     const val DiagnosticsSimpleApply = "diagnostics-simple-apply"
     const val DiagnosticsOverviewRunScanAction = "diagnostics-overview-run-scan-action"
     const val DiagnosticsResolverKeepSession = "diagnostics-resolver-keep-session"

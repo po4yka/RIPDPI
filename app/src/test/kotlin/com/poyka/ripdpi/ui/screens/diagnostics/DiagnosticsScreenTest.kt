@@ -9,8 +9,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -606,7 +608,29 @@ class DiagnosticsScreenTest {
     }
 
     @Test
+    fun overviewOffersOneScanEntryPointAndKeepsDecisionAction() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Dashboard.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState = DiagnosticsUiState(selectedSection = DiagnosticsSection.Dashboard),
+                    pagerState = pagerState,
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithText("Run scan").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Check network").assertCountEquals(0)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply).assertExists()
+    }
+
+    @Test
     fun simpleFunnelAppliesHighConfidenceRecommendation() {
+        var applyCalls = 0
         val tcpCandidateDetail = auditCandidateDetail()
         val scan =
             DiagnosticsScanUiModel(
@@ -654,18 +678,27 @@ class DiagnosticsScreenTest {
                             scan = scan,
                         ),
                     pagerState = pagerState,
+                    onApplyRecommendedPath = { applyCalls++ },
                 )
             }
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).assertIsDisplayed()
         composeRule.onNodeWithText("On this network, Local bypass worked last time.").assertIsDisplayed()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
 
         assertEquals(DiagnosticsSimpleFunnelAction.Apply, scan.simpleFunnelAction(isActiveScan = false))
+        composeRule.runOnIdle { assertEquals(1, applyCalls) }
     }
 
     @Test
     fun simpleFunnelReviewsLowConfidenceRecommendation() {
+        var selectedSection: DiagnosticsSection? = null
         val tcpCandidateDetail = auditCandidateDetail()
         val scan =
             DiagnosticsScanUiModel(
@@ -697,13 +730,21 @@ class DiagnosticsScreenTest {
                             scan = scan,
                         ),
                     pagerState = pagerState,
+                    onSelectSection = { selectedSection = it },
                 )
             }
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).assertIsDisplayed()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
 
         assertEquals(DiagnosticsSimpleFunnelAction.Review, scan.simpleFunnelAction(isActiveScan = false))
+        composeRule.runOnIdle { assertEquals(DiagnosticsSection.Scan, selectedSection) }
     }
 
     @Test
