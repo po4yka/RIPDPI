@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+runner="$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh"
 tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-dual-vantage-test.XXXXXX")"
 cleanup_test() {
   for pid_file in "$tmpdir"/*.pid; do
@@ -48,7 +49,7 @@ chmod 600 "$config"
 RIPDPI_TEST_REPO_ROOT="$repo_root" \
 GITHUB_RUN_ID=42 \
 GITHUB_RUN_ATTEMPT=1 \
-  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
+  bash "$runner" \
   --config "$config" \
   --output-dir "$output" \
   --source-sha "$source_sha" \
@@ -81,21 +82,29 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
     )
 PY
 chmod 600 "$bad_config"
+bad_output="$tmpdir/bad-output"
+mkdir -m 700 "$bad_output"
+for name in client-observation.json observer-observation.json manifest.json; do
+  printf 'SYNTHETIC_STALE_BUNDLE\n' > "$bad_output/$name"
+done
 if GITHUB_RUN_ID=43 GITHUB_RUN_ATTEMPT=1 \
-  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
-  --config "$bad_config" --output-dir "$tmpdir/bad-output" --source-sha "$source_sha" \
+  bash "$runner" \
+  --config "$bad_config" --output-dir "$bad_output" --source-sha "$source_sha" \
   --client-artifact-sha256 "$client_artifact_sha256" \
   >/dev/null 2>&1; then
   echo "invalid private runner config unexpectedly passed" >&2
   exit 1
 fi
-[[ ! -e "$tmpdir/bad-output/manifest.json" ]]
+if [[ -n "$(find "$bad_output" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+  echo "early runner failure left a publishable stale bundle" >&2
+  exit 1
+fi
 
 descendant_pid_file="$tmpdir/descendant.pid"
 if RIPDPI_TEST_REPO_ROOT="$repo_root" \
   RIPDPI_TEST_CHILD_PID_FILE="$descendant_pid_file" \
   GITHUB_RUN_ID=45 GITHUB_RUN_ATTEMPT=1 \
-  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
+  bash "$runner" \
   --config "$config" --output-dir "$tmpdir/descendant-output" --source-sha "$source_sha" \
   --client-artifact-sha256 "$client_artifact_sha256" \
   >/dev/null 2>&1; then
@@ -118,7 +127,7 @@ if RIPDPI_TEST_REPO_ROOT="$repo_root" \
   RIPDPI_TEST_CHILD_PID_FILE="$failure_child_pid" \
   RIPDPI_TEST_WORKLOAD_FAIL=1 \
   GITHUB_RUN_ID=44 GITHUB_RUN_ATTEMPT=1 \
-  "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" \
+  bash "$runner" \
   --config "$config" --output-dir "$tmpdir/failure-output" --source-sha "$source_sha" \
   --client-artifact-sha256 "$client_artifact_sha256" \
   >/dev/null 2>&1; then

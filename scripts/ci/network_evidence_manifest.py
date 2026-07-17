@@ -11,8 +11,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -98,8 +100,44 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 
 def write_canonical_json(path: Path, value: Any) -> None:
+    serialized = canonical_json_bytes(value)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(canonical_json_bytes(value))
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(serialized)
+        os.replace(temporary_path, path)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+
+def paths_alias(left: Path, right: Path) -> bool:
+    """Compare existing paths by inode, falling back only for missing paths."""
+    try:
+        return os.path.samefile(left, right)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise ValueError("cannot safely compare network evidence paths") from exc
+    try:
+        return left.resolve(strict=False) == right.resolve(strict=False)
+    except OSError as exc:
+        raise ValueError("cannot safely compare network evidence paths") from exc
+
+
+def prepare_cli_output(path: Path | None, *, inputs: tuple[Path, ...]) -> None:
+    """Invalidate a stale CLI target without ever deleting one of its inputs."""
+    if path is None:
+        return
+    if any(paths_alias(path, input_path) for input_path in inputs):
+        raise ValueError("network evidence output path must differ from input paths")
+    path.unlink(missing_ok=True)
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -598,6 +636,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "assemble":
+            prepare_cli_output(
+                args.output,
+                inputs=(args.client, args.observer, POLICY_PATH),
+            )
             manifest = assemble_manifest(
                 client_path=args.client,
                 observer_path=args.observer,
@@ -613,6 +655,7 @@ def main(argv: list[str] | None = None) -> int:
             write_canonical_json(args.output, manifest)
             return 0
         if args.command == "stamp-observation":
+            prepare_cli_output(args.output, inputs=(args.input, POLICY_PATH))
             observation, _ = load_json_bytes(args.input)
             stamped = stamp_observation(
                 observation,
@@ -624,6 +667,14 @@ def main(argv: list[str] | None = None) -> int:
             )
             write_canonical_json(args.output, stamped)
             return 0
+        prepare_cli_output(
+            args.results_output,
+            inputs=(
+                args.manifest,
+                *(args.artifact_root / path for path in ROLE_PATHS.values()),
+                POLICY_PATH,
+            ),
+        )
         manifest, _ = load_json_bytes(args.manifest)
         summary = validate_manifest(
             manifest,

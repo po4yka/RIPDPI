@@ -65,6 +65,49 @@ done
 [[ "$workflow_run_id" =~ ^[1-9][0-9]*$ ]] || { echo "GITHUB_RUN_ID is required" >&2; exit 2; }
 [[ "$workflow_run_attempt" =~ ^[1-9][0-9]*$ ]] || { echo "GITHUB_RUN_ATTEMPT is required" >&2; exit 2; }
 
+publication_names=(client-observation.json observer-observation.json manifest.json)
+
+prepare_output_directory() {
+  if [[ -L "$output_dir" ]]; then
+    echo "network evidence output directory must not be a symlink" >&2
+    return 1
+  fi
+  if [[ -e "$output_dir" ]]; then
+    [[ -d "$output_dir" ]] || {
+      echo "network evidence output path must be a directory" >&2
+      return 1
+    }
+  else
+    mkdir -m 700 "$output_dir"
+  fi
+
+  local unexpected
+  unexpected="$(find "$output_dir" -mindepth 1 -maxdepth 1 \
+    ! \( -name client-observation.json -o -name observer-observation.json -o -name manifest.json \) \
+    -print -quit)"
+  [[ -z "$unexpected" ]] || {
+    echo "network evidence output directory contains an unexpected entry" >&2
+    return 1
+  }
+
+  local name path
+  for name in "${publication_names[@]}"; do
+    path="$output_dir/$name"
+    if [[ -e "$path" || -L "$path" ]]; then
+      [[ -f "$path" || -L "$path" ]] || {
+        echo "network evidence output entry must be a file" >&2
+        return 1
+      }
+    fi
+  done
+  for name in "${publication_names[@]}"; do
+    rm -f -- "$output_dir/$name"
+  done
+  chmod 700 "$output_dir"
+}
+
+prepare_output_directory
+
 scratch="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/ripdpi-network-evidence.XXXXXX")"
 chmod 700 "$scratch"
 stop_file="$scratch/stop"
@@ -275,16 +318,12 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" validate \
   --expected-workflow-run-id "$workflow_run_id" \
   --expected-workflow-run-attempt "$workflow_run_attempt"
 
-if [[ -e "$output_dir" ]]; then
-  [[ -d "$output_dir" && -z "$(find "$output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] || {
-    echo "network evidence output directory must be absent or empty" >&2
-    exit 1
-  }
-else
-  mkdir -m 700 "$output_dir"
-fi
-chmod 700 "$output_dir"
-for name in client-observation.json observer-observation.json manifest.json; do
+[[ -d "$output_dir" && ! -L "$output_dir" && \
+  -z "$(find "$output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] || {
+  echo "network evidence output directory must remain empty until publication" >&2
+  exit 1
+}
+for name in "${publication_names[@]}"; do
   install -m 600 "$publish_dir/$name" "$output_dir/$name"
 done
 published_count="$(find "$output_dir" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"

@@ -14,6 +14,7 @@ jobs:
     timeout-minutes: 90
     env:
       EVIDENCE_CONFIG: /etc/ripdpi/network-evidence-runner.json
+      EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -63,7 +64,7 @@ jobs:
         run: |
           test-lab/scripts/run-dual-vantage-network-evidence.sh \
             --config "$EVIDENCE_CONFIG" \
-            --output-dir "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence" \
+            --output-dir "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME" \
             --source-sha "$GITHUB_SHA" \
             --client-artifact-sha256 "$CLIENT_ARTIFACT_SHA256" \
             --applies-to android-client-release
@@ -80,17 +81,17 @@ jobs:
       - name: Enforce complete exact-SHA release evidence
         run: |
           python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
-            --evidence-manifest "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/manifest.json" \
+            --evidence-manifest "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME/manifest.json" \
             --applies-to android-client-release \
             --expected-source-sha "$GITHUB_SHA" \
             --expected-evidence-run-id "$GITHUB_RUN_ID" \
             --expected-evidence-run-attempt "$GITHUB_RUN_ATTEMPT"
 
       - name: Publish validated redacted release evidence
-        if: always()
+        if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dns-ipv6-killswitch-release-evidence
-          path: ${{ runner.temp }}/dns-ipv6-killswitch-release-evidence
+          path: ${{ runner.temp }}/${{ env.EVIDENCE_OUTPUT_NAME }}
           if-no-files-found: error
           retention-days: 30

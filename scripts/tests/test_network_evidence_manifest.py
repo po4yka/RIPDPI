@@ -4,14 +4,38 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import importlib.util
+import io
 import json
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+LEAK_CORPUS_PATH = (
+    ROOT / "scripts/tests/fixtures/network_evidence_manifest/sensitive-leak-corpus.json"
+)
+MANIFEST_CLI_PATH = ROOT / "scripts/ci/network_evidence_manifest.py"
+EVIDENCE_RUNNER_PATH = ROOT / "test-lab/scripts/run-dual-vantage-network-evidence.sh"
+LEAKING_COLLECTOR_PATH = (
+    ROOT / "scripts/tests/fixtures/network_evidence_manifest/leaking-fake-collector.py"
+)
+FAKE_WORKLOAD_PATH = (
+    ROOT / "test-lab/scripts/fixtures/network-evidence-fake-workload.py"
+)
+PUBLICATION_FILENAMES = {
+    "client-observation.json",
+    "observer-observation.json",
+    "manifest.json",
+    "results.json",
+}
+STALE_OUTPUT_MARKER = b"SYNTHETIC_STALE_NETWORK_EVIDENCE_OUTPUT"
 
 
 def load_module():
@@ -114,6 +138,226 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             current_epoch=self.finished_at + 4,
             max_age_seconds=300,
         )
+
+    def load_leak_cases(self) -> list[dict]:
+        corpus = json.loads(LEAK_CORPUS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(corpus["version"], "network_evidence_leak_corpus_v1")
+        case_ids = [case["id"] for case in corpus["cases"]]
+        self.assertEqual(len(case_ids), len(set(case_ids)))
+        self.assertEqual(
+            set(case_ids),
+            {
+                "credentials",
+                "password",
+                "token",
+                "private_key",
+                "pre_shared_key",
+                "authorization_header",
+                "raw_device_id",
+                "raw_device_serial",
+                "full_client_ipv4",
+                "full_client_ipv6",
+                "client_mac",
+                "sensitive_payload",
+                "sensitive_body",
+            },
+        )
+        return corpus["cases"]
+
+    def run_manifest_cli(
+        self, arguments: list[str]
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(MANIFEST_CLI_PATH), *arguments],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+
+    def assemble_cli_arguments(
+        self, paths: dict[str, Path], output_path: Path
+    ) -> list[str]:
+        return [
+            "assemble",
+            "--client",
+            str(paths["client"]),
+            "--observer",
+            str(paths["observer"]),
+            "--source-sha",
+            self.source_sha,
+            "--applies-to",
+            "android-client-release",
+            "--generated-at-epoch",
+            str(self.finished_at + 3),
+            "--workflow-run-id",
+            "42",
+            "--workflow-run-attempt",
+            "1",
+            "--workload-sha256",
+            "9" * 64,
+            "--client-artifact-sha256",
+            "8" * 64,
+            "--output",
+            str(output_path),
+        ]
+
+    def validate_cli_arguments(
+        self, paths: dict[str, Path], output_path: Path
+    ) -> list[str]:
+        return [
+            "validate",
+            "--manifest",
+            str(paths["manifest"]),
+            "--artifact-root",
+            str(paths["manifest"].parent),
+            "--expected-source-sha",
+            self.source_sha,
+            "--applies-to",
+            "android-client-release",
+            "--current-epoch",
+            str(self.finished_at + 4),
+            "--max-age-seconds",
+            "300",
+            "--results-output",
+            str(output_path),
+        ]
+
+    def stamp_cli_arguments(
+        self, input_path: Path, output_path: Path, *, role: str
+    ) -> list[str]:
+        return [
+            "stamp-observation",
+            "--input",
+            str(input_path),
+            "--output",
+            str(output_path),
+            "--role",
+            role,
+            "--source-sha",
+            self.source_sha,
+            "--correlation-id",
+            self.correlation_id,
+            "--vantage-id-sha256",
+            "5" * 64,
+            "--collector-sha256",
+            "6" * 64,
+        ]
+
+    def write_cli_inputs(self, input_dir: Path) -> dict[str, Path]:
+        input_dir.mkdir(parents=True)
+        client_path = input_dir / "client-observation.json"
+        observer_path = input_dir / "observer-observation.json"
+        manifest_path = input_dir / "manifest.json"
+        evidence.write_canonical_json(client_path, self.observation("client-underlay"))
+        evidence.write_canonical_json(
+            observer_path, self.observation("external-observer")
+        )
+        manifest = evidence.assemble_manifest(
+            client_path=client_path,
+            observer_path=observer_path,
+            source_sha=self.source_sha,
+            applies_to="android-client-release",
+            generated_at_epoch=self.finished_at + 3,
+            workflow_path=evidence.EVIDENCE_WORKFLOW_PATH,
+            workflow_run_id=42,
+            workflow_run_attempt=1,
+            workload_sha256="9" * 64,
+            client_artifact_sha256="8" * 64,
+        )
+        evidence.write_canonical_json(manifest_path, manifest)
+        return {
+            "client": client_path,
+            "observer": observer_path,
+            "manifest": manifest_path,
+        }
+
+    def assert_publication_empty(
+        self, publication_dir: Path, *, marker: bytes | None = None
+    ) -> None:
+        self.assertTrue(publication_dir.is_dir())
+        published_files = sorted(
+            path for path in publication_dir.rglob("*") if path.is_file()
+        )
+        if marker is not None:
+            published_bytes = b"".join(path.read_bytes() for path in published_files)
+            self.assertNotIn(marker, published_bytes)
+        self.assertEqual(published_files, [])
+        for filename in PUBLICATION_FILENAMES:
+            self.assertFalse((publication_dir / filename).exists())
+
+    def run_dual_vantage_runner(
+        self, *, case: dict, leak_role: str
+    ) -> tuple[subprocess.CompletedProcess[str], Path]:
+        case_root = self.root / "runner" / f"{case['id']}-{leak_role}"
+        case_root.mkdir(parents=True)
+        client_hook = case_root / "client-collector.py"
+        observer_hook = case_root / "observer-collector.py"
+        workload_hook = case_root / "workload.py"
+        for destination, source in (
+            (client_hook, LEAKING_COLLECTOR_PATH),
+            (observer_hook, LEAKING_COLLECTOR_PATH),
+            (workload_hook, FAKE_WORKLOAD_PATH),
+        ):
+            shutil.copyfile(source, destination)
+            destination.chmod(0o700)
+
+        config_path = case_root / "runner.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "version": "ripdpi_network_evidence_runner_v1",
+                    "clientHook": str(client_hook),
+                    "observerHook": str(observer_hook),
+                    "workloadHook": str(workload_hook),
+                    "clientVantageId": "1" * 64,
+                    "observerVantageId": "2" * 64,
+                }
+            ),
+            encoding="utf-8",
+        )
+        config_path.chmod(0o600)
+        publication_dir = case_root / "publication"
+        publication_dir.mkdir()
+        runner_temp = case_root / "runner-temp"
+        runner_temp.mkdir()
+
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "GITHUB_RUN_ID": "42",
+                "GITHUB_RUN_ATTEMPT": "1",
+                "RIPDPI_TEST_REPO_ROOT": str(ROOT),
+                "RIPDPI_TEST_LEAK_CASE": json.dumps(
+                    {"field": case["field"], "value": case["value"]},
+                    separators=(",", ":"),
+                ),
+                "RIPDPI_TEST_LEAK_ROLE": leak_role,
+                "RUNNER_TEMP": str(runner_temp),
+            }
+        )
+        result = subprocess.run(
+            [
+                "/bin/bash",
+                str(EVIDENCE_RUNNER_PATH),
+                "--config",
+                str(config_path),
+                "--output-dir",
+                str(publication_dir),
+                "--source-sha",
+                self.source_sha,
+                "--client-artifact-sha256",
+                "8" * 64,
+            ],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        return result, publication_dir
 
     def test_valid_dual_vantage_manifest_derives_all_pass(self) -> None:
         manifest = self.assemble()
@@ -318,23 +562,177 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
                 max_age_seconds=300,
             )
 
-    def test_unknown_or_sensitive_fields_are_rejected(self) -> None:
-        client = self.observation("client-underlay")
-        client["authToken"] = "do-not-publish"
-        client_path, observer_path = self.write_observations(client=client)
-        with self.assertRaisesRegex(ValueError, "unknown fields"):
-            evidence.assemble_manifest(
-                client_path=client_path,
-                observer_path=observer_path,
-                source_sha=self.source_sha,
-                applies_to="android-client-release",
-                generated_at_epoch=self.finished_at + 3,
-                workflow_path=evidence.EVIDENCE_WORKFLOW_PATH,
-                workflow_run_id=42,
-                workflow_run_attempt=1,
-                workload_sha256="9" * 64,
-                client_artifact_sha256="8" * 64,
+    def test_sensitive_leak_corpus_is_rejected_before_manifest_publication(
+        self,
+    ) -> None:
+        for case in self.load_leak_cases():
+            for leak_role in ("client-underlay", "external-observer"):
+                with self.subTest(case=case["id"], role=leak_role):
+                    marker = case["marker"].encode("utf-8")
+                    leaked_value = evidence.canonical_json_bytes(case["value"])
+                    self.assertIn(marker, leaked_value)
+
+                    result, publication_dir = self.run_dual_vantage_runner(
+                        case=case, leak_role=leak_role
+                    )
+
+                    self.assertNotEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertIn(f"unknown fields: {case['field']}", result.stderr)
+                    self.assert_publication_empty(publication_dir, marker=marker)
+
+    def test_cli_rejects_malformed_and_wrong_versions_without_publication(self) -> None:
+        cases = (
+            ("malformed_manifest", "manifest", "malformed", "Expecting value"),
+            (
+                "wrong_manifest_version",
+                "manifest",
+                "wrong_version",
+                "unexpected manifest version",
+            ),
+            (
+                "malformed_client_observation",
+                "client",
+                "malformed",
+                "Expecting value",
+            ),
+            (
+                "wrong_client_observation_version",
+                "client",
+                "wrong_version",
+                "unexpected observation version",
+            ),
+            (
+                "malformed_observer_observation",
+                "observer",
+                "malformed",
+                "Expecting value",
+            ),
+            (
+                "wrong_observer_observation_version",
+                "observer",
+                "wrong_version",
+                "unexpected observation version",
+            ),
+        )
+        for case_id, document, mutation, expected_error in cases:
+            with self.subTest(case=case_id):
+                case_root = self.root / "cli" / case_id
+                paths = self.write_cli_inputs(case_root / "input")
+                publication_dir = case_root / "publication"
+                publication_dir.mkdir()
+                target_path = paths[document]
+                if mutation == "malformed":
+                    target_path.write_text('{"version":', encoding="utf-8")
+                else:
+                    value = json.loads(target_path.read_text(encoding="utf-8"))
+                    if document == "manifest":
+                        value["version"] = "network_evidence_manifest_v999"
+                    else:
+                        value["version"] = "network_evidence_observation_v999"
+                    evidence.write_canonical_json(target_path, value)
+
+                if document == "manifest":
+                    output_path = publication_dir / "results.json"
+                    output_path.write_bytes(STALE_OUTPUT_MARKER)
+                    result = self.run_manifest_cli(
+                        self.validate_cli_arguments(paths, output_path)
+                    )
+                else:
+                    output_path = publication_dir / "manifest.json"
+                    output_path.write_bytes(STALE_OUTPUT_MARKER)
+                    result = self.run_manifest_cli(
+                        self.assemble_cli_arguments(paths, output_path)
+                    )
+
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("network evidence validation failed", result.stderr)
+                self.assertIn(expected_error, result.stderr)
+                self.assert_publication_empty(
+                    publication_dir, marker=STALE_OUTPUT_MARKER
+                )
+
+        for alias_kind in ("symlink", "hardlink"):
+            with self.subTest(alias=alias_kind):
+                case_root = self.root / "aliases" / alias_kind
+                paths = self.write_cli_inputs(case_root / "input")
+                publication_dir = case_root / "publication"
+                publication_dir.mkdir()
+                output_path = publication_dir / "manifest.json"
+                if alias_kind == "symlink":
+                    output_path.symlink_to(paths["client"])
+                else:
+                    os.link(paths["client"], output_path)
+
+                result = self.run_manifest_cli(
+                    self.assemble_cli_arguments(paths, output_path)
+                )
+
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertTrue(paths["client"].is_file())
+                self.assertTrue(output_path.exists() or output_path.is_symlink())
+                self.assertTrue(os.path.samefile(paths["client"], output_path))
+
+        original_policy_path = evidence.POLICY_PATH
+        original_policy_bytes = original_policy_path.read_bytes()
+        for command in ("assemble", "stamp-observation", "validate"):
+            with self.subTest(implicit_input="policy", command=command):
+                case_root = self.root / "policy-alias" / command
+                paths = self.write_cli_inputs(case_root / "input")
+                policy_copy = case_root / "policy.json"
+                policy_copy.write_bytes(original_policy_bytes)
+                if command == "assemble":
+                    arguments = self.assemble_cli_arguments(paths, policy_copy)
+                elif command == "validate":
+                    arguments = self.validate_cli_arguments(paths, policy_copy)
+                else:
+                    unstamped = self.observation("client-underlay")
+                    unstamped.pop("vantageIdSha256")
+                    unstamped.pop("collectorSha256")
+                    unstamped_path = case_root / "unstamped-observation.json"
+                    evidence.write_canonical_json(unstamped_path, unstamped)
+                    arguments = self.stamp_cli_arguments(
+                        unstamped_path, policy_copy, role="client-underlay"
+                    )
+
+                stderr = io.StringIO()
+                evidence.POLICY_PATH = policy_copy
+                try:
+                    with contextlib.redirect_stderr(stderr):
+                        status = evidence.main(arguments)
+                finally:
+                    evidence.POLICY_PATH = original_policy_path
+
+                self.assertEqual(status, 1)
+                self.assertIn("output path must differ", stderr.getvalue())
+                self.assertEqual(policy_copy.read_bytes(), original_policy_bytes)
+
+        case_root = self.root / "aliases" / "case-variant"
+        case_root.mkdir(parents=True)
+        probe_path = case_root / "CaseSensitivityProbe"
+        probe_path.write_text("probe", encoding="utf-8")
+        probe_variant = case_root / "casesensitivityprobe"
+        case_insensitive = probe_variant.exists() and os.path.samefile(
+            probe_path, probe_variant
+        )
+        with self.subTest(alias="case-variant"):
+            if not case_insensitive:
+                self.skipTest("filesystem is case-sensitive")
+            paths = self.write_cli_inputs(case_root / "input")
+            mixed_case_input = paths["client"].with_name("Client-Observation.json")
+            paths["client"].replace(mixed_case_input)
+            paths["client"] = mixed_case_input
+            output_path = mixed_case_input.with_name("CLIENT-OBSERVATION.JSON")
+
+            result = self.run_manifest_cli(
+                self.assemble_cli_arguments(paths, output_path)
             )
+
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertTrue(mixed_case_input.is_file())
+            self.assertTrue(output_path.is_file())
+            self.assertTrue(os.path.samefile(mixed_case_input, output_path))
 
     def test_manifest_tampering_with_derived_results_is_rejected(self) -> None:
         observer = self.observation("external-observer")

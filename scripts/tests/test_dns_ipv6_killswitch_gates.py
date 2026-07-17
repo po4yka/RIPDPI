@@ -500,6 +500,19 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertIn("--evidence-manifest", evidence)
         self.assertIn("actions/upload-artifact@", evidence)
         self.assertIn("dns-ipv6-killswitch-release-evidence", evidence)
+        self.assertIn(
+            "EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-release-evidence-"
+            "${{ github.run_id }}-${{ github.run_attempt }}",
+            evidence,
+        )
+        self.assertEqual(evidence.count("EVIDENCE_OUTPUT_NAME"), 4)
+        self.assertEqual(evidence.count('"$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME'), 2)
+        self.assertIn(
+            "path: ${{ runner.temp }}/${{ env.EVIDENCE_OUTPUT_NAME }}", evidence
+        )
+        self.assertIn("if: success()", evidence)
+        self.assertNotIn("if: always()", evidence)
+        self.assertNotIn("$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence", evidence)
         self.assertIn("scripts.tests.test_network_evidence_manifest", ci)
         self.assertIn("test-dual-vantage-network-evidence.sh", ci)
 
