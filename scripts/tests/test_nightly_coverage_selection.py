@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
 COVERAGE_SCRIPT = ROOT / "scripts/ci/run-rust-coverage.sh"
+RELAY_SMOKE_SCRIPT = ROOT / "scripts/ci/run-android-relay-emulator-smoke.sh"
 
 
 def nightly_coverage_job(source: str) -> str:
@@ -44,6 +45,11 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
             source,
             r"(?m):baselineprofile:pixel6Api34AtdDebugAndroidTest .*\n\s*-Pripdpi.nativeAbisOverride=x86_64",
         )
+        self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", source)
+
+    def test_relay_smoke_uses_the_ci_native_abi_override(self) -> None:
+        source = RELAY_SMOKE_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("-Pripdpi.nativeAbisOverride=x86_64", source)
         self.assertNotIn("-Pripdpi.localNativeAbis=x86_64", source)
 
 
