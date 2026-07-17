@@ -99,9 +99,10 @@ abstract class BuildRustNativeLibsTask
         // When set (e.g. by CI's build-android-debug job after a per-ABI matrix
         // prebuild), the task copies expected artifacts from
         // `<prebuiltSourceDir>/<abi>/<outputName>` instead of running cargo.
-        @get:Input
+        @get:InputDirectory
         @get:Optional
-        abstract val prebuiltSourceDir: Property<String>
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val prebuiltSourceDir: DirectoryProperty
 
         @get:OutputDirectory
         abstract val outputDir: DirectoryProperty
@@ -115,9 +116,9 @@ abstract class BuildRustNativeLibsTask
 
         @TaskAction
         fun build() {
-            val prebuiltPath = prebuiltSourceDir.orNull?.takeIf(String::isNotBlank)
+            val prebuiltPath = prebuiltSourceDir.orNull?.asFile
             if (prebuiltPath != null) {
-                copyFromPrebuilt(File(prebuiltPath))
+                copyFromPrebuilt(prebuiltPath)
                 return
             }
             val installedTargets = installedRustTargets(rustupExecutable.get())
@@ -1309,7 +1310,7 @@ val buildRustNativeLibs =
             .gradleProperty("ripdpi.prebuiltJniLibsDir")
             .orNull
             ?.takeIf(String::isNotBlank)
-            ?.let(prebuiltSourceDir::set)
+            ?.let { prebuiltSourceDir.set(file(it)) }
     }
 
 val buildRustRootHelper =
@@ -1359,7 +1360,7 @@ val buildRustRootHelper =
             .gradleProperty("ripdpi.prebuiltRootHelperDir")
             .orNull
             ?.takeIf(String::isNotBlank)
-            ?.let(prebuiltSourceDir::set)
+            ?.let { prebuiltSourceDir.set(file(it)) }
     }
 
 val buildRustNaiveProxy =
@@ -1403,7 +1404,7 @@ val buildRustNaiveProxy =
             .gradleProperty("ripdpi.prebuiltNaiveProxyDir")
             .orNull
             ?.takeIf(String::isNotBlank)
-            ?.let(prebuiltSourceDir::set)
+            ?.let { prebuiltSourceDir.set(file(it)) }
     }
 
 val buildRustCloudflareOrigin =
@@ -1447,7 +1448,7 @@ val buildRustCloudflareOrigin =
             .gradleProperty("ripdpi.prebuiltCloudflareOriginDir")
             .orNull
             ?.takeIf(String::isNotBlank)
-            ?.let(prebuiltSourceDir::set)
+            ?.let { prebuiltSourceDir.set(file(it)) }
     }
 
 val buildPluggableTransportAssets =
