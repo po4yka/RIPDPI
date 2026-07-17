@@ -24,26 +24,25 @@ import java.util.Arrays
 import java.util.Random
 
 private const val ActionProbeTcp = "com.poyka.ripdpi.debug.PROBE_TCP"
-private const val ActionProbeDns = "com.poyka.ripdpi.debug.PROBE_DNS"
-private const val ActionProbeWarmup = "com.poyka.ripdpi.debug.PROBE_WARMUP"
-private const val ExtraHost = "host"
-private const val ExtraPort = "port"
+internal const val ActionProbeDns = "com.poyka.ripdpi.debug.PROBE_DNS"
+internal const val ExtraHost = "host"
+internal const val ExtraPort = "port"
 private const val ExtraConnectTimeoutMs = "connect_timeout_ms"
-private const val ExtraReadTimeoutMs = "read_timeout_ms"
+internal const val ExtraReadTimeoutMs = "read_timeout_ms"
 private const val ExtraPayload = "payload"
-private const val ExtraQueryHost = "query_host"
+internal const val ExtraQueryHost = "query_host"
 internal const val ExtraProbeSignalId = "probe_signal_id"
 internal const val ExtraProbeSignalBinder = "probe_signal_binder"
 internal const val ProbeSignalDnsDatagramSentCode = 1
-private const val ExtraOk = "ok"
+internal const val ExtraOk = "ok"
 private const val ExtraLocalAddress = "local_address"
 private const val ExtraLocalPort = "local_port"
 private const val ExtraResponse = "response"
 private const val ExtraDnsRcode = "rcode"
 private const val ExtraDnsAnswers = "answers"
 private const val ExtraDnsLatencyMs = "latency_ms"
-private const val ExtraErrorClass = "error_class"
-private const val ExtraErrorMessage = "error_message"
+internal const val ExtraErrorClass = "error_class"
+internal const val ExtraErrorMessage = "error_message"
 private const val ProbeThreadName = "test-network-probe"
 private const val DefaultConnectTimeoutMs = 3_000
 private const val DefaultReadTimeoutMs = 5_000
@@ -75,7 +74,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         }
 
         val action = intent.action
-        if (!ActionProbeTcp.equals(action) && !ActionProbeDns.equals(action) && !ActionProbeWarmup.equals(action)) {
+        if (!ActionProbeTcp.equals(action) && !ActionProbeDns.equals(action)) {
             return
         }
 
@@ -106,10 +105,10 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val extras = Bundle()
         val resultCode =
             try {
-                when {
-                    ActionProbeDns.equals(action) -> runDnsProbe(intent, extras)
-                    ActionProbeTcp.equals(action) -> runTcpProbe(intent, extras)
-                    else -> extras.putBoolean(ExtraOk, true)
+                if (ActionProbeDns.equals(action)) {
+                    runDnsProbe(intent, extras)
+                } else {
+                    runTcpProbe(intent, extras)
                 }
                 Activity.RESULT_OK
             } catch (error: Throwable) {
@@ -159,7 +158,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun runDnsProbe(
+    internal fun runDnsProbe(
         intent: Intent,
         extras: Bundle,
     ) {

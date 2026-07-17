@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application android:usesCleartextTraffic="true">
+        <service
+            android:name="com.poyka.ripdpi.e2e.TestNetworkProbeService"
+            android:enabled="true"
+            android:exported="true"
+            android:process=":network_probe" />
+
         <receiver
             android:name="com.poyka.ripdpi.e2e.TestNetworkProbeReceiver"
             android:enabled="true"

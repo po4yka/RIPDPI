@@ -62,7 +62,8 @@ import javax.inject.Inject
 
 private const val GateStartTimeoutMs = 10_000L
 private const val GateClosedObservationMs = 250L
-private const val ProbeDatagramSentTimeoutMs = 1_500L
+private const val ProbeServiceBindTimeoutMs = 1_500L
+private const val ProbeDatagramSentTimeoutMs = 500L
 private const val ProbeResponseTimeoutMs = 12_000L
 private const val GateReleaseTimeoutMs = 10_000L
 private const val StartupWindowAssertionBudgetMs = 4_000L
@@ -168,17 +169,18 @@ class VpnStartupWindowE2ETest {
             val gateCycle = VpnStartupWindowGate.arm()
             val signalId = "vpn-startup-${UUID.randomUUID()}"
             val probeSignalAwaiter = ProbeSignalAwaiter(signalId)
+            var testProcessDnsProbeService: TestProcessDnsProbeServiceHandle? = null
             var dnsProbe: Deferred<AppProcessDnsProbeResult>? = null
 
             try {
-                warmTestNetworkProbeReceiver()
                 startService(RipDpiVpnService::class.java)
                 gateCycle.awaitStartEntered()
                 val startupWindowAssertionStartedAt = SystemClock.elapsedRealtime()
+                testProcessDnsProbeService = bindTestProcessDnsProbeService(ProbeServiceBindTimeoutMs)
                 val queryHost = "startup-${SystemClock.elapsedRealtime()}.${fixture.fixtureDomain}"
                 dnsProbe =
                     async(Dispatchers.IO) {
-                        testProcessDnsProbe(
+                        requireNotNull(testProcessDnsProbeService).dnsProbe(
                             queryHost = queryHost,
                             serverHost = fixture.androidHost,
                             serverPort = fixture.dnsUdpPort,
@@ -189,7 +191,7 @@ class VpnStartupWindowE2ETest {
                     }
 
                 assertTrue(
-                    "Warm test-process DNS probe never sent its UDP datagram into the startup window",
+                    "Bound test-process DNS probe never sent its UDP datagram into the startup window",
                     probeSignalAwaiter.awaitDnsDatagramSent(ProbeDatagramSentTimeoutMs),
                 )
                 probeSignalAwaiter.assertNoUnexpectedEvents()
@@ -270,6 +272,7 @@ class VpnStartupWindowE2ETest {
             } finally {
                 gateCycle.release()
                 dnsProbe?.takeIf { it.isActive }?.cancelAndJoin()
+                testProcessDnsProbeService?.close()
                 statusCollector.cancelAndJoin()
             }
         }

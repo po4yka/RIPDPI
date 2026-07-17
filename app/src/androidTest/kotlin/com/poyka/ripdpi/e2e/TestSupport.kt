@@ -2,13 +2,16 @@ package com.poyka.ripdpi.e2e
 
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
@@ -44,6 +47,7 @@ import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
 import java.io.BufferedReader
+import java.io.Closeable
 import java.io.File
 import java.io.IOException
 import java.net.DatagramPacket
@@ -59,6 +63,7 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.regex.Pattern
 import javax.net.ssl.SSLContext
@@ -86,7 +91,6 @@ private const val PacketSmokeScenarioIdArg = "ripdpi.packetSmokeScenarioId"
 private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_DEVICES"
 private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val DebugDnsProbeAction = "com.poyka.ripdpi.debug.PROBE_DNS"
-private const val DebugProbeWarmupAction = "com.poyka.ripdpi.debug.PROBE_WARMUP"
 private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.DebugNetworkProbeReceiver"
 private const val TestNetworkProbeReceiverClass = "com.poyka.ripdpi.e2e.TestNetworkProbeReceiver"
 private const val DebugNetworkProbeExtraHost = "host"
@@ -1206,12 +1210,7 @@ fun testProcessDnsProbe(
     serverHost: String = PacketSmokeMapDnsAddress,
     serverPort: Int = PacketSmokeMapDnsPort,
     timeoutMs: Long = DebugNetworkProbeTimeoutMs,
-    signalId: String? = null,
-    probeSignalBinder: IBinder? = null,
 ): AppProcessDnsProbeResult {
-    require((signalId == null) == (probeSignalBinder == null)) {
-        "Probe signal id and Binder must be supplied together"
-    }
     ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
     val latch = CountDownLatch(1)
@@ -1223,16 +1222,6 @@ fun testProcessDnsProbe(
             putExtra(DebugNetworkProbeExtraPort, serverPort)
             putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
             putExtra(DebugNetworkProbeExtraQueryHost, queryHost)
-            signalId?.let {
-                putExtra(ExtraProbeSignalId, it)
-            }
-            if (probeSignalBinder != null) {
-                putExtras(
-                    Bundle().apply {
-                        putBinder(ExtraProbeSignalBinder, probeSignalBinder)
-                    },
-                )
-            }
         }
     context.sendOrderedBroadcast(
         intent,
@@ -1280,35 +1269,112 @@ fun testProcessDnsProbe(
     }
 }
 
-fun warmTestNetworkProbeReceiver() {
+fun bindTestProcessDnsProbeService(timeoutMs: Long): TestProcessDnsProbeServiceHandle {
+    require(timeoutMs > 0) { "Invalid test-process probe service bind timeout: $timeoutMs" }
     ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
-    val latch = CountDownLatch(1)
-    val warmupSucceeded = AtomicReference(false)
-    context.sendOrderedBroadcast(
-        Intent(DebugProbeWarmupAction).setClassName(context.packageName, TestNetworkProbeReceiverClass),
-        null,
-        object : BroadcastReceiver() {
-            override fun onReceive(
-                context: Context?,
-                intent: Intent?,
+    val connected = CountDownLatch(1)
+    val serviceBinder = AtomicReference<IBinder?>()
+    val connection =
+        object : ServiceConnection {
+            override fun onServiceConnected(
+                name: ComponentName?,
+                service: IBinder?,
             ) {
-                val extras = getResultExtras(false) ?: Bundle.EMPTY
-                warmupSucceeded.set(
-                    resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
-                )
-                latch.countDown()
+                serviceBinder.set(service)
+                connected.countDown()
             }
-        },
-        null,
-        Activity.RESULT_CANCELED,
-        null,
-        null,
-    )
-    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
-        "Timed out warming the test-process network probe receiver"
+
+            override fun onServiceDisconnected(name: ComponentName?) = Unit
+        }
+    check(
+        context.bindService(
+            Intent().setClassName(context.packageName, TestNetworkProbeServiceClassName),
+            connection,
+            Context.BIND_AUTO_CREATE,
+        ),
+    ) {
+        "Unable to bind the test-process network probe service"
     }
-    check(warmupSucceeded.get()) { "Test-process network probe receiver warmup failed" }
+    try {
+        check(connected.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+            "Timed out binding the test-process network probe service"
+        }
+        return TestProcessDnsProbeServiceHandle(
+            context = context,
+            connection = connection,
+            binder = checkNotNull(serviceBinder.get()) { "Test-process network probe service returned no Binder" },
+        )
+    } catch (error: Throwable) {
+        context.unbindService(connection)
+        throw error
+    }
+}
+
+class TestProcessDnsProbeServiceHandle internal constructor(
+    private val context: Context,
+    private val connection: ServiceConnection,
+    private val binder: IBinder,
+) : Closeable {
+    private val closed = AtomicBoolean(false)
+
+    @Suppress("DEPRECATION")
+    fun dnsProbe(
+        queryHost: String,
+        serverHost: String = PacketSmokeMapDnsAddress,
+        serverPort: Int = PacketSmokeMapDnsPort,
+        timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+        signalId: String,
+        probeSignalBinder: IBinder,
+    ): AppProcessDnsProbeResult {
+        check(!closed.get()) { "Test-process network probe service is closed" }
+        require(timeoutMs in 1..Int.MAX_VALUE.toLong()) { "Invalid DNS probe timeout: $timeoutMs" }
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(TestNetworkProbeServiceDescriptor)
+            data.writeString(serverHost)
+            data.writeInt(serverPort)
+            data.writeInt(timeoutMs.toInt())
+            data.writeString(queryHost)
+            data.writeString(signalId)
+            data.writeStrongBinder(probeSignalBinder)
+            check(binder.transact(TestNetworkProbeDnsTransactionCode, data, reply, 0)) {
+                "Test-process network probe service rejected the DNS transaction"
+            }
+            reply.readException()
+            val resultCode = reply.readInt()
+            val extras = reply.readBundle(javaClass.classLoader) ?: Bundle.EMPTY
+            return AppProcessDnsProbeResult(
+                queryHost = queryHost,
+                serverHost = serverHost,
+                serverPort = serverPort,
+                ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                rcode =
+                    extras
+                        .takeIf { it.containsKey(DebugNetworkProbeExtraDnsRcode) }
+                        ?.getInt(DebugNetworkProbeExtraDnsRcode),
+                answers = extras.getStringArrayList(DebugNetworkProbeExtraDnsAnswers).orEmpty(),
+                latencyMs =
+                    extras
+                        .takeIf { it.containsKey(DebugNetworkProbeExtraDnsLatencyMs) }
+                        ?.getLong(DebugNetworkProbeExtraDnsLatencyMs),
+                localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+            )
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
+    override fun close() {
+        if (closed.compareAndSet(false, true)) {
+            context.unbindService(connection)
+        }
+    }
 }
 
 fun probeInstrumentationDns(
