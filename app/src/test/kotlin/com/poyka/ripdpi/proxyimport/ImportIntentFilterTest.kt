@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,6 +23,9 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class ImportIntentFilterTest {
+    private val isFullExperience: Boolean
+        get() = BuildConfig.APP_EXPERIENCE == "full"
+
     private val packageManager: PackageManager
         get() = ApplicationProvider.getApplicationContext<android.content.Context>().packageManager
 
@@ -59,7 +63,11 @@ class ImportIntentFilterTest {
                 "ssh://user@example.com:22",
             )
         schemes.forEach { uri ->
-            assertTrue("Expected $uri to resolve to ImportHandlerActivity", resolvesToImportHandler(uri))
+            assertEquals(
+                "Import handling must match the experience contract for $uri",
+                isFullExperience,
+                resolvesToImportHandler(uri),
+            )
         }
     }
 
@@ -77,32 +85,48 @@ class ImportIntentFilterTest {
 
     @Test
     fun `singbox deep link resolves to the import handler`() {
-        assertTrue(
+        assertEquals(
+            isFullExperience,
             resolvesToImportHandler("singbox://import-remote-profile?url=https%3A%2F%2Fx.example"),
         )
     }
 
     @Test
     fun `ripdpi and sn deep links resolve to the import handler`() {
-        assertTrue(resolvesToImportHandler("ripdpi://import-remote-profile?url=https%3A%2F%2Fx.example"))
-        assertTrue(resolvesToImportHandler("sn://import-remote-profile?url=https%3A%2F%2Fx.example"))
+        assertEquals(
+            isFullExperience,
+            resolvesToImportHandler("ripdpi://import-remote-profile?url=https%3A%2F%2Fx.example"),
+        )
+        assertEquals(
+            isFullExperience,
+            resolvesToImportHandler("sn://import-remote-profile?url=https%3A%2F%2Fx.example"),
+        )
     }
 
     @Test
     fun `ripdpi import deep link with sub parameter resolves to the import handler`() {
-        assertTrue(resolvesToImportHandler("ripdpi://import?sub=https%3A%2F%2Fhost.example%2Fsub%2Ftok"))
+        assertEquals(
+            isFullExperience,
+            resolvesToImportHandler("ripdpi://import?sub=https%3A%2F%2Fhost.example%2Fsub%2Ftok"),
+        )
     }
 
     @Test
     fun `ripdpi import deep link with url parameter resolves to the import handler`() {
-        assertTrue(resolvesToImportHandler("ripdpi://import?url=https%3A%2F%2Fhost.example%2Fbundle.json"))
+        assertEquals(
+            isFullExperience,
+            resolvesToImportHandler("ripdpi://import?url=https%3A%2F%2Fhost.example%2Fbundle.json"),
+        )
     }
 
     @Test
     fun `ripdpi import deep links are not claimed by main activity catch all filter`() {
         val matches = matchingActivityNames("ripdpi://import?url=https%3A%2F%2Fhost.example%2Fbundle.json")
 
-        assertEquals(setOf(ImportHandlerActivity::class.java.name), matches)
+        assertEquals(
+            if (isFullExperience) setOf(ImportHandlerActivity::class.java.name) else emptySet<String>(),
+            matches,
+        )
         assertFalse(MainActivity::class.java.name in matches)
     }
 
@@ -111,10 +135,28 @@ class ImportIntentFilterTest {
         listOf("connect", "config", "diagnostics", "disconnect", "settings", "support-config").forEach { host ->
             val matches = matchingActivityNames("ripdpi://$host")
 
-            assertTrue("Expected ripdpi://$host to resolve to MainActivity", MainActivity::class.java.name in matches)
+            assertEquals(
+                "Navigation deep links must only be exposed by the full experience: $host",
+                isFullExperience,
+                MainActivity::class.java.name in matches,
+            )
             assertFalse(
                 "Import handler must not claim ripdpi://$host",
                 ImportHandlerActivity::class.java.name in matches,
+            )
+        }
+    }
+
+    @Test
+    fun `web share and support links are only exposed by the full experience`() {
+        listOf(
+            "https://po4yka.github.io/RIPDPI/share",
+            "https://po4yka.github.io/RIPDPI/support-config",
+        ).forEach { uri ->
+            assertEquals(
+                "Web deep links must match the experience contract for $uri",
+                isFullExperience,
+                MainActivity::class.java.name in matchingActivityNames(uri),
             )
         }
     }
@@ -133,12 +175,16 @@ class ImportIntentFilterTest {
 
     @Test
     fun `import handler is exported so the share sheet can reach it`() {
-        val activityInfo =
-            packageManager.getActivityInfo(
-                android.content.ComponentName(packageName, ImportHandlerActivity::class.java.name),
-                0,
+        val component = android.content.ComponentName(packageName, ImportHandlerActivity::class.java.name)
+        if (isFullExperience) {
+            assertTrue(
+                "ImportHandlerActivity must be exported",
+                packageManager.getActivityInfo(component, 0).exported,
             )
-        assertTrue("ImportHandlerActivity must be exported", activityInfo.exported)
+        } else {
+            runCatching { packageManager.getActivityInfo(component, 0) }
+                .onSuccess { throw AssertionError("Simple experience must not declare ImportHandlerActivity") }
+        }
     }
 
     @Test
@@ -155,10 +201,14 @@ class ImportIntentFilterTest {
                     resolveInfo.activityInfo?.packageName == packageName &&
                         resolveInfo.activityInfo?.name == ImportHandlerActivity::class.java.name
                 }.mapNotNull { it.filter?.priority }
-        assertTrue("Expected a resolved filter for the singbox deep link", priorities.isNotEmpty())
-        assertTrue(
-            "RIPDPI singbox filter priority ${priorities.first()} must be < 0 (SFA default)",
-            priorities.all { it < ImportManifestPriority.SING_BOX_FOR_ANDROID_DEFAULT },
-        )
+        if (isFullExperience) {
+            assertTrue("Expected a resolved filter for the singbox deep link", priorities.isNotEmpty())
+            assertTrue(
+                "RIPDPI singbox filter priority ${priorities.first()} must be < 0 (SFA default)",
+                priorities.all { it < ImportManifestPriority.SING_BOX_FOR_ANDROID_DEFAULT },
+            )
+        } else {
+            assertTrue("Simple experience must not expose singbox import filters", priorities.isEmpty())
+        }
     }
 }

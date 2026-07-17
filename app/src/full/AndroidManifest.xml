@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name=".activities.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ripdpi" android:host="connect" />
+                <data android:scheme="ripdpi" android:host="config" />
+                <data android:scheme="ripdpi" android:host="diagnostics" />
+                <data android:scheme="ripdpi" android:host="disconnect" />
+                <data android:scheme="ripdpi" android:host="settings" />
+                <data android:scheme="ripdpi" android:host="support-config" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="po4yka.github.io"
+                    android:path="/RIPDPI/share" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="po4yka.github.io"
+                    android:path="/RIPDPI/support-config" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!--
+            Import trampoline for inbound proxy share links and subscription deep links.
+            Inbound proxy-like URI schemes (vless/trojan/ss/hysteria2/
+            tuic/anytls/ssh) are claimed at the default filter priority; the import
+            trampoline still validates each payload through the current parser. The
+            singbox/ripdpi/sn import-remote-profile deep-link filter sits at a negative
+            priority so sing-box-for-Android stays the user's default subscription
+            handler when installed; RIPDPI is still offered in the chooser. https:// is
+            deliberately never claimed so browser ordering for web links is untouched.
+        -->
+        <activity
+            android:name=".proxyimport.ImportHandlerActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vless" />
+                <data android:scheme="trojan" />
+                <data android:scheme="ss" />
+                <data android:scheme="hysteria2" />
+                <data android:scheme="tuic" />
+                <data android:scheme="anytls" />
+                <data android:scheme="ssh" />
+            </intent-filter>
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="singbox" android:host="import-remote-profile" />
+                <data android:scheme="ripdpi" android:host="import-remote-profile" />
+                <data android:scheme="sn" android:host="import-remote-profile" />
+            </intent-filter>
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ripdpi" android:host="import" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
