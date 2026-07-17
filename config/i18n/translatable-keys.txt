@@ -784,6 +784,7 @@ app:config_save
 app:config_split_marker_helper
 app:config_summary_section
 app:config_tls_record_marker_helper
+app:config_traffic_mode_title
 app:config_udp_chain_hint
 app:config_validation_banner_body
 app:config_validation_banner_title
