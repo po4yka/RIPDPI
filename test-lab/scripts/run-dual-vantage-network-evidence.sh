@@ -193,6 +193,8 @@ expected = {
     "workloadHook",
     "clientVantageId",
     "observerVantageId",
+    "clientNetworkId",
+    "observerNetworkId",
 }
 if not isinstance(config, dict) or set(config) != expected:
     raise SystemExit("network evidence runner config fields do not match the v1 contract")
@@ -223,6 +225,26 @@ for field in ("clientVantageId", "observerVantageId"):
     (scratch / f"{field}.sha256").write_text(digest, encoding="ascii")
 if config["clientVantageId"] == config["observerVantageId"]:
     raise SystemExit("client and observer vantage identifiers must differ")
+for field in ("clientNetworkId", "observerNetworkId"):
+    value = config[field]
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise SystemExit(f"{field} must be a random 256-bit lowercase hex identifier")
+    digest = hashlib.sha256(f"ripdpi:network:v1:{value}".encode()).hexdigest()
+    (scratch / f"{field}.sha256").write_text(digest, encoding="ascii")
+if config["clientNetworkId"] == config["observerNetworkId"]:
+    raise SystemExit("client and observer network identifiers must differ")
+private_identity_fields = (
+    "clientVantageId",
+    "observerVantageId",
+    "clientNetworkId",
+    "observerNetworkId",
+)
+if len({config[field] for field in private_identity_fields}) != len(private_identity_fields):
+    raise SystemExit("vantage and network identifiers must be independently generated")
 PY
 
 client_hook="$(<"$scratch/clientHook.path")"
@@ -233,6 +255,8 @@ observer_collector_sha256="$(<"$scratch/observerHook.sha256")"
 workload_sha256="$(<"$scratch/workloadHook.sha256")"
 client_vantage_sha256="$(<"$scratch/clientVantageId.sha256")"
 observer_vantage_sha256="$(<"$scratch/observerVantageId.sha256")"
+client_network_sha256="$(<"$scratch/clientNetworkId.sha256")"
+observer_network_sha256="$(<"$scratch/observerNetworkId.sha256")"
 correlation_id="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 
 python3 -c 'import os, sys; os.setsid(); os.execv(sys.argv[1], sys.argv[1:])' "$client_hook" \
@@ -291,6 +315,7 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" stamp-observation \
   --source-sha "$source_sha" \
   --correlation-id "$correlation_id" \
   --vantage-id-sha256 "$client_vantage_sha256" \
+  --network-id-sha256 "$client_network_sha256" \
   --collector-sha256 "$client_collector_sha256"
 python3 "$repo_root/scripts/ci/network_evidence_manifest.py" stamp-observation \
   --input "$observer_observation" \
@@ -299,6 +324,7 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" stamp-observation \
   --source-sha "$source_sha" \
   --correlation-id "$correlation_id" \
   --vantage-id-sha256 "$observer_vantage_sha256" \
+  --network-id-sha256 "$observer_network_sha256" \
   --collector-sha256 "$observer_collector_sha256"
 python3 "$repo_root/scripts/ci/network_evidence_manifest.py" assemble \
   --client "$publish_dir/client-observation.json" \

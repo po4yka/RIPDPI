@@ -261,20 +261,25 @@ connected Android device and a private mode-0600 config outside the checkout:
   "observerHook": "/opt/ripdpi/bin/evidence-observer",
   "workloadHook": "/opt/ripdpi/bin/evidence-workload",
   "clientVantageId": "<64 lowercase hex characters>",
-  "observerVantageId": "<different 64 lowercase hex characters>"
+  "observerVantageId": "<different 64 lowercase hex characters>",
+  "clientNetworkId": "<different 64 lowercase hex characters>",
+  "observerNetworkId": "<different 64 lowercase hex characters>"
 }
 ```
 
-Generate each private vantage identifier with `openssl rand -hex 32`; labels,
-IP addresses, hostnames, and device identifiers are forbidden. The two random
-identifiers must be distinct. They are domain-separated and SHA-256 hashed before publication; their raw values and hook paths never
-leave the runner. The runner also records executable digests for both collectors
-and the workload, rejects a shared collector path, and requires a non-emulated
-ADB device. Before capture, the workflow builds `GithubFullDebug` from the
-checked-out SHA for the physical device ABI, installs it, pulls the installed
-base APK back, verifies byte equality, and records its SHA-256 in provenance.
-The observer hook owns the authenticated remote capture transport;
-its credentials and endpoint stay in the runner-owned installation.
+Generate all four private identifiers independently with `openssl rand -hex 32`
+and keep the network-to-random-ID mapping only in runner-owned configuration.
+All four values must be distinct. Labels, SSIDs, BSSIDs, IP addresses, hostnames,
+device identifiers, and unsalted hashes derived from those low-entropy values are
+forbidden. Vantage and network identifiers use separate domain prefixes before
+SHA-256 hashing; their raw values and hook paths never leave the runner. The
+runner also records executable digests for both collectors and the workload,
+rejects a shared collector path, and requires a non-emulated ADB device. Before
+capture, the workflow builds `GithubFullDebug` from the checked-out SHA for the
+physical device ABI, installs it, pulls the installed base APK back, verifies byte
+equality, and records its SHA-256 in provenance. The observer hook owns the
+authenticated remote capture transport; its credentials and endpoint stay in the
+runner-owned installation.
 
 The fixed hooks receive only a correlation digest, source SHA, marker paths,
 and output paths. `run-dual-vantage-network-evidence.sh` starts both collectors

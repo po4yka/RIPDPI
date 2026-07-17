@@ -118,6 +118,7 @@
         "sha256",
         "rawCaptureSha256",
         "vantageIdSha256",
+        "networkIdSha256",
         "collectorSha256"
       ],
       "properties": {
@@ -140,6 +141,9 @@
           "$ref": "#/$defs/sha256"
         },
         "vantageIdSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "networkIdSha256": {
           "$ref": "#/$defs/sha256"
         },
         "collectorSha256": {
@@ -185,6 +189,7 @@
         "correlationId",
         "role",
         "vantageIdSha256",
+        "networkIdSha256",
         "collectorSha256",
         "captureStartedAtEpoch",
         "captureFinishedAtEpoch",
@@ -208,6 +213,9 @@
           ]
         },
         "vantageIdSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "networkIdSha256": {
           "$ref": "#/$defs/sha256"
         },
         "collectorSha256": {

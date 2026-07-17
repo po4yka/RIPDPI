@@ -44,6 +44,7 @@ OBSERVATION_FIELDS = {
     "correlationId",
     "role",
     "vantageIdSha256",
+    "networkIdSha256",
     "collectorSha256",
     "captureStartedAtEpoch",
     "captureFinishedAtEpoch",
@@ -52,6 +53,7 @@ OBSERVATION_FIELDS = {
 }
 UNSTAMPED_OBSERVATION_FIELDS = OBSERVATION_FIELDS - {
     "vantageIdSha256",
+    "networkIdSha256",
     "collectorSha256",
 }
 WINDOW_FIELDS = {
@@ -87,6 +89,7 @@ ARTIFACT_FIELDS = {
     "sha256",
     "rawCaptureSha256",
     "vantageIdSha256",
+    "networkIdSha256",
     "collectorSha256",
 }
 SCENARIO_FIELDS = {"id", "kind", "startedAtEpoch", "finishedAtEpoch"}
@@ -236,6 +239,7 @@ def validate_observation(
     ):
         raise ValueError(f"unexpected observation role: {role!r}")
     require_pattern(value["vantageIdSha256"], SHA256_RE, "observation.vantageIdSha256")
+    require_pattern(value["networkIdSha256"], SHA256_RE, "observation.networkIdSha256")
     require_pattern(value["collectorSha256"], SHA256_RE, "observation.collectorSha256")
     capture_start = require_int(
         value["captureStartedAtEpoch"], "observation.captureStartedAtEpoch", minimum=1
@@ -280,15 +284,17 @@ def stamp_observation(
     expected_source_sha: str,
     expected_correlation_id: str,
     vantage_id_sha256: str,
+    network_id_sha256: str,
     collector_sha256: str,
 ) -> dict[str, Any]:
-    """Bind a hook summary to runner-owned collector and vantage identities."""
+    """Bind a hook summary to runner-owned collector, vantage, and network IDs."""
     if not isinstance(value, dict):
         raise ValueError("unstamped observation must be a JSON object")
     require_exact_fields(value, UNSTAMPED_OBSERVATION_FIELDS, "unstamped observation")
     require_pattern(expected_source_sha, SHA1_RE, "expectedSourceSha")
     require_pattern(expected_correlation_id, SHA256_RE, "expectedCorrelationId")
     require_pattern(vantage_id_sha256, SHA256_RE, "vantageIdSha256")
+    require_pattern(network_id_sha256, SHA256_RE, "networkIdSha256")
     require_pattern(collector_sha256, SHA256_RE, "collectorSha256")
     if value["role"] != expected_role:
         raise ValueError("unstamped observation role does not match runner role")
@@ -302,6 +308,7 @@ def stamp_observation(
         )
     stamped = dict(value)
     stamped["vantageIdSha256"] = vantage_id_sha256
+    stamped["networkIdSha256"] = network_id_sha256
     stamped["collectorSha256"] = collector_sha256
     return validate_observation(stamped, expected_role=expected_role)
 
@@ -393,6 +400,8 @@ def assemble_manifest(
         raise ValueError("client and observer correlationId values do not match")
     if client["vantageIdSha256"] == observer["vantageIdSha256"]:
         raise ValueError("client and observer vantage identities must differ")
+    if client["networkIdSha256"] == observer["networkIdSha256"]:
+        raise ValueError("client and observer network identities must differ")
     latest_capture_finish = max(
         client["captureFinishedAtEpoch"], observer["captureFinishedAtEpoch"]
     )
@@ -419,6 +428,7 @@ def assemble_manifest(
                 "sha256": sha256_bytes(client_raw),
                 "rawCaptureSha256": client["rawCaptureSha256"],
                 "vantageIdSha256": client["vantageIdSha256"],
+                "networkIdSha256": client["networkIdSha256"],
                 "collectorSha256": client["collectorSha256"],
             },
             {
@@ -427,6 +437,7 @@ def assemble_manifest(
                 "sha256": sha256_bytes(observer_raw),
                 "rawCaptureSha256": observer["rawCaptureSha256"],
                 "vantageIdSha256": observer["vantageIdSha256"],
+                "networkIdSha256": observer["networkIdSha256"],
                 "collectorSha256": observer["collectorSha256"],
             },
         ],
@@ -548,6 +559,8 @@ def validate_manifest(
             raise ValueError(f"raw capture digest mismatch for {role}")
         if observation["vantageIdSha256"] != artifact["vantageIdSha256"]:
             raise ValueError(f"vantage identity digest mismatch for {role}")
+        if observation["networkIdSha256"] != artifact["networkIdSha256"]:
+            raise ValueError(f"network identity digest mismatch for {role}")
         if observation["collectorSha256"] != artifact["collectorSha256"]:
             raise ValueError(f"collector digest mismatch for {role}")
         if observation["sourceSha"] != expected_source_sha:
@@ -568,6 +581,11 @@ def validate_manifest(
         == observations["external-observer"]["vantageIdSha256"]
     ):
         raise ValueError("client and observer vantage identities must differ")
+    if (
+        observations["client-underlay"]["networkIdSha256"]
+        == observations["external-observer"]["networkIdSha256"]
+    ):
+        raise ValueError("client and observer network identities must differ")
 
     scenarios, gate_results = derive_bundle(
         observations["client-underlay"], observations["external-observer"]
@@ -616,6 +634,7 @@ def main(argv: list[str] | None = None) -> int:
     stamp.add_argument("--source-sha", required=True)
     stamp.add_argument("--correlation-id", required=True)
     stamp.add_argument("--vantage-id-sha256", required=True)
+    stamp.add_argument("--network-id-sha256", required=True)
     stamp.add_argument("--collector-sha256", required=True)
 
     validate = subparsers.add_parser(
@@ -663,6 +682,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_source_sha=args.source_sha,
                 expected_correlation_id=args.correlation_id,
                 vantage_id_sha256=args.vantage_id_sha256,
+                network_id_sha256=args.network_id_sha256,
                 collector_sha256=args.collector_sha256,
             )
             write_canonical_json(args.output, stamped)

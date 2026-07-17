@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from jsonschema import Draft202012Validator, ValidationError
+
 
 ROOT = Path(__file__).resolve().parents[2]
 LEAK_CORPUS_PATH = (
@@ -79,6 +81,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             "correlationId": correlation_id or self.correlation_id,
             "role": role,
             "vantageIdSha256": ("c" if role == "client-underlay" else "d") * 64,
+            "networkIdSha256": ("3" if role == "client-underlay" else "4") * 64,
             "collectorSha256": ("e" if role == "client-underlay" else "f") * 64,
             "captureStartedAtEpoch": self.started_at - 2,
             "captureFinishedAtEpoch": self.finished_at + 2,
@@ -241,6 +244,8 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             self.correlation_id,
             "--vantage-id-sha256",
             "5" * 64,
+            "--network-id-sha256",
+            "7" * 64,
             "--collector-sha256",
             "6" * 64,
         ]
@@ -313,6 +318,8 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
                     "workloadHook": str(workload_hook),
                     "clientVantageId": "1" * 64,
                     "observerVantageId": "2" * 64,
+                    "clientNetworkId": "3" * 64,
+                    "observerNetworkId": "4" * 64,
                 }
             ),
             encoding="utf-8",
@@ -413,6 +420,56 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             {"PASS", "FAIL", "INCONCLUSIVE"},
         )
 
+    def test_repo_schema_validates_emitted_manifest_and_observations(self) -> None:
+        schema = json.loads(
+            (
+                ROOT / "quality/release-gates/network-evidence-manifest-v1.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator.check_schema(schema)
+        manifest = self.assemble()
+
+        Draft202012Validator(schema).validate(manifest)
+        observation_schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/observation",
+            "$defs": schema["$defs"],
+        }
+        observation_validator = Draft202012Validator(observation_schema)
+        for path in evidence.ROLE_PATHS.values():
+            observation_validator.validate(
+                json.loads((self.root / path).read_text(encoding="utf-8"))
+            )
+
+        invalid_observation = json.loads(
+            (self.root / evidence.ROLE_PATHS["client-underlay"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        invalid_observation.pop("networkIdSha256")
+        with self.assertRaises(ValidationError):
+            observation_validator.validate(invalid_observation)
+
+    def test_missing_network_identity_is_rejected(self) -> None:
+        observer = self.observation("external-observer")
+        observer.pop("networkIdSha256")
+        with self.assertRaisesRegex(ValueError, "networkIdSha256"):
+            self.assemble(observer=observer)
+
+    def test_duplicate_network_identity_is_rejected(self) -> None:
+        observer = self.observation("external-observer")
+        observer["networkIdSha256"] = self.observation("client-underlay")[
+            "networkIdSha256"
+        ]
+        with self.assertRaisesRegex(ValueError, "network identities must differ"):
+            self.assemble(observer=observer)
+
+    def test_manifest_network_identity_mismatch_is_rejected(self) -> None:
+        manifest = self.assemble()
+        manifest["artifacts"][0]["networkIdSha256"] = "7" * 64
+        with self.assertRaisesRegex(ValueError, "network identity digest mismatch"):
+            self.validate(manifest)
+
     def test_missing_vantage_is_rejected(self) -> None:
         manifest = self.assemble()
         manifest["artifacts"] = manifest["artifacts"][:1]
@@ -436,6 +493,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
     def test_runner_stamps_and_canonicalizes_hook_observation(self) -> None:
         unstamped = self.observation("client-underlay")
         unstamped.pop("vantageIdSha256")
+        unstamped.pop("networkIdSha256")
         unstamped.pop("collectorSha256")
 
         stamped = evidence.stamp_observation(
@@ -444,11 +502,31 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             expected_source_sha=self.source_sha,
             expected_correlation_id=self.correlation_id,
             vantage_id_sha256="5" * 64,
+            network_id_sha256="7" * 64,
             collector_sha256="6" * 64,
         )
 
         self.assertEqual(stamped["vantageIdSha256"], "5" * 64)
+        self.assertEqual(stamped["networkIdSha256"], "7" * 64)
         self.assertEqual(stamped["collectorSha256"], "6" * 64)
+
+    def test_runner_rejects_raw_network_identity_from_collector(self) -> None:
+        unstamped = self.observation("client-underlay")
+        unstamped.pop("vantageIdSha256")
+        unstamped.pop("networkIdSha256")
+        unstamped.pop("collectorSha256")
+        unstamped["networkId"] = "private-network-identity"
+
+        with self.assertRaisesRegex(ValueError, "unknown fields: networkId"):
+            evidence.stamp_observation(
+                unstamped,
+                expected_role="client-underlay",
+                expected_source_sha=self.source_sha,
+                expected_correlation_id=self.correlation_id,
+                vantage_id_sha256="5" * 64,
+                network_id_sha256="7" * 64,
+                collector_sha256="6" * 64,
+            )
 
     def test_missing_gate_window_is_rejected(self) -> None:
         observer = self.observation("external-observer")
@@ -689,6 +767,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
                 else:
                     unstamped = self.observation("client-underlay")
                     unstamped.pop("vantageIdSha256")
+                    unstamped.pop("networkIdSha256")
                     unstamped.pop("collectorSha256")
                     unstamped_path = case_root / "unstamped-observation.json"
                     evidence.write_canonical_json(unstamped_path, unstamped)

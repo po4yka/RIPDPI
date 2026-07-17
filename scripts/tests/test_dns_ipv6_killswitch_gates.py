@@ -61,6 +61,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 "correlationId": correlation_id,
                 "role": role,
                 "vantageIdSha256": ("1" if role == "client-underlay" else "2") * 64,
+                "networkIdSha256": ("5" if role == "client-underlay" else "6") * 64,
                 "collectorSha256": ("3" if role == "client-underlay" else "4") * 64,
                 "captureStartedAtEpoch": now - 21,
                 "captureFinishedAtEpoch": now - 8,
@@ -515,6 +516,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertNotIn("$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence", evidence)
         self.assertIn("scripts.tests.test_network_evidence_manifest", ci)
         self.assertIn("test-dual-vantage-network-evidence.sh", ci)
+        self.assertIn("jsonschema==4.26.0", ci)
 
 
 if __name__ == "__main__":

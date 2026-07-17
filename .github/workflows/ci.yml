@@ -175,6 +175,9 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      - name: Install pinned release-gate contract dependencies
+        run: python3 -m pip install --disable-pip-version-check jsonschema==4.26.0
+
       - name: Run app identity review unit tests
         run: python3 -m unittest scripts.tests.test_app_identity_review
 
