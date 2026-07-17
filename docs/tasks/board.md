@@ -2,14 +2,13 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (26)
+## Doing (25)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-07-17 |
 | high | ci | [Run a recurring real-VPS AmneziaWG and NAT lane](issues/run-recurring-real-vps-awg-nat-lane.md) | AWG real-VPS lane | 2026-07-17 |
-| high | ci | [Package deterministic release native symbols](issues/package-deterministic-release-native-symbols.md) | Release native-symbol lane | 2026-07-17 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
@@ -33,10 +32,11 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture](issues/audit-relay-mux-default-nested-handshake-conformance.md) | unassigned | 2026-07-14 |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 
-## Review (6)
+## Review (7)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
+| high | ci | [Package deterministic release native symbols](issues/package-deterministic-release-native-symbols.md) | Release native-symbol lane | 2026-07-17 |
 | high | ci | [Stage every native helper in Android CI shards](issues/fix-native-shard-helper-assets.md) | Native asset shard lane | 2026-07-17 |
 | high | diagnostics | [Add connection-concurrency as an independent evidence axis](issues/add-connection-concurrency-evidence-axis.md) | Codex | 2026-07-10 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |

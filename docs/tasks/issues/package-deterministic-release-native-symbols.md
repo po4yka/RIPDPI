@@ -1,7 +1,7 @@
 ---
 title: Package deterministic release native symbols
 type: task
-status: doing
+status: review
 area: ci
 priority: high
 owner: Release native-symbol lane
@@ -32,3 +32,15 @@ without shipping unstripped Android binaries.
 - One release-verification variant assembles the complete symbol bundle from four ABI shards.
 - Release publishing invokes the same packager and uploads an explicit, non-empty artifact.
 - A host-ABI NDK smoke proves debug sections, stripping, and build-ID correlation.
+
+## Work log
+
+- Production Android Rust artifacts now retain line tables until the pinned NDK tools split
+  JNI debug sidecars and strip packaged JNI libraries and helper executables.
+- CI and release workflows use one fail-closed packager for the exact four-ABI by five-JNI
+  matrix, build-ID correlation, manifest hashing, and deterministic ZIP output.
+- Focused contract tests cover valid packaging plus missing, extra, mismatched, duplicated,
+  unstripped, and missing-debuglink inputs.
+- A real arm64-v8a NDK build verified five JNI sidecars, three stripped helpers, unique matching
+  build IDs, and byte-identical outputs on an up-to-date rebuild. The remote four-ABI CI run
+  remains the final environment-level verification.
