@@ -92,7 +92,47 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
+  change-routing:
+    name: Resolve CI change route
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.resolve.outputs.docs_only }}
+      run_full_ci: ${{ steps.resolve.outputs.run_full_ci }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          paths_file="$RUNNER_TEMP/changed-files.txt"
+          force_full=()
+          if [[ "$EVENT_NAME" != "pull_request" || "$EVENT_ACTION" == "labeled" ]]; then
+            : > "$paths_file"
+            force_full+=(--force-full)
+          else
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$paths_file"
+          fi
+          python3 scripts/ci/resolve_change_routing.py \
+            --paths-file "$paths_file" \
+            --github-output "$GITHUB_OUTPUT" \
+            "${force_full[@]}"
+
+  docs-only-gate:
+    name: Documentation-only CI gate
+    needs: change-routing
+    if: needs.change-routing.outputs.docs_only == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "Documentation-only change: heavy CI jobs intentionally skipped."'
+
   android-e2e-result-contracts:
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -105,7 +145,8 @@ jobs:
             scripts.tests.test_start_local_network_fixture
 
   design-md-lint:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -124,7 +165,8 @@ jobs:
         run: python3 -m unittest scripts.tests.test_verify_design_md
 
   architecture-health:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -170,7 +212,8 @@ jobs:
   # paired unit tests exercise the policy + result-evaluation logic. Wiring the
   # checks here makes a malformed or incomplete release-gate policy a CI failure.
   release-gates:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -217,7 +260,8 @@ jobs:
   # Debug and release consumers use this same profile in CI.
   # Each shard gets a full 4-vCPU runner for a single-ABI cross-compile.
   rust-native:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -282,8 +326,8 @@ jobs:
   # matrix. Skips cargo entirely via -Pripdpi.prebuilt*Dir properties, which the
   # rust-native Gradle plugin honors by copying instead of running cargo.
   build-android-debug:
-    if: github.event_name != 'schedule'
-    needs: [rust-native]
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
+    needs: [change-routing, rust-native]
     runs-on: ubuntu-latest
     # Builds three debug APK flavors (~22-23 min typical); 25 was too tight a
     # cap and flaked on slower runners. 40 matches the headroom of the other
@@ -369,7 +413,8 @@ jobs:
   # load JNI libraries, so -Pripdpi.skipNativeBuild=true safely skips the entire
   # Rust dependency chain that preBuild normally pulls in.
   build-android-tests:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -437,7 +482,8 @@ jobs:
 
   # Roborazzi screenshot tests run in parallel; they don't load JNI either.
   verify-roborazzi:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -469,8 +515,8 @@ jobs:
           retention-days: 7
 
   release-verification:
-    if: github.event_name != 'schedule'
-    needs: [rust-native]
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
+    needs: [change-routing, rust-native]
     runs-on: ubuntu-latest
     # --max-workers=1 serialises the assembleRelease variant compiles to stay within the
     # Kotlin daemon heap (the experience dimension doubled the release variant count), which
@@ -577,7 +623,9 @@ jobs:
           retention-days: 7
 
   native-bloat:
+    needs: change-routing
     if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
       github.event_name != 'schedule' &&
       (
         github.event_name != 'pull_request' ||
@@ -636,7 +684,8 @@ jobs:
           retention-days: 14
 
   rust-miri:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -657,7 +706,8 @@ jobs:
         run: bash scripts/ci/run-rust-miri.sh
 
   cargo-deny:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -680,7 +730,8 @@ jobs:
     # see native/rust/deny.toml) surface on main without waiting for an unrelated PR.
     # The PR/push cargo-deny job above already runs advisories as part of `check`;
     # this job adds the time-based re-scan that a code-change-triggered gate cannot.
-    if: github.event_name == 'schedule'
+    needs: change-routing
+    if: github.event_name == 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -698,7 +749,8 @@ jobs:
         run: cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories
 
   diagnostics-probes-facade:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -733,7 +785,8 @@ jobs:
         run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
 
   rust-lint:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -762,7 +815,8 @@ jobs:
         run: bash scripts/ci/run-rust-lint.sh
 
   rust-cross-check:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -781,7 +835,8 @@ jobs:
         run: bash scripts/ci/run-rust-cross-check.sh
 
   rust-workspace-tests:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -822,7 +877,8 @@ jobs:
           retention-days: 7
 
   rust-fuzz-smoke:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -851,6 +907,8 @@ jobs:
         run: bash scripts/ci/run-rust-fuzz-smoke.sh
 
   runtime-api-snapshot:
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true'
     name: JNI API snapshot check
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -879,7 +937,8 @@ jobs:
           python3 scripts/ci/check_rust_api_snapshots.py
 
   gradle-static-analysis:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -924,7 +983,8 @@ jobs:
           retention-days: 7
 
   rust-network-e2e:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -951,7 +1011,8 @@ jobs:
         run: bash scripts/ci/run-rust-network-e2e.sh
 
   relay-interoperability:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -978,7 +1039,8 @@ jobs:
         run: bash scripts/ci/run-rust-relay-interoperability.sh
 
   cli-packet-smoke:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -1011,7 +1073,8 @@ jobs:
           retention-days: 7
 
   rust-turmoil:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -1037,7 +1100,9 @@ jobs:
         run: bash scripts/ci/run-rust-turmoil-tests.sh
 
   coverage:
+    needs: change-routing
     if: >-
+      needs.change-routing.outputs.run_full_ci == 'true' &&
       github.event_name != 'schedule' &&
       (
         github.event_name != 'pull_request' ||
@@ -1114,11 +1179,13 @@ jobs:
           retention-days: 7
 
   rust-criterion-bench:
+    needs: change-routing
     if: >-
-      github.event_name == 'schedule' ||
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      (github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.capture_criterion_baseline == 'true') ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-bench'))
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-bench')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -1233,7 +1300,8 @@ jobs:
     # This aggregates benchmarks, load, Android packaging, and bloat checks that
     # the scheduled lanes already execute independently. Keep the composite
     # snapshot manual to avoid paying for the same native work twice every night.
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_phase0_baseline == 'true'
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.run_phase0_baseline == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -1276,7 +1344,8 @@ jobs:
     # Runs StartupBenchmark on a Gradle Managed Device. The :baselineprofile module
     # already tolerates emulator runs (androidx.benchmark.suppressErrors includes
     # EMULATOR) and the regression check is warn-only.
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true')
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -1336,8 +1405,8 @@ jobs:
   # Prebuilt x86_64 native shards from the rust-native matrix are staged via
   # -Pripdpi.prebuilt*Dir so cargo is skipped.
   android-instrumented-tests:
-    if: github.event_name != 'schedule'
-    needs: [rust-native]
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
+    needs: [change-routing, rust-native]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -1433,7 +1502,8 @@ jobs:
           retention-days: 7
 
   rust-loom:
-    if: github.event_name != 'schedule'
+    needs: change-routing
+    if: github.event_name != 'schedule' && needs.change-routing.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -1456,7 +1526,8 @@ jobs:
         run: bash scripts/ci/run-rust-loom.sh
 
   rust-native-soak:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true')
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -1499,7 +1570,8 @@ jobs:
           retention-days: 7
 
   rust-native-load:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true')
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -1542,7 +1614,8 @@ jobs:
           retention-days: 7
 
   nightly-rust-coverage:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true')
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -1580,13 +1653,15 @@ jobs:
           retention-days: 7
 
   android-network-e2e:
+    needs: change-routing
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_network_e2e == 'true') ||
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_network_e2e == 'true') ||
       (
         github.event_name == 'pull_request' &&
         github.event.action == 'labeled' &&
         github.event.label.name == 'run-android-e2e'
-      )
+      ))
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -1692,13 +1767,15 @@ jobs:
           retention-days: 7
 
   android-journeys:
+    needs: change-routing
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_journeys == 'true') ||
+      needs.change-routing.outputs.run_full_ci == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_journeys == 'true') ||
       (
         github.event_name == 'pull_request' &&
         github.event.action == 'labeled' &&
         github.event.label.name == 'run-android-journeys'
-      )
+      ))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -1757,7 +1834,8 @@ jobs:
           retention-days: 7
 
   android-relay-emulator-smoke:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_relay_smoke == 'true')
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_relay_smoke == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -1812,7 +1890,8 @@ jobs:
           retention-days: 7
 
   linux-tun-e2e:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e'))
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -1848,7 +1927,8 @@ jobs:
             bash scripts/ci/run-linux-tun-e2e.sh
 
   so-bindtodevice-e2e:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e'))
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -1915,7 +1995,8 @@ jobs:
           retention-days: 30
 
   linux-tun-soak:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: change-routing
+    if: needs.change-routing.outputs.run_full_ci == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
