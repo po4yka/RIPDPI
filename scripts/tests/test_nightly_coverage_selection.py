@@ -87,6 +87,34 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
             self.assertIn('setup-android-ndk: "false"', job)
             self.assertIn('setup-sccache: "false"', job)
 
+    def test_scheduled_ci_rotates_high_signal_lanes(self) -> None:
+        source = CI_WORKFLOW.read_text(encoding="utf-8")
+        for cron in (
+            'cron: "0 3 * * *"',
+            'cron: "0 4 * * 1"',
+            'cron: "0 4 * * 2"',
+            'cron: "0 4 * * 3"',
+            'cron: "0 4 * * 4"',
+            'cron: "0 4 * * 5"',
+        ):
+            self.assertIn(cron, source)
+
+        expected_lanes = {
+            "cargo-deny-advisories": "0 3 * * *",
+            "rust-criterion-bench": "0 4 * * 1",
+            "rust-native-soak": "0 4 * * 2",
+            "rust-native-load": "0 4 * * 2",
+            "linux-tun-soak": "0 4 * * 2",
+            "nightly-rust-coverage": "0 4 * * 3",
+            "android-macrobenchmark": "0 4 * * 4",
+            "android-relay-emulator-smoke": "0 4 * * 5",
+            "linux-tun-e2e": "0 4 * * 5",
+            "so-bindtodevice-e2e": "0 4 * * 5",
+        }
+        for job_name, cron in expected_lanes.items():
+            job = workflow_job(source, job_name)
+            self.assertIn(f"github.event.schedule == '{cron}'", job)
+
     def test_macrobenchmark_uses_the_ci_native_abi_override(self) -> None:
         source = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertRegex(
