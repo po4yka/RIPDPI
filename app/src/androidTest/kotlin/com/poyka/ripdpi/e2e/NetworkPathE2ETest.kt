@@ -17,7 +17,15 @@ import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,6 +35,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import javax.inject.Inject
+
+private const val VpnEncryptedDnsAutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover: "
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -299,36 +309,73 @@ class NetworkPathE2ETest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        fixtureClient.resetFaults()
+        fixtureClient.resetEvents()
         val baselineTelemetry = serviceStateStore.telemetry.value
         val baselineRestartCount = baselineTelemetry.restartCount
         val baselineTunnelRecoveryRetryCount = baselineTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount
-        fixtureClient.resetEvents()
-        fixtureClient.setFault(
-            FixtureFaultSpecDto(
-                target = FixtureFaultTargetDto.DNS_HTTP,
-                outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
-                scope = FixtureFaultScopeDto.PERSISTENT,
-            ),
-        )
+        val baselineDnsQueriesTotal = baselineTelemetry.tunnelTelemetry.dnsQueriesTotal
+        val baselineDnsFailuresTotal = baselineTelemetry.tunnelTelemetry.dnsFailuresTotal
+        val dnsFailureScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val correlatedDnsRecovery =
+            dnsFailureScope.async(start = CoroutineStart.UNDISPATCHED) {
+                val failureSnapshot =
+                    serviceStateStore.telemetry.first { snapshot ->
+                        snapshot.tunnelTelemetry.dnsQueriesTotal > baselineDnsQueriesTotal &&
+                            snapshot.tunnelTelemetry.dnsFailuresTotal > baselineDnsFailuresTotal &&
+                            snapshot.tunnelTelemetry.lastDnsError.describesDnsTimeout()
+                    }
+                val expectedFallbackReason =
+                    VpnEncryptedDnsAutoFailoverReasonPrefix +
+                        requireNotNull(failureSnapshot.tunnelTelemetry.lastDnsError).trim()
+                val recoverySnapshot =
+                    serviceStateStore.telemetry.first { snapshot ->
+                        snapshot.status == AppStatus.Running &&
+                            snapshot.mode == Mode.VPN &&
+                            snapshot.restartCount == baselineRestartCount &&
+                            snapshot.runtimeFieldTelemetry.tunnelRecoveryRetryCount >
+                            baselineTunnelRecoveryRetryCount &&
+                            snapshot.tunnelTelemetry.resolverFallbackActive &&
+                            snapshot.tunnelTelemetry.resolverFallbackReason == expectedFallbackReason
+                    }
+                failureSnapshot to recoverySnapshot
+            }
+        try {
+            fixtureClient.setFault(
+                FixtureFaultSpecDto(
+                    target = FixtureFaultTargetDto.DNS_HTTP,
+                    outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                    scope = FixtureFaultScopeDto.PERSISTENT,
+                ),
+            )
 
-        val payload = httpEchoPayloadText("vpn-dns-timeout")
-        val output = vpnTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
+            val payload = httpEchoPayloadText("vpn-dns-timeout")
+            val output = vpnTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
 
-        assertFalse(output.contains("GET /vpn-dns-timeout HTTP/1.1"))
-        awaitUntil(
-            timeoutMs = 20_000L,
-            failureMessage = { serviceStateDebugSummary(serviceStateStore, fixtureClient) },
-        ) {
-            val snapshot = serviceStateStore.telemetry.value
+            assertFalse(output.contains("GET /vpn-dns-timeout HTTP/1.1"))
+            val (dnsTimeoutSnapshot, recoverySnapshot) =
+                runBlocking {
+                    withTimeout(20_000L) {
+                        correlatedDnsRecovery.await()
+                    }
+                }
+            assertTrue(dnsTimeoutSnapshot.tunnelTelemetry.dnsQueriesTotal > baselineDnsQueriesTotal)
+            assertTrue(dnsTimeoutSnapshot.tunnelTelemetry.dnsFailuresTotal > baselineDnsFailuresTotal)
+            assertTrue(dnsTimeoutSnapshot.tunnelTelemetry.lastDnsError.describesDnsTimeout())
+            assertTrue(
+                recoverySnapshot.runtimeFieldTelemetry.tunnelRecoveryRetryCount >
+                    baselineTunnelRecoveryRetryCount,
+            )
+            assertEquals(
+                VpnEncryptedDnsAutoFailoverReasonPrefix +
+                    requireNotNull(dnsTimeoutSnapshot.tunnelTelemetry.lastDnsError).trim(),
+                recoverySnapshot.tunnelTelemetry.resolverFallbackReason,
+            )
             val events = fixtureClient.events()
-            snapshot.status == AppStatus.Running &&
-                snapshot.mode == Mode.VPN &&
-                snapshot.restartCount == baselineRestartCount &&
-                snapshot.runtimeFieldTelemetry.tunnelRecoveryRetryCount > baselineTunnelRecoveryRetryCount &&
-                snapshot.tunnelTelemetry.resolverFallbackActive &&
-                !snapshot.tunnelTelemetry.resolverFallbackReason.isNullOrBlank() &&
-                events.any { it.service == "dns_http" && it.detail == "fault:DnsTimeout" } &&
-                events.none { it.service == "tcp_echo" && it.detail == "echo" }
+            assertTrue(events.any { it.service == "dns_http" && it.detail == "fault:DnsTimeout" })
+            assertTrue(events.none { it.service == "tcp_echo" && it.detail == "echo" })
+        } finally {
+            dnsFailureScope.cancel()
         }
     }
 
@@ -473,3 +520,7 @@ class NetworkPathE2ETest {
     private fun httpEchoPayloadText(pathToken: String): String =
         "GET /$pathToken HTTP/1.1\r\nHost: ${fixture.fixtureDomain}\r\nConnection: close\r\n\r\n"
 }
+
+private fun String?.describesDnsTimeout(): Boolean =
+    this != null &&
+        (contains("timeout", ignoreCase = true) || contains("timed out", ignoreCase = true))
