@@ -57,6 +57,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.R
@@ -71,6 +72,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStageRole
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStageStyle
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStateRole
+import com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -97,10 +99,7 @@ fun RipDpiConnectionActuator(
     val metrics = RipDpiThemeTokens.components.actuator
     val density = LocalDensity.current
     val performHaptic = rememberRipDpiHapticPerformer()
-    val stateStyle =
-        RipDpiThemeTokens.state.actuator.resolve(
-            role = state.status.toThemeRole(),
-        )
+    val stateStyle = actuatorStateStyle(state)
     val railColor = animateColorAsState(stateStyle.rail, motion.stateTween(), label = "actuatorRail")
     val carriageColor = animateColorAsState(stateStyle.carriage, motion.stateTween(), label = "actuatorCarriage")
     val terminalColor = animateColorAsState(stateStyle.terminal, motion.stateTween(), label = "actuatorTerminal")
@@ -142,13 +141,8 @@ fun RipDpiConnectionActuator(
                         .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail)
                         .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
             ) {
-                val carriageWidthPx = with(density) { metrics.carriageWidth.toPx() }
-                val travelPx = (constraints.maxWidth - carriageWidthPx).coerceAtLeast(0f)
-                val scaledTerminalWidth = metrics.terminalSlotWidth * density.fontScale.coerceAtLeast(1f)
-                val endpointLabelsFit =
-                    maxWidth >=
-                        metrics.carriageWidth +
-                        (scaledTerminalWidth + RipDpiThemeTokens.spacing.md) * 2
+                val travelPx =
+                    (constraints.maxWidth - with(density) { metrics.carriageWidth.toPx() }).coerceAtLeast(0f)
 
                 ActuatorRail(
                     modifier = Modifier.align(Alignment.Center),
@@ -156,7 +150,7 @@ fun RipDpiConnectionActuator(
                     railColor = railColor,
                     terminalColor = terminalColor,
                     stateStyle = stateStyle,
-                    showEndpointLabels = endpointLabelsFit,
+                    showEndpointLabels = actuatorEndpointLabelsFit(maxWidth, density.fontScale),
                 )
                 ActuatorCarriage(
                     modifier =
@@ -178,6 +172,22 @@ fun RipDpiConnectionActuator(
             ActuatorPipeline(stages = state.stages)
         }
     }
+}
+
+@Composable
+private fun actuatorStateStyle(state: HomeConnectionActuatorUiState): RipDpiActuatorStateStyle =
+    RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
+
+@Composable
+private fun actuatorEndpointLabelsFit(
+    availableWidth: Dp,
+    fontScale: Float,
+): Boolean {
+    val metrics = RipDpiThemeTokens.components.actuator
+    val scaledTerminalWidth = metrics.terminalSlotWidth * fontScale.coerceAtLeast(1f)
+    return availableWidth >=
+        metrics.carriageWidth +
+        (scaledTerminalWidth + RipDpiThemeTokens.spacing.md) * 2
 }
 
 @Composable
