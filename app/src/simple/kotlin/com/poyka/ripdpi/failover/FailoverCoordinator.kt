@@ -92,6 +92,7 @@ sealed interface FailoverCandidate {
         override val priority: Int,
         val profileId: String,
         val relayKind: String,
+        val vlessTransport: String? = null,
     ) : FailoverCandidate
 
     /** AmneziaWG egress candidate. */
@@ -140,14 +141,10 @@ class FailoverCoordinator
         /** The currently active transport candidate, or `null` when no session runs. */
         val activeCandidate: StateFlow<FailoverCandidate?> = _activeCandidate.asStateFlow()
 
-        private val _activeKind = MutableStateFlow<String?>(null)
+        private val _activeTransport = MutableStateFlow<ActiveTransportDescriptor?>(null)
 
-        /**
-         * Raw protocol kind of the currently active transport (e.g. `"vless_reality"`,
-         * `"hysteria2"`, `"amneziawg"`), or `null` when no session is running.
-         * Safe to display on the UI and to include verbatim in the diagnostic archive.
-         */
-        override val activeKind: StateFlow<String?> = _activeKind.asStateFlow()
+        /** Privacy-safe protocol details for the active transport, or `null` when idle. */
+        override val activeTransport: StateFlow<ActiveTransportDescriptor?> = _activeTransport.asStateFlow()
 
         // ── Internal state ──────────────────────────────────────────────────
 
@@ -322,10 +319,10 @@ class FailoverCoordinator
             }
         }
 
-        /** Updates [_activeCandidate] and the derived [_activeKind] together. */
+        /** Updates [_activeCandidate] and the derived [_activeTransport] together. */
         private fun setActiveCandidate(candidate: FailoverCandidate?) {
             _activeCandidate.value = candidate
-            _activeKind.value = candidate?.toKindString()
+            _activeTransport.value = candidate?.toActiveTransportDescriptor()
         }
 
         /**
@@ -679,6 +676,7 @@ class FailoverCoordinator
                             priority = result.size,
                             profileId = profile.id,
                             relayKind = profile.kind,
+                            vlessTransport = profile.vlessTransport.takeIf { profile.kind == RelayKindVless },
                         ),
                     )
                 }
@@ -741,18 +739,26 @@ internal fun parseFailoverProxyEndpoint(listenerAddress: String?): FailoverProxy
 }
 
 /**
- * Maps a [FailoverCandidate] to its raw protocol kind string.
+ * Maps a [FailoverCandidate] to privacy-safe protocol details.
  *
  * Relay candidates use their [FailoverCandidate.Relay.relayKind] directly — these are
  * the same wire values emitted by the native runtime (e.g. `"vless_reality"`,
- * `"hysteria2"`). AWG uses the constant `"amneziawg"`. This string is safe to display
- * on the UI and to include verbatim in the diagnostic archive (it is a protocol kind,
- * not a server address or user identifier).
+ * `"hysteria2"`). AWG uses the constant `"amneziawg"`. VLESS candidates retain only
+ * their transport identifier so XHTTP can be distinguished from generic VLESS without
+ * exposing an endpoint or credential.
  */
-internal fun FailoverCandidate.toKindString(): String =
+internal fun FailoverCandidate.toActiveTransportDescriptor(): ActiveTransportDescriptor =
     when (this) {
-        is FailoverCandidate.Relay -> relayKind
-        is FailoverCandidate.Awg -> "amneziawg"
+        is FailoverCandidate.Relay -> {
+            ActiveTransportDescriptor(
+                protocolKind = relayKind,
+                vlessTransport = vlessTransport,
+            )
+        }
+
+        is FailoverCandidate.Awg -> {
+            ActiveTransportDescriptor(protocolKind = "amneziawg")
+        }
     }
 
 @Module

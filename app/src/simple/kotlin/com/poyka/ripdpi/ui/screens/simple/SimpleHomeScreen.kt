@@ -23,7 +23,10 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.failover.ActiveTransportDescriptor
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
@@ -47,7 +50,7 @@ fun SimpleHomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
-    val activeTransportKind by viewModel.activeTransportKind.collectAsStateWithLifecycle()
+    val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
 
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -56,7 +59,7 @@ fun SimpleHomeScreen(
     val connected = uiState.connectionState == ConnectionState.Connected
     val active = connecting || connected
     val reportBusy = diagnostics.analysisAction.busy
-    val protocolLabel = activeTransportKind?.toProtocolLabel()
+    val protocolLabel = activeTransport?.toProtocolLabel()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -158,17 +161,32 @@ private fun simpleStatusLabel(state: ConnectionState): Int =
     }
 
 /**
- * Maps a raw protocol kind string to a localized display label.
+ * Maps privacy-safe active transport details to a localized display label.
  *
  * Called from the composable scope where string resources are available.
  * Unknown protocol kinds fall back to the raw kind string — forward-compat
  * for protocol kinds added after this build.
  */
 @Composable
-private fun String.toProtocolLabel(): String =
-    when (this) {
-        RelayKindVlessReality -> stringResource(R.string.simple_protocol_vless_reality)
-        RelayKindHysteria2 -> stringResource(R.string.simple_protocol_hysteria2)
-        "amneziawg" -> stringResource(R.string.simple_protocol_awg)
-        else -> this
+internal fun ActiveTransportDescriptor.toProtocolLabel(): String =
+    when {
+        protocolKind == RelayKindVless && vlessTransport == RelayVlessTransportXhttp -> {
+            stringResource(R.string.simple_protocol_vless_xhttp)
+        }
+
+        protocolKind == RelayKindVlessReality -> {
+            stringResource(R.string.simple_protocol_vless_reality)
+        }
+
+        protocolKind == RelayKindHysteria2 -> {
+            stringResource(R.string.simple_protocol_hysteria2)
+        }
+
+        protocolKind == "amneziawg" -> {
+            stringResource(R.string.simple_protocol_awg)
+        }
+
+        else -> {
+            protocolKind
+        }
     }

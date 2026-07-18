@@ -148,18 +148,10 @@ class MainViewModel
                 initialValue = SubscriptionExpirySummaryUiState(),
             )
 
-        /**
-         * Raw protocol kind of the currently active transport (e.g. `"vless_reality"`,
-         * `"hysteria2"`, `"amneziawg"`), or `null` when no session is running or
-         * the active transport provider is not available (non-simple flavors).
-         *
-         * UI layers in the simple flavor map this to a localized display string.
-         * The raw kind is privacy-safe: it is a protocol identifier, not a server
-         * address or user identifier.
-         */
-        val activeTransportKind: StateFlow<String?> =
+        /** Privacy-safe details for the active Simple transport, or `null` when unavailable. */
+        val activeTransportDescriptor =
             (
-                activeTransportProvider.orElse(null)?.activeKind
+                activeTransportProvider.orElse(null)?.activeTransport
                     ?: flowOf(null)
             ).stateIn(
                 scope = viewModelScope,

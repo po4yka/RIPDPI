@@ -11,6 +11,8 @@ import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -936,7 +938,11 @@ class FailoverCoordinatorTest {
                         listOf(
                             RelayProfileRecord(id = "simple-seed-VlessReality", kind = RelayKindVlessReality),
                             RelayProfileRecord(id = fallbackId, kind = RelayKindVlessReality),
-                            RelayProfileRecord(id = xhttpId, kind = RelayKindVless),
+                            RelayProfileRecord(
+                                id = xhttpId,
+                                kind = RelayKindVless,
+                                vlessTransport = RelayVlessTransportXhttp,
+                            ),
                             RelayProfileRecord(id = "simple-seed-Hysteria2", kind = RelayKindHysteria2),
                         ),
                 )
@@ -960,9 +966,32 @@ class FailoverCoordinatorTest {
             assertEquals(RelayKindVless, switched.relayKind)
             assertEquals(xhttpId, switched.profileId)
             assertEquals(xhttpId, settings.relayProfileId())
+            assertEquals(
+                ActiveTransportDescriptor(
+                    protocolKind = RelayKindVless,
+                    vlessTransport = RelayVlessTransportXhttp,
+                ),
+                coordinator.activeTransport.value,
+            )
 
             coordinator.stopObserving()
         }
+
+    @Test
+    fun genericVlessDescriptorIsNotMarkedAsXhttp() {
+        val descriptor =
+            FailoverCandidate
+                .Relay(
+                    priority = 0,
+                    profileId = "generic-vless",
+                    relayKind = RelayKindVless,
+                    vlessTransport = RelayVlessTransportRealityTcp,
+                ).toActiveTransportDescriptor()
+
+        assertEquals(RelayKindVless, descriptor.protocolKind)
+        assertEquals(RelayVlessTransportRealityTcp, descriptor.vlessTransport)
+        assertFalse(descriptor.vlessTransport == RelayVlessTransportXhttp)
+    }
 
     /**
      * A self-induced restart (stopObserving + startObserving with the same candidate set)

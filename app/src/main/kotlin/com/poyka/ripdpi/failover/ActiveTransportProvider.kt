@@ -7,19 +7,23 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Exposes the currently active transport protocol kind for display on the UI.
+ * Exposes privacy-safe details about the currently active transport for display on the UI.
  *
  * Only the `simple` product-flavor source set supplies a real implementation
  * (via [FailoverCoordinator]); every other flavor leaves the [java.util.Optional] empty
  * so the label is absent from the UI.
  *
- * The kind string is a protocol identifier such as `"vless_reality"`, `"hysteria2"`,
- * or `"amneziawg"`. It is NOT a server address or host name — safe to surface on the UI
- * and safe to include verbatim in the diagnostic archive.
+ * The descriptor contains protocol identifiers only. It never contains a server address,
+ * host name, or credential, so it is safe to surface in the UI and diagnostic archive.
  */
+data class ActiveTransportDescriptor(
+    val protocolKind: String,
+    val vlessTransport: String? = null,
+)
+
 interface ActiveTransportProvider {
-    /** Emits the raw protocol kind of the currently active transport, or `null` when idle. */
-    val activeKind: StateFlow<String?>
+    /** Emits the active transport descriptor, or `null` when idle. */
+    val activeTransport: StateFlow<ActiveTransportDescriptor?>
 }
 
 @Module
