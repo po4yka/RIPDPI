@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.VpnService
 import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -38,6 +39,9 @@ interface ServiceController {
 
     /** Reconcile a user Stop after a diagnostics resume raced it. */
     fun stopForDiagnosticsCompensation() = stopForDiagnostics()
+
+    /** Ask a running VPN service to refresh its cached Android lockdown state. */
+    fun refreshHardKillSwitchState() = Unit
 }
 
 sealed interface ServiceStartResult {
@@ -242,6 +246,22 @@ class DefaultServiceController
 
         override fun stopForDiagnosticsCompensation() {
             stopInternal(action = diagnosticsCompensatingStopAction)
+        }
+
+        override fun refreshHardKillSwitchState() {
+            val (status, mode) = serviceStateStore.status.value
+            if (status != AppStatus.Running || mode != Mode.VPN) {
+                return
+            }
+            val intent =
+                Intent(context, RipDpiVpnService::class.java).apply {
+                    action = hardKillSwitchRefreshAction
+                }
+            try {
+                foregroundServiceStarter.startForegroundService(context, intent)
+            } catch (e: IllegalStateException) {
+                Logger.w(e) { "Foreground service refresh blocked" }
+            }
         }
 
         private fun stopInternal(action: String) {

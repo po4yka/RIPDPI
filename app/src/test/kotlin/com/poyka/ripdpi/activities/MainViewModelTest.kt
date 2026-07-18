@@ -597,6 +597,25 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `foreground refreshes hard kill switch and permission state`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val permissionStatusProvider = FakePermissionStatusProvider()
+            val viewModel =
+                createViewModel(
+                    serviceController = serviceController,
+                    permissionStatusProvider = permissionStatusProvider,
+                    initialize = false,
+                )
+
+            viewModel.onForeground()
+            runCurrent()
+
+            assertEquals(1, serviceController.hardKillSwitchRefreshCount)
+            assertEquals(1, permissionStatusProvider.currentSnapshotCalls)
+        }
+
+    @Test
     fun `start in vpn mode with granted permissions starts immediately`() =
         runTest {
             val serviceController = FakeServiceController()

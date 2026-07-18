@@ -244,7 +244,10 @@ class MainViewModel
             result: PermissionResult,
         ) = permissionActions.onPermissionResult(kind, result)
 
-        fun refreshPermissionSnapshot() = permissionActions.refreshPermissionSnapshot()
+        fun onForeground() {
+            mainServiceDependencies.serviceController.refreshHardKillSwitchState()
+            permissionActions.refreshPermissionSnapshot()
+        }
 
         fun dismissError() = connectionActions.dismissError()
 

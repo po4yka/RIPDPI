@@ -107,7 +107,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshPermissionSnapshot()
+        viewModel.onForeground()
     }
 
     @Suppress("TooGenericExceptionCaught")

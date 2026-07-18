@@ -342,6 +342,59 @@ class ServiceControllerForegroundDenialTest {
         assertEquals(1, starter.startCount)
         assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
     }
+
+    @Test
+    fun runningVpnRefreshesHardKillSwitchStateThroughVpnService() {
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+
+        controller.refreshHardKillSwitchState()
+
+        assertEquals(1, starter.startCount)
+        assertEquals(hardKillSwitchRefreshAction, starter.lastIntent?.action)
+        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+    }
+
+    @Test
+    fun haltedVpnDoesNotDispatchHardKillSwitchRefresh() {
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+
+        controller.refreshHardKillSwitchState()
+
+        assertEquals(0, starter.startCount)
+    }
+
+    @Test
+    fun runningProxyDoesNotDispatchHardKillSwitchRefresh() {
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+
+        controller.refreshHardKillSwitchState()
+
+        assertEquals(0, starter.startCount)
+    }
 }
 
 private class InMemoryBootSessionStateStore : BootSessionStateStore {

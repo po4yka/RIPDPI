@@ -157,6 +157,7 @@ class FakeServiceStateStore(
 class FakeServiceController : ServiceController {
     val startedModes = mutableListOf<Mode>()
     var stopCount = 0
+    var hardKillSwitchRefreshCount = 0
     var nextStartResult: ServiceStartResult? = null
 
     override fun start(mode: Mode): ServiceStartResult {
@@ -166,6 +167,10 @@ class FakeServiceController : ServiceController {
 
     override fun stop() {
         stopCount += 1
+    }
+
+    override fun refreshHardKillSwitchState() {
+        hardKillSwitchRefreshCount += 1
     }
 }
 
