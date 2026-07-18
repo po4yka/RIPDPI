@@ -42,15 +42,15 @@ fun StrategyConfigRoute(
     applySavedConfig: () -> StrategyConfigApplyResult = { StrategyConfigApplyResult.NextSession },
 ) {
     val context = LocalContext.current
+    val editorViewModel: StrategyConfigEditorViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val runtime = remember(runtimeFactory) { runCatching { runtimeFactory() }.getOrNull() }
     val coroutineScope = rememberCoroutineScope()
-    var editorSession by
-        rememberStrategyConfigEditorSession(uiState.desync.chainDsl.boundedUtf8(StrategyConfigMaxImportBytes))
+    val editorSession = editorViewModel.sessionOrInitial(uiState.desync.chainDsl)
     var banner by remember { mutableStateOf<StrategyConfigBanner?>(null) }
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
     val requestBack = {
-        if (editorSession.isDirty) {
+        if ((editorViewModel.session ?: editorSession).isDirty) {
             showUnsavedChangesDialog = true
         } else {
             onBack()
@@ -60,7 +60,7 @@ fun StrategyConfigRoute(
     SecureWindowEffect()
     BackHandler(onBack = requestBack)
     LaunchedEffect(uiState.desync.chainDsl) {
-        editorSession = editorSession.syncCleanBuiltIn(uiState.desync.chainDsl)
+        editorViewModel.syncBuiltIn(uiState.desync.chainDsl)
     }
 
     val importLauncher =
@@ -68,7 +68,7 @@ fun StrategyConfigRoute(
             handleStrategyConfigImport(
                 context = context,
                 uri = uri,
-                onImported = { imported -> editorSession = editorSession.importConfig(imported) },
+                onImported = editorViewModel::importConfig,
                 onBanner = { banner = it },
             )
         }
@@ -82,46 +82,68 @@ fun StrategyConfigRoute(
         },
     )
 
-    val draft = editorSession.draft
     StrategyConfigScreen(
-        state = editorSession.toScreenState(activePathLabel(context, draft.source, draft.luaPath), banner),
+        state = editorSession.toRouteScreenState(context, banner),
         onBack = requestBack,
         onSourceChanged = { source ->
-            editorSession = editorSession.selectSource(source, uiState.desync.chainDsl)
+            editorViewModel.selectSource(source, uiState.desync.chainDsl)
             banner = null
         },
         onConfigTextChanged = { value ->
-            editorSession = editorSession.update { copy(configText = value.boundedUtf8(StrategyConfigMaxImportBytes)) }
+            editorViewModel.update { copy(configText = value.boundedUtf8(StrategyConfigMaxImportBytes)) }
         },
-        onLuaPathChanged = { value -> editorSession = editorSession.update { copy(luaPath = value) } },
-        onLuaFunctionChanged = { value -> editorSession = editorSession.update { copy(luaFunction = value) } },
+        onLuaPathChanged = { value -> editorViewModel.update { copy(luaPath = value) } },
+        onLuaFunctionChanged = { value -> editorViewModel.update { copy(luaFunction = value) } },
         onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
-        onExport = { shareStrategyConfig(context, editorSession.draft.configText) },
+        onExport = { editorViewModel.exportCurrentConfig(context, editorSession) },
         onSave = save@{
-            val (savingSession, request) = editorSession.beginSave() ?: return@save
-            editorSession = savingSession
+            val request = editorViewModel.beginSave() ?: return@save
             coroutineScope.launch {
-                val result =
-                    saveStrategyConfigFromRoute(
-                        context = context,
-                        source = request.draft.source,
-                        configText = request.draft.configText,
-                        luaPath = request.draft.luaPath,
-                        luaFunction = request.draft.luaFunction,
-                        runtime = runtime,
-                        viewModel = viewModel,
-                        applySavedConfig = applySavedConfig,
-                        uiState = uiState,
-                    )
-                banner = result
-                editorSession = editorSession.completeSave(request, result.saved)
+                banner =
+                    editorViewModel.runSave(request) {
+                        saveStrategyConfigFromRoute(
+                            context = context,
+                            source = request.draft.source,
+                            configText = request.draft.configText,
+                            luaPath = request.draft.luaPath,
+                            luaFunction = request.draft.luaFunction,
+                            runtime = runtime,
+                            viewModel = viewModel,
+                            applySavedConfig = applySavedConfig,
+                            uiState = uiState,
+                        )
+                    }
             }
         },
         onReload = { banner = reloadLuaConfig(context, runtime) },
-        onValidateLua = { banner = validateLuaScript(context, runtime, editorSession.draft.luaPath) },
+        onValidateLua = { banner = editorViewModel.validateCurrentLua(context, runtime, editorSession) },
         modifier = modifier,
     )
 }
+
+private fun StrategyConfigEditorSession.toRouteScreenState(
+    context: Context,
+    banner: StrategyConfigBanner?,
+): StrategyConfigScreenState = toScreenState(activePathLabel(context, draft.source, draft.luaPath), banner)
+
+private fun StrategyConfigEditorViewModel.sessionOrInitial(configText: String): StrategyConfigEditorSession =
+    session ?: StrategyConfigEditorSession.initial(configText.boundedUtf8(StrategyConfigMaxImportBytes))
+
+private fun StrategyConfigEditorViewModel.currentDraft(fallback: StrategyConfigEditorSession): StrategyConfigDraft =
+    (session ?: fallback).draft
+
+private fun StrategyConfigEditorViewModel.exportCurrentConfig(
+    context: Context,
+    fallback: StrategyConfigEditorSession,
+) {
+    shareStrategyConfig(context, currentDraft(fallback).configText)
+}
+
+private fun StrategyConfigEditorViewModel.validateCurrentLua(
+    context: Context,
+    runtime: StrategyConfigRuntime?,
+    fallback: StrategyConfigEditorSession,
+): StrategyConfigBanner = validateLuaScript(context, runtime, currentDraft(fallback).luaPath)
 
 private val StrategyConfigDocumentMimeTypes =
     arrayOf(

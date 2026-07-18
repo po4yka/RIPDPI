@@ -1,14 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-
-@Composable
-internal fun rememberStrategyConfigEditorSession(configText: String): MutableState<StrategyConfigEditorSession> =
-    remember { mutableStateOf(StrategyConfigEditorSession.initial(configText)) }
-
 internal data class StrategyConfigDraft(
     val source: StrategyConfigSource,
     val configText: String,
