@@ -54,6 +54,7 @@ internal data class StrategyConfigScreenState(
     val activePath: String,
     val banner: StrategyConfigBanner?,
     val isSaving: Boolean = false,
+    val isHydrating: Boolean = false,
 )
 
 @Composable
@@ -136,6 +137,7 @@ private fun StrategyConfigSourceCard(
                 options = rememberStrategyConfigSourceOptions(),
                 selectedValue = state.source,
                 onValueSelected = onSourceChanged,
+                enabled = !state.isHydrating,
                 testTag = RipDpiTestTags.StrategyConfigSource,
             )
         }
@@ -168,6 +170,7 @@ private fun TextStrategyConfigCard(
                     ),
                 behavior =
                     RipDpiTextFieldBehavior(
+                        enabled = !state.isHydrating,
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType = KeyboardType.Ascii,
@@ -184,6 +187,7 @@ private fun TextStrategyConfigCard(
                 secondaryLabel = stringResource(R.string.strategy_config_reload_action),
                 secondaryIcon = RipDpiIcons.NetworkCheck,
                 onSecondary = onReload,
+                enabled = !state.isHydrating,
             )
             StrategyConfigActionRows(
                 primaryLabel = stringResource(R.string.config_relay_import),
@@ -192,6 +196,7 @@ private fun TextStrategyConfigCard(
                 secondaryLabel = stringResource(R.string.strategy_config_export_action),
                 secondaryIcon = RipDpiIcons.Share,
                 onSecondary = onExport,
+                enabled = !state.isHydrating,
             )
         }
     }
@@ -219,6 +224,7 @@ private fun LuaStrategyConfigCard(
                     ),
                 behavior =
                     RipDpiTextFieldBehavior(
+                        enabled = !state.isHydrating,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                     ),
             )
@@ -233,6 +239,7 @@ private fun LuaStrategyConfigCard(
                     ),
                 behavior =
                     RipDpiTextFieldBehavior(
+                        enabled = !state.isHydrating,
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType = KeyboardType.Ascii,
@@ -248,6 +255,7 @@ private fun LuaStrategyConfigCard(
                 secondaryIcon = RipDpiIcons.NetworkCheck,
                 onSecondary = onSave,
                 secondaryLoading = state.isSaving,
+                enabled = !state.isHydrating,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -259,6 +267,7 @@ private fun LuaStrategyConfigCard(
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.NetworkCheck,
+                    enabled = !state.isHydrating,
                 )
             }
         }
@@ -275,6 +284,7 @@ private fun StrategyConfigActionRows(
     onSecondary: () -> Unit,
     primaryLoading: Boolean = false,
     secondaryLoading: Boolean = false,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -287,6 +297,7 @@ private fun StrategyConfigActionRows(
             density = RipDpiControlDensity.Compact,
             leadingIcon = primaryIcon,
             loading = primaryLoading,
+            enabled = enabled,
         )
         RipDpiButton(
             text = secondaryLabel,
@@ -296,6 +307,7 @@ private fun StrategyConfigActionRows(
             density = RipDpiControlDensity.Compact,
             leadingIcon = secondaryIcon,
             loading = secondaryLoading,
+            enabled = enabled,
         )
     }
 }

@@ -5,7 +5,14 @@ internal data class StrategyConfigDraft(
     val configText: String,
     val luaPath: String,
     val luaFunction: String,
-)
+) {
+    fun bounded(): StrategyConfigDraft =
+        copy(
+            configText = configText.boundedUtf8(StrategyConfigMaxImportBytes),
+            luaPath = luaPath.boundedUtf8(StrategyConfigMaxLuaPathBytes),
+            luaFunction = luaFunction.boundedUtf8(StrategyConfigMaxLuaFunctionBytes),
+        )
+}
 
 internal data class StrategyConfigSaveRequest(
     val id: Long,
@@ -38,7 +45,7 @@ internal data class StrategyConfigEditorSession(
         get() = activeSaveId != null
 
     fun update(transform: StrategyConfigDraft.() -> StrategyConfigDraft): StrategyConfigEditorSession =
-        copy(draft = draft.transform())
+        copy(draft = draft.transform().bounded())
 
     fun selectSource(
         source: StrategyConfigSource,
@@ -62,6 +69,7 @@ internal data class StrategyConfigEditorSession(
     fun toScreenState(
         activePath: String,
         banner: StrategyConfigBanner?,
+        isHydrating: Boolean = false,
     ): StrategyConfigScreenState =
         StrategyConfigScreenState(
             source = draft.source,
@@ -71,6 +79,7 @@ internal data class StrategyConfigEditorSession(
             activePath = activePath,
             banner = banner,
             isSaving = isSaving,
+            isHydrating = isHydrating,
         )
 
     fun syncCleanBuiltIn(configText: String): StrategyConfigEditorSession {

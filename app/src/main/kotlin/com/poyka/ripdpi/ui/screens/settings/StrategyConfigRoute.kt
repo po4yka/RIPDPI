@@ -29,6 +29,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,18 +51,17 @@ fun StrategyConfigRoute(
     var banner by remember { mutableStateOf<StrategyConfigBanner?>(null) }
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
     val requestBack = {
-        if ((editorViewModel.session ?: editorSession).isDirty) {
-            showUnsavedChangesDialog = true
-        } else {
-            onBack()
-        }
+        requestStrategyConfigRouteExit(
+            editorViewModel = editorViewModel,
+            fallback = editorSession,
+            onDirty = { showUnsavedChangesDialog = true },
+            onBack = onBack,
+        )
     }
 
     SecureWindowEffect()
     BackHandler(onBack = requestBack)
-    LaunchedEffect(uiState.desync.chainDsl) {
-        editorViewModel.syncBuiltIn(uiState.desync.chainDsl)
-    }
+    StrategyConfigHydrationEffect(editorViewModel, uiState.desync.chainDsl)
 
     val importLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -78,12 +78,16 @@ fun StrategyConfigRoute(
         onKeepEditing = { showUnsavedChangesDialog = false },
         onDiscard = {
             showUnsavedChangesDialog = false
-            onBack()
+            coroutineScope.discardStrategyConfigDraft(
+                editorViewModel = editorViewModel,
+                onBack = onBack,
+                onFailure = { showUnsavedChangesDialog = true },
+            )
         },
     )
 
     StrategyConfigScreen(
-        state = editorSession.toRouteScreenState(context, banner),
+        state = editorSession.toRouteScreenState(context, banner, editorViewModel.isHydrating),
         onBack = requestBack,
         onSourceChanged = { source ->
             editorViewModel.selectSource(source, uiState.desync.chainDsl)
@@ -100,7 +104,7 @@ fun StrategyConfigRoute(
             val request = editorViewModel.beginSave() ?: return@save
             coroutineScope.launch {
                 banner =
-                    editorViewModel.runSave(request) {
+                    runStrategyConfigRouteSave(context, editorViewModel, request) {
                         saveStrategyConfigFromRoute(
                             context = context,
                             source = request.draft.source,
@@ -121,10 +125,84 @@ fun StrategyConfigRoute(
     )
 }
 
+@Composable
+private fun StrategyConfigHydrationEffect(
+    editorViewModel: StrategyConfigEditorViewModel,
+    configText: String,
+) {
+    LaunchedEffect(configText) {
+        editorViewModel.syncBuiltIn(configText)
+    }
+}
+
+private fun requestStrategyConfigRouteExit(
+    editorViewModel: StrategyConfigEditorViewModel,
+    fallback: StrategyConfigEditorSession,
+    onDirty: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val current = editorViewModel.session ?: fallback
+    requestStrategyConfigExit(
+        blocked = editorViewModel.isHydrating || current.isSaving,
+        isDirty = current.isDirty,
+        onDirty = onDirty,
+        onBack = onBack,
+    )
+}
+
+private fun CoroutineScope.discardStrategyConfigDraft(
+    editorViewModel: StrategyConfigEditorViewModel,
+    onBack: () -> Unit,
+    onFailure: () -> Unit,
+) {
+    launch {
+        when (val failure = runCatching { editorViewModel.discard() }.exceptionOrNull()) {
+            null -> onBack()
+            is CancellationException -> throw failure
+            else -> onFailure()
+        }
+    }
+}
+
+private suspend fun runStrategyConfigRouteSave(
+    context: Context,
+    editorViewModel: StrategyConfigEditorViewModel,
+    request: StrategyConfigSaveRequest,
+    save: suspend () -> StrategyConfigBanner,
+): StrategyConfigBanner =
+    runCatching { editorViewModel.runSave(request, save) }
+        .getOrElse { error ->
+            if (error is CancellationException) throw error
+            StrategyConfigBanner(
+                title = context.getString(R.string.strategy_config_reload_failed_title),
+                message = error.localizedMessage ?: error.toString(),
+                tone = WarningBannerTone.Error,
+            )
+        }
+
+internal fun requestStrategyConfigExit(
+    blocked: Boolean,
+    isDirty: Boolean,
+    onDirty: () -> Unit,
+    onBack: () -> Unit,
+) {
+    when {
+        blocked -> Unit
+        isDirty -> onDirty()
+        else -> onBack()
+    }
+}
+
 private fun StrategyConfigEditorSession.toRouteScreenState(
     context: Context,
     banner: StrategyConfigBanner?,
-): StrategyConfigScreenState = toScreenState(activePathLabel(context, draft.source, draft.luaPath), banner)
+    isHydrating: Boolean,
+): StrategyConfigScreenState =
+    toScreenState(
+        activePath = activePathLabel(context, draft.source, draft.luaPath),
+        banner = banner,
+        isHydrating = isHydrating,
+    )
 
 private fun StrategyConfigEditorViewModel.sessionOrInitial(configText: String): StrategyConfigEditorSession =
     session ?: StrategyConfigEditorSession.initial(configText.boundedUtf8(StrategyConfigMaxImportBytes))
