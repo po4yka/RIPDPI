@@ -28,7 +28,7 @@ internal fun SelfInfoCard(info: DiagnosticsRknSelfInfoUiModel) {
         SettingsRow(
             title = stringResource(R.string.rkn_self_info_ip),
             value = info.maskedIp,
-            monospaceValueWeight = 1f,
+            monospaceValue = true,
         )
         SettingsRow(
             title = stringResource(R.string.rkn_self_info_isp),

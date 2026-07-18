@@ -437,14 +437,14 @@ private fun LogsOverviewCard(
                     uiState.filteredLogs.size,
                     uiState.bufferCapacity,
                 ),
-            monospaceValueWeight = 1f,
+            monospaceValue = true,
             showDivider = true,
         )
         SettingsRow(
             title = stringResource(R.string.logs_latest_title),
             subtitle = latestLog?.message ?: stringResource(R.string.logs_latest_empty),
             value = latestLog?.timestamp ?: stringResource(R.string.logs_latest_none),
-            monospaceValueWeight = 1f.takeIf { latestLog != null },
+            monospaceValue = latestLog != null,
         )
     }
 }

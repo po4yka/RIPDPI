@@ -17,4 +17,11 @@ class RoborazziSimpleAboutScreenTest {
             RipDpiAboutPreviewScene()
         }
     }
+
+    @Test
+    fun simpleAboutScreenLargeFont() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 900, fontScale = 1.5f) {
+            RipDpiAboutPreviewScene()
+        }
+    }
 }

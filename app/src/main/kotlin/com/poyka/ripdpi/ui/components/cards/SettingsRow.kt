@@ -59,7 +59,7 @@ fun SettingsRow(
     enabled: Boolean = true,
     showChevron: Boolean = value != null && onClick != null,
     showDivider: Boolean = false,
-    monospaceValueWeight: Float? = null,
+    monospaceValue: Boolean = false,
     variant: SettingsRowVariant = SettingsRowVariant.Default,
     testTag: String? = null,
 ) {
@@ -111,7 +111,7 @@ fun SettingsRow(
                 onCheckedChange = onCheckedChange,
                 enabled = enabled,
                 value = value,
-                monospaceValueWeight = monospaceValueWeight,
+                monospaceValue = monospaceValue,
                 showChevron = showChevron,
                 state = state,
             )
@@ -248,7 +248,7 @@ private fun RowScope.SettingsRowTrailing(
     onCheckedChange: ((Boolean) -> Unit)?,
     enabled: Boolean,
     value: String?,
-    monospaceValueWeight: Float?,
+    monospaceValue: Boolean,
     showChevron: Boolean,
     state: RipDpiSettingsRowStateStyle,
 ) {
@@ -265,13 +265,13 @@ private fun RowScope.SettingsRowTrailing(
 
         value != null -> {
             Row(
-                modifier = Modifier.weight(monospaceValueWeight ?: 1f),
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = value,
-                    style = if (monospaceValueWeight != null) type.monoValue else type.secondaryBody,
+                    style = if (monospaceValue) type.monoValue else type.secondaryBody,
                     color = state.value,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,

@@ -218,14 +218,14 @@ internal fun DiagnosticsBottomSheetHost(
                 SettingsRow(
                     title = stringResource(R.string.diagnostics_probe_retry_count_label),
                     value = retryCount.toString(),
-                    monospaceValueWeight = 1f,
+                    monospaceValue = true,
                 )
             }
             probe.details.forEach { detail ->
                 SettingsRow(
                     title = detail.label,
                     value = detail.value,
-                    monospaceValueWeight = 1f,
+                    monospaceValue = true,
                 )
             }
             val probeCopyLabel = stringResource(R.string.clipboard_label_probe_details)

@@ -566,7 +566,7 @@ private fun ProxyLanTokenRow(
     SettingsRow(
         title = stringResource(R.string.settings_proxy_lan_token_label),
         value = token,
-        monospaceValueWeight = 1f,
+        monospaceValue = true,
         onClick = onCopy,
         enabled = enabled,
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan) + "_token",

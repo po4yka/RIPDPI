@@ -130,7 +130,7 @@ private fun StrategyConfigSourceCard(
             SettingsRow(
                 title = stringResource(R.string.strategy_config_active_path_label),
                 value = state.activePath,
-                monospaceValueWeight = 1f,
+                monospaceValue = true,
                 showDivider = true,
             )
             RipDpiDropdown(
