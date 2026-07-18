@@ -208,11 +208,10 @@ class MainViewModel
 
         fun onStopRequested() {
             // Stop on any non-Halted status so an internal request issued during the brief
-            // Reconnecting window is not silently dropped.
-            val (status, activeMode) = mainServiceDependencies.serviceStateStore.status.value
-            val androidLockdownOwnsVpn =
-                activeMode == Mode.VPN && mainServiceDependencies.hardKillSwitchStateStore.snapshot.value.isEnabled
-            if (status != AppStatus.Halted && !androidLockdownOwnsVpn) {
+            // Reconnecting window is not silently dropped. The service owns the authoritative
+            // Android-lockdown check because its cached UI snapshot can be stale.
+            val status = mainServiceDependencies.serviceStateStore.status.value.first
+            if (status != AppStatus.Halted) {
                 connectionActions.stop()
             }
         }

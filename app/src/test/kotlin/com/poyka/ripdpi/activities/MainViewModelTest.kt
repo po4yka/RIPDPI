@@ -334,7 +334,6 @@ class MainViewModelTest {
                 configuredMode = Mode.VPN,
                 activeMode = Mode.VPN,
                 appStatus = AppStatus.Halted,
-                connectionState = ConnectionState.Disconnected,
                 stringResolver = stringResolver,
             )
         val unknown =
@@ -343,7 +342,6 @@ class MainViewModelTest {
                 configuredMode = Mode.VPN,
                 activeMode = Mode.VPN,
                 appStatus = AppStatus.Halted,
-                connectionState = ConnectionState.Disconnected,
                 stringResolver = stringResolver,
             )
 
@@ -372,7 +370,6 @@ class MainViewModelTest {
                 configuredMode = Mode.VPN,
                 activeMode = Mode.VPN,
                 appStatus = AppStatus.Running,
-                connectionState = ConnectionState.Connected,
                 stringResolver = stringResolver,
             )
         val state =
@@ -388,6 +385,7 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
+        assertTrue(hardKillSwitch.blocksDisconnect)
         assertFalse(state.isDeactivationAvailable)
         assertEquals(
             stringResolver.getString(R.string.home_connection_actuator_action_android_managed),
@@ -1094,7 +1092,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `stop request is blocked while Android lockdown owns vpn lifecycle`() =
+    fun `stop request reaches authoritative service guard during Android lockdown`() =
         runTest {
             val serviceController = FakeServiceController()
             val viewModel =
@@ -1113,7 +1111,7 @@ class MainViewModelTest {
                 )
             viewModel.onStopRequested()
 
-            assertEquals(0, serviceController.stopCount)
+            assertEquals(1, serviceController.stopCount)
         }
 
     @Test
@@ -1134,6 +1132,23 @@ class MainViewModelTest {
                         ),
                     initialize = false,
                 )
+            viewModel.onStopRequested()
+
+            assertEquals(1, serviceController.stopCount)
+        }
+
+    @Test
+    fun `stop request remains available for proxy mode while Android lockdown is enabled`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                    serviceController = serviceController,
+                    hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
+                    initialize = false,
+                )
+
             viewModel.onStopRequested()
 
             assertEquals(1, serviceController.stopCount)

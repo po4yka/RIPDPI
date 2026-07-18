@@ -89,14 +89,14 @@ class SimpleHomeScreenTest {
     }
 
     @Test
-    fun `connecting session disables disconnect while lockdown owns vpn lifecycle`() {
+    fun `connecting session remains disabled before lockdown snapshot arrives`() {
         var toggleClicks = 0
 
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Connecting,
-                    blocksDisconnect = true,
+                    blocksDisconnect = false,
                     diagnostics = HomeDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),

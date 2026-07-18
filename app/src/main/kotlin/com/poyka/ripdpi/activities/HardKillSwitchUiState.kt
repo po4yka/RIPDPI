@@ -26,7 +26,6 @@ internal fun buildHardKillSwitchUiState(
     configuredMode: Mode,
     activeMode: Mode,
     appStatus: AppStatus,
-    connectionState: ConnectionState,
     stringResolver: StringResolver,
 ): HardKillSwitchUiState {
     val relevantToCurrentPath =
@@ -34,8 +33,7 @@ internal fun buildHardKillSwitchUiState(
     val blocksDisconnect =
         snapshot.status == AndroidHardKillSwitchStatus.ENABLED &&
             appStatus == AppStatus.Running &&
-            activeMode == Mode.VPN &&
-            connectionState == ConnectionState.Connected
+            activeMode == Mode.VPN
     return HardKillSwitchUiState(
         status = snapshot.status,
         label =

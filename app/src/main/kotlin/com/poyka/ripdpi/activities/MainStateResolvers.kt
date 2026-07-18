@@ -106,7 +106,6 @@ internal fun buildMainUiState(
             configuredMode = configuredMode,
             activeMode = activeMode,
             appStatus = status,
-            connectionState = effectiveConnectionState,
             stringResolver = stringResolver,
         )
     val homeDiagnosticsUiState = HomeDiagnosticsUiState()
