@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
@@ -96,19 +97,12 @@ class DiagnosticsDnsReprobeCancellationTest {
             fixtures.scanController.cancelScan(reprobeSessionId)
             runCurrent()
 
-            val cancelledSession = requireNotNull(stores.getScanSession(reprobeSessionId))
-            assertEquals("completed", cancelledSession.status)
-            assertEquals("Scan completed with partial results", cancelledSession.summary)
-            assertTrue(cancelledSession.reportJson?.contains("partial-reprobe.example") == true)
-            assertEquals(1, bridgeFactory.bridge.cancelCount)
-            assertEquals(1, bridgeFactory.bridge.destroyCount)
-            assertFalse(fixtures.activeScanRegistry.hiddenAutomaticProbeActive.value)
-            assertFalse(fixtures.activeScanRegistry.hasActiveScan())
-            assertTrue(execution.isCompleted)
-            assertTrue(
-                fixtures.activeScanRegistry.sessionOwnership
-                    .activeSessionIds("home-run")
-                    .isEmpty(),
+            assertCompletedPartialCancellation(
+                stores = stores,
+                sessionId = reprobeSessionId,
+                bridge = bridgeFactory.bridge,
+                execution = execution,
+                registry = fixtures.activeScanRegistry,
             )
         }
 
@@ -208,4 +202,23 @@ class DiagnosticsDnsReprobeCancellationTest {
             )
             enqueueReport(scanReportWithDnsFallbackResolverRecommendation(sessionId, settings))
         }
+
+    private suspend fun assertCompletedPartialCancellation(
+        stores: FakeDiagnosticsHistoryStores,
+        sessionId: String,
+        bridge: FakeNetworkDiagnosticsBridge,
+        execution: Job,
+        registry: ActiveScanRegistry,
+    ) {
+        val cancelledSession = requireNotNull(stores.getScanSession(sessionId))
+        assertEquals("completed", cancelledSession.status)
+        assertEquals("Scan completed with partial results", cancelledSession.summary)
+        assertTrue(cancelledSession.reportJson?.contains("partial-reprobe.example") == true)
+        assertEquals(1, bridge.cancelCount)
+        assertEquals(1, bridge.destroyCount)
+        assertFalse(registry.hiddenAutomaticProbeActive.value)
+        assertFalse(registry.hasActiveScan())
+        assertTrue(execution.isCompleted)
+        assertTrue(registry.sessionOwnership.activeSessionIds("home-run").isEmpty())
+    }
 }

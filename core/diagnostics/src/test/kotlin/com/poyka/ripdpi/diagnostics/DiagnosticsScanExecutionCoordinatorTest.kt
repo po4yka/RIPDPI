@@ -668,6 +668,7 @@ internal data class ExecutionCoordinatorFixtures(
     val finalizationService: ScanFinalizationService,
 )
 
+@Suppress("LongMethod")
 internal fun executionCoordinatorFixtures(
     stores: FakeDiagnosticsHistoryStores,
     timelineSource: DefaultDiagnosticsTimelineSource,
