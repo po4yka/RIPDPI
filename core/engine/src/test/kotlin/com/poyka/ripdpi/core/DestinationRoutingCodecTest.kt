@@ -2,6 +2,15 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.codec.DestinationRoutingSectionCodec
 import com.poyka.ripdpi.core.codec.DestinationRoutingWireContract
+import com.poyka.ripdpi.core.codec.NativeDestinationDomainMatcher
+import com.poyka.ripdpi.core.codec.NativeDestinationDomainMatcherKind
+import com.poyka.ripdpi.core.codec.NativeDestinationIpMatcher
+import com.poyka.ripdpi.core.codec.NativeDestinationIpMatcherKind
+import com.poyka.ripdpi.core.codec.NativeDestinationPortRange
+import com.poyka.ripdpi.core.codec.NativeDestinationRoutingAction
+import com.poyka.ripdpi.core.codec.NativeDestinationRoutingConfig
+import com.poyka.ripdpi.core.codec.NativeDestinationRoutingNetwork
+import com.poyka.ripdpi.core.codec.NativeDestinationRoutingRule
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcher
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationIpMatcher
@@ -17,6 +26,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -47,8 +57,17 @@ class DestinationRoutingCodecTest {
         assertTrue(rule.contains("\"action\":\"direct\""))
         assertTrue(rule.contains("\"network\":\"both\""))
         assertTrue(rule.contains("\"kind\":\"geo_ip\""))
-        assertEquals("5b7e40d21eaec2e217c0b2b095fa69e926d2c3631fccc4482ca4a6899c9cfb5a", policy.canonicalDigest)
+        assertEquals(CrossLanguageMixedDigest, policy.canonicalDigest)
         assertEquals(policy, decodeRipDpiProxyUiPreferences(encoded)?.destinationRouting)
+    }
+
+    @Test
+    fun sharedMixedFixtureUsesCanonicalKindRanks() {
+        val payload = requireNotNull(javaClass.getResource("/fixtures/destination-routing-mixed.json")).readText()
+        val decoded = requireNotNull(decodeRipDpiProxyUiPreferences(payload))
+
+        assertEquals(destinationPolicy(), decoded.destinationRouting)
+        assertEquals(CrossLanguageMixedDigest, decoded.destinationRouting.canonicalDigest)
     }
 
     @Test
@@ -130,6 +149,21 @@ class DestinationRoutingCodecTest {
 
             assertNull(decodeRipDpiProxyUiPreferences(payload))
         }
+    }
+
+    @Test
+    fun emptyPolicyRejectsNonemptyDigest() {
+        val payload =
+            """
+            {
+              "kind":"ui",
+              "listen":{},
+              "destinationRouting":{"rules":[],"defaultAction":"tunneled","canonicalDigest":"${"0".repeat(64)}"},
+              "schemaVersion":2
+            }
+            """.trimIndent()
+
+        assertNull(decodeRipDpiProxyUiPreferences(payload))
     }
 
     @Test
@@ -217,6 +251,82 @@ class DestinationRoutingCodecTest {
         assertNull(decodeRipDpiProxyUiPreferences(oversizedTokenPayload))
     }
 
+    @Test
+    fun aggregateAndCanonicalBoundsAcceptExactLimitsAndRejectOverflow() {
+        val exact = exactAggregateBoundaryPolicy()
+
+        DestinationRoutingWireContract.validate(exact)
+
+        val aggregateOverflow =
+            exact.copy(
+                rules =
+                    exact.rules.toMutableList().also { rules ->
+                        rules[0] =
+                            rules[0].copy(
+                                domains = rules[0].domains + geoMatcher("aggregate-overflow".padEnd(63, 'a')),
+                            )
+                    },
+                canonicalDigest = "0".repeat(64),
+            )
+        val canonicalOverflow =
+            exact.copy(
+                rules =
+                    exact.rules.toMutableList().also { rules ->
+                        val first = rules[0].domains.first()
+                        rules[0] =
+                            rules[0].copy(
+                                domains =
+                                    listOf(first.copy(value = first.value + "a")) + rules[0].domains.drop(1),
+                            )
+                    },
+                canonicalDigest = "0".repeat(64),
+            )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            DestinationRoutingWireContract.validate(aggregateOverflow)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            DestinationRoutingWireContract.validate(canonicalOverflow)
+        }
+    }
+
+    @Test
+    fun matcherFieldsAcceptExactLimitsAndRejectIpAndPortOverflow() {
+        val exactRule =
+            NativeDestinationRoutingRule(
+                action = NativeDestinationRoutingAction.DIRECT,
+                network = NativeDestinationRoutingNetwork.BOTH,
+                domains = (0 until 256).map { geoMatcher("d$it") },
+                ipRanges = (0 until 256).map { cidrMatcher("10.0.$it.0/24") },
+                destinationPorts = (1..256).map { NativeDestinationPortRange(it, it) },
+            )
+        DestinationRoutingWireContract.validate(nativePolicy(listOf(exactRule)))
+
+        val ipOverflow =
+            exactRule.copy(
+                domains = emptyList(),
+                ipRanges = exactRule.ipRanges + cidrMatcher("10.1.0.0/24"),
+                destinationPorts = emptyList(),
+            )
+        val portOverflow =
+            exactRule.copy(
+                domains = emptyList(),
+                ipRanges = emptyList(),
+                destinationPorts = exactRule.destinationPorts + NativeDestinationPortRange(257, 257),
+            )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            DestinationRoutingWireContract.validate(
+                NativeDestinationRoutingConfig(rules = listOf(ipOverflow), canonicalDigest = "0".repeat(64)),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            DestinationRoutingWireContract.validate(
+                NativeDestinationRoutingConfig(rules = listOf(portOverflow), canonicalDigest = "0".repeat(64)),
+            )
+        }
+    }
+
     private fun destinationRoutingSection(json: String): String =
         Json
             .parseToJsonElement(json)
@@ -255,4 +365,34 @@ class DestinationRoutingCodecTest {
                 destinationPorts = listOf(DestinationPortRange(443, 8443)),
             ),
         )
+
+    private fun exactAggregateBoundaryPolicy(): NativeDestinationRoutingConfig {
+        val rules =
+            (0 until 256).map { ruleIndex ->
+                NativeDestinationRoutingRule(
+                    action = NativeDestinationRoutingAction.DIRECT,
+                    network = NativeDestinationRoutingNetwork.BOTH,
+                    domains =
+                        (0 until 4).map { matcherIndex ->
+                            geoMatcher("r${ruleIndex}m$matcherIndex".padEnd(63, 'a'))
+                        },
+                )
+            }
+        return nativePolicy(rules)
+    }
+
+    private fun nativePolicy(rules: List<NativeDestinationRoutingRule>): NativeDestinationRoutingConfig =
+        NativeDestinationRoutingConfig(
+            rules = rules,
+            canonicalDigest = DestinationRoutingWireContract.computeCanonicalDigest(rules),
+        )
+
+    private fun geoMatcher(value: String) =
+        NativeDestinationDomainMatcher(NativeDestinationDomainMatcherKind.GEOSITE, value)
+
+    private fun cidrMatcher(value: String) = NativeDestinationIpMatcher(NativeDestinationIpMatcherKind.CIDR, value)
+
+    private companion object {
+        const val CrossLanguageMixedDigest = "e7ed9f9ec8688b89eea6f22a7ae6e93e7f441a903b9f9de96d387700c122bee7"
+    }
 }

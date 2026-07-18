@@ -1,8 +1,8 @@
 use crate::types::{ProxyMorphPolicy, ProxySessionOverrides};
 use ripdpi_config::{
     AutoTtlConfig, DETECT_CONNECT, DesyncMode, FM_DUPSID, FM_ORIG, FakeOrder, FakePacketSource, FakeSeqMode,
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile, TcpChainStepKind,
-    UdpChainStepKind, WsTunnelMode,
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile, RuntimeConfig,
+    TcpChainStepKind, UdpChainStepKind, WsTunnelMode,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP};
@@ -25,6 +25,57 @@ fn with_destination_routing_digest(mut json: serde_json::Value) -> serde_json::V
     let digest = crate::convert::compute_canonical_digest(&config.rules);
     json["destinationRouting"]["canonicalDigest"] = serde_json::Value::String(digest);
     json
+}
+
+fn destination_policy_with_digest(rules: Vec<ProxyUiDestinationRoutingRule>) -> ProxyUiDestinationRoutingConfig {
+    let canonical_digest = crate::convert::compute_canonical_digest(&rules);
+    ProxyUiDestinationRoutingConfig {
+        rules,
+        default_action: ProxyUiDestinationRoutingAction::Tunneled,
+        canonical_digest,
+    }
+}
+
+fn exact_aggregate_boundary_policy() -> ProxyUiDestinationRoutingConfig {
+    let rules = (0..256)
+        .map(|rule_index| ProxyUiDestinationRoutingRule {
+            action: ProxyUiDestinationRoutingAction::Direct,
+            network: ProxyUiDestinationRoutingNetwork::Both,
+            domains: (0..4)
+                .map(|matcher_index| {
+                    let prefix = format!("r{rule_index}m{matcher_index}");
+                    ProxyUiDestinationDomainMatcher {
+                        kind: ProxyUiDestinationDomainMatcherKind::Geosite,
+                        value: format!("{prefix:a<63}"),
+                    }
+                })
+                .collect(),
+            ip_ranges: Vec::new(),
+            destination_ports: Vec::new(),
+        })
+        .collect();
+    destination_policy_with_digest(rules)
+}
+
+fn runtime_config_from_destination_policy(
+    destination_routing: ProxyUiDestinationRoutingConfig,
+) -> Result<RuntimeConfig, ProxyConfigError> {
+    runtime_config_from_ui(ProxyUiConfig { destination_routing, ..ProxyUiConfig::default() })
+}
+
+#[test]
+fn shared_destination_routing_fixture_has_cross_language_digest() {
+    let path =
+        golden_test_support::repo_root().join("core/engine/src/test/resources/fixtures/destination-routing-mixed.json");
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).expect("read shared fixture"))
+        .expect("parse shared fixture");
+    let config: ProxyUiDestinationRoutingConfig =
+        serde_json::from_value(json["destinationRouting"].clone()).expect("destination routing config");
+
+    assert_eq!(
+        crate::convert::compute_canonical_digest(&config.rules),
+        "e7ed9f9ec8688b89eea6f22a7ae6e93e7f441a903b9f9de96d387700c122bee7"
+    );
 }
 
 #[test]
@@ -1833,7 +1884,7 @@ fn destination_routing_round_trips_and_maps_every_wire_variant() {
     }));
     assert_eq!(
         json["destinationRouting"]["canonicalDigest"],
-        "22e44aa5fdf36a009d5f07e71ce854a70dce1de73af4557e8fe5bb7b1b858fbb"
+        "5c6ebcf0aff1d5a4b0c1885acc4c7b8533718d1791066105336a03c9e09e7d51"
     );
 
     let parsed = parse_proxy_config_json(&json.to_string()).expect("destination routing payload");
@@ -1881,6 +1932,15 @@ fn destination_routing_rejects_direct_and_block_defaults_even_without_rules() {
         let error = runtime_config_from_payload(parsed).expect_err("unmatched destinations must always tunnel");
         assert!(error.to_string().contains("defaultAction must be tunneled"));
     }
+}
+
+#[test]
+fn destination_routing_empty_policy_rejects_nonempty_digest() {
+    let json = r#"{"kind":"ui","schemaVersion":2,"destinationRouting":{"rules":[],"defaultAction":"tunneled","canonicalDigest":"0000000000000000000000000000000000000000000000000000000000000000"}}"#;
+    let parsed = parse_proxy_config_json(json).expect("structurally valid payload");
+
+    let error = runtime_config_from_payload(parsed).expect_err("empty policy identity must be canonical");
+    assert!(error.to_string().contains("must be empty when rules are absent"));
 }
 
 #[test]
@@ -1991,4 +2051,75 @@ fn destination_routing_rejects_structural_bounds_atomically() {
     let parsed = parse_proxy_config_json(&json.to_string()).expect("structurally valid payload");
     let error = runtime_config_from_payload(parsed).expect_err("oversized token must reject atomically");
     assert!(error.to_string().contains("non-canonical domain matcher"));
+}
+
+#[test]
+fn destination_routing_accepts_exact_aggregate_and_canonical_bounds() {
+    let policy = exact_aggregate_boundary_policy();
+
+    runtime_config_from_destination_policy(policy)
+        .expect("exact rule, matcher, and canonical-size bounds must be accepted");
+}
+
+#[test]
+fn destination_routing_rejects_aggregate_and_canonical_overflow() {
+    let mut aggregate = exact_aggregate_boundary_policy();
+    aggregate.rules[0].domains.push(ProxyUiDestinationDomainMatcher {
+        kind: ProxyUiDestinationDomainMatcherKind::Geosite,
+        value: format!("{:a<63}", "aggregate-overflow"),
+    });
+    aggregate.canonical_digest = "0".repeat(64);
+    let error = runtime_config_from_destination_policy(aggregate).expect_err("1,025 matchers must reject atomically");
+    assert!(error.to_string().contains("matcher count exceeds 1024"));
+
+    let mut canonical = exact_aggregate_boundary_policy();
+    canonical.rules[0].domains[0].value.push('a');
+    canonical.canonical_digest = "0".repeat(64);
+    let error = runtime_config_from_destination_policy(canonical)
+        .expect_err("65,537 canonical characters must reject atomically");
+    assert!(error.to_string().contains("exceeds 65536"));
+}
+
+#[test]
+fn destination_routing_field_limits_cover_ip_ranges_and_ports() {
+    let exact_rule = ProxyUiDestinationRoutingRule {
+        action: ProxyUiDestinationRoutingAction::Direct,
+        network: ProxyUiDestinationRoutingNetwork::Both,
+        domains: (0..256)
+            .map(|index| ProxyUiDestinationDomainMatcher {
+                kind: ProxyUiDestinationDomainMatcherKind::Geosite,
+                value: format!("d{index}"),
+            })
+            .collect(),
+        ip_ranges: (0..256)
+            .map(|index| ProxyUiDestinationIpMatcher {
+                kind: ProxyUiDestinationIpMatcherKind::Cidr,
+                value: format!("10.0.{index}.0/24"),
+            })
+            .collect(),
+        destination_ports: (1..=256)
+            .map(|port| ProxyUiDestinationPortRange { start: port, end_inclusive: port })
+            .collect(),
+    };
+    runtime_config_from_destination_policy(destination_policy_with_digest(vec![exact_rule.clone()]))
+        .expect("256 entries in every matcher field must be accepted");
+
+    let mut ip_overflow = exact_rule.clone();
+    ip_overflow.domains.clear();
+    ip_overflow.destination_ports.clear();
+    ip_overflow.ip_ranges.push(ProxyUiDestinationIpMatcher {
+        kind: ProxyUiDestinationIpMatcherKind::Cidr,
+        value: "10.1.0.0/24".to_string(),
+    });
+    let error = runtime_config_from_destination_policy(destination_policy_with_digest(vec![ip_overflow]))
+        .expect_err("257 IP ranges must reject atomically");
+    assert!(error.to_string().contains("ipRanges exceeds 256"));
+
+    let mut port_overflow = exact_rule;
+    port_overflow.domains.clear();
+    port_overflow.ip_ranges.clear();
+    port_overflow.destination_ports.push(ProxyUiDestinationPortRange { start: 257, end_inclusive: 257 });
+    let error = runtime_config_from_destination_policy(destination_policy_with_digest(vec![port_overflow]))
+        .expect_err("257 port ranges must reject atomically");
+    assert!(error.to_string().contains("destinationPorts exceeds 256"));
 }

@@ -12,7 +12,7 @@
 /// 4. Parse the re-serialized JSON (second parse).
 /// 5. Assert that second parse == first parse (reflexive typed equality).
 /// 6. Assert that re-serializing the second parse produces the same bytes (idempotence).
-use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
+use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json, runtime_config_from_payload};
 
 fn fixture_path(name: &str) -> std::path::PathBuf {
     golden_test_support::repo_root().join("core/engine/src/test/resources/fixtures").join(name)
@@ -68,4 +68,18 @@ fn udp_quic_chain_round_trips() {
 #[test]
 fn relay_heavy_config_round_trips() {
     round_trip_assert("round-trip-relay-heavy.json");
+}
+
+#[test]
+fn destination_routing_mixed_fixture_uses_canonical_kind_ranks() {
+    let json = read_fixture("destination-routing-mixed.json");
+    let payload = parse_proxy_config_json(&json).expect("parse shared destination-routing fixture");
+    let config = runtime_config_from_payload(payload).expect("validate shared destination-routing fixture");
+
+    assert_eq!(
+        config.destination_routing.canonical_digest,
+        "e7ed9f9ec8688b89eea6f22a7ae6e93e7f441a903b9f9de96d387700c122bee7"
+    );
+    assert_eq!(config.destination_routing.rules[0].domains.len(), 3);
+    assert_eq!(config.destination_routing.rules[0].ip_ranges.len(), 2);
 }

@@ -44,7 +44,11 @@ internal object DestinationRoutingWireContract {
             }
         }
 
-        if (policy.rules.isNotEmpty()) {
+        if (policy.rules.isEmpty()) {
+            require(policy.canonicalDigest.isEmpty()) {
+                "destinationRouting.canonicalDigest must be empty when rules are absent"
+            }
+        } else {
             require(policy.canonicalDigest.isLowercaseSha256()) {
                 "destinationRouting.canonicalDigest must be 64 lowercase hexadecimal characters"
             }
@@ -62,10 +66,10 @@ internal object DestinationRoutingWireContract {
             digest.put(rule.action.name)
             digest.put(rule.network.name)
             rule.domains
-                .sortedWith(compareBy(NativeDestinationDomainMatcher::kind, NativeDestinationDomainMatcher::value))
+                .sortedWith(compareBy({ canonicalRank(it.kind) }, NativeDestinationDomainMatcher::value))
                 .forEach { digest.put("d:${it.kind.name}:${it.value}") }
             rule.ipRanges
-                .sortedWith(compareBy(NativeDestinationIpMatcher::kind, NativeDestinationIpMatcher::value))
+                .sortedWith(compareBy({ canonicalRank(it.kind) }, NativeDestinationIpMatcher::value))
                 .forEach { digest.put("i:${it.kind.name}:${it.value}") }
             rule.destinationPorts
                 .sortedWith(compareBy(NativeDestinationPortRange::start, NativeDestinationPortRange::endInclusive))
@@ -74,6 +78,19 @@ internal object DestinationRoutingWireContract {
         }
         return digest.digest().joinToString("") { "%02x".format(Locale.ROOT, it.toUByte().toInt()) }
     }
+
+    private fun canonicalRank(kind: NativeDestinationDomainMatcherKind): Int =
+        when (kind) {
+            NativeDestinationDomainMatcherKind.EXACT -> 0
+            NativeDestinationDomainMatcherKind.SUFFIX -> 1
+            NativeDestinationDomainMatcherKind.GEOSITE -> 2
+        }
+
+    private fun canonicalRank(kind: NativeDestinationIpMatcherKind): Int =
+        when (kind) {
+            NativeDestinationIpMatcherKind.CIDR -> 0
+            NativeDestinationIpMatcherKind.GEO_IP -> 1
+        }
 
     private fun validateRule(
         index: Int,

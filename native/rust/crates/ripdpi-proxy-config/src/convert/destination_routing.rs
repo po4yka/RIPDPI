@@ -51,7 +51,11 @@ fn validate_policy(policy: &ProxyUiDestinationRoutingConfig) -> Result<(), Proxy
             )));
         }
     }
-    if !policy.rules.is_empty() {
+    if policy.rules.is_empty() {
+        if !policy.canonical_digest.is_empty() {
+            return Err(invalid("destinationRouting.canonicalDigest must be empty when rules are absent"));
+        }
+    } else {
         if !is_lowercase_sha256(&policy.canonical_digest) {
             return Err(invalid("destinationRouting.canonicalDigest must be 64 lowercase hexadecimal characters"));
         }
@@ -183,13 +187,13 @@ pub(crate) fn compute_canonical_digest(rules: &[ProxyUiDestinationRoutingRule]) 
         digest_put(&mut canonical, network_name(rule.network));
 
         let mut domains = rule.domains.iter().collect::<Vec<_>>();
-        domains.sort_by_key(|matcher| (domain_kind_name(matcher.kind), matcher.value.as_str()));
+        domains.sort_by_key(|matcher| (domain_kind_rank(matcher.kind), matcher.value.as_str()));
         for matcher in domains {
             digest_put(&mut canonical, &format!("d:{}:{}", domain_kind_name(matcher.kind), matcher.value));
         }
 
         let mut ip_ranges = rule.ip_ranges.iter().collect::<Vec<_>>();
-        ip_ranges.sort_by_key(|matcher| (ip_kind_name(matcher.kind), matcher.value.as_str()));
+        ip_ranges.sort_by_key(|matcher| (ip_kind_rank(matcher.kind), matcher.value.as_str()));
         for matcher in ip_ranges {
             digest_put(&mut canonical, &format!("i:{}:{}", ip_kind_name(matcher.kind), matcher.value));
         }
@@ -223,7 +227,7 @@ fn sha256(input: &[u8]) -> [u8; 32] {
     for chunk in padded.chunks_exact(64) {
         let mut words = [0u32; 64];
         for (index, bytes) in chunk.chunks_exact(4).enumerate() {
-            words[index] = u32::from_be_bytes(bytes.try_into().expect("SHA-256 word has four bytes"));
+            words[index] = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
         }
         for index in 16..64 {
             let s0 = words[index - 15].rotate_right(7) ^ words[index - 15].rotate_right(18) ^ (words[index - 15] >> 3);
@@ -290,10 +294,25 @@ const fn domain_kind_name(kind: ProxyUiDestinationDomainMatcherKind) -> &'static
     }
 }
 
+const fn domain_kind_rank(kind: ProxyUiDestinationDomainMatcherKind) -> u8 {
+    match kind {
+        ProxyUiDestinationDomainMatcherKind::Exact => 0,
+        ProxyUiDestinationDomainMatcherKind::Suffix => 1,
+        ProxyUiDestinationDomainMatcherKind::Geosite => 2,
+    }
+}
+
 const fn ip_kind_name(kind: ProxyUiDestinationIpMatcherKind) -> &'static str {
     match kind {
         ProxyUiDestinationIpMatcherKind::Cidr => "CIDR",
         ProxyUiDestinationIpMatcherKind::GeoIp => "GEO_IP",
+    }
+}
+
+const fn ip_kind_rank(kind: ProxyUiDestinationIpMatcherKind) -> u8 {
+    match kind {
+        ProxyUiDestinationIpMatcherKind::Cidr => 0,
+        ProxyUiDestinationIpMatcherKind::GeoIp => 1,
     }
 }
 
