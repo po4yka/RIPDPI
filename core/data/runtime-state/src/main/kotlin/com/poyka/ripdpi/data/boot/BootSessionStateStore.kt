@@ -61,14 +61,15 @@ interface BootSessionStateStore {
     fun clear()
 
     /**
-     * Whether a session was running at the moment the app process was last torn
-     * down for reasons OTHER than an explicit user stop (e.g. an app update).
-     * Gates the `MY_PACKAGE_REPLACED` auto-restart so a deliberately-stopped
-     * tunnel is not silently resumed after an update. Defaults to `false`.
+     * Whether the durable session should still be running after process loss.
+     *
+     * Explicit user stop clears the marker. Unexpected process death and package
+     * replacement retain it so either recovery path can reconstruct the service.
+     * Defaults to `false`.
      */
     fun wasRunningAtUpdate(): Boolean
 
-    /** Sets the [wasRunningAtUpdate] flag. */
+    /** Sets the durable desired-running marker returned by [wasRunningAtUpdate]. */
     fun setWasRunningAtUpdate(value: Boolean)
 
     /** Clears both the session pointer and every auto-resume marker. */
@@ -145,18 +146,10 @@ class SharedPreferencesBootSessionStateStore
         override fun wasRunningAtUpdate(): Boolean = preferences.getBoolean(KeyWasRunningAtUpdate, false)
 
         override fun setWasRunningAtUpdate(value: Boolean) {
-            // Only the `true` write is durability-critical: it gates auto-resume after
-            // an LMK kill, and the kill it must survive gives no chance to flush a
-            // deferred write, so it commits synchronously (the R3 fix). It is issued
-            // from a background coroutine (BootSessionRecorder), so the blocking write
-            // is off the main thread. The `false` write is the opposite — an explicit
-            // user stop, reached on the MAIN thread via ServiceManager.stop(); a lost
-            // `false` only risks one spurious MY_PACKAGE_REPLACED resume (and the flag
-            // is cleared read-once on every package-replaced run anyway), so it uses
-            // apply() to avoid blocking the UI on disk I/O.
-            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).also { editor ->
-                if (value) editor.commit() else editor.apply()
-            }
+            // Both edges are durability-critical. A lost `true` prevents recovery
+            // after LMK/SIGKILL; a lost `false` can resurrect a tunnel that the user
+            // explicitly stopped if the process dies before an asynchronous apply.
+            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).commit()
         }
 
         override fun clearAll() {

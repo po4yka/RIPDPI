@@ -23,10 +23,12 @@ import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
+import com.poyka.ripdpi.services.ProcessDeathResumeCoordinator
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.Optional
 import javax.inject.Inject
@@ -44,6 +46,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     internal lateinit var selectorShortcutCapability: SelectorShortcutCapability
+
+    @Inject
+    internal lateinit var processDeathResumeCoordinator: ProcessDeathResumeCoordinator
 
     private val viewModel: MainViewModel by viewModels()
     private val shellController by lazy(LazyThreadSafetyMode.NONE) { MainActivityShellController(intent) }
@@ -76,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         mainActivityHost.register(this, viewModel)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { resumeAfterProcessDeath() }
                 shellController.hostCommands.collect { command ->
                     runCatching { mainActivityHost.handle(command) }
                         .onFailure { error ->
@@ -102,6 +108,17 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refreshPermissionSnapshot()
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun resumeAfterProcessDeath() {
+        try {
+            processDeathResumeCoordinator.resumeIfNeeded()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            Logger.e(error) { "Process-death VPN recovery failed" }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
