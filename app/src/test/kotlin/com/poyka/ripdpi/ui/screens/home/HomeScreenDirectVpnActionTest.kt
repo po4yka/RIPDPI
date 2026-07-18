@@ -62,7 +62,7 @@ class HomeScreenDirectVpnActionTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed)
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
             .performScrollTo()
             .performClick()
         composeRule

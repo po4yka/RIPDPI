@@ -38,7 +38,7 @@ class AutomationPermissionFlowInstrumentedTest {
         composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Home))
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed)
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
             .performScrollTo()
             .performClick()
         composeRule

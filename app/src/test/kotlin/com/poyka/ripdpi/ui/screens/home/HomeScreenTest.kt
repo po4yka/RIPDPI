@@ -151,6 +151,7 @@ class HomeScreenTest {
                 .assertCountEquals(0)
         }
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).assertCountEquals(1)
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).assertHasClickAction()
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed).assertCountEquals(1)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsExpanded).assertCountEquals(0)
         composeRule
@@ -574,7 +575,7 @@ class HomeScreenTest {
 
     private fun expandModesAndDiagnostics() {
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed)
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
             .performScrollTo()
             .performClick()
         composeRule.waitForIdle()

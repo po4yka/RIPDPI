@@ -62,6 +62,7 @@ class ConfigSetupHealthScreenshotTest {
             widthDp = PhoneWidthDp,
             heightDp = HomeScreenHeightDp,
             testClassFqn = FQN,
+            isolateByExperience = true,
         ) {
             HomeScreen(
                 uiState = setupHealthPermissionState(),
@@ -81,6 +82,7 @@ class ConfigSetupHealthScreenshotTest {
             widthDp = PhoneWidthDp,
             heightDp = HomeScreenHeightDp,
             testClassFqn = FQN,
+            isolateByExperience = true,
         ) {
             HomeScreen(
                 uiState = setupHealthBatteryRecommendationState(),
@@ -101,6 +103,7 @@ class ConfigSetupHealthScreenshotTest {
             heightDp = Pixel7HeightDp,
             testClassFqn = FQN,
             fontScale = 1.5f,
+            isolateByExperience = true,
         ) {
             HomeScreen(
                 uiState = setupHealthPermissionState(),
@@ -121,6 +124,7 @@ class ConfigSetupHealthScreenshotTest {
             heightDp = Pixel7HeightDp,
             testClassFqn = FQN,
             fontScale = 2f,
+            isolateByExperience = true,
         ) {
             HomeScreen(
                 uiState = setupHealthPermissionState().copy(connectionActuator = engagingActuatorState()),

@@ -56,10 +56,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
@@ -143,6 +149,12 @@ fun RipDpiConnectionActuator(
             ) {
                 val travelPx =
                     (constraints.maxWidth - with(density) { metrics.carriageWidth.toPx() }).coerceAtLeast(0f)
+                val endpointLayout =
+                    rememberActuatorEndpointLayout(
+                        availableWidth = maxWidth,
+                        leadingLabel = state.leadingLabel,
+                        trailingLabel = state.trailingLabel,
+                    )
 
                 ActuatorRail(
                     modifier = Modifier.align(Alignment.Center),
@@ -150,7 +162,7 @@ fun RipDpiConnectionActuator(
                     railColor = railColor,
                     terminalColor = terminalColor,
                     stateStyle = stateStyle,
-                    showEndpointLabels = actuatorEndpointLabelsFit(maxWidth, density.fontScale),
+                    endpointLayout = endpointLayout,
                 )
                 ActuatorCarriage(
                     modifier =
@@ -179,16 +191,51 @@ private fun actuatorStateStyle(state: HomeConnectionActuatorUiState): RipDpiActu
     RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
 
 @Composable
-private fun actuatorEndpointLabelsFit(
+private fun rememberActuatorEndpointLayout(
     availableWidth: Dp,
-    fontScale: Float,
-): Boolean {
+    leadingLabel: String,
+    trailingLabel: String,
+): ActuatorEndpointLayout {
     val metrics = RipDpiThemeTokens.components.actuator
-    val scaledTerminalWidth = metrics.terminalSlotWidth * fontScale.coerceAtLeast(1f)
-    return availableWidth >=
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val leadingWidth = measureTextWidth(leadingLabel, type.caption, textMeasurer, density)
+    val trailingWidth = measureTextWidth(trailingLabel, type.smallLabel, textMeasurer, density)
+    val labeledTerminalWidth =
+        maxOf(
+            metrics.terminalSlotWidth,
+            spacing.sm * 2 + RipDpiIconSizes.Small + spacing.xs + trailingWidth,
+        )
+    val requiredWidth =
         metrics.carriageWidth +
-        (scaledTerminalWidth + RipDpiThemeTokens.spacing.md) * 2
+            leadingWidth +
+            labeledTerminalWidth +
+            spacing.md * 4
+    val accessibilityLabelsFit =
+        density.fontScale < EndpointLabelCollapseFontScale || availableWidth >= WideEndpointLabelWidth
+    val showLabels = accessibilityLabelsFit && availableWidth >= requiredWidth
+    return ActuatorEndpointLayout(
+        showLabels = showLabels,
+        terminalWidth = if (showLabels) labeledTerminalWidth else metrics.terminalSlotHeight,
+    )
 }
+
+private fun measureTextWidth(
+    text: String,
+    style: TextStyle,
+    textMeasurer: TextMeasurer,
+    density: Density,
+): Dp = with(density) { textMeasurer.measure(AnnotatedString(text), style = style, maxLines = 1).size.width.toDp() }
+
+private data class ActuatorEndpointLayout(
+    val showLabels: Boolean,
+    val terminalWidth: Dp,
+)
+
+private const val EndpointLabelCollapseFontScale = 1.8f
+private val WideEndpointLabelWidth = 480.dp
 
 @Composable
 private fun ActuatorStateAction(
@@ -371,7 +418,7 @@ private fun ActuatorRail(
     railColor: State<Color>,
     terminalColor: State<Color>,
     stateStyle: com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle,
-    showEndpointLabels: Boolean,
+    endpointLayout: ActuatorEndpointLayout,
     modifier: Modifier = Modifier,
 ) {
     val metrics = RipDpiThemeTokens.components.actuator
@@ -395,7 +442,7 @@ private fun ActuatorRail(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (showEndpointLabels) {
+            if (endpointLayout.showLabels) {
                 Text(
                     text = state.leadingLabel,
                     style = type.caption,
@@ -406,7 +453,8 @@ private fun ActuatorRail(
             }
             Spacer(modifier = Modifier.weight(1f))
             TerminalSlot(
-                label = state.trailingLabel.takeIf { showEndpointLabels },
+                label = state.trailingLabel.takeIf { endpointLayout.showLabels },
+                width = endpointLayout.terminalWidth,
                 container = terminalColor,
                 content = stateStyle.slotContent,
                 border = stateStyle.terminalBorder,
@@ -418,24 +466,19 @@ private fun ActuatorRail(
 @Composable
 private fun TerminalSlot(
     label: String?,
+    width: Dp,
     container: State<Color>,
     content: Color,
     border: Color,
 ) {
-    val metrics = RipDpiThemeTokens.components.actuator
     val type = RipDpiThemeTokens.type
     val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
-    val terminalSlotWidth =
-        if (label == null) {
-            metrics.terminalSlotHeight
-        } else {
-            metrics.terminalSlotWidth * LocalDensity.current.fontScale.coerceAtLeast(1f)
-        }
+    val metrics = RipDpiThemeTokens.components.actuator
 
     Row(
         modifier =
             Modifier
-                .size(width = terminalSlotWidth, height = metrics.terminalSlotHeight)
+                .size(width = width, height = metrics.terminalSlotHeight)
                 .clip(shape)
                 .drawBehind { drawRect(container.value) }
                 .border(RipDpiStroke.Thin, border, shape)

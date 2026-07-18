@@ -54,6 +54,32 @@ internal fun captureRipDpiScreenshot(
 }
 
 @OptIn(ExperimentalRoborazziApi::class)
+internal fun captureExperienceRipDpiScreenshot(
+    name: String,
+    testClassFqn: String,
+    widthDp: Int,
+    heightDp: Int,
+    fontScale: Float = 1f,
+    content: @Composable () -> Unit,
+) {
+    val moduleRoot = System.getProperty("user.dir")
+    captureStaticRoboImage(
+        filePath =
+            "$moduleRoot/src/test/screenshots/$testClassFqn.${name}_${BuildConfig.APP_EXPERIENCE}.png",
+        widthDp = widthDp,
+        heightDp = heightDp,
+        roborazziOptions = CROSS_PLATFORM_OPTIONS,
+        roborazziComposeOptions =
+            RoborazziComposeOptions {
+                size(widthDp = widthDp, heightDp = heightDp)
+                fontScale(fontScale)
+                inspectionMode(true)
+            },
+        content = content,
+    )
+}
+
+@OptIn(ExperimentalRoborazziApi::class)
 internal fun captureStaticRoboImage(
     filePath: String? = null,
     widthDp: Int,
@@ -121,12 +147,15 @@ internal fun captureScreenBothThemes(
     heightDp: Int,
     testClassFqn: String,
     fontScale: Float = 1f,
+    isolateByExperience: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val moduleRoot = System.getProperty("user.dir")
+    val experienceSuffix = if (isolateByExperience) "_${BuildConfig.APP_EXPERIENCE}" else ""
     listOf("light", "dark").forEach { themePreference ->
         captureStaticRoboImage(
-            filePath = "$moduleRoot/src/test/screenshots/$testClassFqn.${name}_$themePreference.png",
+            filePath =
+                "$moduleRoot/src/test/screenshots/$testClassFqn.${name}${experienceSuffix}_$themePreference.png",
             widthDp = widthDp,
             heightDp = heightDp,
             roborazziOptions = CROSS_PLATFORM_OPTIONS,

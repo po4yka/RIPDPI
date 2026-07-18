@@ -31,7 +31,7 @@ class HomePage(BasePage):
         self.scroll_incrementally_to(self.MODES_DISCLOSURE, max_swipes=12)
         collapsed_disclosure = self._find_by_test_tag(self.MODES_COLLAPSED)
         if collapsed_disclosure:
-            collapsed_disclosure.click()
+            self.tap(self.MODES_DISCLOSURE)
         self.wait_for(self.LOCAL_BYPASS_CARD, timeout=5)
 
     def tap_connect(self) -> None:

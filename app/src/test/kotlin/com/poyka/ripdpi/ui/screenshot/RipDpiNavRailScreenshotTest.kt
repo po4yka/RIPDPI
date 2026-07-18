@@ -20,17 +20,18 @@ import org.robolectric.annotation.GraphicsMode
 class RipDpiNavRailScreenshotTest {
     @Test
     fun navRailAt600DpAndDefaultFont() {
-        captureNavigationShell(widthDp = 600, fontScale = 1f)
+        captureNavigationShell(name = "navRailAt600DpAndDefaultFont", widthDp = 600, fontScale = 1f)
     }
 
     @Test
     fun navRailAt650DpAndLargeFont() {
-        captureNavigationShell(widthDp = 650, fontScale = 1.3f)
+        captureNavigationShell(name = "navRailAt650DpAndLargeFont", widthDp = 650, fontScale = 1.3f)
     }
 
     @Test
     fun navRailAt700DpAndMaximumAccessibilityFont() {
         captureNavigationShell(
+            name = "navRailAt700DpAndMaximumAccessibilityFont",
             widthDp = 700,
             fontScale = 2f,
             connectionActuator =
@@ -42,11 +43,14 @@ class RipDpiNavRailScreenshotTest {
     }
 
     private fun captureNavigationShell(
+        name: String,
         widthDp: Int,
         fontScale: Float,
         connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
     ) {
-        captureRipDpiScreenshot(
+        captureExperienceRipDpiScreenshot(
+            name = name,
+            testClassFqn = FQN,
             widthDp = widthDp,
             heightDp = 400,
             fontScale = fontScale,
@@ -63,5 +67,9 @@ class RipDpiNavRailScreenshotTest {
                 }
             }
         }
+    }
+
+    private companion object {
+        const val FQN = "com.poyka.ripdpi.ui.screenshot.RipDpiNavRailScreenshotTest"
     }
 }

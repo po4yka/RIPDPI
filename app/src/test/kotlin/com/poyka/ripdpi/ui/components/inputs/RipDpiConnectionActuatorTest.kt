@@ -371,6 +371,32 @@ class RipDpiConnectionActuatorTest {
     }
 
     @Test
+    fun `secure terminal label is measured without ellipsis at Pixel 7 default font`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                Box(modifier = Modifier.requiredWidth(411.dp)) {
+                    RipDpiConnectionActuator(
+                        state = actuatorState(HomeConnectionActuatorStatus.Locked),
+                        onActivate = {},
+                        onDeactivate = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = RipDpiTestTags.ConnectionActuatorButton,
+                    )
+                }
+            }
+        }
+
+        val textLayouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorTerminalLabel, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(textLayouts) }
+
+        val layout = textLayouts.single()
+        assertEquals(1, layout.lineCount)
+        assertFalse(layout.isLineEllipsized(0))
+    }
+
+    @Test
     fun `direct terminal label is not ellipsized at maximum accessibility font scale`() {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {

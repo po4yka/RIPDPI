@@ -11,7 +11,7 @@ appId: com.poyka.ripdpi
         id: "home-modes-diagnostics-collapsed"
     commands:
       - tapOn:
-          id: "home-modes-diagnostics-collapsed"
+          id: "home-modes-diagnostics-header"
 - assertVisible:
     id: "home-mode-primary-local-dpi-bypass"
 - assertVisible:

@@ -61,7 +61,12 @@ import org.robolectric.annotation.GraphicsMode
 class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun homeExpandedScreen() {
-        captureRipDpiScreenshot(widthDp = 1040, heightDp = 920) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeExpandedScreen",
+            testClassFqn = FQN,
+            widthDp = 1040,
+            heightDp = 920,
+        ) {
             RipDpiHomeExpandedPreviewScene()
         }
     }
@@ -154,14 +159,24 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeCompactScreen() {
-        captureRipDpiScreenshot(widthDp = 390, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeCompactScreen",
+            testClassFqn = FQN,
+            widthDp = 390,
+            heightDp = 800,
+        ) {
             RipDpiHomeCompactPreviewScene()
         }
     }
 
     @Test
     fun homeDarkScreen() {
-        captureRipDpiScreenshot(widthDp = 720, heightDp = 920) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeDarkScreen",
+            testClassFqn = FQN,
+            widthDp = 720,
+            heightDp = 920,
+        ) {
             RipDpiHomeDarkPreviewScene()
         }
     }
@@ -243,21 +258,36 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeDisconnectedScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeDisconnectedScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeDisconnectedPreviewScene()
         }
     }
 
     @Test
     fun homeConnectingScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeConnectingScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeConnectingPreviewScene()
         }
     }
 
     @Test
     fun homeErrorScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeErrorScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeErrorPreviewScene()
         }
     }
@@ -401,14 +431,25 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeHighContrastScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeHighContrastScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeHighContrastPreviewScene()
         }
     }
 
     @Test
     fun homeLargeFontScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 900, fontScale = 1.5f) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeLargeFontScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 900,
+            fontScale = 1.5f,
+        ) {
             RipDpiHomeCompactPreviewScene()
         }
     }
@@ -468,6 +509,10 @@ class RipDpiScreenCatalogScreenshotTest {
         captureRipDpiScreenshot(widthDp = 420, heightDp = heightDp) {
             OnboardingScreenPreviewScene(uiState)
         }
+    }
+
+    private companion object {
+        const val FQN = "com.poyka.ripdpi.ui.screenshot.RipDpiScreenCatalogScreenshotTest"
     }
 }
 

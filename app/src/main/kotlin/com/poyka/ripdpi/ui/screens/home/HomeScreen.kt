@@ -88,6 +88,7 @@ fun HomeScreen(
     onDismissVerificationSheet: () -> Unit = {},
     onTogglePcapRecording: () -> Unit = {},
     onCaptivePortalSignIn: () -> Unit = {},
+    initialModesExpanded: Boolean = false,
 ) {
     TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
@@ -156,13 +157,13 @@ fun HomeScreen(
 
         HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
 
-        var modesExpanded by rememberSaveable { mutableStateOf(false) }
+        var modesExpanded by rememberSaveable { mutableStateOf(initialModesExpanded) }
         RipDpiAccordion(
             title = stringResource(R.string.home_modes_diagnostics_title),
             expanded = modesExpanded,
             onExpandedChange = { modesExpanded = it },
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeModesDiagnosticsHeader),
-            headerTestTag =
+            headerTestTag = RipDpiTestTags.HomeModesDiagnosticsHeader,
+            stateTestTag =
                 if (modesExpanded) {
                     RipDpiTestTags.HomeModesDiagnosticsExpanded
                 } else {

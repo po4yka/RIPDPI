@@ -138,7 +138,7 @@ pages:
     flow_label: "proxy connected"
     service_preset: "connected_proxy"
     expected_root: "home-screen"
-    required_elements: ["home-modes-diagnostics-header"]
+    required_elements: ["connection-actuator-button", "connection-actuator-route-label", "home-modes-diagnostics-header"]
     state: "connected proxy"
     description: |
       Connected proxy state with route context and collapsed secondary mode controls.
@@ -150,7 +150,7 @@ pages:
     flow_label: "VPN connected"
     service_preset: "connected_vpn"
     expected_root: "home-screen"
-    required_elements: ["home-modes-diagnostics-header"]
+    required_elements: ["connection-actuator-button", "connection-actuator-route-label", "home-modes-diagnostics-header"]
     state: "connected VPN"
     description: |
       Connected VPN state with tunnel status and collapsed secondary mode controls.

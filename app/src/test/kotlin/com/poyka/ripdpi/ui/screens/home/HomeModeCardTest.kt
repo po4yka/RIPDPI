@@ -1,7 +1,13 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -11,12 +17,21 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
+import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -132,6 +147,98 @@ class HomeModeCardTest {
         }
     }
 
+    @Test
+    fun `localized summary labels remain complete at Pixel 7 large font`() {
+        val labels = listOf("Estrategia de evasión", "Configuración de DNS cifrado")
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 1.5f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                        HomeModeCard(
+                            uiState =
+                                card(
+                                    summaryFacets =
+                                        persistentListOf(
+                                            HomeModeSummaryFacet(labels[0], "tcp: split(host+1)"),
+                                            HomeModeSummaryFacet(labels[1], "DNS cifrado · AdGuard DNS (DoH)"),
+                                        ),
+                                ),
+                            onPrimaryAction = {},
+                            onConfigure = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        labels.forEach { label ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            composeRule
+                .onNodeWithText(label, useUnmergedTree = true)
+                .assertIsDisplayed()
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
+            val layout = layouts.single()
+            assertFalse((0 until layout.lineCount).any(layout::isLineEllipsized))
+        }
+    }
+
+    @Test
+    fun `localized mode title remains complete at Pixel 7 large font`() {
+        val title = "Диагностическое сканирование"
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 1.5f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                        HomeModeCard(
+                            uiState = card(mode = HomeMode.Diagnostic).copy(title = title),
+                            onPrimaryAction = {},
+                            onConfigure = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithText(title, useUnmergedTree = true)
+            .assertIsDisplayed()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
+        val layout = layouts.single()
+        assertFalse((0 until layout.lineCount).any(layout::isLineEllipsized))
+    }
+
+    @Test
+    fun `mode actions stack vertically at compact large font`() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 1.5f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                        HomeModeCard(
+                            uiState =
+                                card().copy(
+                                    primaryActionLabel = "Enable secure route",
+                                    configureLabel = "Open configuration",
+                                ),
+                            onPrimaryAction = {},
+                            onConfigure = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        val primary =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
+                .fetchSemanticsNode()
+        val configure =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name))
+                .fetchSemanticsNode()
+        assertTrue(primary.boundsInRoot.bottom <= configure.boundsInRoot.top)
+    }
+
     private fun card(
         mode: HomeMode = HomeMode.LocalDpiBypass,
         active: Boolean = false,
@@ -139,6 +246,7 @@ class HomeModeCardTest {
         primaryLabel: String? = null,
         primaryActionEnabled: Boolean = true,
         primaryActionDisabledHint: String = "",
+        summaryFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
     ): HomeModeCardUiState =
         HomeModeCardUiState(
             mode = mode,
@@ -170,6 +278,7 @@ class HomeModeCardTest {
             configureLabel = "Configure",
             primaryActionEnabled = primaryActionEnabled,
             primaryActionDisabledHint = primaryActionDisabledHint,
+            summaryFacets = summaryFacets,
             isActive = active,
             isLoading = loading,
         )
