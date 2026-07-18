@@ -2,11 +2,12 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (25)
+## Doing (26)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
+| critical | routing | [Implement fail-closed destination split routing policy](issues/implement-destination-split-routing-policy.md) | Codex serialized routing policy lane | 2026-07-18 |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-07-17 |
 | high | ci | [Run a recurring real-VPS AmneziaWG and NAT lane](issues/run-recurring-real-vps-awg-nat-lane.md) | AWG real-VPS lane | 2026-07-17 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
@@ -54,11 +55,10 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Investigate operator-specific protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | unassigned | 2026-06-11 |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | unassigned | 2026-06-11 |
 
-## Todo (2)
+## Todo (1)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
-| critical | routing | [Implement fail-closed destination split routing policy](issues/implement-destination-split-routing-policy.md) | Serialized routing policy lane | 2026-07-18 |
 | medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | unassigned | 2026-06-11 |
 
 ## Backlog (15)

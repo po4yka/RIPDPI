@@ -1,10 +1,10 @@
 ---
 title: Implement fail-closed destination split routing policy
 type: task
-status: todo
+status: doing
 area: routing
 priority: critical
-owner: Serialized routing policy lane
+owner: Codex serialized routing policy lane
 parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
