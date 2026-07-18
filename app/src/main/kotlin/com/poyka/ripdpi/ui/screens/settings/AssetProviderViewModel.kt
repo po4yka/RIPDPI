@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import javax.inject.Inject
 
@@ -82,6 +84,7 @@ class AssetProviderViewModel
         private val geoAssetRepository: GeoAssetRepository,
     ) : ViewModel() {
         private val transient = MutableStateFlow(TransientState())
+        private val configurationOperationMutex = Mutex()
 
         val uiState: StateFlow<AssetProviderUiState> =
             combinePersistedAndTransient()
@@ -94,16 +97,20 @@ class AssetProviderViewModel
         fun selectProvider(providerId: String) {
             if (transient.value.activeOperation != null) return
             viewModelScope.launch {
-                if (transient.value.activeOperation != null) return@launch
-                settingsRepository.update { geoAssetProviderId = providerId }
+                configurationOperationMutex.withLock {
+                    if (transient.value.activeOperation != null) return@withLock
+                    settingsRepository.update { geoAssetProviderId = providerId }
+                }
             }
         }
 
         fun updateCustomBaseUrl(url: String) {
             if (transient.value.activeOperation != null) return
             viewModelScope.launch {
-                if (transient.value.activeOperation != null) return@launch
-                settingsRepository.update { geoAssetCustomBaseUrl = url.trim() }
+                configurationOperationMutex.withLock {
+                    if (transient.value.activeOperation != null) return@withLock
+                    settingsRepository.update { geoAssetCustomBaseUrl = url.trim() }
+                }
             }
         }
 
@@ -154,17 +161,19 @@ class AssetProviderViewModel
             viewModelScope.launch {
                 var outcome: AssetProviderCheckOutcome? = null
                 try {
-                    outcome =
-                        runCatching { block() }.fold(
-                            onSuccess = { it },
-                            onFailure = { error ->
-                                when (error) {
-                                    is CancellationException -> throw error
-                                    is Exception -> AssetProviderCheckOutcome.Failed(mapFailure(error))
-                                    else -> throw error
-                                }
-                            },
-                        )
+                    configurationOperationMutex.withLock {
+                        outcome =
+                            runCatching { block() }.fold(
+                                onSuccess = { it },
+                                onFailure = { error ->
+                                    when (error) {
+                                        is CancellationException -> throw error
+                                        is Exception -> AssetProviderCheckOutcome.Failed(mapFailure(error))
+                                        else -> throw error
+                                    }
+                                },
+                            )
+                    }
                 } finally {
                     transient.update { current ->
                         if (current.activeOperation == operation) {

@@ -6,11 +6,15 @@ import com.poyka.ripdpi.assets.GeoAssetIntegrityException
 import com.poyka.ripdpi.assets.GeoAssetIntegrityFailure
 import com.poyka.ripdpi.assets.GeoAssetRepository
 import com.poyka.ripdpi.assets.GeoAssetUpdateResult
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.assets.GeoAssetKind
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -165,6 +169,56 @@ class AssetProviderViewModelTest {
         }
 
     @Test
+    fun `check waits for in-flight provider mutation and uses committed provider`() =
+        runTest {
+            val initialSettings = configuredSettingsRepository().snapshot()
+            val settingsRepository = BlockingAppSettingsRepository(initialSettings)
+            val repository = FakeGeoAssetRepository()
+            repository.checkResult =
+                GeoAssetUpdateResult(
+                    providerId = ChangedProviderId,
+                    geoipUpdated = true,
+                    geositeUpdated = true,
+                    geoipTag = ProviderBGeoipTag,
+                    geositeTag = ProviderBGeositeTag,
+                    anyChecked = true,
+                )
+            repository.checkAction = {
+                repository.observedProviderId = settingsRepository.snapshot().geoAssetProviderId
+                settingsRepository.update {
+                    geoAssetGeoipVersionTag = ProviderBGeoipTag
+                    geoAssetGeositeVersionTag = ProviderBGeositeTag
+                }
+            }
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.selectProvider(ChangedProviderId)
+            settingsRepository.updateStarted.await()
+            viewModel.checkForUpdates()
+            runCurrent()
+
+            assertEquals(AssetProviderOperation.CheckUpdates, viewModel.uiState.value.activeOperation)
+            assertEquals(0, repository.checkCalls)
+            assertNull(repository.observedProviderId)
+
+            settingsRepository.continueUpdate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(1, repository.checkCalls)
+            assertEquals(ChangedProviderId, repository.observedProviderId)
+            assertEquals(ChangedProviderId, settingsRepository.snapshot().geoAssetProviderId)
+            assertEquals(ChangedProviderId, viewModel.uiState.value.providerId)
+            assertEquals(ProviderBGeoipTag, settingsRepository.snapshot().geoAssetGeoipVersionTag)
+            assertEquals(ProviderBGeositeTag, settingsRepository.snapshot().geoAssetGeositeVersionTag)
+            assertEquals(
+                AssetProviderCheckOutcome.Updated(ProviderBGeoipTag, ProviderBGeositeTag),
+                viewModel.uiState.value.lastResult,
+            )
+        }
+
+    @Test
     fun `import operation rejects provider configuration changes until result commits`() =
         runTest {
             val settingsRepository = configuredSettingsRepository()
@@ -232,6 +286,7 @@ class AssetProviderViewModelTest {
         var importAction: suspend () -> Unit = {}
         var checkAction: suspend () -> Unit = {}
         var checkCalls: Int = 0
+        var observedProviderId: String? = null
         var checkResult =
             GeoAssetUpdateResult(
                 providerId = InitialProviderId,
@@ -257,6 +312,32 @@ class AssetProviderViewModelTest {
         }
     }
 
+    private class BlockingAppSettingsRepository(
+        initialSettings: AppSettings,
+    ) : AppSettingsRepository {
+        private val state = MutableStateFlow(initialSettings)
+        val updateStarted = CompletableDeferred<Unit>()
+        val continueUpdate = CompletableDeferred<Unit>()
+
+        override val settings: Flow<AppSettings> = state
+
+        override suspend fun snapshot(): AppSettings = state.value
+
+        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+            updateStarted.complete(Unit)
+            continueUpdate.await()
+            state.value =
+                state.value
+                    .toBuilder()
+                    .apply(transform)
+                    .build()
+        }
+
+        override suspend fun replace(settings: AppSettings) {
+            state.value = settings
+        }
+    }
+
     private companion object {
         const val InitialProviderId = "sagernet"
         const val InitialCustomUrl = "https://provider-a.example/assets"
@@ -264,5 +345,7 @@ class AssetProviderViewModelTest {
         const val ChangedCustomUrl = "https://provider-b.example/assets"
         const val ProviderAGeoipTag = "provider-a-geoip-v2"
         const val ProviderAGeositeTag = "provider-a-geosite-v2"
+        const val ProviderBGeoipTag = "provider-b-geoip-v2"
+        const val ProviderBGeositeTag = "provider-b-geosite-v2"
     }
 }
