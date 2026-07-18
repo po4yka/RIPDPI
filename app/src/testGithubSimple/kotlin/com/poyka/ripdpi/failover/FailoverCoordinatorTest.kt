@@ -205,10 +205,20 @@ private fun runningTelemetry(
     relayHealth: String = "healthy",
     awgHealth: String = "idle",
     relayListenerAddress: String? = "127.0.0.1:1080",
+    proxyTotalErrors: Long = 0,
+    proxyLastFailureClass: String? = null,
 ): ServiceTelemetrySnapshot =
     ServiceTelemetrySnapshot(
         status = AppStatus.Running,
         mode = Mode.VPN,
+        proxyTelemetry =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                health = "healthy",
+                totalErrors = proxyTotalErrors,
+                lastFailureClass = proxyLastFailureClass,
+            ),
         relayTelemetry =
             NativeRuntimeSnapshot(
                 source = "relay",
@@ -375,6 +385,141 @@ class FailoverCoordinatorTest {
             assertEquals(2, probeCalls)
             assertEquals(0, controller.stopCalls.size)
             assertEquals(0, controller.startCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun freshProxyFailureTriggersConfirmedRelayFailoverWhenRelayHealthStaysRunning() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressProbe =
+                        FailoverEgressProbe { _ ->
+                            probeCalls++
+                            false
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "running"))
+
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    proxyTotalErrors = 1,
+                    proxyLastFailureClass = "silent_drop",
+                ),
+            )
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    proxyTotalErrors = 1,
+                    proxyLastFailureClass = "silent_drop",
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(2, probeCalls)
+            assertEquals(1, controller.stopCalls.size)
+            assertEquals(1, controller.startCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun successfulProbeClearsProxyFailureLatchWithoutProbeStorm() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressProbe =
+                        FailoverEgressProbe { _ ->
+                            probeCalls++
+                            true
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "running"))
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    proxyTotalErrors = 1,
+                    proxyLastFailureClass = "silent_drop",
+                ),
+            )
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    proxyTotalErrors = 1,
+                    proxyLastFailureClass = "silent_drop",
+                ),
+            )
+
+            assertEquals(1, probeCalls)
+            assertEquals(0, controller.stopCalls.size)
+
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    proxyTotalErrors = 2,
+                    proxyLastFailureClass = "silent_drop",
+                ),
+            )
+            assertEquals(2, probeCalls)
+            assertEquals(0, controller.startCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun proxyErrorCounterResetEstablishesNewBaseline() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    egressProbe =
+                        FailoverEgressProbe { _ ->
+                            probeCalls++
+                            true
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(proxyTotalErrors = 5))
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    proxyTotalErrors = 6,
+                    proxyLastFailureClass = "silent_drop",
+                ),
+            )
+            assertEquals(1, probeCalls)
+
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    proxyTotalErrors = 0,
+                    proxyLastFailureClass = "silent_drop",
+                ),
+            )
+            assertEquals(1, probeCalls)
+            assertEquals(0, controller.stopCalls.size)
 
             coordinator.stopObserving()
         }

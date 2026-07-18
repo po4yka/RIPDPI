@@ -161,6 +161,18 @@ class FailoverCoordinator
         /** Timestamp when the active egress first entered a failing health state. */
         private var failingsSince: Long? = null
 
+        /** Last proxy error counter observed for the current runtime session. */
+        private var observedProxyTotalErrors: Long? = null
+
+        /**
+         * A fresh proxy failure occurred while a relay candidate was active.
+         *
+         * Relay listener health alone can stay `running` after an upstream silent drop because
+         * the local SOCKS client closes normally. This latch makes the proxy failure a passive
+         * trigger; the explicit SOCKS egress probe remains the authority for switching.
+         */
+        private var suspectedRelayFailure: Boolean = false
+
         /**
          * Ordered candidate list built from what is actually seeded.
          * Fewer than 2 entries → coordinator stays inert.
@@ -271,6 +283,8 @@ class FailoverCoordinator
                     initialRaceSelection = null
                     // The debounce window always restarts for a new session.
                     failingsSince = null
+                    observedProxyTotalErrors = null
+                    suspectedRelayFailure = false
                     setActiveCandidate(candidates[activeCandidateIndex])
                     Logger.i {
                         "FailoverCoordinator: watching ${candidates.size} candidates, " +
@@ -296,6 +310,8 @@ class FailoverCoordinator
             observeJob = null
             setActiveCandidate(null)
             failingsSince = null
+            observedProxyTotalErrors = null
+            suspectedRelayFailure = false
             if (!selfInducedRestart) {
                 awgEgressSelection.clear()
                 initialized = false
@@ -375,7 +391,11 @@ class FailoverCoordinator
             val activeHealth = activeEgressHealth(snapshot)
             val now = clock.nowMillis()
 
-            if (activeHealth !in FAILING_HEALTH_VALUES) {
+            if (observeFreshProxyFailure(snapshot)) {
+                suspectedRelayFailure = true
+            }
+
+            if (activeHealth !in FAILING_HEALTH_VALUES && !suspectedRelayFailure) {
                 // Healthy or idle — reset debounce, back-off, and the switch budget. This runs
                 // even while backedOff so a transport that heals mid-session clears back-off and
                 // resumes failover without needing a full session restart.
@@ -392,6 +412,7 @@ class FailoverCoordinator
             // session, which clears the native consecutive-error signal.
             if (confirmRelayEgress(snapshot)) {
                 failingsSince = null
+                suspectedRelayFailure = false
                 backedOff = false
                 switchesInCycle = 0
                 return
@@ -420,6 +441,26 @@ class FailoverCoordinator
             }
 
             performSwitch(now)
+        }
+
+        /**
+         * Returns true only for a new proxy failure observed while a relay is active.
+         *
+         * Proxy health is intentionally not used because it is sticky after historical errors.
+         * Counter resets mark a new runtime baseline and never create a failover signal.
+         */
+        private fun observeFreshProxyFailure(snapshot: ServiceTelemetrySnapshot): Boolean {
+            if (candidates.getOrNull(activeCandidateIndex) !is FailoverCandidate.Relay) {
+                observedProxyTotalErrors = null
+                return false
+            }
+
+            val current = snapshot.proxyTelemetry.totalErrors
+            val previous = observedProxyTotalErrors
+            observedProxyTotalErrors = current
+            if (previous == null || current <= previous) return false
+
+            return !snapshot.proxyTelemetry.lastFailureClass.isNullOrBlank()
         }
 
         private suspend fun confirmRelayEgress(snapshot: ServiceTelemetrySnapshot): Boolean {
@@ -469,6 +510,8 @@ class FailoverCoordinator
             activeCandidateIndex = nextIndex
             lastSwitchAt = now
             failingsSince = null
+            observedProxyTotalErrors = null
+            suspectedRelayFailure = false
             switchesInCycle++
             setActiveCandidate(nextCandidate)
 
