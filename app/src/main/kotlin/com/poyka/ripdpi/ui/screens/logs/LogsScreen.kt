@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -447,7 +448,7 @@ private fun LogsOverviewCard(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LogsStreamCard(
+internal fun LogsStreamCard(
     entries: List<LogEntry>,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onCopyEntry: (LogEntry) -> Unit,
@@ -456,6 +457,7 @@ private fun LogsStreamCard(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
+    val copyLabel = stringResource(R.string.detection_check_copy)
 
     RipDpiCard(
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.LogsStream),
@@ -496,8 +498,12 @@ private fun LogsStreamCard(
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id))
                             .combinedClickable(
-                                onClick = {},
+                                onClickLabel = copyLabel,
+                                role = Role.Button,
+                                onLongClickLabel = copyLabel,
+                                onClick = { onCopyEntry(entry) },
                                 onLongClick = { onCopyEntry(entry) },
                             ),
                     verticalArrangement = Arrangement.spacedBy(spacing.sm),
