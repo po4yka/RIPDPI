@@ -92,6 +92,7 @@ private const val WarningStagePulseAlpha = 0.82f
 private const val StripeStepPx = 10f
 private const val StripeStrokePx = 2f
 private const val CarriageGripCount = 4
+private const val EndpointLabelHorizontalGapCount = 4
 
 @Composable
 fun RipDpiConnectionActuator(
@@ -102,8 +103,6 @@ fun RipDpiConnectionActuator(
     testTag: String? = null,
 ) {
     val motion = RipDpiThemeTokens.motion
-    val metrics = RipDpiThemeTokens.components.actuator
-    val density = LocalDensity.current
     val performHaptic = rememberRipDpiHapticPerformer()
     val stateStyle = actuatorStateStyle(state)
     val railColor = animateColorAsState(stateStyle.rail, motion.stateTween(), label = "actuatorRail")
@@ -139,50 +138,73 @@ fun RipDpiConnectionActuator(
                 state = state,
                 stateStyle = stateStyle,
             )
-            BoxWithConstraints(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(metrics.height)
-                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail)
-                        .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
-            ) {
-                val travelPx =
-                    (constraints.maxWidth - with(density) { metrics.carriageWidth.toPx() }).coerceAtLeast(0f)
-                val endpointLayout =
-                    rememberActuatorEndpointLayout(
-                        availableWidth = maxWidth,
-                        leadingLabel = state.leadingLabel,
-                        trailingLabel = state.trailingLabel,
-                    )
-
-                ActuatorRail(
-                    modifier = Modifier.align(Alignment.Center),
-                    state = state,
-                    railColor = railColor,
-                    terminalColor = terminalColor,
-                    stateStyle = stateStyle,
-                    endpointLayout = endpointLayout,
-                )
-                ActuatorCarriage(
-                    modifier =
-                        Modifier
-                            .align(Alignment.CenterStart)
-                            .offset {
-                                val dragFraction =
-                                    if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
-                                val effectiveFraction = (baseFraction.value + dragFraction).coerceIn(0f, 1f)
-                                IntOffset(x = (effectiveFraction * travelPx).roundToInt(), y = 0)
-                            },
-                    state = state,
-                    carriageColor = carriageColor,
-                    carriageContentColor = stateStyle.carriageContent,
-                )
-            }
+            ActuatorRailLayout(
+                state = state,
+                stateStyle = stateStyle,
+                railColor = railColor,
+                terminalColor = terminalColor,
+                carriageColor = carriageColor,
+                baseFraction = baseFraction,
+                interactionModifier = interactionModifier,
+            )
         }
         if (state.status.showsPipeline) {
             ActuatorPipeline(stages = state.stages)
         }
+    }
+}
+
+@Composable
+private fun ActuatorRailLayout(
+    state: HomeConnectionActuatorUiState,
+    stateStyle: RipDpiActuatorStateStyle,
+    railColor: State<Color>,
+    terminalColor: State<Color>,
+    carriageColor: State<Color>,
+    baseFraction: State<Float>,
+    interactionModifier: ActuatorInteractionModifier,
+) {
+    val metrics = RipDpiThemeTokens.components.actuator
+    val density = LocalDensity.current
+    BoxWithConstraints(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(metrics.height)
+                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail)
+                .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
+    ) {
+        val travelPx =
+            (constraints.maxWidth - with(density) { metrics.carriageWidth.toPx() }).coerceAtLeast(0f)
+        val endpointLayout =
+            rememberActuatorEndpointLayout(
+                availableWidth = maxWidth,
+                leadingLabel = state.leadingLabel,
+                trailingLabel = state.trailingLabel,
+            )
+
+        ActuatorRail(
+            modifier = Modifier.align(Alignment.Center),
+            state = state,
+            railColor = railColor,
+            terminalColor = terminalColor,
+            stateStyle = stateStyle,
+            endpointLayout = endpointLayout,
+        )
+        ActuatorCarriage(
+            modifier =
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .offset {
+                        val dragFraction =
+                            if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
+                        val effectiveFraction = (baseFraction.value + dragFraction).coerceIn(0f, 1f)
+                        IntOffset(x = (effectiveFraction * travelPx).roundToInt(), y = 0)
+                    },
+            state = state,
+            carriageColor = carriageColor,
+            carriageContentColor = stateStyle.carriageContent,
+        )
     }
 }
 
@@ -212,7 +234,7 @@ private fun rememberActuatorEndpointLayout(
         metrics.carriageWidth +
             leadingWidth +
             labeledTerminalWidth +
-            spacing.md * 4
+            spacing.md * EndpointLabelHorizontalGapCount
     val accessibilityLabelsFit =
         density.fontScale < EndpointLabelCollapseFontScale || availableWidth >= WideEndpointLabelWidth
     val showLabels = accessibilityLabelsFit && availableWidth >= requiredWidth
@@ -227,7 +249,13 @@ private fun measureTextWidth(
     style: TextStyle,
     textMeasurer: TextMeasurer,
     density: Density,
-): Dp = with(density) { textMeasurer.measure(AnnotatedString(text), style = style, maxLines = 1).size.width.toDp() }
+): Dp =
+    with(density) {
+        textMeasurer
+            .measure(AnnotatedString(text), style = style, maxLines = 1)
+            .size.width
+            .toDp()
+    }
 
 private data class ActuatorEndpointLayout(
     val showLabels: Boolean,
