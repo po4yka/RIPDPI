@@ -158,6 +158,7 @@ private fun AboutBuildSection() {
                 title = stringResource(R.string.about_package_name),
                 value = BuildConfig.APPLICATION_ID,
                 monospaceValue = true,
+                valueWeight = 1.6f,
             )
         }
     }

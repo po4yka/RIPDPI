@@ -60,6 +60,7 @@ fun SettingsRow(
     showChevron: Boolean = value != null && onClick != null,
     showDivider: Boolean = false,
     monospaceValue: Boolean = false,
+    valueWeight: Float = 1f,
     variant: SettingsRowVariant = SettingsRowVariant.Default,
     testTag: String? = null,
 ) {
@@ -112,6 +113,7 @@ fun SettingsRow(
                 enabled = enabled,
                 value = value,
                 monospaceValue = monospaceValue,
+                valueWeight = valueWeight,
                 showChevron = showChevron,
                 state = state,
             )
@@ -249,6 +251,7 @@ private fun RowScope.SettingsRowTrailing(
     enabled: Boolean,
     value: String?,
     monospaceValue: Boolean,
+    valueWeight: Float,
     showChevron: Boolean,
     state: RipDpiSettingsRowStateStyle,
 ) {
@@ -265,7 +268,7 @@ private fun RowScope.SettingsRowTrailing(
 
         value != null -> {
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(valueWeight),
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
