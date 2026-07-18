@@ -406,6 +406,29 @@ class RipDpiConnectionActuatorTest {
         )
     }
 
+    @Test
+    fun `endpoint labels collapse before overlapping the carriage at narrow maximum font`() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                        RipDpiConnectionActuator(
+                            state = actuatorState(HomeConnectionActuatorStatus.Engaging),
+                            onActivate = {},
+                            onDeactivate = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = RipDpiTestTags.ConnectionActuatorButton,
+                        )
+                    }
+                }
+            }
+        }
+
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorTerminalLabel, useUnmergedTree = true)
+            .assertCountEquals(0)
+    }
+
     private fun setActuator(
         state: HomeConnectionActuatorUiState,
         onActivate: () -> Unit = {},

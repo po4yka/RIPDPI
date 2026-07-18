@@ -144,6 +144,11 @@ fun RipDpiConnectionActuator(
             ) {
                 val carriageWidthPx = with(density) { metrics.carriageWidth.toPx() }
                 val travelPx = (constraints.maxWidth - carriageWidthPx).coerceAtLeast(0f)
+                val scaledTerminalWidth = metrics.terminalSlotWidth * density.fontScale.coerceAtLeast(1f)
+                val endpointLabelsFit =
+                    maxWidth >=
+                        metrics.carriageWidth +
+                        (scaledTerminalWidth + RipDpiThemeTokens.spacing.md) * 2
 
                 ActuatorRail(
                     modifier = Modifier.align(Alignment.Center),
@@ -151,6 +156,7 @@ fun RipDpiConnectionActuator(
                     railColor = railColor,
                     terminalColor = terminalColor,
                     stateStyle = stateStyle,
+                    showEndpointLabels = endpointLabelsFit,
                 )
                 ActuatorCarriage(
                     modifier =
@@ -355,6 +361,7 @@ private fun ActuatorRail(
     railColor: State<Color>,
     terminalColor: State<Color>,
     stateStyle: com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle,
+    showEndpointLabels: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val metrics = RipDpiThemeTokens.components.actuator
@@ -378,16 +385,18 @@ private fun ActuatorRail(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = state.leadingLabel,
-                style = type.caption,
-                color = stateStyle.label,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (showEndpointLabels) {
+                Text(
+                    text = state.leadingLabel,
+                    style = type.caption,
+                    color = stateStyle.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             TerminalSlot(
-                label = state.trailingLabel,
+                label = state.trailingLabel.takeIf { showEndpointLabels },
                 container = terminalColor,
                 content = stateStyle.slotContent,
                 border = stateStyle.terminalBorder,
@@ -398,7 +407,7 @@ private fun ActuatorRail(
 
 @Composable
 private fun TerminalSlot(
-    label: String,
+    label: String?,
     container: State<Color>,
     content: Color,
     border: Color,
@@ -406,7 +415,12 @@ private fun TerminalSlot(
     val metrics = RipDpiThemeTokens.components.actuator
     val type = RipDpiThemeTokens.type
     val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
-    val terminalSlotWidth = metrics.terminalSlotWidth * LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val terminalSlotWidth =
+        if (label == null) {
+            metrics.terminalSlotHeight
+        } else {
+            metrics.terminalSlotWidth * LocalDensity.current.fontScale.coerceAtLeast(1f)
+        }
 
     Row(
         modifier =
@@ -425,15 +439,17 @@ private fun TerminalSlot(
             modifier = Modifier.size(RipDpiIconSizes.Small),
             tint = content,
         )
-        Spacer(modifier = Modifier.width(RipDpiThemeTokens.spacing.xs))
-        Text(
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
-            text = label,
-            style = type.smallLabel,
-            color = content,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (label != null) {
+            Spacer(modifier = Modifier.width(RipDpiThemeTokens.spacing.xs))
+            Text(
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
+                text = label,
+                style = type.smallLabel,
+                color = content,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
