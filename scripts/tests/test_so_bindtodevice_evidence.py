@@ -4,6 +4,8 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -80,6 +82,205 @@ class SoBindToDeviceEvidenceTest(unittest.TestCase):
 
     def test_accepts_complete_physical_evidence(self) -> None:
         self.assertEqual(self.validate(self.valid_manifest())["result"], "PASS")
+
+    def test_accepts_classified_infrastructure_gap(self) -> None:
+        manifest = evidence.failure_manifest(
+            result="INFRA_GAP",
+            reason_code="TUN_UNAVAILABLE",
+            cleanup_verified=False,
+            source_sha=self.sha,
+            run_id=self.run_id,
+            run_attempt=self.attempt,
+        )
+
+        self.assertEqual(self.validate(manifest), manifest)
+        self.assertEqual(manifest["reasonCode"], "TUN_UNAVAILABLE")
+        self.assertNotIn("capabilities", manifest)
+        self.assertNotIn("phases", manifest)
+
+    def test_accepts_classified_test_failure_after_cleanup(self) -> None:
+        manifest = evidence.failure_manifest(
+            result="TEST_FAILURE",
+            reason_code="ADVERSARIAL_TEST_FAILED",
+            cleanup_verified=True,
+            source_sha=self.sha,
+            run_id=self.run_id,
+            run_attempt=self.attempt,
+        )
+
+        self.assertEqual(self.validate(manifest), manifest)
+
+    def test_rejects_reason_code_from_other_failure_class(self) -> None:
+        manifest = evidence.failure_manifest(
+            result="INFRA_GAP",
+            reason_code="TUN_UNAVAILABLE",
+            cleanup_verified=False,
+            source_sha=self.sha,
+            run_id=self.run_id,
+            run_attempt=self.attempt,
+        )
+        manifest["reasonCode"] = "ADVERSARIAL_TEST_FAILED"
+
+        with self.assertRaisesRegex(ValueError, "reasonCode is invalid"):
+            self.validate(manifest)
+
+    def test_rejects_non_string_failure_discriminators(self) -> None:
+        cases = (("result", []), ("reasonCode", {}))
+        for field, value in cases:
+            with self.subTest(field=field):
+                manifest = evidence.failure_manifest(
+                    result="INFRA_GAP",
+                    reason_code="TUN_UNAVAILABLE",
+                    cleanup_verified=False,
+                    source_sha=self.sha,
+                    run_id=self.run_id,
+                    run_attempt=self.attempt,
+                )
+                manifest[field] = value
+                with self.assertRaisesRegex(ValueError, "must be a string"):
+                    self.validate(manifest)
+
+    def test_rejects_cleanup_state_that_contradicts_reason(self) -> None:
+        manifest = evidence.failure_manifest(
+            result="TEST_FAILURE",
+            reason_code="CLEANUP_FAILED",
+            cleanup_verified=False,
+            source_sha=self.sha,
+            run_id=self.run_id,
+            run_attempt=self.attempt,
+        )
+        manifest["cleanupVerified"] = True
+
+        with self.assertRaisesRegex(ValueError, "cleanupVerified is invalid"):
+            self.validate(manifest)
+
+    def test_failure_writer_is_canonical(self) -> None:
+        manifest = evidence.failure_manifest(
+            result="TEST_FAILURE",
+            reason_code="CLEANUP_FAILED",
+            cleanup_verified=False,
+            source_sha=self.sha,
+            run_id=self.run_id,
+            run_attempt=self.attempt,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "nested" / "manifest.json"
+            evidence.write_failure_manifest(path, manifest)
+
+            self.assertEqual(path.read_bytes(), evidence.canonical_bytes(manifest))
+            self.assertEqual(
+                evidence.validate(
+                    path,
+                    expected_source_sha=self.sha,
+                    expected_run_id=self.run_id,
+                    expected_run_attempt=self.attempt,
+                ),
+                manifest,
+            )
+
+    def test_cli_rejects_valid_classified_failure(self) -> None:
+        manifest = evidence.failure_manifest(
+            result="INFRA_GAP",
+            reason_code="PRIVILEGE_MISSING",
+            cleanup_verified=False,
+            source_sha=self.sha,
+            run_id=self.run_id,
+            run_attempt=self.attempt,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            evidence.write_failure_manifest(path, manifest)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--manifest",
+                    str(path),
+                    "--expected-source-sha",
+                    self.sha,
+                    "--expected-run-id",
+                    self.run_id,
+                    "--expected-run-attempt",
+                    self.attempt,
+                ],
+                capture_output=True,
+                check=False,
+                text=True,
+            )
+
+            self.assertEqual(completed.returncode, 1)
+            self.assertIn("INFRA_GAP/PRIVILEGE_MISSING", completed.stderr)
+
+    def test_finalizer_classifies_prerequisite_and_build_failures(self) -> None:
+        cases = (
+            ("failure", "skipped", "skipped", "INFRA_GAP", "PREREQUISITE_SETUP_FAILED"),
+            ("success", "failure", "skipped", "TEST_FAILURE", "BUILD_FAILED"),
+        )
+        for prerequisite, build, runtime, result, reason in cases:
+            with self.subTest(result=result, reason=reason), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "manifest.json"
+                manifest = evidence.finalize_workflow_evidence(
+                    path,
+                    prerequisite_outcome=prerequisite,
+                    build_outcome=build,
+                    runtime_outcome=runtime,
+                    source_sha=self.sha,
+                    run_id=self.run_id,
+                    run_attempt=self.attempt,
+                )
+
+                self.assertEqual(manifest["result"], result)
+                self.assertEqual(manifest["reasonCode"], reason)
+                self.assertFalse(manifest["cleanupVerified"])
+                self.assertEqual(path.read_bytes(), evidence.canonical_bytes(manifest))
+
+    def test_finalizer_replaces_malformed_evidence_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            path.write_text('{"result":"PASS"}\n', encoding="utf-8")
+
+            manifest = evidence.finalize_workflow_evidence(
+                path,
+                prerequisite_outcome="success",
+                build_outcome="success",
+                runtime_outcome="failure",
+                source_sha=self.sha,
+                run_id=self.run_id,
+                run_attempt=self.attempt,
+            )
+
+            self.assertEqual(manifest["result"], "TEST_FAILURE")
+            self.assertEqual(manifest["reasonCode"], "EVIDENCE_MALFORMED_UNVERIFIED")
+            self.assertFalse(manifest["cleanupVerified"])
+
+    def test_finalizer_replaces_non_string_failure_discriminators(self) -> None:
+        for field, value in (("result", []), ("reasonCode", {})):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "manifest.json"
+                malformed = evidence.failure_manifest(
+                    result="INFRA_GAP",
+                    reason_code="TUN_UNAVAILABLE",
+                    cleanup_verified=False,
+                    source_sha=self.sha,
+                    run_id=self.run_id,
+                    run_attempt=self.attempt,
+                )
+                malformed[field] = value
+                path.write_bytes(evidence.canonical_bytes(malformed))
+
+                manifest = evidence.finalize_workflow_evidence(
+                    path,
+                    prerequisite_outcome="success",
+                    build_outcome="success",
+                    runtime_outcome="failure",
+                    source_sha=self.sha,
+                    run_id=self.run_id,
+                    run_attempt=self.attempt,
+                )
+
+                self.assertEqual(manifest["result"], "TEST_FAILURE")
+                self.assertEqual(manifest["reasonCode"], "EVIDENCE_MALFORMED_UNVERIFIED")
 
     def test_rejects_missing_ipv6_phase(self) -> None:
         manifest = self.valid_manifest()

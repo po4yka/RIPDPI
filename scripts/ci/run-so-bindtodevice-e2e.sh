@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 tun_device="${RIPDPI_TUN_DEVICE:-/dev/net/tun}"
 evidence_path="${RIPDPI_SO_BIND_EVIDENCE_PATH:?RIPDPI_SO_BIND_EVIDENCE_PATH is required}"
 ownership_path="$(dirname "$evidence_path")/ownership.env"
@@ -8,6 +9,45 @@ test_binary="${RIPDPI_SO_BIND_TEST_BINARY:?RIPDPI_SO_BIND_TEST_BINARY is require
 : "${RIPDPI_EVIDENCE_SOURCE_SHA:?RIPDPI_EVIDENCE_SOURCE_SHA is required}"
 : "${RIPDPI_EVIDENCE_RUN_ID:?RIPDPI_EVIDENCE_RUN_ID is required}"
 : "${RIPDPI_EVIDENCE_RUN_ATTEMPT:?RIPDPI_EVIDENCE_RUN_ATTEMPT is required}"
+
+write_failure_manifest() {
+    local result="$1"
+    local reason_code="$2"
+    local cleanup_verified="$3"
+    local cleanup_argument=()
+    if [ "$cleanup_verified" = "true" ]; then
+        cleanup_argument+=(--cleanup-verified)
+    fi
+    python3 "$script_dir/check_so_bindtodevice_evidence.py" \
+        --manifest "$evidence_path" \
+        --expected-source-sha "$RIPDPI_EVIDENCE_SOURCE_SHA" \
+        --expected-run-id "$RIPDPI_EVIDENCE_RUN_ID" \
+        --expected-run-attempt "$RIPDPI_EVIDENCE_RUN_ATTEMPT" \
+        --write-failure-result "$result" \
+        --reason-code "$reason_code" \
+        "${cleanup_argument[@]}"
+}
+
+fail_infra() {
+    local reason_code="$1"
+    local message="$2"
+    echo "$message" >&2
+    write_failure_manifest INFRA_GAP "$reason_code" false
+    exit 75
+}
+
+cleanup_capability_probe() {
+    local status=$?
+    trap - EXIT
+    if [ -n "${capability_probe:-}" ]; then
+        ip link del "$capability_probe" >/dev/null 2>&1 || true
+        if ! link_is_absent "$capability_probe"; then
+            echo "owned CAP_NET_ADMIN probe interface survived cleanup" >&2
+            status=1
+        fi
+    fi
+    exit "$status"
+}
 
 rule_priority_is_clear() {
     local family="$1"
@@ -44,7 +84,9 @@ namespace_is_absent() {
 }
 
 cleanup_check() {
-    status=$?
+    local status=$?
+    local cleanup_verified=true
+    local failure_reason=ADVERSARIAL_TEST_FAILED
     trap - EXIT
     if [ -f "$ownership_path" ]; then
         namespace="$(awk -F= '$1 == "namespace" {print $2}' "$ownership_path")"
@@ -59,17 +101,18 @@ cleanup_check() {
             || ! "$table" =~ ^[0-9]+$ ]]; then
             echo "invalid SO_BINDTODEVICE ownership descriptor" >&2
             status=1
+            cleanup_verified=false
         else
             ip rule del pref "$rule_priority" oif tun0 lookup "$table" >/dev/null 2>&1 || true
             ip -6 rule del pref "$rule_priority" oif tun0 lookup "$table" >/dev/null 2>&1 || true
             if ip link show dev "$host_veth" >/dev/null 2>&1; then
-                ip link del dev "$host_veth" >/dev/null 2>&1 || status=1
+                ip link del dev "$host_veth" >/dev/null 2>&1 || { status=1; cleanup_verified=false; }
             fi
             if ip link show dev "$peer_veth" >/dev/null 2>&1; then
-                ip link del dev "$peer_veth" >/dev/null 2>&1 || status=1
+                ip link del dev "$peer_veth" >/dev/null 2>&1 || { status=1; cleanup_verified=false; }
             fi
             if ip netns list | awk '{print $1}' | grep -qx "$namespace"; then
-                ip netns del "$namespace" >/dev/null 2>&1 || status=1
+                ip netns del "$namespace" >/dev/null 2>&1 || { status=1; cleanup_verified=false; }
             fi
             if ! rule_priority_is_clear ipv4 "$rule_priority" \
                 || ! rule_priority_is_clear ipv6 "$rule_priority" \
@@ -78,51 +121,80 @@ cleanup_check() {
                 || ! namespace_is_absent "$namespace"; then
                 echo "owned SO_BINDTODEVICE topology survived cleanup" >&2
                 status=1
+                cleanup_verified=false
             fi
         fi
     fi
     if ! link_is_absent tun0; then
         echo "orphaned tun0 after SO_BINDTODEVICE lane" >&2
         status=1
+        cleanup_verified=false
     fi
     rm -f "$ownership_path"
+    if [ "$cleanup_verified" != "true" ]; then
+        failure_reason=CLEANUP_FAILED
+    elif [ "$status" -eq 0 ] && [ ! -f "$evidence_path" ]; then
+        status=1
+        failure_reason=EVIDENCE_MISSING
+    elif [ "$status" -eq 0 ] && ! python3 "$script_dir/check_so_bindtodevice_evidence.py" \
+        --manifest "$evidence_path" \
+        --expected-source-sha "$RIPDPI_EVIDENCE_SOURCE_SHA" \
+        --expected-run-id "$RIPDPI_EVIDENCE_RUN_ID" \
+        --expected-run-attempt "$RIPDPI_EVIDENCE_RUN_ATTEMPT" >/dev/null; then
+        status=1
+        failure_reason=EVIDENCE_INVALID
+    fi
+    if [ "$status" -ne 0 ]; then
+        write_failure_manifest TEST_FAILURE "$failure_reason" "$cleanup_verified" || status=1
+    fi
     exit "$status"
 }
 
 if [ "$(uname -s)" != "Linux" ]; then
-    echo "SO_BINDTODEVICE E2E requires Linux" >&2
-    exit 1
+    fail_infra PLATFORM_UNSUPPORTED "SO_BINDTODEVICE E2E requires Linux"
 fi
 if [ "$(id -u)" != "0" ]; then
-    echo "SO_BINDTODEVICE E2E requires root/CAP_NET_ADMIN" >&2
-    exit 1
+    fail_infra PRIVILEGE_MISSING "SO_BINDTODEVICE E2E requires root/CAP_NET_ADMIN"
 fi
 if [ "${RIPDPI_RUN_SO_BINDTODEVICE_E2E:-}" != "1" ]; then
-    echo "RIPDPI_RUN_SO_BINDTODEVICE_E2E=1 is required" >&2
-    exit 1
+    fail_infra RUN_NOT_AUTHORIZED "RIPDPI_RUN_SO_BINDTODEVICE_E2E=1 is required"
 fi
 if [ ! -c "$tun_device" ]; then
-    echo "Linux TUN device is unavailable: $tun_device" >&2
-    exit 1
+    fail_infra TUN_UNAVAILABLE "Linux TUN device is unavailable: $tun_device"
 fi
 if [[ "$test_binary" != /* ]] || [ ! -f "$test_binary" ] || [ ! -x "$test_binary" ]; then
-    echo "SO_BINDTODEVICE test binary must be an absolute executable path: $test_binary" >&2
-    exit 1
+    fail_infra TEST_BINARY_INVALID "SO_BINDTODEVICE test binary must be an absolute executable path: $test_binary"
 fi
 for command in ip setpriv; do
-    command -v "$command" >/dev/null || { echo "required command is unavailable: $command" >&2; exit 1; }
+    command -v "$command" >/dev/null || fail_infra TOOL_MISSING "required command is unavailable: $command"
 done
-netns_snapshot="$(ip netns list)" || { echo "cannot inspect network namespaces" >&2; exit 1; }
-link_snapshot="$(ip -o link show)" || { echo "cannot inspect network links" >&2; exit 1; }
-ipv4_rule_snapshot="$(ip -o rule show)" || { echo "cannot inspect IPv4 policy rules" >&2; exit 1; }
-ipv6_rule_snapshot="$(ip -6 -o rule show)" || { echo "cannot inspect IPv6 policy rules" >&2; exit 1; }
+capability_probe="rdcap${BASHPID}"
+if ! ip link add "$capability_probe" type dummy >/dev/null 2>&1; then
+    fail_infra PRIVILEGE_MISSING "SO_BINDTODEVICE E2E requires CAP_NET_ADMIN"
+fi
+trap cleanup_capability_probe EXIT
+if ! ip link del "$capability_probe" >/dev/null 2>&1; then
+    echo "cannot remove owned CAP_NET_ADMIN probe interface" >&2
+    write_failure_manifest TEST_FAILURE CLEANUP_FAILED false
+    exit 1
+fi
+if ! link_is_absent "$capability_probe"; then
+    echo "owned CAP_NET_ADMIN probe interface survived cleanup" >&2
+    write_failure_manifest TEST_FAILURE CLEANUP_FAILED false
+    exit 1
+fi
+capability_probe=""
+trap - EXIT
+netns_snapshot="$(ip netns list)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect network namespaces"
+link_snapshot="$(ip -o link show)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect network links"
+ipv4_rule_snapshot="$(ip -o rule show)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect IPv4 policy rules"
+ipv6_rule_snapshot="$(ip -6 -o rule show)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect IPv6 policy rules"
 if printf '%s\n' "$netns_snapshot" | awk '{print $1}' | grep -q '^ripdpi-uid-' \
     || printf '%s\n' "$link_snapshot" | grep -Eq ': (rduh|rdup)[0-9]+(@[^:]*)?:' \
     || ! link_is_absent tun0 \
     || printf '%s\n' "$ipv4_rule_snapshot" | grep -q 'oif tun0' \
     || printf '%s\n' "$ipv6_rule_snapshot" | grep -q 'oif tun0'; then
-    echo "SO_BINDTODEVICE lane requires a clean network topology" >&2
-    exit 1
+    fail_infra DIRTY_TOPOLOGY "SO_BINDTODEVICE lane requires a clean network topology"
 fi
 rm -f "$evidence_path" "$ownership_path"
 trap cleanup_check EXIT

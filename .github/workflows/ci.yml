@@ -2104,6 +2104,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install physical TUN prerequisites
+        id: so_bind_prerequisites
         run: |
           sudo apt-get update
           sudo apt-get install -y iproute2 util-linux
@@ -2120,6 +2121,7 @@ jobs:
           echo "test_binary=$test_binary" >> "$GITHUB_OUTPUT"
 
       - name: Run unprivileged SO_BINDTODEVICE adversarial E2E
+        id: so_bind_runtime
         run: |
           evidence_dir="$RUNNER_TEMP/so-bindtodevice-evidence"
           mkdir -p "$evidence_dir"
@@ -2136,7 +2138,20 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" "$evidence_dir"
           exit "$runtime_status"
 
+      - name: Finalize classified SO_BINDTODEVICE evidence
+        if: always()
+        run: |
+          python3 scripts/ci/check_so_bindtodevice_evidence.py \
+            --manifest "$RUNNER_TEMP/so-bindtodevice-evidence/manifest.json" \
+            --expected-source-sha "$GITHUB_SHA" \
+            --expected-run-id "$GITHUB_RUN_ID" \
+            --expected-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --finalize-prerequisite-outcome "${{ steps.so_bind_prerequisites.outcome }}" \
+            --finalize-build-outcome "${{ steps.so_bind_build.outcome }}" \
+            --finalize-runtime-outcome "${{ steps.so_bind_runtime.outcome }}"
+
       - name: Validate redacted SO_BINDTODEVICE evidence as runner user
+        if: always()
         run: |
           python3 scripts/ci/check_so_bindtodevice_evidence.py \
             --manifest "$RUNNER_TEMP/so-bindtodevice-evidence/manifest.json" \
