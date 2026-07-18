@@ -7,11 +7,16 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
+import java.io.FilterOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 
 @RunWith(RobolectricTestRunner::class)
 class StrategyConfigDraftStoreTest {
@@ -159,6 +164,41 @@ class StrategyConfigDraftStoreTest {
             assertEquals(complete.draft, restored.draft)
         }
 
+    @Test
+    fun `directory path occupied by a file fails persist without swallowing the error`() =
+        runTest {
+            directory.parentFile?.mkdirs()
+            directory.writeText("not a directory")
+            val session = dirtySession("tcp: new")
+
+            val failure = runCatching { store.persist(newStrategyConfigSessionId(), session) }.exceptionOrNull()
+
+            assertTrue(failure is IOException)
+            assertEquals("not a directory", directory.readText())
+        }
+
+    @Test
+    fun `atomic start write and finish failures preserve the previous complete record`() =
+        runTest {
+            AtomicPersistFailure.entries.forEach { failurePoint ->
+                directory.deleteRecursively()
+                val sessionId = newStrategyConfigSessionId()
+                val complete = dirtySession("tcp: complete")
+                val replacement = dirtySession("tcp: replacement")
+                store.persist(sessionId, complete)
+                val failingStore =
+                    FileStrategyConfigDraftStore(directory) { file ->
+                        FailingStrategyConfigAtomicFile(file, failurePoint)
+                    }
+
+                val failure = runCatching { failingStore.persist(sessionId, replacement) }.exceptionOrNull()
+
+                assertTrue("$failurePoint must be reported", failure is IOException)
+                val restored = requireNotNull(store.restore(sessionId))
+                assertEquals("$failurePoint must keep the old record", complete.draft, restored.draft)
+            }
+        }
+
     private fun fileFor(sessionId: String): File = File(directory, sessionId + StrategyConfigDraftFileSuffix)
 
     private fun persistedRecordJson(
@@ -197,4 +237,57 @@ class StrategyConfigDraftStoreTest {
             luaPath = luaPath,
             luaFunction = luaFunction,
         )
+
+    private fun dirtySession(configText: String): StrategyConfigEditorSession {
+        val baseline = draft(configText = "tcp: split", luaPath = "", luaFunction = "")
+        return StrategyConfigEditorSession(
+            baseline = baseline,
+            draft = baseline.copy(configText = configText),
+        )
+    }
+}
+
+private enum class AtomicPersistFailure {
+    StartWrite,
+    Write,
+    FinishWrite,
+}
+
+private class FailingStrategyConfigAtomicFile(
+    file: File,
+    private val failurePoint: AtomicPersistFailure,
+) : StrategyConfigAtomicFile {
+    private val delegate = AndroidStrategyConfigAtomicFile(file)
+    private var delegateOutput: OutputStream? = null
+
+    override fun openRead(): InputStream = delegate.openRead()
+
+    override fun startWrite(): OutputStream {
+        if (failurePoint == AtomicPersistFailure.StartWrite) throw IOException("startWrite failed")
+        val output = delegate.startWrite().also { delegateOutput = it }
+        return if (failurePoint == AtomicPersistFailure.Write) {
+            object : FilterOutputStream(output) {
+                override fun write(value: Int) = throw IOException("write failed")
+
+                override fun write(
+                    bytes: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ) = throw IOException("write failed")
+            }
+        } else {
+            output
+        }
+    }
+
+    override fun finishWrite(output: OutputStream) {
+        if (failurePoint == AtomicPersistFailure.FinishWrite) throw IOException("finishWrite failed")
+        delegate.finishWrite(requireNotNull(delegateOutput))
+    }
+
+    override fun failWrite(output: OutputStream) {
+        delegate.failWrite(requireNotNull(delegateOutput))
+    }
+
+    override fun delete() = delegate.delete()
 }

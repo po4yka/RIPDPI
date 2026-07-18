@@ -50,18 +50,17 @@ fun StrategyConfigRoute(
     val editorSession = editorViewModel.sessionOrInitial(uiState.desync.chainDsl)
     var banner by remember { mutableStateOf<StrategyConfigBanner?>(null) }
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
-    val requestBack = {
-        requestStrategyConfigRouteExit(
-            editorViewModel = editorViewModel,
-            fallback = editorSession,
-            onDirty = { showUnsavedChangesDialog = true },
-            onBack = onBack,
-        )
-    }
+    val requestBack = editorViewModel::requestExit
 
     SecureWindowEffect()
     BackHandler(onBack = requestBack)
     StrategyConfigHydrationEffect(editorViewModel, uiState.desync.chainDsl)
+    StrategyConfigExitEffect(
+        decision = editorViewModel.exitDecision,
+        onConsumed = editorViewModel::consumeExitDecision,
+        onDirty = { showUnsavedChangesDialog = true },
+        onBack = onBack,
+    )
 
     val importLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -135,19 +134,21 @@ private fun StrategyConfigHydrationEffect(
     }
 }
 
-private fun requestStrategyConfigRouteExit(
-    editorViewModel: StrategyConfigEditorViewModel,
-    fallback: StrategyConfigEditorSession,
+@Composable
+private fun StrategyConfigExitEffect(
+    decision: StrategyConfigExitDecision?,
+    onConsumed: (StrategyConfigExitDecision) -> Unit,
     onDirty: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val current = editorViewModel.session ?: fallback
-    requestStrategyConfigExit(
-        blocked = editorViewModel.isHydrating || current.isSaving,
-        isDirty = current.isDirty,
-        onDirty = onDirty,
-        onBack = onBack,
-    )
+    LaunchedEffect(decision) {
+        decision ?: return@LaunchedEffect
+        onConsumed(decision)
+        when (decision) {
+            StrategyConfigExitDecision.ConfirmDiscard -> onDirty()
+            StrategyConfigExitDecision.NavigateBack -> onBack()
+        }
+    }
 }
 
 private fun CoroutineScope.discardStrategyConfigDraft(
@@ -164,7 +165,7 @@ private fun CoroutineScope.discardStrategyConfigDraft(
     }
 }
 
-private suspend fun runStrategyConfigRouteSave(
+internal suspend fun runStrategyConfigRouteSave(
     context: Context,
     editorViewModel: StrategyConfigEditorViewModel,
     request: StrategyConfigSaveRequest,
@@ -175,23 +176,10 @@ private suspend fun runStrategyConfigRouteSave(
             if (error is CancellationException) throw error
             StrategyConfigBanner(
                 title = context.getString(R.string.strategy_config_reload_failed_title),
-                message = error.localizedMessage ?: error.toString(),
+                message = strategyConfigInternalErrorMessage(context),
                 tone = WarningBannerTone.Error,
             )
         }
-
-internal fun requestStrategyConfigExit(
-    blocked: Boolean,
-    isDirty: Boolean,
-    onDirty: () -> Unit,
-    onBack: () -> Unit,
-) {
-    when {
-        blocked -> Unit
-        isDirty -> onDirty()
-        else -> onBack()
-    }
-}
 
 private fun StrategyConfigEditorSession.toRouteScreenState(
     context: Context,
@@ -344,8 +332,7 @@ private suspend fun saveStrategyConfig(
                 StrategyConfigBanner(
                     title = context.getString(R.string.strategy_config_invalid_title),
                     message =
-                        validation.exceptionOrNull()?.localizedMessage
-                            ?: context.getString(R.string.config_error_invalid_chain),
+                        context.getString(R.string.config_error_invalid_chain),
                     tone = WarningBannerTone.Error,
                 )
             }
@@ -397,7 +384,7 @@ private suspend fun saveAndApplyStrategyConfig(
             }
             StrategyConfigBanner(
                 title = context.getString(R.string.strategy_config_reload_failed_title),
-                message = error.localizedMessage ?: error.toString(),
+                message = strategyConfigInternalErrorMessage(context),
                 tone = WarningBannerTone.Error,
             )
         },
@@ -516,7 +503,7 @@ private fun luaRuntimeValidationBanner(
         } else {
             baseDir.fold(
                 onSuccess = { dir -> runtime.loadLuaScript(dir, path) },
-                onFailure = { failure -> failure.localizedMessage ?: failure.toString() },
+                onFailure = { strategyConfigInternalErrorMessage(context) },
             )
         }
     return when {
@@ -636,6 +623,9 @@ private fun importErrorMessage(
         }
 
         else -> {
-            error.localizedMessage ?: context.getString(R.string.strategy_config_import_unreadable)
+            context.getString(R.string.strategy_config_import_unreadable)
         }
     }
+
+private fun strategyConfigInternalErrorMessage(context: Context): String =
+    context.getString(R.string.update_error_unknown)

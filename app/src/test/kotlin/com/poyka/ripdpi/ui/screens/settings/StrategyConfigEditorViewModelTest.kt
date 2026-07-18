@@ -165,6 +165,48 @@ class StrategyConfigEditorViewModelTest {
     }
 
     @Test
+    fun `exit requested during hydration is decided once from restored dirty state`() {
+        val sessionId = newStrategyConfigSessionId()
+        val store = PausedRestoreStrategyConfigDraftStore(dirtySession())
+        val viewModel =
+            StrategyConfigEditorViewModel(
+                SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to sessionId)),
+                store,
+            )
+        viewModel.syncBuiltIn("tcp: settings")
+
+        viewModel.requestExit()
+        viewModel.requestExit()
+        assertNull(viewModel.exitDecision)
+
+        store.finishRestore()
+
+        assertEquals(StrategyConfigExitDecision.ConfirmDiscard, viewModel.exitDecision)
+        viewModel.consumeExitDecision(StrategyConfigExitDecision.ConfirmDiscard)
+        assertNull(viewModel.exitDecision)
+    }
+
+    @Test
+    fun `exit requested during save is decided once after save releases`() =
+        runTest {
+            val store = FakeStrategyConfigDraftStore()
+            val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: dirty") }
+            val request = requireNotNull(viewModel.beginSave())
+
+            viewModel.requestExit()
+            viewModel.requestExit()
+            assertNull(viewModel.exitDecision)
+
+            viewModel.completeSave(request, succeeded = false)
+
+            assertEquals(StrategyConfigExitDecision.ConfirmDiscard, viewModel.exitDecision)
+            viewModel.consumeExitDecision(StrategyConfigExitDecision.ConfirmDiscard)
+            assertNull(viewModel.exitDecision)
+        }
+
+    @Test
     fun `successful save waits until clean draft deletion is durable`() =
         runTest {
             val store = ControllableDeleteStrategyConfigDraftStore()
@@ -240,6 +282,86 @@ class StrategyConfigEditorViewModelTest {
                     .getValue(handle.sessionId())
                     .draft.luaFunction,
             )
+        }
+
+    @Test
+    fun `failed clean-draft deletion keeps latest edit dirty and restores it after recreation`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: submitted") }
+            val request = requireNotNull(viewModel.beginSave())
+            store.pauseNextDelete = true
+
+            val result =
+                async {
+                    runCatching {
+                        viewModel.runSave(request) {
+                            StrategyConfigBanner(
+                                title = "saved",
+                                message = "saved",
+                                tone = WarningBannerTone.Info,
+                                saved = true,
+                            )
+                        }
+                    }
+                }
+            runCurrent()
+            viewModel.update { copy(configText = "tcp: latest while deleting") }
+            store.failDelete(IllegalStateException("/data/user/0/private-draft.json"))
+
+            assertNotNull(result.await().exceptionOrNull())
+            runCurrent()
+            val current = requireNotNull(viewModel.session)
+            assertFalse(current.isSaving)
+            assertTrue(current.isDirty)
+            assertEquals("tcp: latest while deleting", current.draft.configText)
+            assertEquals("tcp: split", current.baseline.configText)
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: split")
+
+            assertEquals("tcp: latest while deleting", requireNotNull(recreated.session).draft.configText)
+            assertTrue(requireNotNull(recreated.session).isDirty)
+        }
+
+    @Test
+    fun `edit made while successful deletion waits is persisted before save completes`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: submitted") }
+            val request = requireNotNull(viewModel.beginSave())
+            store.pauseNextDelete = true
+            val result =
+                async {
+                    viewModel.runSave(request) {
+                        StrategyConfigBanner("saved", "saved", WarningBannerTone.Info, saved = true)
+                    }
+                }
+            runCurrent()
+
+            viewModel.update { copy(configText = "tcp: latest while deleting") }
+            store.finishDelete()
+            assertTrue(result.await().saved)
+            runCurrent()
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: submitted")
+            assertEquals("tcp: latest while deleting", requireNotNull(recreated.session).draft.configText)
+            assertTrue(requireNotNull(recreated.session).isDirty)
         }
 
     @Test
@@ -329,6 +451,12 @@ private class ControllableDeleteStrategyConfigDraftStore : FakeStrategyConfigDra
         sessions.remove(sessionId)
         pendingDelete = null
         continuation.resumeWith(Result.success(Unit))
+    }
+
+    fun failDelete(failure: Throwable) {
+        val (_, continuation) = requireNotNull(pendingDelete)
+        pendingDelete = null
+        continuation.resumeWith(Result.failure(failure))
     }
 }
 

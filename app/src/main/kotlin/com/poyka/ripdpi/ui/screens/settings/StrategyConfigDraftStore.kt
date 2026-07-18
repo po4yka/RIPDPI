@@ -15,7 +15,10 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.util.UUID
@@ -47,11 +50,14 @@ internal interface StrategyConfigDraftStore {
 
 @Singleton
 internal class FileStrategyConfigDraftStore
-    @Inject
-    constructor(
-        @ApplicationContext context: Context,
+    internal constructor(
+        private val directory: File,
+        private val atomicFileFactory: (File) -> StrategyConfigAtomicFile = ::AndroidStrategyConfigAtomicFile,
     ) : StrategyConfigDraftStore {
-        private val directory = File(context.noBackupFilesDir, StrategyConfigDraftDirectoryName)
+        @Inject
+        constructor(
+            @ApplicationContext context: Context,
+        ) : this(File(context.noBackupFilesDir, StrategyConfigDraftDirectoryName))
 
         override suspend fun restore(sessionId: String): StrategyConfigEditorSession? =
             withContext(Dispatchers.IO) {
@@ -59,8 +65,8 @@ internal class FileStrategyConfigDraftStore
                 val now = System.currentTimeMillis()
                 cleanupStaleFiles(now)
                 val file = fileFor(sessionId)
-                val restored = runCatching { readRecord(AtomicFile(file), now) }.getOrNull()
-                if (restored == null) AtomicFile(file).delete()
+                val restored = runCatching { readRecord(atomicFileFactory(file), now) }.getOrNull()
+                if (restored == null) atomicFileFactory(file).delete()
                 restored?.toSession()
             }
 
@@ -69,23 +75,26 @@ internal class FileStrategyConfigDraftStore
             session: StrategyConfigEditorSession,
         ) = withContext(Dispatchers.IO) {
             if (!isValidStrategyConfigSessionId(sessionId) || !session.isValidForPersistence()) {
-                if (isValidStrategyConfigSessionId(sessionId)) AtomicFile(fileFor(sessionId)).delete()
+                if (isValidStrategyConfigSessionId(sessionId)) atomicFileFactory(fileFor(sessionId)).delete()
                 return@withContext
             }
-            directory.mkdirs()
+            ensureDirectory()
             val record = StrategyConfigDraftRecord.from(session, System.currentTimeMillis())
             val bytes = StrategyConfigDraftJson.encodeToString(record).toByteArray(Charsets.UTF_8)
             if (bytes.size > StrategyConfigMaxRecordBytes) {
-                AtomicFile(fileFor(sessionId)).delete()
+                atomicFileFactory(fileFor(sessionId)).delete()
                 return@withContext
             }
-            val atomicFile = AtomicFile(fileFor(sessionId))
-            val output = runCatching { atomicFile.startWrite() }.getOrNull() ?: return@withContext
+            val atomicFile = atomicFileFactory(fileFor(sessionId))
+            val output = atomicFile.startWrite()
             try {
                 output.write(bytes)
                 atomicFile.finishWrite(output)
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
                 runCatching { atomicFile.failWrite(output) }
+                    .exceptionOrNull()
+                    ?.let(failure::addSuppressed)
+                throw failure
             }
         }
 
@@ -93,13 +102,13 @@ internal class FileStrategyConfigDraftStore
             withContext(Dispatchers.IO) {
                 if (isValidStrategyConfigSessionId(sessionId)) {
                     val file = fileFor(sessionId)
-                    AtomicFile(file).delete()
+                    atomicFileFactory(file).delete()
                     check(!file.exists()) { "Strategy draft file could not be deleted" }
                 }
             }
 
         private fun readRecord(
-            file: AtomicFile,
+            file: StrategyConfigAtomicFile,
             now: Long,
         ): StrategyConfigDraftRecord? =
             file
@@ -113,12 +122,54 @@ internal class FileStrategyConfigDraftStore
         private fun cleanupStaleFiles(now: Long) {
             directory.listFiles()?.forEach { file ->
                 val age = now - file.lastModified()
-                if (age > StrategyConfigDraftTtlMillis) AtomicFile(file).delete()
+                if (age > StrategyConfigDraftTtlMillis) atomicFileFactory(file).delete()
+            }
+        }
+
+        private fun ensureDirectory() {
+            if (directory.isDirectory) return
+            if (directory.exists() || !directory.mkdirs() || !directory.isDirectory) {
+                throw IOException("Strategy draft directory is unavailable")
             }
         }
 
         private fun fileFor(sessionId: String): File = File(directory, sessionId + StrategyConfigDraftFileSuffix)
     }
+
+internal interface StrategyConfigAtomicFile {
+    fun openRead(): InputStream
+
+    fun startWrite(): OutputStream
+
+    fun finishWrite(output: OutputStream)
+
+    fun failWrite(output: OutputStream)
+
+    fun delete()
+}
+
+internal class AndroidStrategyConfigAtomicFile(
+    file: File,
+) : StrategyConfigAtomicFile {
+    private val delegate = AtomicFile(file)
+
+    override fun openRead(): InputStream = delegate.openRead()
+
+    override fun startWrite(): OutputStream = delegate.startWrite()
+
+    override fun finishWrite(output: OutputStream) {
+        delegate.finishWrite(output.requireFileOutputStream())
+    }
+
+    override fun failWrite(output: OutputStream) {
+        delegate.failWrite(output.requireFileOutputStream())
+    }
+
+    override fun delete() = delegate.delete()
+}
+
+private fun OutputStream.requireFileOutputStream(): FileOutputStream =
+    requireNotNull(this as? FileOutputStream) { "Atomic draft output must be a FileOutputStream" }
 
 @Module
 @InstallIn(SingletonComponent::class)
