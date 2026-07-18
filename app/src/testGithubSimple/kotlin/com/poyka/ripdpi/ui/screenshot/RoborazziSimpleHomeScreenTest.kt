@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
@@ -62,26 +66,31 @@ class RoborazziSimpleHomeScreenTest {
     fun simpleHomeReportCompleted() {
         captureRipDpiScreenshot(widthDp = 412, heightDp = 915) {
             RipDpiTheme(themePreference = "light") {
-                SimpleHomeContent(
-                    connectionState = ConnectionState.Disconnected,
-                    diagnostics =
-                        HomeDiagnosticsUiState(
-                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
-                            analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
-                            analysisSheet =
-                                HomeDiagnosticsAnalysisSheetUiState(
-                                    runId = "run-1",
-                                    headline = "Network analysis complete",
-                                    summary = "Two recommended settings are ready to review.",
-                                ),
-                        ),
-                    activeTransport = null,
-                    snackbarHostState = SnackbarHostState(),
-                    onToggleConnection = {},
-                    onRunReport = {},
-                    onCancelReport = {},
-                    onShareReport = {},
-                )
+                SimpleCompletedReport()
+            }
+        }
+    }
+
+    @Test
+    fun simpleHomeReportCompletedDarkLargeFont() {
+        captureRipDpiScreenshot(widthDp = 412, heightDp = 1100, fontScale = 1.5f) {
+            RipDpiTheme(themePreference = "dark") {
+                SimpleCompletedReport()
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ar-rSA")
+    fun simpleHomeReportCompletedRtl() {
+        captureRipDpiScreenshot(widthDp = 412, heightDp = 915) {
+            RipDpiTheme(themePreference = "light") {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    SimpleCompletedReport(
+                        headline = "اكتمل تحليل الشبكة",
+                        summary = "يوجد إعدادان موصى بهما جاهزان للمراجعة.",
+                    )
+                }
             }
         }
     }
@@ -90,23 +99,76 @@ class RoborazziSimpleHomeScreenTest {
     fun simpleHomeExpanded() {
         captureRipDpiScreenshot(widthDp = 1200, heightDp = 900) {
             RipDpiTheme(themePreference = "light") {
-                SimpleHomeContent(
-                    connectionState = ConnectionState.Disconnected,
-                    diagnostics =
-                        HomeDiagnosticsUiState(
-                            analysisAction =
-                                HomeDiagnosticsActionUiState(
-                                    supportingText = "Ready to analyze this network",
-                                    enabled = true,
-                                ),
-                        ),
-                    activeTransport = null,
-                    snackbarHostState = SnackbarHostState(),
-                    onToggleConnection = {},
-                    onRunReport = {},
-                    onCancelReport = {},
-                )
+                SimpleExpandedHome()
             }
         }
     }
+
+    @Test
+    fun simpleHomeExpandedDarkLargeFont() {
+        captureRipDpiScreenshot(widthDp = 1200, heightDp = 1000, fontScale = 1.5f) {
+            RipDpiTheme(themePreference = "dark") {
+                SimpleExpandedHome()
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ar-rSA")
+    fun simpleHomeExpandedRtl() {
+        captureRipDpiScreenshot(widthDp = 1200, heightDp = 900) {
+            RipDpiTheme(themePreference = "light") {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    SimpleExpandedHome(supportingText = "جاهز لتحليل هذه الشبكة")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimpleCompletedReport(
+    headline: String = "Network analysis complete",
+    summary: String = "Two recommended settings are ready to review.",
+) {
+    SimpleHomeContent(
+        connectionState = ConnectionState.Disconnected,
+        diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+                analysisSheet =
+                    HomeDiagnosticsAnalysisSheetUiState(
+                        runId = "run-1",
+                        headline = headline,
+                        summary = summary,
+                    ),
+            ),
+        activeTransport = null,
+        snackbarHostState = SnackbarHostState(),
+        onToggleConnection = {},
+        onRunReport = {},
+        onCancelReport = {},
+        onShareReport = {},
+    )
+}
+
+@Composable
+private fun SimpleExpandedHome(supportingText: String = "Ready to analyze this network") {
+    SimpleHomeContent(
+        connectionState = ConnectionState.Disconnected,
+        diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction =
+                    HomeDiagnosticsActionUiState(
+                        supportingText = supportingText,
+                        enabled = true,
+                    ),
+            ),
+        activeTransport = null,
+        snackbarHostState = SnackbarHostState(),
+        onToggleConnection = {},
+        onRunReport = {},
+        onCancelReport = {},
+    )
 }
