@@ -22,7 +22,6 @@ import com.poyka.ripdpi.data.assets.BuiltInAssetProviders
 import com.poyka.ripdpi.data.assets.CustomAssetProviderId
 import com.poyka.ripdpi.data.assets.DefaultAssetProviderId
 import com.poyka.ripdpi.data.assets.GeoAssetKind
-import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -311,24 +310,22 @@ private fun AssetProviderActionsCard(
                 enabled = !state.checking,
                 leadingIcon = RipDpiIcons.Refresh,
             )
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
             ) {
                 RipDpiButton(
                     text = stringResource(R.string.asset_provider_import_geoip),
                     onClick = onImportGeoip,
-                    modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.AssetProviderImport),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderImport),
                     variant = RipDpiButtonVariant.Outline,
-                    density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.Advanced,
                 )
                 RipDpiButton(
                     text = stringResource(R.string.asset_provider_import_geosite),
                     onClick = onImportGeosite,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     variant = RipDpiButtonVariant.Outline,
-                    density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.Advanced,
                 )
             }

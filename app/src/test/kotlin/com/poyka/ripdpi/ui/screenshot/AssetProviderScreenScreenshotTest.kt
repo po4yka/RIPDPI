@@ -59,11 +59,36 @@ class AssetProviderScreenScreenshotTest {
         )
     }
 
+    @Test
+    fun assetProviderLargeFont() {
+        capture(
+            name = "assetProviderLargeFont",
+            fontScale = 1.5f,
+            state =
+                AssetProviderScreenState(
+                    providerId = "sagernet",
+                    customBaseUrl = "",
+                    geoipTag = "v1.2.3",
+                    geositeTag = "v1.2.3",
+                    staleness = GeoAssetStaleness.Today,
+                    checking = false,
+                    resultBanner = null,
+                ),
+        )
+    }
+
     private fun capture(
         name: String,
         state: AssetProviderScreenState,
+        fontScale: Float = 1f,
     ) {
-        captureScreenBothThemes(name = name, widthDp = 420, heightDp = 1100, testClassFqn = FQN) {
+        captureScreenBothThemes(
+            name = name,
+            widthDp = 420,
+            heightDp = 1100,
+            testClassFqn = FQN,
+            fontScale = fontScale,
+        ) {
             AssetProviderScreen(
                 state = state,
                 onBack = {},
