@@ -48,9 +48,11 @@ import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.LogsViewModel
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -70,6 +72,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
@@ -494,32 +497,63 @@ internal fun LogsStreamCard(
                 key = { _, entry -> entry.id },
                 contentType = { _, _ -> "log_entry" },
             ) { index, entry ->
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id))
-                            .combinedClickable(
-                                onClickLabel = copyLabel,
-                                role = Role.Button,
-                                onLongClickLabel = copyLabel,
-                                onClick = { onCopyEntry(entry) },
-                                onLongClick = { onCopyEntry(entry) },
-                            ),
-                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
-                ) {
-                    LogRow(
-                        timestamp = entry.timestamp,
-                        type = subsystemLabel(entry.subsystem),
-                        message = entry.message,
-                        tone = logRowTone(entry),
-                        metadataChips = metadataChips(entry),
-                    )
-                    if (index < entries.lastIndex) {
-                        HorizontalDivider(color = colors.divider)
-                    }
-                }
+                LogsStreamEntry(
+                    entry = entry,
+                    copyLabel = copyLabel,
+                    showDivider = index < entries.lastIndex,
+                    onCopy = { onCopyEntry(entry) },
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun LogsStreamEntry(
+    entry: LogEntry,
+    copyLabel: String,
+    showDivider: Boolean,
+    onCopy: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id))
+                .combinedClickable(
+                    onClickLabel = copyLabel,
+                    role = Role.Button,
+                    onLongClickLabel = copyLabel,
+                    onClick = onCopy,
+                    onLongClick = onCopy,
+                ),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LogRow(
+                timestamp = entry.timestamp,
+                type = subsystemLabel(entry.subsystem),
+                message = entry.message,
+                modifier = Modifier.weight(1f),
+                tone = logRowTone(entry),
+                metadataChips = metadataChips(entry),
+            )
+            RipDpiIconButton(
+                icon = RipDpiIcons.Copy,
+                contentDescription = copyLabel,
+                onClick = onCopy,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.logsEntryCopy(entry.id)),
+                density = RipDpiControlDensity.Compact,
+            )
+        }
+        if (showDivider) {
+            HorizontalDivider(color = colors.divider)
         }
     }
 }

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.logs
 
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -51,6 +52,10 @@ class LogsScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.logsEntry(entry.id))
+            .assertHasClickAction()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.logsEntryCopy(entry.id))
+            .assertIsDisplayed()
             .assertHasClickAction()
             .performClick()
 

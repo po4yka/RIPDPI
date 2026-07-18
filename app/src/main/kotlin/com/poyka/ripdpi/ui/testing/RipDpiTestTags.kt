@@ -427,6 +427,7 @@ internal object RipDpiTestTags {
     val logsSubsystemFilter: (LogSubsystem) -> String = { type -> "logs-subsystem-${sanitize(type.name)}" }
     val logsSeverityFilter: (LogSeverity) -> String = { severity -> "logs-severity-${sanitize(severity.name)}" }
     val logsEntry: (String) -> String = { id -> "logs-entry-${sanitize(id)}" }
+    val logsEntryCopy: (String) -> String = { id -> "logs-entry-copy-${sanitize(id)}" }
 
     val historySection: (HistorySection) -> String = { section -> "history-section-${sanitize(section.name)}" }
 
