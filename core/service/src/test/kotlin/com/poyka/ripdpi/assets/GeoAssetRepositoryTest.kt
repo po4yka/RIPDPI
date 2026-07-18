@@ -164,19 +164,25 @@ class GeoAssetRepositoryTest {
     }
 
     @Test
-    fun `unopenable uri reports stable failure reason`() {
-        val target = temporaryFolder.newFile("geoip.db")
+    fun `uri open failures report stable reason and preserve cause`() {
+        listOf(
+            IOException("provider failed to open"),
+            SecurityException("provider denied access"),
+        ).forEachIndexed { index, failure ->
+            val target = temporaryFolder.newFile("unopenable-$index.db")
 
-        val error =
-            assertThrows(GeoAssetIntegrityException::class.java) {
-                streamGeoAssetUriToTarget(
-                    uri = Uri.parse("content://test/missing.db"),
-                    target = target,
-                    openInput = { throw SecurityException("provider denied access") },
-                )
-            }
+            val error =
+                assertThrows(GeoAssetIntegrityException::class.java) {
+                    streamGeoAssetUriToTarget(
+                        uri = Uri.parse("content://test/missing-$index.db"),
+                        target = target,
+                        openInput = { throw failure },
+                    )
+                }
 
-        assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
+            assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
+            assertEquals(failure, error.cause)
+        }
     }
 
     @Test
@@ -199,6 +205,48 @@ class GeoAssetRepositoryTest {
 
         assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
         assertEquals(failure, error.cause)
+    }
+
+    @Test
+    fun `uri close failure preserves previous target and removes temporary file`() {
+        val previous = validPayload(MinGeoAssetBytes).reversedArray()
+        val replacement = validPayload(MinGeoAssetBytes)
+        val target = temporaryFolder.newFile("geoip.db").apply { writeBytes(previous) }
+        val failure = IOException("provider failed to close")
+        val stream =
+            object : ByteArrayInputStream(replacement) {
+                override fun close() = throw failure
+            }
+
+        val error =
+            assertThrows(GeoAssetIntegrityException::class.java) {
+                streamGeoAssetUriToTarget(
+                    uri = Uri.parse("content://test/close-failure.db"),
+                    target = target,
+                    maxBytes = MinGeoAssetBytes.toLong(),
+                    openInput = { stream },
+                )
+            }
+
+        assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
+        assertEquals(failure, error.cause)
+        assertArrayEquals(previous, target.readBytes())
+        assertNoTemporaryFiles(target.parentFile!!)
+    }
+
+    @Test
+    fun `failed atomic rename preserves previous target`() {
+        val previous = validPayload(MinGeoAssetBytes).reversedArray()
+        val replacement = validPayload(MinGeoAssetBytes)
+        val target = temporaryFolder.newFile("geoip.db").apply { writeBytes(previous) }
+        val temp = temporaryFolder.newFile("geo-asset-replacement.tmp").apply { writeBytes(replacement) }
+
+        assertThrows(IOException::class.java) {
+            replaceGeoAssetTempFile(temp, target, rename = { _, _ -> false })
+        }
+
+        assertArrayEquals(previous, target.readBytes())
+        assertArrayEquals(replacement, temp.readBytes())
     }
 
     private fun repository(): DefaultGeoAssetRepository =

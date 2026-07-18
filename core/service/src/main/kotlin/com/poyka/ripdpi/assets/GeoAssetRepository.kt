@@ -240,15 +240,23 @@ internal fun streamGeoAssetUriToTarget(
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
     openInput: (Uri) -> InputStream?,
 ) {
+    val input = openGeoAssetInput(uri, openInput)
+    streamOpenedGeoAssetToTarget(input, target, maxBytes)
+}
+
+private fun openGeoAssetInput(
+    uri: Uri,
+    openInput: (Uri) -> InputStream?,
+): InputStream {
     val input =
         try {
             openInput(uri)
-        } catch (_: IOException) {
-            null
-        } catch (_: SecurityException) {
-            null
-        } ?: throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen)
-    streamOpenedGeoAssetToTarget(input, target, maxBytes)
+        } catch (error: IOException) {
+            throwUnableToOpen(error)
+        } catch (error: SecurityException) {
+            throwUnableToOpen(error)
+        }
+    return input ?: throwUnableToOpen()
 }
 
 private fun streamOpenedGeoAssetToTarget(
@@ -256,12 +264,16 @@ private fun streamOpenedGeoAssetToTarget(
     target: File,
     maxBytes: Long,
 ) {
+    var temp: File? = null
     try {
-        input.use { streamGeoAssetToTarget(it, target, maxBytes) }
+        input.use { temp = writeGeoAssetInputToTemp(it, target, maxBytes) }
+        replaceGeoAssetTempFile(checkNotNull(temp), target)
     } catch (error: GeoAssetIntegrityException) {
         throw error
     } catch (error: IOException) {
-        throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen).apply { initCause(error) }
+        throwUnableToOpen(error)
+    } finally {
+        temp?.delete()
     }
 }
 
@@ -270,10 +282,24 @@ internal fun streamGeoAssetToTarget(
     target: File,
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
 ) {
+    val temp = writeGeoAssetInputToTemp(input, target, maxBytes)
+    try {
+        replaceGeoAssetTempFile(temp, target)
+    } finally {
+        temp.delete()
+    }
+}
+
+private fun writeGeoAssetInputToTemp(
+    input: InputStream,
+    target: File,
+    maxBytes: Long,
+): File {
     require(maxBytes >= MinGeoAssetBytes) { "Local geo asset limit must allow the validation prefix." }
     val targetDirectory = requireNotNull(target.absoluteFile.parentFile)
     targetDirectory.mkdirs()
     val temp = File.createTempFile("geo-asset-", ".tmp", targetDirectory)
+    var prepared = false
     try {
         val copyState = GeoAssetCopyState(maxBytes)
 
@@ -286,10 +312,17 @@ internal fun streamGeoAssetToTarget(
         if (!isPlausibleGeoAssetPayload(copyState.validationPrefix())) {
             throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload)
         }
-        replaceGeoAssetTempFile(temp, target)
+        prepared = true
+        return temp
     } finally {
-        temp.delete()
+        if (!prepared) temp.delete()
     }
+}
+
+private fun throwUnableToOpen(cause: Throwable? = null): Nothing {
+    val failure = GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen)
+    cause?.let(failure::initCause)
+    throw failure
 }
 
 private fun copyGeoAssetInput(
@@ -338,12 +371,12 @@ private class GeoAssetCopyState(
     fun validationPrefix(): ByteArray = prefix.copyOf(prefixSize)
 }
 
-private fun replaceGeoAssetTempFile(
+internal fun replaceGeoAssetTempFile(
     temp: File,
     target: File,
+    rename: (File, File) -> Boolean = { source, destination -> source.renameTo(destination) },
 ) {
-    if (!temp.renameTo(target)) {
-        // Cross-filesystem fallback: copy then drop the temp.
-        temp.copyTo(target, overwrite = true)
+    if (!rename(temp, target)) {
+        throw IOException("Unable to atomically install geo asset.")
     }
 }
