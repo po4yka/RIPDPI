@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.logs
 
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -28,7 +29,7 @@ class LogsScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `tap on a log entry exposes and performs copy`() {
+    fun `log entry exposes one dedicated copy action`() {
         val entry =
             LogEntry(
                 id = "entry-1",
@@ -52,7 +53,7 @@ class LogsScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.logsEntry(entry.id))
-            .assertHasClickAction()
+            .assertHasNoClickAction()
         composeRule
             .onNodeWithTag(RipDpiTestTags.logsEntryCopy(entry.id))
             .assertIsDisplayed()

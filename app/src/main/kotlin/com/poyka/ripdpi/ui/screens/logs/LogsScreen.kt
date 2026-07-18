@@ -2,9 +2,7 @@ package com.poyka.ripdpi.ui.screens.logs
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -191,7 +188,6 @@ internal fun LogsScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LogsStreamSection(
     uiState: LogsUiState,
@@ -449,7 +445,6 @@ private fun LogsOverviewCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun LogsStreamCard(
     entries: List<LogEntry>,
@@ -522,14 +517,7 @@ private fun LogsStreamEntry(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id))
-                .combinedClickable(
-                    onClickLabel = copyLabel,
-                    role = Role.Button,
-                    onLongClickLabel = copyLabel,
-                    onClick = onCopy,
-                    onLongClick = onCopy,
-                ),
+                .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id)),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Row(
