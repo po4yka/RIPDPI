@@ -20,6 +20,9 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.annotation.Resetter
 import java.util.Optional
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.S], shadows = [ShadowServiceControllerVpnPrepareService::class])
@@ -41,6 +44,7 @@ class ServiceControllerForegroundDenialTest {
                 foregroundServiceStarter = starter,
                 bootSessionStateStore = InMemoryBootSessionStateStore(),
                 runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = ServiceIntentArbiter(),
             )
 
         val result = controller.start(Mode.Proxy)
@@ -144,7 +148,7 @@ class ServiceControllerForegroundDenialTest {
     }
 
     @Test
-    fun explicitStopClearsWasRunningAtUpdateFlag() {
+    fun explicitStopRequestPreservesRunningMarkerUntilServiceAcceptsIt() {
         val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
         val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
         val controller =
@@ -152,6 +156,28 @@ class ServiceControllerForegroundDenialTest {
                 context = RuntimeEnvironment.getApplication(),
                 serviceStateStore = serviceStateStore,
                 serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                bootSessionStateStore = store,
+            )
+
+        controller.stop()
+
+        assertTrue(store.wasRunningAtUpdate())
+    }
+
+    @Test
+    fun automationAcceptedStopClearsRunningMarkerWithoutServiceCallback() {
+        val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                serviceAutomationController =
+                    Optional.of(
+                        object : ServiceAutomationController {
+                            override fun interceptStop(currentMode: Mode): Boolean = true
+                        },
+                    ),
                 foregroundServiceStarter = RecordingForegroundServiceStarter(),
                 bootSessionStateStore = store,
             )
@@ -176,6 +202,7 @@ class ServiceControllerForegroundDenialTest {
                 foregroundServiceStarter = starter,
                 bootSessionStateStore = store,
                 runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = ServiceIntentArbiter(),
             )
 
         controller.stopForDiagnostics()
@@ -199,6 +226,7 @@ class ServiceControllerForegroundDenialTest {
                 foregroundServiceStarter = starter,
                 bootSessionStateStore = InMemoryBootSessionStateStore(),
                 runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = ServiceIntentArbiter(),
             )
 
         val result = controller.startForDiagnostics(Mode.Proxy)
@@ -206,6 +234,51 @@ class ServiceControllerForegroundDenialTest {
         assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
         assertEquals(diagnosticsStartAction, starter.lastIntent?.action)
         assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+    }
+
+    @Test
+    fun diagnosticsResumeDoesNotAcquireUserIntentArbiterWhileHoldingLease() {
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
+        val arbiter = ServiceIntentArbiter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = arbiter,
+            )
+        val lockHeld = CountDownLatch(1)
+        val releaseLock = CountDownLatch(1)
+        val lockExecutor = Executors.newSingleThreadExecutor()
+        val diagnosticsExecutor = Executors.newSingleThreadExecutor()
+        val lockOwner =
+            lockExecutor.submit {
+                arbiter.serialize {
+                    lockHeld.countDown()
+                    releaseLock.await(5, TimeUnit.SECONDS)
+                }
+            }
+
+        try {
+            assertTrue(lockHeld.await(2, TimeUnit.SECONDS))
+            val diagnosticsResume =
+                diagnosticsExecutor.submit<ServiceStartResult?> {
+                    tracker.runIfOwned(lease) {
+                        controller.startForDiagnostics(Mode.Proxy)
+                    }
+                }
+
+            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), diagnosticsResume.get(2, TimeUnit.SECONDS))
+        } finally {
+            releaseLock.countDown()
+            lockOwner.get(2, TimeUnit.SECONDS)
+            lockExecutor.shutdownNow()
+            diagnosticsExecutor.shutdownNow()
+        }
     }
 
     @Test
@@ -221,6 +294,7 @@ class ServiceControllerForegroundDenialTest {
                 foregroundServiceStarter = RecordingForegroundServiceStarter(),
                 bootSessionStateStore = InMemoryBootSessionStateStore(),
                 runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = ServiceIntentArbiter(),
             )
 
         controller.stop()

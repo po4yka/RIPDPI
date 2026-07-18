@@ -44,33 +44,44 @@ class ProcessDeathResumeCoordinator
                 completed = true
             } else {
                 val resumable = profileGuard.isResumable(pointer.profileId)
-                when {
-                    !resumable -> {
-                        completed = true
-                        bootSessionStateStore.clear()
-                        log.w { "Skipping process-death resume because the recorded profile is stale" }
-                    }
-
-                    else -> {
-                        arbitrateStart(pointer)
-                    }
-                }
+                arbitrateResume(pointer, resumable)
             }
         }
 
-        private fun arbitrateStart(pointer: BootSessionPointer) {
-            serviceIntentArbiter.serialize {
-                if (isCurrent(pointer)) {
-                    start(pointer)
-                } else {
-                    completed = true
-                    log.i { "Skipping superseded process-death resume" }
+        private fun arbitrateResume(
+            pointer: BootSessionPointer,
+            resumable: Boolean,
+        ) {
+            val recovered =
+                serviceIntentArbiter.recovery {
+                    when {
+                        !isCurrent(pointer) -> {
+                            completed = true
+                            log.i { "Skipping superseded process-death resume" }
+                            false
+                        }
+
+                        !resumable -> {
+                            completed = true
+                            bootSessionStateStore.clear()
+                            log.w { "Skipping process-death resume because the recorded profile is stale" }
+                            false
+                        }
+
+                        else -> {
+                            start(pointer)
+                            true
+                        }
+                    }
                 }
+            if (recovered == null) {
+                completed = true
+                log.i { "Skipping process-death resume superseded by explicit user intent" }
             }
         }
 
         private fun start(pointer: BootSessionPointer) {
-            val result = serviceController.start(pointer.mode)
+            val result = serviceController.startForRecovery(pointer.mode)
             if (result is ServiceStartResult.Accepted) {
                 completed = true
             }

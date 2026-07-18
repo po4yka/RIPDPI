@@ -165,6 +165,51 @@ class ProcessDeathResumeCoordinatorTest {
         }
 
     @Test
+    fun `accepted explicit start suppresses stale recovery while status is still halted`() =
+        runTest {
+            val store = FakeProcessDeathBootStore(running = true)
+            val state = DefaultServiceStateStore()
+            val controller = RecordingProcessDeathServiceController()
+            val arbiter = ServiceIntentArbiter()
+            val coordinator = coordinator(store, state, controller, arbiter = arbiter)
+
+            arbiter.userStart(
+                action = { ServiceStartResult.Accepted(Mode.Proxy) },
+                isAccepted = { true },
+            )
+            coordinator.resumeIfNeeded()
+
+            assertTrue(controller.startedModes.isEmpty())
+            assertEquals(AppStatus.Halted to Mode.VPN, state.status.value)
+        }
+
+    @Test
+    fun `stale guard result does not clear a replaced session pointer`() =
+        runTest {
+            val store = FakeProcessDeathBootStore(running = true)
+            val state = DefaultServiceStateStore()
+            val controller = RecordingProcessDeathServiceController()
+            val guardEntered = CompletableDeferred<Unit>()
+            val releaseGuard = CompletableDeferred<Unit>()
+            val coordinator =
+                coordinator(store, state, controller) {
+                    guardEntered.complete(Unit)
+                    releaseGuard.await()
+                    false
+                }
+
+            val resume = async { coordinator.resumeIfNeeded() }
+            guardEntered.await()
+            val replacement = BootSessionPointer("replacement", Mode.Proxy)
+            store.recordSession(replacement.profileId, replacement.mode)
+            releaseGuard.complete(Unit)
+            resume.await()
+
+            assertEquals(replacement, store.lastSession())
+            assertTrue(controller.startedModes.isEmpty())
+        }
+
+    @Test
     fun `cancelled activity attempt remains retryable`() =
         runTest {
             val store = FakeProcessDeathBootStore(running = true)

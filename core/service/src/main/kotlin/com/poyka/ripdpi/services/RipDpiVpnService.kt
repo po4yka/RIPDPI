@@ -62,6 +62,9 @@ class RipDpiVpnService :
     lateinit var runtimeResumeIntentTracker: RuntimeResumeIntentTracker
 
     @Inject
+    lateinit var acceptedUserStopRecorder: AcceptedUserStopRecorder
+
+    @Inject
     lateinit var selectorRuntimeLifecycleListeners:
         Set<@JvmSuppressWildcards com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener>
 
@@ -86,6 +89,7 @@ class RipDpiVpnService :
                 sessionComponentBuilderProvider = sessionComponentBuilderProvider,
                 activeProtectSocketPathProvider = activeProtectSocketPathProvider,
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
+                acceptedUserStopRecorder = acceptedUserStopRecorder,
             )
         shellDelegate = sessionLifecycle.createShellDelegate()
         // Start the selector-runtime loops (member hot-reload + latency failover)

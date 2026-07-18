@@ -17,11 +17,16 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.util.Optional
+import java.util.concurrent.locks.ReentrantLock
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.concurrent.withLock
 
 interface ServiceController {
     fun start(mode: Mode): ServiceStartResult
+
+    /** Process-death recovery start; unlike [start], this is not a newer explicit user intent. */
+    fun startForRecovery(mode: Mode): ServiceStartResult = start(mode)
 
     fun stop()
 
@@ -65,6 +70,56 @@ interface ForegroundServiceStarter {
     )
 }
 
+/** Serializes service start/stop intent decisions that must have a single winner. */
+@Singleton
+class ServiceIntentArbiter
+    @Inject
+    constructor() {
+        private val lock = ReentrantLock()
+        private var explicitUserIntentRecorded = false
+
+        fun <T> serialize(block: () -> T): T = lock.withLock(block)
+
+        fun <T> userStart(
+            action: () -> T,
+            isAccepted: (T) -> Boolean,
+        ): T =
+            lock.withLock {
+                action().also { result ->
+                    if (isAccepted(result)) explicitUserIntentRecorded = true
+                }
+            }
+
+        fun userStop(action: () -> Unit) {
+            lock.withLock {
+                explicitUserIntentRecorded = true
+                action()
+            }
+        }
+
+        fun <T> recovery(action: () -> T): T? =
+            lock.withLock {
+                if (explicitUserIntentRecorded) null else action()
+            }
+    }
+
+/** Records a service-side accepted user Stop before its asynchronous teardown. */
+@Singleton
+class AcceptedUserStopRecorder
+    @Inject
+    constructor(
+        private val bootSessionStateStore: BootSessionStateStore,
+        private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
+        private val serviceIntentArbiter: ServiceIntentArbiter,
+    ) {
+        fun record() {
+            serviceIntentArbiter.userStop {
+                bootSessionStateStore.setWasRunningAtUpdate(false)
+                runtimeResumeIntentTracker.recordAcceptedStop()
+            }
+        }
+    }
+
 @Singleton
 class ContextCompatForegroundServiceStarter
     @Inject
@@ -87,6 +142,7 @@ class DefaultServiceController
         private val foregroundServiceStarter: ForegroundServiceStarter,
         private val bootSessionStateStore: BootSessionStateStore,
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
+        private val serviceIntentArbiter: ServiceIntentArbiter,
     ) : ServiceController {
         internal constructor(
             context: Context,
@@ -101,14 +157,22 @@ class DefaultServiceController
             foregroundServiceStarter = foregroundServiceStarter,
             bootSessionStateStore = bootSessionStateStore,
             runtimeResumeIntentTracker = RuntimeResumeIntentTracker(),
+            serviceIntentArbiter = ServiceIntentArbiter(),
         )
 
         @Suppress("ReturnCount")
         override fun start(mode: Mode): ServiceStartResult =
-            runtimeResumeIntentTracker.withUserStart(
-                action = { startInternal(mode, startAction) },
+            serviceIntentArbiter.userStart(
+                action = {
+                    runtimeResumeIntentTracker.withUserStart(
+                        action = { startInternal(mode, startAction) },
+                        isAccepted = { it is ServiceStartResult.Accepted },
+                    )
+                },
                 isAccepted = { it is ServiceStartResult.Accepted },
             )
+
+        override fun startForRecovery(mode: Mode): ServiceStartResult = startInternal(mode, startAction)
 
         override fun startForDiagnostics(mode: Mode): ServiceStartResult = startInternal(mode, diagnosticsStartAction)
 
@@ -167,32 +231,26 @@ class DefaultServiceController
         }
 
         override fun stop() {
-            stopInternal(action = stopAction, clearUpdateResumeMarker = true)
+            serviceIntentArbiter.userStop {
+                stopInternal(action = stopAction)
+            }
         }
 
         override fun stopForDiagnostics() {
-            stopInternal(action = diagnosticsStopAction, clearUpdateResumeMarker = false)
+            stopInternal(action = diagnosticsStopAction)
         }
 
         override fun stopForDiagnosticsCompensation() {
-            stopInternal(action = diagnosticsCompensatingStopAction, clearUpdateResumeMarker = false)
+            stopInternal(action = diagnosticsCompensatingStopAction)
         }
 
-        private fun stopInternal(
-            action: String,
-            clearUpdateResumeMarker: Boolean,
-        ) {
-            // Explicit (user / automation) stop through the controller: clear the
-            // "was running at update" flag so a later MY_PACKAGE_REPLACED does NOT
-            // resurrect a deliberately-stopped tunnel. A process kill (LMK / update)
-            // never reaches here, so the flag stays set in that case — exactly the
-            // signal the boot resume worker needs.
-            if (clearUpdateResumeMarker) {
-                bootSessionStateStore.setWasRunningAtUpdate(false)
-            }
+        private fun stopInternal(action: String) {
             val currentMode = serviceStateStore.status.value.second
             if (serviceAutomationController.map { it.interceptStop(currentMode) }.orElse(false)) {
                 if (action == stopAction) {
+                    // Automation consumed the user Stop, so no service callback will
+                    // record acceptance. Commit the same durable intent here.
+                    bootSessionStateStore.setWasRunningAtUpdate(false)
                     runtimeResumeIntentTracker.recordAcceptedStop()
                 }
                 return
