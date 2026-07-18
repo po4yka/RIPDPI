@@ -248,12 +248,20 @@ internal fun streamGeoAssetUriToTarget(
         } catch (_: SecurityException) {
             null
         } ?: throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen)
+    streamOpenedGeoAssetToTarget(input, target, maxBytes)
+}
+
+private fun streamOpenedGeoAssetToTarget(
+    input: InputStream,
+    target: File,
+    maxBytes: Long,
+) {
     try {
         input.use { streamGeoAssetToTarget(it, target, maxBytes) }
     } catch (error: GeoAssetIntegrityException) {
         throw error
-    } catch (_: IOException) {
-        throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen)
+    } catch (error: IOException) {
+        throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen).apply { initCause(error) }
     }
 }
 

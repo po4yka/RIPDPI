@@ -179,6 +179,28 @@ class GeoAssetRepositoryTest {
         assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
     }
 
+    @Test
+    fun `uri read failure reports stable reason and preserves cause`() {
+        val target = temporaryFolder.newFile("geoip.db")
+        val failure = IOException("provider stream failed")
+
+        val error =
+            assertThrows(GeoAssetIntegrityException::class.java) {
+                streamGeoAssetUriToTarget(
+                    uri = Uri.parse("content://test/broken.db"),
+                    target = target,
+                    openInput = {
+                        object : InputStream() {
+                            override fun read(): Int = throw failure
+                        }
+                    },
+                )
+            }
+
+        assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
+        assertEquals(failure, error.cause)
+    }
+
     private fun repository(): DefaultGeoAssetRepository =
         DefaultGeoAssetRepository(
             context = application,
