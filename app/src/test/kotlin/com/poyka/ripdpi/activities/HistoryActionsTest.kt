@@ -103,4 +103,44 @@ class HistoryActionsTest {
         actions.dismissDetail()
         assertNull(details.value.selectedEventId)
     }
+
+    @Test
+    fun `clear filters resets search and chips for every history section`() =
+        runTest {
+            val connectionFilters =
+                MutableStateFlow(
+                    HistoryConnectionFilterState(modeFilter = "VPN", statusFilter = "Running", search = "wifi"),
+                )
+            val diagnosticsFilters =
+                MutableStateFlow(
+                    HistoryDiagnosticsFilterState(
+                        pathModeFilter = "RAW_PATH",
+                        statusFilter = "completed",
+                        search = "scan",
+                    ),
+                )
+            val eventFilters =
+                MutableStateFlow(
+                    HistoryEventFilterState(sourceFilter = "Proxy", severityFilter = "WARN", search = "route"),
+                )
+            val details = MutableStateFlow(HistoryDetailState())
+
+            HistoryConnectionActions(
+                mutations = HistoryMutationRunner(this),
+                connectionFilters = connectionFilters,
+                detailState = details,
+                loadConnectionDetail = { null },
+            ).clearFilters()
+            HistoryDiagnosticsActions(
+                mutations = HistoryMutationRunner(this),
+                diagnosticsFilters = diagnosticsFilters,
+                detailState = details,
+                loadSessionDetail = { null },
+            ).clearFilters()
+            HistoryEventActions(eventFilters = eventFilters, detailState = details).clearFilters()
+
+            assertEquals(HistoryConnectionFilterState(), connectionFilters.value)
+            assertEquals(HistoryDiagnosticsFilterState(), diagnosticsFilters.value)
+            assertEquals(HistoryEventFilterState(), eventFilters.value)
+        }
 }

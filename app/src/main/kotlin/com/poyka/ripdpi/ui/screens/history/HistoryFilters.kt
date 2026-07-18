@@ -46,7 +46,8 @@ internal fun FilterCard(
     autoScrollTestTag: String? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val hasActiveFilters = primaryFilter.selected != null || secondaryFilter.selected != null
+    val hasActiveFilters =
+        searchValue.isNotBlank() || primaryFilter.selected != null || secondaryFilter.selected != null
 
     RipDpiCard(modifier = modifier) {
         Row(
