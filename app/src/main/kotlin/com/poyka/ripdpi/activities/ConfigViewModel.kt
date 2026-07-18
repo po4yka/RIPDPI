@@ -446,7 +446,7 @@ class ConfigViewModel
                 }
             }
 
-        fun requestEditorExit(): ConfigEditorExitDecision =
+        internal fun requestEditorExit(): ConfigEditorExitDecision =
             synchronized(editorOperationLock) {
                 when {
                     activeSaveRequest.value != null || activeSaveJob.get() != null -> {

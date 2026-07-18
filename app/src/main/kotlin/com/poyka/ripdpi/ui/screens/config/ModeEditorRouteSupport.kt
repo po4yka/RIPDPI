@@ -67,20 +67,17 @@ internal fun handleMasqueDocumentResult(
     uri: Uri?,
     onPkcs12Selected: (PendingMasquePkcs12Import) -> Unit,
 ) {
-    when {
-        uri == null || request == null -> {
-            Unit
-        }
-
-        request.action == MasqueImportAction.CertificateChain -> {
+    if (uri == null || request == null) return
+    when (request.action) {
+        MasqueImportAction.CertificateChain -> {
             viewModel.importRelayMasqueCertificateChain(uri, request.sessionId)
         }
 
-        request.action == MasqueImportAction.PrivateKey -> {
+        MasqueImportAction.PrivateKey -> {
             viewModel.importRelayMasquePrivateKey(uri, request.sessionId)
         }
 
-        request.action == MasqueImportAction.Pkcs12 -> {
+        MasqueImportAction.Pkcs12 -> {
             onPkcs12Selected(PendingMasquePkcs12Import(uri, request.sessionId))
         }
     }
