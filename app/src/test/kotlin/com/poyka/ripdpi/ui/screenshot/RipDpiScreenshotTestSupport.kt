@@ -19,7 +19,9 @@ import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
 import com.github.takahirom.roborazzi.registerRoborazziActivityToRobolectricIfNeeded
 import com.github.takahirom.roborazzi.size
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assume.assumeTrue
 import kotlin.math.roundToInt
 
 private val CROSS_PLATFORM_OPTIONS =
@@ -155,3 +157,7 @@ private fun withStaticMotion(block: () -> Unit) {
 }
 
 private const val StaticMotionProperty = "ripdpi.staticMotion"
+
+internal fun assumeFullExperienceScreenshot() {
+    assumeTrue("Full-experience preview is covered by githubFull", BuildConfig.APP_EXPERIENCE == "full")
+}

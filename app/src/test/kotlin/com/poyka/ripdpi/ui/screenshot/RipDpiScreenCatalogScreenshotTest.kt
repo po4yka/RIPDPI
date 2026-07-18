@@ -299,6 +299,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun aboutScreen() {
+        assumeFullExperienceScreenshot()
         captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
             RipDpiAboutPreviewScene()
         }
