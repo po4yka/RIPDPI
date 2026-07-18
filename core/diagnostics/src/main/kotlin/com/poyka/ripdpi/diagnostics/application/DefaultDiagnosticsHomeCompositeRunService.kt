@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -99,17 +100,21 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 .filterNotNull()
 
         override suspend fun cancelHomeRun(runId: String) {
-            val cancelled =
+            withContext(NonCancellable) {
                 runJobs.cancel(runId) {
-                    runCatching { stageExecutor.cancelActiveStage() }
+                    try {
+                        stageExecutor.cancelRunStages(runId, progressState)
+                    } finally {
+                        updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
+                    }
                 }
-            if (cancelled) updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
+            }
         }
 
         override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome {
             completedRuns[runId]?.let { return it }
             return observeHomeRun(runId)
-                .map { it.outcome }
+                .map(DiagnosticsHomeCompositeProgress::outcomeOrThrowIfTerminal)
                 .filterNotNull()
                 .first()
         }
@@ -268,15 +273,25 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             runId: String,
             block: suspend () -> Unit,
         ) {
-            runJobs.launch(
-                runId = runId,
-                onFailure = { error ->
-                    log.e(error) { "run failed: runId=$runId" }
-                    runCatching { stageExecutor.cancelActiveStage() }
-                    updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.FAILED)
-                },
-                block = block,
-            )
+            val launched =
+                runJobs.launch(
+                    runId = runId,
+                    onFailure = { error ->
+                        log.e(error) { "run failed: runId=$runId" }
+                        try {
+                            stageExecutor.cancelRunStages(runId, progressState)
+                        } finally {
+                            updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.FAILED)
+                        }
+                    },
+                    block = block,
+                )
+            if (!launched) {
+                runPcapRequested.remove(runId)
+                runDetectionResults.remove(runId)
+                progressState.update { current -> current - runId }
+                throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
+            }
         }
 
         private fun updateRunStatus(
@@ -610,7 +625,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         ) {
             val detectionResult = runDetectionResults.remove(runId)
             val pcapRequested = runPcapRequested.remove(runId) ?: false
-            val previousOutcome = mostRecentCompletedRunBefore(runId)
+            val previousOutcome = completedRuns.mostRecentCompletedRunBefore(runId)
             val catalogSnapshot =
                 withContext(Dispatchers.Default) {
                     runCatching { detectorCatalogSource.snapshot() }.getOrDefault(HomeDetectorCatalogSnapshot())
@@ -715,11 +730,4 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 }
             }
         }
-
-        private fun mostRecentCompletedRunBefore(currentRunId: String): DiagnosticsHomeCompositeOutcome? =
-            completedRuns.entries
-                .asSequence()
-                .filter { (key, _) -> key != currentRunId }
-                .map { (_, value) -> value }
-                .maxByOrNull { it.bundleSessionIds.size }
     }

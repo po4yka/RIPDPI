@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.ui.screens.simple
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -16,7 +19,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,7 +62,7 @@ fun SimpleHomeScreen(
     SimpleHomeContent(
         connectionState = uiState.connectionState,
         diagnostics = diagnostics,
-        activeTransportKind = activeTransportKind,
+        activeTransport = activeTransport,
         snackbarHostState = snackbarHostState,
         onToggleConnection = { active ->
             if (active) viewModel.onStopRequested() else viewModel.onToggleVpn(enabled = true)
@@ -75,7 +77,7 @@ fun SimpleHomeScreen(
 internal fun SimpleHomeContent(
     connectionState: ConnectionState,
     diagnostics: HomeDiagnosticsUiState,
-    activeTransportKind: String?,
+    activeTransport: ActiveTransportDescriptor?,
     snackbarHostState: SnackbarHostState,
     onToggleConnection: (active: Boolean) -> Unit,
     onRunReport: () -> Unit,
@@ -89,6 +91,8 @@ internal fun SimpleHomeContent(
     val connected = connectionState == ConnectionState.Connected
     val active = connecting || connected
     val reportBusy = diagnostics.analysisAction.busy
+    val reportStarting = diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.STARTING
+    val reportCancellable = diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
     val protocolLabel = activeTransport?.toProtocolLabel()
 
     Scaffold(
@@ -101,6 +105,7 @@ internal fun SimpleHomeContent(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = spacing.xl, vertical = spacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -153,9 +158,11 @@ internal fun SimpleHomeContent(
                         .padding(top = spacing.md),
                 text =
                     stringResource(
-                        if (reportBusy) R.string.diagnostics_action_cancel else R.string.simple_run_report,
+                        if (reportCancellable) R.string.diagnostics_action_cancel else R.string.simple_run_report,
                     ),
-                onClick = if (reportBusy) onCancelReport else onRunReport,
+                onClick = if (reportCancellable) onCancelReport else onRunReport,
+                loading = reportStarting,
+                enabled = !reportBusy || reportCancellable,
                 variant = RipDpiButtonVariant.Outline,
             )
         }
@@ -170,6 +177,7 @@ internal fun SimpleDiagnosticsStatus(
     val statusLabel =
         when (diagnostics.analysisRunStatus) {
             HomeDiagnosticsRunUiStatus.IDLE -> null
+            HomeDiagnosticsRunUiStatus.STARTING -> diagnostics.analysisAction.supportingText
             HomeDiagnosticsRunUiStatus.RUNNING -> diagnostics.analysisAction.supportingText
             HomeDiagnosticsRunUiStatus.COMPLETED -> stringResource(R.string.diagnostics_snackbar_scan_complete)
             HomeDiagnosticsRunUiStatus.CANCELLED -> stringResource(R.string.simple_report_cancelled)
@@ -189,19 +197,30 @@ internal fun SimpleDiagnosticsStatus(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        Text(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics {
-                        stateDescription = statusLabel
-                        liveRegion = LiveRegionMode.Polite
-                    },
-            text = statusLabel,
-            style = RipDpiThemeTokens.type.caption,
-            color = colors.mutedForeground,
-            textAlign = TextAlign.Center,
-        )
+        val announcement =
+            if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
+                statusLabel.substringBefore(" · ")
+            } else {
+                statusLabel
+            }
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = statusLabel,
+                style = RipDpiThemeTokens.type.caption,
+                color = colors.mutedForeground,
+                textAlign = TextAlign.Center,
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .clearAndSetSemantics {
+                            stateDescription = announcement
+                            liveRegion = LiveRegionMode.Polite
+                        },
+            )
+        }
     }
 }
 

@@ -54,6 +54,7 @@ data class AnalysisProgressUiState(
 
 enum class HomeDiagnosticsRunUiStatus {
     IDLE,
+    STARTING,
     RUNNING,
     COMPLETED,
     CANCELLED,

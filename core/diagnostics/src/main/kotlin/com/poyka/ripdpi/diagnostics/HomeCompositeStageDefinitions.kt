@@ -135,3 +135,13 @@ internal inline fun List<DiagnosticsHomeCompositeStageSummary>.updated(
     transform: (DiagnosticsHomeCompositeStageSummary) -> DiagnosticsHomeCompositeStageSummary,
 ): List<DiagnosticsHomeCompositeStageSummary> =
     mapIndexed { currentIndex, value -> if (currentIndex == index) transform(value) else value }
+
+internal fun List<DiagnosticsHomeCompositeStageSummary>.activeStageIndexAfterUpdate(
+    previousIndex: Int?,
+    updatedIndex: Int,
+): Int? {
+    val preferredIndex =
+        updatedIndex.takeIf { getOrNull(it)?.status == DiagnosticsHomeCompositeStageStatus.RUNNING }
+            ?: previousIndex?.takeIf { getOrNull(it)?.status == DiagnosticsHomeCompositeStageStatus.RUNNING }
+    return preferredIndex ?: indexOfLast { it.status == DiagnosticsHomeCompositeStageStatus.RUNNING }.takeIf { it >= 0 }
+}

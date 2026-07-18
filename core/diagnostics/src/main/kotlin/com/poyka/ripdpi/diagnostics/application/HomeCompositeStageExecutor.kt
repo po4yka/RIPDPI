@@ -5,7 +5,9 @@ package com.poyka.ripdpi.diagnostics
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ServiceStateStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
@@ -30,8 +32,52 @@ internal class HomeCompositeStageExecutor
             private const val TimedOutStageRecoveryTimeoutMs = 5_000L
         }
 
-        suspend fun cancelActiveStage() {
-            diagnosticsScanController.cancelActiveScan()
+        suspend fun cancelRunStages(
+            runId: String,
+            progressState: StateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
+        ) {
+            var cancellationFailure: CancellationException? = null
+            val recordedSessionIds =
+                progressState.value[runId]
+                    ?.stages
+                    ?.mapNotNull(DiagnosticsHomeCompositeStageSummary::sessionId)
+                    .orEmpty()
+            try {
+                (diagnosticsScanController.activeSessionIdsOwnedBy(runId) + recordedSessionIds)
+                    .distinct()
+                    .forEach { sessionId ->
+                        cancellationFailure =
+                            cancellationFailure.withSuppressed(
+                                cancelRunSession(runId, sessionId),
+                            )
+                    }
+            } finally {
+                runCatching { diagnosticsScanController.releaseSessionsOwnedBy(runId) }
+                    .onFailure { failure -> log.w(failure) { "failed to release run sessions: runId=$runId" } }
+            }
+            cancellationFailure?.let { throw it }
+        }
+
+        private suspend fun cancelRunSession(
+            runId: String,
+            sessionId: String,
+        ): CancellationException? {
+            val failure =
+                runCatching { diagnosticsScanController.cancelScan(sessionId) }.exceptionOrNull()
+            return when (failure) {
+                null -> {
+                    null
+                }
+
+                is CancellationException -> {
+                    failure
+                }
+
+                else -> {
+                    log.w(failure) { "failed to cancel run session: runId=$runId sessionId=$sessionId" }
+                    null
+                }
+            }
         }
 
         suspend fun executeStage(
@@ -105,7 +151,8 @@ internal class HomeCompositeStageExecutor
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
         ): String? =
             runCatching {
-                diagnosticsScanController.startScan(
+                diagnosticsScanController.startScanOwnedBy(
+                    ownerId = runId,
                     pathMode = spec.pathMode,
                     selectedProfileId = spec.profileId,
                     skipActiveScanCheck = true,
@@ -226,7 +273,8 @@ internal class HomeCompositeStageExecutor
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
         ): Pair<String, DiagnosticScanSession>? {
             log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec, quickScan)}ms" }
-            runCatching { diagnosticsScanController.cancelActiveScan() }
+            runCatching { diagnosticsScanController.cancelScan(stageSessionId) }
+                .onFailure { failure -> log.w(failure) { "failed to cancel timed-out session: $stageSessionId" } }
             val recoveredSession = awaitTimedOutStageRecovery(stageSessionId)
             if (recoveredSession != null) {
                 log.i { "stage ${spec.key} recovered after timeout status=${recoveredSession.status}" }
@@ -276,12 +324,21 @@ internal class HomeCompositeStageExecutor
             progressState.update { current ->
                 current.updatedRun(runId) { progress ->
                     val updatedStages = progress.stages.updated(stageIndex, transform)
+                    val activeStageIndex =
+                        updatedStages.activeStageIndexAfterUpdate(progress.activeStageIndex, stageIndex)
                     progress.copy(
-                        activeStageIndex = stageIndex,
-                        activeSessionId = updatedStages.getOrNull(stageIndex)?.sessionId,
+                        activeStageIndex = activeStageIndex,
+                        activeSessionId = activeStageIndex?.let(updatedStages::getOrNull)?.sessionId,
                         stages = updatedStages,
                     )
                 }
             }
         }
     }
+
+private fun CancellationException?.withSuppressed(additional: CancellationException?): CancellationException? =
+    additional?.let { next ->
+        this?.apply {
+            if (this !== next) addSuppressed(next)
+        } ?: next
+    } ?: this

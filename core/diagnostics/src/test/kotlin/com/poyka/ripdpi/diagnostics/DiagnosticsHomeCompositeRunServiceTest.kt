@@ -7,14 +7,17 @@ import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.testsupport.ControllableNetworkHandoverMonitor
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,6 +31,8 @@ class DiagnosticsHomeCompositeRunCancellationTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
             var cancelCalls = 0
+            val cancelStarted = CompletableDeferred<Unit>()
+            val allowCancelToFinish = CompletableDeferred<Unit>()
             val scanController =
                 object : DiagnosticsScanController {
                     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
@@ -49,6 +54,29 @@ class DiagnosticsHomeCompositeRunCancellationTest {
 
                     override suspend fun cancelActiveScan() {
                         cancelCalls += 1
+                        stores.sessionsState.value =
+                            stores.sessionsState.value +
+                            diagnosticsSession(
+                                id = "active-session",
+                                profileId = "automatic-audit",
+                                pathMode = ScanPathMode.RAW_PATH.name,
+                                summary = "completed during cancellation",
+                            )
+                        timelineSource.sessions.value =
+                            timelineSource.sessions.value +
+                            DiagnosticScanSession(
+                                id = "active-session",
+                                profileId = "automatic-audit",
+                                pathMode = ScanPathMode.RAW_PATH.name,
+                                serviceMode = "VPN",
+                                status = "completed",
+                                summary = "completed during cancellation",
+                                startedAt = 10L,
+                                finishedAt = 20L,
+                            )
+                        cancelStarted.complete(Unit)
+                        allowCancelToFinish.await()
+                        yield()
                     }
 
                     override suspend fun setActiveProfile(profileId: String) = Unit
@@ -89,15 +117,125 @@ class DiagnosticsHomeCompositeRunCancellationTest {
 
             val started = service.startHomeAnalysis()
             runCurrent()
-            service.cancelHomeRun(started.runId)
-            runCurrent()
+            val duplicateStartError = runCatching { service.startHomeAnalysis() }.exceptionOrNull()
+            assertTrue(duplicateStartError is DiagnosticsScanStartRejectedException)
+            assertEquals(
+                DiagnosticsScanStartRejectionReason.ScanAlreadyActive,
+                (duplicateStartError as DiagnosticsScanStartRejectedException).reason,
+            )
+            val cancellationJob = backgroundScope.launch { service.cancelHomeRun(started.runId) }
+            cancelStarted.await()
+            val teardownStartError = runCatching { service.startHomeAnalysis() }.exceptionOrNull()
+            assertTrue(teardownStartError is DiagnosticsScanStartRejectedException)
+            assertEquals(
+                DiagnosticsHomeCompositeRunStatus.RUNNING,
+                service.observeHomeRun(started.runId).first().status,
+            )
+            allowCancelToFinish.complete(Unit)
+            cancellationJob.join()
 
             val progress = service.observeHomeRun(started.runId).first()
             assertEquals(1, cancelCalls)
             assertEquals(DiagnosticsHomeCompositeRunStatus.CANCELLED, progress.status)
             assertEquals(null, progress.activeStageIndex)
             assertEquals(null, progress.activeSessionId)
+            val finalizeError = runCatching { service.finalizeHomeRun(started.runId) }.exceptionOrNull()
+            assertTrue(finalizeError is DiagnosticsHomeRunTerminatedException)
+            assertEquals(
+                DiagnosticsHomeCompositeRunStatus.CANCELLED,
+                (finalizeError as DiagnosticsHomeRunTerminatedException).status,
+            )
         }
+
+    @Test
+    fun `cancelRunStages continues after a session cancellation fails`() =
+        runTest {
+            val cancelledSessionIds = mutableListOf<String>()
+            val controller =
+                object : DiagnosticsScanController {
+                    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
+
+                    override suspend fun startScan(
+                        pathMode: ScanPathMode,
+                        selectedProfileId: String?,
+                        skipActiveScanCheck: Boolean,
+                        allowSensitiveProfileStart: Boolean,
+                        scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
+                    ): DiagnosticsManualScanStartResult = error("unused")
+
+                    override suspend fun resolveHiddenProbeConflict(
+                        requestId: String,
+                        action: HiddenProbeConflictAction,
+                    ): DiagnosticsManualScanResolution = error("unused")
+
+                    override suspend fun cancelActiveScan() = error("run-scoped cancellation required")
+
+                    override suspend fun cancelScan(sessionId: String) {
+                        cancelledSessionIds += sessionId
+                        if (sessionId == "session-one") error("cancel failed")
+                    }
+
+                    override suspend fun setActiveProfile(profileId: String) = Unit
+                }
+            val progressState =
+                MutableStateFlow(
+                    mapOf(
+                        "parallel-run" to
+                            DiagnosticsHomeCompositeProgress(
+                                runId = "parallel-run",
+                                stages =
+                                    listOf(
+                                        DiagnosticsHomeCompositeStageSummary(
+                                            stageKey = "one",
+                                            stageLabel = "One",
+                                            profileId = "one",
+                                            pathMode = ScanPathMode.RAW_PATH,
+                                            status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                                            headline = "running",
+                                            summary = "running",
+                                            sessionId = "session-one",
+                                        ),
+                                        DiagnosticsHomeCompositeStageSummary(
+                                            stageKey = "two",
+                                            stageLabel = "Two",
+                                            profileId = "two",
+                                            pathMode = ScanPathMode.RAW_PATH,
+                                            status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                                            headline = "running",
+                                            summary = "running",
+                                            sessionId = "session-two",
+                                        ),
+                                    ),
+                            ),
+                    ),
+                )
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = controller,
+                    diagnosticsTimelineSource = MutableDiagnosticsTimelineSource(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                )
+
+            executor.cancelRunStages("parallel-run", progressState)
+
+            assertEquals(listOf("session-one", "session-two"), cancelledSessionIds)
+        }
+
+    @Test
+    fun `failed terminal progress cannot wait forever for an outcome`() {
+        val error =
+            runCatching {
+                DiagnosticsHomeCompositeProgress(
+                    runId = "failed-run",
+                    status = DiagnosticsHomeCompositeRunStatus.FAILED,
+                ).outcomeOrThrowIfTerminal()
+            }.exceptionOrNull()
+
+        assertTrue(error is DiagnosticsHomeRunTerminatedException)
+        assertEquals(DiagnosticsHomeCompositeRunStatus.FAILED, (error as DiagnosticsHomeRunTerminatedException).status)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -284,6 +422,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 object : DiagnosticsScanController {
                     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
                     val startedRequests = mutableListOf<Pair<ScanPathMode, String?>>()
+                    val cancelledSessionIds = mutableListOf<String>()
+                    val liveSessionIds = linkedSetOf("sibling-session")
                     private var nextId = 0
                     private var activeStrategySessionId: String? = null
 
@@ -321,6 +461,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, status, summary)
                         if (profileId == "ru-dpi-strategy") {
                             activeStrategySessionId = sessionId
+                            liveSessionIds += sessionId
                         }
                         return DiagnosticsManualScanStartResult.Started(sessionId)
                     }
@@ -330,8 +471,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         action: HiddenProbeConflictAction,
                     ): DiagnosticsManualScanResolution = error("unused")
 
-                    override suspend fun cancelActiveScan() {
-                        val sessionId = activeStrategySessionId ?: return
+                    override suspend fun cancelActiveScan() = error("timeout cancellation must be session-scoped")
+
+                    override suspend fun cancelScan(sessionId: String) {
+                        require(sessionId == activeStrategySessionId)
+                        cancelledSessionIds += sessionId
+                        liveSessionIds -= sessionId
                         val recoveredSession =
                             diagnosticsSession(
                                 id = sessionId,
@@ -401,6 +546,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
             val outcome = service.finalizeHomeRun(started.runId)
 
             assertEquals(1, scanController.startedRequests.count { it.second == "ru-dpi-strategy" })
+            assertEquals(listOf("scan-6"), scanController.cancelledSessionIds)
+            assertEquals(setOf("sibling-session"), scanController.liveSessionIds)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.COMPLETED,
                 outcome.stageSummaries.first { it.stageKey == "dpi_strategy" }.status,

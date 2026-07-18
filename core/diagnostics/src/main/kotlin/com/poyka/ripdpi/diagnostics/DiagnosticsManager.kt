@@ -93,12 +93,38 @@ interface DiagnosticsScanController {
         targetOverrides: DiagnosticsScanTargetOverrides? = null,
     ): DiagnosticsManualScanStartResult
 
+    suspend fun startScanOwnedBy(
+        ownerId: String,
+        pathMode: ScanPathMode,
+        selectedProfileId: String? = null,
+        skipActiveScanCheck: Boolean = false,
+        allowSensitiveProfileStart: Boolean = false,
+        scanDeadlineMs: Long? = null,
+        maxCandidates: Int? = null,
+        targetOverrides: DiagnosticsScanTargetOverrides? = null,
+    ): DiagnosticsManualScanStartResult =
+        startScan(
+            pathMode = pathMode,
+            selectedProfileId = selectedProfileId,
+            skipActiveScanCheck = skipActiveScanCheck,
+            allowSensitiveProfileStart = allowSensitiveProfileStart,
+            scanDeadlineMs = scanDeadlineMs,
+            maxCandidates = maxCandidates,
+            targetOverrides = targetOverrides,
+        )
+
     suspend fun resolveHiddenProbeConflict(
         requestId: String,
         action: HiddenProbeConflictAction,
     ): DiagnosticsManualScanResolution
 
     suspend fun cancelActiveScan()
+
+    suspend fun cancelScan(sessionId: String) = cancelActiveScan()
+
+    fun activeSessionIdsOwnedBy(ownerId: String): Set<String> = emptySet()
+
+    suspend fun releaseSessionsOwnedBy(ownerId: String) = Unit
 
     suspend fun setActiveProfile(profileId: String)
 }
@@ -185,6 +211,10 @@ enum class DiagnosticsHomeCompositeRunStatus {
     CANCELLED,
     FAILED,
 }
+
+class DiagnosticsHomeRunTerminatedException(
+    val status: DiagnosticsHomeCompositeRunStatus,
+) : IllegalStateException("Home diagnostics run terminated with status $status")
 
 enum class DiagnosticsHomeCompositeStageStatus {
     PENDING,

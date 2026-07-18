@@ -67,6 +67,7 @@ internal fun buildHomeDiagnosticsUiState(
 private fun HomeDiagnosticsRuntimeState.analysisRunUiStatus(): HomeDiagnosticsRunUiStatus =
     when {
         analysisStartFailed -> HomeDiagnosticsRunUiStatus.FAILED
+        analysisStarting -> HomeDiagnosticsRunUiStatus.STARTING
         activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING -> HomeDiagnosticsRunUiStatus.RUNNING
         activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.COMPLETED -> HomeDiagnosticsRunUiStatus.COMPLETED
         activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.CANCELLED -> HomeDiagnosticsRunUiStatus.CANCELLED
@@ -94,7 +95,9 @@ private fun resolveHomeDiagnosticsAvailability(
     stringResolver: StringResolver,
 ): HomeDiagnosticsAvailability {
     val fingerprintMismatch = runtime.hasCompositeFingerprintMismatch()
-    val analysisBusy = runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
+    val analysisBusy =
+        runtime.analysisStarting || runtime.activeRunId != null ||
+            runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
     val verificationBusy = runtime.waitingForVerifiedVpnStart || runtime.activeVerificationSessionId != null
     val latestAudit =
         runtime.latestCompositeOutcome?.toLatestAuditUiState(fingerprintMismatch)
@@ -175,10 +178,20 @@ private fun resolveAnalysisSupportingText(
     }
 
 private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: StringResolver): String {
+    if (analysisStarting) {
+        return stringResolver.getString(R.string.home_diagnostics_analysis_starting)
+    }
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
     val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
-    val stagePrefix = activeStageIndex?.let { "Stage ${it + 1} of ${progress.stages.size}" }
+    val stagePrefix =
+        activeStageIndex?.let {
+            stringResolver.getString(
+                R.string.home_diagnostics_stage_counter,
+                it + 1,
+                progress.stages.size,
+            )
+        }
     return listOfNotNull(stagePrefix, activeRunStageProgress ?: stageLabel)
         .joinToString(" · ")
         .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }

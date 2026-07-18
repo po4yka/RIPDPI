@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -522,6 +524,30 @@ class MainHomeDiagnosticsActionsTest {
         assertEquals(AnalysisStageStatus.RUNNING, progress.stages[1].status)
         assertEquals(AnalysisStageStatus.PENDING, progress.stages[2].status)
         assertEquals(AnalysisStageStatus.COMPLETED, progress.stages[3].status)
+        assertEquals(
+            "${R.string.home_diagnostics_stage_counter}:2,4 · TCP Desync",
+            uiState.analysisAction.supportingText,
+        )
+    }
+
+    @Test
+    fun `buildHomeDiagnosticsUiState treats start admission as busy`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime = HomeDiagnosticsRuntimeState(analysisStarting = true),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertTrue(uiState.analysisAction.busy)
+        assertFalse(uiState.analysisAction.enabled)
+        assertEquals(HomeDiagnosticsRunUiStatus.STARTING, uiState.analysisRunStatus)
+        assertEquals(
+            R.string.home_diagnostics_analysis_starting.toString(),
+            uiState.analysisAction.supportingText,
+        )
     }
 
     @Test
@@ -627,6 +653,167 @@ class MainHomeDiagnosticsActionsTest {
                 ?.authority,
         )
     }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class MainHomeDiagnosticsConcurrencyTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `starting analysis blocks a conflicting second start`() =
+        runTest {
+            val startGate = CompletableDeferred<Unit>()
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService().apply { this.startGate = startGate }
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+
+            actions.runFullAnalysis()
+            runCurrent()
+            assertTrue(homeDiagnosticsState.value.analysisStarting)
+
+            actions.runFullAnalysis()
+            runCurrent()
+            assertEquals(listOf("home-run"), compositeRunService.startedRunIds)
+
+            startGate.complete(Unit)
+            runCurrent()
+            assertFalse(homeDiagnosticsState.value.analysisStarting)
+            assertEquals("home-run", homeDiagnosticsState.value.activeRunId)
+        }
+
+    @Test
+    fun `stage progress resets when the active scan session changes`() =
+        runTest {
+            val timeline = StubDiagnosticsTimelineSource()
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService()
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    diagnosticsTimelineSource = timeline,
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+            actions.initialize()
+            actions.runFullAnalysis()
+            runCurrent()
+
+            val runFlow = requireNotNull(compositeRunService.runs["home-run"])
+            runFlow.value =
+                DiagnosticsHomeCompositeProgress(
+                    runId = "home-run",
+                    activeStageIndex = 0,
+                    activeSessionId = "session-one",
+                    stages =
+                        listOf(
+                            stage(
+                                key = "one",
+                                label = "One",
+                                profileId = "one",
+                                sessionId = "session-one",
+                                status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                            ),
+                        ),
+                )
+            runCurrent()
+            timeline.activeScanProgress.value =
+                com.poyka.ripdpi.diagnostics.ScanProgress(
+                    sessionId = "session-one",
+                    phase = "running",
+                    completedSteps = 8,
+                    totalSteps = 10,
+                    message = "Testing one",
+                )
+            runCurrent()
+            assertEquals(0.8f, homeDiagnosticsState.value.activeStageStepProgress, 0.001f)
+
+            runFlow.value =
+                runFlow.value.copy(
+                    activeStageIndex = 1,
+                    activeSessionId = "session-two",
+                    stages =
+                        runFlow.value.stages +
+                            stage(
+                                key = "two",
+                                label = "Two",
+                                profileId = "two",
+                                sessionId = "session-two",
+                                status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                            ),
+                )
+            runCurrent()
+
+            assertEquals(0f, homeDiagnosticsState.value.activeStageStepProgress, 0.001f)
+            assertEquals(null, homeDiagnosticsState.value.activeRunStageProgress)
+        }
+
+    @Test
+    fun `visible sibling progress becomes the active parallel run stage`() =
+        runTest {
+            val timeline = StubDiagnosticsTimelineSource()
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService()
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    diagnosticsTimelineSource = timeline,
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+            actions.initialize()
+            actions.runFullAnalysis()
+            runCurrent()
+
+            val runFlow = requireNotNull(compositeRunService.runs["home-run"])
+            runFlow.value =
+                DiagnosticsHomeCompositeProgress(
+                    runId = "home-run",
+                    activeStageIndex = 0,
+                    activeSessionId = "session-one",
+                    stages =
+                        listOf(
+                            stage(
+                                key = "one",
+                                label = "One",
+                                profileId = "one",
+                                sessionId = "session-one",
+                                status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                            ),
+                            stage(
+                                key = "two",
+                                label = "Two",
+                                profileId = "two",
+                                sessionId = "session-two",
+                                status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                            ),
+                        ),
+                )
+            runCurrent()
+
+            timeline.activeScanProgress.value =
+                com.poyka.ripdpi.diagnostics.ScanProgress(
+                    sessionId = "session-two",
+                    phase = "running",
+                    completedSteps = 2,
+                    totalSteps = 5,
+                    message = "Testing two",
+                )
+            runCurrent()
+
+            val state = homeDiagnosticsState.value
+            assertEquals("session-two", state.activeRunProgress?.activeSessionId)
+            assertEquals(1, state.activeRunProgress?.activeStageIndex)
+            assertEquals("Testing two", state.activeRunStageProgress)
+            assertEquals(0.4f, state.activeStageStepProgress, 0.001f)
+            assertFalse(state.externalScanActive)
+        }
 }
 
 private fun createActions(

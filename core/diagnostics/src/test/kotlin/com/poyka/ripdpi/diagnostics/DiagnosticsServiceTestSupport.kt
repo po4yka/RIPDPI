@@ -145,6 +145,7 @@ internal class FakeDiagnosticsHistoryStores :
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
     val usageSessionsCollectorCount = AtomicInteger(0)
     var beforeInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
+    var afterUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
@@ -294,6 +295,7 @@ internal class FakeDiagnosticsHistoryStores :
 
     override suspend fun upsertScanSession(session: ScanSessionEntity) {
         sessionsState.value = sessionsState.value.upsertById(session) { it.id }
+        afterUpsertScanSession(session)
     }
 
     override suspend fun replaceProbeResults(

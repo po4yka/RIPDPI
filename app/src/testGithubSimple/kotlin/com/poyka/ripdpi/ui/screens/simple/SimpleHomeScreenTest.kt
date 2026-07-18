@@ -1,16 +1,23 @@
 package com.poyka.ripdpi.ui.screens.simple
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
@@ -64,7 +71,7 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     connectionState = ConnectionState.Disconnected,
                     diagnostics = diagnostics,
-                    activeTransportKind = null,
+                    activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
                     onRunReport = {},
@@ -79,7 +86,7 @@ class SimpleHomeScreenTest {
             .onNode(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.StateDescription,
-                    "Stage 2 of 4 · Testing TLS",
+                    "Stage 2 of 4",
                 ),
             ).assert(
                 SemanticsMatcher.expectValue(
@@ -88,6 +95,60 @@ class SimpleHomeScreenTest {
                 ),
             )
         composeRule.runOnIdle { assertEquals(1, cancelClicks) }
+    }
+
+    @Test
+    fun `starting report disables both actions until run id is available`() {
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(supportingText = "Starting diagnostics", busy = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.STARTING,
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Connect").assertIsNotEnabled()
+        composeRule.onNodeWithText("Run diagnostic report").assertIsNotEnabled()
+        composeRule.onNodeWithText("Starting diagnostics").assertExists()
+    }
+
+    @Test
+    fun `compact height can scroll to the report action`() {
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(supportingText = "Stage 1 of 8", busy = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                    modifier = Modifier.height(320.dp),
+                )
+            }
+        }
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Cancel active scan"))
+        composeRule.onNodeWithText("Cancel active scan").assertIsDisplayed()
     }
 
     @Test

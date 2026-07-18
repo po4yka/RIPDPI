@@ -47,7 +47,7 @@ class RoborazziSimpleHomeScreenTest {
                                 ),
                             analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
                         ),
-                    activeTransportKind = null,
+                    activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
                     onRunReport = {},

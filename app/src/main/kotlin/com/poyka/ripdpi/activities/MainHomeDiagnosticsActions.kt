@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
@@ -24,6 +25,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
@@ -53,6 +55,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val externalScanActive: Boolean = false,
     val externalScanMessage: String? = null,
     val pcapRecordingRequested: Boolean = false,
+    val analysisStarting: Boolean = false,
     val analysisStartFailed: Boolean = false,
 )
 
@@ -101,76 +104,7 @@ internal class MainHomeDiagnosticsActions(
     private fun observeActiveScanProgress() {
         mutations.launch {
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
-                val progressSessionId = progress?.sessionId
-                val progressMessage = progress?.message
-                val isActiveRunSession =
-                    progressSessionId == homeDiagnosticsState.value.activeRunProgress?.activeSessionId
-                homeDiagnosticsState.update { current ->
-                    current.copy(
-                        activeRunStageProgress =
-                            if (progressSessionId == current.activeRunProgress?.activeSessionId) {
-                                progressMessage
-                            } else {
-                                current.activeRunStageProgress
-                            },
-                        activeStageStepProgress =
-                            if (isActiveRunSession && progress != null && progress.totalSteps > 0) {
-                                progress.completedSteps.toFloat() / progress.totalSteps
-                            } else if (!isActiveRunSession) {
-                                current.activeStageStepProgress
-                            } else {
-                                0f
-                            },
-                        verificationProgress =
-                            when {
-                                progressSessionId == current.activeVerificationSessionId -> {
-                                    progressMessage
-                                }
-
-                                current.waitingForVerifiedVpnStart -> {
-                                    current.verificationProgress
-                                }
-
-                                else -> {
-                                    null
-                                }
-                            },
-                        externalScanActive =
-                            progress != null &&
-                                progressSessionId != current.activeRunProgress?.activeSessionId &&
-                                progressSessionId != current.activeVerificationSessionId,
-                        externalScanMessage =
-                            if (
-                                progress != null &&
-                                progressSessionId != current.activeRunProgress?.activeSessionId &&
-                                progressSessionId != current.activeVerificationSessionId
-                            ) {
-                                progressMessage
-                            } else {
-                                null
-                            },
-                    )
-                }
-                if (progress == null) {
-                    homeDiagnosticsState.update { current ->
-                        current.copy(
-                            activeRunStageProgress =
-                                if (current.activeRunId == null) {
-                                    null
-                                } else {
-                                    current.activeRunStageProgress
-                                },
-                            verificationProgress =
-                                if (current.activeVerificationSessionId == null &&
-                                    !current.waitingForVerifiedVpnStart
-                                ) {
-                                    null
-                                } else {
-                                    current.verificationProgress
-                                },
-                        )
-                    }
-                }
+                homeDiagnosticsState.update { current -> current.withActiveScanProgress(progress) }
             }
         }
     }
@@ -302,6 +236,7 @@ internal class MainHomeDiagnosticsActions(
 
     fun runFullAnalysis() {
         mutations.launch {
+            if (homeDiagnosticsState.value.analysisInProgress()) return@launch
             activeRunObservation?.cancel()
             val pcapRequested = homeDiagnosticsState.value.pcapRecordingRequested
             homeDiagnosticsState.update {
@@ -309,6 +244,7 @@ internal class MainHomeDiagnosticsActions(
                     activeRunId = null,
                     activeRunProgress = null,
                     activeRunStageProgress = null,
+                    activeStageStepProgress = 0f,
                     quickScanActive = false,
                     latestCompositeOutcome = null,
                     analysisSheetVisible = false,
@@ -317,6 +253,7 @@ internal class MainHomeDiagnosticsActions(
                     waitingForVerifiedVpnStart = false,
                     verificationProgress = null,
                     analysisStartFailed = false,
+                    analysisStarting = true,
                 )
             }
             runCatching {
@@ -328,26 +265,14 @@ internal class MainHomeDiagnosticsActions(
                     it.copy(
                         activeRunId = started.runId,
                         activeRunStageProgress = stringResolver.getString(R.string.home_diagnostics_analysis_running),
+                        analysisStarting = false,
                     )
                 }
                 activeRunObservation =
                     mutations.launch {
                         diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
-                            val running = progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING
                             homeDiagnosticsState.update { current ->
-                                current.copy(
-                                    activeRunId = if (running) progress.runId else null,
-                                    quickScanActive = if (running) current.quickScanActive else false,
-                                    activeRunProgress = progress,
-                                    latestCompositeOutcome = progress.outcome ?: current.latestCompositeOutcome,
-                                    analysisSheetVisible =
-                                        if (progress.outcome != null) {
-                                            true
-                                        } else {
-                                            current.analysisSheetVisible
-                                        },
-                                    analysisStartFailed = false,
-                                )
+                                current.withCompositeProgress(progress)
                             }
                             progress.outcome?.let { outcome ->
                                 refreshFingerprint(outcome.fingerprintHash)
@@ -356,7 +281,7 @@ internal class MainHomeDiagnosticsActions(
                         }
                     }
             }.onFailure { error ->
-                homeDiagnosticsState.update { it.copy(analysisStartFailed = true) }
+                homeDiagnosticsState.update { it.copy(analysisStarting = false, analysisStartFailed = true) }
                 val message =
                     when (error) {
                         is DiagnosticsScanStartRejectedException -> {
@@ -389,6 +314,7 @@ internal class MainHomeDiagnosticsActions(
 
     fun runQuickAnalysis() {
         mutations.launch {
+            if (homeDiagnosticsState.value.analysisInProgress()) return@launch
             activeRunObservation?.cancel()
             val pcapRequested = homeDiagnosticsState.value.pcapRecordingRequested
             homeDiagnosticsState.update {
@@ -396,6 +322,7 @@ internal class MainHomeDiagnosticsActions(
                     activeRunId = null,
                     activeRunProgress = null,
                     activeRunStageProgress = null,
+                    activeStageStepProgress = 0f,
                     quickScanActive = true,
                     latestCompositeOutcome = null,
                     analysisSheetVisible = false,
@@ -404,6 +331,7 @@ internal class MainHomeDiagnosticsActions(
                     waitingForVerifiedVpnStart = false,
                     verificationProgress = null,
                     analysisStartFailed = false,
+                    analysisStarting = true,
                 )
             }
             runCatching {
@@ -415,26 +343,14 @@ internal class MainHomeDiagnosticsActions(
                     it.copy(
                         activeRunId = started.runId,
                         activeRunStageProgress = stringResolver.getString(R.string.home_diagnostics_analysis_running),
+                        analysisStarting = false,
                     )
                 }
                 activeRunObservation =
                     mutations.launch {
                         diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
-                            val running = progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING
                             homeDiagnosticsState.update { current ->
-                                current.copy(
-                                    activeRunId = if (running) progress.runId else null,
-                                    quickScanActive = if (running) current.quickScanActive else false,
-                                    activeRunProgress = progress,
-                                    latestCompositeOutcome = progress.outcome ?: current.latestCompositeOutcome,
-                                    analysisSheetVisible =
-                                        if (progress.outcome != null) {
-                                            true
-                                        } else {
-                                            current.analysisSheetVisible
-                                        },
-                                    analysisStartFailed = false,
-                                )
+                                current.withCompositeProgress(progress)
                             }
                             progress.outcome?.let { outcome ->
                                 refreshFingerprint(outcome.fingerprintHash)
@@ -443,7 +359,7 @@ internal class MainHomeDiagnosticsActions(
                         }
                     }
             }.onFailure { error ->
-                homeDiagnosticsState.update { it.copy(analysisStartFailed = true) }
+                homeDiagnosticsState.update { it.copy(analysisStarting = false, analysisStartFailed = true) }
                 val message =
                     when (error) {
                         is DiagnosticsScanStartRejectedException -> {
@@ -613,6 +529,91 @@ internal class MainHomeDiagnosticsActions(
             }
         latestDirectModeOutcomeStore.publish(snapshot)
     }
+}
+
+private fun HomeDiagnosticsRuntimeState.analysisInProgress(): Boolean =
+    analysisStarting || activeRunId != null ||
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
+
+private data class ActiveRunProgressSelection(
+    val progress: DiagnosticsHomeCompositeProgress?,
+    val ownsSession: Boolean,
+)
+
+private fun HomeDiagnosticsRuntimeState.selectActiveRunProgress(sessionId: String?): ActiveRunProgressSelection {
+    val matchingStageIndex =
+        activeRunProgress
+            ?.stages
+            ?.indexOfFirst { stage ->
+                stage.sessionId == sessionId && stage.status == DiagnosticsHomeCompositeStageStatus.RUNNING
+            }?.takeIf { it >= 0 }
+    val selectedProgress =
+        matchingStageIndex?.let { stageIndex ->
+            activeRunProgress.copy(activeStageIndex = stageIndex, activeSessionId = sessionId)
+        } ?: activeRunProgress
+    return ActiveRunProgressSelection(
+        progress = selectedProgress,
+        ownsSession = matchingStageIndex != null || sessionId == selectedProgress?.activeSessionId,
+    )
+}
+
+private fun HomeDiagnosticsRuntimeState.withActiveScanProgress(progress: ScanProgress?): HomeDiagnosticsRuntimeState {
+    val selection = selectActiveRunProgress(progress?.sessionId)
+    val verificationOwnsSession = progress?.sessionId == activeVerificationSessionId
+    val external = progress != null && !selection.ownsSession && !verificationOwnsSession
+    return copy(
+        activeRunProgress = selection.progress,
+        activeRunStageProgress =
+            when {
+                selection.ownsSession -> progress?.message
+                progress == null && activeRunId == null -> null
+                else -> activeRunStageProgress
+            },
+        activeStageStepProgress = nextActiveStageStepProgress(progress, selection.ownsSession),
+        verificationProgress =
+            when {
+                verificationOwnsSession -> progress?.message
+                waitingForVerifiedVpnStart -> verificationProgress
+                else -> null
+            },
+        externalScanActive = external,
+        externalScanMessage = progress?.message?.takeIf { external },
+    )
+}
+
+private fun HomeDiagnosticsRuntimeState.nextActiveStageStepProgress(
+    progress: ScanProgress?,
+    ownsSession: Boolean,
+): Float =
+    when {
+        ownsSession && progress != null && progress.totalSteps > 0 -> {
+            progress.completedSteps.toFloat() / progress.totalSteps
+        }
+
+        ownsSession || progress == null -> {
+            0f
+        }
+
+        else -> {
+            activeStageStepProgress
+        }
+    }
+
+private fun HomeDiagnosticsRuntimeState.withCompositeProgress(
+    progress: DiagnosticsHomeCompositeProgress,
+): HomeDiagnosticsRuntimeState {
+    val running = progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING
+    val activeSessionChanged = activeRunProgress?.activeSessionId != progress.activeSessionId
+    return copy(
+        activeRunId = if (running) progress.runId else null,
+        quickScanActive = running && quickScanActive,
+        activeRunProgress = progress,
+        activeRunStageProgress = if (activeSessionChanged) null else activeRunStageProgress,
+        activeStageStepProgress = if (activeSessionChanged) 0f else activeStageStepProgress,
+        latestCompositeOutcome = progress.outcome ?: latestCompositeOutcome,
+        analysisSheetVisible = progress.outcome != null || analysisSheetVisible,
+        analysisStartFailed = false,
+    )
 }
 
 private fun List<DiagnosticScanSession>.latestCompletedManualDiagnosticSession(): DiagnosticScanSession? =

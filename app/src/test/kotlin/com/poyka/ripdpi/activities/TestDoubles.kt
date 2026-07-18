@@ -405,6 +405,7 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
     val startedRunIds = mutableListOf<String>()
     val cancelledRunIds = mutableListOf<String>()
     val runs = mutableMapOf<String, MutableStateFlow<DiagnosticsHomeCompositeProgress>>()
+    var startGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
 
     override suspend fun lookupCachedOutcome(
         fingerprintHash: String,
@@ -418,6 +419,7 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
         startFailure?.let { throw it }
         val runId = nextRunId
         startedRunIds += runId
+        startGate?.await()
         runs.getOrPut(runId) {
             MutableStateFlow(
                 DiagnosticsHomeCompositeProgress(
@@ -435,6 +437,7 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
         startFailure?.let { throw it }
         val runId = nextRunId
         startedRunIds += runId
+        startGate?.await()
         runs.getOrPut(runId) {
             MutableStateFlow(
                 DiagnosticsHomeCompositeProgress(

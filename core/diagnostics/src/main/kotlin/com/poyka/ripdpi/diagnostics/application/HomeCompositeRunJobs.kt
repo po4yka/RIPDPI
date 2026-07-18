@@ -15,13 +15,16 @@ internal class HomeCompositeRunJobs(
 ) {
     private val jobs = ConcurrentHashMap<String, Job>()
     private val childJobs = ConcurrentHashMap<String, Job>()
+    private val teardownRunIds = ConcurrentHashMap.newKeySet<String>()
+    private val lifecycleLock = Any()
+    private var activeRunId: String? = null
 
     @Suppress("detekt.TooGenericExceptionCaught")
     fun launch(
         runId: String,
         onFailure: suspend (Throwable) -> Unit,
         block: suspend () -> Unit,
-    ) {
+    ): Boolean {
         val job =
             scope.launch(start = CoroutineStart.LAZY) {
                 try {
@@ -31,28 +34,81 @@ internal class HomeCompositeRunJobs(
                 } catch (error: Throwable) {
                     onFailure(error)
                 } finally {
-                    childJobs.remove(runId)?.cancel()
-                    jobs.remove(runId)
+                    synchronized(lifecycleLock) {
+                        childJobs.remove(runId)?.cancel()
+                        jobs.remove(runId)
+                        if (runId !in teardownRunIds && activeRunId == runId) activeRunId = null
+                    }
                 }
             }
-        jobs[runId] = job
+        val admitted =
+            synchronized(lifecycleLock) {
+                if (activeRunId != null) {
+                    false
+                } else {
+                    activeRunId = runId
+                    jobs[runId] = job
+                    true
+                }
+            }
+        if (!admitted) {
+            job.cancel()
+            return false
+        }
         job.start()
+        return true
     }
 
     fun trackChild(
         runId: String,
         job: Job,
     ) {
-        childJobs.put(runId, job)?.cancel()
+        synchronized(lifecycleLock) {
+            if (activeRunId == runId && jobs.containsKey(runId)) {
+                childJobs.put(runId, job)?.cancel()
+            } else {
+                job.cancel()
+            }
+        }
     }
 
     suspend fun cancel(
         runId: String,
-        beforeCancel: suspend () -> Unit,
+        teardown: suspend () -> Unit,
     ): Boolean {
-        val job = jobs[runId] ?: return false
-        beforeCancel()
-        job.cancelAndJoin()
+        val job =
+            synchronized(lifecycleLock) {
+                jobs[runId]?.takeIf { teardownRunIds.add(runId) }
+            } ?: return false
+        try {
+            job.cancelAndJoin()
+            teardown()
+        } finally {
+            synchronized(lifecycleLock) {
+                teardownRunIds.remove(runId)
+                if (activeRunId == runId) activeRunId = null
+            }
+        }
         return true
     }
 }
+
+internal fun DiagnosticsHomeCompositeProgress.outcomeOrThrowIfTerminal(): DiagnosticsHomeCompositeOutcome? =
+    outcome
+        ?: when (status) {
+            DiagnosticsHomeCompositeRunStatus.RUNNING -> null
+
+            DiagnosticsHomeCompositeRunStatus.COMPLETED,
+            DiagnosticsHomeCompositeRunStatus.CANCELLED,
+            DiagnosticsHomeCompositeRunStatus.FAILED,
+            -> throw DiagnosticsHomeRunTerminatedException(status)
+        }
+
+internal fun Map<String, DiagnosticsHomeCompositeOutcome>.mostRecentCompletedRunBefore(
+    currentRunId: String,
+): DiagnosticsHomeCompositeOutcome? =
+    entries
+        .asSequence()
+        .filter { (key, _) -> key != currentRunId }
+        .map { (_, value) -> value }
+        .maxByOrNull { it.bundleSessionIds.size }

@@ -279,8 +279,14 @@ class DiagnosticsExecutionPolicyTest {
             val stores = FakeDiagnosticsHistoryStores()
             val registry = activeScanRegistry(stores, backgroundScope, json)
             val service = scanAdmissionService(stores, registry, json)
+            registry.registerBridge(
+                FakeNetworkDiagnosticsBridge(json),
+                sessionId = "visible-scan",
+                registerActiveBridge = true,
+            )
 
             registry.updateProgress(
+                "visible-scan",
                 ScanProgress(
                     sessionId = "visible-scan",
                     phase = "running",

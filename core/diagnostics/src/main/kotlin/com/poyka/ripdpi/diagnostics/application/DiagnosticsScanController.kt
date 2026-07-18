@@ -15,11 +15,16 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
@@ -62,6 +67,48 @@ internal class DefaultDiagnosticsScanController
             maxCandidates: Int?,
             targetOverrides: DiagnosticsScanTargetOverrides?,
         ): DiagnosticsManualScanStartResult =
+            startManualScan(
+                ownerId = null,
+                pathMode = pathMode,
+                selectedProfileId = selectedProfileId,
+                skipActiveScanCheck = skipActiveScanCheck,
+                allowSensitiveProfileStart = allowSensitiveProfileStart,
+                scanDeadlineMs = scanDeadlineMs,
+                maxCandidates = maxCandidates,
+                targetOverrides = targetOverrides,
+            )
+
+        override suspend fun startScanOwnedBy(
+            ownerId: String,
+            pathMode: ScanPathMode,
+            selectedProfileId: String?,
+            skipActiveScanCheck: Boolean,
+            allowSensitiveProfileStart: Boolean,
+            scanDeadlineMs: Long?,
+            maxCandidates: Int?,
+            targetOverrides: DiagnosticsScanTargetOverrides?,
+        ): DiagnosticsManualScanStartResult =
+            startManualScan(
+                ownerId = ownerId,
+                pathMode = pathMode,
+                selectedProfileId = selectedProfileId,
+                skipActiveScanCheck = skipActiveScanCheck,
+                allowSensitiveProfileStart = allowSensitiveProfileStart,
+                scanDeadlineMs = scanDeadlineMs,
+                maxCandidates = maxCandidates,
+                targetOverrides = targetOverrides,
+            )
+
+        private suspend fun startManualScan(
+            ownerId: String?,
+            pathMode: ScanPathMode,
+            selectedProfileId: String?,
+            skipActiveScanCheck: Boolean,
+            allowSensitiveProfileStart: Boolean,
+            scanDeadlineMs: Long?,
+            maxCandidates: Int?,
+            targetOverrides: DiagnosticsScanTargetOverrides?,
+        ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
                 when (
                     val admission =
@@ -89,6 +136,7 @@ internal class DefaultDiagnosticsScanController
                                         maxCandidates = maxCandidates,
                                     ),
                                 rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
+                                ownerId = ownerId,
                             ),
                         )
                     }
@@ -182,32 +230,65 @@ internal class DefaultDiagnosticsScanController
             }
 
         override suspend fun cancelActiveScan() {
-            val canceledSessionId = activeScanRegistry.cancelActiveScan() ?: return
+            val cancellation = activeScanRegistry.cancelActiveScan() ?: return
+            persistCancellationResult(cancellation)
+        }
+
+        override suspend fun cancelScan(sessionId: String) {
+            val cancellation = activeScanRegistry.cancelScan(sessionId) ?: return
+            persistCancellationResult(cancellation)
+        }
+
+        override fun activeSessionIdsOwnedBy(ownerId: String): Set<String> =
+            activeScanRegistry.sessionOwnership.activeSessionIds(ownerId)
+
+        override suspend fun releaseSessionsOwnedBy(ownerId: String) {
+            val ownedSessionIds = activeScanRegistry.sessionOwnership.activeSessionIds(ownerId)
+            activeScanRegistry.ownerExecutions.cancel(ownerId)
+            ownedSessionIds.forEach { sessionId ->
+                val runningSession = scanRecordStore.getScanSession(sessionId)?.takeIf { it.status == "running" }
+                if (runningSession != null) {
+                    DiagnosticsReportPersister.persistScanFailure(
+                        sessionId,
+                        "Diagnostics scan canceled during startup",
+                        scanRecordStore,
+                    )
+                }
+                activeScanRegistry.removePreparedScan(sessionId)
+            }
+        }
+
+        private suspend fun persistCancellationResult(cancellation: ActiveScanCancellation) {
+            var failure = cancellation.failure
+            withContext(NonCancellable) {
+                runCatching { persistCancelledScan(cancellation) }
+                    .exceptionOrNull()
+                    ?.let { persistenceFailure ->
+                        if (failure == null) {
+                            failure = persistenceFailure
+                        } else {
+                            failure?.addSuppressed(persistenceFailure)
+                        }
+                    }
+            }
+            failure?.let { throw it }
+        }
+
+        private suspend fun persistCancelledScan(cancellation: ActiveScanCancellation) {
             val session =
                 scanRecordStore
-                    .getScanSession(canceledSessionId)
+                    .getScanSession(cancellation.sessionId)
                     ?.takeIf { it.status == "running" }
                     ?: return
 
-            // The native engine builds a partial report after receiving the
-            // cancellation signal.  awaitPartialReport() in ActiveScanRegistry
-            // polls for it during the grace period.  If available, persist the
-            // partial report so the session has actual results instead of just
-            // "scan canceled".
             val partialReportJson =
-                activeScanRegistry.consumeCancelledSessionReport(canceledSessionId)
+                cancellation.partialReportJson
+                    ?: activeScanRegistry.consumeCancelledSessionReport(cancellation.sessionId)
             if (partialReportJson != null) {
-                scanRecordStore.upsertScanSession(
-                    session.copy(
-                        status = "completed",
-                        summary = "Scan completed with partial results",
-                        reportJson = partialReportJson,
-                        finishedAt = System.currentTimeMillis(),
-                    ),
-                )
+                persistPartialScanSession(session, partialReportJson, scanRecordStore)
             } else {
                 DiagnosticsReportPersister.persistScanFailure(
-                    canceledSessionId,
+                    cancellation.sessionId,
                     "Diagnostics scan canceled",
                     scanRecordStore,
                 )
@@ -248,57 +329,72 @@ internal class DefaultDiagnosticsScanController
         private suspend fun startPreparedScan(
             prepared: PreparedDiagnosticsScan,
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
+            ownerId: String? = null,
         ): String {
-            activeScanRegistry.rememberPreparedScan(prepared)
+            persistPreparedScan(prepared, ownerId)
+            val bridgeSession = createStartedBridge(prepared)
+            launchPreparedScan(prepared, bridgeSession, rawPathRunner)
+            return prepared.sessionId
+        }
+
+        private suspend fun persistPreparedScan(
+            prepared: PreparedDiagnosticsScan,
+            ownerId: String?,
+        ) {
+            activeScanRegistry.rememberPreparedScan(prepared, ownerId)
             scanRecordStore.upsertScanSession(prepared.initialSession)
             artifactWriteStore.upsertSnapshot(prepared.preScanSnapshot)
             artifactWriteStore.upsertContextSnapshot(prepared.preScanContext)
 
-            val preflightFailureSummary = prepared.inPathPreflightFailureSummary()
-            if (preflightFailureSummary != null) {
-                activeScanRegistry.removePreparedScan(prepared.sessionId)
-                if (prepared.exposeProgress) {
-                    activeScanRegistry.updateProgress(null)
-                }
-                DiagnosticsReportPersister.persistScanFailure(
-                    prepared.sessionId,
-                    preflightFailureSummary,
-                    scanRecordStore,
-                )
-                throw IllegalStateException(preflightFailureSummary)
-            }
+            val failureSummary = prepared.inPathPreflightFailureSummary() ?: return
+            activeScanRegistry.removePreparedScan(prepared.sessionId)
+            clearPreparedProgress(prepared)
+            DiagnosticsReportPersister.persistScanFailure(
+                prepared.sessionId,
+                failureSummary,
+                scanRecordStore,
+            )
+            throw IllegalStateException(failureSummary)
+        }
 
+        private suspend fun createStartedBridge(prepared: PreparedDiagnosticsScan): PreparedBridgeSession {
             val handle =
                 bridgeExecutionService.createHandle(
                     sessionId = prepared.sessionId,
                     registerActiveBridge = prepared.registerActiveBridge,
                 )
             val startBridgeBeforeAwait = prepared.pathMode == ScanPathMode.RAW_PATH
-            if (!startBridgeBeforeAwait) {
-                val startFailure =
-                    runCatching {
-                        bridgeExecutionService.start(
-                            handle = handle,
-                            requestJson = prepared.requestJson,
-                        )
-                    }.exceptionOrNull()
-                if (startFailure != null) {
-                    activeScanRegistry.removePreparedScan(prepared.sessionId)
-                    runCatching { bridgeExecutionService.destroy(handle) }
-                    if (prepared.exposeProgress) {
-                        activeScanRegistry.updateProgress(null)
-                    }
-                    DiagnosticsReportPersister.persistScanFailure(
-                        prepared.sessionId,
-                        startFailure.message ?: "Diagnostics scan failed to start",
-                        scanRecordStore,
-                    )
-                    throw startFailure
-                }
-            }
+            if (startBridgeBeforeAwait) return PreparedBridgeSession(handle, true)
 
+            val startFailure =
+                runCatching {
+                    bridgeExecutionService.start(
+                        handle = handle,
+                        requestJson = prepared.requestJson,
+                    )
+                }.exceptionOrNull()
+            if (startFailure != null) {
+                activeScanRegistry.removePreparedScan(prepared.sessionId)
+                runCatching { bridgeExecutionService.destroy(handle) }
+                clearPreparedProgress(prepared)
+                DiagnosticsReportPersister.persistScanFailure(
+                    prepared.sessionId,
+                    startFailure.message ?: "Diagnostics scan failed to start",
+                    scanRecordStore,
+                )
+                throw startFailure
+            }
+            return PreparedBridgeSession(handle, false)
+        }
+
+        private suspend fun launchPreparedScan(
+            prepared: PreparedDiagnosticsScan,
+            bridgeSession: PreparedBridgeSession,
+            rawPathRunner: suspend (suspend () -> Unit) -> Unit,
+        ) {
             if (prepared.exposeProgress) {
                 activeScanRegistry.updateProgress(
+                    prepared.sessionId,
                     ScanProgress(
                         sessionId = prepared.sessionId,
                         phase = "preparing",
@@ -310,22 +406,39 @@ internal class DefaultDiagnosticsScanController
             }
 
             val executionJob =
-                scope.launch {
+                scope.launch(start = CoroutineStart.LAZY) {
                     executionCoordinator.execute(
                         prepared = prepared,
-                        handle = handle,
+                        handle = bridgeSession.handle,
                         rawPathRunner = rawPathRunner,
-                        startBridgeBeforeAwait = startBridgeBeforeAwait,
+                        startBridgeBeforeAwait = bridgeSession.startBeforeAwait,
                     )
                 }
-            activeScanRegistry.registerExecution(
-                sessionId = prepared.sessionId,
-                job = executionJob,
-                registerActiveBridge = prepared.registerActiveBridge,
-            )
-            return prepared.sessionId
+            val executionRegistered =
+                activeScanRegistry.registerExecution(
+                    sessionId = prepared.sessionId,
+                    job = executionJob,
+                    registerActiveBridge = prepared.registerActiveBridge,
+                )
+            if (!executionRegistered || !executionJob.start()) {
+                executionJob.cancel()
+                activeScanRegistry.removePreparedScan(prepared.sessionId)
+                clearPreparedProgress(prepared)
+                throw CancellationException("Diagnostics scan cancelled during startup")
+            }
+        }
+
+        private suspend fun clearPreparedProgress(prepared: PreparedDiagnosticsScan) {
+            if (prepared.exposeProgress) {
+                activeScanRegistry.updateProgress(prepared.sessionId, null)
+            }
         }
     }
+
+private data class PreparedBridgeSession(
+    val handle: BridgeSessionHandle,
+    val startBeforeAwait: Boolean,
+)
 
 internal class HiddenProbeConflictRequestFactory
     @Inject
@@ -364,168 +477,20 @@ internal class HiddenProbeConflictRequestFactory
         }
     }
 
-@Singleton
-internal class DiagnosticsScanExecutionCoordinator
-    @Inject
-    constructor(
-        private val scanRecordStore: DiagnosticsScanRecordStore,
-        private val activeScanRegistry: ActiveScanRegistry,
-        private val bridgeExecutionService: BridgeExecutionService,
-        private val bridgePollingService: BridgePollingService,
-        private val scanFinalizationService: ScanFinalizationService,
-        private val scanRequestFactory: DiagnosticsScanRequestFactory,
-        private val serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
-    ) {
-        private companion object {
-            const val ServiceResumeWaitAttempts = 50
-            const val ServiceResumeWaitDelayMs = 200L
-        }
-
-        internal suspend fun execute(
-            prepared: PreparedDiagnosticsScan,
-            handle: BridgeSessionHandle,
-            rawPathRunner: suspend (suspend () -> Unit) -> Unit,
-            startBridgeBeforeAwait: Boolean = false,
-        ) {
-            var finalizationResult: ScanFinalizationResult? = null
-            val failure =
-                try {
-                    val scanBlock: suspend () -> Unit = {
-                        if (startBridgeBeforeAwait) {
-                            bridgeExecutionService.start(
-                                handle = handle,
-                                requestJson = prepared.requestJson,
-                            )
-                        }
-                        bridgePollingService.awaitCompletion(
-                            prepared = prepared,
-                            handle = handle,
-                            activeScanRegistry = activeScanRegistry,
-                        ) { reportJson ->
-                            finalizationResult =
-                                scanFinalizationService.finalize(
-                                    prepared = prepared,
-                                    reportJson = reportJson,
-                                )
-                            bridgePollingService.persistPassiveEvents(handle)
-                            if (prepared.exposeProgress) {
-                                activeScanRegistry.updateProgress(null)
-                            }
-                        }
-                    }
-
-                    when (prepared.pathMode) {
-                        ScanPathMode.RAW_PATH -> rawPathRunner(scanBlock)
-                        ScanPathMode.IN_PATH -> scanBlock()
-                    }
-                    null
-                } catch (error: CancellationException) {
-                    if (activeScanRegistry.isCancellationRequested(prepared.sessionId)) {
-                        error
-                    } else {
-                        throw error
-                    }
-                } catch (
-                    @Suppress("TooGenericExceptionCaught") error: Exception,
-                ) {
-                    error
-                }
-            try {
-                if (failure != null) {
-                    DiagnosticsReportPersister.persistScanFailure(
-                        prepared.sessionId,
-                        failure.summaryForScan(prepared.sessionId, activeScanRegistry),
-                        scanRecordStore,
-                    )
-                }
-            } finally {
-                activeScanRegistry.removePreparedScan(prepared.sessionId)
-                if (prepared.exposeProgress) {
-                    activeScanRegistry.updateProgress(null)
-                }
-                runCatching { bridgeExecutionService.destroy(handle) }
-            }
-
-            if (failure == null && finalizationResult?.shouldReprobeWithCorrectedDns == true) {
-                runDnsCorrectedReprobe(
-                    original = prepared,
-                    finalizationResult = requireNotNull(finalizationResult),
-                )
-            }
-        }
-
-        private suspend fun runDnsCorrectedReprobe(
-            original: PreparedDiagnosticsScan,
-            finalizationResult: ScanFinalizationResult,
-        ) {
-            val reprobe =
-                scanRequestFactory.prepareReprobe(
-                    original = original,
-                    preferredDnsPathOverride = finalizationResult.correctedDnsPath,
-                )
-            activeScanRegistry.rememberPreparedScan(reprobe)
-            scanRecordStore.upsertScanSession(reprobe.initialSession)
-            var reprobeHandle: BridgeSessionHandle? = null
-            val reprobeFailure =
-                runCatching {
-                    waitForVpnServiceResume()
-                    reprobeHandle =
-                        bridgeExecutionService.createHandle(
-                            sessionId = reprobe.sessionId,
-                            registerActiveBridge = false,
-                        )
-                    bridgeExecutionService.start(
-                        handle = requireNotNull(reprobeHandle),
-                        requestJson = reprobe.requestJson,
-                    )
-                    bridgePollingService.awaitCompletion(
-                        prepared = reprobe,
-                        handle = requireNotNull(reprobeHandle),
-                        activeScanRegistry = activeScanRegistry,
-                    ) { reportJson ->
-                        scanFinalizationService.finalize(
-                            prepared = reprobe,
-                            reportJson = reportJson,
-                        )
-                        bridgePollingService.persistPassiveEvents(requireNotNull(reprobeHandle))
-                    }
-                }.exceptionOrNull()
-            try {
-                if (reprobeFailure != null) {
-                    DiagnosticsReportPersister.persistScanFailure(
-                        reprobe.sessionId,
-                        reprobeFailure.message ?: "DNS-corrected re-probe failed",
-                        scanRecordStore,
-                    )
-                }
-            } finally {
-                activeScanRegistry.removePreparedScan(reprobe.sessionId)
-                reprobeHandle?.let { handle ->
-                    runCatching { bridgeExecutionService.destroy(handle) }
-                }
-            }
-        }
-
-        private suspend fun waitForVpnServiceResume() {
-            repeat(ServiceResumeWaitAttempts) {
-                if (serviceStateStore.status.value == AppStatus.Running to Mode.VPN) {
-                    return
-                }
-                delay(ServiceResumeWaitDelayMs)
-            }
-            error("Timed out waiting for VPN service to resume before DNS-corrected re-probe")
-        }
-    }
-
-private fun Throwable.summaryForScan(
-    sessionId: String,
-    activeScanRegistry: ActiveScanRegistry,
-): String =
-    if (activeScanRegistry.isCancellationRequested(sessionId)) {
-        activeScanRegistry.cancellationSummary(sessionId) ?: "Diagnostics scan canceled"
-    } else {
-        message ?: "Diagnostics scan failed"
-    }
+internal suspend fun persistPartialScanSession(
+    session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+    partialReportJson: String,
+    scanRecordStore: DiagnosticsScanRecordStore,
+) {
+    scanRecordStore.upsertScanSession(
+        session.copy(
+            status = "completed",
+            summary = "Scan completed with partial results",
+            reportJson = partialReportJson,
+            finishedAt = System.currentTimeMillis(),
+        ),
+    )
+}
 
 private const val InPathServiceUnavailableAction = "start the RIPDPI service before scanning"
 private const val InPathVpnUnavailableAction = "run raw-path diagnostics so the VPN can pause and resume safely"

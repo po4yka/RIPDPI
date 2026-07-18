@@ -662,6 +662,7 @@ internal fun coordinatorTimelineSource(
 
 internal data class ExecutionCoordinatorFixtures(
     val coordinator: DiagnosticsScanExecutionCoordinator,
+    val scanController: DefaultDiagnosticsScanController,
     val activeScanRegistry: ActiveScanRegistry,
     val bridgeFactory: FakeNetworkDiagnosticsBridgeFactory,
     val finalizationService: ScanFinalizationService,
@@ -682,6 +683,7 @@ internal fun executionCoordinatorFixtures(
         DefaultRememberedNetworkPolicyStore(stores, TestDiagnosticsHistoryClock()),
     json: kotlinx.serialization.json.Json = diagnosticsTestJson(),
     bridgeFactory: FakeNetworkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+    controllerScope: CoroutineScope = CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
 ): ExecutionCoordinatorFixtures {
     val activeScanRegistry = ActiveScanRegistry(timelineSource)
     val bridgeExecutionService =
@@ -735,17 +737,33 @@ internal fun executionCoordinatorFixtures(
             activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
             json = json,
         )
+    val coordinator =
+        DiagnosticsScanExecutionCoordinator(
+            scanRecordStore = stores,
+            activeScanRegistry = activeScanRegistry,
+            bridgeExecutionService = bridgeExecutionService,
+            bridgePollingService = BridgePollingService(passiveEventPersistenceService, json),
+            scanFinalizationService = scanFinalizationService,
+            scanRequestFactory = scanRequestFactory,
+            serviceStateStore = serviceStateStore,
+        )
+    val scanController =
+        DefaultDiagnosticsScanController(
+            appSettingsRepository = appSettingsRepository,
+            scanRecordStore = stores,
+            artifactWriteStore = stores,
+            runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+            scanRequestFactory = scanRequestFactory,
+            scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json),
+            activeScanRegistry = activeScanRegistry,
+            bridgeExecutionService = bridgeExecutionService,
+            executionCoordinator = coordinator,
+            hiddenProbeConflictRequestFactory = HiddenProbeConflictRequestFactory(json),
+            scope = controllerScope,
+        )
     return ExecutionCoordinatorFixtures(
-        coordinator =
-            DiagnosticsScanExecutionCoordinator(
-                scanRecordStore = stores,
-                activeScanRegistry = activeScanRegistry,
-                bridgeExecutionService = bridgeExecutionService,
-                bridgePollingService = BridgePollingService(passiveEventPersistenceService, json),
-                scanFinalizationService = scanFinalizationService,
-                scanRequestFactory = scanRequestFactory,
-                serviceStateStore = serviceStateStore,
-            ),
+        coordinator = coordinator,
+        scanController = scanController,
         activeScanRegistry = activeScanRegistry,
         bridgeFactory = bridgeFactory,
         finalizationService = scanFinalizationService,
