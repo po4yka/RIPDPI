@@ -6,6 +6,7 @@ import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.simple.SimpleHomeContent
@@ -52,6 +53,34 @@ class RoborazziSimpleHomeScreenTest {
                     onToggleConnection = {},
                     onRunReport = {},
                     onCancelReport = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun simpleHomeReportCompleted() {
+        captureRipDpiScreenshot(widthDp = 412, heightDp = 915) {
+            RipDpiTheme(themePreference = "light") {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics =
+                        HomeDiagnosticsUiState(
+                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                            analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+                            analysisSheet =
+                                HomeDiagnosticsAnalysisSheetUiState(
+                                    runId = "run-1",
+                                    headline = "Network analysis complete",
+                                    summary = "Two recommended settings are ready to review.",
+                                ),
+                        ),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                    onShareReport = {},
                 )
             }
         }

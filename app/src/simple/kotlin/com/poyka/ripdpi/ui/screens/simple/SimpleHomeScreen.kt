@@ -70,6 +70,7 @@ fun SimpleHomeScreen(
         },
         onRunReport = viewModel::onRunHomeFullAnalysis,
         onCancelReport = viewModel::onCancelHomeAnalysis,
+        onShareReport = viewModel.onShareHomeAnalysis,
         modifier = modifier,
     )
 }
@@ -84,6 +85,7 @@ internal fun SimpleHomeContent(
     onToggleConnection: (active: Boolean) -> Unit,
     onRunReport: () -> Unit,
     onCancelReport: () -> Unit,
+    onShareReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -136,6 +138,7 @@ internal fun SimpleHomeContent(
 
             SimpleDiagnosticsStatus(
                 diagnostics = diagnostics,
+                onShareReport = onShareReport,
                 modifier = Modifier.padding(top = spacing.lg),
             )
 
@@ -165,7 +168,7 @@ internal fun SimpleHomeContent(
                     ),
                 onClick = if (reportCancellable) onCancelReport else onRunReport,
                 loading = reportStarting,
-                enabled = !reportBusy || reportCancellable,
+                enabled = reportCancellable || (!reportBusy && diagnostics.analysisAction.enabled),
                 variant = RipDpiButtonVariant.Outline,
             )
         }
@@ -175,21 +178,41 @@ internal fun SimpleHomeContent(
 @Composable
 internal fun SimpleDiagnosticsStatus(
     diagnostics: HomeDiagnosticsUiState,
+    onShareReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val statusLabel =
         when (diagnostics.analysisRunStatus) {
-            HomeDiagnosticsRunUiStatus.IDLE -> null
-            HomeDiagnosticsRunUiStatus.STARTING -> diagnostics.analysisAction.supportingText
-            HomeDiagnosticsRunUiStatus.RUNNING -> diagnostics.analysisAction.supportingText
-            HomeDiagnosticsRunUiStatus.COMPLETED -> stringResource(R.string.diagnostics_snackbar_scan_complete)
-            HomeDiagnosticsRunUiStatus.CANCELLED -> stringResource(R.string.simple_report_cancelled)
-            HomeDiagnosticsRunUiStatus.FAILED -> stringResource(R.string.simple_report_failed)
+            HomeDiagnosticsRunUiStatus.IDLE -> {
+                diagnostics.analysisAction.supportingText.takeIf { it.isNotBlank() }
+            }
+
+            HomeDiagnosticsRunUiStatus.STARTING -> {
+                diagnostics.analysisAction.supportingText
+            }
+
+            HomeDiagnosticsRunUiStatus.RUNNING -> {
+                diagnostics.analysisAction.supportingText
+            }
+
+            HomeDiagnosticsRunUiStatus.COMPLETED -> {
+                diagnostics.analysisSheet?.headline ?: stringResource(R.string.diagnostics_snackbar_scan_complete)
+            }
+
+            HomeDiagnosticsRunUiStatus.CANCELLED -> {
+                stringResource(R.string.simple_report_cancelled)
+            }
+
+            HomeDiagnosticsRunUiStatus.FAILED -> {
+                stringResource(R.string.simple_report_failed)
+            }
         }
     if (statusLabel == null) return
 
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
+    val completedResultVisible =
+        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED && diagnostics.analysisSheet != null
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -215,10 +238,29 @@ internal fun SimpleDiagnosticsStatus(
                         liveRegion = LiveRegionMode.Polite
                     },
             text = statusLabel,
-            style = RipDpiThemeTokens.type.caption,
-            color = colors.mutedForeground,
+            style = if (completedResultVisible) RipDpiThemeTokens.type.sectionTitle else RipDpiThemeTokens.type.caption,
+            color = if (completedResultVisible) colors.foreground else colors.mutedForeground,
             textAlign = TextAlign.Center,
         )
+        diagnostics.analysisSheet
+            ?.takeIf { diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED }
+            ?.let { sheet ->
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = sheet.summary,
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.mutedForeground,
+                    textAlign = TextAlign.Center,
+                )
+                RipDpiButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.home_diagnostics_share_action),
+                    onClick = onShareReport,
+                    loading = sheet.shareBusy,
+                    enabled = !sheet.shareBusy,
+                    variant = RipDpiButtonVariant.Outline,
+                )
+            }
     }
 }
 

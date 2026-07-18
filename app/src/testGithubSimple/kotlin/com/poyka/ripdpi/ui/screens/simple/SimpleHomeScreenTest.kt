@@ -23,6 +23,7 @@ import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -227,6 +228,93 @@ class SimpleHomeScreenTest {
         composeRule.onNodeWithText("Connect").assertIsNotEnabled()
         composeRule.onNodeWithText("Run diagnostic report").assertIsNotEnabled()
         composeRule.onNodeWithText("Starting diagnostics").assertExists()
+    }
+
+    @Test
+    fun `idle report action follows authoritative availability and explains why it is disabled`() {
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction =
+                    HomeDiagnosticsActionUiState(
+                        supportingText = "Disable command line settings to run diagnostics",
+                        enabled = false,
+                    ),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Run diagnostic report").assertIsNotEnabled()
+        composeRule.onNodeWithText("Disable command line settings to run diagnostics").assertIsDisplayed()
+    }
+
+    @Test
+    fun `idle report action is enabled when authoritative state allows it`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics =
+                        HomeDiagnosticsUiState(
+                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                        ),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Run diagnostic report").assertIsEnabled()
+    }
+
+    @Test
+    fun `completed report shows result and a working share action`() {
+        var shareClicks = 0
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+                analysisSheet =
+                    HomeDiagnosticsAnalysisSheetUiState(
+                        runId = "run-1",
+                        headline = "Network analysis complete",
+                        summary = "Two recommended settings are ready to review.",
+                    ),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                    onShareReport = { shareClicks += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
+        composeRule.onNodeWithText("Two recommended settings are ready to review.").assertIsDisplayed()
+        composeRule.onNodeWithText("Share Logs & Results").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(1, shareClicks) }
     }
 
     @Test
