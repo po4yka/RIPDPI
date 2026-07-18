@@ -888,7 +888,7 @@ class ConfigViewModelPersistenceTest {
 
             viewModel.startEditingPreset()
             advanceUntilIdle()
-            val oldSessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val oldSessionId = requireNotNull(viewModel.currentEditorSessionId)
             val uri = Uri.parse("content://test/identity")
             viewModel.importRelayMasqueCertificateChain(uri, oldSessionId)
             viewModel.importRelayMasquePrivateKey(uri, oldSessionId)
@@ -919,7 +919,7 @@ class ConfigViewModelPersistenceTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
             viewModel.startEditingPreset()
             advanceUntilIdle()
-            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId)
             val uri = Uri.parse("content://test/certificate")
 
             viewModel.importRelayMasqueCertificateChain(uri, sessionId)
@@ -948,7 +948,7 @@ class ConfigViewModelPersistenceTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
             viewModel.startEditingPreset()
             advanceUntilIdle()
-            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId)
             val uri = Uri.parse("content://test/identity")
 
             viewModel.importRelayMasqueCertificateChain(uri, sessionId)
@@ -973,7 +973,7 @@ class ConfigViewModelPersistenceTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
             viewModel.startEditingPreset()
             advanceUntilIdle()
-            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId)
 
             viewModel.importRelayMasqueCertificateChain(Uri.parse("content://test/certificate"), sessionId)
             runCurrent()
@@ -993,7 +993,7 @@ class ConfigViewModelPersistenceTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
             viewModel.startEditingPreset()
             advanceUntilIdle()
-            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId)
 
             viewModel.importRelayMasquePkcs12(Uri.parse("content://test/identity"), "password", sessionId)
             runCurrent()

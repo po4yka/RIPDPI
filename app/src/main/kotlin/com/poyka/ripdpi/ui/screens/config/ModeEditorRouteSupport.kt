@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.activities.ConfigEditorExitDecision
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
@@ -94,18 +95,30 @@ internal fun createModeEditorExternalActions(
             updateMasqueGeohash(viewModel, context, requestCoarseLocationPermission, enabled)
         },
         onRelayMasqueImportCertificateChainClicked = {
-            viewModel.currentEditorSessionId()?.let { sessionId ->
+            viewModel.currentEditorSessionId?.let { sessionId ->
                 requestDocument(MasqueImportRequest(MasqueImportAction.CertificateChain, sessionId))
             }
         },
         onRelayMasqueImportPrivateKeyClicked = {
-            viewModel.currentEditorSessionId()?.let { sessionId ->
+            viewModel.currentEditorSessionId?.let { sessionId ->
                 requestDocument(MasqueImportRequest(MasqueImportAction.PrivateKey, sessionId))
             }
         },
         onRelayMasqueImportPkcs12Clicked = {
-            viewModel.currentEditorSessionId()?.let { sessionId ->
+            viewModel.currentEditorSessionId?.let { sessionId ->
                 requestDocument(MasqueImportRequest(MasqueImportAction.Pkcs12, sessionId))
             }
         },
     )
+
+internal fun handleModeEditorExitDecision(
+    decision: ConfigEditorExitDecision,
+    onBack: () -> Unit,
+    onConfirmDiscard: () -> Unit,
+) {
+    when (decision) {
+        ConfigEditorExitDecision.Blocked -> Unit
+        ConfigEditorExitDecision.ConfirmDiscard -> onConfirmDiscard()
+        ConfigEditorExitDecision.Exit -> onBack()
+    }
+}

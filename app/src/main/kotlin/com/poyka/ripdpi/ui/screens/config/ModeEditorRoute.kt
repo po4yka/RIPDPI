@@ -37,7 +37,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigEditorExitDecision
 import com.poyka.ripdpi.activities.ConfigFieldBufferSize
 import com.poyka.ripdpi.activities.ConfigFieldDefaultTtl
 import com.poyka.ripdpi.activities.ConfigFieldDnsIp
@@ -113,7 +112,8 @@ fun ModeEditorRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val masqueImportState by viewModel.masqueImportState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    var pendingMasqueImportRequest by remember { mutableStateOf<MasqueImportRequest?>(null) }
+    var pendingPkcs12Import by remember { mutableStateOf<PendingMasquePkcs12Import?>(null) }
     var pkcs12Password by remember { mutableStateOf("") }
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
     val discardAndNavigate = {
@@ -121,15 +121,10 @@ fun ModeEditorRoute(
             onBack()
         }
     }
-    val requestBack = {
-        when (viewModel.requestEditorExit()) {
-            ConfigEditorExitDecision.Blocked -> Unit
-            ConfigEditorExitDecision.ConfirmDiscard -> showUnsavedChangesDialog = true
-            ConfigEditorExitDecision.Exit -> onBack()
+    val requestBack =
+        modeEditorBackAction(viewModel, onBack) {
+            showUnsavedChangesDialog = true
         }
-    }
-
-    BackHandler(onBack = requestBack)
 
     val documentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -180,7 +175,7 @@ fun ModeEditorRoute(
                 externalActions =
                     createModeEditorExternalActions(
                         viewModel = viewModel,
-                        context = context,
+                        context = LocalContext.current,
                         requestCoarseLocationPermission = coarseLocationPermissionLauncher::launch,
                         requestDocument = { request ->
                             viewModel.masqueImports.begin(request.action, request.sessionId)
@@ -190,4 +185,21 @@ fun ModeEditorRoute(
             ),
         modifier = modifier,
     )
+}
+
+@Composable
+private fun modeEditorBackAction(
+    viewModel: ConfigViewModel,
+    onBack: () -> Unit,
+    onConfirmDiscard: () -> Unit,
+): () -> Unit {
+    val requestBack = {
+        handleModeEditorExitDecision(
+            decision = viewModel.requestEditorExit(),
+            onBack = onBack,
+            onConfirmDiscard = onConfirmDiscard,
+        )
+    }
+    BackHandler(onBack = requestBack)
+    return requestBack
 }

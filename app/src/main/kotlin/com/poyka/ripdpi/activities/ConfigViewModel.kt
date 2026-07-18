@@ -7,6 +7,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toUiState
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -17,14 +18,17 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServerCapabilityRecord
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -94,14 +98,6 @@ class ConfigViewModel
         private val activeSaveJob = AtomicReference<Job?>()
         private val editorOperationLock = Any()
         private val masqueImportGenerations = ConfigMasqueImportGenerationTracker()
-        private val masqueImportController =
-            ConfigMasqueImportController(
-                scope = viewModelScope,
-                importer = masqueClientCredentialImporter,
-                beginOperation = ::beginMasqueImport,
-                applyDraft = ::updateDraftForMasqueImport,
-                reportFailure = ::emitImportFailureIfCurrent,
-            )
         private val editorState =
             combine(editorSession, activeSaveRequest) { session, saveRequest ->
                 ConfigEditorState(
@@ -117,10 +113,32 @@ class ConfigViewModel
                 extraBufferCapacity = 1,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
+        private val masqueImportSessionCoordinator =
+            ConfigMasqueImportSessionCoordinator(
+                editorSession = editorSession,
+                operationLock = editorOperationLock,
+                generations = masqueImportGenerations,
+                log = log,
+                effects = _effects,
+                stringResolver = stringResolver,
+            )
+        private val masqueImportController =
+            ConfigMasqueImportController(
+                scope = viewModelScope,
+                importer = masqueClientCredentialImporter,
+                beginOperation = masqueImportSessionCoordinator::begin,
+                applyDraft = masqueImportSessionCoordinator::updateDraft,
+                reportFailure = masqueImportSessionCoordinator::reportFailure,
+            )
         val effects = _effects.bufferForUiLifecycle(viewModelScope)
 
         init {
-            observeCapabilityEvidence()
+            observeConfigCapabilityEvidence(
+                scope = viewModelScope,
+                appSettingsRepository = appSettingsRepository,
+                serviceStateStore = serviceStateStore,
+                capabilityObserver = capabilityObserver,
+            )
         }
 
         private val persistedSnapshots =
@@ -464,10 +482,11 @@ class ConfigViewModel
                 }
             }
 
-        internal fun currentEditorSessionId(): Long? =
-            editorSession.value
-                .takeIf { current -> current.presetId != null && !current.hydrationPending }
-                ?.sessionId
+        internal val currentEditorSessionId: Long?
+            get() =
+                editorSession.value
+                    .takeIf { current -> current.presetId != null && !current.hydrationPending }
+                    ?.sessionId
 
         fun importRelayMasqueCertificateChain(
             uri: Uri,
@@ -536,7 +555,12 @@ class ConfigViewModel
                             if (editorSession.value.sessionId != request.sessionId) {
                                 ConfigSaveOutcome.Stale
                             } else {
-                                applySavedDraftToRunningService(persistedDraft)
+                                applySavedConfigDraftToRunningService(
+                                    draft = persistedDraft,
+                                    serviceStateStore = serviceStateStore,
+                                    serviceController = serviceController,
+                                    startRuntimeMode = ::startRuntimeMode,
+                                )
                                 ConfigSaveOutcome.Saved
                             }
                         }
@@ -590,108 +614,44 @@ class ConfigViewModel
             }
         }
 
-        private fun updateDraftForSession(
-            expectedSessionId: Long,
-            transform: ConfigDraft.() -> ConfigDraft,
-        ): Boolean {
-            while (true) {
-                val current = editorSession.value
-                if (current.sessionId != expectedSessionId || current.presetId == null || current.hydrationPending) {
-                    return false
-                }
-                val updated =
-                    current.copy(
-                        draft = requireNotNull(current.draft).transform(),
-                        draftRevision = current.draftRevision + 1,
-                    )
-                if (editorSession.compareAndSet(current, updated)) {
-                    return true
-                }
-            }
-        }
-
         private fun clearMasqueImportState() {
             masqueImports.clear()
         }
+    }
 
-        private fun beginMasqueImport(
-            expectedSessionId: Long,
-            certificate: Boolean = false,
-            privateKey: Boolean = false,
-        ): MasqueImportOperation? =
-            synchronized(editorOperationLock) {
-                if (!isCurrentEditorSession(expectedSessionId)) {
-                    null
-                } else {
-                    masqueImportGenerations.begin(
-                        sessionId = expectedSessionId,
-                        certificate = certificate,
-                        privateKey = privateKey,
-                    )
-                }
-            }
-
-        private fun updateDraftForMasqueImport(
-            operation: MasqueImportOperation,
-            transform: ConfigDraft.() -> ConfigDraft,
-        ): Boolean =
-            synchronized(editorOperationLock) {
-                if (isCurrentMasqueImport(operation)) {
-                    updateDraftForSession(operation.sessionId, transform)
-                } else {
-                    false
-                }
-            }
-
-        private fun emitImportFailureIfCurrent(
-            operation: MasqueImportOperation,
-            error: Throwable,
-            messageResource: Int,
-        ) {
-            synchronized(editorOperationLock) {
-                if (isCurrentMasqueImport(operation)) {
-                    log.e(error) { "Failed to import MASQUE client credential" }
-                    _effects.tryEmit(ConfigEffect.Message(stringResolver.getString(messageResource)))
-                }
-            }
-        }
-
-        private fun isCurrentMasqueImport(operation: MasqueImportOperation): Boolean =
-            isCurrentEditorSession(operation.sessionId) && masqueImportGenerations.isCurrent(operation)
-
-        private fun isCurrentEditorSession(expectedSessionId: Long): Boolean =
-            editorSession.value.let { current ->
-                current.sessionId == expectedSessionId && current.presetId != null && !current.hydrationPending
-            }
-
-        private fun observeCapabilityEvidence() {
-            viewModelScope.launch {
-                combine(
-                    appSettingsRepository.settings,
-                    serviceStateStore.telemetry,
-                ) { settings, telemetry ->
-                    settings.toConfigDraft() to telemetry
-                }.collect { (draft, telemetry) ->
-                    capabilityObserver.rememberCapabilityEvidence(draft, telemetry)
-                }
-            }
-        }
-
-        private suspend fun applySavedDraftToRunningService(draft: ConfigDraft) {
-            if (serviceStateStore.status.value.first != AppStatus.Running) {
-                return
-            }
-            serviceController.stop()
-            val halted =
-                withTimeoutOrNull(10.seconds) {
-                    serviceStateStore.status.first { it.first == AppStatus.Halted }
-                    true
-                } == true
-            if (halted) {
-                startRuntimeMode(draft.mode)
-            }
+private fun observeConfigCapabilityEvidence(
+    scope: CoroutineScope,
+    appSettingsRepository: AppSettingsRepository,
+    serviceStateStore: ServiceStateStore,
+    capabilityObserver: ConfigCapabilityObserver,
+) {
+    scope.launch {
+        combine(
+            appSettingsRepository.settings,
+            serviceStateStore.telemetry,
+        ) { settings, telemetry ->
+            settings.toConfigDraft() to telemetry
+        }.collect { (draft, telemetry) ->
+            capabilityObserver.rememberCapabilityEvidence(draft, telemetry)
         }
     }
+}
+
+private suspend fun applySavedConfigDraftToRunningService(
+    draft: ConfigDraft,
+    serviceStateStore: ServiceStateStore,
+    serviceController: ServiceController,
+    startRuntimeMode: (Mode) -> Unit,
+) {
+    if (serviceStateStore.status.value.first != AppStatus.Running) return
+    serviceController.stop()
+    val halted =
+        withTimeoutOrNull(10.seconds) {
+            serviceStateStore.status.first { it.first == AppStatus.Halted }
+            true
+        } == true
+    if (halted) startRuntimeMode(draft.mode)
+}
 
 private data class ConfigSaveRequest(
     val sessionId: Long,
