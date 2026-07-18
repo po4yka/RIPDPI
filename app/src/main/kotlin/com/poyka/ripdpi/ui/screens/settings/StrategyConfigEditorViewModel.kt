@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
@@ -28,8 +29,7 @@ internal class StrategyConfigEditorViewModel
                 .get<String>(StrategyConfigSessionIdSavedStateKey)
                 ?.takeIf(::isValidStrategyConfigSessionId)
                 ?: newStrategyConfigSessionId().also { savedStateHandle[StrategyConfigSessionIdSavedStateKey] = it }
-        private val persistenceCommands = Channel<StrategyConfigPersistenceCommand>(Channel.CONFLATED)
-        private val acknowledgedCommands = Channel<StrategyConfigAcknowledgedCommand>(Channel.RENDEZVOUS)
+        private val persistence = StrategyConfigPersistenceCoordinator(viewModelScope, sessionId, draftStore)
         private var hydrationComplete = false
         private var hydrationInProgress = false
         private var hydrationFailed = false
@@ -38,8 +38,6 @@ internal class StrategyConfigEditorViewModel
         private var pendingBuiltInConfigText: String? = null
         private var exitRequested = false
         private var discarding = false
-        private var nextPersistenceSequence = 0L
-        private var acknowledgedThroughSequence = 0L
 
         var session by mutableStateOf<StrategyConfigEditorSession?>(null)
             private set
@@ -49,18 +47,6 @@ internal class StrategyConfigEditorViewModel
             private set
 
         init {
-            viewModelScope.launch {
-                while (true) {
-                    select {
-                        acknowledgedCommands.onReceive { command ->
-                            executeAcknowledged(command)
-                        }
-                        persistenceCommands.onReceive { command ->
-                            executeBestEffort(command)
-                        }
-                    }
-                }
-            }
             startHydration()
         }
 
@@ -84,7 +70,7 @@ internal class StrategyConfigEditorViewModel
             session = session?.syncCleanBuiltIn(bounded) ?: StrategyConfigEditorSession.initial(bounded)
             isHydrating = false
             session?.takeUnless { it.isDirty }?.let {
-                persistenceCommands.trySend(StrategyConfigPersistenceCommand.Delete(newPersistenceSequence()))
+                persistence.deleteBestEffort()
             }
             reevaluateExitRequest()
         }
@@ -138,12 +124,13 @@ internal class StrategyConfigEditorViewModel
                 finishSave(request, succeeded = false)
                 return
             }
+            var recoveryDeleted = false
             try {
                 // Keep the submitted baseline dirty until removal of its recovery record is durable.
-                deleteAndAwait()
-            } catch (failure: Throwable) {
-                finishSave(request, succeeded = false)
-                throw failure
+                persistence.deleteAndAwait()
+                recoveryDeleted = true
+            } finally {
+                if (!recoveryDeleted) finishSave(request, succeeded = false)
             }
             finishSuccessfulSave(request)
         }
@@ -153,7 +140,7 @@ internal class StrategyConfigEditorViewModel
             discarding = true
             var deleted = false
             try {
-                deleteAndAwait()
+                persistence.deleteAndAwait()
                 deleted = true
             } finally {
                 if (!deleted) discarding = false
@@ -174,7 +161,7 @@ internal class StrategyConfigEditorViewModel
 
         private fun setAndPersist(value: StrategyConfigEditorSession) {
             session = value
-            persistOrDelete(value)
+            persistence.persistOrDelete(value)
         }
 
         private fun finishSave(
@@ -184,40 +171,51 @@ internal class StrategyConfigEditorViewModel
             val completed = session?.completeSave(request, succeeded) ?: return
             session = completed
             if (completed.isDirty) {
-                persistenceCommands.trySend(
-                    StrategyConfigPersistenceCommand.Persist(newPersistenceSequence(), completed),
-                )
+                persistence.persistOrDelete(completed)
             }
             reevaluateExitRequest()
         }
 
         private suspend fun finishSuccessfulSave(request: StrategyConfigSaveRequest) {
-            while (true) {
-                val current = session ?: return
-                val completed = current.completeSave(request, succeeded = true)
-                if (!completed.isDirty) {
-                    session = completed
-                    reevaluateExitRequest()
-                    return
-                }
-                try {
-                    persistAndAwait(completed)
-                } catch (failure: Throwable) {
-                    finishSave(request, succeeded = false)
-                    throw failure
-                }
-                if (session == current) {
-                    session = completed
-                    reevaluateExitRequest()
-                    return
+            var finished = false
+            while (!finished) {
+                val current = session
+                if (current == null) {
+                    finished = true
+                } else {
+                    val completed = current.completeSave(request, succeeded = true)
+                    if (!completed.isDirty) {
+                        session = completed
+                        reevaluateExitRequest()
+                        finished = true
+                    } else if (persistSuccessfulDirtySave(request, completed) && session == current) {
+                        session = completed
+                        reevaluateExitRequest()
+                        finished = true
+                    }
                 }
             }
+        }
+
+        private suspend fun persistSuccessfulDirtySave(
+            request: StrategyConfigSaveRequest,
+            completed: StrategyConfigEditorSession,
+        ): Boolean {
+            var persisted = false
+            try {
+                persistence.persistAndAwait(completed)
+                persisted = true
+            } finally {
+                if (!persisted) finishSave(request, succeeded = false)
+            }
+            return persisted
         }
 
         private fun reevaluateExitRequest() {
             val current = session
             val hydrationBlocksExit = isHydrating && !hydrationFailed
-            if (!exitRequested || exitDecision != null || hydrationBlocksExit || current?.isSaving == true) return
+            if (!exitRequested || exitDecision != null) return
+            if (hydrationBlocksExit || current?.isSaving == true) return
             exitRequested = false
             exitDecision =
                 if (current?.isDirty == true) {
@@ -232,14 +230,7 @@ internal class StrategyConfigEditorViewModel
             hydrationInProgress = true
             hydrationFailed = false
             viewModelScope.launch {
-                val result =
-                    try {
-                        draftStore.restore(sessionId)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (failure: Exception) {
-                        StrategyConfigDraftRestoreResult.RestoreFailed(failure)
-                    }
+                val result = restoreStrategyConfigDraft(draftStore, sessionId)
                 hydrationInProgress = false
                 when (result) {
                     is StrategyConfigDraftRestoreResult.Restored -> completeHydration(result.session)
@@ -267,90 +258,122 @@ internal class StrategyConfigEditorViewModel
                 reevaluateExitRequest()
             }
         }
+    }
 
-        private fun persistOrDelete(value: StrategyConfigEditorSession) {
-            persistenceCommands.trySend(
-                if (value.isDirty) {
-                    StrategyConfigPersistenceCommand.Persist(newPersistenceSequence(), value)
-                } else {
-                    StrategyConfigPersistenceCommand.Delete(newPersistenceSequence())
-                },
-            )
+private suspend fun restoreStrategyConfigDraft(
+    draftStore: StrategyConfigDraftStore,
+    sessionId: String,
+): StrategyConfigDraftRestoreResult =
+    runCatching { draftStore.restore(sessionId) }
+        .fold(
+            onSuccess = { it },
+            onFailure = { failure ->
+                when (failure) {
+                    is CancellationException -> throw failure
+                    is Exception -> StrategyConfigDraftRestoreResult.RestoreFailed(failure)
+                    else -> throw failure
+                }
+            },
+        )
+
+private class StrategyConfigPersistenceCoordinator(
+    scope: CoroutineScope,
+    private val sessionId: String,
+    private val draftStore: StrategyConfigDraftStore,
+) {
+    private val persistenceCommands = Channel<StrategyConfigPersistenceCommand>(Channel.CONFLATED)
+    private val acknowledgedCommands = Channel<StrategyConfigAcknowledgedCommand>(Channel.RENDEZVOUS)
+    private var nextSequence = 0L
+    private var acknowledgedThroughSequence = 0L
+
+    init {
+        scope.launch {
+            while (true) {
+                select {
+                    acknowledgedCommands.onReceive { command -> executeAcknowledged(command) }
+                    persistenceCommands.onReceive { command -> executeBestEffort(command) }
+                }
+            }
         }
+    }
 
-        private suspend fun deleteAndAwait() {
-            executeAndAwait(StrategyConfigAcknowledgedOperation.Delete)
+    fun persistOrDelete(value: StrategyConfigEditorSession) {
+        persistenceCommands.trySend(
+            if (value.isDirty) {
+                StrategyConfigPersistenceCommand.Persist(newSequence(), value)
+            } else {
+                StrategyConfigPersistenceCommand.Delete(newSequence())
+            },
+        )
+    }
+
+    fun deleteBestEffort() {
+        persistenceCommands.trySend(StrategyConfigPersistenceCommand.Delete(newSequence()))
+    }
+
+    suspend fun deleteAndAwait() {
+        executeAndAwait(StrategyConfigAcknowledgedOperation.Delete)
+    }
+
+    suspend fun persistAndAwait(value: StrategyConfigEditorSession) {
+        executeAndAwait(StrategyConfigAcknowledgedOperation.Persist(value))
+    }
+
+    private suspend fun executeAndAwait(operation: StrategyConfigAcknowledgedOperation) {
+        val completion = CompletableDeferred<Unit>()
+        acknowledgedCommands.send(
+            StrategyConfigAcknowledgedCommand(
+                sequence = newSequence(),
+                operation = operation,
+                completion = completion,
+            ),
+        )
+        completion.await()
+    }
+
+    private suspend fun executeBestEffort(command: StrategyConfigPersistenceCommand) {
+        if (command.sequence <= acknowledgedThroughSequence) return
+        // Editing stays available after IO failure; the next mutation retries the latest snapshot.
+        val failure =
+            runCatching {
+                when (command) {
+                    is StrategyConfigPersistenceCommand.Persist -> draftStore.persist(sessionId, command.session)
+                    is StrategyConfigPersistenceCommand.Delete -> draftStore.delete(sessionId)
+                }
+            }.exceptionOrNull()
+        if (failure is CancellationException) throw failure
+        if (failure == null && command is StrategyConfigPersistenceCommand.Delete) {
+            acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
         }
+    }
 
-        private suspend fun persistAndAwait(value: StrategyConfigEditorSession) {
-            executeAndAwait(StrategyConfigAcknowledgedOperation.Persist(value))
-        }
+    private suspend fun executeAcknowledged(command: StrategyConfigAcknowledgedCommand) {
+        val failure =
+            runCatching {
+                when (val operation = command.operation) {
+                    StrategyConfigAcknowledgedOperation.Delete -> draftStore.delete(sessionId)
+                    is StrategyConfigAcknowledgedOperation.Persist -> draftStore.persist(sessionId, operation.session)
+                }
+            }.exceptionOrNull()
+        when (failure) {
+            null -> {
+                acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
+                command.completion.complete(Unit)
+            }
 
-        private suspend fun executeAndAwait(operation: StrategyConfigAcknowledgedOperation) {
-            val completion = CompletableDeferred<Unit>()
-            acknowledgedCommands.send(
-                StrategyConfigAcknowledgedCommand(
-                    sequence = newPersistenceSequence(),
-                    operation = operation,
-                    completion = completion,
-                ),
-            )
-            completion.await()
-        }
-
-        private suspend fun executeBestEffort(command: StrategyConfigPersistenceCommand) {
-            if (command.sequence <= acknowledgedThroughSequence) return
-            // Editing stays available after IO failure; the next mutation retries the latest snapshot.
-            val failure =
-                runCatching {
-                    when (command) {
-                        is StrategyConfigPersistenceCommand.Persist -> draftStore.persist(sessionId, command.session)
-                        is StrategyConfigPersistenceCommand.Delete -> draftStore.delete(sessionId)
-                    }
-                }.exceptionOrNull()
-            if (failure is CancellationException) {
+            is CancellationException -> {
+                command.completion.cancel(failure)
                 throw failure
             }
-            if (failure == null && command is StrategyConfigPersistenceCommand.Delete) {
-                acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
+
+            else -> {
+                command.completion.completeExceptionally(failure)
             }
         }
-
-        private suspend fun executeAcknowledged(command: StrategyConfigAcknowledgedCommand) {
-            val failure =
-                runCatching {
-                    when (val operation = command.operation) {
-                        StrategyConfigAcknowledgedOperation.Delete -> {
-                            draftStore.delete(sessionId)
-                        }
-
-                        is StrategyConfigAcknowledgedOperation.Persist -> {
-                            draftStore.persist(
-                                sessionId,
-                                operation.session,
-                            )
-                        }
-                    }
-                }.exceptionOrNull()
-            when (failure) {
-                null -> {
-                    acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
-                    command.completion.complete(Unit)
-                }
-
-                is CancellationException -> {
-                    command.completion.cancel(failure)
-                    throw failure
-                }
-
-                else -> {
-                    command.completion.completeExceptionally(failure)
-                }
-            }
-        }
-
-        private fun newPersistenceSequence(): Long = ++nextPersistenceSequence
     }
+
+    private fun newSequence(): Long = ++nextSequence
+}
 
 internal enum class StrategyConfigExitDecision {
     ConfirmDiscard,

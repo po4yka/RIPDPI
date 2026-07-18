@@ -115,14 +115,26 @@ internal class FileStrategyConfigDraftStore
             }
             val atomicFile = atomicFileFactory(fileFor(sessionId))
             val output = atomicFile.startWrite()
-            try {
-                output.write(bytes)
-                atomicFile.finishWrite(output)
-            } catch (failure: Exception) {
-                runCatching { atomicFile.failWrite(output) }
-                    .exceptionOrNull()
-                    ?.let(failure::addSuppressed)
-                throw failure
+            val failure =
+                runCatching {
+                    output.write(bytes)
+                    atomicFile.finishWrite(output)
+                }.exceptionOrNull()
+            when (failure) {
+                null -> {
+                    Unit
+                }
+
+                is Exception -> {
+                    runCatching { atomicFile.failWrite(output) }
+                        .exceptionOrNull()
+                        ?.let(failure::addSuppressed)
+                    throw failure
+                }
+
+                else -> {
+                    throw failure
+                }
             }
         }
 
