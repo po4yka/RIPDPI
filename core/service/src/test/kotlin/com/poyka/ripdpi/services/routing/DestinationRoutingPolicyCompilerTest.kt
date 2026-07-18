@@ -250,8 +250,10 @@ class DestinationRoutingPolicyCompilerTest {
         val oversizedMatcher = "x".repeat(DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH + 1)
         val oversizedRegex =
             "domain_regex:" + "a".repeat(DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH)
+        val whitespacePaddedOversizedMatcher =
+            " ".repeat(DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH) + "example.com"
 
-        listOf(oversizedMatcher, oversizedRegex).forEachIndexed { index, matcher ->
+        listOf(oversizedMatcher, oversizedRegex, whitespacePaddedOversizedMatcher).forEachIndexed { index, matcher ->
             val error = compileFailure(listOf(rule(id = index.toLong(), domains = matcher)))
             assertEquals(matcher, DestinationRoutingPolicyErrorCode.MATCHER_TOO_LONG, error.code)
             assertEquals(matcher, DestinationRoutingPolicyField.DOMAINS, error.field)

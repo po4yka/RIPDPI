@@ -180,34 +180,32 @@ private class SnapshotCompiler(
         raw: String,
         parse: (String) -> MatcherParseResult<T>,
     ): List<T> {
-        val lines =
-            raw
-                .lineSequence()
-                .mapIndexedNotNull { index, line ->
-                    line.trim().takeIf(String::isNotEmpty)?.let { IndexedMatcherLine(index, it) }
-                }.toList()
-        if (lines.size > DestinationRoutingPolicyCompiler.MAX_ENTRIES_PER_FIELD) {
-            reject(
-                rule,
-                field,
-                DestinationRoutingPolicyErrorCode.TOO_MANY_FIELD_ENTRIES,
-                "${field.name} entry count ${lines.size} exceeds " +
-                    DestinationRoutingPolicyCompiler.MAX_ENTRIES_PER_FIELD,
-            )
-        }
-        val values = LinkedHashSet<T>(lines.size)
-        lines.forEach { line ->
-            if (line.value.length > DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH) {
+        val values = LinkedHashSet<T>()
+        var entryCount = 0
+        raw.lineSequence().forEachIndexed { index, rawLine ->
+            if (rawLine.length > DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH) {
                 reject(
                     rule,
                     field,
                     DestinationRoutingPolicyErrorCode.MATCHER_TOO_LONG,
-                    "${field.displayName()} matcher at line ${line.index + 1} exceeds " +
+                    "${field.displayName()} matcher at line ${index + 1} exceeds " +
                         "${DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH} characters",
-                    entryIndex = line.index,
+                    entryIndex = index,
                 )
             }
-            when (val result = parse(line.value)) {
+            val line = rawLine.trim()
+            if (line.isEmpty()) return@forEachIndexed
+            entryCount += 1
+            if (entryCount > DestinationRoutingPolicyCompiler.MAX_ENTRIES_PER_FIELD) {
+                reject(
+                    rule,
+                    field,
+                    DestinationRoutingPolicyErrorCode.TOO_MANY_FIELD_ENTRIES,
+                    "${field.name} entry count exceeds " + DestinationRoutingPolicyCompiler.MAX_ENTRIES_PER_FIELD,
+                    entryIndex = index,
+                )
+            }
+            when (val result = parse(line)) {
                 is MatcherParseResult.Value -> {
                     values += result.value
                 }
@@ -217,8 +215,8 @@ private class SnapshotCompiler(
                         rule,
                         field,
                         DestinationRoutingPolicyErrorCode.UNSUPPORTED_MATCHER,
-                        "Unsupported ${field.displayName()} matcher at line ${line.index + 1}: ${line.value}",
-                        entryIndex = line.index,
+                        "Unsupported ${field.displayName()} matcher at line ${index + 1}: $line",
+                        entryIndex = index,
                     )
                 }
 
@@ -227,8 +225,8 @@ private class SnapshotCompiler(
                         rule,
                         field,
                         DestinationRoutingPolicyErrorCode.MALFORMED_MATCHER,
-                        "Malformed ${field.displayName()} matcher at line ${line.index + 1}: ${line.value}",
-                        entryIndex = line.index,
+                        "Malformed ${field.displayName()} matcher at line ${index + 1}: $line",
+                        entryIndex = index,
                     )
                 }
             }
@@ -516,11 +514,6 @@ private data class UnsupportedField(
     val field: DestinationRoutingPolicyField,
     val code: DestinationRoutingPolicyErrorCode = DestinationRoutingPolicyErrorCode.UNSUPPORTED_MATCHER,
     val message: String,
-)
-
-private data class IndexedMatcherLine(
-    val index: Int,
-    val value: String,
 )
 
 private sealed interface MatcherParseResult<out T> {
