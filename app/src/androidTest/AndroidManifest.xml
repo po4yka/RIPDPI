@@ -13,9 +13,12 @@
         <receiver
             android:name="com.poyka.ripdpi.e2e.TestNetworkProbeReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:permission="com.poyka.ripdpi.permission.TEST_NETWORK_PROBE"
+            android:process=":network_probe">
             <intent-filter>
                 <action android:name="com.poyka.ripdpi.debug.PROBE_TCP" />
+                <action android:name="com.poyka.ripdpi.debug.PROBE_UDP" />
                 <action android:name="com.poyka.ripdpi.debug.PROBE_DNS" />
             </intent-filter>
         </receiver>

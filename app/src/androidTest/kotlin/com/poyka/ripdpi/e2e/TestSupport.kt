@@ -90,6 +90,7 @@ private const val PacketSmokePhaseArg = "ripdpi.packetSmokePhase"
 private const val PacketSmokeScenarioIdArg = "ripdpi.packetSmokeScenarioId"
 private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_DEVICES"
 private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
+private const val DebugUdpProbeAction = "com.poyka.ripdpi.debug.PROBE_UDP"
 private const val DebugDnsProbeAction = "com.poyka.ripdpi.debug.PROBE_DNS"
 private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.DebugNetworkProbeReceiver"
 private const val TestNetworkProbeReceiverClass = "com.poyka.ripdpi.e2e.TestNetworkProbeReceiver"
@@ -98,6 +99,7 @@ private const val DebugNetworkProbeExtraPort = "port"
 private const val DebugNetworkProbeExtraConnectTimeoutMs = "connect_timeout_ms"
 private const val DebugNetworkProbeExtraReadTimeoutMs = "read_timeout_ms"
 private const val DebugNetworkProbeExtraPayload = "payload"
+private const val DebugNetworkProbeExtraBindDevice = "bind_device"
 private const val DebugNetworkProbeExtraQueryHost = "query_host"
 private const val DebugNetworkProbeExtraRequestId = "request_id"
 private const val DebugNetworkProbeExtraScenarioId = "scenario_id"
@@ -105,11 +107,17 @@ private const val DebugNetworkProbeExtraOk = "ok"
 private const val DebugNetworkProbeExtraLocalAddress = "local_address"
 private const val DebugNetworkProbeExtraLocalPort = "local_port"
 private const val DebugNetworkProbeExtraResponse = "response"
+private const val DebugNetworkProbeExtraBoundDevice = "bound_device"
 private const val DebugNetworkProbeExtraDnsRcode = "rcode"
 private const val DebugNetworkProbeExtraDnsAnswers = "answers"
 private const val DebugNetworkProbeExtraDnsLatencyMs = "latency_ms"
 private const val DebugNetworkProbeExtraErrorClass = "error_class"
 private const val DebugNetworkProbeExtraErrorMessage = "error_message"
+private const val DebugNetworkProbeExtraFailureKind = "failure_kind"
+private const val DebugNetworkProbeExtraFailureStage = "failure_stage"
+private const val DebugNetworkProbeExtraErrno = "errno"
+private const val DebugNetworkProbeExtraProbePid = "probe_pid"
+private const val DebugNetworkProbeExtraProbeUid = "probe_uid"
 private const val DebugNetworkProbeTimeoutMs = 3_000L
 private const val DebugNetworkProbeBroadcastTimeoutMs = 10_000L
 private const val TestProbeNetworkAllowlistDurationMs = 60_000L
@@ -154,6 +162,29 @@ data class AppProcessTcpProbeResult(
     val localAddress: String? = null,
     val localPort: Int? = null,
     val response: String? = null,
+    val boundDevice: String? = null,
+    val failureKind: String? = null,
+    val failureStage: String? = null,
+    val errno: Int? = null,
+    val probePid: Int? = null,
+    val probeUid: Int? = null,
+    val errorClass: String? = null,
+    val errorMessage: String? = null,
+)
+
+data class AppProcessUdpProbeResult(
+    val host: String,
+    val port: Int,
+    val ok: Boolean,
+    val localAddress: String? = null,
+    val localPort: Int? = null,
+    val response: String? = null,
+    val boundDevice: String? = null,
+    val failureKind: String? = null,
+    val failureStage: String? = null,
+    val errno: Int? = null,
+    val probePid: Int? = null,
+    val probeUid: Int? = null,
     val errorClass: String? = null,
     val errorMessage: String? = null,
 )
@@ -975,6 +1006,12 @@ fun probeAppProcessTcpConnect(
                         localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
                         response = extras.getString(DebugNetworkProbeExtraResponse),
+                        boundDevice = extras.getString(DebugNetworkProbeExtraBoundDevice),
+                        failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
+                        failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
+                        errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -1054,6 +1091,12 @@ fun testProcessTcpConnect(
                         localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
                         response = extras.getString(DebugNetworkProbeExtraResponse),
+                        boundDevice = extras.getString(DebugNetworkProbeExtraBoundDevice),
+                        failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
+                        failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
+                        errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -1081,6 +1124,7 @@ fun testProcessTcpRoundTrip(
     connectTimeoutMs: Long = DebugNetworkProbeTimeoutMs,
     readTimeoutMs: Long = 5_000L,
     throwOnBroadcastTimeout: Boolean = true,
+    bindDevice: String? = null,
 ): AppProcessTcpProbeResult {
     ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
@@ -1094,6 +1138,7 @@ fun testProcessTcpRoundTrip(
             putExtra(DebugNetworkProbeExtraConnectTimeoutMs, connectTimeoutMs.toInt())
             putExtra(DebugNetworkProbeExtraReadTimeoutMs, readTimeoutMs.toInt())
             putExtra(DebugNetworkProbeExtraPayload, payload)
+            bindDevice?.let { putExtra(DebugNetworkProbeExtraBindDevice, it) }
         }
     context.sendOrderedBroadcast(
         intent,
@@ -1112,6 +1157,12 @@ fun testProcessTcpRoundTrip(
                         localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
                         response = extras.getString(DebugNetworkProbeExtraResponse),
+                        boundDevice = extras.getString(DebugNetworkProbeExtraBoundDevice),
+                        failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
+                        failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
+                        errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -1130,6 +1181,7 @@ fun testProcessTcpRoundTrip(
             host = host,
             port = port,
             ok = false,
+            failureKind = "BROADCAST_TIMEOUT",
             errorClass = java.util.concurrent.TimeoutException::class.java.name,
             errorMessage = "Timed out waiting for test-process TCP round-trip for $host:$port",
         )
@@ -1139,6 +1191,77 @@ fun testProcessTcpRoundTrip(
     }
     return requireNotNull(probeResult.get()) {
         "Test-process TCP round-trip did not deliver a result for $host:$port"
+    }
+}
+
+fun testProcessUdpRoundTrip(
+    host: String,
+    port: Int,
+    payload: String,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+    bindDevice: String? = null,
+): AppProcessUdpProbeResult {
+    ensureTestProbeNetworkEligibility()
+    val context = InstrumentationRegistry.getInstrumentation().context
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessUdpProbeResult?>()
+    val intent =
+        Intent(DebugUdpProbeAction).apply {
+            setClassName(context.packageName, TestNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, host)
+            putExtra(DebugNetworkProbeExtraPort, port)
+            putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraPayload, payload)
+            bindDevice?.let { putExtra(DebugNetworkProbeExtraBindDevice, it) }
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessUdpProbeResult(
+                        host = host,
+                        port = port,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        response = extras.getString(DebugNetworkProbeExtraResponse),
+                        boundDevice = extras.getString(DebugNetworkProbeExtraBoundDevice),
+                        failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
+                        failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
+                        errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    val delivered = latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)
+    if (!delivered) {
+        return AppProcessUdpProbeResult(
+            host = host,
+            port = port,
+            ok = false,
+            failureKind = "BROADCAST_TIMEOUT",
+            errorClass = java.util.concurrent.TimeoutException::class.java.name,
+            errorMessage = "Timed out waiting for test-process UDP round-trip for $host:$port",
+        )
+    }
+    return requireNotNull(probeResult.get()) {
+        "Test-process UDP round-trip did not deliver a result for $host:$port"
     }
 }
 
@@ -1500,6 +1623,8 @@ fun ServiceTelemetrySnapshot.packetSmokeDeltaFrom(before: PacketSmokePrepareStat
         dnsQueriesTotal = tunnelTelemetry.dnsQueriesTotal - before.dnsQueriesTotal,
         dnsFailuresTotal = tunnelTelemetry.dnsFailuresTotal - before.dnsFailuresTotal,
     )
+
+private fun Bundle.optionalInt(key: String): Int? = getInt(key).takeIf { containsKey(key) }
 
 private fun tryGrantVpnConsentViaShellAppOps(context: Context): String? {
     val command = "cmd appops set ${context.packageName} ACTIVATE_VPN allow"

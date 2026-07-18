@@ -3,6 +3,9 @@ package com.poyka.ripdpi.e2e
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.os.Process
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
@@ -13,8 +16,10 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.SplitTunnelMode
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.CoroutineScope
@@ -34,10 +39,14 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 private const val VpnEncryptedDnsAutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover: "
 private const val FixtureDnsTimeoutFaultDelayMs = 5_000L
+private const val SoBindEvidenceProfileArg = "ripdpi.soBindEvidenceProfile"
+private const val PhysicalSoBindEvidenceProfile = "physical_pixel_api37_kernel61"
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -61,6 +70,7 @@ class NetworkPathE2ETest {
         get() = ApplicationProvider.getApplicationContext()
 
     private var hiltInjected = false
+    private lateinit var settingsBeforeTest: AppSettings
     private val startedServices = mutableSetOf<Class<*>>()
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
@@ -70,6 +80,7 @@ class NetworkPathE2ETest {
         assumeE2eFixtureConfigured()
         hiltRule.inject()
         hiltInjected = true
+        settingsBeforeTest = runBlocking { appSettingsRepository.snapshot() }
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
@@ -98,6 +109,9 @@ class NetworkPathE2ETest {
             runBlocking {
                 stopService(RipDpiProxyService::class.java)
                 stopService(RipDpiVpnService::class.java)
+                if (this@NetworkPathE2ETest::settingsBeforeTest.isInitialized) {
+                    appSettingsRepository.replace(settingsBeforeTest)
+                }
             }
         }
         if (this::fixtureClient.isInitialized) {
@@ -486,6 +500,404 @@ class NetworkPathE2ETest {
         )
     }
 
+    @Test
+    fun emulatorSocketBindProbeRunsInStandaloneTestUidProcess() {
+        assumeTrue("SO_BINDTODEVICE runtime smoke requires an emulator", isLikelyEmulator())
+        assertEquals(
+            "Expected emulator /sys/class/net/eth0",
+            "/sys/class/net/eth0",
+            execShell("ls -d /sys/class/net/eth0").trim(),
+        )
+
+        val instrumentation =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getInstrumentation()
+        val testPackage = instrumentation.context.packageName
+        val testUid = assertDistinctPackageUids(appContext.packageName, testPackage)
+        val nonce =
+            UUID
+                .randomUUID()
+                .toString()
+                .replace("-", "")
+                .take(12)
+        val tcpPayload = httpEchoPayloadText("so-bind-emulator-tcp-$nonce")
+        val udpPayload = "so-bind-emulator-udp-$nonce"
+
+        val tcpResult =
+            testProcessTcpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.tcpEchoPort,
+                payload = tcpPayload,
+                bindDevice = "eth0",
+            )
+        assertTrue(
+            "Emulator bound TCP failed stage=${tcpResult.failureStage} kind=${tcpResult.failureKind} " +
+                "errno=${tcpResult.errno} class=${tcpResult.errorClass}",
+            tcpResult.ok,
+        )
+        assertEquals(tcpPayload, tcpResult.response)
+        assertEquals("eth0", tcpResult.boundDevice)
+        assertEquals(testUid, tcpResult.probeUid)
+        assertTrue("TCP probe receiver must run outside instrumentation", tcpResult.probePid != Process.myPid())
+
+        val udpResult =
+            testProcessUdpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.udpEchoPort,
+                payload = udpPayload,
+                bindDevice = "eth0",
+            )
+        assertTrue(
+            "Emulator bound UDP failed stage=${udpResult.failureStage} kind=${udpResult.failureKind} " +
+                "errno=${udpResult.errno}",
+            udpResult.ok,
+        )
+        assertEquals(udpPayload, udpResult.response)
+        assertEquals("eth0", udpResult.boundDevice)
+        assertEquals(testUid, udpResult.probeUid)
+        assertEquals(tcpResult.probePid, udpResult.probePid)
+
+        val appTcpPayload = httpEchoPayloadText("so-bind-emulator-app-tcp-$nonce")
+        val appUdpPayload = "so-bind-emulator-app-udp-$nonce"
+        val appTcp =
+            instrumentationProcessTcpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.tcpEchoPort,
+                payload = appTcpPayload,
+                bindDevice = "eth0",
+            )
+        val appUdp =
+            instrumentationProcessUdpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.udpEchoPort,
+                payload = appUdpPayload,
+                bindDevice = "eth0",
+            )
+        assertTrue("Emulator app-UID TCP JNI control failed kind=${appTcp.failureKind}", appTcp.ok)
+        assertEquals(appTcpPayload, appTcp.response)
+        assertEquals("eth0", appTcp.boundDevice)
+        assertTrue("Emulator app-UID UDP JNI control failed kind=${appUdp.failureKind}", appUdp.ok)
+        assertEquals(appUdpPayload, appUdp.response)
+        assertEquals("eth0", appUdp.boundDevice)
+        assertEquals(Process.myUid(), appTcp.probeUid)
+        assertEquals(Process.myPid(), appTcp.probePid)
+    }
+
+    @Test
+    fun vpnServiceDeniesExcludedTestUidBoundToTun0() {
+        assumePhysicalSoBindEvidencePrerequisites()
+        ensureVpnConsentGranted(appContext)
+        val testPackage =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getInstrumentation()
+                .context
+                .packageName
+        val appPackage = appContext.packageName
+        val testUid = assertDistinctPackageUids(appPackage, testPackage)
+        val nonce =
+            UUID
+                .randomUUID()
+                .toString()
+                .replace("-", "")
+                .take(12)
+
+        val tcpPayload = httpEchoPayloadText("so-bind-direct-tcp-$nonce")
+        val directTcp =
+            testProcessTcpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.tcpEchoPort,
+                payload = tcpPayload,
+            )
+        assertTrue(
+            "Unbound test-process TCP control failed kind=${directTcp.failureKind} errno=${directTcp.errno}",
+            directTcp.ok,
+        )
+        assertEquals(tcpPayload, directTcp.response)
+        assertEquals(testUid, directTcp.probeUid)
+        assertTrue("Probe receiver must run outside the instrumentation process", directTcp.probePid != Process.myPid())
+
+        val udpPayload = "so-bind-direct-udp-$nonce"
+        val directUdp =
+            testProcessUdpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.udpEchoPort,
+                payload = udpPayload,
+            )
+        assertTrue(
+            "Unbound test-process UDP control failed kind=${directUdp.failureKind} errno=${directUdp.errno}",
+            directUdp.ok,
+        )
+        assertEquals(udpPayload, directUdp.response)
+        assertEquals(testUid, directUdp.probeUid)
+        assertEquals(directTcp.probePid, directUdp.probePid)
+        fixtureClient.resetEvents()
+
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.update {
+                proxyPort = listenPort
+                proxyIp = "127.0.0.1"
+                dnsIp = "1.1.1.1"
+                fullTunnelMode = true
+                setSplitTunnelMode(SplitTunnelMode.Off)
+                clearSplitTunnelPackages()
+            }
+        }
+
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        assertTun0Present()
+        val allowedBaselineTelemetry = serviceStateStore.telemetry.value
+        val allowedTcpPayload = httpEchoPayloadText("so-bind-allowed-tcp-$nonce")
+        val allowedUdpPayload = "so-bind-allowed-udp-$nonce"
+
+        val allowedTcp =
+            testProcessTcpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.tcpEchoPort,
+                payload = allowedTcpPayload,
+                bindDevice = "tun0",
+            )
+        assertEquals("tun0", allowedTcp.boundDevice)
+        assertTrue(
+            "Allowed bound TCP did not reach fixture kind=${allowedTcp.failureKind} errno=${allowedTcp.errno}",
+            allowedTcp.ok,
+        )
+        assertEquals(allowedTcpPayload, allowedTcp.response)
+        assertTrue("Allowed TCP probe must expose a concrete source tuple", allowedTcp.localPort != null)
+        val allowedUdp =
+            testProcessUdpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.udpEchoPort,
+                payload = allowedUdpPayload,
+                bindDevice = "tun0",
+            )
+        assertEquals("tun0", allowedUdp.boundDevice)
+        assertTrue(
+            "Allowed bound UDP did not reach fixture kind=${allowedUdp.failureKind} errno=${allowedUdp.errno}",
+            allowedUdp.ok,
+        )
+        assertEquals(allowedUdpPayload, allowedUdp.response)
+        assertTrue("Allowed UDP probe must expose a concrete source tuple", allowedUdp.localPort != null)
+        awaitUntil(
+            timeoutMs = 5_000L,
+            failureMessage = { redactedTunnelSummary() },
+        ) {
+            val delta = serviceStateStore.telemetry.value.packetSmokeDeltaFrom(allowedBaselineTelemetry)
+            delta.txPackets > 0 && delta.rxPackets > 0
+        }
+        val allowedEvents = fixtureClient.events()
+        val allowedTcpEvents =
+            allowedEvents.count {
+                it.matchesEcho(
+                    service = "tcp_echo",
+                    protocol = "tcp",
+                    targetPort = fixture.tcpEchoPort,
+                    payloadBytes = allowedTcpPayload.toByteArray().size,
+                )
+            }
+        val allowedUdpEvents =
+            allowedEvents.count {
+                it.matchesEcho(
+                    service = "udp_echo",
+                    protocol = "udp",
+                    targetPort = fixture.udpEchoPort,
+                    payloadBytes = allowedUdpPayload.toByteArray().size,
+                )
+            }
+        assertTrue(
+            "Allowed bound TCP was not observed by fixture tcpEvents=$allowedTcpEvents udpEvents=$allowedUdpEvents",
+            allowedTcpEvents > 0,
+        )
+        assertTrue(
+            "Allowed bound UDP was not observed by fixture tcpEvents=$allowedTcpEvents udpEvents=$allowedUdpEvents",
+            allowedUdpEvents > 0,
+        )
+
+        stopService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Halted, Mode.VPN, fixtureClient)
+        fixtureClient.resetEvents()
+        runBlocking {
+            appSettingsRepository.update {
+                proxyPort = listenPort
+                proxyIp = "127.0.0.1"
+                dnsIp = "1.1.1.1"
+                fullTunnelMode = false
+                setSplitTunnelMode(SplitTunnelMode.Exclude)
+                clearSplitTunnelPackages()
+                addSplitTunnelPackages(testPackage)
+            }
+        }
+
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        assertTun0Present()
+        val appUid = appContext.packageManager.getApplicationInfo(appPackage, 0).uid
+        assertEquals("Instrumentation must execute under the app UID", appUid, Process.myUid())
+        val appAllowedBaselineTelemetry = serviceStateStore.telemetry.value
+        val appAllowedTcpPayload =
+            httpEchoPayloadText("so-bind-app-uid-tcp-$nonce-${"t".repeat(17)}")
+        val appAllowedUdpPayload = "so-bind-app-uid-udp-$nonce-${"u".repeat(31)}"
+        val appAllowedTcp =
+            instrumentationProcessTcpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.tcpEchoPort,
+                payload = appAllowedTcpPayload,
+                bindDevice = "tun0",
+            )
+        val appAllowedUdp =
+            instrumentationProcessUdpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.udpEchoPort,
+                payload = appAllowedUdpPayload,
+                bindDevice = "tun0",
+            )
+        assertTrue(
+            "Same-config app-UID TCP failed stage=${appAllowedTcp.failureStage} " +
+                "kind=${appAllowedTcp.failureKind} errno=${appAllowedTcp.errno}",
+            appAllowedTcp.ok,
+        )
+        assertEquals(appAllowedTcpPayload, appAllowedTcp.response)
+        assertEquals("tun0", appAllowedTcp.boundDevice)
+        assertTrue(
+            "Same-config app-UID UDP failed stage=${appAllowedUdp.failureStage} " +
+                "kind=${appAllowedUdp.failureKind} errno=${appAllowedUdp.errno}",
+            appAllowedUdp.ok,
+        )
+        assertEquals(appAllowedUdpPayload, appAllowedUdp.response)
+        assertEquals("tun0", appAllowedUdp.boundDevice)
+        awaitUntil(
+            timeoutMs = 5_000L,
+            failureMessage = { redactedTunnelSummary() },
+        ) {
+            val delta = serviceStateStore.telemetry.value.packetSmokeDeltaFrom(appAllowedBaselineTelemetry)
+            delta.txPackets > 0 && delta.rxPackets > 0
+        }
+        val appAllowedEvents = fixtureClient.events()
+        assertTrue(
+            "Same-config app-UID TCP was not correlated at the fixture",
+            appAllowedEvents.any {
+                it.matchesEcho(
+                    service = "tcp_echo",
+                    protocol = "tcp",
+                    targetPort = fixture.tcpEchoPort,
+                    payloadBytes = appAllowedTcpPayload.toByteArray().size,
+                )
+            },
+        )
+        assertTrue(
+            "Same-config app-UID UDP was not correlated at the fixture",
+            appAllowedEvents.any {
+                it.matchesEcho(
+                    service = "udp_echo",
+                    protocol = "udp",
+                    targetPort = fixture.udpEchoPort,
+                    payloadBytes = appAllowedUdpPayload.toByteArray().size,
+                )
+            },
+        )
+        fixtureClient.resetEvents()
+        val baselineTelemetry = serviceStateStore.telemetry.value
+        val deniedTcpPayload = httpEchoPayloadText("so-bind-denied-tcp-$nonce")
+        val deniedUdpPayload = "so-bind-denied-udp-$nonce"
+
+        val boundTcp =
+            testProcessTcpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.tcpEchoPort,
+                payload = deniedTcpPayload,
+                readTimeoutMs = 1_000L,
+                throwOnBroadcastTimeout = false,
+                bindDevice = "tun0",
+            )
+        assertEquals("tun0", boundTcp.boundDevice)
+        assertFalse(
+            "Bound TCP unexpectedly reached fixture kind=${boundTcp.failureKind} errno=${boundTcp.errno}",
+            boundTcp.ok,
+        )
+        assertEquals(
+            "Bound TCP denial should be a canonical reset kind=${boundTcp.failureKind} errno=${boundTcp.errno}",
+            "CONNECTION_RESET",
+            boundTcp.failureKind,
+        )
+
+        val boundUdp =
+            testProcessUdpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.udpEchoPort,
+                payload = deniedUdpPayload,
+                timeoutMs = 1_000L,
+                bindDevice = "tun0",
+            )
+        assertEquals("tun0", boundUdp.boundDevice)
+        assertFalse(
+            "Bound UDP unexpectedly reached fixture kind=${boundUdp.failureKind} errno=${boundUdp.errno}",
+            boundUdp.ok,
+        )
+        assertEquals(
+            "Bound UDP denial should drop until timeout kind=${boundUdp.failureKind} errno=${boundUdp.errno}",
+            "TIMEOUT",
+            boundUdp.failureKind,
+        )
+
+        awaitUntil(
+            timeoutMs = 5_000L,
+            failureMessage = { redactedTunnelSummary() },
+        ) {
+            val delta = serviceStateStore.telemetry.value.packetSmokeDeltaFrom(baselineTelemetry)
+            delta.txPackets > 0 || delta.rxPackets > 0
+        }
+        val deniedEvents = fixtureClient.events()
+        val deniedTcpEvents = deniedEvents.count { it.service == "tcp_echo" }
+        val deniedUdpEvents = deniedEvents.count { it.service == "udp_echo" }
+        assertTrue(
+            "Denied SO_BINDTODEVICE traffic reached fixture tcpEvents=$deniedTcpEvents udpEvents=$deniedUdpEvents",
+            deniedTcpEvents == 0 && deniedUdpEvents == 0,
+        )
+
+        val livenessTcpPayload = httpEchoPayloadText("so-bind-liveness-tcp-$nonce")
+        val livenessUdpPayload = "so-bind-liveness-udp-$nonce"
+        val livenessTcp =
+            testProcessTcpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.tcpEchoPort,
+                payload = livenessTcpPayload,
+            )
+        val livenessUdp =
+            testProcessUdpRoundTrip(
+                host = fixture.androidHost,
+                port = fixture.udpEchoPort,
+                payload = livenessUdpPayload,
+            )
+        assertTrue("Fixture TCP liveness failed after denial kind=${livenessTcp.failureKind}", livenessTcp.ok)
+        assertEquals(livenessTcpPayload, livenessTcp.response)
+        assertTrue("Fixture UDP liveness failed after denial kind=${livenessUdp.failureKind}", livenessUdp.ok)
+        assertEquals(livenessUdpPayload, livenessUdp.response)
+        val livenessEvents = fixtureClient.events()
+        assertTrue(
+            "Fixture did not record the correlated post-denial TCP control",
+            livenessEvents.any {
+                it.matchesEcho(
+                    service = "tcp_echo",
+                    protocol = "tcp",
+                    targetPort = fixture.tcpEchoPort,
+                    payloadBytes = livenessTcpPayload.toByteArray().size,
+                )
+            },
+        )
+        assertTrue(
+            "Fixture did not record the correlated post-denial UDP control",
+            livenessEvents.any {
+                it.matchesEcho(
+                    service = "udp_echo",
+                    protocol = "udp",
+                    targetPort = fixture.udpEchoPort,
+                    payloadBytes = livenessUdpPayload.toByteArray().size,
+                )
+            },
+        )
+    }
+
     private fun startService(serviceClass: Class<*>) {
         startedServices += serviceClass
         ContextCompat.startForegroundService(
@@ -521,7 +933,124 @@ class NetworkPathE2ETest {
 
     private fun httpEchoPayloadText(pathToken: String): String =
         "GET /$pathToken HTTP/1.1\r\nHost: ${fixture.fixtureDomain}\r\nConnection: close\r\n\r\n"
+
+    private fun assertDistinctPackageUids(
+        appPackage: String,
+        testPackage: String,
+    ): Int {
+        val packageManager = appContext.packageManager
+        val appUid = packageManager.getApplicationInfo(appPackage, 0).uid
+        val testUid = packageManager.getApplicationInfo(testPackage, 0).uid
+        assertTrue("Expected distinct app/test UIDs", appUid != testUid)
+        return testUid
+    }
+
+    private fun instrumentationProcessTcpRoundTrip(
+        host: String,
+        port: Int,
+        payload: String,
+        bindDevice: String,
+    ): AppProcessTcpProbeResult {
+        val extras = Bundle()
+        TestSocketBinder.tcpRoundTrip(
+            host,
+            port,
+            payload,
+            3_000,
+            5_000,
+            bindDevice,
+            extras,
+        )
+        return AppProcessTcpProbeResult(
+            host = host,
+            port = port,
+            ok = extras.getBoolean(ExtraOk, false),
+            localPort = extras.optionalProbeInt(ExtraLocalPort),
+            response = extras.getString(ExtraResponse),
+            boundDevice = extras.getString(ExtraBoundDevice),
+            failureKind = extras.getString(ExtraFailureKind),
+            failureStage = extras.getString(ExtraFailureStage),
+            errno = extras.optionalProbeInt(ExtraErrno),
+            probePid = Process.myPid(),
+            probeUid = Process.myUid(),
+        )
+    }
+
+    private fun instrumentationProcessUdpRoundTrip(
+        host: String,
+        port: Int,
+        payload: String,
+        bindDevice: String,
+    ): AppProcessUdpProbeResult {
+        val extras = Bundle()
+        TestSocketBinder.udpRoundTrip(
+            host,
+            port,
+            payload,
+            5_000,
+            bindDevice,
+            extras,
+        )
+        return AppProcessUdpProbeResult(
+            host = host,
+            port = port,
+            ok = extras.getBoolean(ExtraOk, false),
+            localPort = extras.optionalProbeInt(ExtraLocalPort),
+            response = extras.getString(ExtraResponse),
+            boundDevice = extras.getString(ExtraBoundDevice),
+            failureKind = extras.getString(ExtraFailureKind),
+            failureStage = extras.getString(ExtraFailureStage),
+            errno = extras.optionalProbeInt(ExtraErrno),
+            probePid = Process.myPid(),
+            probeUid = Process.myUid(),
+        )
+    }
+
+    private fun assertTun0Present() {
+        assertTrue("Expected active /sys/class/net/tun0", File("/sys/class/net/tun0").isDirectory)
+    }
+
+    private fun assumePhysicalSoBindEvidencePrerequisites() {
+        assumeTrue(
+            "SO_BINDTODEVICE evidence is physical-only; emulator runs are preflight, not physical evidence",
+            !isLikelyEmulator(),
+        )
+        val evidenceProfile =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString(SoBindEvidenceProfileArg)
+        assumeTrue(
+            "SO_BINDTODEVICE evidence requires an explicit dedicated physical profile",
+            evidenceProfile == PhysicalSoBindEvidenceProfile,
+        )
+        assumeTrue("SO_BINDTODEVICE evidence is qualified on Android API 37", Build.VERSION.SDK_INT == 37)
+        val kernelRelease = System.getProperty("os.version").orEmpty()
+        assumeTrue(
+            "SO_BINDTODEVICE evidence is qualified on the Pixel 6.1 kernel family",
+            kernelRelease.startsWith("6.1."),
+        )
+    }
+
+    private fun redactedTunnelSummary(): String {
+        val telemetry = serviceStateStore.telemetry.value
+        return "mode=${telemetry.mode} status=${telemetry.status} " +
+            "txPackets=${telemetry.tunnelStats.txPackets} rxPackets=${telemetry.tunnelStats.rxPackets}"
+    }
 }
+
+private fun Bundle.optionalProbeInt(key: String): Int? = getInt(key).takeIf { containsKey(key) }
+
+private fun FixtureEventDto.matchesEcho(
+    service: String,
+    protocol: String,
+    targetPort: Int,
+    payloadBytes: Int,
+): Boolean =
+    this.service == service &&
+        this.protocol == protocol &&
+        detail == "echo" &&
+        bytes == payloadBytes &&
+        target.substringAfterLast(':').toIntOrNull() == targetPort
 
 private fun String?.describesDnsTimeout(): Boolean =
     this != null &&

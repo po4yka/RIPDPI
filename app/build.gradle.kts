@@ -404,6 +404,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(project(":core:diagnostics-data"))
     androidTestImplementation(project(":core:engine"))
+    androidTestImplementation(project(":testing:socket-bind-probe"))
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 

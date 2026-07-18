@@ -7,7 +7,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
+import android.os.Process
 import android.os.SystemClock
+import android.system.ErrnoException
+import android.system.OsConstants
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -17,6 +20,7 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import java.util.ArrayList
@@ -24,25 +28,33 @@ import java.util.Arrays
 import java.util.Random
 
 private const val ActionProbeTcp = "com.poyka.ripdpi.debug.PROBE_TCP"
+private const val ActionProbeUdp = "com.poyka.ripdpi.debug.PROBE_UDP"
 internal const val ActionProbeDns = "com.poyka.ripdpi.debug.PROBE_DNS"
 internal const val ExtraHost = "host"
 internal const val ExtraPort = "port"
 private const val ExtraConnectTimeoutMs = "connect_timeout_ms"
 internal const val ExtraReadTimeoutMs = "read_timeout_ms"
 private const val ExtraPayload = "payload"
+internal const val ExtraBindDevice = "bind_device"
 internal const val ExtraQueryHost = "query_host"
 internal const val ExtraProbeSignalId = "probe_signal_id"
 internal const val ExtraProbeSignalBinder = "probe_signal_binder"
 internal const val ProbeSignalDnsDatagramSentCode = 1
 internal const val ExtraOk = "ok"
 private const val ExtraLocalAddress = "local_address"
-private const val ExtraLocalPort = "local_port"
-private const val ExtraResponse = "response"
+internal const val ExtraLocalPort = "local_port"
+internal const val ExtraResponse = "response"
+internal const val ExtraBoundDevice = "bound_device"
 private const val ExtraDnsRcode = "rcode"
 private const val ExtraDnsAnswers = "answers"
 private const val ExtraDnsLatencyMs = "latency_ms"
 internal const val ExtraErrorClass = "error_class"
 internal const val ExtraErrorMessage = "error_message"
+internal const val ExtraFailureKind = "failure_kind"
+internal const val ExtraFailureStage = "failure_stage"
+internal const val ExtraErrno = "errno"
+internal const val ExtraProbePid = "probe_pid"
+internal const val ExtraProbeUid = "probe_uid"
 private const val ProbeThreadName = "test-network-probe"
 private const val DefaultConnectTimeoutMs = 3_000
 private const val DefaultReadTimeoutMs = 5_000
@@ -74,7 +86,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         }
 
         val action = intent.action
-        if (!ActionProbeTcp.equals(action) && !ActionProbeDns.equals(action)) {
+        if (!ActionProbeTcp.equals(action) && !ActionProbeUdp.equals(action) && !ActionProbeDns.equals(action)) {
             return
         }
 
@@ -103,10 +115,14 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         }
 
         val extras = Bundle()
+        extras.putInt(ExtraProbePid, Process.myPid())
+        extras.putInt(ExtraProbeUid, Process.myUid())
         val resultCode =
             try {
                 if (ActionProbeDns.equals(action)) {
                     runDnsProbe(intent, extras)
+                } else if (ActionProbeUdp.equals(action)) {
+                    runUdpProbe(intent, extras)
                 } else {
                     runTcpProbe(intent, extras)
                 }
@@ -115,6 +131,8 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
                 extras.putBoolean(ExtraOk, false)
                 extras.putString(ExtraErrorClass, error.javaClass.name)
                 extras.putString(ExtraErrorMessage, error.message)
+                extras.putString(ExtraFailureKind, classifyProbeFailure(error))
+                errnoFor(error)?.let { extras.putInt(ExtraErrno, it) }
                 Activity.RESULT_CANCELED
             }
 
@@ -132,9 +150,32 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val connectTimeoutMs = intent.getIntExtra(ExtraConnectTimeoutMs, DefaultConnectTimeoutMs)
         val readTimeoutMs = intent.getIntExtra(ExtraReadTimeoutMs, DefaultReadTimeoutMs)
         val payload = intent.getStringExtra(ExtraPayload)
+        val requestedBindDevice = intent.getStringExtra(ExtraBindDevice)
+        val bindDevice =
+            if (
+                requestedBindDevice != null &&
+                requestedBindDevice.length > 0
+            ) {
+                requestedBindDevice
+            } else {
+                null
+            }
 
         requireProbeHost(host, "Missing host extra")
         requireProbePort(port, "Invalid port extra: $port")
+
+        if (bindDevice != null) {
+            TestSocketBinder.tcpRoundTrip(
+                host ?: throw IllegalArgumentException("Missing host extra"),
+                port,
+                payload ?: "",
+                connectTimeoutMs,
+                readTimeoutMs,
+                bindDevice,
+                extras,
+            )
+            return
+        }
 
         val socket = Socket()
         try {
@@ -153,6 +194,60 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
                 val input: InputStream = socket.getInputStream()
                 extras.putString(ExtraResponse, readTcpProbeResponse(input, payloadBytes.size))
             }
+        } finally {
+            socket.close()
+        }
+    }
+
+    private fun runUdpProbe(
+        intent: Intent,
+        extras: Bundle,
+    ) {
+        val host = intent.getStringExtra(ExtraHost)
+        val port = intent.getIntExtra(ExtraPort, -1)
+        val timeoutMs = intent.getIntExtra(ExtraReadTimeoutMs, DefaultReadTimeoutMs)
+        val payload = intent.getStringExtra(ExtraPayload) ?: ""
+        val requestedBindDevice = intent.getStringExtra(ExtraBindDevice)
+        val bindDevice =
+            if (
+                requestedBindDevice != null &&
+                requestedBindDevice.length > 0
+            ) {
+                requestedBindDevice
+            } else {
+                null
+            }
+
+        requireProbeHost(host, "Missing host extra")
+        requireProbePort(port, "Invalid port extra: $port")
+
+        if (bindDevice != null) {
+            TestSocketBinder.udpRoundTrip(
+                host ?: throw IllegalArgumentException("Missing host extra"),
+                port,
+                payload,
+                timeoutMs,
+                bindDevice,
+                extras,
+            )
+            return
+        }
+
+        val payloadBytes = utf8Bytes(payload)
+        val socket = DatagramSocket()
+        try {
+            socket.soTimeout = timeoutMs
+            socket.connect(InetSocketAddress(host, port))
+            putLocalDatagramSocket(extras, socket)
+            socket.send(DatagramPacket(payloadBytes, payloadBytes.size))
+            val responseBytes = ByteArray(DnsPacketMaxBytes)
+            val incomingPacket = DatagramPacket(responseBytes, responseBytes.size)
+            socket.receive(incomingPacket)
+            extras.putBoolean(ExtraOk, true)
+            extras.putString(
+                ExtraResponse,
+                String(responseBytes, 0, incomingPacket.length, StandardCharsets.UTF_8),
+            )
         } finally {
             socket.close()
         }
@@ -540,6 +635,36 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val bytes = ByteArray(buffer.remaining())
         buffer.get(bytes)
         return bytes
+    }
+
+    private fun classifyProbeFailure(error: Throwable): String {
+        val root = error.rootProbeCause()
+        val rootMessage = root.message.orEmpty()
+        return when {
+            root is ErrnoException && root.errno == OsConstants.ECONNRESET -> "CONNECTION_RESET"
+            root is ErrnoException && root.errno == OsConstants.EPIPE -> "BROKEN_PIPE"
+            root is ErrnoException && root.errno == OsConstants.ETIMEDOUT -> "TIMEOUT"
+            root is ErrnoException && root.errno == OsConstants.EAGAIN -> "TIMEOUT"
+            root is ErrnoException -> "ERRNO"
+            root is SocketTimeoutException -> "TIMEOUT"
+            root is SocketException && rootMessage.contains("reset", ignoreCase = true) -> "CONNECTION_RESET"
+            root is SocketException && rootMessage.contains("broken pipe", ignoreCase = true) -> "BROKEN_PIPE"
+            root is SocketException && rootMessage.contains("closed", ignoreCase = true) -> "SOCKET_CLOSED"
+            root is SocketException -> "SOCKET_ERROR"
+            root is IOException -> "IO_ERROR"
+            root is IllegalArgumentException -> "INVALID_REQUEST"
+            else -> "UNEXPECTED_ERROR"
+        }
+    }
+
+    private fun errnoFor(error: Throwable): Int? = (error.rootProbeCause() as? ErrnoException)?.errno
+
+    private fun Throwable.rootProbeCause(): Throwable {
+        var current = this
+        while (current.cause != null && current.cause !== current) {
+            current = requireNotNull(current.cause)
+        }
+        return current
     }
 }
 
