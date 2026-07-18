@@ -38,6 +38,7 @@ The direct-path IPv4 hash was `cc65970271f24a60`, distinct from every VPN egress
 | Kill application process while VPN active | Restore the durable desired-running session and application traffic | A process kill reproduced a missing sticky-service redelivery path. After remediation, Activity-visible reconciliation created a new process, restored the live VPN network, and Chrome from a separate UID loaded the HTTPS control page. No packet-level direct-window capture was available | Pass for recovery; direct-window evidence remains open | `e29ac5c7e`, `45e1211e3` |
 | Restart application | Persist the selected transport and reconnect | AWG selection persisted and reconnected | Pass | — |
 | Explicit user stop followed by process restart | Keep the VPN stopped | After Disconnect, force-stop, and relaunch, no live VPN network or fallback-recovery event appeared. The canonical bundle was then reinstalled and reconnected successfully | Pass | `e29ac5c7e`, `45e1211e3` |
+| Android Always-on plus Block connections without VPN | Keep the live VPN fail closed and expose no stop path | On the final Simple APK, enabling both platform switches changed the connected Disconnect control to disabled, removed Stop from the foreground notification, and kept `RipDpiVpnService` foreground. Disabling lockdown restored both controls without restarting the service. Disabling Always-on stopped the session; an explicit Connect then restored VLESS+Reality traffic | Pass | `4f79a8680` |
 | Kill only VPN service | Restore or fail closed | Covered by the process/service restart exercise; a separately isolated service-only kill still needs repeatable automation | Partial | — |
 | Wi-Fi to mobile data handover | Rebind and keep policy | Device mobile service and data registration were unavailable (`OUT_OF_SERVICE`, data state `-1`) | Blocked by physical network | — |
 
@@ -47,7 +48,7 @@ The direct-path IPv4 hash was `cc65970271f24a60`, distinct from every VPN egress
 - Chrome access to an IPv6-only control endpoint failed with `DNS_PROBE_FINISHED_NXDOMAIN`. The VPN interface had a ULA address but an unreachable IPv6 default route, while the underlying Wi-Fi exposed no usable IPv6 route. IPv6 forwarding and IPv6 leak resistance are therefore not proven by this network.
 - The active-endpoint fault test never remained falsely `Connected`: the remediated coordinator selected AWG, and the failed first AWG readiness attempt moved the service to `Failed` / `Connection error`.
 - No claim is made yet for WebRTC, per-app routing, system connectivity checks, LAN/private reachability, QUIC-to-TCP fallback, or a packet-capture proof of zero direct window.
-- Always-on VPN and lockdown settings were not left enabled after the test; the final device state had no configured always-on package and the Simple app data was cleared.
+- Always-on VPN and lockdown settings were not left enabled after the test. The final device state had no configured always-on package, lockdown was `0`, and the canonical Simple session was explicitly reconnected over VLESS+Reality.
 
 ## Routing matrix status
 
@@ -71,6 +72,7 @@ This is a confirmed high-severity capability gap, not an unexecuted green row. I
 - `./gradlew testDebugUnitTest -Pripdpi.skipNativeBuild=true --console=plain` — passed, 314 actionable tasks.
 - `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --console=plain` — passed, 717 actionable tasks.
 - `./gradlew :app:assembleGithubSimpleDebug --console=plain` — passed with native libraries; the resulting APK was installed on the Pixel for both remediation retests.
+- The final lockdown UI/service retest used commit `4f79a8680` and the arm64 APK SHA-256 `1ed65225e800525634d996876e2be38d3773dd3de7ce0569012a05d6e649736a`. Focused and combined Robolectric tests, the complete affected `:core:service` and Github Simple unit-test suites, ktlint, and detekt passed before installation.
 - Physical instrumentation `VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady` — passed on the Pixel with a directly reachable local UDP fixture. The test held a DNS datagram from a separate test process until native release and rejected an early Running state. An initial `adb reverse` control attempt failed before the assertion; rerunning over the verified direct Wi-Fi fixture control path passed.
 - Focused regression coverage verifies fresh proxy-error detection, successful-probe latch clearing, counter-reset baselining, XHTTP descriptor propagation, and the rendered XHTTP/generic-VLESS labels.
 - Process-death regression coverage verifies durable session recovery, stale-pointer and cancellation handling, serialized start/stop arbitration, accepted notification-stop semantics, and explicit-stop non-resurrection. The following checks passed on the rebased commit series through `cc3969941`:
