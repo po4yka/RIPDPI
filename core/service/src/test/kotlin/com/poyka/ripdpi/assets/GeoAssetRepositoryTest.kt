@@ -116,19 +116,22 @@ class GeoAssetRepositoryTest {
     }
 
     @Test
-    fun `read failure preserves target and removes temp file`() {
+    fun `read failure reports unable to open and preserves target`() {
         val target = temporaryFolder.newFile("geoip.db")
         val previous = "working database".toByteArray()
         target.writeBytes(previous)
 
-        assertThrows(IOException::class.java) {
-            streamGeoAssetToTarget(
-                FailAfterFirstChunkInputStream(validPayload(MinGeoAssetBytes)),
-                target,
-                MinGeoAssetBytes.toLong(),
-            )
-        }
+        val error =
+            assertThrows(GeoAssetIntegrityException::class.java) {
+                streamGeoAssetToTarget(
+                    FailAfterFirstChunkInputStream(validPayload(MinGeoAssetBytes)),
+                    target,
+                    MinGeoAssetBytes.toLong(),
+                )
+            }
 
+        assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
+        assertEquals("synthetic read failure", error.cause?.message)
         assertArrayEquals(previous, target.readBytes())
         assertNoTemporaryFiles(target.parentFile!!)
     }
@@ -247,6 +250,70 @@ class GeoAssetRepositoryTest {
 
         assertArrayEquals(previous, target.readBytes())
         assertArrayEquals(replacement, temp.readBytes())
+    }
+
+    @Test
+    fun `uri atomic rename failure reports install failure and cleans temp`() {
+        val previous = validPayload(MinGeoAssetBytes).reversedArray()
+        val replacement = validPayload(MinGeoAssetBytes)
+        val target = temporaryFolder.newFile("uri-geoip.db").apply { writeBytes(previous) }
+        val failure = IOException("storage rename failed")
+
+        val error =
+            assertThrows(GeoAssetIntegrityException::class.java) {
+                streamGeoAssetUriToTarget(
+                    uri = Uri.parse("content://test/geoip.db"),
+                    target = target,
+                    maxBytes = replacement.size.toLong(),
+                    openInput = { ByteArrayInputStream(replacement) },
+                    replaceTemp = { _, _ -> throw failure },
+                )
+            }
+
+        assertEquals(GeoAssetIntegrityFailure.InstallFailed, error.reason)
+        assertEquals(failure, error.cause)
+        assertFalse(error.reason == GeoAssetIntegrityFailure.UnableToOpen)
+        assertArrayEquals(previous, target.readBytes())
+        assertNoTemporaryFiles(target.parentFile!!)
+    }
+
+    @Test
+    fun `download atomic rename failure reports install failure and cleans temp`() {
+        val previous = validPayload(MinGeoAssetBytes).reversedArray()
+        val replacement = validPayload(MinGeoAssetBytes)
+        val target = temporaryFolder.newFile("download-geoip.db").apply { writeBytes(previous) }
+        val failure = IOException("download storage rename failed")
+
+        val error =
+            assertThrows(GeoAssetIntegrityException::class.java) {
+                installDownloadedGeoAssetToTarget(
+                    bytes = replacement,
+                    target = target,
+                    replaceTemp = { _, _ -> throw failure },
+                )
+            }
+
+        assertEquals(GeoAssetIntegrityFailure.InstallFailed, error.reason)
+        assertEquals(failure, error.cause)
+        assertFalse(error.reason == GeoAssetIntegrityFailure.UnableToOpen)
+        assertArrayEquals(previous, target.readBytes())
+        assertNoTemporaryFiles(target.parentFile!!)
+    }
+
+    @Test
+    fun `download storage directory failure reports install failure`() {
+        val blockedDirectory = temporaryFolder.newFile("not-a-directory")
+        val target = File(blockedDirectory, "geoip.db")
+
+        val error =
+            assertThrows(GeoAssetIntegrityException::class.java) {
+                installDownloadedGeoAssetToTarget(validPayload(MinGeoAssetBytes), target)
+            }
+
+        assertEquals(GeoAssetIntegrityFailure.InstallFailed, error.reason)
+        assertTrue(error.cause is IOException)
+        assertFalse(target.exists())
+        assertTrue(blockedDirectory.isFile)
     }
 
     private fun repository(): DefaultGeoAssetRepository =

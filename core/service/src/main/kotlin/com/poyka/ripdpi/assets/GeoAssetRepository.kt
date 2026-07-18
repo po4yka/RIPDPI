@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,12 +49,14 @@ enum class GeoAssetIntegrityFailure(
     UnableToOpen("Unable to open imported geo asset."),
     InvalidPayload("Geo asset failed the validity gate."),
     TooLarge("Imported geo asset exceeds the local size limit."),
+    InstallFailed("Geo asset could not be installed in local storage."),
 }
 
 /** Raised when a geo asset fails a local, fail-closed integrity gate. */
 class GeoAssetIntegrityException(
     val reason: GeoAssetIntegrityFailure,
-) : IOException(reason.diagnosticMessage)
+    cause: Throwable? = null,
+) : IOException(reason.diagnosticMessage, cause)
 
 interface GeoAssetRepository {
     /**
@@ -177,7 +180,7 @@ class DefaultGeoAssetRepository
             if (!isPlausibleGeoAssetPayload(bytes)) {
                 throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload)
             }
-            atomicWrite(targetFile(kind), bytes)
+            installDownloadedGeoAssetToTarget(bytes, targetFile(kind))
         }
 
         private suspend fun persistTagsAndTimestamp(
@@ -198,20 +201,6 @@ class DefaultGeoAssetRepository
             val paths = resolveGeoDatabasePaths(context)
             val path = if (kind == GeoAssetKind.Geoip) paths.geoipDbPath else paths.geositeDbPath
             return File(path)
-        }
-
-        private fun atomicWrite(
-            target: File,
-            bytes: ByteArray,
-        ) {
-            target.parentFile?.mkdirs()
-            val temp = File.createTempFile("geo-asset-", ".tmp", target.parentFile)
-            try {
-                temp.outputStream().use { it.write(bytes) }
-                replaceGeoAssetTempFile(temp, target)
-            } finally {
-                temp.delete()
-            }
         }
 
         private data class SingleAssetOutcome(
@@ -239,9 +228,10 @@ internal fun streamGeoAssetUriToTarget(
     target: File,
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
     openInput: (Uri) -> InputStream?,
+    replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
 ) {
     val input = openGeoAssetInput(uri, openInput)
-    streamOpenedGeoAssetToTarget(input, target, maxBytes)
+    streamOpenedGeoAssetToTarget(input, target, maxBytes, replaceTemp)
 }
 
 private fun openGeoAssetInput(
@@ -263,14 +253,17 @@ private fun streamOpenedGeoAssetToTarget(
     input: InputStream,
     target: File,
     maxBytes: Long,
+    replaceTemp: (File, File) -> Unit,
 ) {
     var temp: File? = null
     try {
         input.use { temp = writeGeoAssetInputToTemp(it, target, maxBytes) }
-        replaceGeoAssetTempFile(checkNotNull(temp), target)
+        installGeoAssetTemp(checkNotNull(temp), target, replaceTemp)
     } catch (error: GeoAssetIntegrityException) {
         throw error
     } catch (error: IOException) {
+        throwUnableToOpen(error)
+    } catch (error: SecurityException) {
         throwUnableToOpen(error)
     } finally {
         temp?.delete()
@@ -284,7 +277,21 @@ internal fun streamGeoAssetToTarget(
 ) {
     val temp = writeGeoAssetInputToTemp(input, target, maxBytes)
     try {
-        replaceGeoAssetTempFile(temp, target)
+        installGeoAssetTemp(temp, target)
+    } finally {
+        temp.delete()
+    }
+}
+
+internal fun installDownloadedGeoAssetToTarget(
+    bytes: ByteArray,
+    target: File,
+    replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
+) {
+    val temp = createGeoAssetTempFile(target)
+    try {
+        writeGeoAssetTemp(temp) { output -> output.write(bytes) }
+        installGeoAssetTemp(temp, target, replaceTemp)
     } finally {
         temp.delete()
     }
@@ -296,14 +303,12 @@ private fun writeGeoAssetInputToTemp(
     maxBytes: Long,
 ): File {
     require(maxBytes >= MinGeoAssetBytes) { "Local geo asset limit must allow the validation prefix." }
-    val targetDirectory = requireNotNull(target.absoluteFile.parentFile)
-    targetDirectory.mkdirs()
-    val temp = File.createTempFile("geo-asset-", ".tmp", targetDirectory)
+    val temp = createGeoAssetTempFile(target)
     var prepared = false
     try {
         val copyState = GeoAssetCopyState(maxBytes)
 
-        temp.outputStream().buffered().use { output ->
+        writeGeoAssetTemp(temp) { output ->
             copyGeoAssetInput(input, output, copyState)
         }
 
@@ -320,9 +325,42 @@ private fun writeGeoAssetInputToTemp(
 }
 
 private fun throwUnableToOpen(cause: Throwable? = null): Nothing {
-    val failure = GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen)
-    cause?.let(failure::initCause)
-    throw failure
+    throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen, cause)
+}
+
+private fun throwInstallFailed(cause: Throwable): Nothing {
+    throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InstallFailed, cause)
+}
+
+private fun createGeoAssetTempFile(target: File): File =
+    try {
+        val targetDirectory = requireNotNull(target.absoluteFile.parentFile)
+        if (!targetDirectory.exists() && !targetDirectory.mkdirs() && !targetDirectory.isDirectory) {
+            throw IOException("Unable to create geo asset storage directory.")
+        }
+        if (!targetDirectory.isDirectory) {
+            throw IOException("Unable to create geo asset storage directory.")
+        }
+        File.createTempFile("geo-asset-", ".tmp", targetDirectory)
+    } catch (error: IOException) {
+        throwInstallFailed(error)
+    } catch (error: SecurityException) {
+        throwInstallFailed(error)
+    }
+
+private inline fun writeGeoAssetTemp(
+    temp: File,
+    write: (OutputStream) -> Unit,
+) {
+    try {
+        temp.outputStream().buffered().use(write)
+    } catch (error: GeoAssetIntegrityException) {
+        throw error
+    } catch (error: IOException) {
+        throwInstallFailed(error)
+    } catch (error: SecurityException) {
+        throwInstallFailed(error)
+    }
 }
 
 private fun copyGeoAssetInput(
@@ -331,10 +369,10 @@ private fun copyGeoAssetInput(
     state: GeoAssetCopyState,
 ) {
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var readCount = input.read(buffer)
+    var readCount = readGeoAssetInput { input.read(buffer) }
     while (readCount >= 0) {
         if (readCount == 0) {
-            readCount = input.read()
+            readCount = readGeoAssetInput(input::read)
             if (readCount >= 0) {
                 buffer[0] = readCount.toByte()
                 state.write(buffer, 1, output)
@@ -342,9 +380,18 @@ private fun copyGeoAssetInput(
         } else {
             state.write(buffer, readCount, output)
         }
-        readCount = input.read(buffer)
+        readCount = readGeoAssetInput { input.read(buffer) }
     }
 }
+
+private inline fun readGeoAssetInput(read: () -> Int): Int =
+    try {
+        read()
+    } catch (error: IOException) {
+        throwUnableToOpen(error)
+    } catch (error: SecurityException) {
+        throwUnableToOpen(error)
+    }
 
 private class GeoAssetCopyState(
     private val maxBytes: Long,
@@ -364,7 +411,13 @@ private class GeoAssetCopyState(
         val prefixCount = minOf(count, prefix.size - prefixSize).coerceAtLeast(0)
         if (prefixCount > 0) bytes.copyInto(prefix, prefixSize, 0, prefixCount)
         prefixSize += prefixCount
-        output.write(bytes, 0, count)
+        try {
+            output.write(bytes, 0, count)
+        } catch (error: IOException) {
+            throwInstallFailed(error)
+        } catch (error: SecurityException) {
+            throwInstallFailed(error)
+        }
         totalBytes += count
     }
 
@@ -378,5 +431,21 @@ internal fun replaceGeoAssetTempFile(
 ) {
     if (!rename(temp, target)) {
         throw IOException("Unable to atomically install geo asset.")
+    }
+}
+
+private fun installGeoAssetTemp(
+    temp: File,
+    target: File,
+    replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
+) {
+    try {
+        replaceTemp(temp, target)
+    } catch (error: GeoAssetIntegrityException) {
+        throw error
+    } catch (error: IOException) {
+        throwInstallFailed(error)
+    } catch (error: SecurityException) {
+        throwInstallFailed(error)
     }
 }

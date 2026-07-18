@@ -56,6 +56,7 @@ enum class AssetProviderFailureReason {
     UnableToOpen,
     InvalidPayload,
     TooLarge,
+    Storage,
     Network,
     Unexpected,
 }
@@ -208,6 +209,7 @@ class AssetProviderViewModel
                         GeoAssetIntegrityFailure.UnableToOpen -> AssetProviderFailureReason.UnableToOpen
                         GeoAssetIntegrityFailure.InvalidPayload -> AssetProviderFailureReason.InvalidPayload
                         GeoAssetIntegrityFailure.TooLarge -> AssetProviderFailureReason.TooLarge
+                        GeoAssetIntegrityFailure.InstallFailed -> AssetProviderFailureReason.Storage
                     }
                 }
 

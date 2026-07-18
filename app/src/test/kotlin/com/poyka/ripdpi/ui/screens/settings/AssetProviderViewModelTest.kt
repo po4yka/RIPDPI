@@ -94,6 +94,28 @@ class AssetProviderViewModelTest {
         }
 
     @Test
+    fun `download install failure is storage rather than network`() =
+        runTest {
+            val repository = FakeGeoAssetRepository()
+            val storageFailure = IOException("local storage unavailable")
+            repository.checkAction = {
+                throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InstallFailed, storageFailure)
+            }
+            val viewModel = AssetProviderViewModel(FakeAppSettingsRepository(), repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.checkForUpdates()
+            advanceUntilIdle()
+
+            assertEquals(
+                AssetProviderCheckOutcome.Failed(AssetProviderFailureReason.Storage),
+                viewModel.uiState.value.lastResult,
+            )
+            assertNull(viewModel.uiState.value.activeOperation)
+        }
+
+    @Test
     fun `one active operation blocks duplicate and cross-kind requests`() =
         runTest {
             val repository = FakeGeoAssetRepository()

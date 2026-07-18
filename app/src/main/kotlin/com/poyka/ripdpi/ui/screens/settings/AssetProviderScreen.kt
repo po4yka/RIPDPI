@@ -139,6 +139,7 @@ private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProv
                             AssetProviderFailureReason.UnableToOpen -> R.string.asset_provider_failure_unable_to_open
                             AssetProviderFailureReason.InvalidPayload -> R.string.asset_provider_failure_invalid_payload
                             AssetProviderFailureReason.TooLarge -> R.string.asset_provider_failure_too_large
+                            AssetProviderFailureReason.Storage -> R.string.asset_provider_failure_unexpected
                             AssetProviderFailureReason.Network -> R.string.asset_provider_failure_network
                             AssetProviderFailureReason.Unexpected -> R.string.asset_provider_failure_unexpected
                         },
