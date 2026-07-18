@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import android.content.Context
 import android.util.AtomicFile
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -12,7 +13,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
@@ -230,4 +230,4 @@ private fun ByteArray.decodeStrictUtf8(): String? =
 
 private const val StrategyConfigDraftSchemaVersion = 1
 private const val StrategyConfigClockSkewToleranceMillis = 5L * 60L * 1000L
-private val StrategyConfigDraftJson = Json { ignoreUnknownKeys = false }
+private val StrategyConfigDraftJson = RipDpiJson
