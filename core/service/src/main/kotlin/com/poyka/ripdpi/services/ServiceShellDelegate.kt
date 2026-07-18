@@ -14,7 +14,6 @@ internal const val notificationStopAction = "notification_stop"
 internal const val diagnosticsStopAction = "diagnostics_stop"
 internal const val diagnosticsStartAction = "diagnostics_start"
 internal const val diagnosticsCompensatingStopAction = "diagnostics_compensating_stop"
-internal const val hardKillSwitchRefreshAction = "hard_kill_switch_refresh"
 
 internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
@@ -57,10 +56,6 @@ internal class ServiceShellDelegate(
 
             diagnosticsStartAction -> {
                 enqueue(onStart)
-                android.app.Service.START_STICKY
-            }
-
-            hardKillSwitchRefreshAction -> {
                 android.app.Service.START_STICKY
             }
 

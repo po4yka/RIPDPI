@@ -304,28 +304,6 @@ class ServiceShellDelegateTest {
         }
 
     @Test
-    fun `hard kill switch refresh action does not restart or stop runtime`() =
-        runTest {
-            var startCalls = 0
-            val stopIds = mutableListOf<Int?>()
-            val delegate =
-                ServiceShellDelegate(
-                    serviceScope = backgroundScope,
-                    serviceLabel = "vpn",
-                    onStart = { startCalls += 1 },
-                    onStop = { stopIds += it },
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
-                )
-
-            val result = delegate.onStartCommand(hardKillSwitchRefreshAction, 10)
-            runCurrent()
-
-            assertEquals(android.app.Service.START_STICKY, result)
-            assertEquals(0, startCalls)
-            assertEquals(emptyList<Int?>(), stopIds)
-        }
-
-    @Test
     fun `onRevoke delegates to revoke handler`() =
         runTest {
             var revokeCalls = 0

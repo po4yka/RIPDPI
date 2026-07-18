@@ -44,6 +44,9 @@ interface ServiceController {
     fun refreshHardKillSwitchState() = Unit
 }
 
+internal const val hardKillSwitchRefreshBroadcastAction =
+    "com.poyka.ripdpi.action.REFRESH_HARD_KILL_SWITCH"
+
 sealed interface ServiceStartResult {
     val mode: Mode
 
@@ -253,15 +256,9 @@ class DefaultServiceController
             if (status != AppStatus.Running || mode != Mode.VPN) {
                 return
             }
-            val intent =
-                Intent(context, RipDpiVpnService::class.java).apply {
-                    action = hardKillSwitchRefreshAction
-                }
-            try {
-                foregroundServiceStarter.startForegroundService(context, intent)
-            } catch (e: IllegalStateException) {
-                Logger.w(e) { "Foreground service refresh blocked" }
-            }
+            context.sendBroadcast(
+                Intent(hardKillSwitchRefreshBroadcastAction).setPackage(context.packageName),
+            )
         }
 
         private fun stopInternal(action: String) {

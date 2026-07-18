@@ -1,13 +1,16 @@
 package com.poyka.ripdpi.services
 
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.IpPrefix
 import android.os.Build
 import androidx.annotation.Keep
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
@@ -22,6 +25,21 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Provider
+
+internal class HardKillSwitchRefreshReceiver(
+    private val onRefreshState: () -> Unit,
+    private val onRefreshNotification: () -> Unit,
+) : BroadcastReceiver() {
+    override fun onReceive(
+        context: Context?,
+        intent: Intent?,
+    ) {
+        if (intent?.action == hardKillSwitchRefreshBroadcastAction) {
+            onRefreshState()
+            onRefreshNotification()
+        }
+    }
+}
 
 /**
  * VPN-mode foreground `VpnService` — the Android entry point for VPN mode.
@@ -71,6 +89,7 @@ class RipDpiVpnService :
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
+    private var hardKillSwitchRefreshReceiver: HardKillSwitchRefreshReceiver? = null
     private lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
     private val connectivityManager: ConnectivityManager
         get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -92,6 +111,18 @@ class RipDpiVpnService :
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
             )
         shellDelegate = sessionLifecycle.createShellDelegate()
+        val refreshReceiver =
+            HardKillSwitchRefreshReceiver(
+                onRefreshState = { refreshHardKillSwitchState() },
+                onRefreshNotification = { notificationController.startForeground(this) },
+            )
+        ContextCompat.registerReceiver(
+            this,
+            refreshReceiver,
+            IntentFilter(hardKillSwitchRefreshBroadcastAction),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        hardKillSwitchRefreshReceiver = refreshReceiver
         // Start the selector-runtime loops (member hot-reload + latency failover)
         // for the lifetime of the service. Each listener is idempotent.
         selectorRuntimeLifecycleListeners.forEach { it.start() }
@@ -99,6 +130,8 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
+        hardKillSwitchRefreshReceiver?.let(::unregisterReceiver)
+        hardKillSwitchRefreshReceiver = null
         selectorRuntimeLifecycleListeners.forEach { it.stop() }
         sessionLifecycle.destroy()
         rootHelperManager.stop()

@@ -601,18 +601,33 @@ class MainViewModelTest {
         runTest {
             val serviceController = FakeServiceController()
             val permissionStatusProvider = FakePermissionStatusProvider()
+            val hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore()
             val viewModel =
                 createViewModel(
                     serviceController = serviceController,
                     permissionStatusProvider = permissionStatusProvider,
+                    hardKillSwitchStateStore = hardKillSwitchStateStore,
                     initialize = false,
                 )
+            runCurrent()
 
             viewModel.onForeground()
             runCurrent()
 
             assertEquals(1, serviceController.hardKillSwitchRefreshCount)
             assertEquals(1, permissionStatusProvider.currentSnapshotCalls)
+
+            hardKillSwitchStateStore.update(
+                AndroidHardKillSwitchSnapshot(
+                    status = AndroidHardKillSwitchStatus.NOT_ENABLED,
+                    alwaysOn = false,
+                    lockdown = false,
+                    updatedAtMillis = 42L,
+                ),
+            )
+            runCurrent()
+
+            assertEquals(2, permissionStatusProvider.currentSnapshotCalls)
         }
 
     @Test

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.content.Intent
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.os.Build
@@ -35,6 +36,23 @@ class RipDpiVpnServiceConfigTest {
                 username = VpnLocalProxyUsername,
                 password = TestLocalProxyAuth,
             )
+    }
+
+    @Test
+    fun hardKillSwitchRefreshReceiverInvokesStateAndNotificationRefresh() {
+        val operations = mutableListOf<String>()
+        val receiver =
+            HardKillSwitchRefreshReceiver(
+                onRefreshState = { operations += "state" },
+                onRefreshNotification = { operations += "notification" },
+            )
+
+        receiver.onReceive(
+            org.robolectric.RuntimeEnvironment.getApplication(),
+            Intent(hardKillSwitchRefreshBroadcastAction),
+        )
+
+        assertEquals(listOf("state", "notification"), operations)
     }
 
     @Test

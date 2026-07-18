@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
+import com.poyka.ripdpi.data.stopAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
@@ -344,30 +346,37 @@ class ServiceControllerForegroundDenialTest {
     }
 
     @Test
-    fun runningVpnRefreshesHardKillSwitchStateThroughVpnService() {
+    fun stopThenLateRefreshOnlyStartsStopAndBroadcastsRefresh() {
+        val context: android.app.Application = RuntimeEnvironment.getApplication()
         val starter = RecordingForegroundServiceStarter()
         val controller =
             DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
+                context = context,
                 serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
                 bootSessionStateStore = InMemoryBootSessionStateStore(),
             )
 
+        controller.stop()
         controller.refreshHardKillSwitchState()
 
         assertEquals(1, starter.startCount)
-        assertEquals(hardKillSwitchRefreshAction, starter.lastIntent?.action)
         assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+        assertEquals(stopAction, starter.lastIntent?.action)
+        val refreshBroadcasts =
+            shadowOf(context).broadcastIntents.filter { it.action == hardKillSwitchRefreshBroadcastAction }
+        assertEquals(1, refreshBroadcasts.size)
+        assertEquals(context.packageName, refreshBroadcasts.single().`package`)
     }
 
     @Test
     fun haltedVpnDoesNotDispatchHardKillSwitchRefresh() {
+        val context: android.app.Application = RuntimeEnvironment.getApplication()
         val starter = RecordingForegroundServiceStarter()
         val controller =
             DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
+                context = context,
                 serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
@@ -377,14 +386,18 @@ class ServiceControllerForegroundDenialTest {
         controller.refreshHardKillSwitchState()
 
         assertEquals(0, starter.startCount)
+        assertTrue(
+            shadowOf(context).broadcastIntents.none { it.action == hardKillSwitchRefreshBroadcastAction },
+        )
     }
 
     @Test
     fun runningProxyDoesNotDispatchHardKillSwitchRefresh() {
+        val context: android.app.Application = RuntimeEnvironment.getApplication()
         val starter = RecordingForegroundServiceStarter()
         val controller =
             DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
+                context = context,
                 serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
@@ -394,6 +407,9 @@ class ServiceControllerForegroundDenialTest {
         controller.refreshHardKillSwitchState()
 
         assertEquals(0, starter.startCount)
+        assertTrue(
+            shadowOf(context).broadcastIntents.none { it.action == hardKillSwitchRefreshBroadcastAction },
+        )
     }
 }
 
