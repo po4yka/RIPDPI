@@ -219,6 +219,32 @@ class MainHomeDiagnosticsActionsTest {
 
             assertNull(homeDiagnosticsState.value.activeRunId)
             assertNull(homeDiagnosticsState.value.latestCompositeOutcome)
+            assertTrue(homeDiagnosticsState.value.analysisStartFailed)
+        }
+
+    @Test
+    fun `cancel analysis stops the active composite run and exposes cancelled status`() =
+        runTest {
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService()
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+
+            actions.runFullAnalysis()
+            runCurrent()
+            actions.cancelAnalysis()
+            runCurrent()
+
+            assertEquals(listOf("home-run"), compositeRunService.cancelledRunIds)
+            assertEquals(
+                DiagnosticsHomeCompositeRunStatus.CANCELLED,
+                homeDiagnosticsState.value.activeRunProgress?.status,
+            )
+            assertNull(homeDiagnosticsState.value.activeRunId)
         }
 
     @Test

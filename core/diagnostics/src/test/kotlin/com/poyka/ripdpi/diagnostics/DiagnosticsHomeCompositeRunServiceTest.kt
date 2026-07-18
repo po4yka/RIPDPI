@@ -11,12 +11,94 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiagnosticsHomeCompositeRunCancellationTest {
+    @Test
+    fun `cancelHomeRun cancels the engine and publishes a terminal state`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = MutableDiagnosticsTimelineSource()
+            var cancelCalls = 0
+            val scanController =
+                object : DiagnosticsScanController {
+                    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
+
+                    override suspend fun startScan(
+                        pathMode: ScanPathMode,
+                        selectedProfileId: String?,
+                        skipActiveScanCheck: Boolean,
+                        allowSensitiveProfileStart: Boolean,
+                        scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
+                    ): DiagnosticsManualScanStartResult = DiagnosticsManualScanStartResult.Started("active-session")
+
+                    override suspend fun resolveHiddenProbeConflict(
+                        requestId: String,
+                        action: HiddenProbeConflictAction,
+                    ): DiagnosticsManualScanResolution = error("unused")
+
+                    override suspend fun cancelActiveScan() {
+                        cancelCalls += 1
+                    }
+
+                    override suspend fun setActiveProfile(profileId: String) = Unit
+                }
+            val workflowService =
+                object : DiagnosticsHomeWorkflowService {
+                    override suspend fun currentFingerprintHash(): String = "fp-cancel"
+
+                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+                        error("cancelled run must not finalize")
+
+                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+                        error("unused")
+                }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val service =
+                DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
+                    diagnosticsHomeWorkflowService = workflowService,
+                    scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = serviceStateStore,
+                    probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
+                    json = diagnosticsTestJson(),
+                    scope = backgroundScope,
+                )
+
+            val started = service.startHomeAnalysis()
+            runCurrent()
+            service.cancelHomeRun(started.runId)
+            runCurrent()
+
+            val progress = service.observeHomeRun(started.runId).first()
+            assertEquals(1, cancelCalls)
+            assertEquals(DiagnosticsHomeCompositeRunStatus.CANCELLED, progress.status)
+            assertEquals(null, progress.activeStageIndex)
+            assertEquals(null, progress.activeSessionId)
+        }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsHomeCompositeRunServiceTest {

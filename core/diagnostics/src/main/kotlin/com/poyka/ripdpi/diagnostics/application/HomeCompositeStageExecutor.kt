@@ -30,6 +30,10 @@ internal class HomeCompositeStageExecutor
             private const val TimedOutStageRecoveryTimeoutMs = 5_000L
         }
 
+        suspend fun cancelActiveStage() {
+            diagnosticsScanController.cancelActiveScan()
+        }
+
         suspend fun executeStage(
             runId: String,
             stageIndex: Int,

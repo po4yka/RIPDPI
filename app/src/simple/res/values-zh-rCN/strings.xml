@@ -5,6 +5,8 @@
     <string name="simple_connect">连接</string>
     <string name="simple_disconnect">断开连接</string>
     <string name="simple_run_report">运行网络诊断报告</string>
+    <string name="simple_report_cancelled">诊断报告已取消</string>
+    <string name="simple_report_failed">诊断报告失败，请重试。</string>
     <string name="simple_status_disconnected">未连接</string>
     <string name="simple_status_connecting">正在连接…</string>
     <string name="simple_status_connected">已连接</string>

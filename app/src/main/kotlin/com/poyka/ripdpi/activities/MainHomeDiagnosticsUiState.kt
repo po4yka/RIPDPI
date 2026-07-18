@@ -46,6 +46,7 @@ internal fun buildHomeDiagnosticsUiState(
         latestAudit = availability.latestAudit,
         remediationLadder = availability.remediationLadder,
         analysisProgress = buildAnalysisProgress(runtime, availability.analysisBusy),
+        analysisRunStatus = runtime.analysisRunUiStatus(),
         analysisSheet =
             runtime.latestCompositeOutcome
                 ?.takeIf { runtime.analysisSheetVisible }
@@ -62,6 +63,16 @@ internal fun buildHomeDiagnosticsUiState(
             },
     )
 }
+
+private fun HomeDiagnosticsRuntimeState.analysisRunUiStatus(): HomeDiagnosticsRunUiStatus =
+    when {
+        analysisStartFailed -> HomeDiagnosticsRunUiStatus.FAILED
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING -> HomeDiagnosticsRunUiStatus.RUNNING
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.COMPLETED -> HomeDiagnosticsRunUiStatus.COMPLETED
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.CANCELLED -> HomeDiagnosticsRunUiStatus.CANCELLED
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.FAILED -> HomeDiagnosticsRunUiStatus.FAILED
+        else -> HomeDiagnosticsRunUiStatus.IDLE
+    }
 
 private data class HomeDiagnosticsAvailability(
     val fingerprintMismatch: Boolean,

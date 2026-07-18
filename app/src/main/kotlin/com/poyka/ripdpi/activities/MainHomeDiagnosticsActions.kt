@@ -53,6 +53,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val externalScanActive: Boolean = false,
     val externalScanMessage: String? = null,
     val pcapRecordingRequested: Boolean = false,
+    val analysisStartFailed: Boolean = false,
 )
 
 internal class MainHomeDiagnosticsActions(
@@ -73,7 +74,7 @@ internal class MainHomeDiagnosticsActions(
     private var activeRunObservation: Job? = null
 
     fun initialize() {
-        observeInitialFingerprint()
+        mutations.launch { refreshFingerprint() }
         observeActiveScanProgress()
         observeLatestManualDiagnosticSession()
         observeVerificationSessions()
@@ -94,12 +95,6 @@ internal class MainHomeDiagnosticsActions(
                     }
                 }
             }
-        }
-    }
-
-    private fun observeInitialFingerprint() {
-        mutations.launch {
-            refreshFingerprint()
         }
     }
 
@@ -321,6 +316,7 @@ internal class MainHomeDiagnosticsActions(
                     activeVerificationSessionId = null,
                     waitingForVerifiedVpnStart = false,
                     verificationProgress = null,
+                    analysisStartFailed = false,
                 )
             }
             runCatching {
@@ -350,6 +346,7 @@ internal class MainHomeDiagnosticsActions(
                                         } else {
                                             current.analysisSheetVisible
                                         },
+                                    analysisStartFailed = false,
                                 )
                             }
                             progress.outcome?.let { outcome ->
@@ -359,6 +356,7 @@ internal class MainHomeDiagnosticsActions(
                         }
                     }
             }.onFailure { error ->
+                homeDiagnosticsState.update { it.copy(analysisStartFailed = true) }
                 val message =
                     when (error) {
                         is DiagnosticsScanStartRejectedException -> {
@@ -371,6 +369,21 @@ internal class MainHomeDiagnosticsActions(
                     }
                 mutations.emit(MainEffect.ShowError(message))
             }
+        }
+    }
+
+    fun cancelAnalysis() {
+        mutations.launch {
+            val runId = homeDiagnosticsState.value.activeRunId ?: return@launch
+            runCatching { diagnosticsHomeCompositeRunService.cancelHomeRun(runId) }
+                .onFailure {
+                    homeDiagnosticsState.update { current -> current.copy(analysisStartFailed = true) }
+                    mutations.emit(
+                        MainEffect.ShowError(
+                            stringResolver.getString(R.string.diagnostics_error_start_failed),
+                        ),
+                    )
+                }
         }
     }
 
@@ -390,6 +403,7 @@ internal class MainHomeDiagnosticsActions(
                     activeVerificationSessionId = null,
                     waitingForVerifiedVpnStart = false,
                     verificationProgress = null,
+                    analysisStartFailed = false,
                 )
             }
             runCatching {
@@ -419,6 +433,7 @@ internal class MainHomeDiagnosticsActions(
                                         } else {
                                             current.analysisSheetVisible
                                         },
+                                    analysisStartFailed = false,
                                 )
                             }
                             progress.outcome?.let { outcome ->
@@ -428,6 +443,7 @@ internal class MainHomeDiagnosticsActions(
                         }
                     }
             }.onFailure { error ->
+                homeDiagnosticsState.update { it.copy(analysisStartFailed = true) }
                 val message =
                     when (error) {
                         is DiagnosticsScanStartRejectedException -> {

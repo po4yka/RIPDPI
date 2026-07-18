@@ -61,6 +61,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val completedRuns = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
         private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
         private val runPcapRequested = ConcurrentHashMap<String, Boolean>()
+        private val runJobs = HomeCompositeRunJobs(scope)
         private val activeProbeSafetyPolicy = ActiveProbeSafetyPolicy()
 
         override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
@@ -88,9 +89,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             )
                     )
             }
-            scope.launch {
-                executeRun(runId)
-            }
+            launchRun(runId) { executeRun(runId) }
             return DiagnosticsHomeCompositeRunStarted(runId = runId)
         }
 
@@ -98,6 +97,14 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             progressState
                 .map { runs -> runs[runId] }
                 .filterNotNull()
+
+        override suspend fun cancelHomeRun(runId: String) {
+            val cancelled =
+                runJobs.cancel(runId) {
+                    runCatching { stageExecutor.cancelActiveStage() }
+                }
+            if (cancelled) updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.CANCELLED)
+        }
 
         override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome {
             completedRuns[runId]?.let { return it }
@@ -141,7 +148,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             )
                     )
             }
-            scope.launch {
+            launchRun(runId) {
                 val quickScanRunner =
                     DiagnosticsQuickScanRunner(
                         scanRecordStore,
@@ -192,6 +199,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         if (event.isActionable) networkEvents += event
                     }
                 }
+            runJobs.trackChild(runId, eventCollector)
 
             val auditCompletedSession =
                 stageExecutor.executeStageWithTimeout(
@@ -253,6 +261,42 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 "run completed: completed=${outcome?.completedStageCount}" +
                     " failed=${outcome?.failedStageCount}" +
                     " skipped=${outcome?.skippedStageCount}"
+            }
+        }
+
+        private fun launchRun(
+            runId: String,
+            block: suspend () -> Unit,
+        ) {
+            runJobs.launch(
+                runId = runId,
+                onFailure = { error ->
+                    log.e(error) { "run failed: runId=$runId" }
+                    runCatching { stageExecutor.cancelActiveStage() }
+                    updateRunStatus(runId, DiagnosticsHomeCompositeRunStatus.FAILED)
+                },
+                block = block,
+            )
+        }
+
+        private fun updateRunStatus(
+            runId: String,
+            status: DiagnosticsHomeCompositeRunStatus,
+        ) {
+            runPcapRequested.remove(runId)
+            runDetectionResults.remove(runId)
+            progressState.update { current ->
+                current.updatedRun(runId) { progress ->
+                    if (progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING) {
+                        progress.copy(
+                            status = status,
+                            activeStageIndex = null,
+                            activeSessionId = null,
+                        )
+                    } else {
+                        progress
+                    }
+                }
             }
         }
 

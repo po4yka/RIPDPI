@@ -256,6 +256,8 @@ class MainViewModel
 
         fun onRunHomeFullAnalysis() = permissionActions.resolvePermissionAction(PermissionAction.RunHomeAnalysis)
 
+        fun onCancelHomeAnalysis() = homeDiagnostics.actions.cancelAnalysis()
+
         fun onRunHomeQuickAnalysis() = homeDiagnostics.actions.runQuickAnalysis()
 
         fun onStartVerifiedVpn() = homeDiagnostics.actions.startVerifiedVpn()

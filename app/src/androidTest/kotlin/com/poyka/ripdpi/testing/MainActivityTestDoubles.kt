@@ -451,6 +451,8 @@ class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompos
     override fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress> =
         MutableStateFlow(DiagnosticsHomeCompositeProgress(runId = runId))
 
+    override suspend fun cancelHomeRun(runId: String) = Unit
+
     override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
         DiagnosticsHomeCompositeOutcome(
             runId = runId,

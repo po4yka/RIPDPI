@@ -16,11 +16,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
+import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
@@ -30,6 +34,7 @@ import com.poyka.ripdpi.failover.ActiveTransportDescriptor
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -52,11 +57,36 @@ fun SimpleHomeScreen(
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
 
+    SimpleHomeContent(
+        connectionState = uiState.connectionState,
+        diagnostics = diagnostics,
+        activeTransportKind = activeTransportKind,
+        snackbarHostState = snackbarHostState,
+        onToggleConnection = { active ->
+            if (active) viewModel.onStopRequested() else viewModel.onToggleVpn(enabled = true)
+        },
+        onRunReport = viewModel::onRunHomeFullAnalysis,
+        onCancelReport = viewModel::onCancelHomeAnalysis,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun SimpleHomeContent(
+    connectionState: ConnectionState,
+    diagnostics: HomeDiagnosticsUiState,
+    activeTransportKind: String?,
+    snackbarHostState: SnackbarHostState,
+    onToggleConnection: (active: Boolean) -> Unit,
+    onRunReport: () -> Unit,
+    onCancelReport: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
 
-    val connecting = uiState.connectionState == ConnectionState.Connecting
-    val connected = uiState.connectionState == ConnectionState.Connected
+    val connecting = connectionState == ConnectionState.Connecting
+    val connected = connectionState == ConnectionState.Connected
     val active = connecting || connected
     val reportBusy = diagnostics.analysisAction.busy
     val protocolLabel = activeTransport?.toProtocolLabel()
@@ -82,7 +112,7 @@ fun SimpleHomeScreen(
                 textAlign = TextAlign.Center,
             )
             SimpleConnectionStatus(
-                connectionState = uiState.connectionState,
+                connectionState = connectionState,
                 modifier = Modifier.padding(top = spacing.sm),
             )
 
@@ -96,19 +126,23 @@ fun SimpleHomeScreen(
                 )
             }
 
+            SimpleDiagnosticsStatus(
+                diagnostics = diagnostics,
+                modifier = Modifier.padding(top = spacing.lg),
+            )
+
             RipDpiButton(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(top = spacing.xxl),
+                        .padding(top = spacing.xl),
                 text =
                     stringResource(
                         if (active) R.string.simple_disconnect else R.string.simple_connect,
                     ),
-                onClick = {
-                    if (active) viewModel.onStopRequested() else viewModel.onToggleVpn(enabled = true)
-                },
+                onClick = { onToggleConnection(active) },
                 loading = connecting,
+                enabled = !reportBusy,
                 variant = RipDpiButtonVariant.Primary,
             )
 
@@ -117,14 +151,68 @@ fun SimpleHomeScreen(
                     Modifier
                         .fillMaxWidth()
                         .padding(top = spacing.md),
-                text = stringResource(R.string.simple_run_report),
-                onClick = { viewModel.onRunHomeFullAnalysis() },
-                loading = reportBusy,
-                enabled = !reportBusy,
+                text =
+                    stringResource(
+                        if (reportBusy) R.string.diagnostics_action_cancel else R.string.simple_run_report,
+                    ),
+                onClick = if (reportBusy) onCancelReport else onRunReport,
                 variant = RipDpiButtonVariant.Outline,
             )
         }
     }
+}
+
+@Composable
+internal fun SimpleDiagnosticsStatus(
+    diagnostics: HomeDiagnosticsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val statusLabel =
+        when (diagnostics.analysisRunStatus) {
+            HomeDiagnosticsRunUiStatus.IDLE -> null
+            HomeDiagnosticsRunUiStatus.RUNNING -> diagnostics.analysisAction.supportingText
+            HomeDiagnosticsRunUiStatus.COMPLETED -> stringResource(R.string.diagnostics_snackbar_scan_complete)
+            HomeDiagnosticsRunUiStatus.CANCELLED -> stringResource(R.string.simple_report_cancelled)
+            HomeDiagnosticsRunUiStatus.FAILED -> stringResource(R.string.simple_report_failed)
+        }
+    if (statusLabel == null) return
+
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
+            RipDpiProgressBar(
+                progress = diagnostics.analysisProgress.overallProgress(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Text(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        stateDescription = statusLabel
+                        liveRegion = LiveRegionMode.Polite
+                    },
+            text = statusLabel,
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+internal fun AnalysisProgressUiState?.overallProgress(): Float {
+    val stages = this?.stages.orEmpty()
+    if (stages.isEmpty()) return 0f
+    return stages
+        .sumOf { it.progress.toDouble() }
+        .toFloat()
+        .div(stages.size)
+        .coerceIn(0f, 1f)
 }
 
 @Composable

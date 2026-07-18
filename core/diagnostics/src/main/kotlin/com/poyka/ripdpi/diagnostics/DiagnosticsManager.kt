@@ -182,6 +182,8 @@ data class DiagnosticsHomeCompositeRunStarted(
 enum class DiagnosticsHomeCompositeRunStatus {
     RUNNING,
     COMPLETED,
+    CANCELLED,
+    FAILED,
 }
 
 enum class DiagnosticsHomeCompositeStageStatus {
@@ -338,6 +340,8 @@ interface DiagnosticsHomeCompositeRunService {
     ): DiagnosticsHomeCompositeRunStarted
 
     fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress>
+
+    suspend fun cancelHomeRun(runId: String)
 
     suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome
 

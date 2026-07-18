@@ -46,6 +46,8 @@ private class FakeDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeR
             ),
         )
 
+    override suspend fun cancelHomeRun(runId: String) = Unit
+
     override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome = error("unused")
 
     override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = null

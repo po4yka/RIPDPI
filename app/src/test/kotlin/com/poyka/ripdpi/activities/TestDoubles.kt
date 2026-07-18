@@ -403,6 +403,7 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
     var nextRunId: String = "home-run"
     var startFailure: Throwable? = null
     val startedRunIds = mutableListOf<String>()
+    val cancelledRunIds = mutableListOf<String>()
     val runs = mutableMapOf<String, MutableStateFlow<DiagnosticsHomeCompositeProgress>>()
 
     override suspend fun lookupCachedOutcome(
@@ -454,6 +455,17 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
                 ),
             )
         }
+
+    override suspend fun cancelHomeRun(runId: String) {
+        cancelledRunIds += runId
+        val current = runs[runId]?.value ?: return
+        runs[runId]?.value =
+            current.copy(
+                status = DiagnosticsHomeCompositeRunStatus.CANCELLED,
+                activeStageIndex = null,
+                activeSessionId = null,
+            )
+    }
 
     override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
         runs

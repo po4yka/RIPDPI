@@ -5,6 +5,8 @@
     <string name="simple_connect">Conectar</string>
     <string name="simple_disconnect">Desconectar</string>
     <string name="simple_run_report">Ejecutar informe de diagnóstico</string>
+    <string name="simple_report_cancelled">Informe de diagnóstico cancelado</string>
+    <string name="simple_report_failed">El informe de diagnóstico falló. Inténtalo de nuevo.</string>
     <string name="simple_status_disconnected">Desconectado</string>
     <string name="simple_status_connecting">Conectando…</string>
     <string name="simple_status_connected">Conectado</string>

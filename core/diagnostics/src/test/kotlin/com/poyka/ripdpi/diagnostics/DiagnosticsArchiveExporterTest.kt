@@ -34,6 +34,8 @@ class DiagnosticsArchiveExporterTest {
 
             override fun observeHomeRun(runId: String) = error("unused")
 
+            override suspend fun cancelHomeRun(runId: String) = error("unused")
+
             override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
                 requireNotNull(completedRuns[runId]) { "Missing completed run $runId" }
 

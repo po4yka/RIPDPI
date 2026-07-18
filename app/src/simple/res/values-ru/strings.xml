@@ -5,6 +5,8 @@
     <string name="simple_connect">Подключиться</string>
     <string name="simple_disconnect">Отключиться</string>
     <string name="simple_run_report">Сетевая диагностика</string>
+    <string name="simple_report_cancelled">Диагностика отменена</string>
+    <string name="simple_report_failed">Не удалось выполнить диагностику. Повторите попытку.</string>
     <string name="simple_status_disconnected">Отключено</string>
     <string name="simple_status_connecting">Подключение…</string>
     <string name="simple_status_connected">Подключено</string>

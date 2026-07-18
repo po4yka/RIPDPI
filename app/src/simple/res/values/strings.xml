@@ -8,6 +8,8 @@
     <string name="simple_connect">Connect</string>
     <string name="simple_disconnect">Disconnect</string>
     <string name="simple_run_report">Run diagnostic report</string>
+    <string name="simple_report_cancelled">Diagnostic report cancelled</string>
+    <string name="simple_report_failed">Diagnostic report failed. Try again.</string>
     <string name="simple_status_disconnected">Disconnected</string>
     <string name="simple_status_connecting">Connecting…</string>
     <string name="simple_status_connected">Connected</string>

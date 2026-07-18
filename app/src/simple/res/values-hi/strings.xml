@@ -5,6 +5,8 @@
     <string name="simple_connect">कनेक्ट करें</string>
     <string name="simple_disconnect">डिस्कनेक्ट करें</string>
     <string name="simple_run_report">जाँच रिपोर्ट चलाएँ</string>
+    <string name="simple_report_cancelled">जाँच रिपोर्ट रद्द कर दी गई</string>
+    <string name="simple_report_failed">जाँच रिपोर्ट विफल रही। फिर से कोशिश करें।</string>
     <string name="simple_status_disconnected">डिस्कनेक्ट है</string>
     <string name="simple_status_connecting">कनेक्ट हो रहा है…</string>
     <string name="simple_status_connected">कनेक्ट है</string>

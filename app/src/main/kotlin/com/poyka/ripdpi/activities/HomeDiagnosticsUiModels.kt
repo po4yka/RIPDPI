@@ -52,6 +52,14 @@ data class AnalysisProgressUiState(
     val activeStageIndex: Int?,
 )
 
+enum class HomeDiagnosticsRunUiStatus {
+    IDLE,
+    RUNNING,
+    COMPLETED,
+    CANCELLED,
+    FAILED,
+}
+
 @Immutable
 data class HomeDiagnosticsStageUiState(
     val label: String,
@@ -119,6 +127,7 @@ data class HomeDiagnosticsUiState(
     val latestAudit: HomeDiagnosticsLatestAuditUiState? = null,
     val remediationLadder: DiagnosticsRemediationLadderUiModel? = null,
     val analysisProgress: AnalysisProgressUiState? = null,
+    val analysisRunStatus: HomeDiagnosticsRunUiStatus = HomeDiagnosticsRunUiStatus.IDLE,
     val quickScanBusy: Boolean = false,
     val analysisSheet: HomeDiagnosticsAnalysisSheetUiState? = null,
     val verificationSheet: HomeDiagnosticsVerificationSheetUiState? = null,
