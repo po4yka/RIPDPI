@@ -2,7 +2,7 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (25)
+## Doing (26)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | high | testing | [Add a redacted dual-vantage network evidence manifest](issues/add-dual-vantage-redacted-network-evidence-manifest.md) | Evidence contract lane | 2026-07-17 |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | unassigned | 2026-06-05 |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | unassigned | 2026-06-10 |
+| high | ui | [Fix Pixel 7 UI audit P1 findings](issues/fix-pixel7-ui-audit-p1.md) | Codex | 2026-07-18 |
 | high | transport | [Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)](issues/wire-standalone-amneziawg-profile-transport.md) | unassigned | 2026-06-21 |
 | high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | Android device lane | 2026-07-17 |
 | high | vpn | [Verify no leak/black-hole window between TUN establish() and native relay readiness](issues/verify-no-leak-window-between-tun-establish-and-relay-ready.md) | Lifecycle and PMTUD lane | 2026-07-17 |
