@@ -94,7 +94,7 @@ class AssetProviderViewModelTest {
         }
 
     @Test
-    fun `download install failure is storage rather than network`() =
+    fun `download metadata storage failure maps to storage banner reason`() =
         runTest {
             val repository = FakeGeoAssetRepository()
             val storageFailure = IOException("local storage unavailable")

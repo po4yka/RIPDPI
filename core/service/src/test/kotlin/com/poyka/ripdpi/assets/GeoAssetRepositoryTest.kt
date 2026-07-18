@@ -5,6 +5,7 @@ import android.net.Uri
 import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.assets.CustomAssetProviderId
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.data.assets.MinGeoAssetBytes
 import com.poyka.ripdpi.proto.AppSettings
@@ -149,6 +150,64 @@ class GeoAssetRepositoryTest {
             assertArrayEquals(payload, target.readBytes())
             assertTrue(settingsRepository.snapshot().geoAssetLastUpdatedEpochMillis > 0L)
             assertNoTemporaryFiles(target.parentFile!!)
+        }
+
+    @Test
+    fun `local import metadata write failure reports storage after installing asset`() =
+        runTest {
+            val payload = validPayload(MinGeoAssetBytes + 16)
+            val document = temporaryFolder.newFile("selected-storage-failure.db").apply { writeBytes(payload) }
+            val failure = IOException("metadata storage unavailable")
+            settingsRepository.updateFailure = failure
+
+            val error =
+                try {
+                    repository().importLocalAsset(GeoAssetKind.Geoip, Uri.fromFile(document))
+                    error("Expected metadata persistence to fail")
+                } catch (error: GeoAssetIntegrityException) {
+                    error
+                }
+
+            val target = File(resolveGeoDatabasePaths(application).geoipDbPath)
+            assertEquals(GeoAssetIntegrityFailure.InstallFailed, error.reason)
+            assertEquals(failure, error.cause)
+            assertArrayEquals(payload, target.readBytes())
+            assertEquals(0L, settingsRepository.snapshot().geoAssetLastUpdatedEpochMillis)
+            assertNoTemporaryFiles(target.parentFile!!)
+        }
+
+    @Test
+    fun `network update metadata write failure reports storage instead of network`() =
+        runTest {
+            val payload = validPayload(MinGeoAssetBytes + 16)
+            settingsRepository.update {
+                geoAssetProviderId = CustomAssetProviderId
+                geoAssetCustomBaseUrl = "https://assets.example/releases/latest/download"
+            }
+            val repository =
+                repository(
+                    object : GeoAssetDownloadService {
+                        override suspend fun fetchLatestReleaseJson(apiUrl: String): String = error("not used")
+
+                        override suspend fun downloadAsset(downloadUrl: String): ByteArray = payload
+                    },
+                )
+            val failure = IOException("metadata storage unavailable")
+            settingsRepository.updateFailure = failure
+
+            val error =
+                try {
+                    repository.checkAndUpdate()
+                    error("Expected metadata persistence to fail")
+                } catch (error: GeoAssetIntegrityException) {
+                    error
+                }
+
+            assertEquals(GeoAssetIntegrityFailure.InstallFailed, error.reason)
+            assertEquals(failure, error.cause)
+            assertArrayEquals(payload, File(resolveGeoDatabasePaths(application).geoipDbPath).readBytes())
+            assertArrayEquals(payload, File(resolveGeoDatabasePaths(application).geositeDbPath).readBytes())
+            assertNoTemporaryFiles(geoDirectory)
         }
 
     @Test
@@ -316,16 +375,18 @@ class GeoAssetRepositoryTest {
         assertTrue(blockedDirectory.isFile)
     }
 
-    private fun repository(): DefaultGeoAssetRepository =
+    private fun repository(
+        downloadService: GeoAssetDownloadService =
+            object : GeoAssetDownloadService {
+                override suspend fun fetchLatestReleaseJson(apiUrl: String): String = error("not used")
+
+                override suspend fun downloadAsset(downloadUrl: String): ByteArray = error("not used")
+            },
+    ): DefaultGeoAssetRepository =
         DefaultGeoAssetRepository(
             context = application,
             settingsRepository = settingsRepository,
-            downloadService =
-                object : GeoAssetDownloadService {
-                    override suspend fun fetchLatestReleaseJson(apiUrl: String): String = error("not used")
-
-                    override suspend fun downloadAsset(downloadUrl: String): ByteArray = error("not used")
-                },
+            downloadService = downloadService,
         )
 
     private fun validPayload(size: Int): ByteArray = ByteArray(size) { index -> (index + 1).toByte() }
@@ -391,12 +452,14 @@ class GeoAssetRepositoryTest {
 
     private class FakeAppSettingsRepository : AppSettingsRepository {
         private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
+        var updateFailure: IOException? = null
 
         override val settings: Flow<AppSettings> = state
 
         override suspend fun snapshot(): AppSettings = state.value
 
         override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+            updateFailure?.let { throw it }
             state.value =
                 state.value
                     .toBuilder()

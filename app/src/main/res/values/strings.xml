@@ -3454,6 +3454,7 @@ Source: %2$s</string>
     <string name="asset_provider_failure_invalid_payload">The selected file is not a valid geo database.</string>
     <string name="asset_provider_failure_too_large">The selected file is too large. Choose a file smaller than 64 MB.</string>
     <string name="asset_provider_failure_network">Could not reach the asset provider. Check your connection and try again.</string>
+    <string name="asset_provider_failure_storage">Could not save the database on this device. Free some storage and try again.</string>
     <string name="asset_provider_failure_unexpected">The asset operation failed. Try again.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
     <string name="asset_provider_runetfreedom_desc">De-facto RU bypass ruleset; more current than antizapret for v2ray/xray geoip/geosite tags.</string>

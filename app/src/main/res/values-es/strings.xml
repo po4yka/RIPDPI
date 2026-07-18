@@ -3288,6 +3288,7 @@ Origen: %2$s</string>
     <string name="asset_provider_failure_invalid_payload">El archivo seleccionado no es una base de datos geográfica válida.</string>
     <string name="asset_provider_failure_too_large">El archivo seleccionado es demasiado grande. Elige un archivo de menos de 64 MB.</string>
     <string name="asset_provider_failure_network">No se pudo contactar con el proveedor de datos. Comprueba tu conexión e inténtalo de nuevo.</string>
+    <string name="asset_provider_failure_storage">No se pudo guardar la base de datos en el dispositivo. Libera espacio y vuelve a intentarlo.</string>
     <string name="asset_provider_failure_unexpected">La operación de datos falló. Inténtalo de nuevo.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Rusia)</string>
     <string name="asset_provider_runetfreedom_desc">Conjunto de reglas de evasión de facto para RU; más actual que antizapret para etiquetas geoip/geosite de v2ray/xray.</string>

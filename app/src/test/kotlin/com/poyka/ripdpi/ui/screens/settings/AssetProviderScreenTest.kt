@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.app.Application
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyDescendant
@@ -7,13 +9,16 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -46,6 +51,17 @@ class AssetProviderScreenTest {
         assertActionEnabled(RipDpiTestTags.AssetProviderImportGeosite, enabled = true)
     }
 
+    @Test
+    fun `storage failure banner gives actionable recovery instead of network advice`() {
+        render(
+            activeOperation = null,
+            resultBanner = AssetProviderCheckOutcome.Failed(AssetProviderFailureReason.Storage),
+        )
+
+        val expected = RuntimeEnvironment.getApplication<Application>().getString(R.string.asset_provider_failure_storage)
+        composeRule.onNodeWithText(expected).assertExists()
+    }
+
     private fun assertActionEnabled(
         tag: String,
         enabled: Boolean,
@@ -65,7 +81,10 @@ class AssetProviderScreenTest {
         if (enabled) control.assertIsEnabled() else control.assertIsNotEnabled()
     }
 
-    private fun render(activeOperation: AssetProviderOperation?) {
+    private fun render(
+        activeOperation: AssetProviderOperation?,
+        resultBanner: AssetProviderCheckOutcome? = null,
+    ) {
         composeRule.setContent {
             RipDpiTheme {
                 AssetProviderScreen(
@@ -77,7 +96,7 @@ class AssetProviderScreenTest {
                             geositeTag = "v1",
                             staleness = GeoAssetStaleness.Today,
                             activeOperation = activeOperation,
-                            resultBanner = null,
+                            resultBanner = resultBanner,
                         ),
                     onBack = {},
                     onProviderSelected = {},

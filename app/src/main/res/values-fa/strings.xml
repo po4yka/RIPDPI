@@ -3293,6 +3293,7 @@ fakeddisorder endhost</string>
     <string name="asset_provider_failure_invalid_payload">فایل انتخاب‌شده یک پایگاه داده جغرافیایی معتبر نیست.</string>
     <string name="asset_provider_failure_too_large">فایل انتخاب‌شده بیش از حد بزرگ است. فایلی کوچک‌تر از ۶۴ مگابایت انتخاب کنید.</string>
     <string name="asset_provider_failure_network">ارتباط با ارائه‌دهنده داده ممکن نشد. اتصال خود را بررسی و دوباره تلاش کنید.</string>
+    <string name="asset_provider_failure_storage">پایگاه داده در دستگاه ذخیره نشد. مقداری فضا خالی کنید و دوباره تلاش کنید.</string>
     <string name="asset_provider_failure_unexpected">عملیات داده ناموفق بود. دوباره تلاش کنید.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسیه)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعه قوانین عبور پیش‌فرض برای روسیه؛ به‌روزتر از antizapret برای تگ‌های geoip/geosite در v2ray/xray.</string>

@@ -37,6 +37,7 @@
     <string name="asset_provider_failure_invalid_payload">Выбранный файл не является допустимой геобазой.</string>
     <string name="asset_provider_failure_too_large">Выбранный файл слишком большой. Выберите файл размером менее 64 МБ.</string>
     <string name="asset_provider_failure_network">Не удалось связаться с поставщиком баз. Проверьте подключение и повторите попытку.</string>
+    <string name="asset_provider_failure_storage">Не удалось сохранить базу на устройстве. Освободите место и повторите попытку.</string>
     <string name="asset_provider_failure_unexpected">Не удалось выполнить операцию с базой. Повторите попытку.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Россия)</string>
     <string name="asset_provider_runetfreedom_desc">Де-факто набор правил обхода для РФ; актуальнее antizapret для тегов geoip/geosite v2ray/xray.</string>

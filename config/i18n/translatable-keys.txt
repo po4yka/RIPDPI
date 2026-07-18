@@ -253,6 +253,7 @@ app:asset_provider_entry_title
 app:asset_provider_failed_title
 app:asset_provider_failure_invalid_payload
 app:asset_provider_failure_network
+app:asset_provider_failure_storage
 app:asset_provider_failure_too_large
 app:asset_provider_failure_unable_to_open
 app:asset_provider_failure_unexpected

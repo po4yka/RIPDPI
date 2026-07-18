@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.assets.githubReleaseAssetDownloadUrl
 import com.poyka.ripdpi.data.assets.isAssetUpdateAvailable
 import com.poyka.ripdpi.data.assets.isPlausibleGeoAssetPayload
 import com.poyka.ripdpi.data.assets.parseGithubLatestReleaseTag
+import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -130,7 +131,7 @@ class DefaultGeoAssetRepository
                     target = targetFile(kind),
                     openInput = context.contentResolver::openInputStream,
                 )
-                settingsRepository.update {
+                persistAssetMetadata {
                     geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
                 }
             }
@@ -190,10 +191,22 @@ class DefaultGeoAssetRepository
             if (!geoip.updated && !geosite.updated) {
                 return
             }
-            settingsRepository.update {
+            persistAssetMetadata {
                 geoip.newTag?.let { if (geoip.updated) geoAssetGeoipVersionTag = it }
                 geosite.newTag?.let { if (geosite.updated) geoAssetGeositeVersionTag = it }
                 geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
+            }
+        }
+
+        private suspend fun persistAssetMetadata(update: AppSettings.Builder.() -> Unit) {
+            try {
+                settingsRepository.update(update)
+            } catch (error: GeoAssetIntegrityException) {
+                throw error
+            } catch (error: IOException) {
+                throwInstallFailed(error)
+            } catch (error: SecurityException) {
+                throwInstallFailed(error)
             }
         }
 

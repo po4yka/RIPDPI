@@ -3288,6 +3288,7 @@ Quelle: %2$s</string>
     <string name="asset_provider_failure_invalid_payload">Die ausgewählte Datei ist keine gültige Geodatenbank.</string>
     <string name="asset_provider_failure_too_large">Die ausgewählte Datei ist zu groß. Wähle eine Datei unter 64 MB.</string>
     <string name="asset_provider_failure_network">Der Datenanbieter ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.</string>
+    <string name="asset_provider_failure_storage">Die Datenbank konnte nicht auf dem Gerät gespeichert werden. Gib Speicherplatz frei und versuche es erneut.</string>
     <string name="asset_provider_failure_unexpected">Der Asset-Vorgang ist fehlgeschlagen. Versuche es erneut.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russland)</string>
     <string name="asset_provider_runetfreedom_desc">De-facto-Regelsatz zur Umgehung für RU; aktueller als antizapret für v2ray/xray-geoip/geosite-Tags.</string>

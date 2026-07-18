@@ -3288,6 +3288,7 @@ Source : %2$s</string>
     <string name="asset_provider_failure_invalid_payload">Le fichier sélectionné n’est pas une base de données géographique valide.</string>
     <string name="asset_provider_failure_too_large">Le fichier sélectionné est trop volumineux. Choisissez un fichier de moins de 64 Mo.</string>
     <string name="asset_provider_failure_network">Impossible de joindre le fournisseur de données. Vérifiez votre connexion et réessayez.</string>
+    <string name="asset_provider_failure_storage">Impossible d’enregistrer la base de données sur l’appareil. Libérez de l’espace, puis réessayez.</string>
     <string name="asset_provider_failure_unexpected">L’opération sur les données a échoué. Réessayez.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russie)</string>
     <string name="asset_provider_runetfreedom_desc">Jeu de règles de contournement de facto pour la RU ; plus à jour qu\'antizapret pour les tags geoip/geosite v2ray/xray.</string>
