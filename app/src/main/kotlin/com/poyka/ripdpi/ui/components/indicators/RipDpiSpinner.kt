@@ -4,9 +4,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.progressSemantics
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -72,22 +74,12 @@ fun RipDpiSpinner(
     val stroke = dimensions.stroke
 
     if (LocalInspectionMode.current || !RipDpiThemeTokens.motion.allowsInfiniteMotion) {
-        Canvas(modifier = spinnerModifier) {
-            val strokeWidth = stroke.toPx()
-            val radius = (min(this.size.width, this.size.height) - strokeWidth) / 2f
-            drawCircle(
-                color = track,
-                radius = radius,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-            )
-            drawArc(
-                color = foreground,
-                startAngle = StaticSpinnerStartAngle,
-                sweepAngle = StaticSpinnerSweepAngle,
-                useCenter = false,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-            )
-        }
+        RipDpiStaticCircularProgressIndicator(
+            modifier = spinnerModifier,
+            color = foreground,
+            trackColor = track,
+            strokeWidth = stroke,
+        )
         return
     }
 
@@ -97,6 +89,32 @@ fun RipDpiSpinner(
         trackColor = track,
         strokeWidth = stroke,
     )
+}
+
+/** Deterministic counterpart to Material's indeterminate spinner for static/reduced-motion renders. */
+@Composable
+internal fun RipDpiStaticCircularProgressIndicator(
+    color: Color,
+    trackColor: Color,
+    strokeWidth: Dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.progressSemantics()) {
+        val strokeWidthPx = strokeWidth.toPx()
+        val radius = (min(size.width, size.height) - strokeWidthPx) / 2f
+        drawCircle(
+            color = trackColor,
+            radius = radius,
+            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+        )
+        drawArc(
+            color = color,
+            startAngle = StaticSpinnerStartAngle,
+            sweepAngle = StaticSpinnerSweepAngle,
+            useCenter = false,
+            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+        )
+    }
 }
 
 private const val StaticSpinnerStartAngle = -90f
