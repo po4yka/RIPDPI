@@ -251,6 +251,11 @@ app:asset_provider_custom_url_label
 app:asset_provider_entry_body
 app:asset_provider_entry_title
 app:asset_provider_failed_title
+app:asset_provider_failure_invalid_payload
+app:asset_provider_failure_network
+app:asset_provider_failure_too_large
+app:asset_provider_failure_unable_to_open
+app:asset_provider_failure_unexpected
 app:asset_provider_geoip_version
 app:asset_provider_geosite_version
 app:asset_provider_import_geoip
@@ -2176,6 +2181,7 @@ app:home_mode_local_dpi_bypass
 app:home_mode_proxy
 app:home_mode_remote_vpn
 app:home_mode_vpn
+app:home_modes_diagnostics_title
 app:home_network_condition_captive_action
 app:home_network_condition_captive_body
 app:home_network_condition_captive_title
@@ -3702,6 +3708,10 @@ app:udp_fake_profile_scope_live
 app:udp_fake_profile_scope_off
 app:udp_fake_profile_scope_ready
 app:udp_fake_profile_title
+app:unsaved_changes_body
+app:unsaved_changes_discard
+app:unsaved_changes_keep_editing
+app:unsaved_changes_title
 app:update_available_title_format
 app:update_changelog_title
 app:update_channel_fdroid
