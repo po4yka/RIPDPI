@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.HardKillSwitchUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
@@ -66,6 +67,8 @@ class HomeScreenSetupHealthTest {
             .performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
+            .performScrollTo()
+            .assertIsDisplayed()
             .assertHasClickAction()
             .performClick()
 
