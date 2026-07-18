@@ -162,6 +162,22 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
+    fun `diagnostic history app bars use Up without changing system Back`() {
+        val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
+        val pcapRoute =
+            navHostSource
+                .substringAfter("composable<Route.PcapCaptureList>")
+                .substringBefore("composable<Route.ReplayHistory>")
+        val replayRoute =
+            navHostSource
+                .substringAfter("composable<Route.ReplayHistory>")
+                .substringBefore("composable<Route.OwnedStackBrowser>")
+
+        assertTrue(pcapRoute.contains("navController.navigateUp()"))
+        assertTrue(replayRoute.contains("navController.navigateUp()"))
+    }
+
+    @Test
     fun `UI audit spec covers or explains every registered route`() {
         val auditSpec = File("../scripts/guide/specs/ui-ux-audit.yaml").readText()
 

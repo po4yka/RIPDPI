@@ -3,11 +3,14 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
+import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -144,11 +148,15 @@ private fun ReplayHistoryList(
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
 
-    Column(
-        modifier = modifier.fillMaxWidth().padding(spacing.lg),
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        replays.asReversed().forEach { result ->
+        items(
+            items = replays.asReversed(),
+            key = { result -> result.stableHistoryKey() },
+        ) { result ->
             RipDpiCard {
                 Text(
                     text = result.request.domain,
@@ -176,6 +184,18 @@ private fun ReplayHistoryList(
         }
     }
 }
+
+private fun ReplayProbeResult.stableHistoryKey(): String =
+    buildString {
+        append(request.domain)
+        append('|')
+        append(request.strategyId)
+        append('|')
+        append(
+            events.filterIsInstance<ReplayStepEvent.StepStarted>().firstOrNull()?.timestampMs
+                ?: System.identityHashCode(this@stableHistoryKey),
+        )
+    }
 
 @Composable
 private fun verdictLabel(verdict: ReplayVerdict): String =

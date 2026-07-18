@@ -739,13 +739,13 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
             onCaptureSelected = { _ ->
                 navController.navigate(Route.PcapViewer) { launchSingleTop = true }
             },
-            onBack = { navController.popBackStack() },
+            onBack = { navController.navigateUp() },
         )
     }
     composable<Route.ReplayHistory> {
         ReplayHistoryRoute(
             onRunScan = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
-            onBack = { navController.popBackStack() },
+            onBack = { navController.navigateUp() },
         )
     }
     composable<Route.OwnedStackBrowser> { backStackEntry ->
