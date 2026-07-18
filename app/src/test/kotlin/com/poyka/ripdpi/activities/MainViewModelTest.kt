@@ -1111,14 +1111,9 @@ class MainViewModelTest {
                         ),
                     initialize = false,
                 )
-            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            runCurrent()
-
-            assertTrue(viewModel.uiState.value.hardKillSwitch.blocksDisconnect)
             viewModel.onStopRequested()
 
             assertEquals(0, serviceController.stopCount)
-            collector.cancel()
         }
 
     @Test
@@ -1139,14 +1134,9 @@ class MainViewModelTest {
                         ),
                     initialize = false,
                 )
-            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            runCurrent()
-
-            assertFalse(viewModel.uiState.value.hardKillSwitch.blocksDisconnect)
             viewModel.onStopRequested()
 
             assertEquals(1, serviceController.stopCount)
-            collector.cancel()
         }
 
     @Test
