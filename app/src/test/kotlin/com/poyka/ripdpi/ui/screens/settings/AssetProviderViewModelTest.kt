@@ -115,6 +115,84 @@ class AssetProviderViewModelTest {
         }
 
     @Test
+    fun `check operation rejects provider configuration changes until result commits`() =
+        runTest {
+            val settingsRepository = configuredSettingsRepository()
+            val repository = FakeGeoAssetRepository()
+            val completion = CompletableDeferred<Unit>()
+            repository.checkResult =
+                GeoAssetUpdateResult(
+                    providerId = InitialProviderId,
+                    geoipUpdated = true,
+                    geositeUpdated = true,
+                    geoipTag = ProviderAGeoipTag,
+                    geositeTag = ProviderAGeositeTag,
+                    anyChecked = true,
+                )
+            repository.checkAction = {
+                completion.await()
+                settingsRepository.update {
+                    geoAssetGeoipVersionTag = ProviderAGeoipTag
+                    geoAssetGeositeVersionTag = ProviderAGeositeTag
+                }
+            }
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.checkForUpdates()
+            runCurrent()
+            viewModel.selectProvider(ChangedProviderId)
+            viewModel.updateCustomBaseUrl(ChangedCustomUrl)
+            runCurrent()
+
+            assertEquals(AssetProviderOperation.CheckUpdates, viewModel.uiState.value.activeOperation)
+            assertConfigurationUnchanged(settingsRepository, viewModel)
+
+            completion.complete(Unit)
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertEquals(
+                AssetProviderCheckOutcome.Updated(ProviderAGeoipTag, ProviderAGeositeTag),
+                viewModel.uiState.value.lastResult,
+            )
+            assertConfigurationUnchanged(settingsRepository, viewModel)
+            assertEquals(ProviderAGeoipTag, settingsRepository.snapshot().geoAssetGeoipVersionTag)
+            assertEquals(ProviderAGeositeTag, settingsRepository.snapshot().geoAssetGeositeVersionTag)
+            assertEquals(ProviderAGeoipTag, viewModel.uiState.value.geoipTag)
+            assertEquals(ProviderAGeositeTag, viewModel.uiState.value.geositeTag)
+        }
+
+    @Test
+    fun `import operation rejects provider configuration changes until result commits`() =
+        runTest {
+            val settingsRepository = configuredSettingsRepository()
+            val repository = FakeGeoAssetRepository()
+            val completion = CompletableDeferred<Unit>()
+            repository.importAction = { completion.await() }
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.importLocalAsset(GeoAssetKind.Geosite, Uri.parse("content://documents/geosite.db"))
+            runCurrent()
+            viewModel.selectProvider(ChangedProviderId)
+            viewModel.updateCustomBaseUrl(ChangedCustomUrl)
+            runCurrent()
+
+            assertEquals(AssetProviderOperation.ImportGeosite, viewModel.uiState.value.activeOperation)
+            assertConfigurationUnchanged(settingsRepository, viewModel)
+
+            completion.complete(Unit)
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertEquals(AssetProviderCheckOutcome.Imported, viewModel.uiState.value.lastResult)
+            assertConfigurationUnchanged(settingsRepository, viewModel)
+        }
+
+    @Test
     fun `cancellation clears operation without publishing failure`() =
         runTest {
             val repository = FakeGeoAssetRepository()
@@ -130,23 +208,44 @@ class AssetProviderViewModelTest {
             assertNull(viewModel.uiState.value.lastResult)
         }
 
+    private suspend fun configuredSettingsRepository(): FakeAppSettingsRepository =
+        FakeAppSettingsRepository().also { repository ->
+            repository.update {
+                geoAssetProviderId = InitialProviderId
+                geoAssetCustomBaseUrl = InitialCustomUrl
+            }
+        }
+
+    private suspend fun assertConfigurationUnchanged(
+        settingsRepository: FakeAppSettingsRepository,
+        viewModel: AssetProviderViewModel,
+    ) {
+        val settings = settingsRepository.snapshot()
+        assertEquals(InitialProviderId, settings.geoAssetProviderId)
+        assertEquals(InitialCustomUrl, settings.geoAssetCustomBaseUrl)
+        assertEquals(InitialProviderId, viewModel.uiState.value.providerId)
+        assertEquals(InitialCustomUrl, viewModel.uiState.value.customBaseUrl)
+    }
+
     private class FakeGeoAssetRepository : GeoAssetRepository {
         var lastImport: Pair<GeoAssetKind, Uri>? = null
         var importAction: suspend () -> Unit = {}
         var checkAction: suspend () -> Unit = {}
         var checkCalls: Int = 0
-
-        override suspend fun checkAndUpdate(): GeoAssetUpdateResult {
-            checkCalls += 1
-            checkAction()
-            return GeoAssetUpdateResult(
-                providerId = "sagernet",
+        var checkResult =
+            GeoAssetUpdateResult(
+                providerId = InitialProviderId,
                 geoipUpdated = false,
                 geositeUpdated = false,
                 geoipTag = "v1",
                 geositeTag = "v1",
                 anyChecked = true,
             )
+
+        override suspend fun checkAndUpdate(): GeoAssetUpdateResult {
+            checkCalls += 1
+            checkAction()
+            return checkResult
         }
 
         override suspend fun importLocalAsset(
@@ -156,5 +255,14 @@ class AssetProviderViewModelTest {
             lastImport = kind to uri
             importAction()
         }
+    }
+
+    private companion object {
+        const val InitialProviderId = "sagernet"
+        const val InitialCustomUrl = "https://provider-a.example/assets"
+        const val ChangedProviderId = "soffchen"
+        const val ChangedCustomUrl = "https://provider-b.example/assets"
+        const val ProviderAGeoipTag = "provider-a-geoip-v2"
+        const val ProviderAGeositeTag = "provider-a-geosite-v2"
     }
 }

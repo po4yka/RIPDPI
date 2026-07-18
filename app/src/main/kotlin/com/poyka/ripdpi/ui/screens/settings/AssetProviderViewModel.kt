@@ -92,13 +92,17 @@ class AssetProviderViewModel
                 )
 
         fun selectProvider(providerId: String) {
+            if (transient.value.activeOperation != null) return
             viewModelScope.launch {
+                if (transient.value.activeOperation != null) return@launch
                 settingsRepository.update { geoAssetProviderId = providerId }
             }
         }
 
         fun updateCustomBaseUrl(url: String) {
+            if (transient.value.activeOperation != null) return
             viewModelScope.launch {
+                if (transient.value.activeOperation != null) return@launch
                 settingsRepository.update { geoAssetCustomBaseUrl = url.trim() }
             }
         }

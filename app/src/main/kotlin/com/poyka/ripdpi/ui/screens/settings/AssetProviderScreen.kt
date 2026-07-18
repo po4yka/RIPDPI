@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -214,6 +215,7 @@ private fun AssetProviderPickerCard(
             }.toImmutableList()
     val selected = state.providerId.ifEmpty { DefaultAssetProviderId }
     val activeProvider = BuiltInAssetProviders.firstOrNull { it.id == selected }
+    val configurationEnabled = state.activeOperation == null
 
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
@@ -222,6 +224,7 @@ private fun AssetProviderPickerCard(
                 selectedValue = selected,
                 onValueSelected = onProviderSelected,
                 label = stringResource(R.string.asset_provider_label),
+                enabled = configurationEnabled,
                 testTag = RipDpiTestTags.AssetProviderDropdown,
             )
             activeProvider?.let { provider ->
@@ -242,6 +245,7 @@ private fun AssetProviderPickerCard(
                             helperText = stringResource(R.string.asset_provider_custom_url_helper),
                             testTag = RipDpiTestTags.AssetProviderCustomUrl,
                         ),
+                    behavior = RipDpiTextFieldBehavior(enabled = configurationEnabled),
                 )
             }
             VersionRow(

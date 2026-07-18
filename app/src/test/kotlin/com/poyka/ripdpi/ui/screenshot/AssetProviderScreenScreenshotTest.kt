@@ -78,6 +78,23 @@ class AssetProviderScreenScreenshotTest {
         )
     }
 
+    @Test
+    fun assetProviderBusy() {
+        capture(
+            name = "assetProviderBusy",
+            state =
+                AssetProviderScreenState(
+                    providerId = "custom",
+                    customBaseUrl = "https://provider.example/assets",
+                    geoipTag = "v1.2.3",
+                    geositeTag = "v1.2.3",
+                    staleness = GeoAssetStaleness.Today,
+                    activeOperation = AssetProviderOperation.CheckUpdates,
+                    resultBanner = null,
+                ),
+        )
+    }
+
     private fun capture(
         name: String,
         state: AssetProviderScreenState,
