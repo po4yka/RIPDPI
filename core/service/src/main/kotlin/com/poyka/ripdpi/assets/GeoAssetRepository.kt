@@ -337,13 +337,11 @@ private fun writeGeoAssetInputToTemp(
     }
 }
 
-private fun throwUnableToOpen(cause: Throwable? = null): Nothing {
+private fun throwUnableToOpen(cause: Throwable? = null): Nothing =
     throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen, cause)
-}
 
-private fun throwInstallFailed(cause: Throwable): Nothing {
+private fun throwInstallFailed(cause: Throwable): Nothing =
     throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InstallFailed, cause)
-}
 
 private fun createGeoAssetTempFile(target: File): File =
     try {
