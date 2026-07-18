@@ -421,6 +421,20 @@ class ConfigViewModel
             updateDraft { withChainDsl(value) }
         }
 
+        fun updateRelayMasqueCertificateChain(value: String) {
+            synchronized(editorOperationLock) {
+                masqueImportGenerations.invalidateCertificate()
+                updateDraft { copy(relayMasqueClientCertificateChainPem = value) }
+            }
+        }
+
+        fun updateRelayMasquePrivateKey(value: String) {
+            synchronized(editorOperationLock) {
+                masqueImportGenerations.invalidatePrivateKey()
+                updateDraft { copy(relayMasqueClientPrivateKeyPem = value) }
+            }
+        }
+
         fun cancelEditing(): Boolean =
             synchronized(editorOperationLock) {
                 if (activeSaveRequest.value != null || activeSaveJob.get() != null) {

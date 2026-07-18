@@ -965,6 +965,47 @@ class ConfigViewModelPersistenceTest {
         }
 
     @Test
+    fun `manual certificate correction supersedes pending certificate import`() =
+        runTest {
+            val certificate = CompletableDeferred<String>()
+            val importer = OrderedMasqueClientCredentialImporter(certificateResults = listOf(certificate))
+            val viewModel = createConfigViewModel(masqueClientCredentialImporter = importer)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+
+            viewModel.importRelayMasqueCertificateChain(Uri.parse("content://test/certificate"), sessionId)
+            runCurrent()
+            viewModel.updateRelayMasqueCertificateChain("manual-certificate")
+            certificate.complete("imported-certificate")
+            advanceUntilIdle()
+
+            assertEquals("manual-certificate", viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
+        }
+
+    @Test
+    fun `manual private key correction supersedes pending pkcs12 import`() =
+        runTest {
+            val pkcs12 = CompletableDeferred<ImportedMasqueClientIdentity>()
+            val importer = OrderedMasqueClientCredentialImporter(pkcs12Results = listOf(pkcs12))
+            val viewModel = createConfigViewModel(masqueClientCredentialImporter = importer)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+
+            viewModel.importRelayMasquePkcs12(Uri.parse("content://test/identity"), "password", sessionId)
+            runCurrent()
+            viewModel.updateRelayMasquePrivateKey("manual-private-key")
+            pkcs12.complete(ImportedMasqueClientIdentity("imported-certificate", "imported-private-key"))
+            advanceUntilIdle()
+
+            assertEquals("", viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
+            assertEquals("manual-private-key", viewModel.uiState.value.draft.relayMasqueClientPrivateKeyPem)
+        }
+
+    @Test
     fun `save snapshots one request and preserves edits made in flight`() =
         runTest {
             val appSettingsRepository = FakeAppSettingsRepository()

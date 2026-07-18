@@ -97,12 +97,8 @@ private fun ModeEditorActions.withRelayChainAndMasqueActions(
         onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
         onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
         onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
-        onRelayMasqueClientCertificateChainPemChanged = {
-            viewModel.updateDraft { copy(relayMasqueClientCertificateChainPem = it) }
-        },
-        onRelayMasqueClientPrivateKeyPemChanged = {
-            viewModel.updateDraft { copy(relayMasqueClientPrivateKeyPem = it) }
-        },
+        onRelayMasqueClientCertificateChainPemChanged = viewModel::updateRelayMasqueCertificateChain,
+        onRelayMasqueClientPrivateKeyPemChanged = viewModel::updateRelayMasquePrivateKey,
         onRelayMasqueUseHttp2FallbackChanged = {
             viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) }
         },

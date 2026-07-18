@@ -27,4 +27,12 @@ internal class ConfigMasqueImportGenerationTracker {
     fun isCurrent(operation: MasqueImportOperation): Boolean =
         operation.certificateGeneration?.let { it == certificateGeneration } != false &&
             operation.privateKeyGeneration?.let { it == privateKeyGeneration } != false
+
+    fun invalidateCertificate() {
+        certificateGeneration += 1
+    }
+
+    fun invalidatePrivateKey() {
+        privateKeyGeneration += 1
+    }
 }
