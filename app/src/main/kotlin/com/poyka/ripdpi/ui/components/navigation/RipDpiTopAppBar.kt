@@ -29,6 +29,7 @@ fun RipDpiTopAppBar(
     navigationIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
+    navigationEnabled: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -59,6 +60,7 @@ fun RipDpiTopAppBar(
                     contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),
                     onClick = onNavigationClick,
                     style = RipDpiIconButtonStyle.Ghost,
+                    enabled = navigationEnabled,
                 )
             }
             Text(

@@ -81,6 +81,7 @@ internal fun ModeEditorBottomBar(
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.ModeEditorCancel),
                 variant = RipDpiButtonVariant.Outline,
+                enabled = !uiState.isEditorSaving,
             )
             RipDpiButton(
                 text = stringResource(R.string.config_save),

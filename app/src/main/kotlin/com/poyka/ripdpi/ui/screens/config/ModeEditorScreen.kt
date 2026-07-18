@@ -41,6 +41,7 @@ internal fun ModeEditorScreen(
                 title = stringResource(R.string.title_mode_editor),
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = actions.onBack,
+                navigationEnabled = !uiState.isEditorSaving,
             )
         },
         snackbarHost = {

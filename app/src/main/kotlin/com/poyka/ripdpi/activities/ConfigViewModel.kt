@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toUiState
@@ -10,6 +11,7 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.RelayPresetDefinition
@@ -79,6 +81,7 @@ class ConfigViewModel
         private val dispatchers = dependencies.dispatchers
         private val masqueClientCredentialImporter = importDependencies.masqueClientCredentialImporter
         private val masquePrivacyPassAvailability = importDependencies.masquePrivacyPassAvailability
+        private val log = Logger.withTag(LogTags.UI)
         private val editorSession = MutableStateFlow(ConfigEditorSession())
         internal val masqueImports =
             ConfigMasqueImportController(
@@ -90,6 +93,7 @@ class ConfigViewModel
         private val editorSessionIds = AtomicLong()
         private val activeSaveRequest = MutableStateFlow<ConfigSaveRequest?>(null)
         private val activeSaveJob = AtomicReference<Job?>()
+        private val editorOperationLock = Any()
         private val editorState =
             combine(editorSession, activeSaveRequest) { session, saveRequest ->
                 ConfigEditorState(
@@ -314,11 +318,12 @@ class ConfigViewModel
                     }
 
                     else -> {
+                        val expectedSession = editorSession.value
                         viewModelScope.launch {
                             appSettingsRepository.update {
                                 applyConfigDraft(preset.draft)
                             }
-                            editorSession.value = ConfigEditorSession()
+                            editorSession.compareAndSet(expectedSession, ConfigEditorSession())
                         }
                     }
                 }
@@ -362,7 +367,8 @@ class ConfigViewModel
                     if (error is CancellationException) {
                         throw error
                     } else if (recovered) {
-                        _effects.emit(ConfigEffect.Message(error.displayMessage(stringResolver)))
+                        log.e(error) { "Failed to hydrate mode editor relay artifacts" }
+                        _effects.emit(ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
                     }
                 }
             }
@@ -407,87 +413,134 @@ class ConfigViewModel
             updateDraft { withChainDsl(value) }
         }
 
-        fun cancelEditing() {
-            val sessionId = editorSession.value.sessionId
-            activeSaveJob.get()?.let { saveJob ->
-                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
-                viewModelScope.launch {
-                    saveJob.join()
-                    editorSession.update { current ->
-                        if (current.sessionId == sessionId) ConfigEditorSession() else current
+        fun cancelEditing(): Boolean =
+            synchronized(editorOperationLock) {
+                if (activeSaveRequest.value != null || activeSaveJob.get() != null) {
+                    false
+                } else {
+                    editorSession.value = ConfigEditorSession()
+                    clearMasqueImportState()
+                    true
+                }
+            }
+
+        fun isEditorExitBlocked(): Boolean =
+            synchronized(editorOperationLock) {
+                activeSaveRequest.value != null || activeSaveJob.get() != null
+            }
+
+        internal fun currentEditorSessionId(): Long? =
+            editorSession.value
+                .takeIf { current -> current.presetId != null && !current.hydrationPending }
+                ?.sessionId
+
+        fun importRelayMasqueCertificateChain(
+            uri: Uri,
+            expectedSessionId: Long,
+        ) {
+            if (!isCurrentEditorSession(expectedSessionId)) return
+            viewModelScope.launch {
+                val result = runCatching { masqueClientCredentialImporter.importCertificateChainPem(uri) }
+                val error = result.exceptionOrNull()
+                when {
+                    error is CancellationException -> {
+                        throw error
+                    }
+
+                    error != null -> {
+                        emitImportFailureIfCurrent(
+                            expectedSessionId,
+                            error,
+                            R.string.config_import_certificate_failed,
+                        )
+                    }
+
+                    else -> {
+                        updateDraftForSession(expectedSessionId) {
+                            copy(relayMasqueClientCertificateChainPem = result.getOrThrow())
+                        }
                     }
                 }
-                return
-            }
-            editorSession.value = ConfigEditorSession()
-            clearMasqueImportState()
-        }
-
-        fun importRelayMasqueCertificateChain(uri: Uri) {
-            viewModelScope.launch {
-                runCatching { masqueClientCredentialImporter.importCertificateChainPem(uri) }
-                    .onSuccess { certificateChain ->
-                        updateDraft { copy(relayMasqueClientCertificateChainPem = certificateChain) }
-                    }.onFailure { error ->
-                        _effects.emit(
-                            ConfigEffect.Message(
-                                error.message ?: stringResolver.getString(R.string.config_import_certificate_failed),
-                            ),
-                        )
-                    }
             }
         }
 
-        fun importRelayMasquePrivateKey(uri: Uri) {
+        fun importRelayMasquePrivateKey(
+            uri: Uri,
+            expectedSessionId: Long,
+        ) {
+            if (!isCurrentEditorSession(expectedSessionId)) return
             viewModelScope.launch {
-                runCatching { masqueClientCredentialImporter.importPrivateKeyPem(uri) }
-                    .onSuccess { privateKey ->
-                        updateDraft { copy(relayMasqueClientPrivateKeyPem = privateKey) }
-                    }.onFailure { error ->
-                        _effects.emit(
-                            ConfigEffect.Message(
-                                error.message ?: stringResolver.getString(R.string.config_import_private_key_failed),
-                            ),
-                        )
+                val result = runCatching { masqueClientCredentialImporter.importPrivateKeyPem(uri) }
+                val error = result.exceptionOrNull()
+                when {
+                    error is CancellationException -> {
+                        throw error
                     }
+
+                    error != null -> {
+                        emitImportFailureIfCurrent(expectedSessionId, error, R.string.config_import_private_key_failed)
+                    }
+
+                    else -> {
+                        updateDraftForSession(expectedSessionId) {
+                            copy(relayMasqueClientPrivateKeyPem = result.getOrThrow())
+                        }
+                    }
+                }
             }
         }
 
         fun importRelayMasquePkcs12(
             uri: Uri,
             password: String?,
+            expectedSessionId: Long,
         ) {
+            if (!isCurrentEditorSession(expectedSessionId)) return
             viewModelScope.launch {
-                runCatching { masqueClientCredentialImporter.importPkcs12Identity(uri, password) }
-                    .onSuccess(::applyImportedMasqueIdentity)
-                    .onFailure { error ->
-                        _effects.emit(
-                            ConfigEffect.Message(
-                                error.message ?: stringResolver.getString(R.string.config_import_pkcs12_failed),
-                            ),
-                        )
+                val result = runCatching { masqueClientCredentialImporter.importPkcs12Identity(uri, password) }
+                val error = result.exceptionOrNull()
+                when {
+                    error is CancellationException -> {
+                        throw error
                     }
+
+                    error != null -> {
+                        emitImportFailureIfCurrent(expectedSessionId, error, R.string.config_import_pkcs12_failed)
+                    }
+
+                    else -> {
+                        updateDraftForSession(expectedSessionId) {
+                            withImportedMasqueIdentity(result.getOrThrow())
+                        }
+                    }
+                }
             }
         }
 
         fun saveDraft() {
-            val request =
-                beginConfigSave(
-                    editorSession = editorSession,
-                    activeSaveRequest = activeSaveRequest,
-                    fallbackDraft = uiState.value.draft,
-                ) ?: return
-            val saveJob =
-                viewModelScope.launch(start = CoroutineStart.LAZY) {
-                    saveDraft(request)
+            val (saveJob, request) =
+                synchronized(editorOperationLock) {
+                    val request =
+                        beginConfigSave(
+                            editorSession = editorSession,
+                            activeSaveRequest = activeSaveRequest,
+                            fallbackDraft = uiState.value.draft,
+                        ) ?: return
+                    val job =
+                        viewModelScope.launch(start = CoroutineStart.LAZY) {
+                            saveDraft(request)
+                        }
+                    if (!activeSaveJob.compareAndSet(null, job)) {
+                        activeSaveRequest.compareAndSet(request, null)
+                        return
+                    }
+                    job to request
                 }
-            if (!activeSaveJob.compareAndSet(null, saveJob)) {
-                activeSaveRequest.compareAndSet(request, null)
-                return
-            }
             saveJob.invokeOnCompletion {
-                activeSaveJob.compareAndSet(saveJob, null)
-                activeSaveRequest.compareAndSet(request, null)
+                synchronized(editorOperationLock) {
+                    activeSaveJob.compareAndSet(saveJob, null)
+                    activeSaveRequest.compareAndSet(request, null)
+                }
             }
             saveJob.start()
         }
@@ -527,7 +580,8 @@ class ConfigViewModel
                 throw error
             } else if (error != null) {
                 if (clearConfigSavePending(editorSession, request)) {
-                    _effects.emit(ConfigEffect.Message(error.displayMessage(stringResolver)))
+                    log.e(error) { "Failed to save mode editor draft" }
+                    _effects.emit(ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
                 }
             } else {
                 when (save.getOrThrow()) {
@@ -568,18 +622,51 @@ class ConfigViewModel
             }
         }
 
-        private fun applyImportedMasqueIdentity(identity: ImportedMasqueClientIdentity) {
-            updateDraft {
-                copy(
-                    relayMasqueClientCertificateChainPem = identity.certificateChainPem,
-                    relayMasqueClientPrivateKeyPem = identity.privateKeyPem,
-                )
+        private fun ConfigDraft.withImportedMasqueIdentity(identity: ImportedMasqueClientIdentity): ConfigDraft =
+            copy(
+                relayMasqueClientCertificateChainPem = identity.certificateChainPem,
+                relayMasqueClientPrivateKeyPem = identity.privateKeyPem,
+            )
+
+        private fun updateDraftForSession(
+            expectedSessionId: Long,
+            transform: ConfigDraft.() -> ConfigDraft,
+        ): Boolean {
+            while (true) {
+                val current = editorSession.value
+                if (current.sessionId != expectedSessionId || current.presetId == null || current.hydrationPending) {
+                    return false
+                }
+                val updated =
+                    current.copy(
+                        draft = requireNotNull(current.draft).transform(),
+                        draftRevision = current.draftRevision + 1,
+                    )
+                if (editorSession.compareAndSet(current, updated)) {
+                    return true
+                }
             }
         }
 
         private fun clearMasqueImportState() {
             masqueImports.clear()
         }
+
+        private fun emitImportFailureIfCurrent(
+            expectedSessionId: Long,
+            error: Throwable,
+            messageResource: Int,
+        ) {
+            if (isCurrentEditorSession(expectedSessionId)) {
+                log.e(error) { "Failed to import MASQUE client credential" }
+                _effects.tryEmit(ConfigEffect.Message(stringResolver.getString(messageResource)))
+            }
+        }
+
+        private fun isCurrentEditorSession(expectedSessionId: Long): Boolean =
+            editorSession.value.let { current ->
+                current.sessionId == expectedSessionId && current.presetId != null && !current.hydrationPending
+            }
 
         private fun observeCapabilityEvidence() {
             viewModelScope.launch {
@@ -731,15 +818,3 @@ private fun suppressActiveConfigSaveSuccess(
         }
     }
 }
-
-private fun Mode.startSenderName(stringResolver: StringResolver): String =
-    stringResolver.getString(
-        when (this) {
-            Mode.VPN -> R.string.home_mode_vpn
-            Mode.Proxy -> R.string.home_mode_proxy
-        },
-    )
-
-private fun Throwable.displayMessage(stringResolver: StringResolver): String =
-    message?.takeIf(String::isNotBlank)
-        ?: stringResolver.getString(R.string.update_error_unknown)

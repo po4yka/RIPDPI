@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.config
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -92,6 +93,16 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentMapOf
 
+internal data class MasqueImportRequest(
+    val action: MasqueImportAction,
+    val sessionId: Long,
+)
+
+internal data class PendingMasquePkcs12Import(
+    val uri: Uri,
+    val sessionId: Long,
+)
+
 @Composable
 fun ModeEditorRoute(
     onBack: () -> Unit,
@@ -105,11 +116,14 @@ fun ModeEditorRoute(
     var pkcs12Password by remember { mutableStateOf("") }
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
     val discardAndNavigate = {
-        viewModel.cancelEditing()
-        onBack()
+        if (viewModel.cancelEditing()) {
+            onBack()
+        }
     }
     val requestBack = {
-        if (uiState.isEditorDirty) {
+        if (viewModel.isEditorExitBlocked()) {
+            Unit
+        } else if (uiState.isEditorDirty) {
             showUnsavedChangesDialog = true
         } else {
             discardAndNavigate()
@@ -169,8 +183,8 @@ fun ModeEditorRoute(
                         viewModel = viewModel,
                         context = context,
                         requestCoarseLocationPermission = coarseLocationPermissionLauncher::launch,
-                        requestDocument = { action: MasqueImportAction ->
-                            viewModel.masqueImports.begin(action)
+                        requestDocument = { request ->
+                            viewModel.masqueImports.begin(request.action, request.sessionId)
                             documentLauncher.launch(arrayOf("*/*"))
                         },
                     ),

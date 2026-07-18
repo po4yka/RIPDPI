@@ -63,15 +63,26 @@ internal fun updateMasqueGeohash(
 
 internal fun handleMasqueDocumentResult(
     viewModel: ConfigViewModel,
-    action: MasqueImportAction?,
+    request: MasqueImportRequest?,
     uri: Uri?,
-    onPkcs12Selected: (Uri) -> Unit,
+    onPkcs12Selected: (PendingMasquePkcs12Import) -> Unit,
 ) {
     when {
-        uri == null || action == null -> Unit
-        action == MasqueImportAction.CertificateChain -> viewModel.importRelayMasqueCertificateChain(uri)
-        action == MasqueImportAction.PrivateKey -> viewModel.importRelayMasquePrivateKey(uri)
-        action == MasqueImportAction.Pkcs12 -> onPkcs12Selected(uri)
+        uri == null || request == null -> {
+            Unit
+        }
+
+        request.action == MasqueImportAction.CertificateChain -> {
+            viewModel.importRelayMasqueCertificateChain(uri, request.sessionId)
+        }
+
+        request.action == MasqueImportAction.PrivateKey -> {
+            viewModel.importRelayMasquePrivateKey(uri, request.sessionId)
+        }
+
+        request.action == MasqueImportAction.Pkcs12 -> {
+            onPkcs12Selected(PendingMasquePkcs12Import(uri, request.sessionId))
+        }
     }
 }
 
@@ -79,19 +90,25 @@ internal fun createModeEditorExternalActions(
     viewModel: ConfigViewModel,
     context: Context,
     requestCoarseLocationPermission: (String) -> Unit,
-    requestDocument: (MasqueImportAction) -> Unit,
+    requestDocument: (MasqueImportRequest) -> Unit,
 ): ModeEditorExternalActions =
     ModeEditorExternalActions(
         onRelayMasqueCloudflareGeohashEnabledChanged = { enabled ->
             updateMasqueGeohash(viewModel, context, requestCoarseLocationPermission, enabled)
         },
         onRelayMasqueImportCertificateChainClicked = {
-            requestDocument(MasqueImportAction.CertificateChain)
+            viewModel.currentEditorSessionId()?.let { sessionId ->
+                requestDocument(MasqueImportRequest(MasqueImportAction.CertificateChain, sessionId))
+            }
         },
         onRelayMasqueImportPrivateKeyClicked = {
-            requestDocument(MasqueImportAction.PrivateKey)
+            viewModel.currentEditorSessionId()?.let { sessionId ->
+                requestDocument(MasqueImportRequest(MasqueImportAction.PrivateKey, sessionId))
+            }
         },
         onRelayMasqueImportPkcs12Clicked = {
-            requestDocument(MasqueImportAction.Pkcs12)
+            viewModel.currentEditorSessionId()?.let { sessionId ->
+                requestDocument(MasqueImportRequest(MasqueImportAction.Pkcs12, sessionId))
+            }
         },
     )

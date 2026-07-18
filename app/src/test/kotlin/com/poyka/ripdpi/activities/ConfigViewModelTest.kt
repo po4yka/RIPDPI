@@ -4,6 +4,7 @@ import android.net.Uri
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toRelayPresetReason
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeVerdictResult
@@ -786,7 +787,7 @@ class ConfigViewModelPersistenceTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `throwing hydration restores the original draft and allows retry`() =
+    fun `throwing hydration shows generic error and allows retry`() =
         runTest {
             val profileStore = ControllableRelayProfileStore(loadFailure = IllegalStateException("hydrate failed"))
             val viewModel = createConfigViewModel(relayProfileStore = profileStore)
@@ -796,7 +797,9 @@ class ConfigViewModelPersistenceTest {
             viewModel.startEditingPreset()
             advanceUntilIdle()
 
-            assertEquals(ConfigEffect.Message("hydrate failed"), errorEffect.await())
+            val effect = errorEffect.await()
+            assertEquals(ConfigEffect.Message("unexpected error"), effect)
+            assertFalse((effect as ConfigEffect.Message).text.contains("hydrate failed"))
             assertFalse(viewModel.uiState.value.isEditorLoading)
             assertFalse(viewModel.uiState.value.isEditorDirty)
             assertEquals(defaultDraft, viewModel.uiState.value.draft)
@@ -826,6 +829,67 @@ class ConfigViewModelPersistenceTest {
             advanceUntilIdle()
 
             assertFalse(viewModel.uiState.value.isEditorLoading)
+        }
+
+    @Test
+    fun `delayed built in preset update does not clear a newer editor session`() =
+        runTest {
+            val updateGate = CompletableDeferred<Unit>()
+            val appSettingsRepository = GatedUpdateAppSettingsRepository(updateGate)
+            val viewModel = createConfigViewModel(appSettingsRepository = appSettingsRepository)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.selectPreset("recommended")
+            runCurrent()
+
+            viewModel.startEditingPreset()
+            runCurrent()
+            viewModel.updateDraft { copy(proxyPort = "1082") }
+
+            updateGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(
+                "1082",
+                viewModel.uiState.value.editingPreset
+                    ?.draft
+                    ?.proxyPort,
+            )
+            assertTrue(viewModel.uiState.value.isEditorDirty)
+        }
+
+    @Test
+    fun `stale masque import completions do not mutate a newer editor session`() =
+        runTest {
+            val importGate = CompletableDeferred<Unit>()
+            val importer = ControllableMasqueClientCredentialImporter(importGate)
+            val viewModel = createConfigViewModel(masqueClientCredentialImporter = importer)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            val oldSessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val uri = Uri.parse("content://test/identity")
+            viewModel.importRelayMasqueCertificateChain(uri, oldSessionId)
+            viewModel.importRelayMasquePrivateKey(uri, oldSessionId)
+            viewModel.importRelayMasquePkcs12(uri, "password", oldSessionId)
+            runCurrent()
+
+            assertTrue(viewModel.cancelEditing())
+            viewModel.startEditingPreset()
+            runCurrent()
+            viewModel.updateDraft { copy(proxyPort = "1082") }
+
+            importGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(3, importer.callCount)
+            assertEquals("1082", viewModel.uiState.value.draft.proxyPort)
+            assertEquals("", viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
+            assertEquals("", viewModel.uiState.value.draft.relayMasqueClientPrivateKeyPem)
         }
 
     @Test
@@ -868,7 +932,7 @@ class ConfigViewModelPersistenceTest {
         }
 
     @Test
-    fun `replacement waits for active save before its newer save wins`() =
+    fun `cancel is atomically blocked while save is paused`() =
         runTest {
             val saveGate = CompletableDeferred<Unit>()
             val profileStore = ControllableRelayProfileStore(saveGate = saveGate)
@@ -882,22 +946,20 @@ class ConfigViewModelPersistenceTest {
 
             viewModel.updateDraft { copy(proxyPort = "1081") }
             viewModel.saveDraft()
+            val cancelled = viewModel.cancelEditing()
             runCurrent()
-            viewModel.cancelEditing()
 
+            assertFalse(cancelled)
             assertTrue(viewModel.uiState.value.isEditorSaving)
+            assertTrue(viewModel.uiState.value.isEditorDirty)
 
             saveGate.complete(Unit)
             advanceUntilIdle()
 
             assertFalse(viewModel.uiState.value.isEditorSaving)
 
-            viewModel.updateDraft { copy(proxyPort = "1082") }
-            viewModel.saveDraft()
-            advanceUntilIdle()
-
-            assertEquals(2, profileStore.saveCalls)
-            assertEquals("1082", appSettingsRepository.snapshot().toConfigDraft().proxyPort)
+            assertEquals(1, profileStore.saveCalls)
+            assertEquals("1081", appSettingsRepository.snapshot().toConfigDraft().proxyPort)
             assertFalse(viewModel.uiState.value.isEditorDirty)
             assertFalse(viewModel.uiState.value.isEditorSaving)
         }
@@ -920,7 +982,7 @@ class ConfigViewModelPersistenceTest {
             viewModel.updateDraft { copy(mode = Mode.VPN, proxyPort = "1081") }
             viewModel.saveDraft()
             runCurrent()
-            viewModel.cancelEditing()
+            assertFalse(viewModel.cancelEditing())
             viewModel.selectMode(Mode.Proxy)
             viewModel.toggleRuntimeMode(Mode.Proxy, enabled = true)
 
@@ -936,7 +998,7 @@ class ConfigViewModelPersistenceTest {
         }
 
     @Test
-    fun `failed save keeps the draft dirty and can be retried`() =
+    fun `failed save shows generic error and keeps retryable draft`() =
         runTest {
             val profileStore = ControllableRelayProfileStore(saveFailure = IllegalStateException("save failed"))
             val viewModel = createConfigViewModel(relayProfileStore = profileStore)
@@ -947,7 +1009,9 @@ class ConfigViewModelPersistenceTest {
             viewModel.saveDraft()
             advanceUntilIdle()
 
-            assertEquals(ConfigEffect.Message("save failed"), errorEffect.await())
+            val effect = errorEffect.await()
+            assertEquals(ConfigEffect.Message("unexpected error"), effect)
+            assertFalse((effect as ConfigEffect.Message).text.contains("save failed"))
             assertTrue(viewModel.uiState.value.isEditorDirty)
             assertFalse(viewModel.uiState.value.isEditorSaving)
 
@@ -981,11 +1045,12 @@ class ConfigViewModelPersistenceTest {
 }
 
 private fun createConfigViewModel(
-    appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+    appSettingsRepository: AppSettingsRepository = FakeAppSettingsRepository(),
     serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
     serviceController: FakeServiceController = FakeServiceController(),
     relayProfileStore: RelayProfileStore = InMemoryRelayProfileStore(),
     relayCredentialStore: RelayCredentialStore = InMemoryRelayCredentialStore(),
+    masqueClientCredentialImporter: MasqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
 ): ConfigViewModel =
     ConfigViewModel(
         dependencies =
@@ -1010,11 +1075,21 @@ private fun createConfigViewModel(
             ),
         importDependencies =
             ConfigImportDependencies(
-                masqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
+                masqueClientCredentialImporter = masqueClientCredentialImporter,
                 masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
             ),
         stringResolver = ResourceStringResolver(),
     )
+
+private class GatedUpdateAppSettingsRepository(
+    private val updateGate: CompletableDeferred<Unit>,
+    private val delegate: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+) : AppSettingsRepository by delegate {
+    override suspend fun update(transform: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit) {
+        updateGate.await()
+        delegate.update(transform)
+    }
+}
 
 class ConfigViewModelRelayRecommendationTest {
     @Test
@@ -1403,6 +1478,34 @@ internal object NoOpMasqueClientCredentialImporter : MasqueClientCredentialImpor
         uri: Uri,
         password: String?,
     ): ImportedMasqueClientIdentity = ImportedMasqueClientIdentity(certificateChainPem = "", privateKeyPem = "")
+}
+
+private class ControllableMasqueClientCredentialImporter(
+    private val gate: CompletableDeferred<Unit>,
+) : MasqueClientCredentialImporter {
+    var callCount: Int = 0
+        private set
+
+    override suspend fun importCertificateChainPem(uri: Uri): String {
+        callCount += 1
+        gate.await()
+        return sampleCertificatePem()
+    }
+
+    override suspend fun importPrivateKeyPem(uri: Uri): String {
+        callCount += 1
+        gate.await()
+        return samplePrivateKeyPem()
+    }
+
+    override suspend fun importPkcs12Identity(
+        uri: Uri,
+        password: String?,
+    ): ImportedMasqueClientIdentity {
+        callCount += 1
+        gate.await()
+        return ImportedMasqueClientIdentity(sampleCertificatePem(), samplePrivateKeyPem())
+    }
 }
 
 internal object NoOpMasquePrivacyPassAvailability : MasquePrivacyPassAvailability {
