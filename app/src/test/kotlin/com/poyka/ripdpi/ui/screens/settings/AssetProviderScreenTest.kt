@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import android.app.Application
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyDescendant
@@ -58,7 +56,7 @@ class AssetProviderScreenTest {
             resultBanner = AssetProviderCheckOutcome.Failed(AssetProviderFailureReason.Storage),
         )
 
-        val expected = RuntimeEnvironment.getApplication<Application>().getString(R.string.asset_provider_failure_storage)
+        val expected = RuntimeEnvironment.getApplication().getString(R.string.asset_provider_failure_storage)
         composeRule.onNodeWithText(expected).assertExists()
     }
 
@@ -96,7 +94,7 @@ class AssetProviderScreenTest {
                             geositeTag = "v1",
                             staleness = GeoAssetStaleness.Today,
                             activeOperation = activeOperation,
-                            resultBanner = resultBanner,
+                            resultBanner = resultBanner?.let { rememberOutcomeBanner(it) },
                         ),
                     onBack = {},
                     onProviderSelected = {},

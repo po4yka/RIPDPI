@@ -99,7 +99,7 @@ fun AssetProviderRoute(
 private val GeoAssetImportMimeTypes = arrayOf("application/octet-stream", "*/*")
 
 @Composable
-private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProviderBanner =
+internal fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProviderBanner =
     when (outcome) {
         is AssetProviderCheckOutcome.Updated -> {
             AssetProviderBanner(
