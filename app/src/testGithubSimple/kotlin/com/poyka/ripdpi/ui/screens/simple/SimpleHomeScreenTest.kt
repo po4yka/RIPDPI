@@ -11,6 +11,8 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -315,6 +317,33 @@ class SimpleHomeScreenTest {
         composeRule.onNodeWithText("Two recommended settings are ready to review.").assertIsDisplayed()
         composeRule.onNodeWithText("Share Logs & Results").assertIsEnabled().performClick()
         composeRule.runOnIdle { assertEquals(1, shareClicks) }
+    }
+
+    @Test
+    @Config(qualifiers = "en-w1200dp-h900dp")
+    fun `expanded window keeps primary controls at centered form width`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics =
+                        HomeDiagnosticsUiState(
+                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                        ),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithText("Connect")
+            .assertWidthIsEqualTo(680.dp)
+            .assertLeftPositionInRootIsEqualTo(260.dp)
+        composeRule.onNodeWithText("Run diagnostic report").assertWidthIsEqualTo(680.dp)
     }
 
     @Test

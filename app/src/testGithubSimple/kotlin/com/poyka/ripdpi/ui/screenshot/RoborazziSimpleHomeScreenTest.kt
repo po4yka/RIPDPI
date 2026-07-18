@@ -85,4 +85,28 @@ class RoborazziSimpleHomeScreenTest {
             }
         }
     }
+
+    @Test
+    fun simpleHomeExpanded() {
+        captureRipDpiScreenshot(widthDp = 1200, heightDp = 900) {
+            RipDpiTheme(themePreference = "light") {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics =
+                        HomeDiagnosticsUiState(
+                            analysisAction =
+                                HomeDiagnosticsActionUiState(
+                                    supportingText = "Ready to analyze this network",
+                                    enabled = true,
+                                ),
+                        ),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+    }
 }
