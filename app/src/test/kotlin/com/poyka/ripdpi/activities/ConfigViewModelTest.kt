@@ -862,6 +862,23 @@ class ConfigViewModelPersistenceTest {
         }
 
     @Test
+    fun `same frame exit request observes the latest dirty draft`() =
+        runTest {
+            val viewModel = createConfigViewModel()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+
+            val decision = viewModel.requestEditorExit()
+
+            assertEquals(ConfigEditorExitDecision.ConfirmDiscard, decision)
+            runCurrent()
+            assertEquals("1081", viewModel.uiState.value.draft.proxyPort)
+        }
+
+    @Test
     fun `stale masque import completions do not mutate a newer editor session`() =
         runTest {
             val importGate = CompletableDeferred<Unit>()
@@ -890,6 +907,61 @@ class ConfigViewModelPersistenceTest {
             assertEquals("1082", viewModel.uiState.value.draft.proxyPort)
             assertEquals("", viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
             assertEquals("", viewModel.uiState.value.draft.relayMasqueClientPrivateKeyPem)
+        }
+
+    @Test
+    fun `newer certificate import wins when completions arrive in reverse order`() =
+        runTest {
+            val older = CompletableDeferred<String>()
+            val newer = CompletableDeferred<String>()
+            val importer = OrderedMasqueClientCredentialImporter(certificateResults = listOf(older, newer))
+            val viewModel = createConfigViewModel(masqueClientCredentialImporter = importer)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val uri = Uri.parse("content://test/certificate")
+
+            viewModel.importRelayMasqueCertificateChain(uri, sessionId)
+            runCurrent()
+            viewModel.importRelayMasqueCertificateChain(uri, sessionId)
+            runCurrent()
+            newer.complete("newer-certificate")
+            runCurrent()
+            older.complete("older-certificate")
+            advanceUntilIdle()
+
+            assertEquals("newer-certificate", viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
+        }
+
+    @Test
+    fun `newer pkcs12 import supersedes older certificate completion`() =
+        runTest {
+            val certificate = CompletableDeferred<String>()
+            val pkcs12 = CompletableDeferred<ImportedMasqueClientIdentity>()
+            val importer =
+                OrderedMasqueClientCredentialImporter(
+                    certificateResults = listOf(certificate),
+                    pkcs12Results = listOf(pkcs12),
+                )
+            val viewModel = createConfigViewModel(masqueClientCredentialImporter = importer)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId())
+            val uri = Uri.parse("content://test/identity")
+
+            viewModel.importRelayMasqueCertificateChain(uri, sessionId)
+            runCurrent()
+            viewModel.importRelayMasquePkcs12(uri, "password", sessionId)
+            runCurrent()
+            pkcs12.complete(ImportedMasqueClientIdentity("pkcs12-certificate", "pkcs12-private-key"))
+            runCurrent()
+            certificate.complete("older-certificate")
+            advanceUntilIdle()
+
+            assertEquals("pkcs12-certificate", viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
+            assertEquals("pkcs12-private-key", viewModel.uiState.value.draft.relayMasqueClientPrivateKeyPem)
         }
 
     @Test
@@ -947,9 +1019,11 @@ class ConfigViewModelPersistenceTest {
             viewModel.updateDraft { copy(proxyPort = "1081") }
             viewModel.saveDraft()
             val cancelled = viewModel.cancelEditing()
+            val exitDecision = viewModel.requestEditorExit()
             runCurrent()
 
             assertFalse(cancelled)
+            assertEquals(ConfigEditorExitDecision.Blocked, exitDecision)
             assertTrue(viewModel.uiState.value.isEditorSaving)
             assertTrue(viewModel.uiState.value.isEditorDirty)
 
@@ -1506,6 +1580,23 @@ private class ControllableMasqueClientCredentialImporter(
         gate.await()
         return ImportedMasqueClientIdentity(sampleCertificatePem(), samplePrivateKeyPem())
     }
+}
+
+private class OrderedMasqueClientCredentialImporter(
+    certificateResults: List<CompletableDeferred<String>> = emptyList(),
+    pkcs12Results: List<CompletableDeferred<ImportedMasqueClientIdentity>> = emptyList(),
+) : MasqueClientCredentialImporter {
+    private val certificates = ArrayDeque(certificateResults)
+    private val pkcs12Identities = ArrayDeque(pkcs12Results)
+
+    override suspend fun importCertificateChainPem(uri: Uri): String = certificates.removeFirst().await()
+
+    override suspend fun importPrivateKeyPem(uri: Uri): String = error("Unexpected private key import")
+
+    override suspend fun importPkcs12Identity(
+        uri: Uri,
+        password: String?,
+    ): ImportedMasqueClientIdentity = pkcs12Identities.removeFirst().await()
 }
 
 internal object NoOpMasquePrivacyPassAvailability : MasquePrivacyPassAvailability {

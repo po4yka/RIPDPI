@@ -249,6 +249,12 @@ sealed interface ConfigEffect {
     ) : ConfigEffect
 }
 
+internal enum class ConfigEditorExitDecision {
+    Blocked,
+    ConfirmDiscard,
+    Exit,
+}
+
 internal data class ConfigEditorSession(
     val sessionId: Long = 0L,
     val presetId: String? = null,

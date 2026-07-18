@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.activities.ConfigEditorExitDecision
 import com.poyka.ripdpi.activities.ConfigFieldBufferSize
 import com.poyka.ripdpi.activities.ConfigFieldDefaultTtl
 import com.poyka.ripdpi.activities.ConfigFieldDnsIp
@@ -121,12 +122,10 @@ fun ModeEditorRoute(
         }
     }
     val requestBack = {
-        if (viewModel.isEditorExitBlocked()) {
-            Unit
-        } else if (uiState.isEditorDirty) {
-            showUnsavedChangesDialog = true
-        } else {
-            discardAndNavigate()
+        when (viewModel.requestEditorExit()) {
+            ConfigEditorExitDecision.Blocked -> Unit
+            ConfigEditorExitDecision.ConfirmDiscard -> showUnsavedChangesDialog = true
+            ConfigEditorExitDecision.Exit -> onBack()
         }
     }
 

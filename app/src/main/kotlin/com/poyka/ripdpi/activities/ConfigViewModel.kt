@@ -20,7 +20,6 @@ import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -94,6 +93,15 @@ class ConfigViewModel
         private val activeSaveRequest = MutableStateFlow<ConfigSaveRequest?>(null)
         private val activeSaveJob = AtomicReference<Job?>()
         private val editorOperationLock = Any()
+        private val masqueImportGenerations = ConfigMasqueImportGenerationTracker()
+        private val masqueImportController =
+            ConfigMasqueImportController(
+                scope = viewModelScope,
+                importer = masqueClientCredentialImporter,
+                beginOperation = ::beginMasqueImport,
+                applyDraft = ::updateDraftForMasqueImport,
+                reportFailure = ::emitImportFailureIfCurrent,
+            )
         private val editorState =
             combine(editorSession, activeSaveRequest) { session, saveRequest ->
                 ConfigEditorState(
@@ -424,9 +432,22 @@ class ConfigViewModel
                 }
             }
 
-        fun isEditorExitBlocked(): Boolean =
+        fun requestEditorExit(): ConfigEditorExitDecision =
             synchronized(editorOperationLock) {
-                activeSaveRequest.value != null || activeSaveJob.get() != null
+                when {
+                    activeSaveRequest.value != null || activeSaveJob.get() != null -> {
+                        ConfigEditorExitDecision.Blocked
+                    }
+
+                    editorSession.value.isDirty -> {
+                        ConfigEditorExitDecision.ConfirmDiscard
+                    }
+
+                    else -> {
+                        editorSession.value = ConfigEditorSession()
+                        ConfigEditorExitDecision.Exit
+                    }
+                }
             }
 
         internal fun currentEditorSessionId(): Long? =
@@ -437,85 +458,18 @@ class ConfigViewModel
         fun importRelayMasqueCertificateChain(
             uri: Uri,
             expectedSessionId: Long,
-        ) {
-            if (!isCurrentEditorSession(expectedSessionId)) return
-            viewModelScope.launch {
-                val result = runCatching { masqueClientCredentialImporter.importCertificateChainPem(uri) }
-                val error = result.exceptionOrNull()
-                when {
-                    error is CancellationException -> {
-                        throw error
-                    }
-
-                    error != null -> {
-                        emitImportFailureIfCurrent(
-                            expectedSessionId,
-                            error,
-                            R.string.config_import_certificate_failed,
-                        )
-                    }
-
-                    else -> {
-                        updateDraftForSession(expectedSessionId) {
-                            copy(relayMasqueClientCertificateChainPem = result.getOrThrow())
-                        }
-                    }
-                }
-            }
-        }
+        ) = masqueImportController.importCertificateChain(uri, expectedSessionId)
 
         fun importRelayMasquePrivateKey(
             uri: Uri,
             expectedSessionId: Long,
-        ) {
-            if (!isCurrentEditorSession(expectedSessionId)) return
-            viewModelScope.launch {
-                val result = runCatching { masqueClientCredentialImporter.importPrivateKeyPem(uri) }
-                val error = result.exceptionOrNull()
-                when {
-                    error is CancellationException -> {
-                        throw error
-                    }
-
-                    error != null -> {
-                        emitImportFailureIfCurrent(expectedSessionId, error, R.string.config_import_private_key_failed)
-                    }
-
-                    else -> {
-                        updateDraftForSession(expectedSessionId) {
-                            copy(relayMasqueClientPrivateKeyPem = result.getOrThrow())
-                        }
-                    }
-                }
-            }
-        }
+        ) = masqueImportController.importPrivateKey(uri, expectedSessionId)
 
         fun importRelayMasquePkcs12(
             uri: Uri,
             password: String?,
             expectedSessionId: Long,
-        ) {
-            if (!isCurrentEditorSession(expectedSessionId)) return
-            viewModelScope.launch {
-                val result = runCatching { masqueClientCredentialImporter.importPkcs12Identity(uri, password) }
-                val error = result.exceptionOrNull()
-                when {
-                    error is CancellationException -> {
-                        throw error
-                    }
-
-                    error != null -> {
-                        emitImportFailureIfCurrent(expectedSessionId, error, R.string.config_import_pkcs12_failed)
-                    }
-
-                    else -> {
-                        updateDraftForSession(expectedSessionId) {
-                            withImportedMasqueIdentity(result.getOrThrow())
-                        }
-                    }
-                }
-            }
-        }
+        ) = masqueImportController.importPkcs12(uri, password, expectedSessionId)
 
         fun saveDraft() {
             val (saveJob, request) =
@@ -622,12 +576,6 @@ class ConfigViewModel
             }
         }
 
-        private fun ConfigDraft.withImportedMasqueIdentity(identity: ImportedMasqueClientIdentity): ConfigDraft =
-            copy(
-                relayMasqueClientCertificateChainPem = identity.certificateChainPem,
-                relayMasqueClientPrivateKeyPem = identity.privateKeyPem,
-            )
-
         private fun updateDraftForSession(
             expectedSessionId: Long,
             transform: ConfigDraft.() -> ConfigDraft,
@@ -652,16 +600,50 @@ class ConfigViewModel
             masqueImports.clear()
         }
 
-        private fun emitImportFailureIfCurrent(
+        private fun beginMasqueImport(
             expectedSessionId: Long,
+            certificate: Boolean = false,
+            privateKey: Boolean = false,
+        ): MasqueImportOperation? =
+            synchronized(editorOperationLock) {
+                if (!isCurrentEditorSession(expectedSessionId)) {
+                    null
+                } else {
+                    masqueImportGenerations.begin(
+                        sessionId = expectedSessionId,
+                        certificate = certificate,
+                        privateKey = privateKey,
+                    )
+                }
+            }
+
+        private fun updateDraftForMasqueImport(
+            operation: MasqueImportOperation,
+            transform: ConfigDraft.() -> ConfigDraft,
+        ): Boolean =
+            synchronized(editorOperationLock) {
+                if (isCurrentMasqueImport(operation)) {
+                    updateDraftForSession(operation.sessionId, transform)
+                } else {
+                    false
+                }
+            }
+
+        private fun emitImportFailureIfCurrent(
+            operation: MasqueImportOperation,
             error: Throwable,
             messageResource: Int,
         ) {
-            if (isCurrentEditorSession(expectedSessionId)) {
-                log.e(error) { "Failed to import MASQUE client credential" }
-                _effects.tryEmit(ConfigEffect.Message(stringResolver.getString(messageResource)))
+            synchronized(editorOperationLock) {
+                if (isCurrentMasqueImport(operation)) {
+                    log.e(error) { "Failed to import MASQUE client credential" }
+                    _effects.tryEmit(ConfigEffect.Message(stringResolver.getString(messageResource)))
+                }
             }
         }
+
+        private fun isCurrentMasqueImport(operation: MasqueImportOperation): Boolean =
+            isCurrentEditorSession(operation.sessionId) && masqueImportGenerations.isCurrent(operation)
 
         private fun isCurrentEditorSession(expectedSessionId: Long): Boolean =
             editorSession.value.let { current ->
