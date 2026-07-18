@@ -98,6 +98,18 @@ class SoBindToDeviceEvidenceTest(unittest.TestCase):
         self.assertNotIn("capabilities", manifest)
         self.assertNotIn("phases", manifest)
 
+    def test_accepts_classified_unsupported_ipv6_gap(self) -> None:
+        manifest = evidence.failure_manifest(
+            result="INFRA_GAP",
+            reason_code="IPV6_UNAVAILABLE",
+            cleanup_verified=False,
+            source_sha=self.sha,
+            run_id=self.run_id,
+            run_attempt=self.attempt,
+        )
+
+        self.assertEqual(self.validate(manifest), manifest)
+
     def test_accepts_classified_test_failure_after_cleanup(self) -> None:
         manifest = evidence.failure_manifest(
             result="TEST_FAILURE",
@@ -181,7 +193,7 @@ class SoBindToDeviceEvidenceTest(unittest.TestCase):
     def test_cli_rejects_valid_classified_failure(self) -> None:
         manifest = evidence.failure_manifest(
             result="INFRA_GAP",
-            reason_code="PRIVILEGE_MISSING",
+            reason_code="ROOT_REQUIRED",
             cleanup_verified=False,
             source_sha=self.sha,
             run_id=self.run_id,
@@ -210,7 +222,19 @@ class SoBindToDeviceEvidenceTest(unittest.TestCase):
             )
 
             self.assertEqual(completed.returncode, 1)
-            self.assertIn("INFRA_GAP/PRIVILEGE_MISSING", completed.stderr)
+            self.assertIn("INFRA_GAP/ROOT_REQUIRED", completed.stderr)
+
+    def test_rejects_legacy_ambiguous_infrastructure_reasons(self) -> None:
+        for reason_code in ("PRIVILEGE_MISSING", "TOOL_MISSING"):
+            with self.subTest(reason_code=reason_code), self.assertRaisesRegex(ValueError, "reason code"):
+                evidence.failure_manifest(
+                    result="INFRA_GAP",
+                    reason_code=reason_code,
+                    cleanup_verified=False,
+                    source_sha=self.sha,
+                    run_id=self.run_id,
+                    run_attempt=self.attempt,
+                )
 
     def test_finalizer_classifies_prerequisite_and_build_failures(self) -> None:
         cases = (

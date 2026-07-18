@@ -14,18 +14,19 @@ write_failure_manifest() {
     local result="$1"
     local reason_code="$2"
     local cleanup_verified="$3"
-    local cleanup_argument=()
+    local arguments=(
+        python3 "$script_dir/check_so_bindtodevice_evidence.py"
+        --manifest "$evidence_path"
+        --expected-source-sha "$RIPDPI_EVIDENCE_SOURCE_SHA"
+        --expected-run-id "$RIPDPI_EVIDENCE_RUN_ID"
+        --expected-run-attempt "$RIPDPI_EVIDENCE_RUN_ATTEMPT"
+        --write-failure-result "$result"
+        --reason-code "$reason_code"
+    )
     if [ "$cleanup_verified" = "true" ]; then
-        cleanup_argument+=(--cleanup-verified)
+        arguments+=(--cleanup-verified)
     fi
-    python3 "$script_dir/check_so_bindtodevice_evidence.py" \
-        --manifest "$evidence_path" \
-        --expected-source-sha "$RIPDPI_EVIDENCE_SOURCE_SHA" \
-        --expected-run-id "$RIPDPI_EVIDENCE_RUN_ID" \
-        --expected-run-attempt "$RIPDPI_EVIDENCE_RUN_ATTEMPT" \
-        --write-failure-result "$result" \
-        --reason-code "$reason_code" \
-        "${cleanup_argument[@]}"
+    "${arguments[@]}"
 }
 
 fail_infra() {
@@ -154,7 +155,7 @@ if [ "$(uname -s)" != "Linux" ]; then
     fail_infra PLATFORM_UNSUPPORTED "SO_BINDTODEVICE E2E requires Linux"
 fi
 if [ "$(id -u)" != "0" ]; then
-    fail_infra PRIVILEGE_MISSING "SO_BINDTODEVICE E2E requires root/CAP_NET_ADMIN"
+    fail_infra ROOT_REQUIRED "SO_BINDTODEVICE E2E requires root"
 fi
 if [ "${RIPDPI_RUN_SO_BINDTODEVICE_E2E:-}" != "1" ]; then
     fail_infra RUN_NOT_AUTHORIZED "RIPDPI_RUN_SO_BINDTODEVICE_E2E=1 is required"
@@ -165,12 +166,11 @@ fi
 if [[ "$test_binary" != /* ]] || [ ! -f "$test_binary" ] || [ ! -x "$test_binary" ]; then
     fail_infra TEST_BINARY_INVALID "SO_BINDTODEVICE test binary must be an absolute executable path: $test_binary"
 fi
-for command in ip setpriv; do
-    command -v "$command" >/dev/null || fail_infra TOOL_MISSING "required command is unavailable: $command"
-done
+command -v ip >/dev/null || fail_infra IP_TOOL_MISSING "required command is unavailable: ip"
+command -v setpriv >/dev/null || fail_infra SETPRIV_TOOL_MISSING "required command is unavailable: setpriv"
 capability_probe="rdcap${BASHPID}"
 if ! ip link add "$capability_probe" type dummy >/dev/null 2>&1; then
-    fail_infra PRIVILEGE_MISSING "SO_BINDTODEVICE E2E requires CAP_NET_ADMIN"
+    fail_infra CAP_NET_ADMIN_UNAVAILABLE "SO_BINDTODEVICE E2E requires CAP_NET_ADMIN"
 fi
 trap cleanup_capability_probe EXIT
 if ! ip link del "$capability_probe" >/dev/null 2>&1; then
@@ -185,10 +185,21 @@ if ! link_is_absent "$capability_probe"; then
 fi
 capability_probe=""
 trap - EXIT
+ipv6_sysctl_root="${RIPDPI_IPV6_SYSCTL_ROOT:-/proc/sys/net/ipv6/conf}"
+for ipv6_scope in all default; do
+    ipv6_disable_path="$ipv6_sysctl_root/$ipv6_scope/disable_ipv6"
+    ipv6_disabled=""
+    if [ ! -r "$ipv6_disable_path" ] \
+        || ! IFS= read -r ipv6_disabled < "$ipv6_disable_path" \
+        || [ "$ipv6_disabled" != "0" ]; then
+        fail_infra IPV6_UNAVAILABLE "SO_BINDTODEVICE E2E requires IPv6 in all and default network scopes"
+    fi
+done
 netns_snapshot="$(ip netns list)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect network namespaces"
 link_snapshot="$(ip -o link show)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect network links"
 ipv4_rule_snapshot="$(ip -o rule show)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect IPv4 policy rules"
-ipv6_rule_snapshot="$(ip -6 -o rule show)" || fail_infra TOPOLOGY_INSPECTION_FAILED "cannot inspect IPv6 policy rules"
+ipv6_rule_snapshot="$(ip -6 -o rule show)" \
+    || fail_infra IPV6_UNAVAILABLE "IPv6 policy rule operations are unavailable"
 if printf '%s\n' "$netns_snapshot" | awk '{print $1}' | grep -q '^ripdpi-uid-' \
     || printf '%s\n' "$link_snapshot" | grep -Eq ': (rduh|rdup)[0-9]+(@[^:]*)?:' \
     || ! link_is_absent tun0 \

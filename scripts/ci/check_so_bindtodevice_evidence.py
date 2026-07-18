@@ -32,13 +32,16 @@ CAPABILITY_FIELDS = {"ipv4", "ipv6", "realTun", "unprivilegedSoBindToDevice"}
 PROVENANCE_FIELDS = {"sourceSha", "testTarget", "workflowRunAttempt", "workflowRunId"}
 FAILURE_CLEANUP = {
     "INFRA_GAP": {
+        "CAP_NET_ADMIN_UNAVAILABLE": False,
         "DIRTY_TOPOLOGY": False,
+        "IP_TOOL_MISSING": False,
+        "IPV6_UNAVAILABLE": False,
         "PLATFORM_UNSUPPORTED": False,
         "PREREQUISITE_SETUP_FAILED": False,
-        "PRIVILEGE_MISSING": False,
+        "ROOT_REQUIRED": False,
         "RUN_NOT_AUTHORIZED": False,
+        "SETPRIV_TOOL_MISSING": False,
         "TEST_BINARY_INVALID": False,
-        "TOOL_MISSING": False,
         "TOPOLOGY_INSPECTION_FAILED": False,
         "TUN_UNAVAILABLE": False,
     },

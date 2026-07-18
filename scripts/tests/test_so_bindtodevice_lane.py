@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -95,6 +96,10 @@ class SoBindToDeviceLaneTest(unittest.TestCase):
         test_binary: Path,
         evidence: Path,
     ) -> dict[str, str]:
+        ipv6_sysctl = root / "ipv6-sysctl"
+        for scope in ("all", "default"):
+            (ipv6_sysctl / scope).mkdir(parents=True, exist_ok=True)
+            (ipv6_sysctl / scope / "disable_ipv6").write_text("0\n", encoding="utf-8")
         env = os.environ.copy()
         env["PATH"] = f"{bin_dir}:{env['PATH']}"
         env.update(
@@ -106,6 +111,7 @@ class SoBindToDeviceLaneTest(unittest.TestCase):
                 "RIPDPI_EVIDENCE_SOURCE_SHA": "a" * 40,
                 "RIPDPI_EVIDENCE_RUN_ID": "123",
                 "RIPDPI_EVIDENCE_RUN_ATTEMPT": "1",
+                "RIPDPI_IPV6_SYSCTL_ROOT": str(ipv6_sysctl),
             }
         )
         return env
@@ -289,6 +295,126 @@ class SoBindToDeviceLaneTest(unittest.TestCase):
             self.assertEqual(manifest["reasonCode"], "TUN_UNAVAILABLE")
             self.assertFalse(manifest["cleanupVerified"])
 
+    def test_runtime_wrapper_classifies_unsupported_platform_as_infra_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            evidence = root / "evidence" / "manifest.json"
+            write_executable(bin_dir / "uname", "#!/usr/bin/env bash\necho Darwin\n")
+            write_executable(bin_dir / "id", "#!/usr/bin/env bash\necho 0\n")
+            test_binary = root / "so_bindtodevice_e2e-deadbeef"
+            write_executable(test_binary, "#!/usr/bin/env bash\nexit 99\n")
+            env = self.runtime_environment(
+                root=root,
+                bin_dir=bin_dir,
+                test_binary=test_binary,
+                evidence=evidence,
+            )
+
+            completed = subprocess.run(
+                ["bash", str(RUNTIME_WRAPPER)], capture_output=True, check=False, env=env, text=True
+            )
+
+            self.assertEqual(completed.returncode, 75, completed.stderr)
+            manifest = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual((manifest["result"], manifest["reasonCode"]), ("INFRA_GAP", "PLATFORM_UNSUPPORTED"))
+
+    def test_runtime_wrapper_classifies_missing_root_as_infra_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            evidence = root / "evidence" / "manifest.json"
+            write_executable(bin_dir / "uname", "#!/usr/bin/env bash\necho Linux\n")
+            write_executable(bin_dir / "id", "#!/usr/bin/env bash\necho 1000\n")
+            test_binary = root / "so_bindtodevice_e2e-deadbeef"
+            write_executable(test_binary, "#!/usr/bin/env bash\nexit 99\n")
+            env = self.runtime_environment(
+                root=root,
+                bin_dir=bin_dir,
+                test_binary=test_binary,
+                evidence=evidence,
+            )
+
+            completed = subprocess.run(
+                ["bash", str(RUNTIME_WRAPPER)], capture_output=True, check=False, env=env, text=True
+            )
+
+            self.assertEqual(completed.returncode, 75, completed.stderr)
+            manifest = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual((manifest["result"], manifest["reasonCode"]), ("INFRA_GAP", "ROOT_REQUIRED"))
+
+    def test_runtime_wrapper_classifies_each_missing_tool_as_infra_gap(self) -> None:
+        for missing_tool in ("ip", "setpriv"):
+            with self.subTest(missing_tool=missing_tool), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                bin_dir = root / "bin"
+                bin_dir.mkdir()
+                evidence = root / "evidence" / "manifest.json"
+                write_executable(bin_dir / "uname", "#!/bin/bash\necho Linux\n")
+                write_executable(bin_dir / "id", "#!/bin/bash\necho 0\n")
+                os.symlink("/usr/bin/dirname", bin_dir / "dirname")
+                os.symlink(sys.executable, bin_dir / "python3")
+                if missing_tool != "ip":
+                    write_executable(bin_dir / "ip", "#!/bin/bash\nexit 0\n")
+                if missing_tool != "setpriv":
+                    write_executable(bin_dir / "setpriv", "#!/bin/bash\nexit 0\n")
+                test_binary = root / "so_bindtodevice_e2e-deadbeef"
+                write_executable(test_binary, "#!/bin/bash\nexit 99\n")
+                env = self.runtime_environment(
+                    root=root,
+                    bin_dir=bin_dir,
+                    test_binary=test_binary,
+                    evidence=evidence,
+                )
+                env["PATH"] = str(bin_dir)
+
+                completed = subprocess.run(
+                    ["/bin/bash", str(RUNTIME_WRAPPER)], capture_output=True, check=False, env=env, text=True
+                )
+
+                self.assertEqual(completed.returncode, 75, completed.stderr)
+                manifest = json.loads(evidence.read_text(encoding="utf-8"))
+                expected_reason = "IP_TOOL_MISSING" if missing_tool == "ip" else "SETPRIV_TOOL_MISSING"
+                self.assertEqual((manifest["result"], manifest["reasonCode"]), ("INFRA_GAP", expected_reason))
+                self.assertIn(f"required command is unavailable: {missing_tool}", completed.stderr)
+
+    def test_runtime_wrapper_classifies_dirty_topology_as_infra_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            evidence = root / "evidence" / "manifest.json"
+            write_executable(bin_dir / "uname", "#!/usr/bin/env bash\necho Linux\n")
+            write_executable(bin_dir / "id", "#!/usr/bin/env bash\necho 0\n")
+            write_executable(bin_dir / "setpriv", "#!/usr/bin/env bash\nexit 0\n")
+            write_executable(
+                bin_dir / "ip",
+                "#!/usr/bin/env bash\n"
+                "if [ \"$*\" = '-o link show' ]; then\n"
+                "  echo '1: lo: <LOOPBACK,UP>: mtu 65536'\n"
+                "  echo '7: tun0: <POINTOPOINT,UP>: mtu 1500'\n"
+                "fi\n"
+                "exit 0\n",
+            )
+            test_binary = root / "so_bindtodevice_e2e-deadbeef"
+            write_executable(test_binary, "#!/usr/bin/env bash\nexit 99\n")
+            env = self.runtime_environment(
+                root=root,
+                bin_dir=bin_dir,
+                test_binary=test_binary,
+                evidence=evidence,
+            )
+
+            completed = subprocess.run(
+                ["bash", str(RUNTIME_WRAPPER)], capture_output=True, check=False, env=env, text=True
+            )
+
+            self.assertEqual(completed.returncode, 75, completed.stderr)
+            manifest = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual((manifest["result"], manifest["reasonCode"]), ("INFRA_GAP", "DIRTY_TOPOLOGY"))
+
     def test_runtime_wrapper_probes_cap_net_admin(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -324,7 +450,91 @@ class SoBindToDeviceLaneTest(unittest.TestCase):
             self.assertEqual(completed.returncode, 75, completed.stderr)
             manifest = json.loads(evidence.read_text(encoding="utf-8"))
             self.assertEqual(manifest["result"], "INFRA_GAP")
-            self.assertEqual(manifest["reasonCode"], "PRIVILEGE_MISSING")
+            self.assertEqual(manifest["reasonCode"], "CAP_NET_ADMIN_UNAVAILABLE")
+
+    def test_runtime_wrapper_classifies_disabled_ipv6_as_infra_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            evidence = root / "evidence" / "manifest.json"
+            ipv6_sysctl = root / "ipv6-sysctl"
+            (ipv6_sysctl / "all").mkdir(parents=True)
+            (ipv6_sysctl / "default").mkdir(parents=True)
+            (ipv6_sysctl / "all/disable_ipv6").write_text("0\n", encoding="utf-8")
+            (ipv6_sysctl / "default/disable_ipv6").write_text("1\n", encoding="utf-8")
+            write_executable(bin_dir / "uname", "#!/usr/bin/env bash\necho Linux\n")
+            write_executable(bin_dir / "id", "#!/usr/bin/env bash\necho 0\n")
+            write_executable(bin_dir / "setpriv", "#!/usr/bin/env bash\nexit 0\n")
+            write_executable(
+                bin_dir / "ip",
+                "#!/usr/bin/env bash\n"
+                "if [ \"${1:-}\" = 'link' ] && [ \"${2:-}\" = 'add' ]; then exit 0; fi\n"
+                "if [ \"${1:-}\" = 'link' ] && [ \"${2:-}\" = 'del' ]; then exit 0; fi\n"
+                "if [ \"$*\" = '-o link show' ]; then\n"
+                "  echo '1: lo: <LOOPBACK,UP>: mtu 65536'\n"
+                "fi\n"
+                "exit 0\n",
+            )
+            test_binary = root / "so_bindtodevice_e2e-deadbeef"
+            write_executable(test_binary, "#!/usr/bin/env bash\nexit 99\n")
+            env = self.runtime_environment(
+                root=root,
+                bin_dir=bin_dir,
+                test_binary=test_binary,
+                evidence=evidence,
+            )
+            env["RIPDPI_IPV6_SYSCTL_ROOT"] = str(ipv6_sysctl)
+            (ipv6_sysctl / "default/disable_ipv6").write_text("1\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                ["bash", str(RUNTIME_WRAPPER)],
+                capture_output=True,
+                check=False,
+                env=env,
+                text=True,
+            )
+
+            self.assertEqual(completed.returncode, 75, completed.stderr)
+            manifest = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["result"], "INFRA_GAP")
+            self.assertEqual(manifest["reasonCode"], "IPV6_UNAVAILABLE")
+            self.assertFalse(manifest["cleanupVerified"])
+
+    def test_runtime_wrapper_classifies_failed_ipv6_operation_as_infra_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            evidence = root / "evidence" / "manifest.json"
+            write_executable(bin_dir / "uname", "#!/usr/bin/env bash\necho Linux\n")
+            write_executable(bin_dir / "id", "#!/usr/bin/env bash\necho 0\n")
+            write_executable(bin_dir / "setpriv", "#!/usr/bin/env bash\nexit 0\n")
+            write_executable(
+                bin_dir / "ip",
+                "#!/usr/bin/env bash\n"
+                "if [ \"$*\" = '-6 -o rule show' ]; then exit 1; fi\n"
+                "if [ \"$*\" = '-o link show' ]; then\n"
+                "  echo '1: lo: <LOOPBACK,UP>: mtu 65536'\n"
+                "fi\n"
+                "exit 0\n",
+            )
+            test_binary = root / "so_bindtodevice_e2e-deadbeef"
+            write_executable(test_binary, "#!/usr/bin/env bash\nexit 99\n")
+            env = self.runtime_environment(
+                root=root,
+                bin_dir=bin_dir,
+                test_binary=test_binary,
+                evidence=evidence,
+            )
+
+            completed = subprocess.run(
+                ["bash", str(RUNTIME_WRAPPER)], capture_output=True, check=False, env=env, text=True
+            )
+
+            self.assertEqual(completed.returncode, 75, completed.stderr)
+            manifest = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual((manifest["result"], manifest["reasonCode"]), ("INFRA_GAP", "IPV6_UNAVAILABLE"))
 
     def test_runtime_wrapper_classifies_capability_probe_cleanup_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
