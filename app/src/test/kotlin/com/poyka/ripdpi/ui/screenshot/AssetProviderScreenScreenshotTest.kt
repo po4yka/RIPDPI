@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screenshot
 
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.screens.settings.AssetProviderBanner
+import com.poyka.ripdpi.ui.screens.settings.AssetProviderOperation
 import com.poyka.ripdpi.ui.screens.settings.AssetProviderScreen
 import com.poyka.ripdpi.ui.screens.settings.AssetProviderScreenState
 import com.poyka.ripdpi.ui.screens.settings.GeoAssetStaleness
@@ -26,7 +27,7 @@ class AssetProviderScreenScreenshotTest {
                     geoipTag = "v1.2.3",
                     geositeTag = "v1.2.3",
                     staleness = GeoAssetStaleness.Today,
-                    checking = false,
+                    activeOperation = null,
                     resultBanner =
                         AssetProviderBanner(
                             title = "Up to date",
@@ -48,7 +49,7 @@ class AssetProviderScreenScreenshotTest {
                     geoipTag = "202405010000",
                     geositeTag = "",
                     staleness = GeoAssetStaleness.DaysAgo(StaleDays),
-                    checking = false,
+                    activeOperation = null,
                     resultBanner =
                         AssetProviderBanner(
                             title = "Update failed",
@@ -71,7 +72,7 @@ class AssetProviderScreenScreenshotTest {
                     geoipTag = "v1.2.3",
                     geositeTag = "v1.2.3",
                     staleness = GeoAssetStaleness.Today,
-                    checking = false,
+                    activeOperation = null,
                     resultBanner = null,
                 ),
         )

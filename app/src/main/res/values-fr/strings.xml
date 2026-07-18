@@ -3278,7 +3278,12 @@ Source : %2$s</string>
     <string name="asset_provider_uptodate_body">Les bases locales correspondent à la dernière version.</string>
     <string name="asset_provider_imported_title">Données importées</string>
     <string name="asset_provider_imported_body">Redémarrez le service pour appliquer la base importée.</string>
-    <string name="asset_provider_failed_title">Échec de la mise à jour</string>
+    <string name="asset_provider_failed_title">Échec de l’opération sur les données</string>
+    <string name="asset_provider_failure_unable_to_open">RIPDPI n’a pas pu ouvrir le fichier sélectionné. Sélectionnez-le à nouveau.</string>
+    <string name="asset_provider_failure_invalid_payload">Le fichier sélectionné n’est pas une base de données géographique valide.</string>
+    <string name="asset_provider_failure_too_large">Le fichier sélectionné est trop volumineux. Choisissez un fichier de moins de 64 Mo.</string>
+    <string name="asset_provider_failure_network">Impossible de joindre le fournisseur de données. Vérifiez votre connexion et réessayez.</string>
+    <string name="asset_provider_failure_unexpected">L’opération sur les données a échoué. Réessayez.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russie)</string>
     <string name="asset_provider_runetfreedom_desc">Jeu de règles de contournement de facto pour la RU ; plus à jour qu\'antizapret pour les tags geoip/geosite v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">Mis à jour il y a %1$d jours</string>

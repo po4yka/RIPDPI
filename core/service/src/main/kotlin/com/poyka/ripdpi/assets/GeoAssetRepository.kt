@@ -41,10 +41,19 @@ data class GeoAssetUpdateResult(
     val updatedAny: Boolean get() = geoipUpdated || geositeUpdated
 }
 
-/** Raised when a downloaded asset fails the fail-closed validity gate. */
+/** Stable failure categories that the UI can localize without exposing exception text. */
+enum class GeoAssetIntegrityFailure(
+    internal val diagnosticMessage: String,
+) {
+    UnableToOpen("Unable to open imported geo asset."),
+    InvalidPayload("Geo asset failed the validity gate."),
+    TooLarge("Imported geo asset exceeds the local size limit."),
+}
+
+/** Raised when a geo asset fails a local, fail-closed integrity gate. */
 class GeoAssetIntegrityException(
-    message: String,
-) : IOException(message)
+    val reason: GeoAssetIntegrityFailure,
+) : IOException(reason.diagnosticMessage)
 
 interface GeoAssetRepository {
     /**
@@ -166,7 +175,7 @@ class DefaultGeoAssetRepository
             bytes: ByteArray,
         ) {
             if (!isPlausibleGeoAssetPayload(bytes)) {
-                throw GeoAssetIntegrityException("Downloaded ${kind.name} asset failed the validity gate.")
+                throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload)
             }
             atomicWrite(targetFile(kind), bytes)
         }
@@ -238,8 +247,14 @@ internal fun streamGeoAssetUriToTarget(
             null
         } catch (_: SecurityException) {
             null
-        } ?: throw GeoAssetIntegrityException("Unable to open imported geo asset.")
-    input.use { streamGeoAssetToTarget(it, target, maxBytes) }
+        } ?: throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen)
+    try {
+        input.use { streamGeoAssetToTarget(it, target, maxBytes) }
+    } catch (error: GeoAssetIntegrityException) {
+        throw error
+    } catch (_: IOException) {
+        throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen)
+    }
 }
 
 internal fun streamGeoAssetToTarget(
@@ -261,7 +276,7 @@ internal fun streamGeoAssetToTarget(
         // This prefix is equivalent to the complete-payload decision while the validator checks
         // only minimum length and the first 16 bytes. Update both contracts together if it deepens.
         if (!isPlausibleGeoAssetPayload(copyState.validationPrefix())) {
-            throw GeoAssetIntegrityException("Imported geo asset failed the validity gate.")
+            throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload)
         }
         replaceGeoAssetTempFile(temp, target)
     } finally {
@@ -303,7 +318,7 @@ private class GeoAssetCopyState(
         output: java.io.OutputStream,
     ) {
         if (totalBytes > maxBytes - count.toLong()) {
-            throw GeoAssetIntegrityException("Imported geo asset exceeds the local size limit.")
+            throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.TooLarge)
         }
         val prefixCount = minOf(count, prefix.size - prefixSize).coerceAtLeast(0)
         if (prefixCount > 0) bytes.copyInto(prefix, prefixSize, 0, prefixCount)

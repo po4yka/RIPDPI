@@ -79,7 +79,7 @@ class GeoAssetRepositoryTest {
                 )
             }
 
-        assertEquals("Imported geo asset exceeds the local size limit.", error.message)
+        assertEquals(GeoAssetIntegrityFailure.TooLarge, error.reason)
         assertArrayEquals(previous, target.readBytes())
         assertNoTemporaryFiles(target.parentFile!!)
     }
@@ -97,7 +97,7 @@ class GeoAssetRepositoryTest {
                 streamGeoAssetToTarget(ByteArrayInputStream(payload), target, payload.size.toLong())
             }
 
-        assertEquals("Imported geo asset failed the validity gate.", error.message)
+        assertEquals(GeoAssetIntegrityFailure.InvalidPayload, error.reason)
         assertArrayEquals(previous, target.readBytes())
         assertNoTemporaryFiles(target.parentFile!!)
     }
@@ -161,6 +161,22 @@ class GeoAssetRepositoryTest {
         )
 
         assertTrue(stream.closed)
+    }
+
+    @Test
+    fun `unopenable uri reports stable failure reason`() {
+        val target = temporaryFolder.newFile("geoip.db")
+
+        val error =
+            assertThrows(GeoAssetIntegrityException::class.java) {
+                streamGeoAssetUriToTarget(
+                    uri = Uri.parse("content://test/missing.db"),
+                    target = target,
+                    openInput = { throw SecurityException("provider denied access") },
+                )
+            }
+
+        assertEquals(GeoAssetIntegrityFailure.UnableToOpen, error.reason)
     }
 
     private fun repository(): DefaultGeoAssetRepository =

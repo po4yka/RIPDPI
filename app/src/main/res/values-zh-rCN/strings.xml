@@ -3269,7 +3269,12 @@ fake_burst 3</string>
     <string name="asset_provider_uptodate_body">本地数据库与最新发行版一致。</string>
     <string name="asset_provider_imported_title">数据已导入</string>
     <string name="asset_provider_imported_body">重启服务以应用导入的数据库。</string>
-    <string name="asset_provider_failed_title">更新失败</string>
+    <string name="asset_provider_failed_title">数据操作失败</string>
+    <string name="asset_provider_failure_unable_to_open">RIPDPI 无法打开所选文件。请重新选择。</string>
+    <string name="asset_provider_failure_invalid_payload">所选文件不是有效的地理数据库。</string>
+    <string name="asset_provider_failure_too_large">所选文件过大。请选择小于 64 MB 的文件。</string>
+    <string name="asset_provider_failure_network">无法连接数据提供方。请检查网络连接后重试。</string>
+    <string name="asset_provider_failure_unexpected">数据操作失败。请重试。</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom(俄罗斯)</string>
     <string name="asset_provider_runetfreedom_desc">事实上的俄罗斯绕过规则集;对 v2ray/xray 的 geoip/geosite 标签比 antizapret 更新更及时。</string>
     <string name="asset_provider_updated_days_ago">%1$d 天前更新</string>

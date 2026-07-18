@@ -47,7 +47,7 @@ internal data class AssetProviderScreenState(
     val geoipTag: String,
     val geositeTag: String,
     val staleness: GeoAssetStaleness,
-    val checking: Boolean,
+    val activeOperation: AssetProviderOperation?,
     val resultBanner: AssetProviderBanner?,
 )
 
@@ -82,7 +82,7 @@ fun AssetProviderRoute(
                 geoipTag = uiState.geoipTag,
                 geositeTag = uiState.geositeTag,
                 staleness = uiState.staleness,
-                checking = uiState.checking,
+                activeOperation = uiState.activeOperation,
                 resultBanner = uiState.lastResult?.let { rememberOutcomeBanner(it) },
             ),
         onBack = onBack,
@@ -132,7 +132,16 @@ private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProv
         is AssetProviderCheckOutcome.Failed -> {
             AssetProviderBanner(
                 title = stringResource(R.string.asset_provider_failed_title),
-                message = outcome.message,
+                message =
+                    stringResource(
+                        when (outcome.reason) {
+                            AssetProviderFailureReason.UnableToOpen -> R.string.asset_provider_failure_unable_to_open
+                            AssetProviderFailureReason.InvalidPayload -> R.string.asset_provider_failure_invalid_payload
+                            AssetProviderFailureReason.TooLarge -> R.string.asset_provider_failure_too_large
+                            AssetProviderFailureReason.Network -> R.string.asset_provider_failure_network
+                            AssetProviderFailureReason.Unexpected -> R.string.asset_provider_failure_unexpected
+                        },
+                    ),
                 tone = WarningBannerTone.Error,
             )
         }
@@ -300,14 +309,15 @@ private fun AssetProviderActionsCard(
     onImportGeoip: () -> Unit,
     onImportGeosite: () -> Unit,
 ) {
+    val operationInProgress = state.activeOperation != null
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiButton(
                 text = stringResource(R.string.asset_provider_check_updates),
                 onClick = onCheckForUpdates,
                 modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderCheckUpdates),
-                loading = state.checking,
-                enabled = !state.checking,
+                loading = state.activeOperation == AssetProviderOperation.CheckUpdates,
+                enabled = !operationInProgress,
                 leadingIcon = RipDpiIcons.Refresh,
             )
             Column(
@@ -319,13 +329,17 @@ private fun AssetProviderActionsCard(
                     onClick = onImportGeoip,
                     modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderImport),
                     variant = RipDpiButtonVariant.Outline,
+                    loading = state.activeOperation == AssetProviderOperation.ImportGeoip,
+                    enabled = !operationInProgress,
                     leadingIcon = RipDpiIcons.Advanced,
                 )
                 RipDpiButton(
                     text = stringResource(R.string.asset_provider_import_geosite),
                     onClick = onImportGeosite,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderImportGeosite),
                     variant = RipDpiButtonVariant.Outline,
+                    loading = state.activeOperation == AssetProviderOperation.ImportGeosite,
+                    enabled = !operationInProgress,
                     leadingIcon = RipDpiIcons.Advanced,
                 )
             }
@@ -362,7 +376,7 @@ private fun previewAssetProviderScreen() {
                     geoipTag = "202405010000",
                     geositeTag = "",
                     staleness = GeoAssetStaleness.DaysAgo(PreviewStalenessDays),
-                    checking = false,
+                    activeOperation = null,
                     resultBanner =
                         AssetProviderBanner(
                             title = "Updated",
@@ -392,7 +406,7 @@ private fun previewAssetProviderScreenDark() {
                     geoipTag = "v1.2.3",
                     geositeTag = "v1.2.3",
                     staleness = GeoAssetStaleness.Never,
-                    checking = true,
+                    activeOperation = AssetProviderOperation.CheckUpdates,
                     resultBanner = null,
                 ),
             onBack = {},

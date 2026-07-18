@@ -3,6 +3,8 @@ package com.poyka.ripdpi.ui.screens.settings
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.assets.GeoAssetIntegrityException
+import com.poyka.ripdpi.assets.GeoAssetIntegrityFailure
 import com.poyka.ripdpi.assets.GeoAssetRepository
 import com.poyka.ripdpi.assets.GeoAssetUpdateResult
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 /** How stale the on-disk geo databases are, surfaced as a passive informational line. */
@@ -37,9 +40,23 @@ data class AssetProviderUiState(
     val geoipTag: String = "",
     val geositeTag: String = "",
     val staleness: GeoAssetStaleness = GeoAssetStaleness.Never,
-    val checking: Boolean = false,
+    val activeOperation: AssetProviderOperation? = null,
     val lastResult: AssetProviderCheckOutcome? = null,
 )
+
+enum class AssetProviderOperation {
+    CheckUpdates,
+    ImportGeoip,
+    ImportGeosite,
+}
+
+enum class AssetProviderFailureReason {
+    UnableToOpen,
+    InvalidPayload,
+    TooLarge,
+    Network,
+    Unexpected,
+}
 
 /** Terminal outcome of a "Check for updates" run, surfaced inline as a banner. */
 sealed interface AssetProviderCheckOutcome {
@@ -51,7 +68,7 @@ sealed interface AssetProviderCheckOutcome {
     data object UpToDate : AssetProviderCheckOutcome
 
     data class Failed(
-        val message: String,
+        val reason: AssetProviderFailureReason,
     ) : AssetProviderCheckOutcome
 
     data object Imported : AssetProviderCheckOutcome
@@ -87,21 +104,8 @@ class AssetProviderViewModel
         }
 
         fun checkForUpdates() {
-            if (transient.value.checking) {
-                return
-            }
-            transient.update { it.copy(checking = true, lastResult = null) }
-            viewModelScope.launch {
-                val outcome =
-                    runCatching { geoAssetRepository.checkAndUpdate() }
-                        .fold(
-                            onSuccess = ::mapResult,
-                            onFailure = { error ->
-                                if (error is CancellationException) throw error
-                                AssetProviderCheckOutcome.Failed(error.localizedMessage ?: error.toString())
-                            },
-                        )
-                transient.update { it.copy(checking = false, lastResult = outcome) }
+            launchOperation(AssetProviderOperation.CheckUpdates) {
+                mapResult(geoAssetRepository.checkAndUpdate())
             }
         }
 
@@ -109,18 +113,14 @@ class AssetProviderViewModel
             kind: GeoAssetKind,
             uri: Uri,
         ) {
-            transient.update { it.copy(lastResult = null) }
-            viewModelScope.launch {
-                val outcome =
-                    runCatching { geoAssetRepository.importLocalAsset(kind, uri) }
-                        .fold(
-                            onSuccess = { AssetProviderCheckOutcome.Imported },
-                            onFailure = { error ->
-                                if (error is CancellationException) throw error
-                                AssetProviderCheckOutcome.Failed(error.localizedMessage ?: error.toString())
-                            },
-                        )
-                transient.update { it.copy(lastResult = outcome) }
+            val operation =
+                when (kind) {
+                    GeoAssetKind.Geoip -> AssetProviderOperation.ImportGeoip
+                    GeoAssetKind.Geosite -> AssetProviderOperation.ImportGeosite
+                }
+            launchOperation(operation) {
+                geoAssetRepository.importLocalAsset(kind, uri)
+                AssetProviderCheckOutcome.Imported
             }
         }
 
@@ -137,10 +137,69 @@ class AssetProviderViewModel
                         geoipTag = settings.geoAssetGeoipVersionTag,
                         geositeTag = settings.geoAssetGeositeVersionTag,
                         staleness = computeStaleness(settings.geoAssetLastUpdatedEpochMillis),
-                        checking = t.checking,
+                        activeOperation = t.activeOperation,
                         lastResult = t.lastResult,
                     )
                 }
+
+        private fun launchOperation(
+            operation: AssetProviderOperation,
+            block: suspend () -> AssetProviderCheckOutcome,
+        ) {
+            if (!claimOperation(operation)) return
+            viewModelScope.launch {
+                var outcome: AssetProviderCheckOutcome? = null
+                try {
+                    outcome = block()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    outcome = AssetProviderCheckOutcome.Failed(mapFailure(error))
+                } finally {
+                    transient.update { current ->
+                        if (current.activeOperation == operation) {
+                            current.copy(activeOperation = null, lastResult = outcome)
+                        } else {
+                            current
+                        }
+                    }
+                }
+            }
+        }
+
+        private fun claimOperation(operation: AssetProviderOperation): Boolean {
+            while (true) {
+                val current = transient.value
+                if (current.activeOperation != null) return false
+                if (
+                    transient.compareAndSet(
+                        current,
+                        current.copy(activeOperation = operation, lastResult = null),
+                    )
+                ) {
+                    return true
+                }
+            }
+        }
+
+        private fun mapFailure(error: Exception): AssetProviderFailureReason =
+            when (error) {
+                is GeoAssetIntegrityException -> {
+                    when (error.reason) {
+                        GeoAssetIntegrityFailure.UnableToOpen -> AssetProviderFailureReason.UnableToOpen
+                        GeoAssetIntegrityFailure.InvalidPayload -> AssetProviderFailureReason.InvalidPayload
+                        GeoAssetIntegrityFailure.TooLarge -> AssetProviderFailureReason.TooLarge
+                    }
+                }
+
+                is IOException -> {
+                    AssetProviderFailureReason.Network
+                }
+
+                else -> {
+                    AssetProviderFailureReason.Unexpected
+                }
+            }
 
         private fun computeStaleness(lastUpdatedEpochMillis: Long): GeoAssetStaleness {
             if (lastUpdatedEpochMillis <= 0L) {
@@ -158,7 +217,7 @@ class AssetProviderViewModel
             }
 
         private data class TransientState(
-            val checking: Boolean = false,
+            val activeOperation: AssetProviderOperation? = null,
             val lastResult: AssetProviderCheckOutcome? = null,
         )
 

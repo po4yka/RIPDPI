@@ -179,6 +179,7 @@ internal object RipDpiTestTags {
     const val AssetProviderCheckUpdates = "asset-provider-check-updates"
     const val AssetProviderCustomUrl = "asset-provider-custom-url"
     const val AssetProviderImport = "asset-provider-import"
+    const val AssetProviderImportGeosite = "asset-provider-import-geosite"
     const val SettingsRoutingRules = "settings-routing-rules"
     const val RoutesList = "routes-list"
     const val RoutesAddRule = "routes-add-rule"

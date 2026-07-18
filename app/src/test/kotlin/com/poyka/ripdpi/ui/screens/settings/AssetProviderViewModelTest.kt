@@ -3,10 +3,12 @@ package com.poyka.ripdpi.ui.screens.settings
 import android.net.Uri
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.assets.GeoAssetIntegrityException
+import com.poyka.ripdpi.assets.GeoAssetIntegrityFailure
 import com.poyka.ripdpi.assets.GeoAssetRepository
 import com.poyka.ripdpi.assets.GeoAssetUpdateResult
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -21,6 +23,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -44,38 +47,107 @@ class AssetProviderViewModelTest {
             runCurrent()
 
             assertEquals(GeoAssetKind.Geosite to uri, repository.lastImport)
+            assertEquals(AssetProviderOperation.ImportGeosite, viewModel.uiState.value.activeOperation)
             assertNull(viewModel.uiState.value.lastResult)
 
             completion.complete(Unit)
             advanceUntilIdle()
+            assertNull(viewModel.uiState.value.activeOperation)
             assertEquals(AssetProviderCheckOutcome.Imported, viewModel.uiState.value.lastResult)
         }
 
     @Test
-    fun `integrity failure becomes failed outcome with existing message`() =
+    fun `repository failures become stable localized reasons and clear operation`() =
+        runTest {
+            val cases =
+                listOf(
+                    GeoAssetIntegrityException(GeoAssetIntegrityFailure.UnableToOpen) to
+                        AssetProviderFailureReason.UnableToOpen,
+                    GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload) to
+                        AssetProviderFailureReason.InvalidPayload,
+                    GeoAssetIntegrityException(GeoAssetIntegrityFailure.TooLarge) to
+                        AssetProviderFailureReason.TooLarge,
+                    IOException("network unavailable") to AssetProviderFailureReason.Network,
+                    IllegalStateException("unexpected") to AssetProviderFailureReason.Unexpected,
+                )
+
+            cases.forEachIndexed { index, (failure, expectedReason) ->
+                val repository = FakeGeoAssetRepository()
+                repository.importAction = { throw failure }
+                val viewModel = AssetProviderViewModel(FakeAppSettingsRepository(), repository)
+                backgroundScope.launch { viewModel.uiState.collect() }
+                runCurrent()
+
+                viewModel.importLocalAsset(GeoAssetKind.Geoip, Uri.parse("content://documents/failure-$index.db"))
+                advanceUntilIdle()
+
+                assertEquals(
+                    AssetProviderCheckOutcome.Failed(expectedReason),
+                    viewModel.uiState.value.lastResult,
+                )
+                assertNull(viewModel.uiState.value.activeOperation)
+            }
+        }
+
+    @Test
+    fun `one active operation blocks duplicate and cross-kind requests`() =
         runTest {
             val repository = FakeGeoAssetRepository()
-            repository.importAction = {
-                throw GeoAssetIntegrityException("Imported geo asset failed the validity gate.")
-            }
+            val completion = CompletableDeferred<Unit>()
+            repository.checkAction = { completion.await() }
             val viewModel = AssetProviderViewModel(FakeAppSettingsRepository(), repository)
             backgroundScope.launch { viewModel.uiState.collect() }
             runCurrent()
 
-            viewModel.importLocalAsset(GeoAssetKind.Geoip, Uri.parse("content://documents/invalid.db"))
+            viewModel.checkForUpdates()
+            viewModel.checkForUpdates()
+            viewModel.importLocalAsset(GeoAssetKind.Geoip, Uri.parse("content://documents/geoip.db"))
+            runCurrent()
+
+            assertEquals(1, repository.checkCalls)
+            assertNull(repository.lastImport)
+            assertEquals(AssetProviderOperation.CheckUpdates, viewModel.uiState.value.activeOperation)
+
+            completion.complete(Unit)
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertEquals(AssetProviderCheckOutcome.UpToDate, viewModel.uiState.value.lastResult)
+        }
+
+    @Test
+    fun `cancellation clears operation without publishing failure`() =
+        runTest {
+            val repository = FakeGeoAssetRepository()
+            repository.importAction = { throw CancellationException("synthetic cancellation") }
+            val viewModel = AssetProviderViewModel(FakeAppSettingsRepository(), repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.importLocalAsset(GeoAssetKind.Geoip, Uri.parse("content://documents/geoip.db"))
             advanceUntilIdle()
 
-            assertEquals(
-                AssetProviderCheckOutcome.Failed("Imported geo asset failed the validity gate."),
-                viewModel.uiState.value.lastResult,
-            )
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertNull(viewModel.uiState.value.lastResult)
         }
 
     private class FakeGeoAssetRepository : GeoAssetRepository {
         var lastImport: Pair<GeoAssetKind, Uri>? = null
         var importAction: suspend () -> Unit = {}
+        var checkAction: suspend () -> Unit = {}
+        var checkCalls: Int = 0
 
-        override suspend fun checkAndUpdate(): GeoAssetUpdateResult = error("not used")
+        override suspend fun checkAndUpdate(): GeoAssetUpdateResult {
+            checkCalls += 1
+            checkAction()
+            return GeoAssetUpdateResult(
+                providerId = "sagernet",
+                geoipUpdated = false,
+                geositeUpdated = false,
+                geoipTag = "v1",
+                geositeTag = "v1",
+                anyChecked = true,
+            )
+        }
 
         override suspend fun importLocalAsset(
             kind: GeoAssetKind,

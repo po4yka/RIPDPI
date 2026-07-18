@@ -3160,7 +3160,12 @@ fakeddisorder endhost</string>
     <string name="asset_provider_uptodate_body">قواعد البيانات على القرص تطابق أحدث إصدار.</string>
     <string name="asset_provider_imported_title">تم استيراد الأصل</string>
     <string name="asset_provider_imported_body">أعد تشغيل الخدمة لتطبيق قاعدة البيانات المستوردة.</string>
-    <string name="asset_provider_failed_title">فشل التحديث</string>
+    <string name="asset_provider_failed_title">فشلت عملية البيانات</string>
+    <string name="asset_provider_failure_unable_to_open">تعذّر على RIPDPI فتح الملف المحدد. اختره مرة أخرى.</string>
+    <string name="asset_provider_failure_invalid_payload">الملف المحدد ليس قاعدة بيانات جغرافية صالحة.</string>
+    <string name="asset_provider_failure_too_large">الملف المحدد كبير جدًا. اختر ملفًا أصغر من 64 ميغابايت.</string>
+    <string name="asset_provider_failure_network">تعذّر الاتصال بموفّر البيانات. تحقّق من اتصالك وحاول مرة أخرى.</string>
+    <string name="asset_provider_failure_unexpected">فشلت عملية البيانات. حاول مرة أخرى.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسيا)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعة قواعد تجاوز RU الفعلية؛ أحدث من antizapret لوسوم geoip/geosite الخاصة بـ v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">تم التحديث منذ %1$d يوم</string>

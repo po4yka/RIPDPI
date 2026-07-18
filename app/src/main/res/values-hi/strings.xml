@@ -1892,4 +1892,9 @@ fakeddisorder endhost</string>
     <string name="backup_encryption_confirm_passphrase">पासफ़्रेज़ की पुष्टि करें</string>
     <string name="backup_encryption_passphrase_mismatch">पासफ़्रेज़ मेल नहीं खाते</string>
     <string name="backup_import_legacy_full_warning">यह पुराना पूर्ण बैकअप एन्क्रिप्टेड नहीं है। इसे केवल विश्वसनीय स्रोत से पुनर्स्थापित करें, फिर नया एन्क्रिप्टेड बैकअप निर्यात करें।</string>
+    <string name="asset_provider_failure_unable_to_open">RIPDPI चुनी गई फ़ाइल नहीं खोल सका। इसे फिर से चुनें।</string>
+    <string name="asset_provider_failure_invalid_payload">चुनी गई फ़ाइल मान्य भौगोलिक डेटाबेस नहीं है।</string>
+    <string name="asset_provider_failure_too_large">चुनी गई फ़ाइल बहुत बड़ी है। 64 MB से छोटी फ़ाइल चुनें।</string>
+    <string name="asset_provider_failure_network">डेटा प्रदाता से संपर्क नहीं हो सका। अपना कनेक्शन जाँचें और फिर कोशिश करें।</string>
+    <string name="asset_provider_failure_unexpected">डेटा कार्रवाई विफल रही। फिर कोशिश करें।</string>
 </resources>

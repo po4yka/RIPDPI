@@ -3278,7 +3278,12 @@ Quelle: %2$s</string>
     <string name="asset_provider_uptodate_body">Die lokalen Datenbanken entsprechen der neuesten Version.</string>
     <string name="asset_provider_imported_title">Daten importiert</string>
     <string name="asset_provider_imported_body">Dienst neu starten, um die importierte Datenbank anzuwenden.</string>
-    <string name="asset_provider_failed_title">Aktualisierung fehlgeschlagen</string>
+    <string name="asset_provider_failed_title">Asset-Vorgang fehlgeschlagen</string>
+    <string name="asset_provider_failure_unable_to_open">RIPDPI konnte die ausgewählte Datei nicht öffnen. Wähle sie erneut aus.</string>
+    <string name="asset_provider_failure_invalid_payload">Die ausgewählte Datei ist keine gültige Geodatenbank.</string>
+    <string name="asset_provider_failure_too_large">Die ausgewählte Datei ist zu groß. Wähle eine Datei unter 64 MB.</string>
+    <string name="asset_provider_failure_network">Der Datenanbieter ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.</string>
+    <string name="asset_provider_failure_unexpected">Der Asset-Vorgang ist fehlgeschlagen. Versuche es erneut.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russland)</string>
     <string name="asset_provider_runetfreedom_desc">De-facto-Regelsatz zur Umgehung für RU; aktueller als antizapret für v2ray/xray-geoip/geosite-Tags.</string>
     <string name="asset_provider_updated_days_ago">Vor %1$d Tagen aktualisiert</string>
