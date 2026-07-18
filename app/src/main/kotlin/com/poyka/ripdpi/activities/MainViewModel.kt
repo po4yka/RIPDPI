@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -118,14 +117,6 @@ class MainViewModel
             )
         }
 
-        init {
-            viewModelScope.launch {
-                mainServiceDependencies.hardKillSwitchStateStore.snapshot.drop(1).collect {
-                    permissionActions.refreshPermissionSnapshot()
-                }
-            }
-        }
-
         private val homeDiagnostics: HomeDiagnosticsStateOwner by lazy {
             HomeDiagnosticsStateOwner(
                 scope = viewModelScope,
@@ -185,7 +176,11 @@ class MainViewModel
                 return
             }
             initialized = true
-            permissionActions.refreshPermissionSnapshot()
+            viewModelScope.launch {
+                mainServiceDependencies.hardKillSwitchStateStore.snapshot.collect {
+                    permissionActions.refreshPermissionSnapshot()
+                }
+            }
             connectionActions.initialize()
             homeDiagnostics.initialize()
             viewModelScope.launch {

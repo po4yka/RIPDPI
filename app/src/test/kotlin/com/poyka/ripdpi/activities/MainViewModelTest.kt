@@ -609,13 +609,27 @@ class MainViewModelTest {
                     hardKillSwitchStateStore = hardKillSwitchStateStore,
                     initialize = false,
                 )
+            hardKillSwitchStateStore.update(
+                AndroidHardKillSwitchSnapshot(
+                    status = AndroidHardKillSwitchStatus.NOT_ENABLED,
+                    alwaysOn = false,
+                    lockdown = false,
+                    updatedAtMillis = 41L,
+                ),
+            )
+            assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
+
+            viewModel.initialize()
             runCurrent()
+
+            val callsAfterInitialization = permissionStatusProvider.currentSnapshotCalls
+            assertTrue(callsAfterInitialization > 0)
 
             viewModel.onForeground()
             runCurrent()
 
             assertEquals(1, serviceController.hardKillSwitchRefreshCount)
-            assertEquals(1, permissionStatusProvider.currentSnapshotCalls)
+            assertEquals(callsAfterInitialization + 1, permissionStatusProvider.currentSnapshotCalls)
 
             hardKillSwitchStateStore.update(
                 AndroidHardKillSwitchSnapshot(
@@ -627,7 +641,7 @@ class MainViewModelTest {
             )
             runCurrent()
 
-            assertEquals(2, permissionStatusProvider.currentSnapshotCalls)
+            assertEquals(callsAfterInitialization + 2, permissionStatusProvider.currentSnapshotCalls)
         }
 
     @Test

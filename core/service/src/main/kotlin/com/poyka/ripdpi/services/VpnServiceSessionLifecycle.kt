@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.services
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -19,49 +24,61 @@ internal class VpnServiceSessionLifecycle(
     private var coordinator: VpnServiceRuntimeCoordinator? = null
     private var protectSocketServer: VpnProtectSocketServer? = null
     private val cleanup = VpnServiceSessionCleanup()
+    private val hardKillSwitchRefreshBroadcastLifecycle =
+        HardKillSwitchRefreshBroadcastLifecycle(
+            context = service,
+            onRefreshState = service::refreshHardKillSwitchState,
+            onRefreshNotification = service::refreshForegroundNotification,
+        )
 
     fun createShellDelegate(): ServiceShellDelegate {
-        val entryPoint = createSessionEntryPoint()
-        val runtimeCoordinator = entryPoint.coordinator()
-        val socketServer = entryPoint.protectSocketServer()
-        coordinator = runtimeCoordinator
-        protectSocketServer = socketServer
-        val protectionFailure =
-            runCatching {
-                establishProtectPath(
-                    startProtectSocketServer = socketServer::start,
-                    advertiseProtectPath = { activeProtectSocketPathProvider.set(socketServer.socketPath) },
-                    registerNativeProtect = { VpnNativeProtectRegistration.register(service) },
-                    rollbackProtection = ::cleanupNativeProtect,
-                )
-            }.exceptionOrNull()
-        if (protectionFailure != null) {
-            throw protectionFailure
-        }
-        return ServiceShellDelegate(
-            serviceScope = service.serviceScope,
-            serviceLabel = "vpn",
-            onStart = runtimeCoordinator::start,
-            onStop = runtimeCoordinator::stop,
-            isStopAllowed = service::isUserStopAllowed,
-            onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
-            onAcceptedStop = acceptedUserStopRecorder::record,
-            isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
-            onRevoke = {
-                serviceStateStore.emitFailed(
-                    sender = Sender.VPN,
-                    reason = FailureReason.PermissionLost("VPN"),
-                )
-                cleanup.revokeSession(
-                    stopRuntime = runtimeCoordinator::stop,
-                    destroyCoordinator = runtimeCoordinator::onDestroy,
-                    cleanupSocketProtection = ::cleanupNativeProtect,
-                )
-            },
-        )
+        hardKillSwitchRefreshBroadcastLifecycle.start()
+        return runCatching {
+            val entryPoint = createSessionEntryPoint()
+            val runtimeCoordinator = entryPoint.coordinator()
+            val socketServer = entryPoint.protectSocketServer()
+            coordinator = runtimeCoordinator
+            protectSocketServer = socketServer
+            val protectionFailure =
+                runCatching {
+                    establishProtectPath(
+                        startProtectSocketServer = socketServer::start,
+                        advertiseProtectPath = { activeProtectSocketPathProvider.set(socketServer.socketPath) },
+                        registerNativeProtect = { VpnNativeProtectRegistration.register(service) },
+                        rollbackProtection = ::cleanupNativeProtect,
+                    )
+                }.exceptionOrNull()
+            if (protectionFailure != null) {
+                throw protectionFailure
+            }
+            ServiceShellDelegate(
+                serviceScope = service.serviceScope,
+                serviceLabel = "vpn",
+                onStart = runtimeCoordinator::start,
+                onStop = runtimeCoordinator::stop,
+                isStopAllowed = service::isUserStopAllowed,
+                onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
+                onAcceptedStop = acceptedUserStopRecorder::record,
+                isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
+                onRevoke = {
+                    serviceStateStore.emitFailed(
+                        sender = Sender.VPN,
+                        reason = FailureReason.PermissionLost("VPN"),
+                    )
+                    cleanup.revokeSession(
+                        stopRuntime = runtimeCoordinator::stop,
+                        destroyCoordinator = runtimeCoordinator::onDestroy,
+                        cleanupSocketProtection = ::cleanupNativeProtect,
+                    )
+                },
+            )
+        }.onFailure {
+            hardKillSwitchRefreshBroadcastLifecycle.close()
+        }.getOrThrow()
     }
 
     fun destroy() {
+        hardKillSwitchRefreshBroadcastLifecycle.close()
         val runtimeCoordinator = coordinator
         val failure =
             runCatching {
@@ -109,6 +126,48 @@ internal class VpnServiceSessionLifecycle(
                 .vpnService(service)
                 .build()
         return EntryPoints.get(checkNotNull(sessionComponent), VpnServiceSessionEntryPoint::class.java)
+    }
+}
+
+internal class HardKillSwitchRefreshBroadcastLifecycle(
+    private val context: Context,
+    private val onRefreshState: () -> Unit,
+    private val onRefreshNotification: () -> Unit,
+) : AutoCloseable {
+    private var receiver: BroadcastReceiver? = null
+
+    fun start() {
+        if (receiver != null) {
+            return
+        }
+        val candidate =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    context: Context?,
+                    intent: Intent?,
+                ) {
+                    if (
+                        intent?.action == hardKillSwitchRefreshBroadcastAction &&
+                        intent.`package` == this@HardKillSwitchRefreshBroadcastLifecycle.context.packageName
+                    ) {
+                        onRefreshState()
+                        onRefreshNotification()
+                    }
+                }
+            }
+        ContextCompat.registerReceiver(
+            context,
+            candidate,
+            IntentFilter(hardKillSwitchRefreshBroadcastAction),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        receiver = candidate
+    }
+
+    override fun close() {
+        val registeredReceiver = receiver ?: return
+        context.unregisterReceiver(registeredReceiver)
+        receiver = null
     }
 }
 
