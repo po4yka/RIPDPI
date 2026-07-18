@@ -150,11 +150,17 @@ class AssetProviderViewModel
             viewModelScope.launch {
                 var outcome: AssetProviderCheckOutcome? = null
                 try {
-                    outcome = block()
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    outcome = AssetProviderCheckOutcome.Failed(mapFailure(error))
+                    outcome =
+                        runCatching { block() }.fold(
+                            onSuccess = { it },
+                            onFailure = { error ->
+                                when (error) {
+                                    is CancellationException -> throw error
+                                    is Exception -> AssetProviderCheckOutcome.Failed(mapFailure(error))
+                                    else -> throw error
+                                }
+                            },
+                        )
                 } finally {
                     transient.update { current ->
                         if (current.activeOperation == operation) {
