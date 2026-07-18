@@ -9,6 +9,9 @@ mod relay;
 mod shared;
 mod warp;
 
+#[cfg(test)]
+pub(crate) use destination_routing::compute_canonical_digest;
+
 use ripdpi_config::{RuntimeConfig, StartupEnv};
 
 use crate::presets;

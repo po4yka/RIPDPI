@@ -193,30 +193,6 @@ internal object NativeProxyConfigValidation {
     }
 
     private fun validateDestinationRouting(policy: NativeDestinationRoutingConfig) {
-        require(policy.rules.isEmpty() || policy.canonicalDigest.isNotBlank()) {
-            "destinationRouting.canonicalDigest is required when rules are present"
-        }
-        policy.rules.forEachIndexed { index, rule ->
-            require(rule.domains.isNotEmpty() || rule.ipRanges.isNotEmpty() || rule.destinationPorts.isNotEmpty()) {
-                "destinationRouting.rules[$index] has no destination matchers"
-            }
-            require(rule.domains.none { it.value.isBlank() }) {
-                "destinationRouting.rules[$index] has an empty domain matcher"
-            }
-            require(rule.ipRanges.none { it.value.isBlank() }) {
-                "destinationRouting.rules[$index] has an empty IP matcher"
-            }
-            require(
-                rule.destinationPorts.none {
-                    it.start !in validDestinationPortRange ||
-                        it.endInclusive !in validDestinationPortRange ||
-                        it.start > it.endInclusive
-                },
-            ) {
-                "destinationRouting.rules[$index] has an invalid destination port range"
-            }
-        }
+        DestinationRoutingWireContract.validate(policy)
     }
-
-    private val validDestinationPortRange = 1..65535
 }

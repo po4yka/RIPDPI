@@ -19,6 +19,14 @@ fn minimal_ui() -> ProxyUiConfig {
     config
 }
 
+fn with_destination_routing_digest(mut json: serde_json::Value) -> serde_json::Value {
+    let section = json.get("destinationRouting").cloned().expect("destinationRouting section");
+    let config: ProxyUiDestinationRoutingConfig = serde_json::from_value(section).expect("destination routing config");
+    let digest = crate::convert::compute_canonical_digest(&config.rules);
+    json["destinationRouting"]["canonicalDigest"] = serde_json::Value::String(digest);
+    json
+}
+
 #[test]
 fn ui_config_maps_geo_database_paths() {
     let mut ui = minimal_ui();
@@ -1790,7 +1798,7 @@ fn schema_v2_without_destination_routing_keeps_inert_runtime_policy() {
 
 #[test]
 fn destination_routing_round_trips_and_maps_every_wire_variant() {
-    let json = serde_json::json!({
+    let json = with_destination_routing_digest(serde_json::json!({
         "kind": "ui",
         "schemaVersion": 2,
         "destinationRouting": {
@@ -1820,10 +1828,13 @@ fn destination_routing_round_trips_and_maps_every_wire_variant() {
                     "destinationPorts": [{"start": 53, "endInclusive": 53}]
                 }
             ],
-            "defaultAction": "tunneled",
-            "canonicalDigest": "digest-v1"
+            "defaultAction": "tunneled"
         }
-    });
+    }));
+    assert_eq!(
+        json["destinationRouting"]["canonicalDigest"],
+        "22e44aa5fdf36a009d5f07e71ce854a70dce1de73af4557e8fe5bb7b1b858fbb"
+    );
 
     let parsed = parse_proxy_config_json(&json.to_string()).expect("destination routing payload");
     let reparsed =
@@ -1852,9 +1863,132 @@ fn destination_routing_rejects_unknown_enum_and_rule_fields() {
 
 #[test]
 fn destination_routing_rejects_invalid_rule_atomically_during_conversion() {
-    let invalid_rule = r#"{"kind":"ui","schemaVersion":2,"destinationRouting":{"rules":[{"action":"direct","network":"both","destinationPorts":[{"start":8443,"endInclusive":443}]}],"defaultAction":"tunneled","canonicalDigest":"digest"}}"#;
+    let invalid_rule = r#"{"kind":"ui","schemaVersion":2,"destinationRouting":{"rules":[{"action":"direct","network":"both","destinationPorts":[{"start":8443,"endInclusive":443}]}],"defaultAction":"tunneled","canonicalDigest":"0000000000000000000000000000000000000000000000000000000000000000"}}"#;
     let parsed = parse_proxy_config_json(invalid_rule).expect("structurally valid payload");
 
     let error = runtime_config_from_payload(parsed).expect_err("invalid rule must reject the whole policy");
     assert!(error.to_string().contains("invalid destination port range"));
+}
+
+#[test]
+fn destination_routing_rejects_direct_and_block_defaults_even_without_rules() {
+    for action in ["direct", "block"] {
+        let json = format!(
+            r#"{{"kind":"ui","schemaVersion":2,"destinationRouting":{{"rules":[],"defaultAction":"{action}"}}}}"#
+        );
+        let parsed = parse_proxy_config_json(&json).expect("structurally valid payload");
+
+        let error = runtime_config_from_payload(parsed).expect_err("unmatched destinations must always tunnel");
+        assert!(error.to_string().contains("defaultAction must be tunneled"));
+    }
+}
+
+#[test]
+fn destination_routing_rejects_noncanonical_matchers_and_stale_digest() {
+    let malformed_matchers = [
+        serde_json::json!({"domains": [{"kind": "exact", "value": "Example.com"}]}),
+        serde_json::json!({"domains": [{"kind": "suffix", "value": ".example.com"}]}),
+        serde_json::json!({"domains": [{"kind": "geosite", "value": "RU"}]}),
+        serde_json::json!({"ipRanges": [{"kind": "cidr", "value": "192.0.2.1/24"}]}),
+        serde_json::json!({"ipRanges": [{"kind": "geo_ip", "value": "RU"}]}),
+    ];
+    for matchers in malformed_matchers {
+        let mut rule = serde_json::json!({"action": "direct", "network": "both"});
+        rule.as_object_mut().expect("rule object").extend(matchers.as_object().expect("matcher object").clone());
+        let json = serde_json::json!({
+            "kind": "ui",
+            "schemaVersion": 2,
+            "destinationRouting": {
+                "rules": [rule],
+                "defaultAction": "tunneled",
+                "canonicalDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+        });
+        let parsed = parse_proxy_config_json(&json.to_string()).expect("structurally valid payload");
+        assert!(runtime_config_from_payload(parsed).is_err());
+    }
+
+    let json = serde_json::json!({
+        "kind": "ui",
+        "schemaVersion": 2,
+        "destinationRouting": {
+            "rules": [{
+                "action": "direct",
+                "network": "tcp",
+                "domains": [{"kind": "exact", "value": "example.com"}]
+            }],
+            "defaultAction": "tunneled",
+            "canonicalDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    });
+    let parsed = parse_proxy_config_json(&json.to_string()).expect("structurally valid payload");
+    let error = runtime_config_from_payload(parsed).expect_err("forged digest must reject the whole policy");
+    assert!(error.to_string().contains("does not match"));
+
+    let valid = with_destination_routing_digest(json);
+    let uppercase_digest =
+        valid["destinationRouting"]["canonicalDigest"].as_str().expect("digest").to_ascii_uppercase();
+    let mut uppercase = valid;
+    uppercase["destinationRouting"]["canonicalDigest"] = serde_json::Value::String(uppercase_digest);
+    let parsed = parse_proxy_config_json(&uppercase.to_string()).expect("structurally valid payload");
+    let error = runtime_config_from_payload(parsed).expect_err("uppercase digest must reject the whole policy");
+    assert!(error.to_string().contains("lowercase hexadecimal"));
+}
+
+#[test]
+fn destination_routing_rejects_structural_bounds_atomically() {
+    let rules = (0..=256)
+        .map(|index| {
+            serde_json::json!({
+                "action": "direct",
+                "network": "tcp",
+                "domains": [{"kind": "exact", "value": format!("r{index}.example")}]
+            })
+        })
+        .collect::<Vec<_>>();
+    let json = serde_json::json!({
+        "kind": "ui",
+        "schemaVersion": 2,
+        "destinationRouting": {
+            "rules": rules,
+            "defaultAction": "tunneled",
+            "canonicalDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    });
+    let parsed = parse_proxy_config_json(&json.to_string()).expect("structurally valid payload");
+    let error = runtime_config_from_payload(parsed).expect_err("oversized policy must reject atomically");
+    assert!(error.to_string().contains("rules exceeds 256"));
+
+    let domains = (0..=256)
+        .map(|index| serde_json::json!({"kind": "exact", "value": format!("d{index}.example")}))
+        .collect::<Vec<_>>();
+    let json = serde_json::json!({
+        "kind": "ui",
+        "schemaVersion": 2,
+        "destinationRouting": {
+            "rules": [{"action": "direct", "network": "tcp", "domains": domains}],
+            "defaultAction": "tunneled",
+            "canonicalDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    });
+    let parsed = parse_proxy_config_json(&json.to_string()).expect("structurally valid payload");
+    let error = runtime_config_from_payload(parsed).expect_err("oversized field must reject atomically");
+    assert!(error.to_string().contains("domains exceeds 256"));
+
+    let json = serde_json::json!({
+        "kind": "ui",
+        "schemaVersion": 2,
+        "destinationRouting": {
+            "rules": [{
+                "action": "direct",
+                "network": "tcp",
+                "domains": [{"kind": "geosite", "value": "a".repeat(254)}]
+            }],
+            "defaultAction": "tunneled",
+            "canonicalDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    });
+    let parsed = parse_proxy_config_json(&json.to_string()).expect("structurally valid payload");
+    let error = runtime_config_from_payload(parsed).expect_err("oversized token must reject atomically");
+    assert!(error.to_string().contains("non-canonical domain matcher"));
 }

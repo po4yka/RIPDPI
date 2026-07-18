@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.codec.DestinationRoutingSectionCodec
+import com.poyka.ripdpi.core.codec.DestinationRoutingWireContract
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcher
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationIpMatcher
@@ -45,6 +47,7 @@ class DestinationRoutingCodecTest {
         assertTrue(rule.contains("\"action\":\"direct\""))
         assertTrue(rule.contains("\"network\":\"both\""))
         assertTrue(rule.contains("\"kind\":\"geo_ip\""))
+        assertEquals("5b7e40d21eaec2e217c0b2b095fa69e926d2c3631fccc4482ca4a6899c9cfb5a", policy.canonicalDigest)
         assertEquals(policy, decodeRipDpiProxyUiPreferences(encoded)?.destinationRouting)
     }
 
@@ -84,7 +87,7 @@ class DestinationRoutingCodecTest {
                   "unexpected":true
                 }],
                 "defaultAction":"tunneled",
-                "canonicalDigest":"digest"
+                "canonicalDigest":"${"0".repeat(64)}"
               },
               "schemaVersion":2
             }
@@ -101,7 +104,7 @@ class DestinationRoutingCodecTest {
                   "destinationPorts":[{"start":8443,"endInclusive":443}]
                 }],
                 "defaultAction":"tunneled",
-                "canonicalDigest":"digest"
+                "canonicalDigest":"${"0".repeat(64)}"
               },
               "schemaVersion":2
             }
@@ -112,6 +115,108 @@ class DestinationRoutingCodecTest {
         assertNull(decodeRipDpiProxyUiPreferences(malformedRule))
     }
 
+    @Test
+    fun directAndBlockDefaultsRejectEvenWithoutRules() {
+        listOf("direct", "block").forEach { action ->
+            val payload =
+                """
+                {
+                  "kind":"ui",
+                  "listen":{},
+                  "destinationRouting":{"rules":[],"defaultAction":"$action","canonicalDigest":""},
+                  "schemaVersion":2
+                }
+                """.trimIndent()
+
+            assertNull(decodeRipDpiProxyUiPreferences(payload))
+        }
+    }
+
+    @Test
+    fun nonCanonicalMatchersAndForgedDigestRejectAtomically() {
+        val valid = RipDpiProxyUIPreferences(destinationRouting = destinationPolicy()).toNativeConfigJson()
+        val policy =
+            Json
+                .parseToJsonElement(valid)
+                .jsonObject
+                .getValue("destinationRouting")
+                .jsonObject
+        val malformedValues =
+            listOf(
+                "example.com" to "Example.com",
+                "192.0.2.0/24" to "192.0.2.1/24",
+                policy.getValue("canonicalDigest").jsonPrimitive.content to
+                    policy
+                        .getValue("canonicalDigest")
+                        .jsonPrimitive.content
+                        .uppercase(),
+                policy.getValue("canonicalDigest").jsonPrimitive.content to "0".repeat(64),
+            )
+
+        malformedValues.forEach { (canonical, malformed) ->
+            assertNull(decodeRipDpiProxyUiPreferences(valid.replace(canonical, malformed)))
+        }
+    }
+
+    @Test
+    fun structuralBoundsRejectAtomically() {
+        val tooManyRules =
+            (0..256).joinToString(",") {
+                """{"action":"direct","network":"tcp","domains":[{"kind":"exact","value":"r$it.example"}]}"""
+            }
+        val payload =
+            """
+            {
+              "kind":"ui",
+              "listen":{},
+              "destinationRouting":{
+                "rules":[$tooManyRules],
+                "defaultAction":"tunneled",
+                "canonicalDigest":"${"0".repeat(64)}"
+              },
+              "schemaVersion":2
+            }
+            """.trimIndent()
+
+        assertNull(decodeRipDpiProxyUiPreferences(payload))
+
+        val tooManyDomains =
+            (0..256).joinToString(",") { """{"kind":"exact","value":"d$it.example"}""" }
+        val tooManyEntriesPayload =
+            """
+            {
+              "kind":"ui",
+              "listen":{},
+              "destinationRouting":{
+                "rules":[{"action":"direct","network":"tcp","domains":[$tooManyDomains]}],
+                "defaultAction":"tunneled",
+                "canonicalDigest":"${"0".repeat(64)}"
+              },
+              "schemaVersion":2
+            }
+            """.trimIndent()
+        val oversizedTokenPayload =
+            """
+            {
+              "kind":"ui",
+              "listen":{},
+              "destinationRouting":{
+                "rules":[{
+                  "action":"direct",
+                  "network":"tcp",
+                  "domains":[{"kind":"geosite","value":"${"a".repeat(254)}"}]
+                }],
+                "defaultAction":"tunneled",
+                "canonicalDigest":"${"0".repeat(64)}"
+              },
+              "schemaVersion":2
+            }
+            """.trimIndent()
+
+        assertNull(decodeRipDpiProxyUiPreferences(tooManyEntriesPayload))
+        assertNull(decodeRipDpiProxyUiPreferences(oversizedTokenPayload))
+    }
+
     private fun destinationRoutingSection(json: String): String =
         Json
             .parseToJsonElement(json)
@@ -120,26 +225,34 @@ class DestinationRoutingCodecTest {
             .toString()
 
     private fun destinationPolicy(): DestinationRoutingPolicy =
-        DestinationRoutingPolicy(
-            rules =
-                listOf(
-                    DestinationRoutingRule(
-                        action = DestinationRoutingAction.DIRECT,
-                        network = DestinationRoutingNetwork.BOTH,
-                        domains =
-                            listOf(
-                                DestinationDomainMatcher(DestinationDomainMatcherKind.EXACT, "example.com"),
-                                DestinationDomainMatcher(DestinationDomainMatcherKind.SUFFIX, "example.net"),
-                                DestinationDomainMatcher(DestinationDomainMatcherKind.GEOSITE, "ru"),
-                            ),
-                        ipRanges =
-                            listOf(
-                                DestinationIpMatcher(DestinationIpMatcherKind.CIDR, "192.0.2.0/24"),
-                                DestinationIpMatcher(DestinationIpMatcherKind.GEO_IP, "ru"),
-                            ),
-                        destinationPorts = listOf(DestinationPortRange(443, 8443)),
+        destinationRules().let { rules ->
+            val nativeRules =
+                DestinationRoutingSectionCodec
+                    .toNative(DestinationRoutingPolicy(rules = rules, canonicalDigest = ""))
+                    .rules
+            DestinationRoutingPolicy(
+                rules = rules,
+                canonicalDigest = DestinationRoutingWireContract.computeCanonicalDigest(nativeRules),
+            )
+        }
+
+    private fun destinationRules(): List<DestinationRoutingRule> =
+        listOf(
+            DestinationRoutingRule(
+                action = DestinationRoutingAction.DIRECT,
+                network = DestinationRoutingNetwork.BOTH,
+                domains =
+                    listOf(
+                        DestinationDomainMatcher(DestinationDomainMatcherKind.EXACT, "example.com"),
+                        DestinationDomainMatcher(DestinationDomainMatcherKind.SUFFIX, "example.net"),
+                        DestinationDomainMatcher(DestinationDomainMatcherKind.GEOSITE, "ru"),
                     ),
-                ),
-            canonicalDigest = "digest-v1",
+                ipRanges =
+                    listOf(
+                        DestinationIpMatcher(DestinationIpMatcherKind.CIDR, "192.0.2.0/24"),
+                        DestinationIpMatcher(DestinationIpMatcherKind.GEO_IP, "ru"),
+                    ),
+                destinationPorts = listOf(DestinationPortRange(443, 8443)),
+            ),
         )
 }

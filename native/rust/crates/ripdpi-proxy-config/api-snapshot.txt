@@ -167,8 +167,6 @@ pub struct ripdpi_proxy_config::ProxyUiDestinationRoutingConfig
 pub ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::canonical_digest: alloc::string::String
 pub ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::default_action: ripdpi_proxy_config::ProxyUiDestinationRoutingAction
 pub ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::rules: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiDestinationRoutingRule>
-impl core::default::Default for ripdpi_proxy_config::ProxyUiDestinationRoutingConfig
-pub fn ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::default() -> Self
 pub struct ripdpi_proxy_config::ProxyUiDestinationRoutingRule
 pub ripdpi_proxy_config::ProxyUiDestinationRoutingRule::action: ripdpi_proxy_config::ProxyUiDestinationRoutingAction
 pub ripdpi_proxy_config::ProxyUiDestinationRoutingRule::destination_ports: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiDestinationPortRange>
