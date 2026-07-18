@@ -19,17 +19,17 @@ internal class VpnServiceSessionLifecycle(
     private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
+    private val hardKillSwitchRefreshBroadcastLifecycle: HardKillSwitchRefreshLifecycle =
+        HardKillSwitchRefreshBroadcastLifecycle(
+            context = service,
+            onRefreshState = service::refreshHardKillSwitchState,
+            onRefreshNotification = service::refreshForegroundNotification,
+        ),
 ) {
     private var sessionComponent: VpnServiceSessionComponent? = null
     private var coordinator: VpnServiceRuntimeCoordinator? = null
     private var protectSocketServer: VpnProtectSocketServer? = null
     private val cleanup = VpnServiceSessionCleanup()
-    private val hardKillSwitchRefreshBroadcastLifecycle =
-        HardKillSwitchRefreshBroadcastLifecycle(
-            context = service,
-            onRefreshState = service::refreshHardKillSwitchState,
-            onRefreshNotification = service::refreshForegroundNotification,
-        )
 
     fun createShellDelegate(): ServiceShellDelegate {
         hardKillSwitchRefreshBroadcastLifecycle.start()
@@ -129,14 +129,18 @@ internal class VpnServiceSessionLifecycle(
     }
 }
 
+internal interface HardKillSwitchRefreshLifecycle : AutoCloseable {
+    fun start()
+}
+
 internal class HardKillSwitchRefreshBroadcastLifecycle(
     private val context: Context,
     private val onRefreshState: () -> Unit,
     private val onRefreshNotification: () -> Unit,
-) : AutoCloseable {
+) : HardKillSwitchRefreshLifecycle {
     private var receiver: BroadcastReceiver? = null
 
-    fun start() {
+    override fun start() {
         if (receiver != null) {
             return
         }
