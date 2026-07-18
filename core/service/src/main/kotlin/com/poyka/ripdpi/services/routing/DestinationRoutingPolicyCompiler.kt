@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.routing.DestinationRoutingRule
+import com.poyka.ripdpi.data.rules.DomainBypassList
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
@@ -16,7 +17,6 @@ import java.net.Inet6Address
 import java.net.InetAddress
 import java.security.MessageDigest
 import java.util.Locale
-import java.util.regex.Pattern
 
 /** Compiles persisted rules into one bounded snapshot or rejects the whole snapshot. */
 object DestinationRoutingPolicyCompiler {
@@ -24,6 +24,7 @@ object DestinationRoutingPolicyCompiler {
     const val MAX_ENTRIES_PER_FIELD: Int = 256
     const val MAX_TOTAL_MATCHERS: Int = 1_024
     const val MAX_TOKEN_LENGTH: Int = 253
+    const val MAX_RAW_ENTRY_LENGTH: Int = 512
     const val MAX_CANONICAL_LENGTH: Int = 65_536
 
     fun compile(rules: List<RuleEntity>): DestinationRoutingPolicyCompileResult =
@@ -196,6 +197,16 @@ private class SnapshotCompiler(
         }
         val values = LinkedHashSet<T>(lines.size)
         lines.forEach { line ->
+            if (line.value.length > DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH) {
+                reject(
+                    rule,
+                    field,
+                    DestinationRoutingPolicyErrorCode.MATCHER_TOO_LONG,
+                    "${field.displayName()} matcher at line ${line.index + 1} exceeds " +
+                        "${DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH} characters",
+                    entryIndex = line.index,
+                )
+            }
             when (val result = parse(line.value)) {
                 is MatcherParseResult.Value -> {
                     values += result.value
@@ -228,11 +239,7 @@ private class SnapshotCompiler(
 
 private object DestinationMatcherParser {
     fun domain(raw: String): MatcherParseResult<DestinationDomainMatcher> {
-        val regex = raw.takeIf { it.startsWith(REGEX_PREFIX, ignoreCase = true) }?.substring(REGEX_PREFIX.length)
-        val parsed =
-            raw
-                .takeIf { regex == null }
-                ?.let(::parseDomainToken)
+        val parsed = parseDomainToken(raw)
         val canonical = parsed?.second?.lowercase(Locale.ROOT)?.removeSuffix(".")
         val matcher =
             when (parsed?.first) {
@@ -255,9 +262,8 @@ private object DestinationMatcherParser {
                 }
             }
         return when {
-            regex?.isValidRegex() == true -> MatcherParseResult.Unsupported
-            regex != null -> MatcherParseResult.Malformed
             matcher != null -> MatcherParseResult.Value(matcher)
+            raw.isValidRepositoryDomainMatcher() -> MatcherParseResult.Unsupported
             else -> MatcherParseResult.Malformed
         }
     }
@@ -336,7 +342,10 @@ private object DestinationMatcherParser {
     private fun String.isValidGeoToken(): Boolean =
         isValidTokenLength() && all { it.isAsciiLetterOrDigit() || it == '-' || it == '_' }
 
-    private fun String.isValidRegex(): Boolean = isNotEmpty() && runCatching { Pattern.compile(this) }.isSuccess
+    private fun String.isValidRepositoryDomainMatcher(): Boolean {
+        val result = DomainBypassList.compile(this)
+        return result.errors.isEmpty() && result.cleanLines.size == 1
+    }
 
     private fun String.isValidTokenLength(): Boolean =
         isNotEmpty() && length <= DestinationRoutingPolicyCompiler.MAX_TOKEN_LENGTH
@@ -347,7 +356,6 @@ private object DestinationMatcherParser {
     private const val SUFFIX_PREFIX = "domain_suffix:"
     private const val GEOSITE_PREFIX = "geosite:"
     private const val GEO_IP_PREFIX = "geoip:"
-    private const val REGEX_PREFIX = "domain_regex:"
     private const val MAX_HOST_LABEL_LENGTH = 63
     private const val CIDR_PART_COUNT = 2
     private const val PORT_RANGE_PART_COUNT = 2
@@ -563,6 +571,7 @@ enum class DestinationRoutingPolicyErrorCode {
     EMPTY_DESTINATION_MATCH,
     UNSUPPORTED_OUTBOUND,
     UNSUPPORTED_MATCHER,
+    MATCHER_TOO_LONG,
     MALFORMED_MATCHER,
     DUPLICATE_RULE_ORDER,
 }

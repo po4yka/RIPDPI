@@ -165,7 +165,7 @@ class DestinationRoutingPolicyCompilerTest {
     fun `rejects malformed domain cidr geoip and port inputs`() {
         val malformed =
             listOf(
-                rule(id = 1, domains = "-bad.example"),
+                rule(id = 1, domains = "domain:"),
                 rule(id = 2, domains = "domain_regex:["),
                 rule(id = 3, ipCidrs = "192.0.2.1"),
                 rule(id = 4, ipCidrs = "192.0.2.1/33"),
@@ -202,6 +202,22 @@ class DestinationRoutingPolicyCompilerTest {
     }
 
     @Test
+    fun `surfaces permissive managed bypass host and geosite forms as unsupported`() {
+        val repositoryValidUnsupported =
+            listOf(
+                "*.wildcard.example",
+                "_sip._tcp.srv.example",
+                "geosite:any non-empty category",
+            )
+
+        repositoryValidUnsupported.forEachIndexed { index, matcher ->
+            val error = compileFailure(listOf(rule(id = index.toLong(), domains = matcher)))
+            assertEquals(matcher, DestinationRoutingPolicyErrorCode.UNSUPPORTED_MATCHER, error.code)
+            assertEquals(matcher, DestinationRoutingPolicyField.DOMAINS, error.field)
+        }
+    }
+
+    @Test
     fun `rejects rule and matcher bounds without a partial policy`() {
         val tooManyRules =
             List(DestinationRoutingPolicyCompiler.MAX_RULES + 1) { index ->
@@ -215,7 +231,7 @@ class DestinationRoutingPolicyCompilerTest {
                         "host$index.example"
                     }.joinToString("\n"),
             )
-        val tooLongToken =
+        val repositoryValidUnsupportedToken =
             rule(
                 id = 901,
                 domains = "${"a".repeat(DestinationRoutingPolicyCompiler.MAX_TOKEN_LENGTH)}.example",
@@ -223,7 +239,24 @@ class DestinationRoutingPolicyCompilerTest {
 
         assertFailureCode(tooManyRules, DestinationRoutingPolicyErrorCode.TOO_MANY_RULES)
         assertFailureCode(listOf(tooManyEntries), DestinationRoutingPolicyErrorCode.TOO_MANY_FIELD_ENTRIES)
-        assertFailureCode(listOf(tooLongToken), DestinationRoutingPolicyErrorCode.MALFORMED_MATCHER)
+        assertFailureCode(
+            listOf(repositoryValidUnsupportedToken),
+            DestinationRoutingPolicyErrorCode.UNSUPPORTED_MATCHER,
+        )
+    }
+
+    @Test
+    fun `rejects oversized matcher lines before matcher-specific parsing`() {
+        val oversizedMatcher = "x".repeat(DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH + 1)
+        val oversizedRegex =
+            "domain_regex:" + "a".repeat(DestinationRoutingPolicyCompiler.MAX_RAW_ENTRY_LENGTH)
+
+        listOf(oversizedMatcher, oversizedRegex).forEachIndexed { index, matcher ->
+            val error = compileFailure(listOf(rule(id = index.toLong(), domains = matcher)))
+            assertEquals(matcher, DestinationRoutingPolicyErrorCode.MATCHER_TOO_LONG, error.code)
+            assertEquals(matcher, DestinationRoutingPolicyField.DOMAINS, error.field)
+            assertEquals(matcher, 0, error.entryIndex)
+        }
     }
 
     @Test
