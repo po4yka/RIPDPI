@@ -28,7 +28,7 @@ Close every P1 finding from the Pixel 7 UI/UX audit in both GitHub app variants.
 - [x] Simple-variant diagnostics have tested progress, cancellation, terminal-state, and control-conflict behavior.
 - [x] Targeted tests, Roborazzi checks, variant builds, and Pixel 7 journeys pass.
 - [x] Independent review finds no unresolved P1 or P2 regression in the changed slice.
-- [ ] The atomic commits are rebased onto current `origin/main`, integrated, pushed, and verified by exact remote SHA.
+- [x] The atomic commits are rebased onto current `origin/main`, integrated, pushed, and verified by exact remote SHA.
 
 ## Work log
 
@@ -39,6 +39,7 @@ Close every P1 finding from the Pixel 7 UI/UX audit in both GitHub app variants.
 - 2026-07-18: Targeted app/core tests, affected lint/detekt, architecture health, and narrow Full/Simple Roborazzi verification passed. Remaining risk is limited to the required rebased-tree gates, final APK builds, repeated Pixel 7 journeys, and remote integration evidence.
 - 2026-07-18: Rebased-tree tests, lint/detekt, architecture health, locked Cargo metadata, and all four narrow Roborazzi fixtures passed. Native `githubFullDebug` and `githubSimpleDebug` APKs were built and verified at SHA-256 `962996fa965c588642c80e36f8a4c718ed8109d7f490a43632fffbdae078d2e2` and `8c3a9c6d28dee13e64a2cee84d3a29342af2367d3ed0e82489d17b2ea6b995e7`.
 - 2026-07-18: Independent combined-diff review finished with P1=0 and P2=0 after two follow-up fixes. The exact APKs passed all 14 Pixel 7 checks, including Full Up/Back, compact layouts, Simple progress/cancel, font scale 1.5, Arabic RTL, dark theme, unified status semantics, crash/ANR scan, and device-state restoration.
+- 2026-07-18: Fast-forwarded the verified commit series into `main`, pushed it to `origin/main`, and confirmed local and remote SHA `63293b347399ae042fdd6837c3768780e387c57d` exactly match.
 
 ## Golden rationale
 
