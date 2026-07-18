@@ -43,6 +43,98 @@ class SimpleHomeScreenTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun `connected session exposes enabled disconnect when lockdown is off`() {
+        var toggleClicks = 0
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Connected,
+                    blocksDisconnect = false,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = { toggleClicks += 1 },
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Disconnect").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(1, toggleClicks) }
+    }
+
+    @Test
+    fun `connected session disables disconnect while lockdown owns vpn lifecycle`() {
+        var toggleClicks = 0
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Connected,
+                    blocksDisconnect = true,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = { toggleClicks += 1 },
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Disconnect").assertIsNotEnabled()
+        composeRule.runOnIdle { assertEquals(0, toggleClicks) }
+    }
+
+    @Test
+    fun `connecting session disables disconnect while lockdown owns vpn lifecycle`() {
+        var toggleClicks = 0
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Connecting,
+                    blocksDisconnect = true,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = { toggleClicks += 1 },
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Disconnect").assertIsNotEnabled()
+        composeRule.runOnIdle { assertEquals(0, toggleClicks) }
+    }
+
+    @Test
+    fun `disconnected session keeps connect enabled`() {
+        var toggleClicks = 0
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    blocksDisconnect = true,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = { toggleClicks += 1 },
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Connect").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(1, toggleClicks) }
+    }
+
+    @Test
     fun `running report exposes stage progress cancel and disables connect`() {
         var cancelClicks = 0
         val diagnostics =

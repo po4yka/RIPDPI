@@ -1094,6 +1094,62 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `stop request is blocked while Android lockdown owns vpn lifecycle`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceController = serviceController,
+                    hardKillSwitchStateStore =
+                        FakeAndroidHardKillSwitchStateStore(
+                            AndroidHardKillSwitchSnapshot(
+                                status = AndroidHardKillSwitchStatus.ENABLED,
+                                alwaysOn = true,
+                                lockdown = true,
+                            ),
+                        ),
+                    initialize = false,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            assertTrue(viewModel.uiState.value.hardKillSwitch.blocksDisconnect)
+            viewModel.onStopRequested()
+
+            assertEquals(0, serviceController.stopCount)
+            collector.cancel()
+        }
+
+    @Test
+    fun `stop request dispatches when Android lockdown is off`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceController = serviceController,
+                    hardKillSwitchStateStore =
+                        FakeAndroidHardKillSwitchStateStore(
+                            AndroidHardKillSwitchSnapshot(
+                                status = AndroidHardKillSwitchStatus.NOT_ENABLED,
+                                alwaysOn = true,
+                                lockdown = false,
+                            ),
+                        ),
+                    initialize = false,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            assertFalse(viewModel.uiState.value.hardKillSwitch.blocksDisconnect)
+            viewModel.onStopRequested()
+
+            assertEquals(1, serviceController.stopCount)
+            collector.cancel()
+        }
+
+    @Test
     fun `home state exposes current approach summary`() =
         runTest {
             val settings =
@@ -1533,6 +1589,7 @@ class MainViewModelTest {
             ),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
+        hardKillSwitchStateStore: FakeAndroidHardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
         diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
@@ -1561,7 +1618,7 @@ class MainViewModelTest {
                     serviceStateStore = serviceStateStore,
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),
-                    hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
+                    hardKillSwitchStateStore = hardKillSwitchStateStore,
                 ),
             mainPermissionDependencies =
                 MainPermissionDependencies(

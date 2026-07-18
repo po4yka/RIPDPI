@@ -61,6 +61,7 @@ fun SimpleHomeScreen(
 
     SimpleHomeContent(
         connectionState = uiState.connectionState,
+        blocksDisconnect = uiState.hardKillSwitch.blocksDisconnect,
         diagnostics = diagnostics,
         activeTransport = activeTransport,
         snackbarHostState = snackbarHostState,
@@ -76,6 +77,7 @@ fun SimpleHomeScreen(
 @Composable
 internal fun SimpleHomeContent(
     connectionState: ConnectionState,
+    blocksDisconnect: Boolean = false,
     diagnostics: HomeDiagnosticsUiState,
     activeTransport: ActiveTransportDescriptor?,
     snackbarHostState: SnackbarHostState,
@@ -91,6 +93,7 @@ internal fun SimpleHomeContent(
     val connected = connectionState == ConnectionState.Connected
     val active = connecting || connected
     val reportBusy = diagnostics.analysisAction.busy
+    val disconnectBlocked = active && blocksDisconnect
     val reportStarting = diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.STARTING
     val reportCancellable = diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
     val protocolLabel = activeTransport?.toProtocolLabel()
@@ -147,7 +150,7 @@ internal fun SimpleHomeContent(
                     ),
                 onClick = { onToggleConnection(active) },
                 loading = connecting,
-                enabled = !reportBusy,
+                enabled = !reportBusy && !disconnectBlocked,
                 variant = RipDpiButtonVariant.Primary,
             )
 

@@ -209,7 +209,8 @@ class MainViewModel
         fun onStopRequested() {
             // Stop on any non-Halted status so an internal request issued during the brief
             // Reconnecting window is not silently dropped.
-            if (uiState.value.appStatus != AppStatus.Halted) {
+            val state = uiState.value
+            if (state.appStatus != AppStatus.Halted && !state.hardKillSwitch.blocksDisconnect) {
                 connectionActions.stop()
             }
         }
