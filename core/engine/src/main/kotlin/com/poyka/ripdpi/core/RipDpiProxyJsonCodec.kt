@@ -157,12 +157,16 @@ internal object RipDpiProxyJsonCodec {
         localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
         environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
+        relayRuntimeSelection: RipDpiRelayConfig? = null,
     ): String {
         val payload = decode(configJson)
         val original = json.parseToJsonElement(configJson).jsonObject
         val rewritten =
             when (payload) {
                 is NativeProxyConfig.CommandLine -> {
+                    require(relayRuntimeSelection == null) {
+                        "Relay runtime selection requires proxy UI preferences"
+                    }
                     val nextRuntimeContext =
                         ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext
                     val nextLogContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext
@@ -199,9 +203,8 @@ internal object RipDpiProxyJsonCodec {
                     val nextRuntimeContext =
                         ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext
                     val nextLogContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext
-                    patchObject(
-                        original,
-                        mapOf(
+                    val updates =
+                        mutableMapOf<String, JsonElement>(
                             "hostAutolearn" to hostAutolearn,
                             "rootMode" to JsonPrimitive(rootMode),
                             "rootHelperSocketPath" to
@@ -221,7 +224,13 @@ internal object RipDpiProxyJsonCodec {
                                         authToken = localAuthToken,
                                     ),
                                 ),
-                        ),
+                        )
+                    relayRuntimeSelection?.let { selection ->
+                        updates["upstreamRelay"] = patchRelayRuntimeSelection(original, selection)
+                    }
+                    patchObject(
+                        original,
+                        updates,
                     )
                 }
             }
@@ -255,3 +264,17 @@ private fun patchObject(
     source: JsonObject,
     updates: Map<String, JsonElement>,
 ): JsonObject = JsonObject(source.toMutableMap().apply { putAll(updates) })
+
+private fun patchRelayRuntimeSelection(
+    source: JsonObject,
+    selection: RipDpiRelayConfig,
+): JsonObject {
+    val selectedRelay =
+        RipDpiNativeProxyJson
+            .encodeToJsonElement(RelaySectionCodec.toNative(selection))
+            .jsonObject
+    return patchObject(
+        source["upstreamRelay"]?.jsonObject ?: JsonObject(emptyMap()),
+        selectedRelay,
+    )
+}

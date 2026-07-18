@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -65,6 +66,34 @@ class RipDpiProxyPreferencesTest {
         val payload = preferences.toNativeConfigJson().parseJsonObject()
         val overrides = payload.objectAt("sessionOverrides")
 
+        assertEquals(0, overrides.int("listenPortOverride"))
+        assertEquals(TestLocalProxyAuth, overrides.string("authToken"))
+    }
+
+    @Test
+    fun commandLineJsonPreferencesIgnoreRelayRuntimeSelection() {
+        val preferences =
+            RipDpiProxyJsonPreferences(
+                configJson = RipDpiProxyCmdPreferences("--port 1081 --no-domain").toNativeConfigJson(),
+                localListenPortOverride = 0,
+                localAuthToken = TestLocalProxyAuth,
+            )
+
+        val routed =
+            preferences.withRelayRuntimeSelection(
+                selectedConfig =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindHysteria2,
+                        profileId = "race-winner",
+                    ),
+                localSocksHost = "127.0.0.1",
+                localSocksPort = 41_255,
+            )
+        val payload = routed.toNativeConfigJson().parseJsonObject()
+        val overrides = payload.objectAt("sessionOverrides")
+
+        assertEquals("command_line", payload.string("kind"))
         assertEquals(0, overrides.int("listenPortOverride"))
         assertEquals(TestLocalProxyAuth, overrides.string("authToken"))
     }
@@ -914,6 +943,79 @@ class RipDpiProxyPreferencesTest {
         assertEquals(10809, warp.int("localSocksPort"))
         assertEquals(0, overrides.int("listenPortOverride"))
         assertEquals("token", overrides.string("authToken"))
+    }
+
+    @Test
+    fun jsonPreferencesRouteToPromotedRelayRaceEndpoint() {
+        val encodedRememberedJson =
+            RipDpiProxyUIPreferences(
+                nativeLogLevel = "debug",
+                relay =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindVlessReality,
+                        profileId = "remembered-relay",
+                        server = "relay.example",
+                        serverPort = 2053,
+                        realityPublicKey = "remembered-public-key",
+                        localSocksHost = "127.0.0.1",
+                        localSocksPort = 11980,
+                    ),
+            ).toNativeConfigJson()
+        val rememberedPayload = encodedRememberedJson.parseJsonObject()
+        val rememberedRelay = rememberedPayload.objectAt("upstreamRelay")
+        val rememberedJson =
+            JsonObject(
+                rememberedPayload.toMutableMap().apply {
+                    put(
+                        "upstreamRelay",
+                        JsonObject(
+                            rememberedRelay.toMutableMap().apply {
+                                put("futureRelayField", JsonPrimitive("preserved"))
+                            },
+                        ),
+                    )
+                },
+            ).toString()
+        val preferences =
+            RipDpiProxyJsonPreferences(
+                configJson = rememberedJson,
+                logContext = RipDpiLogContext(runtimeId = "runtime", mode = "vpn"),
+                localListenPortOverride = 0,
+                localAuthToken = "token",
+            )
+
+        val routed =
+            preferences.withRelayRuntimeSelection(
+                selectedConfig =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindHysteria2,
+                        profileId = "promoted-relay",
+                    ),
+                localSocksHost = "127.0.0.1",
+                localSocksPort = 41255,
+            )
+        val payload = routed.toNativeConfigJson().parseJsonObject()
+        val relay = payload.objectAt("upstreamRelay")
+        val overrides = payload.objectAt("sessionOverrides")
+        val logContext = payload.objectAt("logContext")
+
+        assertTrue(relay.boolean("enabled"))
+        val defaults = RipDpiRelayConfig()
+        assertEquals(RelayKindHysteria2, relay.string("kind"))
+        assertEquals("promoted-relay", relay.string("profileId"))
+        assertEquals("127.0.0.1", relay.string("localSocksHost"))
+        assertEquals(41255, relay.int("localSocksPort"))
+        assertEquals(defaults.server, relay.string("server"))
+        assertEquals(defaults.serverPort, relay.int("serverPort"))
+        assertEquals(defaults.realityPublicKey, relay.string("realityPublicKey"))
+        assertEquals("preserved", relay.string("futureRelayField"))
+        assertEquals("debug", payload.string("nativeLogLevel"))
+        assertEquals(0, overrides.int("listenPortOverride"))
+        assertEquals("token", overrides.string("authToken"))
+        assertEquals("runtime", logContext.string("runtimeId"))
+        assertEquals("vpn", logContext.string("mode"))
     }
 
     @Test

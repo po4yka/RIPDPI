@@ -97,7 +97,7 @@ fun RipDpiProxyPreferences.withRelayRuntimeSelection(
     return when (this) {
         is RipDpiProxyUIPreferences -> withRelayConfig(relay)
         is RipDpiProxyUiSessionPreferences -> copy(preferences = preferences.withRelayConfig(relay))
-        is RipDpiProxyJsonPreferences -> this
+        is RipDpiProxyJsonPreferences -> withRelayRuntimeSelection(relay)
         is RipDpiProxyCmdPreferences -> this
     }
 }
@@ -318,6 +318,7 @@ class RipDpiProxyJsonPreferences(
     private val localListenPortOverride: Int? = null,
     override val localAuthToken: String? = null,
     private val environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
+    private val relayRuntimeSelection: RipDpiRelayConfig? = null,
     internal val awg: AwgActivationRequest? = null,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
@@ -334,7 +335,30 @@ class RipDpiProxyJsonPreferences(
             localListenPortOverride = localListenPortOverride,
             localAuthToken = localAuthToken,
             environmentKind = environmentKind,
+            relayRuntimeSelection = relayRuntimeSelection,
         )
+
+    internal fun withRelayRuntimeSelection(relay: RipDpiRelayConfig): RipDpiProxyPreferences {
+        if (decodeRipDpiProxyUiPreferences(configJson) == null) {
+            return this
+        }
+        return RipDpiProxyJsonPreferences(
+            configJson = configJson,
+            hostAutolearnStorePath = hostAutolearnStorePath,
+            networkScopeKey = networkScopeKey,
+            runtimeContext = runtimeContext,
+            logContext = logContext,
+            rootMode = rootMode,
+            rootHelperSocketPath = rootHelperSocketPath,
+            geoipDbPath = geoipDbPath,
+            geositeDbPath = geositeDbPath,
+            localListenPortOverride = localListenPortOverride,
+            localAuthToken = localAuthToken,
+            environmentKind = environmentKind,
+            relayRuntimeSelection = relay,
+            awg = awg,
+        )
+    }
 
     internal fun withAwgEgressPort(port: Int): RipDpiProxyPreferences {
         val routed =

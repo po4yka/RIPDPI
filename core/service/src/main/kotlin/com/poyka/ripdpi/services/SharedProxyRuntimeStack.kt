@@ -28,6 +28,11 @@ internal class SharedProxyRuntimeStack(
     // Clears the sticky "foreign relay failed" signal. Invoked on every relay (re)start
     // and on stop so a clean session never inherits a previous session's Degraded state.
     private val clearForeignRelayFailed: () -> Unit = {},
+    private val relayRuntimeSelectionRenderer:
+        (RipDpiProxyPreferences, RipDpiRelayConfig, String, Int) -> RipDpiProxyPreferences =
+        { preferences, selection, host, port ->
+            preferences.withRelayRuntimeSelection(selection, host, port)
+        },
 ) {
     suspend fun start(
         proxyPreferences: RipDpiProxyPreferences,
@@ -62,18 +67,29 @@ internal class SharedProxyRuntimeStack(
                             onUnexpectedExit = onRelayExit,
                             onState = onInitialRelayRaceState,
                         )
-                    onInitialRelaySelected(promoted.result)
                     effectivePreferences =
-                        proxyPreferences.withRelayRuntimeSelection(
-                            selectedConfig =
-                                RipDpiRelayConfig(
-                                    enabled = true,
-                                    kind = promoted.result.selectedCandidate.relayKind,
-                                    profileId = promoted.result.selectedCandidate.profileId,
-                                ),
-                            localSocksHost = promoted.endpoint.host,
-                            localSocksPort = promoted.endpoint.port,
+                        relayRuntimeSelectionRenderer(
+                            proxyPreferences,
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = promoted.result.selectedCandidate.relayKind,
+                                profileId = promoted.result.selectedCandidate.profileId,
+                            ),
+                            promoted.endpoint.host,
+                            promoted.endpoint.port,
                         )
+                    val renderedRelay = effectivePreferences.relayConfigOrNull()
+                    check(
+                        renderedRelay != null &&
+                            renderedRelay.enabled &&
+                            renderedRelay.kind == promoted.result.selectedCandidate.relayKind &&
+                            renderedRelay.profileId == promoted.result.selectedCandidate.profileId &&
+                            renderedRelay.localSocksHost == promoted.endpoint.host &&
+                            renderedRelay.localSocksPort == promoted.endpoint.port,
+                    ) {
+                        "Promoted relay endpoint was not applied to proxy preferences"
+                    }
+                    onInitialRelaySelected(promoted.result)
                 }
             }
             proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
