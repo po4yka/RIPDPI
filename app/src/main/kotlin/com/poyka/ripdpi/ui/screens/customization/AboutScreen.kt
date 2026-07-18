@@ -40,6 +40,7 @@ import com.poyka.ripdpi.updates.UpdateUiStatus
 import com.poyka.ripdpi.updates.UpdateViewModel
 
 private const val BytesPerMib = 1024 * 1024
+private const val AboutPackageValueWeight = 1.6f
 
 @Composable
 fun AboutRoute(
@@ -157,8 +158,7 @@ private fun AboutBuildSection() {
             SettingsRow(
                 title = stringResource(R.string.about_package_name),
                 value = BuildConfig.APPLICATION_ID,
-                monospaceValue = true,
-                valueWeight = 1.6f,
+                monospaceValueWeight = AboutPackageValueWeight,
             )
         }
     }

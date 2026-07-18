@@ -260,7 +260,7 @@ private fun LocalBypassListenAddressRow(uiState: ConfigUiState) {
                 uiState.draft.proxyPort,
             ),
         leadingIcon = RipDpiIcons.Public,
-        monospaceValue = true,
+        monospaceValueWeight = 1f,
         showDivider = true,
         testTag = RipDpiTestTags.ConfigLocalBypassListenAddress,
     )
@@ -320,7 +320,7 @@ private fun LocalBypassDesyncRow(
             subtitle = stringResource(R.string.config_default_ttl_summary),
             value = uiState.draft.defaultTtl,
             leadingIcon = RipDpiIcons.Timer,
-            monospaceValue = true,
+            monospaceValueWeight = 1f,
         )
     }
 }

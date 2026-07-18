@@ -151,7 +151,7 @@ fun RipDpiTelemetryRows(
                 title = entry.label,
                 subtitle = entry.supporting,
                 value = entry.value,
-                monospaceValue = entry.monospaceValue,
+                monospaceValueWeight = 1f.takeIf { entry.monospaceValue },
                 showDivider = index != entries.lastIndex,
             )
         }
