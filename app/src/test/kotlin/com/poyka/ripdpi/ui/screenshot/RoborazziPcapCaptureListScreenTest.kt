@@ -52,6 +52,7 @@ private fun capturePcapCaptureListScreen(captures: ImmutableList<PcapCaptureMeta
             PcapCaptureListScreen(
                 captures = captures,
                 onCaptureSelected = {},
+                onBack = {},
             )
         }
     }

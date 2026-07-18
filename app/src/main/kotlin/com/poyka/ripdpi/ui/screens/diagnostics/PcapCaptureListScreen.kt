@@ -13,9 +13,12 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
@@ -32,6 +35,32 @@ private const val BytesPerKilobyte = 1024L
 fun PcapCaptureListScreen(
     captures: ImmutableList<PcapCaptureMetadata>,
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RipDpiScreenScaffold(
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList)),
+        topBar = {
+            RipDpiTopAppBar(
+                title = stringResource(R.string.title_pcap_capture_list),
+                navigationIcon = RipDpiIcons.Back,
+                onNavigationClick = onBack,
+                navigationContentDescription = stringResource(R.string.navigation_back),
+            )
+        },
+    ) { innerPadding ->
+        PcapCaptureListContent(
+            captures = captures,
+            onCaptureSelected = onCaptureSelected,
+            modifier = Modifier.padding(innerPadding),
+        )
+    }
+}
+
+@Composable
+private fun PcapCaptureListContent(
+    captures: ImmutableList<PcapCaptureMetadata>,
+    onCaptureSelected: (PcapCaptureMetadata) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -41,7 +70,6 @@ fun PcapCaptureListScreen(
         Column(
             modifier =
                 modifier
-                    .ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList))
                     .fillMaxWidth()
                     .padding(spacing.lg),
         ) {
@@ -56,7 +84,6 @@ fun PcapCaptureListScreen(
     Column(
         modifier =
             modifier
-                .ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList))
                 .fillMaxWidth()
                 .padding(spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),

@@ -6,11 +6,15 @@ import com.poyka.ripdpi.pcap.PcapCaptureMetadata
 import kotlinx.collections.immutable.persistentListOf
 
 @Composable
-fun PcapCaptureListRoute(onCaptureSelected: (PcapCaptureMetadata) -> Unit) {
+fun PcapCaptureListRoute(
+    onCaptureSelected: (PcapCaptureMetadata) -> Unit,
+    onBack: () -> Unit,
+) {
     val captures = remember { demoPcapCaptures() }
     PcapCaptureListScreen(
         captures = captures,
         onCaptureSelected = onCaptureSelected,
+        onBack = onBack,
     )
 }
 

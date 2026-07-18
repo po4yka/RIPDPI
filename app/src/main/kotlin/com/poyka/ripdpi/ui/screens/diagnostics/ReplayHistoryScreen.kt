@@ -20,6 +20,8 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -40,6 +42,32 @@ import kotlinx.collections.immutable.ImmutableList
 fun ReplayHistoryScreen(
     replays: ImmutableList<ReplayProbeResult>,
     onRunScan: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RipDpiScreenScaffold(
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.ReplayHistory)),
+        topBar = {
+            RipDpiTopAppBar(
+                title = stringResource(R.string.title_replay_history),
+                navigationIcon = RipDpiIcons.Back,
+                onNavigationClick = onBack,
+                navigationContentDescription = stringResource(R.string.navigation_back),
+            )
+        },
+    ) { innerPadding ->
+        ReplayHistoryContent(
+            replays = replays,
+            onRunScan = onRunScan,
+            modifier = Modifier.padding(innerPadding),
+        )
+    }
+}
+
+@Composable
+private fun ReplayHistoryContent(
+    replays: ImmutableList<ReplayProbeResult>,
+    onRunScan: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -47,7 +75,6 @@ fun ReplayHistoryScreen(
         Box(
             modifier =
                 modifier
-                    .ripDpiTestTag(RipDpiTestTags.screen(Route.ReplayHistory))
                     .fillMaxWidth()
                     .padding(spacing.lg),
         ) {
@@ -60,7 +87,7 @@ fun ReplayHistoryScreen(
     }
     ReplayHistoryList(
         replays = replays,
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.ReplayHistory)),
+        modifier = modifier,
     )
 }
 

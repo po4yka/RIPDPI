@@ -15,9 +15,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun ReplayHistoryRoute(
     onRunScan: () -> Unit,
+    onBack: () -> Unit,
     viewModel: ReplayHistoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refresh() }
-    ReplayHistoryScreen(replays = state, onRunScan = onRunScan)
+    ReplayHistoryScreen(replays = state, onRunScan = onRunScan, onBack = onBack)
 }

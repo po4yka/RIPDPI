@@ -332,6 +332,7 @@ class RipDpiScreenCatalogScreenshotTest {
                 ReplayHistoryScreen(
                     replays = persistentListOf(),
                     onRunScan = {},
+                    onBack = {},
                 )
             }
         }
