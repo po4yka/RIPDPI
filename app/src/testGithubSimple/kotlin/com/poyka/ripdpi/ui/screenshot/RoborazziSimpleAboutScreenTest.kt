@@ -24,4 +24,11 @@ class RoborazziSimpleAboutScreenTest {
             RipDpiAboutPreviewScene()
         }
     }
+
+    @Test
+    fun simpleAboutScreenMaximumFont() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 1000, fontScale = 2f) {
+            RipDpiAboutPreviewScene()
+        }
+    }
 }
