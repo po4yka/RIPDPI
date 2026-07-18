@@ -125,6 +125,19 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 msg=f"gate {gate['id']} must be noShip=true",
             )
 
+    def test_startup_barrier_is_a_mandatory_android_noship_gate(self) -> None:
+        gate_id = "killswitch-tun-establish-native-ready"
+        matching = [gate for gate in self.policy["gates"] if gate["id"] == gate_id]
+
+        self.assertIn(gate_id, gates.REQUIRED_GATE_IDS)
+        self.assertEqual(len(matching), 1)
+        self.assertEqual(matching[0]["category"], "kill-switch")
+        self.assertTrue(matching[0]["noShip"])
+        self.assertEqual(matching[0]["appliesTo"], ["android-client-release"])
+        self.assertEqual(
+            matching[0]["evidenceSource"], "dual-vantage-network-manifest"
+        )
+
     def test_missing_required_gate_is_rejected(self) -> None:
         broken = copy.deepcopy(self.policy)
         broken["gates"] = [
@@ -150,6 +163,68 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         broken["gates"][0]["failureClassification"] = "cosmetic"
         with self.assertRaisesRegex(ValueError, "failureClassification"):
             gates.validate_policy(broken)
+
+    def test_unknown_evidence_source_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["gates"][0]["evidenceSource"] = "self-attested-results"
+        with self.assertRaisesRegex(ValueError, "unknown evidenceSource"):
+            gates.validate_policy(broken)
+
+    def test_startup_barrier_evidence_contract_cannot_be_weakened(self) -> None:
+        gate_id = "killswitch-tun-establish-native-ready"
+        for mutation in ("missing-source", "missing-scope", "wrong-scope"):
+            with self.subTest(mutation=mutation):
+                broken = copy.deepcopy(self.policy)
+                startup_gate = next(
+                    gate for gate in broken["gates"] if gate["id"] == gate_id
+                )
+                if mutation == "missing-source":
+                    startup_gate.pop("evidenceSource")
+                elif mutation == "missing-scope":
+                    startup_gate.pop("appliesTo")
+                else:
+                    startup_gate["appliesTo"] = ["fleet-profile-rollout"]
+
+                with self.assertRaisesRegex(ValueError, "startup barrier gate"):
+                    gates.validate_policy(broken)
+
+    def test_cli_rejects_weakened_startup_barrier_policy(self) -> None:
+        gate_id = "killswitch-tun-establish-native-ready"
+        for mutation in ("missing-source", "missing-scope", "wrong-scope"):
+            with (
+                self.subTest(mutation=mutation),
+                tempfile.TemporaryDirectory() as root,
+            ):
+                broken = copy.deepcopy(self.policy)
+                startup_gate = next(
+                    gate for gate in broken["gates"] if gate["id"] == gate_id
+                )
+                if mutation == "missing-source":
+                    startup_gate.pop("evidenceSource")
+                elif mutation == "missing-scope":
+                    startup_gate.pop("appliesTo")
+                else:
+                    startup_gate["appliesTo"] = ["fleet-profile-rollout"]
+                policy_path = Path(root) / "policy.json"
+                results_path = Path(root) / "results.json"
+                policy_path.write_text(json.dumps(broken), encoding="utf-8")
+                results_path.write_text(
+                    json.dumps(self.results_document()), encoding="utf-8"
+                )
+
+                with self.assertRaisesRegex(ValueError, "startup barrier gate"):
+                    gates.main(
+                        [
+                            "--policy",
+                            str(policy_path),
+                            "--results",
+                            str(results_path),
+                            "--applies-to",
+                            "android-client-release",
+                            "--expected-source-sha",
+                            "a" * 40,
+                        ]
+                    )
 
     def test_wrong_version_is_rejected(self) -> None:
         broken = copy.deepcopy(self.policy)
@@ -327,25 +402,28 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                     1,
                 )
 
-    def test_main_accepts_complete_exact_sha_results(self) -> None:
+    def test_main_rejects_self_attested_startup_barrier_result(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             results_path = Path(directory) / "results.json"
             results_path.write_text(
                 json.dumps(self.results_document()), encoding="utf-8"
             )
-            self.assertEqual(
-                gates.main(
-                    [
-                        "--results",
-                        str(results_path),
-                        "--applies-to",
-                        "android-client-release",
-                        "--expected-source-sha",
-                        "a" * 40,
-                    ]
-                ),
-                0,
-            )
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                self.assertEqual(
+                    gates.main(
+                        [
+                            "--results",
+                            str(results_path),
+                            "--applies-to",
+                            "android-client-release",
+                            "--expected-source-sha",
+                            "a" * 40,
+                        ]
+                    ),
+                    1,
+                )
+            self.assertIn("require --evidence-manifest", stderr.getvalue())
 
     def test_main_accepts_derived_dual_vantage_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

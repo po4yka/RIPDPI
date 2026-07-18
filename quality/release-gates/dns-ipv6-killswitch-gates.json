@@ -162,6 +162,17 @@
       "appliesTo": [
         "android-client-release"
       ]
+    },
+    {
+      "id": "killswitch-tun-establish-native-ready",
+      "category": "kill-switch",
+      "noShip": true,
+      "requirement": "From TUN establishment until the native data plane reports ready, overlapping client-underlay and external-observer captures contain positive packet controls and no direct-path packets.",
+      "failureClassification": "kill-switch-failure",
+      "evidenceSource": "dual-vantage-network-manifest",
+      "appliesTo": [
+        "android-client-release"
+      ]
     }
   ],
   "noShipPolicy": {

@@ -534,6 +534,37 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "window ids"):
             self.assemble(observer=observer)
 
+    def test_startup_barrier_requires_complete_dual_vantage_packet_evidence(
+        self,
+    ) -> None:
+        gate_id = "killswitch-tun-establish-native-ready"
+        self.assertIn(gate_id, self.gate_ids)
+        self.assertEqual(evidence.expected_kind(gate_id), "direct_window")
+
+        for mutation, expected_error in (
+            ("missing", "window ids"),
+            ("missing-counter", "missing fields"),
+            ("zero-control", "positive control"),
+            ("mismatched", "overlap"),
+        ):
+            with self.subTest(mutation=mutation):
+                observer = self.observation("external-observer")
+                startup_window = next(
+                    window for window in observer["windows"] if window["id"] == gate_id
+                )
+                if mutation == "missing":
+                    observer["windows"].remove(startup_window)
+                elif mutation == "missing-counter":
+                    startup_window.pop("unexpectedPacketCount")
+                elif mutation == "zero-control":
+                    startup_window["expectedPacketCount"] = 0
+                else:
+                    startup_window["startedAtEpoch"] = self.finished_at + 1
+                    startup_window["finishedAtEpoch"] = self.finished_at + 2
+
+                with self.assertRaisesRegex(ValueError, expected_error):
+                    self.assemble(observer=observer)
+
     def test_non_overlapping_windows_are_rejected(self) -> None:
         observer = self.observation("external-observer")
         observer["windows"][0]["startedAtEpoch"] = self.finished_at + 1

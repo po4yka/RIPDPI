@@ -55,6 +55,9 @@ POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 
 EXPECTED_VERSION = "dns_ipv6_killswitch_release_gates_v1"
 EXPECTED_RESULTS_VERSION = "dns_ipv6_killswitch_results_v1"
+DUAL_VANTAGE_EVIDENCE_SOURCE = "dual-vantage-network-manifest"
+STARTUP_BARRIER_GATE_ID = "killswitch-tun-establish-native-ready"
+STARTUP_BARRIER_APPLIES_TO = ["android-client-release"]
 
 # Every acceptance criterion from docs/tasks/issues/
 # add-dns-ipv6-and-kill-switch-release-gates.md, expressed as the gate ids that
@@ -86,6 +89,7 @@ REQUIRED_GATE_IDS = {
     "killswitch-wifi-lte-switch",
     "killswitch-sleep-wake",
     "killswitch-android-always-on-block",
+    STARTUP_BARRIER_GATE_ID,
 }
 
 # Categories the policy must cover; mirrors the acceptance-criteria groupings.
@@ -153,6 +157,20 @@ def validate_policy(policy: dict) -> dict:
             raise ValueError(
                 f"gate {gate_id} has failureClassification {classification!r}; "
                 f"expected one of {sorted(REQUIRED_NOSHIP_CLASSIFICATIONS)}"
+            )
+
+        evidence_source = gate.get("evidenceSource")
+        if gate_id == STARTUP_BARRIER_GATE_ID and (
+            evidence_source != DUAL_VANTAGE_EVIDENCE_SOURCE
+            or gate.get("appliesTo") != STARTUP_BARRIER_APPLIES_TO
+        ):
+            raise ValueError(
+                "startup barrier gate must require dual-vantage network evidence "
+                "and apply exactly to android-client-release"
+            )
+        if evidence_source not in (None, DUAL_VANTAGE_EVIDENCE_SOURCE):
+            raise ValueError(
+                f"gate {gate_id} has unknown evidenceSource {evidence_source!r}"
             )
 
     missing_gates = REQUIRED_GATE_IDS - seen_ids
@@ -270,6 +288,17 @@ def validate_results_document(
     if not isinstance(results.get("gateResults"), dict):
         raise ValueError("results document must contain a gateResults object")
     return results
+
+
+def dual_vantage_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
+    """Return gates that cannot be satisfied by self-attested results."""
+    policy_scopes = policy.get("appliesTo", [])
+    return {
+        gate["id"]
+        for gate in policy["gates"]
+        if gate.get("evidenceSource") == DUAL_VANTAGE_EVIDENCE_SOURCE
+        and applies_to in gate.get("appliesTo", policy_scopes)
+    }
 
 
 def render_report(policy: dict, summary: dict) -> str:
@@ -439,6 +468,16 @@ def main(argv: list[str] | None = None) -> int:
             expected_source_sha=args.expected_source_sha,
             applies_to=args.applies_to,
         )
+        evidence_only_gates = dual_vantage_gate_ids(
+            policy, applies_to=args.applies_to
+        )
+        if evidence_only_gates:
+            print(
+                "dual-vantage gates require --evidence-manifest and cannot be "
+                "satisfied by --results: " + ", ".join(sorted(evidence_only_gates)),
+                file=sys.stderr,
+            )
+            return 1
     else:
         results = None
 
