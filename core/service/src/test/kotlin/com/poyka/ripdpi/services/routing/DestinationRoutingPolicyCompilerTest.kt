@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services.routing
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcher
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationIpMatcher
@@ -7,13 +8,17 @@ import com.poyka.ripdpi.core.routing.DestinationIpMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationPortRange
 import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
+import com.poyka.ripdpi.core.toNativeConfigJson
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class DestinationRoutingPolicyCompilerTest {
     @Test
@@ -159,6 +164,47 @@ class DestinationRoutingPolicyCompilerTest {
 
         assertTrue(result.rules.isEmpty())
         assertEquals(DestinationRoutingAction.TUNNELED, result.defaultAction)
+        assertEquals("", result.canonicalDigest)
+    }
+
+    @Test
+    fun `empty compiler policy uses wire sentinel identity`() {
+        val policy = compileSuccess(emptyList())
+
+        assertEquals("", policy.canonicalDigest)
+        RipDpiProxyUIPreferences(destinationRouting = policy).toNativeConfigJson()
+    }
+
+    @Test
+    fun `compiler output matches shared Kotlin Rust wire fixture`() {
+        val policy =
+            compileSuccess(
+                listOf(
+                    rule(
+                        id = 1,
+                        domains = "domain:example.com\ndomain_suffix:example.net\ngeosite:ru",
+                        ipCidrs = "192.0.2.0/24\ngeoip:ru",
+                        ports = "443-8443",
+                        action = OutboundTag.Bypass,
+                        network = RuleNetwork.BOTH,
+                    ),
+                ),
+            )
+        val encodedSection =
+            Json
+                .parseToJsonElement(RipDpiProxyUIPreferences(destinationRouting = policy).toNativeConfigJson())
+                .jsonObject
+                .getValue("destinationRouting")
+        val fixtureSection =
+            Json
+                .parseToJsonElement(
+                    File(repoRoot(), "core/engine/src/test/resources/fixtures/destination-routing-mixed.json")
+                        .readText(),
+                ).jsonObject
+                .getValue("destinationRouting")
+
+        assertEquals("e7ed9f9ec8688b89eea6f22a7ae6e93e7f441a903b9f9de96d387700c122bee7", policy.canonicalDigest)
+        assertEquals(fixtureSection, encodedSection)
     }
 
     @Test
@@ -383,6 +429,14 @@ class DestinationRoutingPolicyCompilerTest {
             "c".repeat(63),
             "d".repeat(49) + index.toString().padStart(3, '0'),
         ).joinToString(".")
+
+    private fun repoRoot(): File {
+        var current = File(System.getProperty("user.dir") ?: ".").absoluteFile
+        while (!File(current, "settings.gradle.kts").isFile) {
+            current = current.parentFile ?: error("Unable to locate repository root")
+        }
+        return current
+    }
 
     private fun rule(
         id: Long,

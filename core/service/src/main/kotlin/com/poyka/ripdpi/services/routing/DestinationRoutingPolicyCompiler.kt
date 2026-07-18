@@ -55,7 +55,7 @@ private class SnapshotCompiler(
         val rules = enabledRules.map(::compileRule)
         return DestinationRoutingPolicy(
             rules = rules,
-            canonicalDigest = DestinationRoutingPolicyDigest.compute(rules),
+            canonicalDigest = if (rules.isEmpty()) EmptyPolicyDigest else DestinationRoutingPolicyDigest.compute(rules),
         )
     }
 
@@ -232,6 +232,10 @@ private class SnapshotCompiler(
             }
         }
         return values.toList()
+    }
+
+    private companion object {
+        const val EmptyPolicyDigest = ""
     }
 }
 
@@ -451,10 +455,10 @@ private object DestinationRoutingPolicyDigest {
             digest.put(rule.action.name)
             digest.put(rule.network.name)
             rule.domains
-                .sortedWith(compareBy(DestinationDomainMatcher::kind, DestinationDomainMatcher::value))
+                .sortedWith(compareBy({ canonicalRank(it.kind) }, DestinationDomainMatcher::value))
                 .forEach { digest.put("d:${it.kind.name}:${it.value}") }
             rule.ipRanges
-                .sortedWith(compareBy(DestinationIpMatcher::kind, DestinationIpMatcher::value))
+                .sortedWith(compareBy({ canonicalRank(it.kind) }, DestinationIpMatcher::value))
                 .forEach { digest.put("i:${it.kind.name}:${it.value}") }
             rule.destinationPorts
                 .sortedWith(compareBy(DestinationPortRange::start, DestinationPortRange::endInclusive))
@@ -463,6 +467,20 @@ private object DestinationRoutingPolicyDigest {
         }
         return digest.digest().joinToString("") { "%02x".format(Locale.ROOT, it.toUByte().toInt()) }
     }
+
+    // Wire validators in Kotlin and Rust use these same explicit ranks. Never rely on enum declaration order here.
+    private fun canonicalRank(kind: DestinationDomainMatcherKind): Int =
+        when (kind) {
+            DestinationDomainMatcherKind.EXACT -> 0
+            DestinationDomainMatcherKind.SUFFIX -> 1
+            DestinationDomainMatcherKind.GEOSITE -> 2
+        }
+
+    private fun canonicalRank(kind: DestinationIpMatcherKind): Int =
+        when (kind) {
+            DestinationIpMatcherKind.CIDR -> 0
+            DestinationIpMatcherKind.GEO_IP -> 1
+        }
 
     private fun MessageDigest.put(value: String) {
         val bytes = value.toByteArray(Charsets.UTF_8)
