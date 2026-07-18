@@ -49,7 +49,8 @@ class StrategyConfigRouteTest {
             val context: Context = ApplicationProvider.getApplicationContext()
             val store =
                 object : StrategyConfigDraftStore {
-                    override suspend fun restore(sessionId: String): StrategyConfigEditorSession? = null
+                    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult =
+                        StrategyConfigDraftRestoreResult.MissingOrCorrupt
 
                     override suspend fun persist(
                         sessionId: String,

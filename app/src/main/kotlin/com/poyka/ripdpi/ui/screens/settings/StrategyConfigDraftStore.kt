@@ -38,7 +38,7 @@ internal fun isValidStrategyConfigSessionId(value: String): Boolean =
     runCatching { UUID.fromString(value).toString() == value }.getOrDefault(false)
 
 internal interface StrategyConfigDraftStore {
-    suspend fun restore(sessionId: String): StrategyConfigEditorSession?
+    suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult
 
     suspend fun persist(
         sessionId: String,
@@ -46,6 +46,18 @@ internal interface StrategyConfigDraftStore {
     )
 
     suspend fun delete(sessionId: String)
+}
+
+internal sealed interface StrategyConfigDraftRestoreResult {
+    data class Restored(
+        val session: StrategyConfigEditorSession,
+    ) : StrategyConfigDraftRestoreResult
+
+    data object MissingOrCorrupt : StrategyConfigDraftRestoreResult
+
+    data class RestoreFailed(
+        val cause: Throwable,
+    ) : StrategyConfigDraftRestoreResult
 }
 
 @Singleton
@@ -59,15 +71,31 @@ internal class FileStrategyConfigDraftStore
             @ApplicationContext context: Context,
         ) : this(File(context.noBackupFilesDir, StrategyConfigDraftDirectoryName))
 
-        override suspend fun restore(sessionId: String): StrategyConfigEditorSession? =
+        override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult =
             withContext(Dispatchers.IO) {
-                if (!isValidStrategyConfigSessionId(sessionId)) return@withContext null
+                if (!isValidStrategyConfigSessionId(sessionId)) {
+                    return@withContext StrategyConfigDraftRestoreResult.MissingOrCorrupt
+                }
                 val now = System.currentTimeMillis()
                 cleanupStaleFiles(now)
                 val file = fileFor(sessionId)
-                val restored = runCatching { readRecord(atomicFileFactory(file), now) }.getOrNull()
-                if (restored == null) atomicFileFactory(file).delete()
-                restored?.toSession()
+                if (!file.hasAtomicRecord()) return@withContext StrategyConfigDraftRestoreResult.MissingOrCorrupt
+                val restored =
+                    try {
+                        readRecord(atomicFileFactory(file), now)
+                    } catch (failure: IOException) {
+                        return@withContext StrategyConfigDraftRestoreResult.RestoreFailed(failure)
+                    } catch (failure: SecurityException) {
+                        return@withContext StrategyConfigDraftRestoreResult.RestoreFailed(failure)
+                    } catch (_: Exception) {
+                        null
+                    }
+                if (restored == null) {
+                    atomicFileFactory(file).delete()
+                    StrategyConfigDraftRestoreResult.MissingOrCorrupt
+                } else {
+                    StrategyConfigDraftRestoreResult.Restored(restored.toSession())
+                }
             }
 
         override suspend fun persist(
@@ -135,6 +163,8 @@ internal class FileStrategyConfigDraftStore
 
         private fun fileFor(sessionId: String): File = File(directory, sessionId + StrategyConfigDraftFileSuffix)
     }
+
+private fun File.hasAtomicRecord(): Boolean = exists() || File(path + ".bak").exists()
 
 internal interface StrategyConfigAtomicFile {
     fun openRead(): InputStream

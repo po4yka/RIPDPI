@@ -165,6 +165,29 @@ class StrategyConfigEditorViewModelTest {
     }
 
     @Test
+    fun `transient restore failure keeps hydration blocked and retries without deleting draft`() {
+        val restoredSession = dirtySession()
+        val store = TransientThenPausedRestoreStrategyConfigDraftStore(restoredSession)
+        val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+
+        assertTrue(viewModel.isHydrating)
+        assertNull(viewModel.session)
+        assertEquals(0, store.deleteCount)
+
+        viewModel.syncBuiltIn("tcp: settings")
+        assertTrue(viewModel.isHydrating)
+        assertNull(viewModel.session)
+        assertEquals(0, store.deleteCount)
+
+        store.finishRetry()
+
+        assertFalse(viewModel.isHydrating)
+        assertEquals(restoredSession.draft, requireNotNull(viewModel.session).draft)
+        assertTrue(requireNotNull(viewModel.session).isDirty)
+        assertEquals(0, store.deleteCount)
+    }
+
+    @Test
     fun `exit requested during hydration is decided once from restored dirty state`() {
         val sessionId = newStrategyConfigSessionId()
         val store = PausedRestoreStrategyConfigDraftStore(dirtySession())
@@ -405,7 +428,10 @@ class StrategyConfigEditorViewModelTest {
 private open class FakeStrategyConfigDraftStore : StrategyConfigDraftStore {
     val sessions = mutableMapOf<String, StrategyConfigEditorSession>()
 
-    override suspend fun restore(sessionId: String): StrategyConfigEditorSession? = sessions[sessionId]
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult =
+        sessions[sessionId]
+            ?.let(StrategyConfigDraftRestoreResult::Restored)
+            ?: StrategyConfigDraftRestoreResult.MissingOrCorrupt
 
     override suspend fun persist(
         sessionId: String,
@@ -463,13 +489,15 @@ private class ControllableDeleteStrategyConfigDraftStore : FakeStrategyConfigDra
 private class PausedRestoreStrategyConfigDraftStore(
     private val restored: StrategyConfigEditorSession,
 ) : StrategyConfigDraftStore {
-    private var continuation: kotlin.coroutines.Continuation<StrategyConfigEditorSession?>? = null
+    private var continuation: kotlin.coroutines.Continuation<StrategyConfigDraftRestoreResult>? = null
 
-    override suspend fun restore(sessionId: String): StrategyConfigEditorSession? =
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult =
         kotlin.coroutines.suspendCoroutine { continuation = it }
 
     fun finishRestore() {
-        requireNotNull(continuation).resumeWith(Result.success(restored))
+        requireNotNull(continuation).resumeWith(
+            Result.success(StrategyConfigDraftRestoreResult.Restored(restored)),
+        )
     }
 
     override suspend fun persist(
@@ -478,6 +506,39 @@ private class PausedRestoreStrategyConfigDraftStore(
     ) = Unit
 
     override suspend fun delete(sessionId: String) = Unit
+}
+
+private class TransientThenPausedRestoreStrategyConfigDraftStore(
+    private val restored: StrategyConfigEditorSession,
+) : StrategyConfigDraftStore {
+    private var attempts = 0
+    private var retryContinuation: kotlin.coroutines.Continuation<StrategyConfigDraftRestoreResult>? = null
+    var deleteCount = 0
+        private set
+
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult {
+        attempts += 1
+        return if (attempts == 1) {
+            StrategyConfigDraftRestoreResult.RestoreFailed(java.io.IOException("temporarily unavailable"))
+        } else {
+            kotlin.coroutines.suspendCoroutine { retryContinuation = it }
+        }
+    }
+
+    fun finishRetry() {
+        requireNotNull(retryContinuation).resumeWith(
+            Result.success(StrategyConfigDraftRestoreResult.Restored(restored)),
+        )
+    }
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) = Unit
+
+    override suspend fun delete(sessionId: String) {
+        deleteCount += 1
+    }
 }
 
 private class PausedPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {

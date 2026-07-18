@@ -6,7 +6,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -51,7 +50,7 @@ class StrategyConfigDraftStoreTest {
 
             store.persist(sessionId, StrategyConfigEditorSession(baseline = baseline, draft = draft))
 
-            val restored = requireNotNull(store.restore(sessionId))
+            val restored = store.restore(sessionId).requireRestored()
             assertEquals(baseline, restored.baseline)
             assertEquals(draft, restored.draft)
             assertFalse(restored.isSaving)
@@ -69,9 +68,9 @@ class StrategyConfigDraftStoreTest {
             fileFor(wrongSchemaId).writeText(persistedRecordJson(schemaVersion = 999, savedAt = now))
             fileFor(oversizedId).writeBytes(ByteArray(StrategyConfigMaxRecordBytes + 1) { 'x'.code.toByte() })
 
-            assertNull(store.restore(corruptId))
-            assertNull(store.restore(wrongSchemaId))
-            assertNull(store.restore(oversizedId))
+            assertEquals(StrategyConfigDraftRestoreResult.MissingOrCorrupt, store.restore(corruptId))
+            assertEquals(StrategyConfigDraftRestoreResult.MissingOrCorrupt, store.restore(wrongSchemaId))
+            assertEquals(StrategyConfigDraftRestoreResult.MissingOrCorrupt, store.restore(oversizedId))
             assertFalse(fileFor(corruptId).exists())
             assertFalse(fileFor(wrongSchemaId).exists())
             assertFalse(fileFor(oversizedId).exists())
@@ -105,7 +104,7 @@ class StrategyConfigDraftStoreTest {
                 """.trimIndent(),
             )
 
-            assertNull(store.restore(sessionId))
+            assertEquals(StrategyConfigDraftRestoreResult.MissingOrCorrupt, store.restore(sessionId))
             assertFalse(fileFor(sessionId).exists())
         }
 
@@ -118,7 +117,7 @@ class StrategyConfigDraftStoreTest {
             fileFor(staleId).writeText("stale")
             fileFor(staleId).setLastModified(System.currentTimeMillis() - StrategyConfigDraftTtlMillis - 1L)
 
-            assertNull(store.restore(missingId))
+            assertEquals(StrategyConfigDraftRestoreResult.MissingOrCorrupt, store.restore(missingId))
             assertFalse(fileFor(staleId).exists())
         }
 
@@ -136,8 +135,8 @@ class StrategyConfigDraftStoreTest {
             fileFor(expiredId).setLastModified(now)
             fileFor(futureId).setLastModified(now)
 
-            assertNull(store.restore(expiredId))
-            assertNull(store.restore(futureId))
+            assertEquals(StrategyConfigDraftRestoreResult.MissingOrCorrupt, store.restore(expiredId))
+            assertEquals(StrategyConfigDraftRestoreResult.MissingOrCorrupt, store.restore(futureId))
             assertFalse(fileFor(expiredId).exists())
             assertFalse(fileFor(futureId).exists())
         }
@@ -158,7 +157,7 @@ class StrategyConfigDraftStoreTest {
             check(baseFile.renameTo(backupFile))
             baseFile.writeText("partial")
 
-            val restored = requireNotNull(store.restore(sessionId))
+            val restored = store.restore(sessionId).requireRestored()
 
             assertEquals(complete.baseline, restored.baseline)
             assertEquals(complete.draft, restored.draft)
@@ -194,9 +193,27 @@ class StrategyConfigDraftStoreTest {
                 val failure = runCatching { failingStore.persist(sessionId, replacement) }.exceptionOrNull()
 
                 assertTrue("$failurePoint must be reported", failure is IOException)
-                val restored = requireNotNull(store.restore(sessionId))
+                val restored = store.restore(sessionId).requireRestored()
                 assertEquals("$failurePoint must keep the old record", complete.draft, restored.draft)
             }
+        }
+
+    @Test
+    fun `transient open failure preserves the previous complete record`() =
+        runTest {
+            val sessionId = newStrategyConfigSessionId()
+            val complete = dirtySession("tcp: complete")
+            store.persist(sessionId, complete)
+            val failingStore =
+                FileStrategyConfigDraftStore(directory) { file ->
+                    OpenReadFailingStrategyConfigAtomicFile(file)
+                }
+
+            val result = failingStore.restore(sessionId)
+
+            assertTrue(result is StrategyConfigDraftRestoreResult.RestoreFailed)
+            assertTrue(fileFor(sessionId).exists())
+            assertEquals(complete.draft, store.restore(sessionId).requireRestored().draft)
         }
 
     private fun fileFor(sessionId: String): File = File(directory, sessionId + StrategyConfigDraftFileSuffix)
@@ -247,6 +264,9 @@ class StrategyConfigDraftStoreTest {
     }
 }
 
+private fun StrategyConfigDraftRestoreResult.requireRestored(): StrategyConfigEditorSession =
+    (this as StrategyConfigDraftRestoreResult.Restored).session
+
 private enum class AtomicPersistFailure {
     StartWrite,
     Write,
@@ -288,6 +308,22 @@ private class FailingStrategyConfigAtomicFile(
     override fun failWrite(output: OutputStream) {
         delegate.failWrite(requireNotNull(delegateOutput))
     }
+
+    override fun delete() = delegate.delete()
+}
+
+private class OpenReadFailingStrategyConfigAtomicFile(
+    file: File,
+) : StrategyConfigAtomicFile {
+    private val delegate = AndroidStrategyConfigAtomicFile(file)
+
+    override fun openRead(): InputStream = throw IOException("openRead failed")
+
+    override fun startWrite(): OutputStream = delegate.startWrite()
+
+    override fun finishWrite(output: OutputStream) = delegate.finishWrite(output)
+
+    override fun failWrite(output: OutputStream) = delegate.failWrite(output)
 
     override fun delete() = delegate.delete()
 }
