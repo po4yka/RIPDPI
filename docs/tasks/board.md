@@ -2,7 +2,7 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (27)
+## Doing (28)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -33,6 +33,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture](issues/audit-relay-mux-default-nested-handshake-conformance.md) | unassigned | 2026-07-14 |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 | medium | ui | [Disable Simple disconnect controls under Android lockdown](issues/disable-simple-disconnect-under-android-lockdown.md) | Codex Simple lockdown lane | 2026-07-18 |
+| medium | ui | [Fix Pixel 7 UI audit P2 findings](issues/fix-pixel7-ui-audit-p2.md) | Codex | 2026-07-18 |
 
 ## Review (6)
 
