@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -80,6 +81,7 @@ class ConfigViewModel
                 importPkcs12 = ::importRelayMasquePkcs12,
             )
         internal val masqueImportState = masqueImports.state
+        private val editorSessionIds = AtomicLong()
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
         private val masquePrivacyPassBuildStatus = masquePrivacyPassAvailability.buildStatus()
 
@@ -205,6 +207,8 @@ class ConfigViewModel
                         ).toUiState(draft),
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                     masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
+                    isEditorDirty = session.isDirty,
+                    isEditorLoading = session.hydrationPending,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -276,27 +280,43 @@ class ConfigViewModel
         fun startEditingPreset(presetId: String = "custom") {
             val preset = uiState.value.presets.firstOrNull { it.id == presetId }
             val draft = preset?.draft ?: uiState.value.draft
+            val sessionId = editorSessionIds.incrementAndGet()
             editorSession.value =
                 ConfigEditorSession(
+                    sessionId = sessionId,
                     presetId = presetId,
                     draft = draft,
+                    hydrationPending = true,
                 )
             viewModelScope.launch {
                 val hydratedDraft = relayArtifacts.hydrate(draft)
                 editorSession.update { current ->
-                    if (current.presetId != presetId) {
-                        current
-                    } else {
-                        current.copy(draft = hydratedDraft)
-                    }
+                    current.completeHydration(sessionId, hydratedDraft)
                 }
             }
         }
 
         fun updateDraft(transform: ConfigDraft.() -> ConfigDraft) {
             editorSession.update { current ->
-                val baseDraft = current.draft ?: uiState.value.draft
-                current.copy(draft = baseDraft.transform())
+                when {
+                    current.hydrationPending -> {
+                        current
+                    }
+
+                    current.presetId != null -> {
+                        current.copy(draft = requireNotNull(current.draft).transform())
+                    }
+
+                    else -> {
+                        val baseDraft = uiState.value.draft
+                        ConfigEditorSession(
+                            sessionId = editorSessionIds.incrementAndGet(),
+                            presetId = "custom",
+                            baselineDraft = baseDraft,
+                            draft = baseDraft.transform(),
+                        )
+                    }
+                }
             }
         }
 
@@ -364,7 +384,9 @@ class ConfigViewModel
         }
 
         fun saveDraft() {
-            val draft = editorSession.value.draft ?: uiState.value.draft
+            val session = editorSession.value
+            if (session.hydrationPending) return
+            val draft = session.draft ?: uiState.value.draft
             viewModelScope.launch {
                 val relayProfileRecords = relayArtifacts.listProfiles()
                 if (

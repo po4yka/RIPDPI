@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.config
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
@@ -59,3 +60,38 @@ internal fun updateMasqueGeohash(
         requestCoarseLocationPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 }
+
+internal fun handleMasqueDocumentResult(
+    viewModel: ConfigViewModel,
+    action: MasqueImportAction?,
+    uri: Uri?,
+    onPkcs12Selected: (Uri) -> Unit,
+) {
+    when {
+        uri == null || action == null -> Unit
+        action == MasqueImportAction.CertificateChain -> viewModel.importRelayMasqueCertificateChain(uri)
+        action == MasqueImportAction.PrivateKey -> viewModel.importRelayMasquePrivateKey(uri)
+        action == MasqueImportAction.Pkcs12 -> onPkcs12Selected(uri)
+    }
+}
+
+internal fun createModeEditorExternalActions(
+    viewModel: ConfigViewModel,
+    context: Context,
+    requestCoarseLocationPermission: (String) -> Unit,
+    requestDocument: (MasqueImportAction) -> Unit,
+): ModeEditorExternalActions =
+    ModeEditorExternalActions(
+        onRelayMasqueCloudflareGeohashEnabledChanged = { enabled ->
+            updateMasqueGeohash(viewModel, context, requestCoarseLocationPermission, enabled)
+        },
+        onRelayMasqueImportCertificateChainClicked = {
+            requestDocument(MasqueImportAction.CertificateChain)
+        },
+        onRelayMasqueImportPrivateKeyClicked = {
+            requestDocument(MasqueImportAction.PrivateKey)
+        },
+        onRelayMasqueImportPkcs12Clicked = {
+            requestDocument(MasqueImportAction.Pkcs12)
+        },
+    )

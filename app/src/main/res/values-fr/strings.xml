@@ -1125,6 +1125,10 @@ fakeddisorder endhost</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d domaines OK • %3$d ms en moyenne</string>
     <string name="bye_dpi_proxy_ip_setting">Adresse d\'écoute</string>
     <string name="config_cancel">Annuler</string>
+    <string name="unsaved_changes_title">Abandonner les modifications non enregistrées ?</string>
+    <string name="unsaved_changes_body">Vos modifications ne sont pas enregistrées. Les abandonner et quitter cet écran ?</string>
+    <string name="unsaved_changes_discard">Abandonner</string>
+    <string name="unsaved_changes_keep_editing">Continuer la modification</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
     <string name="config_chain_cli_override_note">CLI overrides bypass strategy</string>
     <string name="config_default_ttl_helper">Laisser vide pour utiliser la valeur par défaut du moteur.</string>

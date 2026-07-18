@@ -640,6 +640,10 @@
     <string name="config_edit_current">Edit profile</string>
     <string name="config_save">Save</string>
     <string name="config_cancel">Cancel</string>
+    <string name="unsaved_changes_title">Discard unsaved changes?</string>
+    <string name="unsaved_changes_body">Your edits have not been saved. Discard them and leave this screen?</string>
+    <string name="unsaved_changes_discard">Discard</string>
+    <string name="unsaved_changes_keep_editing">Keep editing</string>
     <string name="config_preset_recommended_title">Recommended profile</string>
     <string name="config_preset_recommended_body">Recommended profile for most networks. Keeps the local VPN path and safe RIPDPI tuning.</string>
     <string name="config_preset_proxy_title">Local bypass profile</string>

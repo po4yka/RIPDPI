@@ -1125,6 +1125,10 @@ fakeddisorder endhost</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d dominios correctos • %3$d ms de media</string>
     <string name="bye_dpi_proxy_ip_setting">Dirección de escucha</string>
     <string name="config_cancel">Cancelar</string>
+    <string name="unsaved_changes_title">¿Descartar los cambios sin guardar?</string>
+    <string name="unsaved_changes_body">Tus cambios no se han guardado. ¿Quieres descartarlos y salir de esta pantalla?</string>
+    <string name="unsaved_changes_discard">Descartar</string>
+    <string name="unsaved_changes_keep_editing">Seguir editando</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
     <string name="config_chain_cli_override_note">CLI overrides bypass strategy</string>
     <string name="config_default_ttl_helper">Deja vacío para usar el valor por defecto del motor.</string>

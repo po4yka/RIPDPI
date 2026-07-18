@@ -627,6 +627,10 @@
     <string name="config_edit_current">تعديل الملف الشخصي</string>
     <string name="config_save">حفظ</string>
     <string name="config_cancel">إلغاء</string>
+    <string name="unsaved_changes_title">هل تريد تجاهل التغييرات غير المحفوظة؟</string>
+    <string name="unsaved_changes_body">لم تُحفظ تعديلاتك. هل تريد تجاهلها ومغادرة هذه الشاشة؟</string>
+    <string name="unsaved_changes_discard">تجاهل</string>
+    <string name="unsaved_changes_keep_editing">متابعة التعديل</string>
     <string name="config_preset_recommended_title">الملف الشخصي الموصى به</string>
     <string name="config_preset_recommended_body">ملف شخصي موصى به لمعظم الشبكات. يحافظ على مسار VPN المحلي وضبط RIPDPI الآمن.</string>
     <string name="config_preset_proxy_title">ملف Local bypass الشخصي</string>

@@ -221,6 +221,8 @@ data class ConfigUiState(
     val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,
     val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl,
+    val isEditorDirty: Boolean = false,
+    val isEditorLoading: Boolean = false,
     val isLoading: Boolean = false,
 )
 
@@ -247,9 +249,29 @@ sealed interface ConfigEffect {
 }
 
 internal data class ConfigEditorSession(
+    val sessionId: Long = 0L,
     val presetId: String? = null,
+    val baselineDraft: ConfigDraft? = null,
     val draft: ConfigDraft? = null,
-)
+    val hydrationPending: Boolean = false,
+) {
+    val isDirty: Boolean
+        get() = !hydrationPending && baselineDraft != null && draft != baselineDraft
+
+    fun completeHydration(
+        expectedSessionId: Long,
+        hydratedDraft: ConfigDraft,
+    ): ConfigEditorSession =
+        if (sessionId == expectedSessionId && hydrationPending) {
+            copy(
+                baselineDraft = hydratedDraft,
+                draft = hydratedDraft,
+                hydrationPending = false,
+            )
+        } else {
+            this
+        }
+}
 
 internal const val ConfigFieldDnsIp = "dnsIp"
 internal const val ConfigFieldProxyIp = "proxyIp"

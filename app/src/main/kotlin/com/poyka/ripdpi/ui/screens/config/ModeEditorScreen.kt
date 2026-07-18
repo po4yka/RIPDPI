@@ -13,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -58,13 +59,28 @@ internal fun ModeEditorScreen(
             }
         },
         bottomBar = {
-            ModeEditorBottomBar(actions = actions)
+            if (!uiState.isEditorLoading) {
+                ModeEditorBottomBar(actions = actions)
+            }
         },
     ) { innerPadding ->
-        ModeEditorBody(
-            uiState = uiState,
-            actions = actions,
-            modifier = Modifier.padding(innerPadding),
-        )
+        if (uiState.isEditorLoading) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .ripDpiTestTag(RipDpiTestTags.ModeEditorLoading),
+                contentAlignment = Alignment.Center,
+            ) {
+                RipDpiSpinner()
+            }
+        } else {
+            ModeEditorBody(
+                uiState = uiState,
+                actions = actions,
+                modifier = Modifier.padding(innerPadding),
+            )
+        }
     }
 }

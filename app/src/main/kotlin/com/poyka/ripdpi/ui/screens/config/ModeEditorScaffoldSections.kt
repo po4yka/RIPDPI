@@ -72,7 +72,7 @@ internal fun ModeEditorBottomBar(actions: ModeEditorActions) {
         ) {
             RipDpiButton(
                 text = stringResource(R.string.config_cancel),
-                onClick = actions.onBack,
+                onClick = actions.onCancel,
                 modifier =
                     Modifier
                         .weight(1f)

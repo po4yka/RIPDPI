@@ -43,4 +43,8 @@
     <string name="asset_provider_updated_days_ago">Обновлено %1$d дн. назад</string>
     <string name="asset_provider_updated_today">Обновлено сегодня</string>
     <string name="asset_provider_updated_never">Никогда не обновлялось</string>
+    <string name="unsaved_changes_title">Отменить несохранённые изменения?</string>
+    <string name="unsaved_changes_body">Изменения ещё не сохранены. Отменить их и покинуть этот экран?</string>
+    <string name="unsaved_changes_discard">Отменить изменения</string>
+    <string name="unsaved_changes_keep_editing">Продолжить редактирование</string>
 </resources>

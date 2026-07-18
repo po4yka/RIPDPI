@@ -124,6 +124,10 @@ internal object RipDpiTestTags {
     const val ModeEditorCommandLineToggle = "mode-editor-command-line-toggle"
     const val ModeEditorCommandLineArgs = "mode-editor-command-line-args"
     const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"
+    const val ModeEditorLoading = "mode-editor-loading"
+    const val UnsavedChangesDialog = "unsaved-changes-dialog"
+    const val UnsavedChangesKeepEditing = "unsaved-changes-keep-editing"
+    const val UnsavedChangesDiscard = "unsaved-changes-discard"
 
     const val SettingsDnsSettings = "settings-dns-settings"
     const val SettingsAdvancedConnectivity = "settings-advanced-connectivity"

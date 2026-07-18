@@ -631,6 +631,10 @@
     <string name="config_edit_current">ویرایش نمایه</string>
     <string name="config_save">ذخیره</string>
     <string name="config_cancel">لغو</string>
+    <string name="unsaved_changes_title">تغییرات ذخیره‌نشده کنار گذاشته شود؟</string>
+    <string name="unsaved_changes_body">ویرایش‌های شما ذخیره نشده‌اند. آن‌ها را کنار بگذارید و از این صفحه خارج شوید؟</string>
+    <string name="unsaved_changes_discard">کنار گذاشتن</string>
+    <string name="unsaved_changes_keep_editing">ادامه ویرایش</string>
     <string name="config_preset_recommended_title">نمایه پیشنهادی</string>
     <string name="config_preset_recommended_body">نمایه پیشنهادی برای بیشتر شبکه‌ها. مسیر VPN محلی و تنظیم امن RIPDPI را نگه می‌دارد.</string>
     <string name="config_preset_proxy_title">نمایه Local bypass</string>

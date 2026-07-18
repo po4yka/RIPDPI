@@ -630,6 +630,10 @@
     <string name="config_edit_current">प्रोफ़ाइल संपादित करें</string>
     <string name="config_save">सहेजें</string>
     <string name="config_cancel">रद्द करें</string>
+    <string name="unsaved_changes_title">बिना सहेजे बदलाव छोड़ें?</string>
+    <string name="unsaved_changes_body">आपके बदलाव सहेजे नहीं गए हैं। उन्हें छोड़कर इस स्क्रीन से बाहर जाएँ?</string>
+    <string name="unsaved_changes_discard">छोड़ें</string>
+    <string name="unsaved_changes_keep_editing">संपादन जारी रखें</string>
     <string name="config_preset_recommended_title">अनुशंसित प्रोफ़ाइल</string>
     <string name="config_preset_recommended_body">अधिकांश नेटवर्कों के लिए अनुशंसित प्रोफ़ाइल। लोकल VPN पथ और सुरक्षित RIPDPI ट्यूनिंग बनाए रखती है।</string>
     <string name="config_preset_proxy_title">लोकल बायपास प्रोफ़ाइल</string>

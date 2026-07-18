@@ -22,7 +22,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,10 +53,6 @@ import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.MasqueImportAction
 import com.poyka.ripdpi.activities.buildConfigPresets
-import com.poyka.ripdpi.activities.relayChainHopAdded
-import com.poyka.ripdpi.activities.relayChainHopMoved
-import com.poyka.ripdpi.activities.relayChainHopProfileIdChanged
-import com.poyka.ripdpi.activities.relayChainHopRemoved
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
@@ -79,14 +74,11 @@ import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
@@ -100,7 +92,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentMapOf
 
-@Suppress("LongMethod")
 @Composable
 fun ModeEditorRoute(
     onBack: () -> Unit,
@@ -112,12 +103,20 @@ fun ModeEditorRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var pkcs12Password by remember { mutableStateOf("") }
-    val handleBack = {
+    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
+    val discardAndNavigate = {
         viewModel.cancelEditing()
         onBack()
     }
+    val requestBack = {
+        if (uiState.isEditorDirty) {
+            showUnsavedChangesDialog = true
+        } else {
+            discardAndNavigate()
+        }
+    }
 
-    BackHandler(onBack = handleBack)
+    BackHandler(onBack = requestBack)
 
     val documentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -130,163 +129,51 @@ fun ModeEditorRoute(
             }
         }
 
-    LaunchedEffect(viewModel) {
-        if (viewModel.uiState.value.editingPreset == null) {
-            viewModel.startEditingPreset()
-        }
-    }
+    ModeEditorStartEffect(viewModel, uiState.isLoading, uiState.editingPreset?.id)
     ModeEditorEffects(viewModel, snackbarHostState, onBack)
 
-    masqueImportState.pendingPkcs12Uri?.let {
-        RipDpiDialog(
-            onDismissRequest = {
-                viewModel.masqueImports.dismissPkcs12()
-                pkcs12Password = ""
-            },
-            title = stringResource(R.string.config_relay_masque_pkcs12_dialog_title),
-            confirmAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.config_relay_import),
-                    onClick = {
-                        viewModel.masqueImports.importPendingPkcs12(pkcs12Password)
-                        pkcs12Password = ""
-                    },
-                ),
-            dismissAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.config_cancel),
-                    onClick = {
-                        viewModel.masqueImports.dismissPkcs12()
-                        pkcs12Password = ""
-                    },
-                ),
-        ) {
-            RipDpiTextField(
-                value = pkcs12Password,
-                onValueChange = { pkcs12Password = it },
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.config_relay_masque_pkcs12_password),
-                        helperText = stringResource(R.string.config_relay_masque_pkcs12_password_helper),
-                    ),
-            )
-        }
+    ModeEditorUnsavedChangesDialog(
+        visible = showUnsavedChangesDialog,
+        onKeepEditing = { showUnsavedChangesDialog = false },
+        onDiscard = {
+            showUnsavedChangesDialog = false
+            discardAndNavigate()
+        },
+    )
+
+    val clearPkcs12 = {
+        viewModel.masqueImports.dismissPkcs12()
+        pkcs12Password = ""
     }
+    ModeEditorPkcs12Dialog(
+        uri = masqueImportState.pendingPkcs12Uri,
+        password = pkcs12Password,
+        onPasswordChanged = { pkcs12Password = it },
+        onImport = { _, password ->
+            viewModel.masqueImports.importPendingPkcs12(password)
+            pkcs12Password = ""
+        },
+        onDismiss = clearPkcs12,
+    )
 
     ModeEditorScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         actions =
-            ModeEditorActions(
-                onBack = handleBack,
-                onModeSelected = { viewModel.updateDraft { copy(mode = it) } },
-                onDnsIpChanged = { viewModel.updateDraft { copy(dnsIp = it) } },
-                onProxyIpChanged = { viewModel.updateDraft { copy(proxyIp = it) } },
-                onProxyPortChanged = { viewModel.updateDraft { copy(proxyPort = it) } },
-                onMaxConnectionsChanged = { viewModel.updateDraft { copy(maxConnections = it) } },
-                onBufferSizeChanged = { viewModel.updateDraft { copy(bufferSize = it) } },
-                onChainDslChanged = remember(viewModel) { viewModel::updateChainDsl },
-                onDefaultTtlChanged = { viewModel.updateDraft { copy(defaultTtl = it) } },
-                onCommandLineEnabledChanged = { viewModel.updateDraft { copy(useCommandLineSettings = it) } },
-                onCommandLineArgsChanged = { viewModel.updateDraft { copy(commandLineArgs = it) } },
-                onRelayEnabledChanged = { viewModel.updateDraft { copy(relayEnabled = it) } },
-                onRelayKindChanged = { relayKind -> updateRelayKind(viewModel, relayKind) },
-                onRelayProfileIdChanged = { viewModel.updateDraft { copy(relayProfileId = it) } },
-                onRelayPresetSelected = remember(viewModel) { viewModel::applyRelayPreset },
-                onRelayServerChanged = { viewModel.updateDraft { copy(relayServer = it) } },
-                onRelayServerPortChanged = { viewModel.updateDraft { copy(relayServerPort = it) } },
-                onRelayServerNameChanged = { viewModel.updateDraft { copy(relayServerName = it) } },
-                onRelayRealityPublicKeyChanged = { viewModel.updateDraft { copy(relayRealityPublicKey = it) } },
-                onRelayRealityShortIdChanged = { viewModel.updateDraft { copy(relayRealityShortId = it) } },
-                onRelayVlessTransportChanged = { viewModel.updateDraft { copy(relayVlessTransport = it) } },
-                onRelayXhttpPathChanged = { viewModel.updateDraft { copy(relayXhttpPath = it) } },
-                onRelayXhttpHostChanged = { viewModel.updateDraft { copy(relayXhttpHost = it) } },
-                onRelayXhttpModeChanged = { viewModel.updateDraft { copy(relayXhttpMode = it) } },
-                onRelayCloudflareTunnelModeChanged = { viewModel.updateDraft { copy(relayCloudflareTunnelMode = it) } },
-                onRelayCloudflarePublishLocalOriginUrlChanged = {
-                    viewModel.updateDraft { copy(relayCloudflarePublishLocalOriginUrl = it) }
-                },
-                onRelayCloudflareCredentialsRefChanged = {
-                    viewModel.updateDraft { copy(relayCloudflareCredentialsRef = it) }
-                },
-                onRelayCloudflareTunnelTokenChanged = {
-                    viewModel.updateDraft { copy(relayCloudflareTunnelToken = it) }
-                },
-                onRelayCloudflareTunnelCredentialsJsonChanged = {
-                    viewModel.updateDraft { copy(relayCloudflareTunnelCredentialsJson = it) }
-                },
-                onRelayVlessUuidChanged = { viewModel.updateDraft { copy(relayVlessUuid = it) } },
-                onRelayHysteriaPasswordChanged = { viewModel.updateDraft { copy(relayHysteriaPassword = it) } },
-                onRelayHysteriaSalamanderKeyChanged = {
-                    viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) }
-                },
-                onRelayChainHopProfileIdChanged = { index, profileId ->
-                    viewModel.updateDraft { relayChainHopProfileIdChanged(index, profileId) }
-                },
-                onRelayChainHopAdded = { viewModel.updateDraft { relayChainHopAdded() } },
-                onRelayChainHopRemoved = { index -> viewModel.updateDraft { relayChainHopRemoved(index) } },
-                onRelayChainHopMoved = { from, to -> viewModel.updateDraft { relayChainHopMoved(from, to) } },
-                onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
-                onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
-                onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
-                onRelayMasqueClientCertificateChainPemChanged = {
-                    viewModel.updateDraft { copy(relayMasqueClientCertificateChainPem = it) }
-                },
-                onRelayMasqueClientPrivateKeyPemChanged = {
-                    viewModel.updateDraft { copy(relayMasqueClientPrivateKeyPem = it) }
-                },
-                onRelayMasqueUseHttp2FallbackChanged = {
-                    viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) }
-                },
-                onRelayMasqueCloudflareGeohashEnabledChanged = { enabled ->
-                    updateMasqueGeohash(viewModel, context, coarseLocationPermissionLauncher::launch, enabled)
-                },
-                onRelayMasqueImportCertificateChainClicked = {
-                    viewModel.masqueImports.begin(MasqueImportAction.CertificateChain)
-                    documentLauncher.launch(arrayOf("*/*"))
-                },
-                onRelayMasqueImportPrivateKeyClicked = {
-                    viewModel.masqueImports.begin(MasqueImportAction.PrivateKey)
-                    documentLauncher.launch(arrayOf("*/*"))
-                },
-                onRelayMasqueImportPkcs12Clicked = {
-                    viewModel.masqueImports.begin(MasqueImportAction.Pkcs12)
-                    documentLauncher.launch(arrayOf("*/*"))
-                },
-                onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },
-                onRelayTuicPasswordChanged = { viewModel.updateDraft { copy(relayTuicPassword = it) } },
-                onRelayTuicZeroRttChanged = { viewModel.updateDraft { copy(relayTuicZeroRtt = it) } },
-                onRelayTuicCongestionControlChanged = {
-                    viewModel.updateDraft { copy(relayTuicCongestionControl = it) }
-                },
-                onRelayShadowTlsPasswordChanged = { viewModel.updateDraft { copy(relayShadowTlsPassword = it) } },
-                onRelayShadowTlsInnerProfileIdChanged = {
-                    viewModel.updateDraft { copy(relayShadowTlsInnerProfileId = it) }
-                },
-                onRelayNaiveUsernameChanged = { viewModel.updateDraft { copy(relayNaiveUsername = it) } },
-                onRelayNaivePasswordChanged = { viewModel.updateDraft { copy(relayNaivePassword = it) } },
-                onRelayNaivePathChanged = { viewModel.updateDraft { copy(relayNaivePath = it) } },
-                onRelayPtBridgeLineChanged = { viewModel.updateDraft { copy(relayPtBridgeLine = it) } },
-                onRelayWebTunnelUrlChanged = { viewModel.updateDraft { copy(relayWebTunnelUrl = it) } },
-                onRelaySnowflakeBrokerUrlChanged = { viewModel.updateDraft { copy(relaySnowflakeBrokerUrl = it) } },
-                onRelaySnowflakeFrontDomainChanged = { viewModel.updateDraft { copy(relaySnowflakeFrontDomain = it) } },
-                onRelayFinalmaskTypeChanged = { viewModel.updateDraft { copy(relayFinalmaskType = it) } },
-                onRelayFinalmaskHeaderHexChanged = { viewModel.updateDraft { copy(relayFinalmaskHeaderHex = it) } },
-                onRelayFinalmaskTrailerHexChanged = { viewModel.updateDraft { copy(relayFinalmaskTrailerHex = it) } },
-                onRelayFinalmaskRandRangeChanged = { viewModel.updateDraft { copy(relayFinalmaskRandRange = it) } },
-                onRelayFinalmaskSudokuSeedChanged = { viewModel.updateDraft { copy(relayFinalmaskSudokuSeed = it) } },
-                onRelayFinalmaskFragmentPacketsChanged = {
-                    viewModel.updateDraft { copy(relayFinalmaskFragmentPackets = it) }
-                },
-                onRelayFinalmaskFragmentMinBytesChanged = {
-                    viewModel.updateDraft { copy(relayFinalmaskFragmentMinBytes = it) }
-                },
-                onRelayFinalmaskFragmentMaxBytesChanged = {
-                    viewModel.updateDraft { copy(relayFinalmaskFragmentMaxBytes = it) }
-                },
-                onRelayUdpEnabledChanged = { viewModel.updateDraft { copy(relayUdpEnabled = it) } },
-                onRelayLocalSocksPortChanged = { viewModel.updateDraft { copy(relayLocalSocksPort = it) } },
-                onSave = remember(viewModel) { viewModel::saveDraft },
+            createModeEditorActions(
+                viewModel = viewModel,
+                onBack = requestBack,
+                onCancel = discardAndNavigate,
+                externalActions =
+                    createModeEditorExternalActions(
+                        viewModel = viewModel,
+                        context = context,
+                        requestCoarseLocationPermission = coarseLocationPermissionLauncher::launch,
+                        requestDocument = { action: MasqueImportAction ->
+                            viewModel.masqueImports.begin(action)
+                            documentLauncher.launch(arrayOf("*/*"))
+                        },
+                    ),
             ),
         modifier = modifier,
     )
