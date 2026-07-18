@@ -62,6 +62,10 @@ class HomeScreenDirectVpnActionTest {
         }
 
         composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed)
+            .performScrollTo()
+            .performClick()
+        composeRule
             .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
             .performScrollTo()
             .assertIsDisplayed()

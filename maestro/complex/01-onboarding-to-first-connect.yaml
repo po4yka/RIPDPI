@@ -36,6 +36,18 @@ appId: com.poyka.ripdpi
     id: "onboarding-finish-anyway"
 - assertVisible:
     id: "home-screen"
+- scrollUntilVisible:
+    element:
+      id: "home-modes-diagnostics-header"
+    direction: DOWN
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        id: "home-modes-diagnostics-collapsed"
+    commands:
+      - tapOn:
+          id: "home-modes-diagnostics-collapsed"
 - assertVisible:
     id: "home-mode-primary-local-dpi-bypass"
 - tapOn:

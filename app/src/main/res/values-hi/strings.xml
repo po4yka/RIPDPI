@@ -391,6 +391,7 @@
     <string name="home_permission_issue_with_retry">%1$s अनुमति प्रक्रिया जारी रखने के लिए कनेक्शन बटन का उपयोग करें।</string>
     <string name="home_permission_issue_with_settings">%1$s एक्सेस ठीक करने के लिए Settings खोलें या नीचे दिए गए बटन का उपयोग करें।</string>
     <string name="home_setup_health_title">सेटअप स्वास्थ्य</string>
+    <string name="home_modes_diagnostics_title">मोड और निदान</string>
     <string name="home_setup_health_collapsed_format">ध्यान देने योग्य आइटम: %1$d</string>
     <string name="home_setup_health_expanded">सेटअप आइटम और रिकवरी कार्रवाइयाँ देखें।</string>
     <string name="home_connection_button_connecting">कनेक्ट हो रहा है…</string>

@@ -322,6 +322,55 @@ class RipDpiConnectionActuatorTest {
     }
 
     @Test
+    fun `route label stays readable above rail at compact accessibility font scales`() {
+        val routeLabel = "Local VPN through protected outbound route"
+        var fontScale by mutableStateOf(1.5f)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                        RipDpiConnectionActuator(
+                            state =
+                                actuatorState(HomeConnectionActuatorStatus.Engaging).copy(
+                                    routeLabel = routeLabel,
+                                ),
+                            onActivate = {},
+                            onDeactivate = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = RipDpiTestTags.ConnectionActuatorButton,
+                        )
+                    }
+                }
+            }
+        }
+
+        listOf(1.5f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale = scale }
+            composeRule.waitForIdle()
+
+            val textLayouts = mutableListOf<TextLayoutResult>()
+            val route =
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.ConnectionActuatorRouteLabel, useUnmergedTree = true)
+                    .assertIsDisplayed()
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+                        action(textLayouts)
+                    }.fetchSemanticsNode()
+            val rail =
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.ConnectionActuatorRail, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+
+            assertTrue(
+                textLayouts.single().let { layout ->
+                    (0 until layout.lineCount).none(layout::isLineEllipsized)
+                },
+            )
+            assertTrue(route.boundsInRoot.bottom <= rail.boundsInRoot.top)
+        }
+    }
+
+    @Test
     fun `direct terminal label is not ellipsized at maximum accessibility font scale`() {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {

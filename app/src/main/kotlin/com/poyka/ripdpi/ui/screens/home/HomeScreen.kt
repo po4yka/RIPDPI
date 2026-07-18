@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
+import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
@@ -155,19 +156,33 @@ fun HomeScreen(
 
         HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
 
-        HomeModeCardList(
-            uiState = uiState,
-            homeDiagnostics = homeDiagnostics,
-            diagnosticCard = diagnosticCard,
-            onBypassToggle = onBypassToggle,
-            onVpnToggle = onVpnToggle,
-            onDiagnosticRun = onDiagnosticRun,
-            onBypassCardClick = onBypassCardClick,
-            onVpnCardClick = onVpnCardClick,
-            onDiagnosticCardClick = onDiagnosticCardClick,
-            onOpenModeEditor = onOpenModeEditor,
-            onTogglePcapRecording = onTogglePcapRecording,
-        )
+        var modesExpanded by rememberSaveable { mutableStateOf(false) }
+        RipDpiAccordion(
+            title = stringResource(R.string.home_modes_diagnostics_title),
+            expanded = modesExpanded,
+            onExpandedChange = { modesExpanded = it },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeModesDiagnosticsHeader),
+            headerTestTag =
+                if (modesExpanded) {
+                    RipDpiTestTags.HomeModesDiagnosticsExpanded
+                } else {
+                    RipDpiTestTags.HomeModesDiagnosticsCollapsed
+                },
+        ) {
+            HomeModeCardList(
+                uiState = uiState,
+                homeDiagnostics = homeDiagnostics,
+                diagnosticCard = diagnosticCard,
+                onBypassToggle = onBypassToggle,
+                onVpnToggle = onVpnToggle,
+                onDiagnosticRun = onDiagnosticRun,
+                onBypassCardClick = onBypassCardClick,
+                onVpnCardClick = onVpnCardClick,
+                onDiagnosticCardClick = onDiagnosticCardClick,
+                onOpenModeEditor = onOpenModeEditor,
+                onTogglePcapRecording = onTogglePcapRecording,
+            )
+        }
 
         HomeDiagnosticsBottomSheetHost(
             homeDiagnostics = homeDiagnostics,

@@ -27,6 +27,7 @@ internal object RipDpiTestTags {
     const val BottomNavIndicator = "bottom-nav-indicator"
 
     const val ConnectionActuatorButton = "connection-actuator-button"
+    const val ConnectionActuatorRail = "connection-actuator-rail"
     const val ConnectionActuatorRouteLabel = "connection-actuator-route-label"
     const val ConnectionActuatorTerminalLabel = "connection-actuator-terminal-label"
     const val RouteStack = "route-stack"
@@ -59,6 +60,9 @@ internal object RipDpiTestTags {
     const val HomeSetupHealthRow = "home-setup-health-row"
     const val HomeSetupHealthDetails = "home-setup-health-details"
     const val HomeSetupHealthAction = "home-setup-health-action"
+    const val HomeModesDiagnosticsHeader = "home-modes-diagnostics-header"
+    const val HomeModesDiagnosticsCollapsed = "home-modes-diagnostics-collapsed"
+    const val HomeModesDiagnosticsExpanded = "home-modes-diagnostics-expanded"
     const val HomeModeDisabledHint = "home-mode-disabled-hint"
     const val HomeNetworkConditionBanner = "home-network-condition-banner"
 

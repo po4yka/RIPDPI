@@ -278,6 +278,7 @@
     <string name="home_mode_proxy">Proxy local</string>
     <string name="home_permission_issue_with_settings">%1$s Abre Ajustes o usa el botón de abajo para reparar el acceso.</string>
     <string name="home_setup_health_title">Estado de configuración</string>
+    <string name="home_modes_diagnostics_title">Modos y diagnóstico</string>
     <string name="home_setup_health_collapsed_format">Elementos que necesitan atención: %1$d</string>
     <string name="home_setup_health_expanded">Revisa los elementos de configuración y las acciones de recuperación.</string>
     <string name="home_remediation_browser_relay_step_choose_preset">Elige un preajuste de camuflaje de navegador como NaiveProxy o ShadowTLS y vuelve a ejecutar el análisis.</string>

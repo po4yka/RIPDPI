@@ -278,6 +278,7 @@
     <string name="home_mode_proxy">Lokaler Proxy</string>
     <string name="home_permission_issue_with_settings">%1$s Öffnen Sie die Einstellungen oder verwenden Sie die Schaltfläche unten, um den Zugriff zu reparieren.</string>
     <string name="home_setup_health_title">Einrichtungsstatus</string>
+    <string name="home_modes_diagnostics_title">Modi und Diagnose</string>
     <string name="home_setup_health_collapsed_format">Elemente mit Aufmerksamkeit: %1$d</string>
     <string name="home_setup_health_expanded">Prüfen Sie Einrichtungspunkte und Wiederherstellungsaktionen.</string>
     <string name="home_remediation_browser_relay_step_choose_preset">Wählen Sie eine Browser-Tarnungs-Voreinstellung wie NaiveProxy oder ShadowTLS und führen Sie die Analyse erneut aus.</string>

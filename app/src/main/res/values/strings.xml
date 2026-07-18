@@ -399,6 +399,7 @@
     <string name="home_permission_issue_with_retry">%1$s Use the connection button to continue the permission flow.</string>
     <string name="home_permission_issue_with_settings">%1$s Open Settings or use the button below to repair access.</string>
     <string name="home_setup_health_title">Setup health</string>
+    <string name="home_modes_diagnostics_title">Modes &amp; diagnostics</string>
     <string name="home_setup_health_collapsed_format">Items needing attention: %1$d</string>
     <string name="home_setup_health_expanded">Review setup items and recovery actions.</string>
     <string name="home_connection_button_connecting">Connecting\u2026</string>

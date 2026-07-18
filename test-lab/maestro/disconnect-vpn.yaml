@@ -2,9 +2,21 @@ appId: com.poyka.ripdpi
 ---
 - launchApp:
     stopApp: false
+- scrollUntilVisible:
+    element:
+      id: "home-modes-diagnostics-header"
+    direction: DOWN
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        id: "home-modes-diagnostics-collapsed"
+    commands:
+      - tapOn:
+          id: "home-modes-diagnostics-collapsed"
 - assertVisible:
     text: "^Active$"
 - tapOn:
-    id: "home-mode-primary-local-dpi-bypass"
+    id: "home-mode-primary-remote-vpn"
 - assertVisible:
     text: "^Inactive$"

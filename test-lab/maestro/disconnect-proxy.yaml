@@ -1,5 +1,17 @@
 appId: com.poyka.ripdpi
 ---
+- scrollUntilVisible:
+    element:
+      id: "home-modes-diagnostics-header"
+    direction: DOWN
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        id: "home-modes-diagnostics-collapsed"
+    commands:
+      - tapOn:
+          id: "home-modes-diagnostics-collapsed"
 - assertVisible:
     id: "home-mode-primary-local-dpi-bypass"
 - assertVisible:

@@ -392,6 +392,7 @@
     <string name="home_permission_issue_with_retry">%1$s از دکمهٔ اتصال برای ادامهٔ جریان مجوز استفاده کنید.</string>
     <string name="home_permission_issue_with_settings">%1$s برای بازیابی دسترسی، تنظیمات را باز کنید یا از دکمهٔ زیر استفاده کنید.</string>
     <string name="home_setup_health_title">سلامت راه‌اندازی</string>
+    <string name="home_modes_diagnostics_title">حالت‌ها و عیب‌یابی</string>
     <string name="home_setup_health_collapsed_format">موارد نیازمند توجه: %1$d</string>
     <string name="home_setup_health_expanded">موارد راه‌اندازی و اقدام‌های بازیابی را بررسی کنید.</string>
     <string name="home_connection_button_connecting">در حال اتصال…</string>

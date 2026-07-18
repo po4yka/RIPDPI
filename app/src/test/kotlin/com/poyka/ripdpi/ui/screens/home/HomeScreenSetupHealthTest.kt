@@ -175,7 +175,7 @@ class HomeScreenSetupHealthTest {
     }
 
     @Test
-    fun `setup health remains above primary actuator`() {
+    fun `primary actuator remains above setup health`() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -189,19 +189,19 @@ class HomeScreenSetupHealthTest {
             }
         }
 
-        val warningBottom =
+        val warningTop =
             composeRule
                 .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
                 .fetchSemanticsNode()
                 .boundsInRoot
-                .bottom
-        val actuatorTop =
+                .top
+        val actuatorBottom =
             composeRule
                 .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
                 .fetchSemanticsNode()
                 .boundsInRoot
-                .top
-        assertTrue(actuatorTop > warningBottom)
+                .bottom
+        assertTrue(actuatorBottom <= warningTop)
     }
 
     private fun hardKillSwitchWarning(): HardKillSwitchUiState =

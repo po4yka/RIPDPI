@@ -130,7 +130,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `home renders primary actuator and the three mode cards in order`() {
+    fun `home keeps mode cards collapsed until disclosure expands`() {
         var primaryConnectionToggles = 0
         composeRule.setContent {
             RipDpiTheme {
@@ -148,13 +148,24 @@ class HomeScreenTest {
         HomeMode.entries.forEach { mode ->
             composeRule
                 .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
-                .assertCountEquals(1)
+                .assertCountEquals(0)
         }
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsExpanded).assertCountEquals(0)
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .assertIsDisplayed()
             .assertHasClickAction()
             .performSemanticsAction(SemanticsActions.OnClick)
+        expandModesAndDiagnostics()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsExpanded).assertIsDisplayed()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed).assertCountEquals(0)
+        HomeMode.entries.forEach { mode ->
+            composeRule
+                .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
+                .assertCountEquals(1)
+        }
         composeRule.onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.Diagnostic.name)).performScrollTo()
         val bypassTop = cardTop(HomeMode.LocalDpiBypass)
         val vpnTop = cardTop(HomeMode.RemoteVpn)
@@ -193,6 +204,7 @@ class HomeScreenTest {
             }
         }
 
+        expandModesAndDiagnostics()
         clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
         clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
         clickHomeNode(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name))
@@ -297,6 +309,7 @@ class HomeScreenTest {
             }
         }
 
+        expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name))
             .performScrollTo()
@@ -410,6 +423,10 @@ class HomeScreenTest {
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .assertCountEquals(0)
+        expandModesAndDiagnostics()
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertCountEquals(0)
     }
 
     @Test
@@ -440,6 +457,10 @@ class HomeScreenTest {
             }
         }
 
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertCountEquals(0)
+        expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .performScrollTo()
@@ -479,6 +500,10 @@ class HomeScreenTest {
             }
         }
 
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertCountEquals(0)
+        expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .performScrollTo()
@@ -545,6 +570,14 @@ class HomeScreenTest {
 
     private fun clickHomeNode(tag: String) {
         composeRule.onNodeWithTag(tag).performScrollTo().performClick()
+    }
+
+    private fun expandModesAndDiagnostics() {
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed)
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
     }
 
     private fun modeCards(activeMode: HomeMode? = null) =

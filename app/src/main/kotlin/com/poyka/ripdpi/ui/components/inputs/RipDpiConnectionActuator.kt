@@ -139,6 +139,7 @@ fun RipDpiConnectionActuator(
                     Modifier
                         .fillMaxWidth()
                         .height(metrics.height)
+                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail)
                         .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
             ) {
                 val carriageWidthPx = with(density) { metrics.carriageWidth.toPx() }
@@ -190,6 +191,12 @@ private fun ActuatorStateAction(
             text = state.statusDescription,
             style = type.bodyEmphasisBold,
             color = stateStyle.label,
+        )
+        Text(
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRouteLabel),
+            text = state.routeLabel,
+            style = type.smallLabel,
+            color = stateStyle.routeLabel,
         )
         Row(
             modifier =
@@ -379,17 +386,6 @@ private fun ActuatorRail(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.weight(1f))
-            Text(
-                modifier =
-                    Modifier
-                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRouteLabel)
-                        .padding(horizontal = spacing.md),
-                text = state.routeLabel,
-                style = type.smallLabel,
-                color = stateStyle.routeLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
             TerminalSlot(
                 label = state.trailingLabel,
                 container = terminalColor,
