@@ -3,13 +3,13 @@ title: Fix Pixel 7 UI audit P2 findings
 type: task
 status: doing
 area: ui
-priority: medium
+priority: high
 owner: Codex
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-07-18
-updated: 2026-07-18
+updated: 2026-07-19
 ---
 
 ## Goal
@@ -49,3 +49,4 @@ Close every confirmed P2 finding from the Pixel 7 Full and Simple UI/UX audit, a
 - 2026-07-18: Combined review follow-ups assigned to isolated serialized lanes: `home_p2_worker` retains exclusive ownership of Home/actuator source, tests, and Home/locale goldens; `mode_p2_followup` owns Mode Editor hydration/save failure and race handling; `asset_p2_followup` owns Asset Provider configuration locking during active operations. The coordinator owns Strategy Config recreation safety, the visible Logs copy affordance, final combined review, Pixel 7 verification, and integration.
 - 2026-07-18: Independent recreation review confirmed Strategy drafts survive configuration changes but not system process death. `strategy_process_death_worker` exclusively owns the private atomic draft store, opaque saved-state identifier, restoration/cleanup logic, and focused regression tests in an isolated worktree; the coordinator retains Strategy visual fixtures and integration.
 - 2026-07-18: Focused Asset busy-state recording exposed a shared loading-button motion defect: the raw Material spinner ignored the design-system static-motion contract and prevented capture teardown. `asset_p2_followup` additionally owns the narrow `RipDpiButton` loading-glyph fix and its focused regression/golden evidence; no other shared component is in scope.
+- 2026-07-19: Final combined review found one false-discard P1 and follow-up P2 gaps. Isolated ownership is serialized by boundary: `final_mode_state_worker` owns Mode Editor save/exit, preset-session, and MASQUE callback races; `final_strategy_state_worker` owns Strategy exit/save/draft-store failure safety; `final_asset_storage_worker` owns typed install/storage failures; `final_home_visual_worker` exclusively owns Home/actuator adaptive layouts, Home goldens, variant isolation, automation selectors, and related UI documentation. The coordinator owns Logs semantics, About large-font behavior, final Pixel 7/profileable verification, recombination, and integration. Locale sets and Home goldens remain exclusive to the Home lane.
