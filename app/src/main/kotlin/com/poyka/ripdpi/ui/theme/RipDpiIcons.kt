@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Home
@@ -63,7 +64,7 @@ object RipDpiIcons {
     val Error: ImageVector = Icons.Outlined.Cancel
     val Info: ImageVector = Icons.Outlined.Info
     val Lock: ImageVector = Icons.Outlined.Lock
-    val Copy: ImageVector = Icons.Outlined.Share
+    val Copy: ImageVector = Icons.Outlined.ContentCopy
     val Share: ImageVector = Icons.Outlined.Share
     val ChevronRight: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight
     val ChevronLeft: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft

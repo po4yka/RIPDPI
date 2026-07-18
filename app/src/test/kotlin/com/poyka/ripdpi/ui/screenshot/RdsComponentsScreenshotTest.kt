@@ -1,11 +1,17 @@
 package com.poyka.ripdpi.ui.screenshot
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
+import com.poyka.ripdpi.activities.LogEntry
+import com.poyka.ripdpi.activities.LogSeverity
+import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiLinkPreviewCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiLinkPreviewStrings
@@ -74,6 +80,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyAbState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyImportState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
+import com.poyka.ripdpi.ui.screens.logs.LogsStreamCard
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import org.junit.Test
@@ -457,6 +464,38 @@ class RdsComponentsScreenshotTest {
                 type = "CONN",
                 message = "strategy.applied tlsrec_split_host",
                 tone = LogRowTone.Connection,
+            )
+        }
+    }
+
+    @Test
+    fun logsStreamCopyActions() {
+        captureBothThemes("logsStreamCopyActions", widthDp = 420, heightDp = 360) {
+            LogsStreamCard(
+                entries =
+                    listOf(
+                        LogEntry(
+                            id = "service-started",
+                            createdAtMs = 1_711_452_264_000,
+                            timestamp = "12:31:04",
+                            subsystem = LogSubsystem.Service,
+                            severity = LogSeverity.Info,
+                            message = "VPN service started",
+                            source = "service",
+                        ),
+                        LogEntry(
+                            id = "diagnostics-failure",
+                            createdAtMs = 1_711_452_282_000,
+                            timestamp = "12:31:22",
+                            subsystem = LogSubsystem.Diagnostics,
+                            severity = LogSeverity.Error,
+                            message = "Proxy service failed to start",
+                            source = "diagnostics",
+                        ),
+                    ),
+                listState = rememberLazyListState(),
+                onCopyEntry = {},
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }
