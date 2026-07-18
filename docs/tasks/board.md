@@ -32,13 +32,14 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture](issues/audit-relay-mux-default-nested-handshake-conformance.md) | unassigned | 2026-07-14 |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 
-## Review (5)
+## Review (6)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | high | diagnostics | [Add connection-concurrency as an independent evidence axis](issues/add-connection-concurrency-evidence-axis.md) | Codex | 2026-07-10 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | high | transport | [Add a parallel active-probe race for initial transport selection](issues/parallel-active-probe-race-initial-transport-selection.md) | Codex | 2026-07-10 |
+| high | vpn | [Fix Simple live transport failover and XHTTP labeling](issues/fix-simple-live-transport-failover-and-labeling.md) | Codex live transport remediation | 2026-07-18 |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | unassigned | 2026-07-14 |
 | low | rust-native | [Wire ShadowTLS version-mismatch into service telemetry](issues/wire-shadowtls-version-mismatch-into-service-telemetry.md) | unassigned | 2026-07-14 |
 
@@ -51,13 +52,14 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | diagnostics | [Add network-security-config with opportunistic domainEncryption](issues/add-network-security-config-with-opportunistic-domainencryption.md) | unassigned | 2026-06-05 |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | unassigned | 2026-06-05 |
 | medium | testing | [Add Hysteria 2 Salamander obfuscation conformance fixtures](issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md) | unassigned | 2026-06-11 |
-| medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | unassigned | 2026-06-11 |
+| medium | transport | [Investigate operator-specific protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | unassigned | 2026-06-11 |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | unassigned | 2026-06-11 |
 
-## Todo (1)
+## Todo (2)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
+| critical | routing | [Implement fail-closed destination split routing policy](issues/implement-destination-split-routing-policy.md) | Serialized routing policy lane | 2026-07-18 |
 | medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | unassigned | 2026-06-11 |
 
 ## Backlog (15)
@@ -66,7 +68,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 |---|---|---|---|---|
 | medium | android | [Introduce a VPN-session Hilt scope to reset per-session service state](issues/introduce-vpn-session-hilt-scope.md) | unassigned | 2026-06-10 |
 | medium | epic | [Epic - Transport obfuscation and censor-signature research](issues/epic-transport-obfuscation-research.md) | unassigned | 2026-06-11 |
-| medium | rust-native | [Add Cloudflare Workers domain-fronting bypass adapter](issues/add-cloudflare-workers-domain-fronting-bypass.md) | unassigned | 2026-06-10 |
+| medium | rust-native | [Add optional Cloudflare Workers transport mode](issues/add-cloudflare-workers-domain-fronting-bypass.md) | unassigned | 2026-06-10 |
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | unassigned | 2026-06-11 |
 | medium | rust-native | [Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel](issues/introduce-ws-transport-port-to-fix-layer-violations.md) | unassigned | 2026-06-10 |
 | medium | rust-native | [Split the 12-method PolicyPort trait into selection and learning sub-traits](issues/split-policyport-trait-selection-learning.md) | unassigned | 2026-06-10 |

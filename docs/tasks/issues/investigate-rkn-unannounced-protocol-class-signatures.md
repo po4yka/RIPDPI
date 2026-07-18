@@ -1,5 +1,5 @@
 ---
-title: "Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)"
+title: "Investigate operator-specific protocol-class signatures (Dec 2025 shift)"
 type: task
 status: blocked
 area: transport
@@ -17,7 +17,7 @@ linked_task: null
 
 ## Motivation
 
-RKN shifted in Dec 2025 to protocol-class fingerprint blocks (SOCKS5, VLESS, L2TP) without enumerating operators. Open question: which additional unannounced protocol-class signatures have landed, and do dpi-checkers / DPI Detector / rkn-block-checker tools detect them? This directly determines which protocols RIPDPI can still rely on as primary transports.
+Some network operators shifted in Dec 2025 to protocol-class fingerprint blocks (SOCKS5, VLESS, L2TP) without publishing a signature catalogue. The open question is which additional operator-specific protocol-class signatures are observable and whether the listed diagnostic tools detect them. This determines which protocols remain reliable primary transports on each measured network scope.
 
 Child task of `epic-transport-obfuscation-research` (the former `epic-direct-mode-transport-policy-and-verdicts` was removed).
 
@@ -40,7 +40,7 @@ Diagnostic investigation, not a feature build:
 ## Risks / open questions
 
 - "Unannounced signatures" are by definition not catalogued publicly — empirical detection requires sustained testing across many protocols.
-- False positives possible: a transport may fail for reasons unrelated to RKN (server outage, ISP issue, certificate expiry).
+- False positives are possible: a transport may fail for reasons unrelated to the measured middlebox policy (server outage, ISP issue, certificate expiry).
 
 ## References
 
@@ -58,9 +58,9 @@ Diagnostic investigation, not a feature build:
 
 **Transport enumeration.** "Every transport in `native/rust/crates/`" must be made precise — there are 100+ crates and most are not transports. The probe set is the protocol crates with a wire-distinguishable client fingerprint: `ripdpi-vless`, `ripdpi-trojan`, `ripdpi-shadowsocks`, `ripdpi-shadowtls`, `ripdpi-anytls`, `ripdpi-tuic`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-mieru`, `ripdpi-naiveproxy`, `ripdpi-ssh`, `ripdpi-tor`, `ripdpi-webtunnel`, `ripdpi-ws-tunnel`, `ripdpi-xhttp`, `ripdpi-warp-core`, plus the relay-layer TLS transports under `ripdpi-relay-tls-transports`. Caveat: `ripdpi-mieru` and `ripdpi-ssh` are stubbed — they enter the matrix as `not-implemented`, not `blocked` (conflating the two is the first false-positive trap).
 
-**Block vs false-positive discrimination (the core problem).** "Transport X is blocked by RKN" must be separated from server outage / cert expiry / ISP transient. The discriminator is **differential, not absolute**: for each `(vantage, transport)` cell, run the transport against (i) a known-good control endpoint and (ii) a clean-baseline reference (the same 5-tuple carrying a benign TLS-to-allowed-SNI flow). A cell counts as a **protocol-class block** only when the control is reachable on the clean baseline from that vantage AND the transport fingerprint fails with a wire-signature already modeled by `ripdpi-failure-classifier::BlockSignal` (`signal_types.rs`: `TlsAlert`, `SilentDrop`, `TcpReset`, `ConnectionFreeze`, `QuicBreakage`, …). Server/cert/ISP-outage failures present as baseline-also-fails or non-block signals and are excluded. Reusing the existing classifier — rather than inventing a parallel notion of "block" — is what makes the matrix reproducible.
+**Block vs false-positive discrimination (the core problem).** An operator-specific transport failure must be separated from server outage, certificate expiry, and access-network transients. The discriminator is **differential, not absolute**: for each `(vantage, transport)` cell, run the transport against (i) a known-good control endpoint and (ii) a clean-baseline reference (the same 5-tuple carrying a benign TLS-to-allowed-SNI flow). A cell counts as a **protocol-class block** only when the control is reachable on the clean baseline from that vantage AND the transport fingerprint fails with a wire-signature already modeled by `ripdpi-failure-classifier::BlockSignal` (`signal_types.rs`: `TlsAlert`, `SilentDrop`, `TcpReset`, `ConnectionFreeze`, `QuicBreakage`, …). Server, certificate, and access-network failures present as baseline-also-fails or non-block signals and are excluded. Reusing the existing classifier makes the matrix reproducible.
 
-**Vantage sampling.** ≥3 RU ISP vantages (MTS mobile, Rostelecom home, MegaFon). Each cell sampled N≥5 across a time window to defeat transients; cell verdict is `blocked` only at quorum (e.g. ≥4/5 block-signal with baseline-up). The matrix is 3-dimensional `(transport, vantage, signal)`, **not** a flat per-transport pass/fail — mobile-vs-home matters because RKN deployment differs by access network.
+**Vantage sampling.** At least three independent access-network vantages are required. Each cell is sampled N≥5 across a time window to defeat transients; the cell verdict is `blocked` only at quorum (for example, ≥4/5 block-signal with baseline-up). The matrix is three-dimensional `(transport, vantage, signal)`, **not** a flat per-transport pass/fail, because deployment differs by access network.
 
 **Reproducibility / idempotency.** Emit a deterministic JSON artifact (sorted transport keys, sorted vantage keys, fixed float formatting) so re-runs diff cleanly — the discipline the autolearn store already uses for its SHA-256 config digest. Key each run by `(run_id, vantage_scope_hash, transport)` so re-ingest is idempotent (mirroring the autolearn 2-hit `host_blocked` confirmation).
 
@@ -75,11 +75,11 @@ Diagnostic investigation, not a feature build:
 - `note_block_signal` (`runtime_policy/autolearn/mod.rs`, signature `(config, host, signal, provider, confirmation_allowed)`) records a per-`host` `BlockSignal` (+ `provider`); it carries **no** `network_scope_key` argument — network-scope keying is applied one level up in the autolearn store (`learned_hosts_by_scope` in `store.rs`), not at this entry point. Either way it records *which host is blocked*, never *which transport class*.
 - `TransportProtocol` (in `matching/predicates.rs`) is the L3/L4 IP protocol (Tcp/Udp) for desync-group matching — not a per-crate identity.
 
-So the RKN matrix carries a dimension (transport-class block rate, network-scoped) with **no native home** in the policy crate — that is the real design output of this spike.
+The operator-measurement matrix therefore carries a network-scoped transport-class block-rate dimension with **no native home** in the policy crate; that is the design output of this spike.
 
 **Three candidate seams, ranked by cost / merge-now-safety:**
 
-1. **Config-data default ordering (no Rust change — preferred, graduates first).** Relay/transport selection order is already config-driven (autolearn seeds *group* preferences via `seed_from_strategy_results`, keyed by `(domain, group_index)`). Ship the measured matrix as **static default de-prioritization weights in config data** — the RKN-block-class transports get a lower default rank, scoped per network class. Expresses "de-prioritize VLESS on MTS-mobile-class networks" with no new type (mirrors the in-repo finding that adding providers is data-only, no schema bump / no Rust change).
+1. **Config-data default ordering (no Rust change — preferred, graduates first).** Relay/transport selection order is already config-driven (autolearn seeds *group* preferences via `seed_from_strategy_results`, keyed by `(domain, group_index)`). Ship the measured matrix as **static default de-prioritization weights in config data** so operator-affected transports receive a lower default rank for the relevant network class. This needs no new type and follows the existing data-only provider pattern.
 2. **A network-scoped transport-block table parallel to `learned_hosts_by_scope` (new code — defer).** The cleanest native shape: `transport_block_rate_by_scope: BTreeMap<ScopeKey, BTreeMap<TransportClass, BlockRate>>` fed by a new `note_transport_class_block(scope, class, signal)` confirming with the same 2-hit window. Right long-term, but speculative code — out of scope for this spike; re-files as an implementation task.
 3. **Extend `DirectPathBlockClass` — REJECTED.** Adding transport-class variants conflates failure-pattern with transport-identity and pollutes the `RankedArm` dispatcher; per the ProxyProfile-subtype-blast-radius lesson, enum widening here forces exhaustive-`when`/`match` churn for no benefit.
 
@@ -93,5 +93,5 @@ So the RKN matrix carries a dimension (transport-class block rate, network-scope
 
 ## Work log
 
-- 2026-06-05: No acceptance criteria met — no empirical block-rate matrix, no wiki field-measurement section, no ripdpi-runtime-policy defaults adjusted from RKN fingerprint research. Parent epic `epic-direct-mode-transport-policy-and-verdicts` is dangling (nulled). Task remains open as a research/diagnostic investigation requiring external ISP vantage testing.
+- 2026-06-05: No acceptance criteria met — no empirical block-rate matrix, no wiki field-measurement section, and no runtime-policy defaults adjusted from operator-specific fingerprint research. Parent epic `epic-direct-mode-transport-policy-and-verdicts` is dangling (nulled). Task remains open as a research/diagnostic investigation requiring external access-network vantage testing.
 - 2026-06-11 (design spike, conditional-go on methodology; field run gated): Delivered the measurement methodology (differential block discrimination reusing `ripdpi-failure-classifier::BlockSignal`, 3-D vantage sampling at quorum, idempotent SHA-256-scope-keyed JSON artifact, `network-fingerprint-privacy` boundary) and the `ripdpi-runtime-policy` hook design. Load-bearing finding: no policy type is keyed by transport-crate identity today (`TransportPolicy` per-host axes; `DirectPathBlockClass` failure-pattern; `TransportProtocol` L3/L4) — so the matrix schema must carry `(transport-class, scope-hash)` keying from the start, and the landing seam is config-default ordering (no Rust change), not a `DirectPathBlockClass` widening. No code merged; status → `blocked` (field execution externally gated on ≥3 RU ISP vantages).

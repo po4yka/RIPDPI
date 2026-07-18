@@ -1,5 +1,5 @@
 ---
-title: Add Cloudflare Workers domain-fronting bypass adapter
+title: Add optional Cloudflare Workers transport mode
 type: task
 status: backlog
 area: rust-native
@@ -14,13 +14,13 @@ updated: 2026-06-10
 
 ## Summary
 
-Route tunnel traffic through Cloudflare Workers (serverless edge compute) so the on-wire TLS connection targets a generic `*.workers.dev` or operator-mapped custom domain. The Worker forwards the inner stream to the real upstream. DPI sees a vanilla TLS connection to a Cloudflare-fronted hostname; the real destination is hidden inside the Worker request.
+Add an optional operator-supplied Cloudflare Workers transport mode. The outer TLS metadata uses the Worker hostname, and the Worker forwards an authenticated framed stream to an operator-configured upstream.
 
 ## Context
 
-Cloudflare Workers terminate TLS at Cloudflare's edge and route HTTP requests to operator-defined backends. Combined with WebSocket upgrade and a small Worker script, this gives an operator-controlled domain-fronted relay that's indistinguishable from any other Cloudflare-fronted site.
+Cloudflare Workers terminate TLS at Cloudflare's edge and route HTTP requests to operator-defined backends. Combined with WebSocket upgrade and a small Worker script, this provides the same Worker-hosted transport shape used by the operator's own Workers traffic.
 
-RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this task adds the *Workers-fronted* deployment mode where the worker hostname is the SNI and the real upstream is in a header.
+RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this task adds the optional *Workers transport* deployment mode where the Worker hostname is the SNI and the operator-configured upstream is carried in an authenticated header.
 
 ## Acceptance criteria
 
@@ -32,7 +32,7 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 
 ## Risks / open questions
 
-- **Reconcile direction with `epic-remove-cloudflare-from-critical-path` before starting.** That epic removes Cloudflare as a *mandatory* bootstrap/delivery dependency; this task adds Cloudflare Workers as an *optional, operator-supplied* fronting transport. They are compatible only if this stays strictly opt-in and never becomes a default critical-path hop. Confirm that framing in the PR; if it cannot stay optional, drop this task.
+- **Reconcile direction with `epic-remove-cloudflare-from-critical-path` before starting.** That epic removes Cloudflare as a *mandatory* bootstrap/delivery dependency; this task adds Cloudflare Workers as an *optional, operator-supplied* transport mode. They are compatible only if this stays strictly opt-in and never becomes a default critical-path hop. Confirm that framing in the PR; if it cannot stay optional, drop this task.
 - Cloudflare Workers free tier has request and CPU-time limits; document operator-side cost expectations.
 - A worker that proxies arbitrary bytes is a TOS edge case; the reference script should be narrow (WS upgrade + framed relay, no open-relay).
 
@@ -43,4 +43,4 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 
 ## Work log
 
-- 2026-06-05: No implementation exists — no Workers URL/auth schema fields, no WS-tunnel Workers variant, no `docs/native/cloudflare-workers/` dir or `relay.js`, no loopback test, and `docs/native/cloudflare-tunnel-operations.md` covers cloudflare_tunnel mode only (not Workers fronting). All 5 acceptance criteria remain unstarted.
+- 2026-06-05: No implementation exists — no Workers URL/auth schema fields, no WS-tunnel Workers variant, no `docs/native/cloudflare-workers/` dir or `relay.js`, no loopback test, and `docs/native/cloudflare-tunnel-operations.md` covers cloudflare_tunnel mode only (not the optional Workers transport). All 5 acceptance criteria remain unstarted.
