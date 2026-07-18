@@ -54,7 +54,15 @@ import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -613,7 +621,6 @@ class ConfigViewModelTest {
             stringResolver = ResourceStringResolver(),
         )
     }
-
     @Test
     fun `relay validation accepts naiveproxy blank or absolute path`() {
         val blankPathErrors =
@@ -771,6 +778,243 @@ class ConfigViewModelTest {
         assertTrue(suggestion?.reason?.contains("whitelist-style routing pressure") == true)
     }
 }
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class ConfigViewModelPersistenceTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `throwing hydration restores the original draft and allows retry`() =
+        runTest {
+            val profileStore = ControllableRelayProfileStore(loadFailure = IllegalStateException("hydrate failed"))
+            val viewModel = createConfigViewModel(relayProfileStore = profileStore)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            val errorEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+
+            assertEquals(ConfigEffect.Message("hydrate failed"), errorEffect.await())
+            assertFalse(viewModel.uiState.value.isEditorLoading)
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertEquals(defaultDraft, viewModel.uiState.value.draft)
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isEditorLoading)
+            assertEquals(defaultDraft, viewModel.uiState.value.draft)
+        }
+
+    @Test
+    fun `cancelled hydration restores the original draft and allows retry`() =
+        runTest {
+            val profileStore = ControllableRelayProfileStore(loadFailure = CancellationException("cancelled"))
+            val viewModel = createConfigViewModel(relayProfileStore = profileStore)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isEditorLoading)
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertEquals(defaultDraft, viewModel.uiState.value.draft)
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isEditorLoading)
+        }
+
+    @Test
+    fun `save snapshots one request and preserves edits made in flight`() =
+        runTest {
+            val appSettingsRepository = FakeAppSettingsRepository()
+            val saveGate = CompletableDeferred<Unit>()
+            val profileStore = ControllableRelayProfileStore(saveGate = saveGate)
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = appSettingsRepository,
+                    relayProfileStore = profileStore,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            viewModel.saveDraft()
+            runCurrent()
+
+            assertEquals(1, profileStore.saveCalls)
+            assertTrue(viewModel.uiState.value.isEditorSaving)
+
+            viewModel.updateDraft { copy(proxyPort = "1082") }
+            viewModel.saveDraft()
+            saveGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(1, profileStore.saveCalls)
+            assertEquals("1081", appSettingsRepository.snapshot().toConfigDraft().proxyPort)
+            assertEquals("1082", viewModel.uiState.value.draft.proxyPort)
+            assertTrue(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(2, profileStore.saveCalls)
+            assertEquals("1082", appSettingsRepository.snapshot().toConfigDraft().proxyPort)
+        }
+
+    @Test
+    fun `replacement waits for active save before its newer save wins`() =
+        runTest {
+            val saveGate = CompletableDeferred<Unit>()
+            val profileStore = ControllableRelayProfileStore(saveGate = saveGate)
+            val appSettingsRepository = FakeAppSettingsRepository()
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = appSettingsRepository,
+                    relayProfileStore = profileStore,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            runCurrent()
+            viewModel.cancelEditing()
+
+            assertTrue(viewModel.uiState.value.isEditorSaving)
+
+            saveGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+
+            viewModel.updateDraft { copy(proxyPort = "1082") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(2, profileStore.saveCalls)
+            assertEquals("1082", appSettingsRepository.snapshot().toConfigDraft().proxyPort)
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+        }
+
+    @Test
+    fun `config mode actions wait for the editor save and remain authoritative`() =
+        runTest {
+            val saveGate = CompletableDeferred<Unit>()
+            val profileStore = ControllableRelayProfileStore(saveGate = saveGate)
+            val appSettingsRepository = FakeAppSettingsRepository()
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = appSettingsRepository,
+                    serviceController = serviceController,
+                    relayProfileStore = profileStore,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(mode = Mode.VPN, proxyPort = "1081") }
+            viewModel.saveDraft()
+            runCurrent()
+            viewModel.cancelEditing()
+            viewModel.selectMode(Mode.Proxy)
+            viewModel.toggleRuntimeMode(Mode.Proxy, enabled = true)
+
+            assertTrue(viewModel.uiState.value.isEditorSaving)
+            assertTrue(serviceController.startedModes.isEmpty())
+
+            saveGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(Mode.Proxy, appSettingsRepository.snapshot().toConfigDraft().mode)
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+        }
+
+    @Test
+    fun `failed save keeps the draft dirty and can be retried`() =
+        runTest {
+            val profileStore = ControllableRelayProfileStore(saveFailure = IllegalStateException("save failed"))
+            val viewModel = createConfigViewModel(relayProfileStore = profileStore)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            val errorEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(ConfigEffect.Message("save failed"), errorEffect.await())
+            assertTrue(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(2, profileStore.saveCalls)
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+        }
+
+    @Test
+    fun `cancelled save clears single flight state and can be retried`() =
+        runTest {
+            val profileStore = ControllableRelayProfileStore(saveFailure = CancellationException("cancelled"))
+            val viewModel = createConfigViewModel(relayProfileStore = profileStore)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(2, profileStore.saveCalls)
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+        }
+}
+
+private fun createConfigViewModel(
+    appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+    serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
+    serviceController: FakeServiceController = FakeServiceController(),
+    relayProfileStore: RelayProfileStore = InMemoryRelayProfileStore(),
+    relayCredentialStore: RelayCredentialStore = InMemoryRelayCredentialStore(),
+): ConfigViewModel =
+    ConfigViewModel(
+        dependencies =
+            ConfigViewModelDependencies(
+                appSettingsRepository = appSettingsRepository,
+                relayArtifacts =
+                    ConfigRelayArtifactRepository(
+                        appSettingsRepository = appSettingsRepository,
+                        relayProfileStore = relayProfileStore,
+                        relayCredentialStore = relayCredentialStore,
+                    ),
+                relayPresetCatalog = RelayPresetCatalog(RuntimeEnvironment.getApplication()),
+                networkSnapshotProvider = FakeNativeNetworkSnapshotProvider(),
+                serviceStateStore = serviceStateStore,
+                serviceController = serviceController,
+                latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+                capabilityObserver =
+                    ConfigCapabilityObserver(
+                        networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                        serverCapabilityStore = NoOpServerCapabilityStore(),
+                    ),
+            ),
+        importDependencies =
+            ConfigImportDependencies(
+                masqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
+                masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
+            ),
+        stringResolver = ResourceStringResolver(),
+    )
 
 class ConfigViewModelRelayRecommendationTest {
     @Test
@@ -1034,6 +1278,47 @@ internal class InMemoryRelayProfileStore : RelayProfileStore {
     override suspend fun list(): List<RelayProfileRecord> = records.values.toList()
 
     override suspend fun save(profile: RelayProfileRecord) {
+        records[profile.id] = profile
+    }
+
+    override suspend fun clear(profileId: String) {
+        records.remove(profileId)
+    }
+}
+
+private class ControllableRelayProfileStore(
+    loadFailure: Throwable? = null,
+    saveFailure: Throwable? = null,
+    saveGate: CompletableDeferred<Unit>? = null,
+) : RelayProfileStore {
+    private val records = LinkedHashMap<String, RelayProfileRecord>()
+    private var nextLoadFailure = loadFailure
+    private var nextSaveFailure = saveFailure
+    private var nextSaveGate = saveGate
+
+    var saveCalls: Int = 0
+        private set
+
+    override suspend fun load(profileId: String): RelayProfileRecord? {
+        nextLoadFailure?.let { error ->
+            nextLoadFailure = null
+            throw error
+        }
+        return records[profileId]
+    }
+
+    override suspend fun list(): List<RelayProfileRecord> = records.values.toList()
+
+    override suspend fun save(profile: RelayProfileRecord) {
+        saveCalls += 1
+        nextSaveGate?.let { gate ->
+            nextSaveGate = null
+            gate.await()
+        }
+        nextSaveFailure?.let { error ->
+            nextSaveFailure = null
+            throw error
+        }
         records[profile.id] = profile
     }
 

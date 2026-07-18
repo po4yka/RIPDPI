@@ -23,7 +23,12 @@ import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,6 +43,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -82,6 +88,15 @@ class ConfigViewModel
             )
         internal val masqueImportState = masqueImports.state
         private val editorSessionIds = AtomicLong()
+        private val activeSaveRequest = MutableStateFlow<ConfigSaveRequest?>(null)
+        private val activeSaveJob = AtomicReference<Job?>()
+        private val editorState =
+            combine(editorSession, activeSaveRequest) { session, saveRequest ->
+                ConfigEditorState(
+                    session = session,
+                    saveInFlight = saveRequest != null,
+                )
+            }
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
         private val masquePrivacyPassBuildStatus = masquePrivacyPassAvailability.buildStatus()
 
@@ -127,10 +142,11 @@ class ConfigViewModel
         val uiState: StateFlow<ConfigUiState> =
             combine(
                 persistedSnapshots,
-                editorSession,
+                editorState,
                 serviceStateStore.telemetry,
                 runtimeSnapshots,
-            ) { persistedSnapshot, session, serviceTelemetry, runtimeSnapshot ->
+            ) { persistedSnapshot, editorState, serviceTelemetry, runtimeSnapshot ->
+                val session = editorState.session
                 val settings = persistedSnapshot.settings
                 val relayProfileRecords = persistedSnapshot.relayProfileRecords
                 val currentDraft =
@@ -209,6 +225,7 @@ class ConfigViewModel
                     masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
                     isEditorDirty = session.isDirty,
                     isEditorLoading = session.hydrationPending,
+                    isEditorSaving = editorState.saveInFlight,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -217,6 +234,14 @@ class ConfigViewModel
             )
 
         fun selectMode(mode: Mode) {
+            activeSaveJob.get()?.let { saveJob ->
+                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
+                viewModelScope.launch {
+                    saveJob.join()
+                    selectMode(mode)
+                }
+                return
+            }
             editorSession.update { current ->
                 current.copy(draft = current.draft?.copy(mode = mode))
             }
@@ -232,6 +257,14 @@ class ConfigViewModel
             mode: Mode,
             enabled: Boolean,
         ) {
+            activeSaveJob.get()?.let { saveJob ->
+                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
+                viewModelScope.launch {
+                    saveJob.join()
+                    toggleRuntimeMode(mode, enabled)
+                }
+                return
+            }
             if (enabled) {
                 startRuntimeMode(mode)
             } else {
@@ -263,35 +296,74 @@ class ConfigViewModel
         }
 
         fun selectPreset(presetId: String) {
-            val preset = uiState.value.presets.firstOrNull { it.id == presetId } ?: return
-            if (preset.kind == ConfigPresetKind.Custom) {
-                startEditingPreset(presetId)
-                return
-            }
-
-            viewModelScope.launch {
-                appSettingsRepository.update {
-                    applyConfigDraft(preset.draft)
+            val saveJob = activeSaveJob.get()
+            if (saveJob != null) {
+                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
+                viewModelScope.launch {
+                    saveJob.join()
+                    selectPreset(presetId)
                 }
-                editorSession.value = ConfigEditorSession()
+            } else {
+                val preset = uiState.value.presets.firstOrNull { it.id == presetId }
+                when (preset?.kind) {
+                    ConfigPresetKind.Custom -> {
+                        startEditingPreset(presetId)
+                    }
+
+                    null -> {
+                    }
+
+                    else -> {
+                        viewModelScope.launch {
+                            appSettingsRepository.update {
+                                applyConfigDraft(preset.draft)
+                            }
+                            editorSession.value = ConfigEditorSession()
+                        }
+                    }
+                }
             }
         }
 
         fun startEditingPreset(presetId: String = "custom") {
+            activeSaveJob.get()?.let { saveJob ->
+                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
+                viewModelScope.launch {
+                    saveJob.join()
+                    startEditingPreset(presetId)
+                }
+                return
+            }
             val preset = uiState.value.presets.firstOrNull { it.id == presetId }
             val draft = preset?.draft ?: uiState.value.draft
             val sessionId = editorSessionIds.incrementAndGet()
-            editorSession.value =
+            val session =
                 ConfigEditorSession(
                     sessionId = sessionId,
                     presetId = presetId,
                     draft = draft,
                     hydrationPending = true,
                 )
+            editorSession.value = session
             viewModelScope.launch {
-                val hydratedDraft = relayArtifacts.hydrate(draft)
-                editorSession.update { current ->
-                    current.completeHydration(sessionId, hydratedDraft)
+                val hydration = runCatching { relayArtifacts.hydrate(draft) }
+                val error = hydration.exceptionOrNull()
+                if (error == null) {
+                    editorSession.compareAndSet(
+                        expect = session,
+                        update = session.completeHydration(sessionId, hydration.getOrThrow()),
+                    )
+                } else {
+                    val recovered =
+                        editorSession.compareAndSet(
+                            expect = session,
+                            update = session.completeHydration(sessionId, draft),
+                        )
+                    if (error is CancellationException) {
+                        throw error
+                    } else if (recovered) {
+                        _effects.emit(ConfigEffect.Message(error.displayMessage(stringResolver)))
+                    }
                 }
             }
         }
@@ -304,7 +376,10 @@ class ConfigViewModel
                     }
 
                     current.presetId != null -> {
-                        current.copy(draft = requireNotNull(current.draft).transform())
+                        current.copy(
+                            draft = requireNotNull(current.draft).transform(),
+                            draftRevision = current.draftRevision + 1,
+                        )
                     }
 
                     else -> {
@@ -314,6 +389,7 @@ class ConfigViewModel
                             presetId = "custom",
                             baselineDraft = baseDraft,
                             draft = baseDraft.transform(),
+                            draftRevision = 1L,
                         )
                     }
                 }
@@ -332,6 +408,17 @@ class ConfigViewModel
         }
 
         fun cancelEditing() {
+            val sessionId = editorSession.value.sessionId
+            activeSaveJob.get()?.let { saveJob ->
+                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
+                viewModelScope.launch {
+                    saveJob.join()
+                    editorSession.update { current ->
+                        if (current.sessionId == sessionId) ConfigEditorSession() else current
+                    }
+                }
+                return
+            }
             editorSession.value = ConfigEditorSession()
             clearMasqueImportState()
         }
@@ -384,32 +471,94 @@ class ConfigViewModel
         }
 
         fun saveDraft() {
-            val session = editorSession.value
-            if (session.hydrationPending) return
-            val draft = session.draft ?: uiState.value.draft
-            viewModelScope.launch {
-                val relayProfileRecords = relayArtifacts.listProfiles()
-                if (
-                    validateConfigDraft(
-                        draft = draft,
-                        supportsMasquePrivacyPass = supportsMasquePrivacyPass,
-                        relayProfiles = relayProfileRecords,
-                    ).isNotEmpty()
-                ) {
-                    _effects.emit(ConfigEffect.ValidationFailed)
-                    return@launch
+            val request =
+                beginConfigSave(
+                    editorSession = editorSession,
+                    activeSaveRequest = activeSaveRequest,
+                    fallbackDraft = uiState.value.draft,
+                ) ?: return
+            val saveJob =
+                viewModelScope.launch(start = CoroutineStart.LAZY) {
+                    saveDraft(request)
                 }
-                val persistedDraft =
-                    relayArtifacts.prepareForPersistence(draft)
-                relayArtifacts.persist(persistedDraft)
-                applySavedDraftToRunningService(persistedDraft)
-                editorSession.value = ConfigEditorSession()
-                clearMasqueImportState()
-                _effects.emit(ConfigEffect.SaveSuccess)
+            if (!activeSaveJob.compareAndSet(null, saveJob)) {
+                activeSaveRequest.compareAndSet(request, null)
+                return
+            }
+            saveJob.invokeOnCompletion {
+                activeSaveJob.compareAndSet(saveJob, null)
+                activeSaveRequest.compareAndSet(request, null)
+            }
+            saveJob.start()
+        }
+
+        private suspend fun saveDraft(request: ConfigSaveRequest) {
+            val save =
+                runCatching {
+                    val relayProfileRecords = relayArtifacts.listProfiles()
+                    if (
+                        validateConfigDraft(
+                            draft = request.draft,
+                            supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                            relayProfiles = relayProfileRecords,
+                        ).isNotEmpty()
+                    ) {
+                        ConfigSaveOutcome.ValidationFailed
+                    } else {
+                        val persistedDraft = relayArtifacts.prepareForPersistence(request.draft)
+                        currentCoroutineContext().ensureActive()
+                        if (editorSession.value.sessionId != request.sessionId) {
+                            ConfigSaveOutcome.Stale
+                        } else {
+                            relayArtifacts.persist(persistedDraft)
+                            currentCoroutineContext().ensureActive()
+                            if (editorSession.value.sessionId != request.sessionId) {
+                                ConfigSaveOutcome.Stale
+                            } else {
+                                applySavedDraftToRunningService(persistedDraft)
+                                ConfigSaveOutcome.Saved
+                            }
+                        }
+                    }
+                }
+            val error = save.exceptionOrNull()
+            if (error is CancellationException) {
+                clearConfigSavePending(editorSession, request)
+                throw error
+            } else if (error != null) {
+                if (clearConfigSavePending(editorSession, request)) {
+                    _effects.emit(ConfigEffect.Message(error.displayMessage(stringResolver)))
+                }
+            } else {
+                when (save.getOrThrow()) {
+                    ConfigSaveOutcome.ValidationFailed -> {
+                        if (clearConfigSavePending(editorSession, request)) {
+                            _effects.emit(ConfigEffect.ValidationFailed)
+                        }
+                    }
+
+                    ConfigSaveOutcome.Saved -> {
+                        if (completeSuccessfulConfigSave(editorSession, request)) {
+                            clearMasqueImportState()
+                            _effects.emit(ConfigEffect.SaveSuccess)
+                        }
+                    }
+
+                    ConfigSaveOutcome.Stale -> {
+                    }
+                }
             }
         }
 
         fun resetToDefaults() {
+            activeSaveJob.get()?.let { saveJob ->
+                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
+                viewModelScope.launch {
+                    saveJob.join()
+                    resetToDefaults()
+                }
+                return
+            }
             viewModelScope.launch {
                 val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
                 appSettingsRepository.update {
@@ -461,6 +610,128 @@ class ConfigViewModel
         }
     }
 
+private data class ConfigSaveRequest(
+    val sessionId: Long,
+    val draftRevision: Long,
+    val draft: ConfigDraft,
+)
+
+private data class ConfigEditorState(
+    val session: ConfigEditorSession,
+    val saveInFlight: Boolean,
+)
+
+private enum class ConfigSaveOutcome {
+    ValidationFailed,
+    Saved,
+    Stale,
+}
+
+private fun beginConfigSave(
+    editorSession: MutableStateFlow<ConfigEditorSession>,
+    activeSaveRequest: MutableStateFlow<ConfigSaveRequest?>,
+    fallbackDraft: ConfigDraft,
+): ConfigSaveRequest? {
+    var result: ConfigSaveRequest? = null
+    var complete = false
+    while (!complete) {
+        val session = editorSession.value
+        val request =
+            if (session.hydrationPending || session.savePending || activeSaveRequest.value != null) {
+                null
+            } else {
+                ConfigSaveRequest(
+                    sessionId = session.sessionId,
+                    draftRevision = session.draftRevision,
+                    draft = session.draft ?: fallbackDraft,
+                )
+            }
+        when {
+            request == null -> {
+                complete = true
+            }
+
+            !activeSaveRequest.compareAndSet(null, request) -> {
+                complete = true
+            }
+
+            editorSession.compareAndSet(session, session.copy(savePending = true)) -> {
+                result = request
+                complete = true
+            }
+
+            else -> {
+                activeSaveRequest.compareAndSet(request, null)
+            }
+        }
+    }
+    return result
+}
+
+private fun clearConfigSavePending(
+    editorSession: MutableStateFlow<ConfigEditorSession>,
+    request: ConfigSaveRequest,
+): Boolean {
+    var requestWasCurrent = false
+    var complete = false
+    while (!complete) {
+        val current = editorSession.value
+        if (current.sessionId != request.sessionId || !current.savePending) {
+            complete = true
+        } else if (editorSession.compareAndSet(current, current.copy(savePending = false))) {
+            requestWasCurrent = current.draftRevision == request.draftRevision
+            complete = true
+        }
+    }
+    return requestWasCurrent
+}
+
+private fun completeSuccessfulConfigSave(
+    editorSession: MutableStateFlow<ConfigEditorSession>,
+    request: ConfigSaveRequest,
+): Boolean {
+    var shouldNotifySuccess = false
+    var complete = false
+    while (!complete) {
+        val current = editorSession.value
+        if (current.sessionId != request.sessionId || !current.savePending) {
+            complete = true
+        } else {
+            val requestIsCurrent = current.draftRevision == request.draftRevision
+            val completed =
+                if (requestIsCurrent) {
+                    ConfigEditorSession()
+                } else {
+                    current.copy(
+                        baselineDraft = request.draft,
+                        savePending = false,
+                    )
+                }
+            if (editorSession.compareAndSet(current, completed)) {
+                shouldNotifySuccess = requestIsCurrent && !current.suppressSaveSuccess
+                complete = true
+            }
+        }
+    }
+    return shouldNotifySuccess
+}
+
+private fun suppressActiveConfigSaveSuccess(
+    editorSession: MutableStateFlow<ConfigEditorSession>,
+    activeSaveRequest: MutableStateFlow<ConfigSaveRequest?>,
+) {
+    val activeSessionId = activeSaveRequest.value?.sessionId
+    if (activeSessionId != null) {
+        editorSession.update { current ->
+            if (current.sessionId == activeSessionId) {
+                current.copy(suppressSaveSuccess = true)
+            } else {
+                current
+            }
+        }
+    }
+}
+
 private fun Mode.startSenderName(stringResolver: StringResolver): String =
     stringResolver.getString(
         when (this) {
@@ -468,3 +739,7 @@ private fun Mode.startSenderName(stringResolver: StringResolver): String =
             Mode.Proxy -> R.string.home_mode_proxy
         },
     )
+
+private fun Throwable.displayMessage(stringResolver: StringResolver): String =
+    message?.takeIf(String::isNotBlank)
+        ?: stringResolver.getString(R.string.update_error_unknown)

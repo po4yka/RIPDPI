@@ -223,6 +223,7 @@ data class ConfigUiState(
     val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl,
     val isEditorDirty: Boolean = false,
     val isEditorLoading: Boolean = false,
+    val isEditorSaving: Boolean = false,
     val isLoading: Boolean = false,
 )
 
@@ -254,6 +255,9 @@ internal data class ConfigEditorSession(
     val baselineDraft: ConfigDraft? = null,
     val draft: ConfigDraft? = null,
     val hydrationPending: Boolean = false,
+    val draftRevision: Long = 0L,
+    val savePending: Boolean = false,
+    val suppressSaveSuccess: Boolean = false,
 ) {
     val isDirty: Boolean
         get() = !hydrationPending && baselineDraft != null && draft != baselineDraft

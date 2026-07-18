@@ -71,6 +71,14 @@ class ModeEditorScreenTest {
     }
 
     @Test
+    fun savingDisablesRepeatedSave() {
+        setScreen(isEditorSaving = true)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorSave).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorCancel).assertIsEnabled()
+    }
+
+    @Test
     fun explicitCancelUsesDedicatedDiscardAction() {
         var backCalls = 0
         var cancelCalls = 0
@@ -309,6 +317,7 @@ class ModeEditorScreenTest {
         initialDraft: ConfigDraft = defaultDraft(),
         stateful: Boolean = false,
         isEditorLoading: Boolean = false,
+        isEditorSaving: Boolean = false,
         relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
         onStatefulDraftChanged: (ConfigDraft) -> Unit = {},
         actions: ModeEditorActions = NoOpModeEditorActions,
@@ -331,6 +340,7 @@ class ModeEditorScreenTest {
                             draft = screenDraft,
                             relayPresets = relayPresets,
                             isEditorLoading = isEditorLoading,
+                            isEditorSaving = isEditorSaving,
                         ),
                     snackbarHostState = SnackbarHostState(),
                     actions =

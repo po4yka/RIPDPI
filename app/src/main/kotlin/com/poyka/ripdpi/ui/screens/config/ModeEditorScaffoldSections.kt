@@ -49,7 +49,10 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-internal fun ModeEditorBottomBar(actions: ModeEditorActions) {
+internal fun ModeEditorBottomBar(
+    uiState: ConfigUiState,
+    actions: ModeEditorActions,
+) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -82,6 +85,7 @@ internal fun ModeEditorBottomBar(actions: ModeEditorActions) {
             RipDpiButton(
                 text = stringResource(R.string.config_save),
                 onClick = actions.onSave,
+                loading = uiState.isEditorSaving,
                 modifier =
                     Modifier
                         .weight(1f)

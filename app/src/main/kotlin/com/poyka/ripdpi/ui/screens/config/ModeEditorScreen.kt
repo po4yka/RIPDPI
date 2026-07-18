@@ -60,7 +60,7 @@ internal fun ModeEditorScreen(
         },
         bottomBar = {
             if (!uiState.isEditorLoading) {
-                ModeEditorBottomBar(actions = actions)
+                ModeEditorBottomBar(uiState = uiState, actions = actions)
             }
         },
     ) { innerPadding ->
