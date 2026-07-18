@@ -556,6 +556,14 @@ class SoBindToDeviceLaneTest(unittest.TestCase):
         self.assertIn("steps.so_bind_runtime.outcome", finalizer)
         self.assertIn("--finalize-prerequisite-outcome", finalizer)
 
+        upload_start = workflow.index(
+            "- name: Upload redacted SO_BINDTODEVICE evidence",
+            validate_start,
+        )
+        upload = workflow[upload_start : workflow.index("  linux-tun-soak:", upload_start)]
+        self.assertIn("if: always()", upload)
+        self.assertIn("if-no-files-found: error", upload)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -235,6 +235,68 @@ class SoBindToDeviceEvidenceTest(unittest.TestCase):
                 self.assertFalse(manifest["cleanupVerified"])
                 self.assertEqual(path.read_bytes(), evidence.canonical_bytes(manifest))
 
+    def test_finalizer_classifies_runtime_failure_without_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+
+            manifest = evidence.finalize_workflow_evidence(
+                path,
+                prerequisite_outcome="success",
+                build_outcome="success",
+                runtime_outcome="failure",
+                source_sha=self.sha,
+                run_id=self.run_id,
+                run_attempt=self.attempt,
+            )
+
+            self.assertEqual(manifest["result"], "TEST_FAILURE")
+            self.assertEqual(manifest["reasonCode"], "RUNTIME_FAILED")
+            self.assertFalse(manifest["cleanupVerified"])
+
+    def test_finalizer_cannot_preserve_pass_from_failed_runtime_step(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            path.write_bytes(evidence.canonical_bytes(self.valid_manifest()))
+
+            manifest = evidence.finalize_workflow_evidence(
+                path,
+                prerequisite_outcome="success",
+                build_outcome="success",
+                runtime_outcome="failure",
+                source_sha=self.sha,
+                run_id=self.run_id,
+                run_attempt=self.attempt,
+            )
+
+            self.assertEqual(manifest["result"], "TEST_FAILURE")
+            self.assertEqual(manifest["reasonCode"], "RUNTIME_FAILED")
+            self.assertFalse(manifest["cleanupVerified"])
+
+    def test_finalizer_preserves_specific_valid_runtime_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            failure = evidence.failure_manifest(
+                result="TEST_FAILURE",
+                reason_code="CLEANUP_FAILED",
+                cleanup_verified=False,
+                source_sha=self.sha,
+                run_id=self.run_id,
+                run_attempt=self.attempt,
+            )
+            path.write_bytes(evidence.canonical_bytes(failure))
+
+            manifest = evidence.finalize_workflow_evidence(
+                path,
+                prerequisite_outcome="success",
+                build_outcome="success",
+                runtime_outcome="failure",
+                source_sha=self.sha,
+                run_id=self.run_id,
+                run_attempt=self.attempt,
+            )
+
+            self.assertEqual(manifest, failure)
+
     def test_finalizer_replaces_malformed_evidence_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "manifest.json"

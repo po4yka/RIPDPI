@@ -50,6 +50,7 @@ FAILURE_CLEANUP = {
         "EVIDENCE_MALFORMED_UNVERIFIED": False,
         "EVIDENCE_MISSING": True,
         "EVIDENCE_NOT_PRODUCED": False,
+        "RUNTIME_FAILED": False,
     },
 }
 FAILURE_REASONS = {result: set(reasons) for result, reasons in FAILURE_CLEANUP.items()}
@@ -152,9 +153,10 @@ def finalize_workflow_evidence(
     for label, outcome in outcomes.items():
         if outcome not in allowed_outcomes:
             raise ValueError(f"invalid {label} step outcome: {outcome}")
+    observed_manifest = None
     if path.exists():
         try:
-            return validate(
+            observed_manifest = validate(
                 path,
                 expected_source_sha=source_sha,
                 expected_run_id=run_id,
@@ -163,15 +165,26 @@ def finalize_workflow_evidence(
         except (OSError, json.JSONDecodeError, ValueError):
             result = "TEST_FAILURE"
             reason_code = "EVIDENCE_MALFORMED_UNVERIFIED"
-    elif prerequisite_outcome != "success":
+    if prerequisite_outcome != "success":
         result = "INFRA_GAP"
         reason_code = "PREREQUISITE_SETUP_FAILED"
     elif build_outcome != "success":
         result = "TEST_FAILURE"
         reason_code = "BUILD_FAILED"
-    else:
+    elif runtime_outcome != "success":
+        if observed_manifest is not None and observed_manifest["result"] != "PASS":
+            return observed_manifest
+        if observed_manifest is not None or not path.exists():
+            result = "TEST_FAILURE"
+            reason_code = "RUNTIME_FAILED"
+    elif observed_manifest is not None:
+        return observed_manifest
+    elif not path.exists():
         result = "TEST_FAILURE"
         reason_code = "EVIDENCE_NOT_PRODUCED"
+    else:
+        # A present manifest that failed validation was classified above.
+        assert reason_code == "EVIDENCE_MALFORMED_UNVERIFIED"
     manifest = failure_manifest(
         result=result,
         reason_code=reason_code,
