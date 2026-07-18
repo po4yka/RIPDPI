@@ -272,6 +272,26 @@ class SoBindToDeviceEvidenceTest(unittest.TestCase):
             self.assertEqual(manifest["reasonCode"], "RUNTIME_FAILED")
             self.assertFalse(manifest["cleanupVerified"])
 
+    def test_finalizer_cannot_preserve_pass_from_incomplete_runtime_step(self) -> None:
+        for runtime_outcome in ("cancelled", "skipped"):
+            with self.subTest(runtime_outcome=runtime_outcome), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "manifest.json"
+                path.write_bytes(evidence.canonical_bytes(self.valid_manifest()))
+
+                manifest = evidence.finalize_workflow_evidence(
+                    path,
+                    prerequisite_outcome="success",
+                    build_outcome="success",
+                    runtime_outcome=runtime_outcome,
+                    source_sha=self.sha,
+                    run_id=self.run_id,
+                    run_attempt=self.attempt,
+                )
+
+                self.assertEqual(manifest["result"], "TEST_FAILURE")
+                self.assertEqual(manifest["reasonCode"], "RUNTIME_FAILED")
+                self.assertFalse(manifest["cleanupVerified"])
+
     def test_finalizer_preserves_specific_valid_runtime_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "manifest.json"
