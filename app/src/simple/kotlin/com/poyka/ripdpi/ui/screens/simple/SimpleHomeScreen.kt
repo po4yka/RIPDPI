@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.simple
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -203,24 +203,19 @@ internal fun SimpleDiagnosticsStatus(
             } else {
                 statusLabel
             }
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                text = statusLabel,
-                style = RipDpiThemeTokens.type.caption,
-                color = colors.mutedForeground,
-                textAlign = TextAlign.Center,
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .matchParentSize()
-                        .clearAndSetSemantics {
-                            stateDescription = announcement
-                            liveRegion = LiveRegionMode.Polite
-                        },
-            )
-        }
+        Text(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics(mergeDescendants = true) {
+                        stateDescription = announcement
+                        liveRegion = LiveRegionMode.Polite
+                    },
+            text = statusLabel,
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

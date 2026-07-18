@@ -94,6 +94,19 @@ class SimpleHomeScreenTest {
                     LiveRegionMode.Polite,
                 ),
             )
+        val visibleOrAnnouncedStatus =
+            hasText("Stage 2 of 4 · Testing TLS") or
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.StateDescription,
+                    "Stage 2 of 4",
+                )
+        assertEquals(
+            1,
+            composeRule
+                .onAllNodes(visibleOrAnnouncedStatus, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .size,
+        )
         composeRule.runOnIdle { assertEquals(1, cancelClicks) }
     }
 
