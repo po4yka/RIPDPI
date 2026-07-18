@@ -43,6 +43,7 @@ internal data class StrategyConfigBanner(
     val title: String,
     val message: String,
     val tone: WarningBannerTone,
+    val saved: Boolean = false,
 )
 
 internal data class StrategyConfigScreenState(
@@ -52,6 +53,7 @@ internal data class StrategyConfigScreenState(
     val luaFunction: String,
     val activePath: String,
     val banner: StrategyConfigBanner?,
+    val isSaving: Boolean = false,
 )
 
 @Composable
@@ -178,6 +180,7 @@ private fun TextStrategyConfigCard(
                 primaryLabel = stringResource(R.string.config_save),
                 primaryIcon = RipDpiIcons.Check,
                 onPrimary = onSave,
+                primaryLoading = state.isSaving,
                 secondaryLabel = stringResource(R.string.strategy_config_reload_action),
                 secondaryIcon = RipDpiIcons.NetworkCheck,
                 onSecondary = onReload,
@@ -244,6 +247,7 @@ private fun LuaStrategyConfigCard(
                 secondaryLabel = stringResource(R.string.strategy_config_load_action),
                 secondaryIcon = RipDpiIcons.NetworkCheck,
                 onSecondary = onSave,
+                secondaryLoading = state.isSaving,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -269,6 +273,8 @@ private fun StrategyConfigActionRows(
     secondaryLabel: String,
     secondaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
     onSecondary: () -> Unit,
+    primaryLoading: Boolean = false,
+    secondaryLoading: Boolean = false,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -280,6 +286,7 @@ private fun StrategyConfigActionRows(
             modifier = Modifier.weight(1f),
             density = RipDpiControlDensity.Compact,
             leadingIcon = primaryIcon,
+            loading = primaryLoading,
         )
         RipDpiButton(
             text = secondaryLabel,
@@ -288,6 +295,7 @@ private fun StrategyConfigActionRows(
             variant = RipDpiButtonVariant.Outline,
             density = RipDpiControlDensity.Compact,
             leadingIcon = secondaryIcon,
+            loading = secondaryLoading,
         )
     }
 }

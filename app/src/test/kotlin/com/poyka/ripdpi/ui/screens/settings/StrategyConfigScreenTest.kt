@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -37,9 +38,17 @@ class StrategyConfigScreenTest {
         assertEquals(1, exportClicks)
     }
 
+    @Test
+    fun savingDisablesTheSubmittedAction() {
+        setScreen(isSaving = true)
+
+        composeRule.onNodeWithText("Save").performScrollTo().assertIsNotEnabled()
+    }
+
     private fun setScreen(
         onImport: () -> Unit = {},
         onExport: () -> Unit = {},
+        isSaving: Boolean = false,
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -52,6 +61,7 @@ class StrategyConfigScreenTest {
                             luaFunction = "",
                             activePath = "imported.yaml",
                             banner = null,
+                            isSaving = isSaving,
                         ),
                     onBack = {},
                     onSourceChanged = {},

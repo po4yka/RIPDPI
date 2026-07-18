@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -37,20 +38,29 @@ fun StrategyConfigRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
-    draftViewModel: StrategyConfigDraftViewModel = hiltViewModel(),
     runtimeFactory: () -> StrategyConfigRuntime = { NativeStrategyConfigRuntime() },
     applySavedConfig: () -> StrategyConfigApplyResult = { StrategyConfigApplyResult.NextSession },
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val draft by draftViewModel.state.collectAsStateWithLifecycle()
     val runtime = remember(runtimeFactory) { runCatching { runtimeFactory() }.getOrNull() }
     val coroutineScope = rememberCoroutineScope()
+    var editorSession by
+        rememberStrategyConfigEditorSession(uiState.desync.chainDsl.boundedUtf8(StrategyConfigMaxImportBytes))
     var banner by remember { mutableStateOf<StrategyConfigBanner?>(null) }
+    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
+    val requestBack = {
+        if (editorSession.isDirty) {
+            showUnsavedChangesDialog = true
+        } else {
+            onBack()
+        }
+    }
 
     SecureWindowEffect()
+    BackHandler(onBack = requestBack)
     LaunchedEffect(uiState.desync.chainDsl) {
-        draftViewModel.synchronizeBuiltIn(uiState.desync.chainDsl)
+        editorSession = editorSession.syncCleanBuiltIn(uiState.desync.chainDsl)
     }
 
     val importLauncher =
@@ -58,51 +68,57 @@ fun StrategyConfigRoute(
             handleStrategyConfigImport(
                 context = context,
                 uri = uri,
-                onImported = { imported ->
-                    draftViewModel.applyImportedConfig(imported)
-                },
+                onImported = { imported -> editorSession = editorSession.importConfig(imported) },
                 onBanner = { banner = it },
             )
         }
 
+    StrategyConfigExitDialog(
+        visible = showUnsavedChangesDialog,
+        onKeepEditing = { showUnsavedChangesDialog = false },
+        onDiscard = {
+            showUnsavedChangesDialog = false
+            onBack()
+        },
+    )
+
+    val draft = editorSession.draft
     StrategyConfigScreen(
-        state =
-            StrategyConfigScreenState(
-                source = draft.source,
-                configText = draft.configText,
-                luaPath = draft.luaPath,
-                luaFunction = draft.luaFunction,
-                activePath = activePathLabel(context, draft.source, draft.luaPath),
-                banner = banner,
-            ),
-        onBack = onBack,
-        onSourceChanged = {
-            draftViewModel.selectSource(it, uiState.desync.chainDsl)
+        state = editorSession.toScreenState(activePathLabel(context, draft.source, draft.luaPath), banner),
+        onBack = requestBack,
+        onSourceChanged = { source ->
+            editorSession = editorSession.selectSource(source, uiState.desync.chainDsl)
             banner = null
         },
-        onConfigTextChanged = draftViewModel::updateConfigText,
-        onLuaPathChanged = draftViewModel::updateLuaPath,
-        onLuaFunctionChanged = draftViewModel::updateLuaFunction,
+        onConfigTextChanged = { value ->
+            editorSession = editorSession.update { copy(configText = value.boundedUtf8(StrategyConfigMaxImportBytes)) }
+        },
+        onLuaPathChanged = { value -> editorSession = editorSession.update { copy(luaPath = value) } },
+        onLuaFunctionChanged = { value -> editorSession = editorSession.update { copy(luaFunction = value) } },
         onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
-        onExport = { shareStrategyConfig(context, draft.configText) },
-        onSave = {
+        onExport = { shareStrategyConfig(context, editorSession.draft.configText) },
+        onSave = save@{
+            val (savingSession, request) = editorSession.beginSave() ?: return@save
+            editorSession = savingSession
             coroutineScope.launch {
-                banner =
+                val result =
                     saveStrategyConfigFromRoute(
                         context = context,
-                        source = draft.source,
-                        configText = draft.configText,
-                        luaPath = draft.luaPath,
-                        luaFunction = draft.luaFunction,
+                        source = request.draft.source,
+                        configText = request.draft.configText,
+                        luaPath = request.draft.luaPath,
+                        luaFunction = request.draft.luaFunction,
                         runtime = runtime,
                         viewModel = viewModel,
                         applySavedConfig = applySavedConfig,
                         uiState = uiState,
                     )
+                banner = result
+                editorSession = editorSession.completeSave(request, result.saved)
             }
         },
         onReload = { banner = reloadLuaConfig(context, runtime) },
-        onValidateLua = { banner = validateLuaScript(context, runtime, draft.luaPath) },
+        onValidateLua = { banner = validateLuaScript(context, runtime, editorSession.draft.luaPath) },
         modifier = modifier,
     )
 }
@@ -308,6 +324,7 @@ private fun savedStrategyConfigBanner(
                 }
             },
         tone = WarningBannerTone.Info,
+        saved = true,
     )
 
 private fun validateStrategyConfigText(
