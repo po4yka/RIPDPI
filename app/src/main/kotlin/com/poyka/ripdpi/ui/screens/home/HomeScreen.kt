@@ -30,6 +30,7 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
@@ -101,6 +102,14 @@ fun HomeScreen(
                 .background(colors.background),
         topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
     ) {
+        RipDpiConnectionActuator(
+            state = uiState.connectionActuator,
+            onActivate = onToggleConnection,
+            onDeactivate = onToggleConnection,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = RipDpiTestTags.ConnectionActuatorButton,
+        )
+
         if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
             val errorMessage = uiState.errorMessage
             val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
@@ -142,14 +151,6 @@ fun HomeScreen(
         HomeDegradationStrip(
             quality = uiState.connectionQuality,
             onReprobe = onDiagnosticRun,
-        )
-
-        RipDpiConnectionActuator(
-            state = uiState.connectionActuator,
-            onActivate = onToggleConnection,
-            onDeactivate = onToggleConnection,
-            modifier = Modifier.fillMaxWidth(),
-            testTag = RipDpiTestTags.ConnectionActuatorButton,
         )
 
         HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
@@ -405,6 +406,8 @@ private fun HomeModeCardList(
             onPrimaryAction = { onBypassToggle(!uiState.localBypassCard.isActive) },
             onConfigure = onBypassCardClick,
             onCardClick = onBypassCardClick,
+            primaryActionVariant = RipDpiButtonVariant.Ghost,
+            configureActionVariant = RipDpiButtonVariant.Ghost,
         )
         HomeModeCard(
             uiState = uiState.vpnCard,
@@ -412,12 +415,16 @@ private fun HomeModeCardList(
             onConfigure = onVpnCardClick,
             onCardClick = onVpnCardClick,
             onDisabledHintClick = onOpenModeEditor,
+            primaryActionVariant = RipDpiButtonVariant.Ghost,
+            configureActionVariant = RipDpiButtonVariant.Ghost,
         )
         HomeModeCard(
             uiState = diagnosticCard,
             onPrimaryAction = onDiagnosticRun,
             onConfigure = onDiagnosticCardClick,
             onCardClick = onDiagnosticCardClick,
+            primaryActionVariant = RipDpiButtonVariant.Outline,
+            configureActionVariant = RipDpiButtonVariant.Ghost,
         )
         if (homeDiagnostics.pcapToggleVisible) {
             RipDpiSwitch(

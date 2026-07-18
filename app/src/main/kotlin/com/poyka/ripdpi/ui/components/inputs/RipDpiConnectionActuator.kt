@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -14,11 +15,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -117,45 +119,103 @@ fun RipDpiConnectionActuator(
         )
 
     Column(
-        modifier =
-            modifier
-                .ripDpiTestTag(testTag)
-                .then(interactionModifier.modifier),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        BoxWithConstraints(
+        Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(metrics.height)
-                    .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
+                    .then(interactionModifier.modifier)
+                    .ripDpiTestTag(testTag),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         ) {
-            val carriageWidthPx = with(density) { metrics.carriageWidth.toPx() }
-            val travelPx = (constraints.maxWidth - carriageWidthPx).coerceAtLeast(0f)
-
-            ActuatorRail(
-                modifier = Modifier.align(Alignment.Center),
+            ActuatorStateAction(
                 state = state,
-                railColor = railColor,
-                terminalColor = terminalColor,
                 stateStyle = stateStyle,
             )
-            ActuatorCarriage(
+            BoxWithConstraints(
                 modifier =
                     Modifier
-                        .align(Alignment.CenterStart)
-                        .offset {
-                            val dragFraction =
-                                if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
-                            val effectiveFraction = (baseFraction.value + dragFraction).coerceIn(0f, 1f)
-                            IntOffset(x = (effectiveFraction * travelPx).roundToInt(), y = 0)
-                        },
-                state = state,
-                carriageColor = carriageColor,
-                carriageContentColor = stateStyle.carriageContent,
+                        .fillMaxWidth()
+                        .height(metrics.height)
+                        .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
+            ) {
+                val carriageWidthPx = with(density) { metrics.carriageWidth.toPx() }
+                val travelPx = (constraints.maxWidth - carriageWidthPx).coerceAtLeast(0f)
+
+                ActuatorRail(
+                    modifier = Modifier.align(Alignment.Center),
+                    state = state,
+                    railColor = railColor,
+                    terminalColor = terminalColor,
+                    stateStyle = stateStyle,
+                )
+                ActuatorCarriage(
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .offset {
+                                val dragFraction =
+                                    if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
+                                val effectiveFraction = (baseFraction.value + dragFraction).coerceIn(0f, 1f)
+                                IntOffset(x = (effectiveFraction * travelPx).roundToInt(), y = 0)
+                            },
+                    state = state,
+                    carriageColor = carriageColor,
+                    carriageContentColor = stateStyle.carriageContent,
+                )
+            }
+        }
+        if (state.status.showsPipeline) {
+            ActuatorPipeline(stages = state.stages)
+        }
+    }
+}
+
+@Composable
+private fun ActuatorStateAction(
+    state: HomeConnectionActuatorUiState,
+    stateStyle: com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.compactCornerRadius)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Text(
+            text = state.statusDescription,
+            style = type.bodyEmphasisBold,
+            color = stateStyle.label,
+        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = RipDpiThemeTokens.components.buttons.minHeight)
+                    .clip(shape)
+                    .background(stateStyle.carriage, shape)
+                    .border(RipDpiStroke.Thin, stateStyle.carriageContent.copy(alpha = 0.38f), shape)
+                    .padding(horizontal = spacing.md, vertical = spacing.sm),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = state.status.icon(),
+                contentDescription = null,
+                modifier = Modifier.size(RipDpiIconSizes.Default),
+                tint = stateStyle.carriageContent,
+            )
+            Spacer(modifier = Modifier.width(spacing.sm))
+            Text(
+                text = state.actionLabel,
+                style = type.button,
+                color = stateStyle.carriageContent,
             )
         }
-        ActuatorPipeline(stages = state.stages)
     }
 }
 
@@ -178,10 +238,21 @@ private fun rememberActuatorInteractionModifier(
         }
     val modifier =
         Modifier
-            .semantics {
+            .then(
+                if (dragEnabled) {
+                    Modifier.clickable(
+                        role = Role.Switch,
+                        onClick = {
+                            invokeActuatorClick(state, performHaptic, onActivate, onDeactivate)
+                        },
+                    )
+                } else {
+                    Modifier
+                },
+            ).semantics(mergeDescendants = true) {
                 role = Role.Switch
                 toggleableState = state.status.toToggleableState()
-                contentDescription = state.statusDescription
+                contentDescription = state.routeLabel
                 stateDescription = state.statusDescription
                 liveRegion = LiveRegionMode.Polite
                 if (dragEnabled) {
@@ -411,15 +482,13 @@ private fun ActuatorCarriage(
 
 @Composable
 private fun ActuatorPipeline(stages: List<HomeConnectionActuatorStageUiState>) {
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         stages.forEach { stage ->
-            StageSegment(
-                stage = stage,
-                modifier = Modifier.weight(1f),
-            )
+            StageSegment(stage = stage)
         }
     }
 }
@@ -461,7 +530,7 @@ private fun StageSegment(
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.homeConnectionStage(stage.stage.stableKey))
-                .height(metrics.pipelineHeight)
+                .heightIn(min = metrics.pipelineHeight)
                 .clip(shape)
                 .drawBehind { drawRect(style.container.copy(alpha = pulseAlpha.value)) }
                 .stripedFill(enabled = style.striped, color = style.content.copy(alpha = 0.34f))
@@ -469,11 +538,13 @@ private fun StageSegment(
                 .semantics {
                     contentDescription = stage.label
                     stateDescription = stageStateDescription
-                }.padding(horizontal = metrics.stageHorizontalPadding),
+                }.padding(
+                    horizontal = metrics.stageHorizontalPadding,
+                    vertical = RipDpiThemeTokens.spacing.xs,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -490,8 +561,6 @@ private fun StageSegment(
                 text = stage.label,
                 style = type.caption,
                 color = style.content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -558,6 +627,19 @@ private fun HomeConnectionActuatorStageState.icon() =
         HomeConnectionActuatorStageState.Active,
         -> null
     }
+
+private val HomeConnectionActuatorStatus.showsPipeline: Boolean
+    get() =
+        when (this) {
+            HomeConnectionActuatorStatus.Open,
+            HomeConnectionActuatorStatus.Locked,
+            -> false
+
+            HomeConnectionActuatorStatus.Engaging,
+            HomeConnectionActuatorStatus.Degraded,
+            HomeConnectionActuatorStatus.Fault,
+            -> true
+        }
 
 private fun HomeConnectionActuatorStageState.stateDescriptionRes(): Int =
     when (this) {

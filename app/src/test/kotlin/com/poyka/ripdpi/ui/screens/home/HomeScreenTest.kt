@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipboardManager
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
@@ -14,12 +19,16 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -31,6 +40,10 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
+import com.poyka.ripdpi.permissions.PermissionIssueUiState
+import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.permissions.PermissionRecovery
+import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -158,7 +171,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `mode cards route primary and card actions through screen callbacks`() {
+    fun `mode cards route low emphasis actions through screen callbacks`() {
         var bypassEnabled: Boolean? = null
         var vpnEnabled: Boolean? = null
         var bypassOpened = false
@@ -189,6 +202,80 @@ class HomeScreenTest {
         assertEquals(true, vpnEnabled)
         assertTrue(bypassOpened)
         assertTrue(vpnOpened)
+    }
+
+    @Test
+    fun `primary actuator stays above setup warnings at Pixel 7 width and maximum font`() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredSize(411.dp, 891.dp)) {
+                        HomeScreen(
+                            uiState =
+                                MainUiState(
+                                    permissionSummary =
+                                        PermissionSummaryUiState(
+                                            issue =
+                                                PermissionIssueUiState(
+                                                    kind = PermissionKind.VpnConsent,
+                                                    title = "VPN permission needed",
+                                                    message = "Allow RIPDPI to create the local VPN before connecting.",
+                                                    recovery = PermissionRecovery.ShowVpnPermissionDialog,
+                                                    actionLabel = "Allow VPN",
+                                                    blocking = true,
+                                                ),
+                                        ),
+                                    modeCards = modeCards(),
+                                ),
+                            onToggleConnection = {},
+                            onOpenDiagnostics = {},
+                            onOpenHistory = {},
+                            onRepairPermission = {},
+                            onOpenVpnPermissionDialog = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        val actuator =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+                .assertIsDisplayed()
+                .fetchSemanticsNode()
+        val setupWarning = composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow).fetchSemanticsNode()
+        assertTrue(actuator.boundsInRoot.bottom <= setupWarning.boundsInRoot.top)
+    }
+
+    @Test
+    fun `fault actuator stays above error recovery banner`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            connectionState = ConnectionState.Error,
+                            errorMessage = "Tunnel failed",
+                            connectionActuator =
+                                HomeConnectionActuatorUiState(
+                                    status = HomeConnectionActuatorStatus.Fault,
+                                    statusDescription = "Secure line fault at Tunnel",
+                                    actionLabel = "Retry secure line",
+                                ),
+                            modeCards = modeCards(),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        val actuator = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode()
+        val error = composeRule.onNodeWithTag(RipDpiTestTags.HomeErrorBanner).fetchSemanticsNode()
+        assertTrue(actuator.boundsInRoot.bottom <= error.boundsInRoot.top)
     }
 
     @Test

@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -13,12 +16,16 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -52,14 +59,14 @@ class RipDpiConnectionActuatorTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `click fallback activates open actuator`() {
+    fun `physical tap activates open actuator`() {
         var activations = 0
         setActuator(state = actuatorState(HomeConnectionActuatorStatus.Open), onActivate = { activations++ })
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .assertHasClickAction()
-            .performSemanticsAction(SemanticsActions.OnClick)
+            .performTouchInput { click() }
 
         composeRule.runOnIdle {
             assertEquals(1, activations)
@@ -153,14 +160,164 @@ class RipDpiConnectionActuatorTest {
     }
 
     @Test
+    fun `state action semantics matrix exposes one coherent switch node`() {
+        val cases =
+            listOf(
+                ActuatorSemanticsCase(HomeConnectionActuatorStatus.Open, ToggleableState.Off, clickable = true),
+                ActuatorSemanticsCase(
+                    HomeConnectionActuatorStatus.Engaging,
+                    ToggleableState.Indeterminate,
+                    clickable = false,
+                ),
+                ActuatorSemanticsCase(HomeConnectionActuatorStatus.Locked, ToggleableState.On, clickable = true),
+                ActuatorSemanticsCase(HomeConnectionActuatorStatus.Degraded, ToggleableState.On, clickable = true),
+                ActuatorSemanticsCase(HomeConnectionActuatorStatus.Fault, ToggleableState.Off, clickable = true),
+            )
+        var state by mutableStateOf(actuatorState(cases.first().status))
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiConnectionActuator(
+                    state = state,
+                    onActivate = {},
+                    onDeactivate = {},
+                    testTag = RipDpiTestTags.ConnectionActuatorButton,
+                )
+            }
+        }
+
+        cases.forEach { case ->
+            composeRule.runOnIdle { state = actuatorState(case.status) }
+            composeRule.waitForIdle()
+
+            composeRule
+                .onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorButton, useUnmergedTree = true)
+                .assertCountEquals(1)
+            val node = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            node
+                .assertHasRole(Role.Switch)
+                .assert(
+                    SemanticsMatcher.expectValue(
+                        SemanticsProperties.ToggleableState,
+                        case.toggleableState,
+                    ),
+                ).assert(
+                    SemanticsMatcher.expectValue(
+                        SemanticsProperties.StateDescription,
+                        "State ${case.status}",
+                    ),
+                )
+            if (case.clickable) {
+                node.assertHasClickAction()
+                assertEquals(
+                    "Action ${case.status}",
+                    node.fetchSemanticsNode().config[SemanticsActions.OnClick].label,
+                )
+            } else {
+                node.assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick))
+            }
+        }
+    }
+
+    @Test
     fun `route label and all stage tags are visible`() {
         setActuator(state = actuatorState(HomeConnectionActuatorStatus.Degraded))
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorRouteLabel).assertIsDisplayed()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorRouteLabel, useUnmergedTree = true)
+            .assertIsDisplayed()
         HomeConnectionActuatorStage.entries.forEach { stage ->
             composeRule
                 .onNodeWithTag(RipDpiTestTags.homeConnectionStage(stage.stableKey))
                 .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun `stable states hide pipeline while transitional and error states show it`() {
+        var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Open))
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiConnectionActuator(
+                    state = state,
+                    onActivate = {},
+                    onDeactivate = {},
+                    testTag = RipDpiTestTags.ConnectionActuatorButton,
+                )
+            }
+        }
+
+        HomeConnectionActuatorStatus.entries.forEach { status ->
+            composeRule.runOnIdle { state = actuatorState(status) }
+            composeRule.waitForIdle()
+            val expectedCount =
+                if (status == HomeConnectionActuatorStatus.Open || status == HomeConnectionActuatorStatus.Locked) {
+                    0
+                } else {
+                    1
+                }
+            HomeConnectionActuatorStage.entries.forEach { stage ->
+                composeRule
+                    .onAllNodesWithTag(RipDpiTestTags.homeConnectionStage(stage.stableKey))
+                    .assertCountEquals(expectedCount)
+            }
+        }
+    }
+
+    @Test
+    fun `stage labels wrap without ellipsis at compact accessibility font scales`() {
+        val labels =
+            listOf(
+                "Network handover",
+                "Encrypted DNS resolver",
+                "Secure handshake",
+                "Protected tunnel",
+                "Outbound route",
+            )
+        var fontScale by mutableStateOf(1.5f)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                        RipDpiConnectionActuator(
+                            state =
+                                actuatorState(HomeConnectionActuatorStatus.Engaging).copy(
+                                    stages =
+                                        HomeConnectionActuatorStage.entries
+                                            .mapIndexed { index, stage ->
+                                                HomeConnectionActuatorStageUiState(
+                                                    stage = stage,
+                                                    label = labels[index],
+                                                    state = HomeConnectionActuatorStageState.Active,
+                                                )
+                                            }.let { persistentListOf(*it.toTypedArray()) },
+                                ),
+                            onActivate = {},
+                            onDeactivate = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = RipDpiTestTags.ConnectionActuatorButton,
+                        )
+                    }
+                }
+            }
+        }
+
+        listOf(1.5f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale = scale }
+            composeRule.waitForIdle()
+            labels.forEach { label ->
+                val textLayouts = mutableListOf<TextLayoutResult>()
+                composeRule
+                    .onNodeWithText(label, useUnmergedTree = true)
+                    .assertIsDisplayed()
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+                        action(textLayouts)
+                    }
+                assertTrue(
+                    textLayouts.single().let { layout ->
+                        (0 until layout.lineCount).none(layout::isLineEllipsized)
+                    },
+                )
+            }
         }
     }
 
@@ -223,8 +380,8 @@ class RipDpiConnectionActuatorTest {
             leadingLabel = "Open",
             trailingLabel = "Secure",
             routeLabel = "Local VPN",
-            statusDescription = "Secure line",
-            actionLabel = "Toggle",
+            statusDescription = "State $status",
+            actionLabel = "Action $status",
             carriageFraction =
                 when (status) {
                     HomeConnectionActuatorStatus.Open -> {
@@ -288,4 +445,10 @@ class RipDpiConnectionActuatorTest {
 
     private fun SemanticsNodeInteraction.assertHasRole(expected: Role): SemanticsNodeInteraction =
         assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, expected))
+
+    private data class ActuatorSemanticsCase(
+        val status: HomeConnectionActuatorStatus,
+        val toggleableState: ToggleableState,
+        val clickable: Boolean,
+    )
 }

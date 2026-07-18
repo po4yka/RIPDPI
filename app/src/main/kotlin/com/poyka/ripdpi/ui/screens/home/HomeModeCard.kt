@@ -42,6 +42,8 @@ fun HomeModeCard(
     modifier: Modifier = Modifier,
     onCardClick: (() -> Unit)? = null,
     onDisabledHintClick: (() -> Unit)? = null,
+    primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
+    configureActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Outline,
 ) {
     val primaryEnabled = uiState.primaryActionEnabled && !uiState.isLoading
     val statusLabel = homeModeStatusLabel(uiState)
@@ -78,6 +80,8 @@ fun HomeModeCard(
             onPrimaryAction = onPrimaryAction,
             onConfigure = onConfigure,
             onDisabledHintClick = onDisabledHintClick,
+            primaryActionVariant = primaryActionVariant,
+            configureActionVariant = configureActionVariant,
         )
     }
 }
@@ -234,6 +238,8 @@ private fun HomeModeCardActions(
     onPrimaryAction: () -> Unit,
     onConfigure: () -> Unit,
     onDisabledHintClick: (() -> Unit)?,
+    primaryActionVariant: RipDpiButtonVariant,
+    configureActionVariant: RipDpiButtonVariant,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -250,6 +256,7 @@ private fun HomeModeCardActions(
                     Modifier
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
+                variant = primaryActionVariant,
                 enabled = primaryEnabled,
                 loading = uiState.isLoading,
             )
@@ -260,7 +267,7 @@ private fun HomeModeCardActions(
                     Modifier
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
-                variant = RipDpiButtonVariant.Outline,
+                variant = configureActionVariant,
             )
         }
         HomeModeDisabledHint(
