@@ -3,6 +3,7 @@ mod autolearn;
 mod chains;
 mod common;
 mod constants;
+mod destination_routing;
 mod fake_packets;
 mod hosts;
 mod listen;
@@ -28,6 +29,11 @@ pub use constants::{
     FAKE_TLS_SNI_MODE_RANDOMIZED, FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO, FAKE_TLS_SOURCE_PROFILE, IP_ID_MODE_RND,
     IP_ID_MODE_SEQ, IP_ID_MODE_SEQGROUP, IP_ID_MODE_ZERO, QUIC_FAKE_PROFILE_DISABLED, SEQOVL_DEFAULT_OVERLAP_SIZE,
     SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND,
+};
+pub use destination_routing::{
+    ProxyUiDestinationDomainMatcher, ProxyUiDestinationDomainMatcherKind, ProxyUiDestinationIpMatcher,
+    ProxyUiDestinationIpMatcherKind, ProxyUiDestinationPortRange, ProxyUiDestinationRoutingAction,
+    ProxyUiDestinationRoutingConfig, ProxyUiDestinationRoutingNetwork, ProxyUiDestinationRoutingRule,
 };
 // `HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS` is consumed via `super::constants`
 // directly (see `autolearn.rs`); it is not re-exported at the `types` root.

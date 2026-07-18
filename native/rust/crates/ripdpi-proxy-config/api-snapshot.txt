@@ -21,6 +21,21 @@ pub ripdpi_proxy_config::ProxyConfigPayload::Ui::runtime_context: core::option::
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::schema_version: u32
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::session_overrides: core::option::Option<ripdpi_proxy_config::types::payload::ProxySessionOverrides>
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::strategy_preset: core::option::Option<alloc::string::String>
+#[non_exhaustive] pub enum ripdpi_proxy_config::ProxyUiDestinationDomainMatcherKind
+pub ripdpi_proxy_config::ProxyUiDestinationDomainMatcherKind::Exact
+pub ripdpi_proxy_config::ProxyUiDestinationDomainMatcherKind::Geosite
+pub ripdpi_proxy_config::ProxyUiDestinationDomainMatcherKind::Suffix
+#[non_exhaustive] pub enum ripdpi_proxy_config::ProxyUiDestinationIpMatcherKind
+pub ripdpi_proxy_config::ProxyUiDestinationIpMatcherKind::Cidr
+pub ripdpi_proxy_config::ProxyUiDestinationIpMatcherKind::GeoIp
+#[non_exhaustive] pub enum ripdpi_proxy_config::ProxyUiDestinationRoutingAction
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingAction::Block
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingAction::Direct
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingAction::Tunneled
+#[non_exhaustive] pub enum ripdpi_proxy_config::ProxyUiDestinationRoutingNetwork
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingNetwork::Both
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingNetwork::Tcp
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingNetwork::Udp
 pub struct ripdpi_proxy_config::CellularSnapshot
 pub ripdpi_proxy_config::CellularSnapshot::carrier_id: core::option::Option<i32>
 pub ripdpi_proxy_config::CellularSnapshot::data_network_type: alloc::string::String
@@ -122,6 +137,7 @@ pub fn ripdpi_proxy_config::ProxyUiChainConfig::default() -> Self
 pub struct ripdpi_proxy_config::ProxyUiConfig
 pub ripdpi_proxy_config::ProxyUiConfig::adaptive_fallback: ripdpi_proxy_config::types::adaptive_fallback::ProxyUiAdaptiveFallbackConfig
 pub ripdpi_proxy_config::ProxyUiConfig::chains: ripdpi_proxy_config::ProxyUiChainConfig
+pub ripdpi_proxy_config::ProxyUiConfig::destination_routing: ripdpi_proxy_config::ProxyUiDestinationRoutingConfig
 pub ripdpi_proxy_config::ProxyUiConfig::environment_kind: core::option::Option<alloc::string::String>
 pub ripdpi_proxy_config::ProxyUiConfig::fake_packets: ripdpi_proxy_config::ProxyUiFakePacketConfig
 pub ripdpi_proxy_config::ProxyUiConfig::geoip_db_path: core::option::Option<alloc::string::String>
@@ -138,6 +154,27 @@ pub ripdpi_proxy_config::ProxyUiConfig::root_mode: bool
 pub ripdpi_proxy_config::ProxyUiConfig::upstream_relay: ripdpi_proxy_config::types::relay::ProxyUiRelayConfig
 pub ripdpi_proxy_config::ProxyUiConfig::warp: ripdpi_proxy_config::types::warp::ProxyUiWarpConfig
 pub ripdpi_proxy_config::ProxyUiConfig::ws_tunnel: ripdpi_proxy_config::types::ui::ProxyUiWsTunnelConfig
+pub struct ripdpi_proxy_config::ProxyUiDestinationDomainMatcher
+pub ripdpi_proxy_config::ProxyUiDestinationDomainMatcher::kind: ripdpi_proxy_config::ProxyUiDestinationDomainMatcherKind
+pub ripdpi_proxy_config::ProxyUiDestinationDomainMatcher::value: alloc::string::String
+pub struct ripdpi_proxy_config::ProxyUiDestinationIpMatcher
+pub ripdpi_proxy_config::ProxyUiDestinationIpMatcher::kind: ripdpi_proxy_config::ProxyUiDestinationIpMatcherKind
+pub ripdpi_proxy_config::ProxyUiDestinationIpMatcher::value: alloc::string::String
+pub struct ripdpi_proxy_config::ProxyUiDestinationPortRange
+pub ripdpi_proxy_config::ProxyUiDestinationPortRange::end_inclusive: u16
+pub ripdpi_proxy_config::ProxyUiDestinationPortRange::start: u16
+pub struct ripdpi_proxy_config::ProxyUiDestinationRoutingConfig
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::canonical_digest: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::default_action: ripdpi_proxy_config::ProxyUiDestinationRoutingAction
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::rules: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiDestinationRoutingRule>
+impl core::default::Default for ripdpi_proxy_config::ProxyUiDestinationRoutingConfig
+pub fn ripdpi_proxy_config::ProxyUiDestinationRoutingConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiDestinationRoutingRule
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingRule::action: ripdpi_proxy_config::ProxyUiDestinationRoutingAction
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingRule::destination_ports: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiDestinationPortRange>
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingRule::domains: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiDestinationDomainMatcher>
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingRule::ip_ranges: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiDestinationIpMatcher>
+pub ripdpi_proxy_config::ProxyUiDestinationRoutingRule::network: ripdpi_proxy_config::ProxyUiDestinationRoutingNetwork
 pub struct ripdpi_proxy_config::ProxyUiFakePacketConfig
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::adaptive_fake_ttl_delta: i32
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::adaptive_fake_ttl_enabled: bool

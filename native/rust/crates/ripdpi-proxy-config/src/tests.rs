@@ -1776,3 +1776,85 @@ fn missing_strategy_evolution_settings_keep_current_defaults() {
     assert_eq!(config.adaptive.evolution_cooldown_after_failures, 3);
     assert_eq!(config.adaptive.evolution_cooldown_ms, 300_000);
 }
+
+#[test]
+fn schema_v2_without_destination_routing_keeps_inert_runtime_policy() {
+    let parsed = parse_proxy_config_json(r#"{"kind":"ui","schemaVersion":2,"adaptiveFallback":{}}"#)
+        .expect("old schema-v2 payload");
+    let config = runtime_config_from_payload(parsed).expect("runtime config");
+
+    assert!(config.destination_routing.rules.is_empty());
+    assert_eq!(config.destination_routing.default_action, ripdpi_config::DestinationRoutingAction::Tunneled);
+    assert!(config.destination_routing.canonical_digest.is_empty());
+}
+
+#[test]
+fn destination_routing_round_trips_and_maps_every_wire_variant() {
+    let json = serde_json::json!({
+        "kind": "ui",
+        "schemaVersion": 2,
+        "destinationRouting": {
+            "rules": [
+                {
+                    "action": "direct",
+                    "network": "both",
+                    "domains": [
+                        {"kind": "exact", "value": "example.com"},
+                        {"kind": "suffix", "value": "example.net"},
+                        {"kind": "geosite", "value": "ru"}
+                    ],
+                    "ipRanges": [
+                        {"kind": "cidr", "value": "192.0.2.0/24"},
+                        {"kind": "geo_ip", "value": "ru"}
+                    ],
+                    "destinationPorts": [{"start": 443, "endInclusive": 8443}]
+                },
+                {
+                    "action": "block",
+                    "network": "tcp",
+                    "domains": [{"kind": "exact", "value": "blocked.example"}]
+                },
+                {
+                    "action": "tunneled",
+                    "network": "udp",
+                    "destinationPorts": [{"start": 53, "endInclusive": 53}]
+                }
+            ],
+            "defaultAction": "tunneled",
+            "canonicalDigest": "digest-v1"
+        }
+    });
+
+    let parsed = parse_proxy_config_json(&json.to_string()).expect("destination routing payload");
+    let reparsed =
+        parse_proxy_config_json(&serde_json::to_string(&parsed).expect("serialize destination routing payload"))
+            .expect("reparse destination routing payload");
+    assert_eq!(parsed, reparsed);
+
+    let config = runtime_config_from_payload(parsed).expect("runtime config");
+    assert_eq!(config.destination_routing.rules.len(), 3);
+    assert_eq!(config.destination_routing.rules[0].action, ripdpi_config::DestinationRoutingAction::Direct);
+    assert_eq!(config.destination_routing.rules[0].network, ripdpi_config::DestinationRoutingNetwork::Both);
+    assert_eq!(config.destination_routing.rules[0].ip_ranges[1].kind, ripdpi_config::DestinationIpMatcherKind::GeoIp);
+    assert_eq!(config.destination_routing.rules[1].action, ripdpi_config::DestinationRoutingAction::Block);
+    assert_eq!(config.destination_routing.rules[2].network, ripdpi_config::DestinationRoutingNetwork::Udp);
+}
+
+#[test]
+fn destination_routing_rejects_unknown_enum_and_rule_fields() {
+    let unknown_action =
+        r#"{"kind":"ui","schemaVersion":2,"destinationRouting":{"rules":[],"defaultAction":"future"}}"#;
+    let unknown_rule_field = r#"{"kind":"ui","schemaVersion":2,"destinationRouting":{"rules":[{"action":"block","network":"tcp","domains":[{"kind":"exact","value":"example.com"}],"unexpected":true}],"canonicalDigest":"digest"}}"#;
+
+    assert!(parse_proxy_config_json(unknown_action).is_err());
+    assert!(parse_proxy_config_json(unknown_rule_field).is_err());
+}
+
+#[test]
+fn destination_routing_rejects_invalid_rule_atomically_during_conversion() {
+    let invalid_rule = r#"{"kind":"ui","schemaVersion":2,"destinationRouting":{"rules":[{"action":"direct","network":"both","destinationPorts":[{"start":8443,"endInclusive":443}]}],"defaultAction":"tunneled","canonicalDigest":"digest"}}"#;
+    let parsed = parse_proxy_config_json(invalid_rule).expect("structurally valid payload");
+
+    let error = runtime_config_from_payload(parsed).expect_err("invalid rule must reject the whole policy");
+    assert!(error.to_string().contains("invalid destination port range"));
+}

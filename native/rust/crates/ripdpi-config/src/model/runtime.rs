@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use super::{DesyncGroup, QuicInitialMode, WsTunnelMode};
+use super::{DestinationRoutingPolicy, DesyncGroup, QuicInitialMode, WsTunnelMode};
 
 mod environment;
 pub use environment::EnvironmentKind;
@@ -21,6 +21,7 @@ pub struct RuntimeConfig {
     pub quic: RuntimeQuicSettings,
     pub adaptive: RuntimeAdaptiveSettings,
     pub host_autolearn: HostAutolearnSettings,
+    pub destination_routing: DestinationRoutingPolicy,
     pub groups: Vec<DesyncGroup>,
     /// Maximum number of route-advance retries before giving up.  Prevents
     /// unbounded retry loops when many desync groups are configured but the

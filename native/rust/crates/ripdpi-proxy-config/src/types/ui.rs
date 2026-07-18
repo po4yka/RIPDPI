@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::adaptive_fallback::ProxyUiAdaptiveFallbackConfig;
 use super::autolearn::ProxyUiHostAutolearnConfig;
 use super::chains::ProxyUiChainConfig;
+use super::destination_routing::ProxyUiDestinationRoutingConfig;
 use super::fake_packets::ProxyUiFakePacketConfig;
 use super::hosts::ProxyUiHostsConfig;
 use super::listen::ProxyUiListenConfig;
@@ -39,6 +40,8 @@ pub struct ProxyUiConfig {
     pub host_autolearn: ProxyUiHostAutolearnConfig,
     #[serde(default)]
     pub ws_tunnel: ProxyUiWsTunnelConfig,
+    #[serde(default)]
+    pub destination_routing: ProxyUiDestinationRoutingConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_log_level: Option<String>,
     #[serde(default)]

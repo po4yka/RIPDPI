@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.EnvironmentKind
 import com.poyka.ripdpi.data.StrategyLaneFamilies
@@ -31,6 +32,7 @@ class RipDpiProxyUIPreferences(
     geoipDbPath: String? = null,
     geositeDbPath: String? = null,
     val environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
+    val destinationRouting: DestinationRoutingPolicy = DestinationRoutingPolicy(canonicalDigest = ""),
     /**
      * AmneziaWG VPN-mode egress request. Non-null means AWG is the configured egress
      * transport for this session; null means AWG is not active. AWG and WARP are
@@ -98,6 +100,7 @@ class RipDpiProxyUIPreferences(
             geoipDbPath = geoipDbPath,
             geositeDbPath = geositeDbPath,
             environmentKind = environmentKind,
+            destinationRouting = destinationRouting,
             awg = awg,
         )
 
@@ -113,6 +116,7 @@ class RipDpiProxyUIPreferences(
             geoipDbPath: String? = null,
             geositeDbPath: String? = null,
             environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
+            destinationRouting: DestinationRoutingPolicy = DestinationRoutingPolicy(canonicalDigest = ""),
             awg: AwgActivationRequest? = null,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
@@ -135,6 +139,7 @@ class RipDpiProxyUIPreferences(
                 geoipDbPath = geoipDbPath,
                 geositeDbPath = geositeDbPath,
                 environmentKind = environmentKind,
+                destinationRouting = destinationRouting,
                 awg = awg,
             )
     }
@@ -164,6 +169,7 @@ fun RipDpiProxyUIPreferences.withConnectionConcurrencyPolicy(
         geoipDbPath = geoipDbPath,
         geositeDbPath = geositeDbPath,
         environmentKind = environmentKind,
+        destinationRouting = destinationRouting,
         awg = awg,
     )
 

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.codec.AdaptiveSectionCodec
 import com.poyka.ripdpi.core.codec.ChainCodec
+import com.poyka.ripdpi.core.codec.DestinationRoutingSectionCodec
 import com.poyka.ripdpi.core.codec.NativeProxyConfig
 import com.poyka.ripdpi.core.codec.NativeProxyConfigValidation
 import com.poyka.ripdpi.core.codec.NetworkSectionCodec
@@ -71,6 +72,7 @@ internal object RipDpiProxyJsonCodec {
                 warp = WarpSectionCodec.toNative(preferences.warp),
                 hostAutolearn = NetworkSectionCodec.toNative(preferences.hostAutolearn),
                 wsTunnel = WsTunnelSectionCodec.toNative(preferences.wsTunnel),
+                destinationRouting = DestinationRoutingSectionCodec.toNative(preferences.destinationRouting),
                 nativeLogLevel = preferences.nativeLogLevel,
                 rootMode = rootMode,
                 rootHelperSocketPath = rootHelperSocketPath,
@@ -113,6 +115,7 @@ internal object RipDpiProxyJsonCodec {
                 warp = WarpSectionCodec.toModel(payload.warp),
                 hostAutolearn = NetworkSectionCodec.toModel(payload.hostAutolearn),
                 wsTunnel = WsTunnelSectionCodec.toModel(payload.wsTunnel),
+                destinationRouting = DestinationRoutingSectionCodec.toModel(payload.destinationRouting),
                 nativeLogLevel = payload.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toModel(payload.runtimeContext),
                 logContext = ProxyLogContextCodec.toModel(payload.logContext),

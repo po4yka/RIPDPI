@@ -42,6 +42,21 @@ pub const ripdpi_config::tcp_flags::TCP_FLAG_URG: u16
 pub fn ripdpi_config::tcp_flags::format_tcp_flag_mask(u16) -> alloc::string::String
 pub fn ripdpi_config::tcp_flags::parse_tcp_flag_mask(&str) -> core::result::Result<u16, ripdpi_config::ConfigError>
 pub fn ripdpi_config::tcp_flags::validate_tcp_flag_masks(ripdpi_config::TcpChainStepKind, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, &str) -> core::result::Result<(), ripdpi_config::ConfigError>
+#[non_exhaustive] pub enum ripdpi_config::DestinationDomainMatcherKind
+pub ripdpi_config::DestinationDomainMatcherKind::Exact
+pub ripdpi_config::DestinationDomainMatcherKind::Geosite
+pub ripdpi_config::DestinationDomainMatcherKind::Suffix
+#[non_exhaustive] pub enum ripdpi_config::DestinationIpMatcherKind
+pub ripdpi_config::DestinationIpMatcherKind::Cidr
+pub ripdpi_config::DestinationIpMatcherKind::GeoIp
+#[non_exhaustive] pub enum ripdpi_config::DestinationRoutingAction
+pub ripdpi_config::DestinationRoutingAction::Block
+pub ripdpi_config::DestinationRoutingAction::Direct
+pub ripdpi_config::DestinationRoutingAction::Tunneled
+#[non_exhaustive] pub enum ripdpi_config::DestinationRoutingNetwork
+pub ripdpi_config::DestinationRoutingNetwork::Both
+pub ripdpi_config::DestinationRoutingNetwork::Tcp
+pub ripdpi_config::DestinationRoutingNetwork::Udp
 #[non_exhaustive] pub enum ripdpi_config::DesyncMode
 pub ripdpi_config::DesyncMode::Disoob = 4
 pub ripdpi_config::DesyncMode::Disorder = 2
@@ -234,6 +249,27 @@ pub ripdpi_config::ConfigError::value: core::option::Option<alloc::string::Strin
 impl core::error::Error for ripdpi_config::ConfigError
 impl core::fmt::Display for ripdpi_config::ConfigError
 pub fn ripdpi_config::ConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct ripdpi_config::DestinationDomainMatcher
+pub ripdpi_config::DestinationDomainMatcher::kind: ripdpi_config::DestinationDomainMatcherKind
+pub ripdpi_config::DestinationDomainMatcher::value: alloc::string::String
+pub struct ripdpi_config::DestinationIpMatcher
+pub ripdpi_config::DestinationIpMatcher::kind: ripdpi_config::DestinationIpMatcherKind
+pub ripdpi_config::DestinationIpMatcher::value: alloc::string::String
+pub struct ripdpi_config::DestinationPortRange
+pub ripdpi_config::DestinationPortRange::end_inclusive: u16
+pub ripdpi_config::DestinationPortRange::start: u16
+pub struct ripdpi_config::DestinationRoutingPolicy
+pub ripdpi_config::DestinationRoutingPolicy::canonical_digest: alloc::string::String
+pub ripdpi_config::DestinationRoutingPolicy::default_action: ripdpi_config::DestinationRoutingAction
+pub ripdpi_config::DestinationRoutingPolicy::rules: alloc::vec::Vec<ripdpi_config::DestinationRoutingRule>
+impl core::default::Default for ripdpi_config::DestinationRoutingPolicy
+pub fn ripdpi_config::DestinationRoutingPolicy::default() -> Self
+pub struct ripdpi_config::DestinationRoutingRule
+pub ripdpi_config::DestinationRoutingRule::action: ripdpi_config::DestinationRoutingAction
+pub ripdpi_config::DestinationRoutingRule::destination_ports: alloc::vec::Vec<ripdpi_config::DestinationPortRange>
+pub ripdpi_config::DestinationRoutingRule::domains: alloc::vec::Vec<ripdpi_config::DestinationDomainMatcher>
+pub ripdpi_config::DestinationRoutingRule::ip_ranges: alloc::vec::Vec<ripdpi_config::DestinationIpMatcher>
+pub ripdpi_config::DestinationRoutingRule::network: ripdpi_config::DestinationRoutingNetwork
 pub struct ripdpi_config::DesyncGroup
 pub ripdpi_config::DesyncGroup::actions: ripdpi_config::DesyncGroupActionSettings
 pub ripdpi_config::DesyncGroup::bit: u64
@@ -380,6 +416,7 @@ impl core::default::Default for ripdpi_config::RuntimeAdaptiveSettings
 pub fn ripdpi_config::RuntimeAdaptiveSettings::default() -> Self
 pub struct ripdpi_config::RuntimeConfig
 pub ripdpi_config::RuntimeConfig::adaptive: ripdpi_config::RuntimeAdaptiveSettings
+pub ripdpi_config::RuntimeConfig::destination_routing: ripdpi_config::DestinationRoutingPolicy
 pub ripdpi_config::RuntimeConfig::groups: alloc::vec::Vec<ripdpi_config::DesyncGroup>
 pub ripdpi_config::RuntimeConfig::host_autolearn: ripdpi_config::HostAutolearnSettings
 pub ripdpi_config::RuntimeConfig::max_route_retries: usize

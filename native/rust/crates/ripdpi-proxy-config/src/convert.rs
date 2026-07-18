@@ -1,5 +1,6 @@
 mod adaptive_runtime_context;
 mod chain;
+mod destination_routing;
 mod fake_packet;
 mod legacy_payload_adapter;
 mod listen;
@@ -115,6 +116,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         warp,
         host_autolearn,
         ws_tunnel,
+        destination_routing,
         native_log_level: _,
         root_mode,
         root_helper_socket_path,
@@ -123,7 +125,10 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         environment_kind,
     } = payload;
 
-    let mut config = RuntimeConfig::default();
+    let mut config = RuntimeConfig {
+        destination_routing: destination_routing::convert(destination_routing)?,
+        ..RuntimeConfig::default()
+    };
     config.process.geoip_db_path = normalized_optional_path(geoip_db_path);
     config.process.geosite_db_path = normalized_optional_path(geosite_db_path);
     listen::apply_listen_section(&mut config, &listen)?;

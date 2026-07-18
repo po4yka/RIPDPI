@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.codec
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -27,6 +28,7 @@ internal object NativeProxyConfigValidation {
             "warp",
             "hostAutolearn",
             "wsTunnel",
+            "destinationRouting",
         )
     private val legacyFlatUiKeys =
         setOf(
@@ -115,7 +117,55 @@ internal object NativeProxyConfigValidation {
         require(payload.keys.any(groupedUiKeys::contains)) {
             "Grouped UI config JSON must include at least one nested section"
         }
+        payload["destinationRouting"]?.let(::validateDestinationRoutingShape)
     }
+
+    private fun validateDestinationRoutingShape(element: JsonElement) {
+        val policy = element.requireObject("destinationRouting")
+        policy.requireOnlyKeys("destinationRouting", destinationRoutingKeys)
+        val rules = policy["rules"]?.requireArray("destinationRouting.rules") ?: return
+        rules.forEachIndexed { index, ruleElement ->
+            val rulePath = "destinationRouting.rules[$index]"
+            val rule = ruleElement.requireObject(rulePath)
+            rule.requireOnlyKeys(rulePath, destinationRuleKeys)
+            validateMatcherArray(rule, "domains", rulePath, domainMatcherKeys)
+            validateMatcherArray(rule, "ipRanges", rulePath, ipMatcherKeys)
+            validateMatcherArray(rule, "destinationPorts", rulePath, portRangeKeys)
+        }
+    }
+
+    private fun validateMatcherArray(
+        rule: JsonObject,
+        key: String,
+        rulePath: String,
+        allowedKeys: Set<String>,
+    ) {
+        val values = rule[key]?.requireArray("$rulePath.$key") ?: return
+        values.forEachIndexed { index, matcherElement ->
+            val matcherPath = "$rulePath.$key[$index]"
+            matcherElement.requireObject(matcherPath).requireOnlyKeys(matcherPath, allowedKeys)
+        }
+    }
+
+    private fun JsonElement.requireObject(path: String): JsonObject =
+        requireNotNull(this as? JsonObject) { "$path must be an object" }
+
+    private fun JsonElement.requireArray(path: String): JsonArray =
+        requireNotNull(this as? JsonArray) { "$path must be an array" }
+
+    private fun JsonObject.requireOnlyKeys(
+        path: String,
+        allowedKeys: Set<String>,
+    ) {
+        val unknownKeys = keys - allowedKeys
+        require(unknownKeys.isEmpty()) { "$path contains unknown fields: ${unknownKeys.sorted()}" }
+    }
+
+    private val destinationRoutingKeys = setOf("rules", "defaultAction", "canonicalDigest")
+    private val destinationRuleKeys = setOf("action", "network", "domains", "ipRanges", "destinationPorts")
+    private val domainMatcherKeys = setOf("kind", "value")
+    private val ipMatcherKeys = setOf("kind", "value")
+    private val portRangeKeys = setOf("start", "endInclusive")
 
     fun validateSupportedPayload(payload: NativeProxyConfig) {
         val schemaVersion =
@@ -137,7 +187,36 @@ internal object NativeProxyConfigValidation {
                 require(payload.strategyPreset != LegacyStrategyPreset) {
                     "Legacy strategy preset alias is not supported"
                 }
+                validateDestinationRouting(payload.destinationRouting)
             }
         }
     }
+
+    private fun validateDestinationRouting(policy: NativeDestinationRoutingConfig) {
+        require(policy.rules.isEmpty() || policy.canonicalDigest.isNotBlank()) {
+            "destinationRouting.canonicalDigest is required when rules are present"
+        }
+        policy.rules.forEachIndexed { index, rule ->
+            require(rule.domains.isNotEmpty() || rule.ipRanges.isNotEmpty() || rule.destinationPorts.isNotEmpty()) {
+                "destinationRouting.rules[$index] has no destination matchers"
+            }
+            require(rule.domains.none { it.value.isBlank() }) {
+                "destinationRouting.rules[$index] has an empty domain matcher"
+            }
+            require(rule.ipRanges.none { it.value.isBlank() }) {
+                "destinationRouting.rules[$index] has an empty IP matcher"
+            }
+            require(
+                rule.destinationPorts.none {
+                    it.start !in validDestinationPortRange ||
+                        it.endInclusive !in validDestinationPortRange ||
+                        it.start > it.endInclusive
+                },
+            ) {
+                "destinationRouting.rules[$index] has an invalid destination port range"
+            }
+        }
+    }
+
+    private val validDestinationPortRange = 1..65535
 }

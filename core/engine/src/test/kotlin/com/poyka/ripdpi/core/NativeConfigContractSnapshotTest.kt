@@ -643,6 +643,14 @@ class NativeConfigContractSnapshotTest {
             put("warp", warp)
             put("hostAutolearn", hostAutolearn)
             put("wsTunnel", wsTunnel)
+            put(
+                "destinationRouting",
+                buildJsonObject {
+                    put("rules", JsonArray(emptyList()))
+                    put("defaultAction", JsonPrimitive("tunneled"))
+                    put("canonicalDigest", JsonPrimitive(""))
+                },
+            )
             put("rootMode", JsonPrimitive(false))
             put("logContext", JsonNull)
             put("runtimeContext", JsonNull)

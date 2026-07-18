@@ -18,6 +18,7 @@ const GROUPED_UI_KEYS: &[&str] = &[
     "warp",
     "hostAutolearn",
     "wsTunnel",
+    "destinationRouting",
 ];
 
 const LEGACY_FLAT_UI_KEYS: &[&str] = &[

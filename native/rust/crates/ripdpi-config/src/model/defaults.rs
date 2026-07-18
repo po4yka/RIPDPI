@@ -5,9 +5,9 @@ use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use crate::{HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS};
 
 use super::{
-    DesyncGroup, DesyncGroupActionSettings, EntropyMode, FakePacketSource, HostAutolearnSettings, ListenConfig,
-    QuicFakeProfile, QuicInitialMode, RuntimeAdaptiveSettings, RuntimeConfig, RuntimeNetworkSettings,
-    RuntimeProcessSettings, RuntimeQuicSettings, RuntimeTimeoutSettings, WsTunnelMode,
+    DestinationRoutingPolicy, DesyncGroup, DesyncGroupActionSettings, EntropyMode, FakePacketSource,
+    HostAutolearnSettings, ListenConfig, QuicFakeProfile, QuicInitialMode, RuntimeAdaptiveSettings, RuntimeConfig,
+    RuntimeNetworkSettings, RuntimeProcessSettings, RuntimeQuicSettings, RuntimeTimeoutSettings, WsTunnelMode,
 };
 
 mod host_autolearn;
@@ -129,6 +129,7 @@ impl Default for RuntimeConfig {
             quic: RuntimeQuicSettings::default(),
             adaptive: RuntimeAdaptiveSettings::default(),
             host_autolearn: HostAutolearnSettings::default(),
+            destination_routing: DestinationRoutingPolicy::default(),
             groups: vec![DesyncGroup::new(0)],
             max_route_retries: 8,
         }

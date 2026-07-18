@@ -45,6 +45,7 @@ internal sealed interface NativeProxyConfig {
         val warp: NativeWarpConfig = NativeWarpConfig(),
         val hostAutolearn: NativeHostAutolearnConfig = NativeHostAutolearnConfig(),
         val wsTunnel: NativeWsTunnelConfig = NativeWsTunnelConfig(),
+        val destinationRouting: NativeDestinationRoutingConfig = NativeDestinationRoutingConfig(),
         @EncodeDefault(EncodeDefault.Mode.NEVER)
         val nativeLogLevel: String? = null,
         val rootMode: Boolean = false,

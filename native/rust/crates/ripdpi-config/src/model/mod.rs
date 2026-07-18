@@ -1,4 +1,5 @@
 mod defaults;
+mod destination_routing;
 mod filters;
 mod group;
 mod offset;
@@ -8,6 +9,7 @@ mod tcp;
 mod tests;
 mod udp;
 
+pub use destination_routing::*;
 pub use filters::*;
 pub use group::*;
 pub use offset::*;

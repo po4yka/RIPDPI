@@ -124,6 +124,7 @@ private fun RipDpiProxyUIPreferences.withRelayConfig(relayConfig: RipDpiRelayCon
         geoipDbPath = geoipDbPath,
         geositeDbPath = geositeDbPath,
         environmentKind = environmentKind,
+        destinationRouting = destinationRouting,
         awg = awg,
     )
 
@@ -197,6 +198,7 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
                 geoipDbPath = geoipDbPath,
                 geositeDbPath = geositeDbPath,
                 environmentKind = environmentKind,
+                destinationRouting = destinationRouting,
                 awg = null,
             )
         }

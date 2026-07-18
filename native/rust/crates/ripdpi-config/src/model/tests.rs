@@ -792,6 +792,15 @@ fn actionable_group_returns_zero_when_no_actionable() {
 }
 
 #[test]
+fn runtime_config_defaults_to_inert_tunneled_destination_policy() {
+    let policy = RuntimeConfig::default().destination_routing;
+
+    assert!(policy.rules.is_empty());
+    assert_eq!(policy.default_action, DestinationRoutingAction::Tunneled);
+    assert!(policy.canonical_digest.is_empty());
+}
+
+#[test]
 fn seq_overlap_fake_mode_default_is_profile() {
     assert_eq!(SeqOverlapFakeMode::default(), SeqOverlapFakeMode::Profile);
 }
