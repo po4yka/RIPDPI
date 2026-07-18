@@ -2,4 +2,5 @@
 <resources>
     <string name="home_diagnostics_analysis_starting">Iniciando diagnóstico…</string>
     <string name="home_diagnostics_stage_counter">Etapa %1$d de %2$d</string>
+    <string name="diagnostics_error_cancel_failed">No se pudo cancelar el diagnóstico. Es posible que el análisis siga en curso.</string>
 </resources>

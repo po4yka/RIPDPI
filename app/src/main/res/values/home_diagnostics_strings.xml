@@ -2,4 +2,5 @@
 <resources>
     <string name="home_diagnostics_analysis_starting">Starting diagnostics…</string>
     <string name="home_diagnostics_stage_counter">Stage %1$d of %2$d</string>
+    <string name="diagnostics_error_cancel_failed">Couldn’t cancel diagnostics. The scan may still be running.</string>
 </resources>

@@ -662,6 +662,44 @@ class MainHomeDiagnosticsConcurrencyTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun `cancel failure preserves the active run and reports a cancellation error`() =
+        runTest {
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
+            val compositeRunService =
+                StubDiagnosticsHomeCompositeRunService().apply {
+                    cancelFailure = IllegalStateException("cancel failed")
+                }
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    effects = effects,
+                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+
+            actions.runFullAnalysis()
+            runCurrent()
+            compositeRunService.emitProgress(
+                progress = compositeRunService.runningProgress(),
+            )
+            runCurrent()
+            actions.cancelAnalysis()
+            runCurrent()
+
+            assertEquals("home-run", homeDiagnosticsState.value.activeRunId)
+            assertEquals(
+                DiagnosticsHomeCompositeRunStatus.RUNNING,
+                homeDiagnosticsState.value.activeRunProgress?.status,
+            )
+            assertFalse(homeDiagnosticsState.value.analysisStartFailed)
+            assertEquals(
+                "Couldn’t cancel diagnostics. The scan may still be running.",
+                (effects.replayCache.single() as MainEffect.ShowError).message,
+            )
+        }
+
+    @Test
     fun `starting analysis blocks a conflicting second start`() =
         runTest {
             val startGate = CompletableDeferred<Unit>()

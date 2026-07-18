@@ -402,6 +402,7 @@ class StubDiagnosticsHomeWorkflowService : DiagnosticsHomeWorkflowService {
 class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
     var nextRunId: String = "home-run"
     var startFailure: Throwable? = null
+    var cancelFailure: Throwable? = null
     val startedRunIds = mutableListOf<String>()
     val cancelledRunIds = mutableListOf<String>()
     val runs = mutableMapOf<String, MutableStateFlow<DiagnosticsHomeCompositeProgress>>()
@@ -461,6 +462,7 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
 
     override suspend fun cancelHomeRun(runId: String) {
         cancelledRunIds += runId
+        cancelFailure?.let { throw it }
         val current = runs[runId]?.value ?: return
         runs[runId]?.value =
             current.copy(

@@ -302,10 +302,9 @@ internal class MainHomeDiagnosticsActions(
             val runId = homeDiagnosticsState.value.activeRunId ?: return@launch
             runCatching { diagnosticsHomeCompositeRunService.cancelHomeRun(runId) }
                 .onFailure {
-                    homeDiagnosticsState.update { current -> current.copy(analysisStartFailed = true) }
                     mutations.emit(
                         MainEffect.ShowError(
-                            stringResolver.getString(R.string.diagnostics_error_start_failed),
+                            stringResolver.getString(R.string.diagnostics_error_cancel_failed),
                         ),
                     )
                 }

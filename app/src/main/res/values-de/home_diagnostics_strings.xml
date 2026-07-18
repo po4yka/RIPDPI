@@ -2,4 +2,5 @@
 <resources>
     <string name="home_diagnostics_analysis_starting">Diagnose wird gestartet…</string>
     <string name="home_diagnostics_stage_counter">Phase %1$d von %2$d</string>
+    <string name="diagnostics_error_cancel_failed">Diagnose konnte nicht abgebrochen werden. Die Prüfung läuft möglicherweise noch.</string>
 </resources>

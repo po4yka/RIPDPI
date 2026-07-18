@@ -2,4 +2,5 @@
 <resources>
     <string name="home_diagnostics_analysis_starting">Запуск диагностики…</string>
     <string name="home_diagnostics_stage_counter">Этап %1$d из %2$d</string>
+    <string name="diagnostics_error_cancel_failed">Не удалось отменить диагностику. Проверка может всё ещё выполняться.</string>
 </resources>

@@ -2,4 +2,5 @@
 <resources>
     <string name="home_diagnostics_analysis_starting">正在启动诊断…</string>
     <string name="home_diagnostics_stage_counter">第 %1$d 阶段，共 %2$d 阶段</string>
+    <string name="diagnostics_error_cancel_failed">无法取消诊断。扫描可能仍在运行。</string>
 </resources>

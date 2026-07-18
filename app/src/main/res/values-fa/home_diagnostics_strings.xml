@@ -2,4 +2,5 @@
 <resources>
     <string name="home_diagnostics_analysis_starting">در حال شروع عیب‌یابی…</string>
     <string name="home_diagnostics_stage_counter">مرحله %1$d از %2$d</string>
+    <string name="diagnostics_error_cancel_failed">لغو عیب‌یابی انجام نشد. ممکن است بررسی همچنان در حال اجرا باشد.</string>
 </resources>
