@@ -16,6 +16,7 @@ import java.net.Inet6Address
 import java.net.InetAddress
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.regex.Pattern
 
 /** Compiles persisted rules into one bounded snapshot or rejects the whole snapshot. */
 object DestinationRoutingPolicyCompiler {
@@ -29,7 +30,7 @@ object DestinationRoutingPolicyCompiler {
         try {
             DestinationRoutingPolicyCompileResult.Success(SnapshotCompiler(rules).compile())
         } catch (rejection: SnapshotRejectedException) {
-            DestinationRoutingPolicyCompileResult.Failure(listOf(rejection.compileError))
+            DestinationRoutingPolicyCompileResult.Failure(rejection.compileError)
         }
 }
 
@@ -41,6 +42,7 @@ private class SnapshotCompiler(
     private var canonicalLength = 0
 
     fun compile(): DestinationRoutingPolicy {
+        validateDistinctUserOrders()
         if (enabledRules.size > DestinationRoutingPolicyCompiler.MAX_RULES) {
             reject(
                 code = DestinationRoutingPolicyErrorCode.TOO_MANY_RULES,
@@ -54,6 +56,23 @@ private class SnapshotCompiler(
             rules = rules,
             canonicalDigest = DestinationRoutingPolicyDigest.compute(rules),
         )
+    }
+
+    private fun validateDistinctUserOrders() {
+        val duplicate =
+            enabledRules
+                .groupBy(RuleEntity::userOrder)
+                .filterValues { it.size > 1 }
+                .minByOrNull(Map.Entry<Int, List<RuleEntity>>::key)
+        duplicate?.let { (order, rules) ->
+            val ids = rules.map(RuleEntity::id).sorted()
+            reject(
+                rule = rules.minBy(RuleEntity::id),
+                field = DestinationRoutingPolicyField.USER_ORDER,
+                code = DestinationRoutingPolicyErrorCode.DUPLICATE_RULE_ORDER,
+                message = "Enabled rules $ids share userOrder $order",
+            )
+        }
     }
 
     private fun compileRule(rule: RuleEntity): DestinationRoutingRule {
@@ -158,14 +177,14 @@ private class SnapshotCompiler(
         rule: RuleEntity,
         field: DestinationRoutingPolicyField,
         raw: String,
-        parse: (String) -> T?,
+        parse: (String) -> MatcherParseResult<T>,
     ): List<T> {
         val lines =
             raw
                 .lineSequence()
-                .map(String::trim)
-                .filter(String::isNotEmpty)
-                .toList()
+                .mapIndexedNotNull { index, line ->
+                    line.trim().takeIf(String::isNotEmpty)?.let { IndexedMatcherLine(index, it) }
+                }.toList()
         if (lines.size > DestinationRoutingPolicyCompiler.MAX_ENTRIES_PER_FIELD) {
             reject(
                 rule,
@@ -176,61 +195,101 @@ private class SnapshotCompiler(
             )
         }
         val values = LinkedHashSet<T>(lines.size)
-        lines.forEachIndexed { index, line ->
-            values +=
-                parse(line)
-                    ?: reject(
+        lines.forEach { line ->
+            when (val result = parse(line.value)) {
+                is MatcherParseResult.Value -> {
+                    values += result.value
+                }
+
+                MatcherParseResult.Unsupported -> {
+                    reject(
+                        rule,
+                        field,
+                        DestinationRoutingPolicyErrorCode.UNSUPPORTED_MATCHER,
+                        "Unsupported ${field.displayName()} matcher at line ${line.index + 1}: ${line.value}",
+                        entryIndex = line.index,
+                    )
+                }
+
+                MatcherParseResult.Malformed -> {
+                    reject(
                         rule,
                         field,
                         DestinationRoutingPolicyErrorCode.MALFORMED_MATCHER,
-                        "Malformed ${field.name.lowercase(Locale.ROOT)} matcher at line ${index + 1}: $line",
-                        entryIndex = index,
+                        "Malformed ${field.displayName()} matcher at line ${line.index + 1}: ${line.value}",
+                        entryIndex = line.index,
                     )
+                }
+            }
         }
         return values.toList()
     }
 }
 
 private object DestinationMatcherParser {
-    fun domain(raw: String): DestinationDomainMatcher? {
-        val parsed = parseDomainToken(raw)
+    fun domain(raw: String): MatcherParseResult<DestinationDomainMatcher> {
+        val regex = raw.takeIf { it.startsWith(REGEX_PREFIX, ignoreCase = true) }?.substring(REGEX_PREFIX.length)
+        val parsed =
+            raw
+                .takeIf { regex == null }
+                ?.let(::parseDomainToken)
         val canonical = parsed?.second?.lowercase(Locale.ROOT)?.removeSuffix(".")
-        val valid =
+        val matcher =
             when (parsed?.first) {
-                DestinationDomainMatcherKind.GEOSITE -> canonical?.isValidGeoToken() == true
+                DestinationDomainMatcherKind.GEOSITE -> {
+                    canonical
+                        ?.takeIf { it.isValidGeoToken() }
+                        ?.let { DestinationDomainMatcher(parsed.first, it) }
+                }
 
                 DestinationDomainMatcherKind.EXACT,
                 DestinationDomainMatcherKind.SUFFIX,
-                -> canonical?.isValidHost() == true
+                -> {
+                    canonical
+                        ?.takeIf { it.isValidHost() }
+                        ?.let { DestinationDomainMatcher(parsed.first, it) }
+                }
 
-                null -> false
+                null -> {
+                    null
+                }
             }
-        return canonical?.takeIf { valid }?.let { DestinationDomainMatcher(checkNotNull(parsed).first, it) }
+        return when {
+            regex?.isValidRegex() == true -> MatcherParseResult.Unsupported
+            regex != null -> MatcherParseResult.Malformed
+            matcher != null -> MatcherParseResult.Value(matcher)
+            else -> MatcherParseResult.Malformed
+        }
     }
 
-    fun ip(raw: String): DestinationIpMatcher? =
-        if (raw.startsWith(GEO_IP_PREFIX, ignoreCase = true)) {
-            raw
-                .substring(GEO_IP_PREFIX.length)
-                .lowercase(Locale.ROOT)
-                .takeIf { it.isValidGeoToken() }
-                ?.let { DestinationIpMatcher(DestinationIpMatcherKind.GEO_IP, it) }
-        } else {
-            val parts = raw.split('/')
-            parts
-                .takeIf { it.size == CIDR_PART_COUNT }
-                ?.let { CidrCanonicalizer.canonical(it[0], it[1].toIntOrNull()) }
-                ?.let { DestinationIpMatcher(DestinationIpMatcherKind.CIDR, it) }
-        }
+    fun ip(raw: String): MatcherParseResult<DestinationIpMatcher> {
+        val matcher =
+            if (raw.startsWith(GEO_IP_PREFIX, ignoreCase = true)) {
+                raw
+                    .substring(GEO_IP_PREFIX.length)
+                    .lowercase(Locale.ROOT)
+                    .takeIf { it.isValidGeoToken() }
+                    ?.let { DestinationIpMatcher(DestinationIpMatcherKind.GEO_IP, it) }
+            } else {
+                val parts = raw.split('/')
+                parts
+                    .takeIf { it.size == CIDR_PART_COUNT }
+                    ?.let { CidrCanonicalizer.canonical(it[0], it[1].toIntOrNull()) }
+                    ?.let { DestinationIpMatcher(DestinationIpMatcherKind.CIDR, it) }
+            }
+        return matcher?.let { MatcherParseResult.Value(it) } ?: MatcherParseResult.Malformed
+    }
 
-    fun port(raw: String): DestinationPortRange? {
+    fun port(raw: String): MatcherParseResult<DestinationPortRange> {
         val parts = raw.split('-')
         val start = parts.firstOrNull()?.toIntOrNull()
         val end = parts.getOrNull(1)?.toIntOrNull() ?: start
-        return DestinationPortRange(start ?: INVALID_PORT, end ?: INVALID_PORT)
-            .takeIf { parts.size in 1..PORT_RANGE_PART_COUNT }
-            ?.takeIf { it.start in MIN_PORT..MAX_PORT && it.endInclusive in MIN_PORT..MAX_PORT }
-            ?.takeIf { it.start <= it.endInclusive }
+        val matcher =
+            DestinationPortRange(start ?: INVALID_PORT, end ?: INVALID_PORT)
+                .takeIf { parts.size in 1..PORT_RANGE_PART_COUNT }
+                ?.takeIf { it.start in MIN_PORT..MAX_PORT && it.endInclusive in MIN_PORT..MAX_PORT }
+                ?.takeIf { it.start <= it.endInclusive }
+        return matcher?.let { MatcherParseResult.Value(it) } ?: MatcherParseResult.Malformed
     }
 
     private fun parseDomainToken(raw: String): Pair<DestinationDomainMatcherKind, String>? =
@@ -277,6 +336,8 @@ private object DestinationMatcherParser {
     private fun String.isValidGeoToken(): Boolean =
         isValidTokenLength() && all { it.isAsciiLetterOrDigit() || it == '-' || it == '_' }
 
+    private fun String.isValidRegex(): Boolean = isNotEmpty() && runCatching { Pattern.compile(this) }.isSuccess
+
     private fun String.isValidTokenLength(): Boolean =
         isNotEmpty() && length <= DestinationRoutingPolicyCompiler.MAX_TOKEN_LENGTH
 
@@ -286,6 +347,7 @@ private object DestinationMatcherParser {
     private const val SUFFIX_PREFIX = "domain_suffix:"
     private const val GEOSITE_PREFIX = "geosite:"
     private const val GEO_IP_PREFIX = "geoip:"
+    private const val REGEX_PREFIX = "domain_regex:"
     private const val MAX_HOST_LABEL_LENGTH = 63
     private const val CIDR_PART_COUNT = 2
     private const val PORT_RANGE_PART_COUNT = 2
@@ -382,9 +444,15 @@ private object DestinationRoutingPolicyDigest {
         rules.forEach { rule ->
             digest.put(rule.action.name)
             digest.put(rule.network.name)
-            rule.domains.forEach { digest.put("d:${it.kind.name}:${it.value}") }
-            rule.ipRanges.forEach { digest.put("i:${it.kind.name}:${it.value}") }
-            rule.destinationPorts.forEach { digest.put("p:${it.start}:${it.endInclusive}") }
+            rule.domains
+                .sortedWith(compareBy(DestinationDomainMatcher::kind, DestinationDomainMatcher::value))
+                .forEach { digest.put("d:${it.kind.name}:${it.value}") }
+            rule.ipRanges
+                .sortedWith(compareBy(DestinationIpMatcher::kind, DestinationIpMatcher::value))
+                .forEach { digest.put("i:${it.kind.name}:${it.value}") }
+            rule.destinationPorts
+                .sortedWith(compareBy(DestinationPortRange::start, DestinationPortRange::endInclusive))
+                .forEach { digest.put("p:${it.start}:${it.endInclusive}") }
             digest.update(ENTRY_SEPARATOR)
         }
         return digest.digest().joinToString("") { "%02x".format(Locale.ROOT, it.toUByte().toInt()) }
@@ -442,13 +510,28 @@ private data class UnsupportedField(
     val message: String,
 )
 
+private data class IndexedMatcherLine(
+    val index: Int,
+    val value: String,
+)
+
+private sealed interface MatcherParseResult<out T> {
+    data class Value<T>(
+        val value: T,
+    ) : MatcherParseResult<T>
+
+    data object Unsupported : MatcherParseResult<Nothing>
+
+    data object Malformed : MatcherParseResult<Nothing>
+}
+
 sealed interface DestinationRoutingPolicyCompileResult {
     data class Success(
         val policy: DestinationRoutingPolicy,
     ) : DestinationRoutingPolicyCompileResult
 
     data class Failure(
-        val errors: List<DestinationRoutingPolicyCompileError>,
+        val error: DestinationRoutingPolicyCompileError,
     ) : DestinationRoutingPolicyCompileResult
 }
 
@@ -469,6 +552,7 @@ enum class DestinationRoutingPolicyField {
     PROCESS_NAME,
     PACKAGES,
     OUTBOUND,
+    USER_ORDER,
 }
 
 enum class DestinationRoutingPolicyErrorCode {
@@ -480,4 +564,7 @@ enum class DestinationRoutingPolicyErrorCode {
     UNSUPPORTED_OUTBOUND,
     UNSUPPORTED_MATCHER,
     MALFORMED_MATCHER,
+    DUPLICATE_RULE_ORDER,
 }
+
+private fun DestinationRoutingPolicyField.displayName(): String = name.lowercase(Locale.ROOT)

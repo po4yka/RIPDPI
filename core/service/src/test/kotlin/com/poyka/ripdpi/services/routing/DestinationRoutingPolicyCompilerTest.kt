@@ -126,6 +126,24 @@ class DestinationRoutingPolicyCompilerTest {
     }
 
     @Test
+    fun `rejects duplicate enabled order independent of restored input order`() {
+        val restoredRules =
+            listOf(
+                rule(id = 20, order = 4, domains = "second.example"),
+                rule(id = 10, order = 4, domains = "first.example"),
+                rule(id = 30, order = 4, enabled = false, domains = "disabled.example"),
+            )
+
+        val forward = compileFailure(restoredRules)
+        val reversed = compileFailure(restoredRules.reversed())
+
+        assertEquals(DestinationRoutingPolicyErrorCode.DUPLICATE_RULE_ORDER, forward.code)
+        assertEquals(DestinationRoutingPolicyField.USER_ORDER, forward.field)
+        assertEquals(10L, forward.ruleId)
+        assertEquals(forward, reversed)
+    }
+
+    @Test
     fun `ignores unsupported fields on disabled rules`() {
         val result =
             compileSuccess(
@@ -147,8 +165,8 @@ class DestinationRoutingPolicyCompilerTest {
     fun `rejects malformed domain cidr geoip and port inputs`() {
         val malformed =
             listOf(
-                rule(id = 1, domains = "domain_regex:.*"),
-                rule(id = 2, domains = "-bad.example"),
+                rule(id = 1, domains = "-bad.example"),
+                rule(id = 2, domains = "domain_regex:["),
                 rule(id = 3, ipCidrs = "192.0.2.1"),
                 rule(id = 4, ipCidrs = "192.0.2.1/33"),
                 rule(id = 5, ipCidrs = "2001:::1/64"),
@@ -163,6 +181,24 @@ class DestinationRoutingPolicyCompilerTest {
             val result = DestinationRoutingPolicyCompiler.compile(listOf(candidate))
             assertTrue("rule ${candidate.id} must reject", result is DestinationRoutingPolicyCompileResult.Failure)
         }
+    }
+
+    @Test
+    fun `surfaces repository-valid regex as unsupported and preserves source line index`() {
+        val error =
+            compileFailure(
+                listOf(
+                    rule(
+                        id = 7,
+                        domains = "\n\n domain:valid.example \n\n domain_regex:^api\\.example$",
+                    ),
+                ),
+            )
+
+        assertEquals(DestinationRoutingPolicyErrorCode.UNSUPPORTED_MATCHER, error.code)
+        assertEquals(DestinationRoutingPolicyField.DOMAINS, error.field)
+        assertEquals(4, error.entryIndex)
+        assertTrue(error.message.contains("line 5"))
     }
 
     @Test
@@ -252,6 +288,28 @@ class DestinationRoutingPolicyCompilerTest {
         assertEquals(64, canonical.length)
     }
 
+    @Test
+    fun `canonical digest ignores alternative order inside a rule`() {
+        val original =
+            rule(
+                id = 1,
+                domains = "domain:b.example\ndomain:a.example",
+                ipCidrs = "geoip:ru\n192.0.2.1/24",
+                ports = "8000-9000\n443",
+            )
+        val reordered =
+            original.copy(
+                domains = "domain:a.example\ndomain:b.example",
+                ipCidrs = "192.0.2.0/24\ngeoip:RU",
+                ports = "443\n8000-9000",
+            )
+
+        assertEquals(
+            compileSuccess(listOf(original)).canonicalDigest,
+            compileSuccess(listOf(reordered)).canonicalDigest,
+        )
+    }
+
     private fun compileSuccess(rules: List<RuleEntity>) =
         when (val result = DestinationRoutingPolicyCompiler.compile(rules)) {
             is DestinationRoutingPolicyCompileResult.Success -> {
@@ -260,9 +318,15 @@ class DestinationRoutingPolicyCompilerTest {
 
             is DestinationRoutingPolicyCompileResult.Failure -> {
                 error(
-                    "unexpected compilation failure: ${result.errors}",
+                    "unexpected compilation failure: ${result.error}",
                 )
             }
+        }
+
+    private fun compileFailure(rules: List<RuleEntity>): DestinationRoutingPolicyCompileError =
+        when (val result = DestinationRoutingPolicyCompiler.compile(rules)) {
+            is DestinationRoutingPolicyCompileResult.Success -> error("unexpected success: ${result.policy}")
+            is DestinationRoutingPolicyCompileResult.Failure -> result.error
         }
 
     private fun assertFailureCode(
@@ -273,7 +337,7 @@ class DestinationRoutingPolicyCompilerTest {
         assertTrue(result is DestinationRoutingPolicyCompileResult.Failure)
         assertEquals(
             expected,
-            (result as DestinationRoutingPolicyCompileResult.Failure).errors.single().code,
+            (result as DestinationRoutingPolicyCompileResult.Failure).error.code,
         )
     }
 
