@@ -8,7 +8,6 @@ import com.poyka.ripdpi.core.routing.DestinationIpMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationPortRange
 import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
-import com.poyka.ripdpi.core.toNativeConfigJson
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
