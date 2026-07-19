@@ -4176,4 +4176,8 @@ fakeddisorder endhost</string>
     <string name="backup_encryption_confirm_passphrase">تأكيد عبارة المرور</string>
     <string name="backup_encryption_passphrase_mismatch">عبارتا المرور غير متطابقتين</string>
     <string name="backup_import_legacy_full_warning">هذه النسخة الاحتياطية الكاملة القديمة غير مشفرة. استعدها فقط من مصدر موثوق، ثم صدّر نسخة مشفرة جديدة.</string>
+    <string name="strategy_config_restore_failed_title">تعذّر استرداد المسودة</string>
+    <string name="strategy_config_restore_failed_body">ما زالت المسودة المحفوظة على هذا الجهاز. أعد محاولة الاسترداد أو تجاهلها للمغادرة.</string>
+    <string name="strategy_config_restore_retry">حاول مجددًا</string>
+    <string name="strategy_config_restoring_draft">جارٍ استرداد المسودة المحفوظة…</string>
 </resources>

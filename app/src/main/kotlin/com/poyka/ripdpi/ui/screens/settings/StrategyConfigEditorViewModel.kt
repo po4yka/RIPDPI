@@ -32,7 +32,6 @@ internal class StrategyConfigEditorViewModel
         private val persistence = StrategyConfigPersistenceCoordinator(viewModelScope, sessionId, draftStore)
         private var hydrationComplete = false
         private var hydrationInProgress = false
-        private var hydrationFailed = false
         private var hydrationRetryAvailable = true
         private var hydrationRetryRequested = false
         private var pendingBuiltInConfigText: String? = null
@@ -42,6 +41,8 @@ internal class StrategyConfigEditorViewModel
         var session by mutableStateOf<StrategyConfigEditorSession?>(null)
             private set
         var isHydrating by mutableStateOf(true)
+            private set
+        var hasHydrationError by mutableStateOf(false)
             private set
         var exitDecision by mutableStateOf<StrategyConfigExitDecision?>(null)
             private set
@@ -109,6 +110,11 @@ internal class StrategyConfigEditorViewModel
             if (exitRequested || exitDecision != null) return
             exitRequested = true
             reevaluateExitRequest()
+        }
+
+        fun retryHydration() {
+            if (!hasHydrationError || hydrationInProgress || hydrationComplete) return
+            startHydration()
         }
 
         fun consumeExitDecision(decision: StrategyConfigExitDecision) {
@@ -213,12 +219,11 @@ internal class StrategyConfigEditorViewModel
 
         private fun reevaluateExitRequest() {
             val current = session
-            val hydrationBlocksExit = isHydrating && !hydrationFailed
             if (!exitRequested || exitDecision != null) return
-            if (hydrationBlocksExit || current?.isSaving == true) return
+            if (isHydrating || current?.isSaving == true) return
             exitRequested = false
             exitDecision =
-                if (current?.isDirty == true) {
+                if (hasHydrationError || current?.isDirty == true) {
                     StrategyConfigExitDecision.ConfirmDiscard
                 } else {
                     StrategyConfigExitDecision.NavigateBack
@@ -228,7 +233,8 @@ internal class StrategyConfigEditorViewModel
         private fun startHydration() {
             if (hydrationComplete || hydrationInProgress) return
             hydrationInProgress = true
-            hydrationFailed = false
+            hasHydrationError = false
+            isHydrating = true
             viewModelScope.launch {
                 val result = restoreStrategyConfigDraft(draftStore, sessionId)
                 hydrationInProgress = false
@@ -243,18 +249,19 @@ internal class StrategyConfigEditorViewModel
         private fun completeHydration(restored: StrategyConfigEditorSession?) {
             session = restored
             hydrationComplete = true
-            hydrationFailed = false
+            hasHydrationError = false
             hydrationRetryRequested = false
             pendingBuiltInConfigText?.also { pendingBuiltInConfigText = null }?.let(::syncBuiltIn)
         }
 
         private fun handleHydrationFailure() {
-            hydrationFailed = true
             if (hydrationRetryRequested && hydrationRetryAvailable) {
                 hydrationRetryRequested = false
                 hydrationRetryAvailable = false
                 startHydration()
-            } else {
+            } else if (!hydrationRetryAvailable) {
+                isHydrating = false
+                hasHydrationError = true
                 reevaluateExitRequest()
             }
         }

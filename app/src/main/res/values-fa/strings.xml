@@ -4149,4 +4149,8 @@ fakeddisorder endhost</string>
     <string name="backup_encryption_confirm_passphrase">تأیید عبارت عبور</string>
     <string name="backup_encryption_passphrase_mismatch">عبارت‌های عبور یکسان نیستند</string>
     <string name="backup_import_legacy_full_warning">این پشتیبان کامل قدیمی رمزگذاری نشده است. آن را فقط از منبع مورد اعتماد بازیابی کنید و سپس یک پشتیبان رمزگذاری‌شده جدید بگیرید.</string>
+    <string name="strategy_config_restore_failed_title">بازیابی پیش‌نویس ناموفق بود</string>
+    <string name="strategy_config_restore_failed_body">پیش‌نویس ذخیره‌شده هنوز روی این دستگاه است. بازیابی را دوباره امتحان کنید یا برای خروج آن را کنار بگذارید.</string>
+    <string name="strategy_config_restore_retry">تلاش دوباره</string>
+    <string name="strategy_config_restoring_draft">در حال بازیابی پیش‌نویس ذخیره‌شده…</string>
 </resources>

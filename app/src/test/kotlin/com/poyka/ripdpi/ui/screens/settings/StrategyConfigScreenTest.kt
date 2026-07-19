@@ -45,10 +45,41 @@ class StrategyConfigScreenTest {
         composeRule.onNodeWithText("Save").performScrollTo().assertIsNotEnabled()
     }
 
+    @Test
+    fun recoveryFailureHidesEditorAndExposesExplicitChoices() {
+        var retryClicks = 0
+        var discardClicks = 0
+
+        setScreen(
+            hasHydrationError = true,
+            onRetryRecovery = { retryClicks += 1 },
+            onDiscardRecovery = { discardClicks += 1 },
+        )
+
+        composeRule.onNodeWithText("Import").assertDoesNotExist()
+        composeRule.onNodeWithText("Discard").performClick()
+        composeRule.onNodeWithText("Try again").performClick()
+
+        assertEquals(1, discardClicks)
+        assertEquals(1, retryClicks)
+    }
+
+    @Test
+    fun retryProgressHidesEditorAndExplainsRecovery() {
+        setScreen(isHydrating = true)
+
+        composeRule.onNodeWithText("Restoring saved draft…").assertExists()
+        composeRule.onNodeWithText("Import").assertDoesNotExist()
+    }
+
     private fun setScreen(
         onImport: () -> Unit = {},
         onExport: () -> Unit = {},
         isSaving: Boolean = false,
+        isHydrating: Boolean = false,
+        hasHydrationError: Boolean = false,
+        onRetryRecovery: () -> Unit = {},
+        onDiscardRecovery: () -> Unit = {},
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -62,6 +93,8 @@ class StrategyConfigScreenTest {
                             activePath = "imported.yaml",
                             banner = null,
                             isSaving = isSaving,
+                            isHydrating = isHydrating,
+                            hasHydrationError = hasHydrationError,
                         ),
                     onBack = {},
                     onSourceChanged = {},
@@ -73,6 +106,8 @@ class StrategyConfigScreenTest {
                     onSave = {},
                     onReload = {},
                     onValidateLua = {},
+                    onRetryRecovery = onRetryRecovery,
+                    onDiscardRecovery = onDiscardRecovery,
                 )
             }
         }

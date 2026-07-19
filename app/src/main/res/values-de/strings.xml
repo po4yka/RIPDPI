@@ -4144,4 +4144,8 @@ Quelle: %2$s</string>
     <string name="backup_encryption_confirm_passphrase">Passphrase bestätigen</string>
     <string name="backup_encryption_passphrase_mismatch">Passphrasen stimmen nicht überein</string>
     <string name="backup_import_legacy_full_warning">Dieses ältere vollständige Backup ist nicht verschlüsselt. Stelle es nur aus einer vertrauenswürdigen Quelle wieder her und exportiere danach ein neues verschlüsseltes Backup.</string>
+    <string name="strategy_config_restore_failed_title">Entwurf konnte nicht wiederhergestellt werden</string>
+    <string name="strategy_config_restore_failed_body">Der gespeicherte Entwurf befindet sich weiterhin auf diesem Gerät. Wiederhole die Wiederherstellung oder verwirf ihn, um den Bildschirm zu verlassen.</string>
+    <string name="strategy_config_restore_retry">Erneut versuchen</string>
+    <string name="strategy_config_restoring_draft">Gespeicherten Entwurf wiederherstellen…</string>
 </resources>

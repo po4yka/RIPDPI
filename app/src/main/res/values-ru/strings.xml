@@ -4079,4 +4079,8 @@ fakeddisorder endhost</string>
     <string name="backup_encryption_confirm_passphrase">Повторите фразу</string>
     <string name="backup_encryption_passphrase_mismatch">Парольные фразы не совпадают</string>
     <string name="backup_import_legacy_full_warning">Старая копия не зашифрована. Используйте доверенный источник, затем создайте новую зашифрованную копию.</string>
+    <string name="strategy_config_restore_failed_title">Не удалось восстановить черновик</string>
+    <string name="strategy_config_restore_failed_body">Сохранённый черновик остался на устройстве. Повторите восстановление или удалите его, чтобы выйти.</string>
+    <string name="strategy_config_restore_retry">Повторить</string>
+    <string name="strategy_config_restoring_draft">Восстановление сохранённого черновика…</string>
 </resources>

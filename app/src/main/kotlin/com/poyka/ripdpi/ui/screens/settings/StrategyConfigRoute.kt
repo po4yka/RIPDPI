@@ -6,7 +6,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,24 +84,63 @@ fun StrategyConfigRoute(
         },
     )
 
+    StrategyConfigRouteScreen(
+        context = context,
+        editorViewModel = editorViewModel,
+        editorSession = editorSession,
+        settingsViewModel = viewModel,
+        uiState = uiState,
+        runtime = runtime,
+        coroutineScope = coroutineScope,
+        banner = banner,
+        onBanner = { banner = it },
+        onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
+        onBack = onBack,
+        modifier = modifier,
+        applySavedConfig = applySavedConfig,
+    )
+}
+
+@Composable
+private fun StrategyConfigRouteScreen(
+    context: Context,
+    editorViewModel: StrategyConfigEditorViewModel,
+    editorSession: StrategyConfigEditorSession,
+    settingsViewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    runtime: StrategyConfigRuntime?,
+    coroutineScope: CoroutineScope,
+    banner: StrategyConfigBanner?,
+    onBanner: (StrategyConfigBanner?) -> Unit,
+    onImport: () -> Unit,
+    onBack: () -> Unit,
+    applySavedConfig: () -> StrategyConfigApplyResult,
+    modifier: Modifier,
+) {
     StrategyConfigScreen(
-        state = editorSession.toRouteScreenState(context, banner, editorViewModel.isHydrating),
-        onBack = requestBack,
+        state =
+            editorSession.toRouteScreenState(
+                context = context,
+                banner = banner,
+                isHydrating = editorViewModel.isHydrating,
+                hasHydrationError = editorViewModel.hasHydrationError,
+            ),
+        onBack = editorViewModel::requestExit,
         onSourceChanged = { source ->
             editorViewModel.selectSource(source, uiState.desync.chainDsl)
-            banner = null
+            onBanner(null)
         },
         onConfigTextChanged = { value ->
             editorViewModel.update { copy(configText = value.boundedUtf8(StrategyConfigMaxImportBytes)) }
         },
         onLuaPathChanged = { value -> editorViewModel.update { copy(luaPath = value) } },
         onLuaFunctionChanged = { value -> editorViewModel.update { copy(luaFunction = value) } },
-        onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
+        onImport = onImport,
         onExport = { editorViewModel.exportCurrentConfig(context, editorSession) },
         onSave = save@{
             val request = editorViewModel.beginSave() ?: return@save
             coroutineScope.launch {
-                banner =
+                onBanner(
                     runStrategyConfigRouteSave(context, editorViewModel, request) {
                         saveStrategyConfigFromRoute(
                             context = context,
@@ -111,44 +149,34 @@ fun StrategyConfigRoute(
                             luaPath = request.draft.luaPath,
                             luaFunction = request.draft.luaFunction,
                             runtime = runtime,
-                            viewModel = viewModel,
+                            viewModel = settingsViewModel,
                             applySavedConfig = applySavedConfig,
                             uiState = uiState,
                         )
-                    }
+                    },
+                )
             }
         },
-        onReload = { banner = reloadLuaConfig(context, runtime) },
-        onValidateLua = { banner = editorViewModel.validateCurrentLua(context, runtime, editorSession) },
+        onReload = { onBanner(reloadLuaConfig(context, runtime)) },
+        onValidateLua = { onBanner(editorViewModel.validateCurrentLua(context, runtime, editorSession)) },
+        onRetryRecovery = editorViewModel::retryHydration,
+        onDiscardRecovery = {
+            coroutineScope.discardStrategyConfigDraft(
+                editorViewModel = editorViewModel,
+                onBack = onBack,
+                onFailure = {
+                    onBanner(
+                        StrategyConfigBanner(
+                            title = context.getString(R.string.strategy_config_reload_failed_title),
+                            message = strategyConfigInternalErrorMessage(context),
+                            tone = WarningBannerTone.Error,
+                        ),
+                    )
+                },
+            )
+        },
         modifier = modifier,
     )
-}
-
-@Composable
-private fun StrategyConfigHydrationEffect(
-    editorViewModel: StrategyConfigEditorViewModel,
-    configText: String,
-) {
-    LaunchedEffect(configText) {
-        editorViewModel.syncBuiltIn(configText)
-    }
-}
-
-@Composable
-private fun StrategyConfigExitEffect(
-    decision: StrategyConfigExitDecision?,
-    onConsumed: (StrategyConfigExitDecision) -> Unit,
-    onDirty: () -> Unit,
-    onBack: () -> Unit,
-) {
-    LaunchedEffect(decision) {
-        decision ?: return@LaunchedEffect
-        onConsumed(decision)
-        when (decision) {
-            StrategyConfigExitDecision.ConfirmDiscard -> onDirty()
-            StrategyConfigExitDecision.NavigateBack -> onBack()
-        }
-    }
 }
 
 private fun CoroutineScope.discardStrategyConfigDraft(
@@ -185,11 +213,13 @@ private fun StrategyConfigEditorSession.toRouteScreenState(
     context: Context,
     banner: StrategyConfigBanner?,
     isHydrating: Boolean,
+    hasHydrationError: Boolean,
 ): StrategyConfigScreenState =
     toScreenState(
         activePath = activePathLabel(context, draft.source, draft.luaPath),
         banner = banner,
         isHydrating = isHydrating,
+        hasHydrationError = hasHydrationError,
     )
 
 private fun StrategyConfigEditorViewModel.sessionOrInitial(configText: String): StrategyConfigEditorSession =

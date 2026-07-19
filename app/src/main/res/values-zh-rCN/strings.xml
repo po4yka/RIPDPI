@@ -4132,4 +4132,8 @@ fake_burst 3</string>
     <string name="backup_encryption_confirm_passphrase">确认密码短语</string>
     <string name="backup_encryption_passphrase_mismatch">密码短语不一致</string>
     <string name="backup_import_legacy_full_warning">此旧版完整备份未加密。请仅从可信来源恢复，然后重新导出新的加密备份。</string>
+    <string name="strategy_config_restore_failed_title">草稿恢复失败</string>
+    <string name="strategy_config_restore_failed_body">已保存的草稿仍保留在此设备上。请重试恢复，或丢弃草稿后离开。</string>
+    <string name="strategy_config_restore_retry">重试恢复</string>
+    <string name="strategy_config_restoring_draft">正在恢复已保存的草稿…</string>
 </resources>

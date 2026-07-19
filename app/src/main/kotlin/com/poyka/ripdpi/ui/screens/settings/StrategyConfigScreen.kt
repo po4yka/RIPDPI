@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,10 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -20,6 +24,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -32,6 +37,9 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
+
+private const val RecoveryActionsStackFontScale = 1.3f
+private val RecoveryActionsSideBySideMinWidth = 320.dp
 
 internal enum class StrategyConfigSource {
     BuiltIn,
@@ -55,6 +63,7 @@ internal data class StrategyConfigScreenState(
     val banner: StrategyConfigBanner?,
     val isSaving: Boolean = false,
     val isHydrating: Boolean = false,
+    val hasHydrationError: Boolean = false,
 )
 
 @Composable
@@ -70,6 +79,8 @@ internal fun StrategyConfigScreen(
     onSave: () -> Unit,
     onReload: () -> Unit,
     onValidateLua: () -> Unit,
+    onRetryRecovery: () -> Unit = {},
+    onDiscardRecovery: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     RipDpiSettingsScaffold(
@@ -90,34 +101,137 @@ internal fun StrategyConfigScreen(
                 )
             }
         }
-        item(key = "strategy_config_source") {
-            StrategyConfigSourceCard(
-                state = state,
-                onSourceChanged = onSourceChanged,
-            )
-        }
-        item(key = "strategy_config_editor") {
-            if (state.source == StrategyConfigSource.LuaScript) {
-                LuaStrategyConfigCard(
-                    state = state,
-                    onLuaPathChanged = onLuaPathChanged,
-                    onLuaFunctionChanged = onLuaFunctionChanged,
-                    onValidateLua = onValidateLua,
-                    onReload = onReload,
-                    onSave = onSave,
-                )
-            } else {
-                TextStrategyConfigCard(
-                    state = state,
-                    onConfigTextChanged = onConfigTextChanged,
-                    onImport = onImport,
-                    onExport = onExport,
-                    onSave = onSave,
-                    onReload = onReload,
-                )
+        when {
+            state.hasHydrationError -> {
+                item(key = "strategy_config_recovery") {
+                    StrategyConfigRecoveryCard(
+                        onRetry = onRetryRecovery,
+                        onDiscard = onDiscardRecovery,
+                    )
+                }
+            }
+
+            state.isHydrating -> {
+                item(key = "strategy_config_restoring") {
+                    StrategyConfigRestoringCard()
+                }
+            }
+
+            else -> {
+                item(key = "strategy_config_source") {
+                    StrategyConfigSourceCard(
+                        state = state,
+                        onSourceChanged = onSourceChanged,
+                    )
+                }
+                item(key = "strategy_config_editor") {
+                    if (state.source == StrategyConfigSource.LuaScript) {
+                        LuaStrategyConfigCard(
+                            state = state,
+                            onLuaPathChanged = onLuaPathChanged,
+                            onLuaFunctionChanged = onLuaFunctionChanged,
+                            onValidateLua = onValidateLua,
+                            onReload = onReload,
+                            onSave = onSave,
+                        )
+                    } else {
+                        TextStrategyConfigCard(
+                            state = state,
+                            onConfigTextChanged = onConfigTextChanged,
+                            onImport = onImport,
+                            onExport = onExport,
+                            onSave = onSave,
+                            onReload = onReload,
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun StrategyConfigRestoringCard() {
+    RipDpiCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RipDpiSpinner()
+            Text(
+                text = stringResource(R.string.strategy_config_restoring_draft),
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StrategyConfigRecoveryCard(
+    onRetry: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    RipDpiCard {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+            Text(
+                text = stringResource(R.string.strategy_config_restore_failed_title),
+                style = RipDpiThemeTokens.type.sectionTitle,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.strategy_config_restore_failed_body),
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val stackActions =
+                    LocalDensity.current.fontScale >= RecoveryActionsStackFontScale ||
+                        maxWidth < RecoveryActionsSideBySideMinWidth
+                if (stackActions) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                    ) {
+                        StrategyConfigRecoveryButtons(
+                            onRetry = onRetry,
+                            onDiscard = onDiscard,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                    ) {
+                        StrategyConfigRecoveryButtons(
+                            onRetry = onRetry,
+                            onDiscard = onDiscard,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StrategyConfigRecoveryButtons(
+    onRetry: () -> Unit,
+    onDiscard: () -> Unit,
+    modifier: Modifier,
+) {
+    RipDpiButton(
+        text = stringResource(R.string.unsaved_changes_discard),
+        onClick = onDiscard,
+        modifier = modifier,
+        variant = RipDpiButtonVariant.Outline,
+    )
+    RipDpiButton(
+        text = stringResource(R.string.strategy_config_restore_retry),
+        onClick = onRetry,
+        modifier = modifier,
+    )
 }
 
 @Composable

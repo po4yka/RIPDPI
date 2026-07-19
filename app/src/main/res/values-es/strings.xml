@@ -4144,4 +4144,8 @@ Origen: %2$s</string>
     <string name="backup_encryption_confirm_passphrase">Confirmar frase de contraseña</string>
     <string name="backup_encryption_passphrase_mismatch">Las frases de contraseña no coinciden</string>
     <string name="backup_import_legacy_full_warning">Esta copia completa antigua no está cifrada. Restáurala solo desde una fuente de confianza y exporta después una nueva copia cifrada.</string>
+    <string name="strategy_config_restore_failed_title">No se pudo recuperar el borrador</string>
+    <string name="strategy_config_restore_failed_body">El borrador guardado sigue en este dispositivo. Reintenta la recuperación o descártalo para salir.</string>
+    <string name="strategy_config_restore_retry">Reintentar</string>
+    <string name="strategy_config_restoring_draft">Restaurando el borrador guardado…</string>
 </resources>

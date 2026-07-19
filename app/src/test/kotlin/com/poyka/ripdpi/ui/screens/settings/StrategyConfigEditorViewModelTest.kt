@@ -188,6 +188,33 @@ class StrategyConfigEditorViewModelTest {
     }
 
     @Test
+    fun `repeated restore failure exposes retry and requires explicit discard before exit`() =
+        runTest {
+            val store = RepeatedFailureStrategyConfigDraftStore()
+            val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+
+            viewModel.syncBuiltIn("tcp: settings")
+
+            assertEquals(2, store.restoreCount)
+            assertFalse(viewModel.isHydrating)
+            assertTrue(viewModel.hasHydrationError)
+            assertNull(viewModel.session)
+            assertEquals(0, store.deleteCount)
+
+            viewModel.retryHydration()
+
+            assertEquals(3, store.restoreCount)
+            assertFalse(viewModel.isHydrating)
+            assertTrue(viewModel.hasHydrationError)
+
+            viewModel.requestExit()
+            assertEquals(StrategyConfigExitDecision.ConfirmDiscard, viewModel.exitDecision)
+
+            viewModel.discard()
+            assertEquals(1, store.deleteCount)
+        }
+
+    @Test
     fun `exit requested during hydration is decided once from restored dirty state`() {
         val sessionId = newStrategyConfigSessionId()
         val store = PausedRestoreStrategyConfigDraftStore(dirtySession())
@@ -529,6 +556,27 @@ private class TransientThenPausedRestoreStrategyConfigDraftStore(
         requireNotNull(retryContinuation).resumeWith(
             Result.success(StrategyConfigDraftRestoreResult.Restored(restored)),
         )
+    }
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) = Unit
+
+    override suspend fun delete(sessionId: String) {
+        deleteCount += 1
+    }
+}
+
+private class RepeatedFailureStrategyConfigDraftStore : StrategyConfigDraftStore {
+    var restoreCount = 0
+        private set
+    var deleteCount = 0
+        private set
+
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult {
+        restoreCount += 1
+        return StrategyConfigDraftRestoreResult.RestoreFailed(java.io.IOException("unavailable"))
     }
 
     override suspend fun persist(

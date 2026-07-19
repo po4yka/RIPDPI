@@ -45,4 +45,105 @@ class StrategyConfigScreenScreenshotTest {
             )
         }
     }
+
+    @Test
+    fun recoveryFailureState() {
+        captureScreenBothThemes(
+            name = "recoveryFailureState",
+            widthDp = 420,
+            heightDp = 900,
+            testClassFqn = javaClass.name,
+        ) {
+            StrategyConfigScreen(
+                state =
+                    StrategyConfigScreenState(
+                        source = StrategyConfigSource.BuiltIn,
+                        configText = "",
+                        luaPath = "",
+                        luaFunction = "",
+                        activePath = "Built-in strategy",
+                        banner = null,
+                        hasHydrationError = true,
+                    ),
+                onBack = {},
+                onSourceChanged = {},
+                onConfigTextChanged = {},
+                onLuaPathChanged = {},
+                onLuaFunctionChanged = {},
+                onImport = {},
+                onExport = {},
+                onSave = {},
+                onReload = {},
+                onValidateLua = {},
+            )
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "de")
+    fun recoveryFailureStateGermanLargeFont() {
+        captureScreenBothThemes(
+            name = "recoveryFailureStateGermanLargeFont",
+            widthDp = 411,
+            heightDp = 1000,
+            fontScale = 1.5f,
+            testClassFqn = javaClass.name,
+        ) {
+            StrategyConfigScreen(
+                state =
+                    StrategyConfigScreenState(
+                        source = StrategyConfigSource.BuiltIn,
+                        configText = "",
+                        luaPath = "",
+                        luaFunction = "",
+                        activePath = "Integrierte Strategie",
+                        banner = null,
+                        hasHydrationError = true,
+                    ),
+                onBack = {},
+                onSourceChanged = {},
+                onConfigTextChanged = {},
+                onLuaPathChanged = {},
+                onLuaFunctionChanged = {},
+                onImport = {},
+                onExport = {},
+                onSave = {},
+                onReload = {},
+                onValidateLua = {},
+            )
+        }
+    }
+
+    @Test
+    fun restoringState() {
+        captureScreenBothThemes(
+            name = "restoringState",
+            widthDp = 420,
+            heightDp = 900,
+            testClassFqn = javaClass.name,
+        ) {
+            StrategyConfigScreen(
+                state =
+                    StrategyConfigScreenState(
+                        source = StrategyConfigSource.BuiltIn,
+                        configText = "",
+                        luaPath = "",
+                        luaFunction = "",
+                        activePath = "Built-in strategy",
+                        banner = null,
+                        isHydrating = true,
+                    ),
+                onBack = {},
+                onSourceChanged = {},
+                onConfigTextChanged = {},
+                onLuaPathChanged = {},
+                onLuaFunctionChanged = {},
+                onImport = {},
+                onExport = {},
+                onSave = {},
+                onReload = {},
+                onValidateLua = {},
+            )
+        }
+    }
 }

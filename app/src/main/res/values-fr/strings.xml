@@ -4144,4 +4144,8 @@ Source : %2$s</string>
     <string name="backup_encryption_confirm_passphrase">Confirmer la phrase secrète</string>
     <string name="backup_encryption_passphrase_mismatch">Les phrases secrètes ne correspondent pas</string>
     <string name="backup_import_legacy_full_warning">Cette ancienne sauvegarde complète n’est pas chiffrée. Ne la restaurez que depuis une source fiable, puis exportez une nouvelle sauvegarde chiffrée.</string>
+    <string name="strategy_config_restore_failed_title">Échec de la récupération du brouillon</string>
+    <string name="strategy_config_restore_failed_body">Le brouillon enregistré est toujours sur cet appareil. Réessayez la récupération ou supprimez-le pour quitter.</string>
+    <string name="strategy_config_restore_retry">Réessayer</string>
+    <string name="strategy_config_restoring_draft">Restauration du brouillon enregistré…</string>
 </resources>
