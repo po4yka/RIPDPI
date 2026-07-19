@@ -82,6 +82,7 @@
     <string name="config_relay_vless_uuid">VLESS-UUID</string>
     <string name="config_summary_section">Aktuelle Werte</string>
     <string name="config_validation_fix">Überprüfen Sie die hervorgehobenen Felder vor dem Speichern.</string>
+    <string name="config_editor_hydration_failed">Diese Konfiguration konnte nicht geöffnet werden. Die gespeicherten Zugangsdaten wurden nicht geändert.</string>
     <string name="config_vpn_protocol_title">Relay-Protokoll</string>
     <string name="confirm_clear_remembered_networks_dismiss">Abbrechen</string>
     <string name="confirm_forget_learned_hosts_title">Gelernte Hosts vergessen?</string>

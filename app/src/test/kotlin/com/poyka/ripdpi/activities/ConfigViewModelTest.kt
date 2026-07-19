@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -787,7 +788,7 @@ class ConfigViewModelPersistenceTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `throwing hydration shows generic error and allows retry`() =
+    fun `throwing hydration aborts the exact editor session and allows retry`() =
         runTest {
             val profileStore = ControllableRelayProfileStore(loadFailure = IllegalStateException("hydrate failed"))
             val viewModel = createConfigViewModel(relayProfileStore = profileStore)
@@ -798,10 +799,12 @@ class ConfigViewModelPersistenceTest {
             advanceUntilIdle()
 
             val effect = errorEffect.await()
-            assertEquals(ConfigEffect.Message("unexpected error"), effect)
-            assertFalse((effect as ConfigEffect.Message).text.contains("hydrate failed"))
-            assertFalse(viewModel.uiState.value.isEditorLoading)
+            val failure = effect as ConfigEffect.EditorHydrationFailed
+            assertTrue(viewModel.uiState.value.isEditorLoading)
             assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.editorHydrationFailures.abort(failure.sessionId + 1))
+            assertTrue(viewModel.editorHydrationFailures.abort(failure.sessionId))
+            assertFalse(viewModel.uiState.value.isEditorLoading)
             assertEquals(defaultDraft, viewModel.uiState.value.draft)
 
             viewModel.startEditingPreset()
@@ -809,6 +812,39 @@ class ConfigViewModelPersistenceTest {
 
             assertFalse(viewModel.uiState.value.isEditorLoading)
             assertEquals(defaultDraft, viewModel.uiState.value.draft)
+        }
+
+    @Test
+    fun `failed hydration cannot overwrite existing relay credentials`() =
+        runTest {
+            val profileStore = ControllableRelayProfileStore(loadFailure = IllegalStateException("hydrate failed"))
+            val credentialStore = InMemoryRelayCredentialStore()
+            val preservedCredential = listOf("preserved", "fixture").joinToString("-")
+            val existingCredentials =
+                RelayCredentialRecord(
+                    profileId = DefaultRelayProfileId,
+                    vlessUuid = "preserved-vless-uuid",
+                    masqueAuthToken = preservedCredential,
+                )
+            credentialStore.save(existingCredentials)
+            val viewModel =
+                createConfigViewModel(
+                    relayProfileStore = profileStore,
+                    relayCredentialStore = credentialStore,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            val errorEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            assertTrue(errorEffect.await() is ConfigEffect.EditorHydrationFailed)
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(existingCredentials, credentialStore.load(DefaultRelayProfileId))
+            assertEquals(0, profileStore.saveCalls)
         }
 
     @Test
@@ -879,6 +915,36 @@ class ConfigViewModelPersistenceTest {
         }
 
     @Test
+    fun `session scoped callback cannot create or mutate a stale editor session`() =
+        runTest {
+            val viewModel = createConfigViewModel()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            assertFalse(
+                viewModel.updateDraft(expectedSessionId = 41L) {
+                    copy(relayMasqueCloudflareGeohashEnabled = true)
+                },
+            )
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            val readySessionId = requireNotNull(viewModel.currentEditorSessionId)
+
+            assertFalse(
+                viewModel.updateDraft(expectedSessionId = readySessionId + 1L) {
+                    copy(relayMasqueCloudflareGeohashEnabled = true)
+                },
+            )
+            assertTrue(
+                viewModel.updateDraft(expectedSessionId = readySessionId) {
+                    copy(relayMasqueCloudflareGeohashEnabled = true)
+                },
+            )
+            assertTrue(viewModel.uiState.value.draft.relayMasqueCloudflareGeohashEnabled)
+        }
+
+    @Test
     fun `stale masque import completions do not mutate a newer editor session`() =
         runTest {
             val importGate = CompletableDeferred<Unit>()
@@ -932,6 +998,41 @@ class ConfigViewModelPersistenceTest {
             advanceUntilIdle()
 
             assertEquals("newer-certificate", viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
+        }
+
+    @Test
+    fun `save waits for the active masque import to finish`() =
+        runTest {
+            val importGate = CompletableDeferred<Unit>()
+            val importer = ControllableMasqueClientCredentialImporter(importGate)
+            val profileStore = ControllableRelayProfileStore()
+            val viewModel =
+                createConfigViewModel(
+                    relayProfileStore = profileStore,
+                    masqueClientCredentialImporter = importer,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            val sessionId = requireNotNull(viewModel.currentEditorSessionId)
+
+            viewModel.importRelayMasqueCertificateChain(Uri.parse("content://test/certificate"), sessionId)
+            runCurrent()
+            assertTrue(viewModel.uiState.value.isEditorImporting)
+
+            viewModel.saveDraft()
+            runCurrent()
+            assertEquals(0, profileStore.saveCalls)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+
+            importGate.complete(Unit)
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isEditorImporting)
+            assertEquals(sampleCertificatePem(), viewModel.uiState.value.draft.relayMasqueClientCertificateChainPem)
+
+            viewModel.saveDraft()
+            advanceUntilIdle()
+            assertEquals(1, profileStore.saveCalls)
         }
 
     @Test

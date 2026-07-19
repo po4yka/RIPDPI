@@ -46,6 +46,7 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.MutableStateFlow
 
 internal const val defaultTtlMax = 255
 internal const val defaultRelayPort = 443
@@ -224,6 +225,7 @@ data class ConfigUiState(
     val isEditorDirty: Boolean = false,
     val isEditorLoading: Boolean = false,
     val isEditorSaving: Boolean = false,
+    val isEditorImporting: Boolean = false,
     val isLoading: Boolean = false,
 )
 
@@ -243,6 +245,10 @@ sealed interface ConfigEffect {
     data object SaveSuccess : ConfigEffect
 
     data object ValidationFailed : ConfigEffect
+
+    data class EditorHydrationFailed(
+        val sessionId: Long,
+    ) : ConfigEffect
 
     data class Message(
         val text: String,
@@ -281,6 +287,39 @@ internal data class ConfigEditorSession(
         } else {
             this
         }
+}
+
+internal fun MutableStateFlow<ConfigEditorSession>.updateDraftForSession(
+    expectedSessionId: Long,
+    transform: ConfigDraft.() -> ConfigDraft,
+): Boolean {
+    while (true) {
+        val current = value
+        if (
+            current.sessionId != expectedSessionId ||
+            current.presetId == null ||
+            current.hydrationPending
+        ) {
+            return false
+        }
+        val updated =
+            current.copy(
+                draft = requireNotNull(current.draft).transform(),
+                draftRevision = current.draftRevision + 1,
+            )
+        if (compareAndSet(current, updated)) return true
+    }
+}
+
+internal class ConfigEditorHydrationFailureHandler(
+    private val editorSession: MutableStateFlow<ConfigEditorSession>,
+) {
+    fun abort(expectedSessionId: Long): Boolean {
+        val current = editorSession.value
+        return current.sessionId == expectedSessionId &&
+            current.hydrationPending &&
+            editorSession.compareAndSet(current, ConfigEditorSession())
+    }
 }
 
 internal const val ConfigFieldDnsIp = "dnsIp"

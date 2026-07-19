@@ -10,6 +10,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 internal class ConfigMasqueImportController(
@@ -18,6 +20,7 @@ internal class ConfigMasqueImportController(
     private val beginOperation: (Long, Boolean, Boolean) -> MasqueImportOperation?,
     private val applyDraft: (MasqueImportOperation, ConfigDraft.() -> ConfigDraft) -> Boolean,
     private val reportFailure: (MasqueImportOperation, Throwable, Int) -> Unit,
+    private val finishOperation: (MasqueImportOperation) -> Unit,
 ) {
     fun importCertificateChain(
         uri: Uri,
@@ -64,20 +67,24 @@ internal class ConfigMasqueImportController(
     ) {
         val operation = beginOperation(sessionId, certificate, privateKey) ?: return
         scope.launch {
-            val result = runCatching { load() }
-            val error = result.exceptionOrNull()
-            when {
-                error is CancellationException -> {
-                    throw error
-                }
+            try {
+                val result = runCatching { load() }
+                val error = result.exceptionOrNull()
+                when {
+                    error is CancellationException -> {
+                        throw error
+                    }
 
-                error != null -> {
-                    reportFailure(operation, error, errorResource)
-                }
+                    error != null -> {
+                        reportFailure(operation, error, errorResource)
+                    }
 
-                else -> {
-                    applyDraft(operation) { transform(result.getOrThrow()) }
+                    else -> {
+                        applyDraft(operation) { transform(result.getOrThrow()) }
+                    }
                 }
+            } finally {
+                finishOperation(operation)
             }
         }
     }
@@ -91,6 +98,9 @@ internal class ConfigMasqueImportSessionCoordinator(
     private val effects: MutableSharedFlow<ConfigEffect>,
     private val stringResolver: StringResolver,
 ) {
+    private val _inFlightOperations = MutableStateFlow<Set<MasqueImportOperation>>(emptySet())
+    val inFlightOperations: StateFlow<Set<MasqueImportOperation>> = _inFlightOperations.asStateFlow()
+
     fun begin(
         expectedSessionId: Long,
         certificate: Boolean = false,
@@ -100,12 +110,26 @@ internal class ConfigMasqueImportSessionCoordinator(
             if (!isCurrentEditorSession(expectedSessionId)) {
                 null
             } else {
-                generations.begin(
-                    sessionId = expectedSessionId,
-                    certificate = certificate,
-                    privateKey = privateKey,
-                )
+                generations
+                    .begin(
+                        sessionId = expectedSessionId,
+                        certificate = certificate,
+                        privateKey = privateKey,
+                    ).also { operation ->
+                        _inFlightOperations.value += operation
+                    }
             }
+        }
+
+    fun finish(operation: MasqueImportOperation) {
+        synchronized(operationLock) {
+            _inFlightOperations.value -= operation
+        }
+    }
+
+    fun hasInFlightImport(sessionId: Long): Boolean =
+        synchronized(operationLock) {
+            _inFlightOperations.value.any { operation -> operation.sessionId == sessionId }
         }
 
     fun updateDraft(
@@ -138,7 +162,10 @@ internal class ConfigMasqueImportSessionCoordinator(
 
     private fun isCurrentEditorSession(expectedSessionId: Long): Boolean =
         editorSession.value.let { current ->
-            current.sessionId == expectedSessionId && current.presetId != null && !current.hydrationPending
+            current.sessionId == expectedSessionId &&
+                current.presetId != null &&
+                !current.hydrationPending &&
+                !current.savePending
         }
 }
 

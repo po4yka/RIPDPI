@@ -87,6 +87,7 @@ internal fun ModeEditorBottomBar(
                 text = stringResource(R.string.config_save),
                 onClick = actions.onSave,
                 loading = uiState.isEditorSaving,
+                enabled = !uiState.isEditorSaving && !uiState.isEditorImporting,
                 modifier =
                     Modifier
                         .weight(1f)

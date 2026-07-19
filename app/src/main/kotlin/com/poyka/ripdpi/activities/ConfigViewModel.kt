@@ -93,18 +93,12 @@ class ConfigViewModel
                 importPkcs12 = ::importRelayMasquePkcs12,
             )
         internal val masqueImportState = masqueImports.state
+        internal val editorHydrationFailures = ConfigEditorHydrationFailureHandler(editorSession)
         private val editorSessionIds = AtomicLong()
         private val activeSaveRequest = MutableStateFlow<ConfigSaveRequest?>(null)
         private val activeSaveJob = AtomicReference<Job?>()
         private val editorOperationLock = Any()
         private val masqueImportGenerations = ConfigMasqueImportGenerationTracker()
-        private val editorState =
-            combine(editorSession, activeSaveRequest) { session, saveRequest ->
-                ConfigEditorState(
-                    session = session,
-                    saveInFlight = saveRequest != null,
-                )
-            }
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
         private val masquePrivacyPassBuildStatus = masquePrivacyPassAvailability.buildStatus()
 
@@ -122,6 +116,18 @@ class ConfigViewModel
                 effects = _effects,
                 stringResolver = stringResolver,
             )
+        private val editorState =
+            combine(
+                editorSession,
+                activeSaveRequest,
+                masqueImportSessionCoordinator.inFlightOperations,
+            ) { session, saveRequest, imports ->
+                ConfigEditorState(
+                    session = session,
+                    saveInFlight = saveRequest != null,
+                    importInFlight = imports.any { operation -> operation.sessionId == session.sessionId },
+                )
+            }
         private val masqueImportController =
             ConfigMasqueImportController(
                 scope = viewModelScope,
@@ -129,6 +135,7 @@ class ConfigViewModel
                 beginOperation = masqueImportSessionCoordinator::begin,
                 applyDraft = masqueImportSessionCoordinator::updateDraft,
                 reportFailure = masqueImportSessionCoordinator::reportFailure,
+                finishOperation = masqueImportSessionCoordinator::finish,
             )
         val effects = _effects.bufferForUiLifecycle(viewModelScope)
 
@@ -256,6 +263,7 @@ class ConfigViewModel
                     isEditorDirty = session.isDirty,
                     isEditorLoading = session.hydrationPending,
                     isEditorSaving = editorState.saveInFlight,
+                    isEditorImporting = editorState.importInFlight,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -384,23 +392,25 @@ class ConfigViewModel
                         expect = session,
                         update = session.completeHydration(sessionId, hydration.getOrThrow()),
                     )
+                } else if (error is CancellationException) {
+                    editorSession.compareAndSet(session, ConfigEditorSession())
+                    throw error
                 } else {
-                    val recovered =
-                        editorSession.compareAndSet(
-                            expect = session,
-                            update = session.completeHydration(sessionId, draft),
-                        )
-                    if (error is CancellationException) {
-                        throw error
-                    } else if (recovered) {
+                    if (editorSession.value == session) {
                         log.e(error) { "Failed to hydrate mode editor relay artifacts" }
-                        _effects.emit(ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
+                        _effects.emit(ConfigEffect.EditorHydrationFailed(sessionId))
                     }
                 }
             }
         }
 
-        fun updateDraft(transform: ConfigDraft.() -> ConfigDraft) {
+        fun updateDraft(
+            expectedSessionId: Long? = null,
+            transform: ConfigDraft.() -> ConfigDraft,
+        ): Boolean {
+            if (expectedSessionId != null) {
+                return editorSession.updateDraftForSession(expectedSessionId, transform)
+            }
             editorSession.update { current ->
                 when {
                     current.hydrationPending -> {
@@ -426,6 +436,7 @@ class ConfigViewModel
                     }
                 }
             }
+            return true
         }
 
         fun applyRelayPreset(presetId: String) {
@@ -505,24 +516,30 @@ class ConfigViewModel
         ) = masqueImportController.importPkcs12(uri, password, expectedSessionId)
 
         fun saveDraft() {
-            val (saveJob, request) =
+            val pendingSave =
                 synchronized(editorOperationLock) {
-                    val request =
+                    if (masqueImportSessionCoordinator.hasInFlightImport(editorSession.value.sessionId)) {
+                        null
+                    } else {
                         beginConfigSave(
                             editorSession = editorSession,
                             activeSaveRequest = activeSaveRequest,
                             fallbackDraft = uiState.value.draft,
-                        ) ?: return
-                    val job =
-                        viewModelScope.launch(start = CoroutineStart.LAZY) {
-                            saveDraft(request)
+                        )?.let { request ->
+                            val job =
+                                viewModelScope.launch(start = CoroutineStart.LAZY) {
+                                    saveDraft(request)
+                                }
+                            if (activeSaveJob.compareAndSet(null, job)) {
+                                job to request
+                            } else {
+                                activeSaveRequest.compareAndSet(request, null)
+                                null
+                            }
                         }
-                    if (!activeSaveJob.compareAndSet(null, job)) {
-                        activeSaveRequest.compareAndSet(request, null)
-                        return
                     }
-                    job to request
-                }
+                } ?: return
+            val (saveJob, request) = pendingSave
             saveJob.invokeOnCompletion {
                 synchronized(editorOperationLock) {
                     activeSaveJob.compareAndSet(saveJob, null)
@@ -662,6 +679,7 @@ private data class ConfigSaveRequest(
 private data class ConfigEditorState(
     val session: ConfigEditorSession,
     val saveInFlight: Boolean,
+    val importInFlight: Boolean,
 )
 
 private enum class ConfigSaveOutcome {

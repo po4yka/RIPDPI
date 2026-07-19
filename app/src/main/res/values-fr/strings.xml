@@ -82,6 +82,7 @@
     <string name="config_relay_vless_uuid">UUID VLESS</string>
     <string name="config_summary_section">Valeurs actuelles</string>
     <string name="config_validation_fix">Vérifiez les champs surlignés avant d\'enregistrer.</string>
+    <string name="config_editor_hydration_failed">Impossible d\'ouvrir cette configuration. Les identifiants enregistrés n\'ont pas été modifiés.</string>
     <string name="config_vpn_protocol_title">Protocole de relais</string>
     <string name="confirm_clear_remembered_networks_dismiss">Annuler</string>
     <string name="confirm_forget_learned_hosts_title">Oublier les hôtes appris ?</string>

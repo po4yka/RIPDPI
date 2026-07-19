@@ -15,6 +15,11 @@ class SensitiveSavedStateContractTest {
         assertFalse(settings.contains("backupPinDraft by rememberSaveable"))
         assertTrue(modeEditor.contains("pkcs12Password by remember {"))
         assertFalse(modeEditor.contains("pkcs12Password by rememberSaveable"))
+        assertTrue(modeEditor.contains("SecureWindowEffect()"))
+
+        val dialogs = source("ui/screens/config/ModeEditorRouteDialogs.kt").readText()
+        assertTrue(dialogs.contains("KeyboardType.Password"))
+        assertTrue(dialogs.contains("PasswordVisualTransformation()"))
     }
 
     private fun source(relativePath: String): File =

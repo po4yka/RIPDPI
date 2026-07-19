@@ -1222,6 +1222,7 @@
     <string name="config_cli_banner_title">تجاوزات سطر الأوامر مفعّلة</string>
     <string name="config_cli_banner_body">الوسيطات أدناه تأخذ الأولوية على الضوابط المرئية في هذه الشاشة.</string>
     <string name="config_validation_fix">تحقق من الحقول المحددة قبل الحفظ.</string>
+    <string name="config_editor_hydration_failed">تعذّر فتح هذا الإعداد. لم تتغيّر بيانات الاعتماد المحفوظة.</string>
     <string name="config_validation_banner_title">بعض القيم تحتاج إلى انتباه</string>
     <string name="config_validation_banner_body">المحرر يتحقق في الوقت الفعلي. أصلح الحقول المحددة ثم احفظ مجدداً.</string>
     <string name="config_error_invalid_dns">أدخل عنوان DNS صالحاً وغير محلي.</string>

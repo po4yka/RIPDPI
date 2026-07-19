@@ -1248,6 +1248,7 @@
     <string name="config_cli_banner_title">Command line overrides enabled</string>
     <string name="config_cli_banner_body">Arguments below take precedence over the visual controls on this screen.</string>
     <string name="config_validation_fix">Check the highlighted fields before saving.</string>
+    <string name="config_editor_hydration_failed">Couldn\'t open this configuration. Your saved credentials were not changed.</string>
     <string name="config_validation_banner_title">Some values still need attention</string>
     <string name="config_validation_banner_body">The editor is validating in real time. Fix the marked fields, then save again.</string>
     <string name="config_error_invalid_dns">Enter a valid non-local DNS address.</string>

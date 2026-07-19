@@ -79,7 +79,7 @@ internal fun handleMasqueDocumentResult(
         }
 
         MasqueImportAction.Pkcs12 -> {
-            onPkcs12Selected(PendingMasquePkcs12Import(uri, request.sessionId))
+            onPkcs12Selected(PendingMasquePkcs12Import(uri))
         }
     }
 }

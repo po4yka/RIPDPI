@@ -943,6 +943,7 @@
     <string name="config_cli_banner_title">Аргументы командной строки активны</string>
     <string name="config_cli_banner_body">Аргументы ниже имеют приоритет над визуальными элементами управления на этом экране.</string>
     <string name="config_validation_fix">Проверьте выделенные поля перед сохранением.</string>
+    <string name="config_editor_hydration_failed">Не удалось открыть эту конфигурацию. Сохранённые учётные данные не изменены.</string>
     <string name="config_validation_banner_title">Некоторые значения требуют внимания</string>
     <string name="config_validation_banner_body">Редактор выполняет проверку в реальном времени. Исправьте отмеченные поля и сохраните снова.</string>
     <string name="config_error_invalid_dns">Введите корректный нелокальный DNS-адрес.</string>

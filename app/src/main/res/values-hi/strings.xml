@@ -1225,6 +1225,7 @@
     <string name="config_cli_banner_title">कमांड लाइन ओवरराइड सक्षम</string>
     <string name="config_cli_banner_body">नीचे दिए गए तर्क इस स्क्रीन के दृश्य नियंत्रणों पर प्राथमिकता रखते हैं।</string>
     <string name="config_validation_fix">सहेजने से पहले हाइलाइट किए गए फ़ील्ड जाँचें।</string>
+    <string name="config_editor_hydration_failed">यह कॉन्फ़िगरेशन नहीं खुल सका। सहेजे गए क्रेडेंशियल नहीं बदले गए।</string>
     <string name="config_validation_banner_title">कुछ मानों पर अभी ध्यान देने की आवश्यकता है</string>
     <string name="config_validation_banner_body">संपादक वास्तविक समय में सत्यापन कर रहा है। चिह्नित फ़ील्ड ठीक करें, फिर दोबारा सहेजें।</string>
     <string name="config_error_invalid_dns">एक मान्य गैर-स्थानीय DNS पता दर्ज करें।</string>

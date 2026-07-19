@@ -2271,6 +2271,7 @@ fake_burst 3</string>
     <string name="config_relay_xhttp_path">xHTTP 路径</string>
     <string name="config_tls_record_marker_helper">接受偏移,如 0、host、sniext、extlen 或 host+1。</string>
     <string name="config_validation_fix">保存前请检查高亮的字段。</string>
+    <string name="config_editor_hydration_failed">无法打开此配置。已保存的凭据未被更改。</string>
     <string name="config_vpn_protocol_summary">在当前中继配置中所选的传输</string>
     <string name="confirm_clear_remembered_networks_body">已保存的按网络策略选择将被删除。应用将在重新连接时重新评估每个网络。</string>
     <string name="confirm_forget_learned_hosts_body">所有自动学习到的主机条目将被删除。引擎将在下次会话从零开始重新学习。</string>
