@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -131,6 +132,7 @@ class AssetProviderViewModel
         suspend fun persistConfigurationBeforeExit(): Boolean {
             if (!claimExitPersistence()) return false
             return try {
+                transient.first { it.activeOperation == null }
                 configurationPersistence.persistAndAwait(latestConfigurationDraft())
                 true
             } catch (error: CancellationException) {

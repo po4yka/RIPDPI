@@ -13,6 +13,7 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
@@ -335,6 +336,73 @@ class AssetProviderViewModelTest {
             assertEquals(ChangedProviderId, recreatedViewModel.uiState.value.providerId)
             assertEquals(ChangedCustomUrl, recreatedViewModel.uiState.value.customBaseUrl)
             assertFalse(recreatedViewModel.uiState.value.hasPersistenceError)
+        }
+
+    @Test
+    fun `exit waits for an active import transaction and rejects duplicate exit`() =
+        runTest {
+            val operationStarted = CompletableDeferred<Unit>()
+            val operationFinished = CompletableDeferred<Unit>()
+            val repository = FakeGeoAssetRepository()
+            repository.importAction = {
+                operationStarted.complete(Unit)
+                operationFinished.await()
+            }
+            val viewModel = AssetProviderViewModel(configuredSettingsRepository(), repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.importLocalAsset(GeoAssetKind.Geosite, Uri.parse("content://documents/geosite.db"))
+            operationStarted.await()
+            val exit = async { viewModel.persistConfigurationBeforeExit() }
+            runCurrent()
+
+            assertFalse(exit.isCompleted)
+            assertEquals(AssetProviderOperation.ImportGeosite, viewModel.uiState.value.activeOperation)
+            assertTrue(viewModel.uiState.value.isExitPersistenceInProgress)
+            assertFalse(viewModel.persistConfigurationBeforeExit())
+
+            operationFinished.complete(Unit)
+            assertTrue(exit.await())
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertFalse(viewModel.uiState.value.isExitPersistenceInProgress)
+            assertEquals(AssetProviderCheckOutcome.Imported, viewModel.uiState.value.lastResult)
+        }
+
+    @Test
+    fun `exit is acknowledged only after active check metadata commits`() =
+        runTest {
+            val settingsRepository = configuredSettingsRepository()
+            val checkStarted = CompletableDeferred<Unit>()
+            val allowMetadataCommit = CompletableDeferred<Unit>()
+            val repository = FakeGeoAssetRepository()
+            repository.checkAction = {
+                checkStarted.complete(Unit)
+                allowMetadataCommit.await()
+                settingsRepository.update {
+                    geoAssetGeoipVersionTag = ProviderAGeoipTag
+                    geoAssetGeositeVersionTag = ProviderAGeositeTag
+                }
+            }
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.checkForUpdates()
+            checkStarted.await()
+            val exit = async { viewModel.persistConfigurationBeforeExit() }
+            runCurrent()
+
+            assertFalse(exit.isCompleted)
+            assertEquals("", settingsRepository.snapshot().geoAssetGeoipVersionTag)
+
+            allowMetadataCommit.complete(Unit)
+            assertTrue(exit.await())
+
+            assertEquals(ProviderAGeoipTag, settingsRepository.snapshot().geoAssetGeoipVersionTag)
+            assertEquals(ProviderAGeositeTag, settingsRepository.snapshot().geoAssetGeositeVersionTag)
         }
 
     @Test
