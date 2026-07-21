@@ -1,10 +1,18 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -14,6 +22,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
@@ -334,6 +346,66 @@ class OnboardingScreenTest {
             .onNodeWithText("Android will ask for permission to create a local VPN connection.")
             .assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
+    }
+
+    @Test
+    fun `maximum font keeps footer reachable and option copy complete`() {
+        var uiState by mutableStateOf(OnboardingUiState(currentPage = 0))
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredSize(width = 411.dp, height = 839.dp)) {
+                        OnboardingScreen(
+                            uiState = uiState,
+                            actions = OnboardingScreenActions(),
+                        )
+                    }
+                }
+            }
+        }
+
+        OnboardingPages.indices.forEach { page ->
+            composeRule.runOnIdle { uiState = uiState.copy(currentPage = page) }
+            composeRule.waitForIdle()
+            val rootBounds =
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.screen(Route.Onboarding))
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+            val footerTag =
+                if (page == OnboardingPages.lastIndex) {
+                    RipDpiTestTags.OnboardingValidateAction
+                } else {
+                    RipDpiTestTags.OnboardingContinue
+                }
+            val footerBounds = composeRule.onNodeWithTag(footerTag).fetchSemanticsNode().boundsInRoot
+            assertTrue(footerBounds.top >= rootBounds.top)
+            assertTrue(footerBounds.bottom <= rootBounds.bottom)
+        }
+
+        composeRule.runOnIdle { uiState = uiState.copy(currentPage = OnboardingInfoPageCount) }
+        composeRule.waitForIdle()
+        listOf(
+            "Everyday controls stay visible while expert details stay collapsed.",
+            "Open the full operator surface with diagnostics, profiles, and low-level controls.",
+        ).forEach(::assertCompleteScrollableText)
+
+        composeRule.runOnIdle { uiState = uiState.copy(currentPage = OnboardingInfoPageCount + 1) }
+        composeRule.waitForIdle()
+        listOf(
+            "Routes all app traffic through a local on-device VPN. Full coverage, no manual setup.",
+            "Runs a local proxy for apps or clients that support manual proxy configuration.",
+        ).forEach(::assertCompleteScrollableText)
+    }
+
+    private fun assertCompleteScrollableText(text: String) {
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithText(text, useUnmergedTree = true)
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
+        val layout = layouts.single()
+        assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
     }
 
     private fun renderOnboarding(

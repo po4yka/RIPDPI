@@ -101,6 +101,46 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
+    fun onboardingIntroMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = 0),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
+        )
+    }
+
+    @Test
+    fun onboardingPersonaMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
+        )
+    }
+
+    @Test
+    fun onboardingModeMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount + 1),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
+        )
+    }
+
+    @Test
+    fun onboardingValidationMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = OnboardingPages.lastIndex),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
+        )
+    }
+
+    @Test
     fun onboardingDnsSetupScreen() {
         captureOnboardingScreen(
             uiState =
@@ -536,9 +576,11 @@ class RipDpiScreenCatalogScreenshotTest {
 
     private fun captureOnboardingScreen(
         uiState: OnboardingUiState,
+        widthDp: Int = 420,
         heightDp: Int = 900,
+        fontScale: Float = 1f,
     ) {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = heightDp) {
+        captureRipDpiScreenshot(widthDp = widthDp, heightDp = heightDp, fontScale = fontScale) {
             OnboardingScreenPreviewScene(uiState)
         }
     }
