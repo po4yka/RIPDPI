@@ -4162,4 +4162,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_restore_failed_body">پیش‌نویس ذخیره‌شده هنوز روی این دستگاه است. بازیابی را دوباره امتحان کنید یا برای خروج آن را کنار بگذارید.</string>
     <string name="strategy_config_restore_retry">تلاش دوباره</string>
     <string name="strategy_config_restoring_draft">در حال بازیابی پیش‌نویس ذخیره‌شده…</string>
+    <string name="strategy_config_draft_save_failed_title">پیش‌نویس ذخیره نشد</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI در حال تلاش دوباره برای ذخیره محلی پیش‌نویس است. تا ناپدید شدن هشدار این صفحه را باز نگه دارید.</string>
 </resources>

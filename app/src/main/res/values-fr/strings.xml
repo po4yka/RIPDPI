@@ -4157,4 +4157,6 @@ Source : %2$s</string>
     <string name="strategy_config_restore_failed_body">Le brouillon enregistré est toujours sur cet appareil. Réessayez la récupération ou supprimez-le pour quitter.</string>
     <string name="strategy_config_restore_retry">Réessayer</string>
     <string name="strategy_config_restoring_draft">Restauration du brouillon enregistré…</string>
+    <string name="strategy_config_draft_save_failed_title">Brouillon non enregistré</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI réessaie d’enregistrer le brouillon localement. Gardez cet écran ouvert jusqu’à ce que l’avertissement disparaisse.</string>
 </resources>

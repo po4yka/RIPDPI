@@ -4145,4 +4145,6 @@ fake_burst 3</string>
     <string name="strategy_config_restore_failed_body">已保存的草稿仍保留在此设备上。请重试恢复，或丢弃草稿后离开。</string>
     <string name="strategy_config_restore_retry">重试恢复</string>
     <string name="strategy_config_restoring_draft">正在恢复已保存的草稿…</string>
+    <string name="strategy_config_draft_save_failed_title">草稿未保存</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI 正在重试将草稿保存到本地。请保持此页面打开，直到警告消失。</string>
 </resources>

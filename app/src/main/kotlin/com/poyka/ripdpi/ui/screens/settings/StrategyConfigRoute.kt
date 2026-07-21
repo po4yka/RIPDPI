@@ -124,6 +124,7 @@ private fun StrategyConfigRouteScreen(
                 banner = banner,
                 isHydrating = editorViewModel.isHydrating,
                 hasHydrationError = editorViewModel.hasHydrationError,
+                hasPersistenceError = editorViewModel.hasPersistenceError,
             ),
         onBack = editorViewModel::requestExit,
         onSourceChanged = { source ->
@@ -214,10 +215,21 @@ private fun StrategyConfigEditorSession.toRouteScreenState(
     banner: StrategyConfigBanner?,
     isHydrating: Boolean,
     hasHydrationError: Boolean,
+    hasPersistenceError: Boolean,
 ): StrategyConfigScreenState =
     toScreenState(
         activePath = activePathLabel(context, draft.source, draft.luaPath),
-        banner = banner,
+        banner =
+            banner
+                ?: if (hasPersistenceError) {
+                    StrategyConfigBanner(
+                        title = context.getString(R.string.strategy_config_draft_save_failed_title),
+                        message = context.getString(R.string.strategy_config_draft_save_failed_body),
+                        tone = WarningBannerTone.Error,
+                    )
+                } else {
+                    null
+                },
         isHydrating = isHydrating,
         hasHydrationError = hasHydrationError,
     )
@@ -255,20 +267,21 @@ private const val BytesPerKib = 1024
 private fun handleStrategyConfigImport(
     context: Context,
     uri: android.net.Uri?,
-    onImported: (String) -> Unit,
+    onImported: (String) -> Boolean,
     onBanner: (StrategyConfigBanner) -> Unit,
 ) {
     uri?.let { selectedUri ->
         readStrategyConfigText(context, selectedUri)
             .onSuccess { imported ->
-                onImported(imported)
-                onBanner(
-                    StrategyConfigBanner(
-                        title = context.getString(R.string.strategy_config_imported_title),
-                        message = context.getString(R.string.strategy_config_imported_body),
-                        tone = WarningBannerTone.Info,
-                    ),
-                )
+                if (onImported(imported)) {
+                    onBanner(
+                        StrategyConfigBanner(
+                            title = context.getString(R.string.strategy_config_imported_title),
+                            message = context.getString(R.string.strategy_config_imported_body),
+                            tone = WarningBannerTone.Info,
+                        ),
+                    )
+                }
             }.onFailure { error ->
                 onBanner(
                     StrategyConfigBanner(

@@ -4092,4 +4092,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_restore_failed_body">Сохранённый черновик остался на устройстве. Повторите восстановление или удалите его, чтобы выйти.</string>
     <string name="strategy_config_restore_retry">Повторить</string>
     <string name="strategy_config_restoring_draft">Восстановление сохранённого черновика…</string>
+    <string name="strategy_config_draft_save_failed_title">Черновик не сохранён</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI повторяет локальное сохранение черновика. Не закрывайте этот экран, пока предупреждение не исчезнет.</string>
 </resources>

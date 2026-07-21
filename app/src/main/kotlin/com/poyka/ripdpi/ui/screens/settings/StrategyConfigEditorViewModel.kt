@@ -10,13 +10,17 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import javax.inject.Inject
 
 internal const val StrategyConfigSessionIdSavedStateKey = "strategy_config_session_id"
 private const val StrategyConfigBestEffortAttempts = 2
+private const val StrategyConfigAutomaticPersistenceAttempts = 3
+private const val StrategyConfigPersistenceRetryDelayMillis = 1_000L
 
 @HiltViewModel
 internal class StrategyConfigEditorViewModel
@@ -30,12 +34,12 @@ internal class StrategyConfigEditorViewModel
                 .get<String>(StrategyConfigSessionIdSavedStateKey)
                 ?.takeIf(::isValidStrategyConfigSessionId)
                 ?: newStrategyConfigSessionId().also { savedStateHandle[StrategyConfigSessionIdSavedStateKey] = it }
-        private val persistence = StrategyConfigPersistenceCoordinator(viewModelScope, sessionId, draftStore)
         private var hydrationComplete = false
         private var hydrationInProgress = false
         private var hydrationRetryAvailable = true
         private var hydrationRetryRequested = false
         private var pendingBuiltInConfigText: String? = null
+        private var pendingImportedConfigText: String? = null
         private var exitRequested = false
         private var discarding = false
 
@@ -45,8 +49,17 @@ internal class StrategyConfigEditorViewModel
             private set
         var hasHydrationError by mutableStateOf(false)
             private set
+        var hasPersistenceError by mutableStateOf(false)
+            private set
         var exitDecision by mutableStateOf<StrategyConfigExitDecision?>(null)
             private set
+        private val persistence =
+            StrategyConfigPersistenceCoordinator(
+                scope = viewModelScope,
+                sessionId = sessionId,
+                draftStore = draftStore,
+                onPersistenceErrorChanged = { hasPersistenceError = it },
+            )
 
         init {
             startHydration()
@@ -92,9 +105,16 @@ internal class StrategyConfigEditorViewModel
                 ?.let(::setAndPersist)
         }
 
-        fun importConfig(configText: String) {
-            if (discarding) return
-            session?.importConfig(configText.boundedUtf8(StrategyConfigMaxImportBytes))?.let(::setAndPersist)
+        fun importConfig(configText: String): Boolean {
+            if (discarding) return false
+            val bounded = configText.boundedUtf8(StrategyConfigMaxImportBytes)
+            if (!hydrationComplete) {
+                pendingImportedConfigText = bounded
+                return false
+            }
+            val imported = session?.importConfig(bounded) ?: return false
+            setAndPersist(imported)
+            return true
         }
 
         fun beginSave(): StrategyConfigSaveRequest? =
@@ -253,6 +273,7 @@ internal class StrategyConfigEditorViewModel
             hasHydrationError = false
             hydrationRetryRequested = false
             pendingBuiltInConfigText?.also { pendingBuiltInConfigText = null }?.let(::syncBuiltIn)
+            pendingImportedConfigText?.also { pendingImportedConfigText = null }?.let(::importConfig)
         }
 
         private fun handleHydrationFailure() {
@@ -285,21 +306,26 @@ private suspend fun restoreStrategyConfigDraft(
         )
 
 private class StrategyConfigPersistenceCoordinator(
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     private val sessionId: String,
     private val draftStore: StrategyConfigDraftStore,
+    private val onPersistenceErrorChanged: (Boolean) -> Unit,
 ) {
     private val persistenceCommands = Channel<StrategyConfigPersistenceCommand>(Channel.CONFLATED)
     private val acknowledgedCommands = Channel<StrategyConfigAcknowledgedCommand>(Channel.RENDEZVOUS)
     private var nextSequence = 0L
     private var acknowledgedThroughSequence = 0L
+    private var retryJob: Job? = null
 
     init {
         scope.launch {
             while (true) {
                 select {
-                    acknowledgedCommands.onReceive { command -> executeAcknowledged(command) }
-                    persistenceCommands.onReceive { command -> executeBestEffort(command) }
+                    acknowledgedCommands.onReceive { command ->
+                        cancelBestEffortRetry()
+                        executeAcknowledged(command)
+                    }
+                    persistenceCommands.onReceive { command -> replaceBestEffortRetry(command) }
                 }
             }
         }
@@ -339,9 +365,21 @@ private class StrategyConfigPersistenceCoordinator(
         completion.await()
     }
 
-    private suspend fun executeBestEffort(command: StrategyConfigPersistenceCommand) {
+    private suspend fun replaceBestEffortRetry(command: StrategyConfigPersistenceCommand) {
+        cancelBestEffortRetry()
+        retryJob = scope.launch { executeBestEffortUntilSuccessful(command) }
+    }
+
+    private suspend fun cancelBestEffortRetry() {
+        retryJob?.cancel()
+        retryJob?.join()
+        retryJob = null
+    }
+
+    private suspend fun executeBestEffortUntilSuccessful(command: StrategyConfigPersistenceCommand) {
         if (command.sequence <= acknowledgedThroughSequence) return
-        repeat(StrategyConfigBestEffortAttempts) { attempt ->
+        var attempt = 0
+        while (command.sequence > acknowledgedThroughSequence) {
             val failure =
                 runCatching {
                     when (command) {
@@ -351,9 +389,8 @@ private class StrategyConfigPersistenceCoordinator(
                 }.exceptionOrNull()
             when (failure) {
                 null -> {
-                    if (command is StrategyConfigPersistenceCommand.Delete) {
-                        acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
-                    }
+                    acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
+                    onPersistenceErrorChanged(false)
                     return
                 }
 
@@ -362,7 +399,12 @@ private class StrategyConfigPersistenceCoordinator(
                 }
 
                 is Exception -> {
-                    if (attempt == StrategyConfigBestEffortAttempts - 1) return
+                    onPersistenceErrorChanged(true)
+                    attempt += 1
+                    if (attempt >= StrategyConfigAutomaticPersistenceAttempts) return
+                    if (attempt >= StrategyConfigBestEffortAttempts) {
+                        delay(StrategyConfigPersistenceRetryDelayMillis)
+                    }
                 }
 
                 else -> {
@@ -383,6 +425,7 @@ private class StrategyConfigPersistenceCoordinator(
         when (failure) {
             null -> {
                 acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
+                onPersistenceErrorChanged(false)
                 command.completion.complete(Unit)
             }
 

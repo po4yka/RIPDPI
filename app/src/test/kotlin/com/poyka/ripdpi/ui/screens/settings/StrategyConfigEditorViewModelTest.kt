@@ -6,6 +6,7 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -105,7 +106,7 @@ class StrategyConfigEditorViewModelTest {
         }
 
     @Test
-    fun `persistent draft failure stops after bounded retry`() =
+    fun `persistent draft failure surfaces warning and continues delayed retry`() =
         runTest {
             val store = AlwaysFailPersistStrategyConfigDraftStore()
             val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
@@ -114,7 +115,60 @@ class StrategyConfigEditorViewModelTest {
             runCurrent()
 
             assertEquals(2, store.persistCount)
+            assertTrue(viewModel.hasPersistenceError)
+
+            advanceTimeBy(StrategyConfigPersistenceRetryDelayMillisForTest)
+            runCurrent()
+
+            assertEquals(3, store.persistCount)
+            assertTrue(viewModel.hasPersistenceError)
         }
+
+    @Test
+    fun `draft persistence warning clears after delayed retry and latest draft survives recreation`() =
+        runTest {
+            val store = FailTwicePersistStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val first = StrategyConfigEditorViewModel(handle, store)
+            first.syncBuiltIn("tcp: split")
+            first.update { copy(configText = "tcp: latest") }
+            runCurrent()
+
+            assertEquals(2, store.persistCount)
+            assertTrue(first.hasPersistenceError)
+
+            advanceTimeBy(StrategyConfigPersistenceRetryDelayMillisForTest)
+            runCurrent()
+
+            assertEquals(3, store.persistCount)
+            assertFalse(first.hasPersistenceError)
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: split")
+            runCurrent()
+
+            assertEquals("tcp: latest", requireNotNull(recreated.session).draft.configText)
+        }
+
+    @Test
+    fun `import result received during hydration is queued without false acceptance`() {
+        val store = PausedRestoreStrategyConfigDraftStore(dirtySession())
+        val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+
+        assertFalse(viewModel.importConfig("version: queued"))
+        assertNull(viewModel.session)
+
+        store.finishRestore()
+
+        val imported = requireNotNull(viewModel.session)
+        assertEquals(StrategyConfigSource.CustomYaml, imported.draft.source)
+        assertEquals("version: queued", imported.draft.configText)
+        assertTrue(imported.isDirty)
+    }
 
     @Test
     fun `successful clean save and explicit discard delete persistence`() =
@@ -540,6 +594,22 @@ private class AlwaysFailPersistStrategyConfigDraftStore : FakeStrategyConfigDraf
         throw java.io.IOException("unavailable")
     }
 }
+
+private class FailTwicePersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    var persistCount = 0
+        private set
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        persistCount += 1
+        if (persistCount <= 2) throw java.io.IOException("temporarily unavailable")
+        super.persist(sessionId, session)
+    }
+}
+
+private const val StrategyConfigPersistenceRetryDelayMillisForTest = 1_000L
 
 private class ControllableDeleteStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
     var pauseNextDelete = false

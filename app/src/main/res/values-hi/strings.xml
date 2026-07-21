@@ -1916,4 +1916,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_restore_failed_body">सहेजा गया ड्राफ़्ट अभी भी इस डिवाइस पर है। पुनर्प्राप्ति फिर से आज़माएँ या बाहर जाने के लिए इसे त्यागें।</string>
     <string name="strategy_config_restore_retry">फिर कोशिश करें</string>
     <string name="strategy_config_restoring_draft">सहेजा गया ड्राफ़्ट पुनर्स्थापित हो रहा है…</string>
+    <string name="strategy_config_draft_save_failed_title">ड्राफ़्ट सहेजा नहीं गया</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI ड्राफ़्ट को स्थानीय रूप से सहेजने की दोबारा कोशिश कर रहा है। चेतावनी हटने तक यह स्क्रीन खुली रखें।</string>
 </resources>

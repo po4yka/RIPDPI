@@ -4189,4 +4189,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_restore_failed_body">ما زالت المسودة المحفوظة على هذا الجهاز. أعد محاولة الاسترداد أو تجاهلها للمغادرة.</string>
     <string name="strategy_config_restore_retry">حاول مجددًا</string>
     <string name="strategy_config_restoring_draft">جارٍ استرداد المسودة المحفوظة…</string>
+    <string name="strategy_config_draft_save_failed_title">لم تُحفظ المسودة</string>
+    <string name="strategy_config_draft_save_failed_body">يعيد RIPDPI محاولة حفظ المسودة محليًا. أبقِ هذه الشاشة مفتوحة حتى يختفي التحذير.</string>
 </resources>

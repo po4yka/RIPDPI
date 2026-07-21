@@ -4157,4 +4157,6 @@ Quelle: %2$s</string>
     <string name="strategy_config_restore_failed_body">Der gespeicherte Entwurf befindet sich weiterhin auf diesem Gerät. Wiederhole die Wiederherstellung oder verwirf ihn, um den Bildschirm zu verlassen.</string>
     <string name="strategy_config_restore_retry">Erneut versuchen</string>
     <string name="strategy_config_restoring_draft">Gespeicherten Entwurf wiederherstellen…</string>
+    <string name="strategy_config_draft_save_failed_title">Entwurf nicht gespeichert</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI versucht erneut, den Entwurf lokal zu speichern. Lass diesen Bildschirm geöffnet, bis die Warnung verschwindet.</string>
 </resources>

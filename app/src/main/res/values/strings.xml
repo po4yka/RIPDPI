@@ -4287,4 +4287,6 @@ Source: %2$s</string>
     <string name="strategy_config_restore_failed_body">Your saved draft is still on this device. Retry recovery or discard it to leave.</string>
     <string name="strategy_config_restore_retry">Try again</string>
     <string name="strategy_config_restoring_draft">Restoring saved draft…</string>
+    <string name="strategy_config_draft_save_failed_title">Draft not saved</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.</string>
 </resources>
