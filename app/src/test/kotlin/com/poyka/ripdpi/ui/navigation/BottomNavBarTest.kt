@@ -9,15 +9,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -87,6 +91,51 @@ class BottomNavBarTest {
             listOf("Status", "Connection", "Diagnose", "Settings").forEach { label ->
                 composeRule.onNodeWithContentDescription(label).assertIsDisplayed()
             }
+        }
+    }
+
+    @Test
+    fun rtlSelectionIndicatorStaysInsideEverySelectedTab() {
+        var selectedRoute by mutableStateOf<Route>(Route.Home)
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(density = 1f, fontScale = 2f),
+                LocalLayoutDirection provides LayoutDirection.Rtl,
+            ) {
+                RipDpiTheme {
+                    Box(
+                        modifier =
+                            Modifier
+                                .requiredWidth(411.dp)
+                                .height(120.dp),
+                    ) {
+                        BottomNavBar(
+                            selectedRoute = selectedRoute,
+                            onNavigate = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        Route.topLevel.forEach { route ->
+            composeRule.runOnIdle { selectedRoute = route }
+            composeRule.mainClock.advanceTimeBy(1_000L)
+            composeRule.waitForIdle()
+
+            val indicator =
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.BottomNavIndicator)
+                    .assertIsDisplayed()
+                    .fetchSemanticsNode()
+            val selectedTab =
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                    .assertIsDisplayed()
+                    .fetchSemanticsNode()
+
+            assertTrue(indicator.boundsInRoot.left >= selectedTab.boundsInRoot.left)
+            assertTrue(indicator.boundsInRoot.right <= selectedTab.boundsInRoot.right)
         }
     }
 }

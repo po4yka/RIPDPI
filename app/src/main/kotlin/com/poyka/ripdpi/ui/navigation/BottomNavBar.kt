@@ -30,11 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
@@ -66,6 +68,7 @@ fun BottomNavBar(
     val destinations = Route.topLevel
     val selectedIndex = destinations.indexOfFirst { it == selectedRoute }.takeIf { it >= 0 }
     val fontScale = LocalDensity.current.fontScale
+    val layoutDirection = LocalLayoutDirection.current
     val useCompactLabels = fontScale >= CompactBottomNavFontScale
     val useMaximumLabels = fontScale >= MaximumBottomNavFontScale
     val bottomBarHeight =
@@ -136,11 +139,14 @@ fun BottomNavBar(
                                     width = components.navigation.bottomNavIndicatorWidth,
                                     height = components.navigation.bottomNavIndicatorHeight,
                                 ).graphicsLayer {
-                                    translationX = indicatorOffsetPx
+                                    translationX =
+                                        indicatorOffsetPx *
+                                        if (layoutDirection == LayoutDirection.Ltr) 1f else -1f
                                     translationY = indicatorTopOffsetPx
                                     alpha = indicatorAlpha
                                     scaleX = indicatorScaleX
-                                }.background(
+                                }.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
+                                .background(
                                     color = indicatorSurface.container,
                                     shape = RipDpiThemeTokens.shapes.xxl,
                                 ),
