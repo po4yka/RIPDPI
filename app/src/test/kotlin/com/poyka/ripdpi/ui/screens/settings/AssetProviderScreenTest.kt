@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -60,6 +61,42 @@ class AssetProviderScreenTest {
         composeRule.onNodeWithText(expected).assertExists()
     }
 
+    @Test
+    fun `missing custom URL disables check and explains defensive no-check result`() {
+        render(
+            activeOperation = null,
+            customBaseUrl = " ",
+            resultBanner = AssetProviderCheckOutcome.Failed(AssetProviderFailureReason.MissingConfiguration),
+        )
+
+        assertActionEnabled(RipDpiTestTags.AssetProviderCheckUpdates, enabled = false)
+        val expected =
+            RuntimeEnvironment.getApplication().getString(
+                R.string.asset_provider_failure_missing_configuration,
+            )
+        composeRule
+            .onNode(hasScrollAction().and(hasAnyDescendant(hasTestTag(RipDpiTestTags.AssetProviderDropdown))))
+            .performScrollToNode(
+                androidx.compose.ui.test
+                    .hasText(expected),
+            )
+        composeRule.onNodeWithText(expected).assertExists()
+    }
+
+    @Test
+    fun `persistence failure is visible and retryable`() {
+        var retryClicks = 0
+        render(
+            activeOperation = null,
+            hasPersistenceError = true,
+            onRetryConfigurationPersistence = { retryClicks += 1 },
+        )
+
+        val expected = RuntimeEnvironment.getApplication().getString(R.string.asset_provider_persistence_failed_body)
+        composeRule.onNodeWithText(expected).performClick()
+        composeRule.runOnIdle { org.junit.Assert.assertEquals(1, retryClicks) }
+    }
+
     private fun assertActionEnabled(
         tag: String,
         enabled: Boolean,
@@ -82,6 +119,9 @@ class AssetProviderScreenTest {
     private fun render(
         activeOperation: AssetProviderOperation?,
         resultBanner: AssetProviderCheckOutcome? = null,
+        customBaseUrl: String = "https://provider.example/assets",
+        hasPersistenceError: Boolean = false,
+        onRetryConfigurationPersistence: () -> Unit = {},
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -89,17 +129,19 @@ class AssetProviderScreenTest {
                     state =
                         AssetProviderScreenState(
                             providerId = "custom",
-                            customBaseUrl = "https://provider.example/assets",
+                            customBaseUrl = customBaseUrl,
                             geoipTag = "v1",
                             geositeTag = "v1",
                             staleness = GeoAssetStaleness.Today,
                             activeOperation = activeOperation,
                             resultBanner = resultBanner?.let { rememberOutcomeBanner(it) },
+                            hasPersistenceError = hasPersistenceError,
                         ),
                     onBack = {},
                     onProviderSelected = {},
                     onCustomUrlChanged = {},
                     onCheckForUpdates = {},
+                    onRetryConfigurationPersistence = onRetryConfigurationPersistence,
                     onImportGeoip = {},
                     onImportGeosite = {},
                 )

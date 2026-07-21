@@ -3303,7 +3303,10 @@ fakeddisorder endhost</string>
     <string name="asset_provider_failure_too_large">فایل انتخاب‌شده بیش از حد بزرگ است. فایلی کوچک‌تر از ۶۴ مگابایت انتخاب کنید.</string>
     <string name="asset_provider_failure_network">ارتباط با ارائه‌دهنده داده ممکن نشد. اتصال خود را بررسی و دوباره تلاش کنید.</string>
     <string name="asset_provider_failure_storage">پایگاه داده در دستگاه ذخیره نشد. مقداری فضا خالی کنید و دوباره تلاش کنید.</string>
+    <string name="asset_provider_failure_missing_configuration">پیش از بررسی به‌روزرسانی‌ها، یک نشانی پایهٔ سفارشی وارد کنید.</string>
     <string name="asset_provider_failure_unexpected">عملیات داده ناموفق بود. دوباره تلاش کنید.</string>
+    <string name="asset_provider_persistence_failed_title">تنظیمات ارائه‌دهنده ذخیره نشد</string>
+    <string name="asset_provider_persistence_failed_body">RIPDPI نتوانست این تنظیمات را ذخیره کند. پیش از خروج برای تلاش دوباره ضربه بزنید.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسیه)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعه قوانین عبور پیش‌فرض برای روسیه؛ به‌روزتر از antizapret برای تگ‌های geoip/geosite در v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">%1$d روز پیش به‌روزرسانی شد</string>

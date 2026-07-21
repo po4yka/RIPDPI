@@ -3298,7 +3298,10 @@ Quelle: %2$s</string>
     <string name="asset_provider_failure_too_large">Die ausgewählte Datei ist zu groß. Wähle eine Datei unter 64 MB.</string>
     <string name="asset_provider_failure_network">Der Datenanbieter ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.</string>
     <string name="asset_provider_failure_storage">Die Datenbank konnte nicht auf dem Gerät gespeichert werden. Gib Speicherplatz frei und versuche es erneut.</string>
+    <string name="asset_provider_failure_missing_configuration">Gib vor der Suche nach Updates eine benutzerdefinierte Basis-URL ein.</string>
     <string name="asset_provider_failure_unexpected">Der Asset-Vorgang ist fehlgeschlagen. Versuche es erneut.</string>
+    <string name="asset_provider_persistence_failed_title">Anbietereinstellungen nicht gespeichert</string>
+    <string name="asset_provider_persistence_failed_body">RIPDPI konnte diese Einstellungen nicht speichern. Tippe, um es vor dem Verlassen erneut zu versuchen.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russland)</string>
     <string name="asset_provider_runetfreedom_desc">De-facto-Regelsatz zur Umgehung für RU; aktueller als antizapret für v2ray/xray-geoip/geosite-Tags.</string>
     <string name="asset_provider_updated_days_ago">Vor %1$d Tagen aktualisiert</string>

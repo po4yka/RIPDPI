@@ -3298,7 +3298,10 @@ Source : %2$s</string>
     <string name="asset_provider_failure_too_large">Le fichier sélectionné est trop volumineux. Choisissez un fichier de moins de 64 Mo.</string>
     <string name="asset_provider_failure_network">Impossible de joindre le fournisseur de données. Vérifiez votre connexion et réessayez.</string>
     <string name="asset_provider_failure_storage">Impossible d’enregistrer la base de données sur l’appareil. Libérez de l’espace, puis réessayez.</string>
+    <string name="asset_provider_failure_missing_configuration">Saisissez une URL de base personnalisée avant de rechercher des mises à jour.</string>
     <string name="asset_provider_failure_unexpected">L’opération sur les données a échoué. Réessayez.</string>
+    <string name="asset_provider_persistence_failed_title">Paramètres du fournisseur non enregistrés</string>
+    <string name="asset_provider_persistence_failed_body">RIPDPI n’a pas pu enregistrer ces paramètres. Touchez pour réessayer avant de quitter.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russie)</string>
     <string name="asset_provider_runetfreedom_desc">Jeu de règles de contournement de facto pour la RU ; plus à jour qu\'antizapret pour les tags geoip/geosite v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">Mis à jour il y a %1$d jours</string>

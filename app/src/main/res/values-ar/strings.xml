@@ -3180,7 +3180,10 @@ fakeddisorder endhost</string>
     <string name="asset_provider_failure_too_large">الملف المحدد كبير جدًا. اختر ملفًا أصغر من 64 ميغابايت.</string>
     <string name="asset_provider_failure_network">تعذّر الاتصال بموفّر البيانات. تحقّق من اتصالك وحاول مرة أخرى.</string>
     <string name="asset_provider_failure_storage">تعذّر حفظ قاعدة البيانات على الجهاز. وفّر بعض مساحة التخزين ثم حاول مرة أخرى.</string>
+    <string name="asset_provider_failure_missing_configuration">أدخل عنوان URL أساسيًا مخصّصًا قبل التحقق من التحديثات.</string>
     <string name="asset_provider_failure_unexpected">فشلت عملية البيانات. حاول مرة أخرى.</string>
+    <string name="asset_provider_persistence_failed_title">لم تُحفظ إعدادات الموفّر</string>
+    <string name="asset_provider_persistence_failed_body">تعذّر على RIPDPI حفظ هذه الإعدادات. اضغط للمحاولة مرة أخرى قبل المغادرة.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسيا)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعة قواعد تجاوز RU الفعلية؛ أحدث من antizapret لوسوم geoip/geosite الخاصة بـ v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">تم التحديث منذ %1$d يوم</string>

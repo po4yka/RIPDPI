@@ -252,6 +252,7 @@ app:asset_provider_entry_body
 app:asset_provider_entry_title
 app:asset_provider_failed_title
 app:asset_provider_failure_invalid_payload
+app:asset_provider_failure_missing_configuration
 app:asset_provider_failure_network
 app:asset_provider_failure_storage
 app:asset_provider_failure_too_large
@@ -268,6 +269,8 @@ app:asset_provider_intro_title
 app:asset_provider_l11r_desc
 app:asset_provider_l11r_label
 app:asset_provider_label
+app:asset_provider_persistence_failed_body
+app:asset_provider_persistence_failed_title
 app:asset_provider_runetfreedom_desc
 app:asset_provider_runetfreedom_label
 app:asset_provider_sagernet_desc

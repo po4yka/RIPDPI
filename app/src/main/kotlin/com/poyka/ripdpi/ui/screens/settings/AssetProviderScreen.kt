@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -40,6 +42,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 
 /** Immutable render state for [AssetProviderScreen]. */
 internal data class AssetProviderScreenState(
@@ -50,6 +53,8 @@ internal data class AssetProviderScreenState(
     val staleness: GeoAssetStaleness,
     val activeOperation: AssetProviderOperation?,
     val resultBanner: AssetProviderBanner?,
+    val hasPersistenceError: Boolean = false,
+    val isExitPersistenceInProgress: Boolean = false,
 )
 
 internal data class AssetProviderBanner(
@@ -65,6 +70,14 @@ fun AssetProviderRoute(
     viewModel: AssetProviderViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
+    val requestBack: () -> Unit = {
+        coroutineScope.launch {
+            if (viewModel.persistConfigurationBeforeExit()) onBack()
+        }
+    }
+
+    BackHandler(onBack = requestBack)
 
     val geoipImportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -85,11 +98,14 @@ fun AssetProviderRoute(
                 staleness = uiState.staleness,
                 activeOperation = uiState.activeOperation,
                 resultBanner = uiState.lastResult?.let { rememberOutcomeBanner(it) },
+                hasPersistenceError = uiState.hasPersistenceError,
+                isExitPersistenceInProgress = uiState.isExitPersistenceInProgress,
             ),
-        onBack = onBack,
+        onBack = requestBack,
         onProviderSelected = viewModel::selectProvider,
         onCustomUrlChanged = viewModel::updateCustomBaseUrl,
         onCheckForUpdates = viewModel::checkForUpdates,
+        onRetryConfigurationPersistence = viewModel::retryConfigurationPersistence,
         onImportGeoip = { geoipImportLauncher.launch(GeoAssetImportMimeTypes) },
         onImportGeosite = { geositeImportLauncher.launch(GeoAssetImportMimeTypes) },
         modifier = modifier,
@@ -136,12 +152,33 @@ internal fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetPro
                 message =
                     stringResource(
                         when (outcome.reason) {
-                            AssetProviderFailureReason.UnableToOpen -> R.string.asset_provider_failure_unable_to_open
-                            AssetProviderFailureReason.InvalidPayload -> R.string.asset_provider_failure_invalid_payload
-                            AssetProviderFailureReason.TooLarge -> R.string.asset_provider_failure_too_large
-                            AssetProviderFailureReason.Storage -> R.string.asset_provider_failure_storage
-                            AssetProviderFailureReason.Network -> R.string.asset_provider_failure_network
-                            AssetProviderFailureReason.Unexpected -> R.string.asset_provider_failure_unexpected
+                            AssetProviderFailureReason.UnableToOpen -> {
+                                R.string.asset_provider_failure_unable_to_open
+                            }
+
+                            AssetProviderFailureReason.InvalidPayload -> {
+                                R.string.asset_provider_failure_invalid_payload
+                            }
+
+                            AssetProviderFailureReason.TooLarge -> {
+                                R.string.asset_provider_failure_too_large
+                            }
+
+                            AssetProviderFailureReason.Storage -> {
+                                R.string.asset_provider_failure_storage
+                            }
+
+                            AssetProviderFailureReason.MissingConfiguration -> {
+                                R.string.asset_provider_failure_missing_configuration
+                            }
+
+                            AssetProviderFailureReason.Network -> {
+                                R.string.asset_provider_failure_network
+                            }
+
+                            AssetProviderFailureReason.Unexpected -> {
+                                R.string.asset_provider_failure_unexpected
+                            }
                         },
                     ),
                 tone = WarningBannerTone.Error,
@@ -156,6 +193,7 @@ internal fun AssetProviderScreen(
     onProviderSelected: (String) -> Unit,
     onCustomUrlChanged: (String) -> Unit,
     onCheckForUpdates: () -> Unit,
+    onRetryConfigurationPersistence: () -> Unit = {},
     onImportGeoip: () -> Unit,
     onImportGeosite: () -> Unit,
     modifier: Modifier = Modifier,
@@ -175,6 +213,16 @@ internal fun AssetProviderScreen(
                 message = stringResource(R.string.asset_provider_intro_body),
                 tone = WarningBannerTone.Info,
             )
+        }
+        if (state.hasPersistenceError) {
+            item(key = "asset_provider_persistence_error") {
+                WarningBanner(
+                    title = stringResource(R.string.asset_provider_persistence_failed_title),
+                    message = stringResource(R.string.asset_provider_persistence_failed_body),
+                    tone = WarningBannerTone.Error,
+                    onClick = onRetryConfigurationPersistence,
+                )
+            }
         }
         state.resultBanner?.let { banner ->
             item(key = "asset_provider_result") {
@@ -216,7 +264,7 @@ private fun AssetProviderPickerCard(
             }.toImmutableList()
     val selected = state.providerId.ifEmpty { DefaultAssetProviderId }
     val activeProvider = BuiltInAssetProviders.firstOrNull { it.id == selected }
-    val configurationEnabled = state.activeOperation == null
+    val configurationEnabled = state.activeOperation == null && !state.isExitPersistenceInProgress
 
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
@@ -314,7 +362,9 @@ private fun AssetProviderActionsCard(
     onImportGeoip: () -> Unit,
     onImportGeosite: () -> Unit,
 ) {
-    val operationInProgress = state.activeOperation != null
+    val operationInProgress = state.activeOperation != null || state.isExitPersistenceInProgress
+    val customProviderMissingUrl =
+        state.providerId == CustomAssetProviderId && state.customBaseUrl.isBlank()
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiButton(
@@ -322,7 +372,7 @@ private fun AssetProviderActionsCard(
                 onClick = onCheckForUpdates,
                 modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderCheckUpdates),
                 loading = state.activeOperation == AssetProviderOperation.CheckUpdates,
-                enabled = !operationInProgress,
+                enabled = !operationInProgress && !customProviderMissingUrl,
                 leadingIcon = RipDpiIcons.Refresh,
             )
             Column(
@@ -393,6 +443,7 @@ private fun previewAssetProviderScreen() {
             onProviderSelected = {},
             onCustomUrlChanged = {},
             onCheckForUpdates = {},
+            onRetryConfigurationPersistence = {},
             onImportGeoip = {},
             onImportGeosite = {},
         )
