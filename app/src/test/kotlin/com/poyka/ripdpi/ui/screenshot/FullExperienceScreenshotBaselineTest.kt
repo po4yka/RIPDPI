@@ -11,7 +11,7 @@ class FullExperienceScreenshotBaselineTest {
         val unreachableSimpleBaselines =
             screenshotDirectory
                 .walkTopDown()
-                .filter { it.isFile && it.name.endsWith("_simple.png") }
+                .filter { it.isFile && "_simple_" in it.name && it.extension == "png" }
                 .map(File::getName)
                 .sorted()
                 .toList()
