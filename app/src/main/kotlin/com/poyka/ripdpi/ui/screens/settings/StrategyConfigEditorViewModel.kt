@@ -16,6 +16,7 @@ import kotlinx.coroutines.selects.select
 import javax.inject.Inject
 
 internal const val StrategyConfigSessionIdSavedStateKey = "strategy_config_session_id"
+private const val StrategyConfigBestEffortAttempts = 2
 
 @HiltViewModel
 internal class StrategyConfigEditorViewModel
@@ -340,17 +341,34 @@ private class StrategyConfigPersistenceCoordinator(
 
     private suspend fun executeBestEffort(command: StrategyConfigPersistenceCommand) {
         if (command.sequence <= acknowledgedThroughSequence) return
-        // Editing stays available after IO failure; the next mutation retries the latest snapshot.
-        val failure =
-            runCatching {
-                when (command) {
-                    is StrategyConfigPersistenceCommand.Persist -> draftStore.persist(sessionId, command.session)
-                    is StrategyConfigPersistenceCommand.Delete -> draftStore.delete(sessionId)
+        repeat(StrategyConfigBestEffortAttempts) { attempt ->
+            val failure =
+                runCatching {
+                    when (command) {
+                        is StrategyConfigPersistenceCommand.Persist -> draftStore.persist(sessionId, command.session)
+                        is StrategyConfigPersistenceCommand.Delete -> draftStore.delete(sessionId)
+                    }
+                }.exceptionOrNull()
+            when (failure) {
+                null -> {
+                    if (command is StrategyConfigPersistenceCommand.Delete) {
+                        acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
+                    }
+                    return
                 }
-            }.exceptionOrNull()
-        if (failure is CancellationException) throw failure
-        if (failure == null && command is StrategyConfigPersistenceCommand.Delete) {
-            acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, command.sequence)
+
+                is CancellationException -> {
+                    throw failure
+                }
+
+                is Exception -> {
+                    if (attempt == StrategyConfigBestEffortAttempts - 1) return
+                }
+
+                else -> {
+                    throw failure
+                }
+            }
         }
     }
 

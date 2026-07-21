@@ -79,6 +79,44 @@ class StrategyConfigEditorViewModelTest {
     }
 
     @Test
+    fun `first draft persist failure retries without another edit and survives recreation`() =
+        runTest {
+            val store = FailFirstPersistStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val first = StrategyConfigEditorViewModel(handle, store)
+            first.syncBuiltIn("tcp: split")
+            first.update { copy(configText = "tcp: latest") }
+            runCurrent()
+
+            assertEquals(2, store.persistCount)
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: split")
+            runCurrent()
+
+            val restored = requireNotNull(recreated.session)
+            assertEquals("tcp: latest", restored.draft.configText)
+            assertEquals("tcp: split", restored.baseline.configText)
+            assertTrue(restored.isDirty)
+        }
+
+    @Test
+    fun `persistent draft failure stops after bounded retry`() =
+        runTest {
+            val store = AlwaysFailPersistStrategyConfigDraftStore()
+            val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: latest") }
+            runCurrent()
+
+            assertEquals(2, store.persistCount)
+        }
+
+    @Test
     fun `successful clean save and explicit discard delete persistence`() =
         runTest {
             val store = FakeStrategyConfigDraftStore()
@@ -473,6 +511,33 @@ private open class FakeStrategyConfigDraftStore : StrategyConfigDraftStore {
 
     override suspend fun delete(sessionId: String) {
         sessions.remove(sessionId)
+    }
+}
+
+private class FailFirstPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    var persistCount = 0
+        private set
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        persistCount += 1
+        if (persistCount == 1) throw java.io.IOException("temporarily unavailable")
+        super.persist(sessionId, session)
+    }
+}
+
+private class AlwaysFailPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    var persistCount = 0
+        private set
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        persistCount += 1
+        throw java.io.IOException("unavailable")
     }
 }
 
