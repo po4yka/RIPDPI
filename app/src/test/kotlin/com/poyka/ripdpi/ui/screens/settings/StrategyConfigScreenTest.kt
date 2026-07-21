@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -89,6 +91,20 @@ class StrategyConfigScreenTest {
     @Config(sdk = [35], qualifiers = "ru")
     fun maximumFontStacksRegularActionsWithoutTruncation() {
         setScreen(fontScale = 2f)
+
+        val sourceLayouts = mutableListOf<TextLayoutResult>()
+        val sourceText =
+            composeRule
+                .onNodeWithText("Пользовательский YAML", useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(sourceLayouts) }
+                .fetchSemanticsNode()
+        val sourceField = composeRule.onNodeWithTag(RipDpiTestTags.StrategyConfigSource).fetchSemanticsNode()
+        val layout = sourceLayouts.single()
+        assertEquals(2, layout.lineCount)
+        assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
+        assertTrue(sourceText.boundsInRoot.top >= sourceField.boundsInRoot.top)
+        assertTrue(sourceText.boundsInRoot.bottom <= sourceField.boundsInRoot.bottom)
+        assertTrue(sourceField.boundsInRoot.height > 48f)
 
         val actionLabels = listOf("Сохранить", "Перезагрузить", "Импорт", "Экспорт")
         composeRule.onNodeWithText("Экспорт", useUnmergedTree = true).performScrollTo()

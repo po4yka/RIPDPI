@@ -392,6 +392,11 @@ class OnboardingScreenTest {
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(introLayouts) }
                 .fetchSemanticsNode()
         assertTrue(introNode.boundsInRoot.height + 1f >= introLayouts.single().size.height)
+        val localHeader =
+            composeRule
+                .onNodeWithText("On your device", useUnmergedTree = true)
+                .fetchSemanticsNode()
+        assertTrue(localHeader.boundsInRoot.top >= introNode.boundsInRoot.bottom)
 
         composeRule.runOnIdle { uiState = uiState.copy(currentPage = OnboardingInfoPageCount) }
         composeRule.waitForIdle()

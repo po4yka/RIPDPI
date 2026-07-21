@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
@@ -340,6 +342,11 @@ private fun LuaStrategyConfigCard(
                 behavior =
                     RipDpiTextFieldBehavior(
                         enabled = !state.isHydrating,
+                        textStyle =
+                            RipDpiThemeTokens.type.monoConfig.copy(
+                                textAlign = TextAlign.Start,
+                                textDirection = TextDirection.Ltr,
+                            ),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                     ),
             )
@@ -355,6 +362,11 @@ private fun LuaStrategyConfigCard(
                 behavior =
                     RipDpiTextFieldBehavior(
                         enabled = !state.isHydrating,
+                        textStyle =
+                            RipDpiThemeTokens.type.monoConfig.copy(
+                                textAlign = TextAlign.Start,
+                                textDirection = TextDirection.Ltr,
+                            ),
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType = KeyboardType.Ascii,

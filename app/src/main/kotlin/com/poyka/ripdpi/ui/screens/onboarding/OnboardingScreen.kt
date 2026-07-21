@@ -739,23 +739,43 @@ private fun OnboardingGuaranteeGrid(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .widthIn(max = introLayout.guaranteeGridMaxWidth),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        OnboardingGuaranteeColumn(
-            headerRes = R.string.onboarding_guarantee_header_privacy,
-            labels = privacyLabels,
-            modifier = Modifier.weight(1f),
-        )
-        OnboardingGuaranteeColumn(
-            headerRes = R.string.onboarding_guarantee_header_local,
-            labels = localLabels,
-            modifier = Modifier.weight(1f),
-        )
+    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
+    val gridModifier =
+        modifier
+            .fillMaxWidth()
+            .widthIn(max = introLayout.guaranteeGridMaxWidth)
+    if (useAccessibilityLayout) {
+        Column(
+            modifier = gridModifier,
+            verticalArrangement = Arrangement.spacedBy(spacing.lg),
+        ) {
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_privacy,
+                labels = privacyLabels,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_local,
+                labels = localLabels,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    } else {
+        Row(
+            modifier = gridModifier,
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        ) {
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_privacy,
+                labels = privacyLabels,
+                modifier = Modifier.weight(1f),
+            )
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_local,
+                labels = localLabels,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
