@@ -30,34 +30,7 @@ class RoborazziSimpleHomeScreenTest {
     fun simpleHomeReportRunning() {
         captureRipDpiScreenshot(widthDp = 412, heightDp = 915) {
             RipDpiTheme(themePreference = "light") {
-                SimpleHomeContent(
-                    connectionState = ConnectionState.Disconnected,
-                    diagnostics =
-                        HomeDiagnosticsUiState(
-                            analysisAction =
-                                HomeDiagnosticsActionUiState(
-                                    supportingText = "Stage 2 of 4 · Testing TLS handshake",
-                                    busy = true,
-                                ),
-                            analysisProgress =
-                                AnalysisProgressUiState(
-                                    stages =
-                                        persistentListOf(
-                                            AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
-                                            AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.5f),
-                                            AnalysisStageUiState(AnalysisStageStatus.PENDING),
-                                            AnalysisStageUiState(AnalysisStageStatus.PENDING),
-                                        ),
-                                    activeStageIndex = 1,
-                                ),
-                            analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
-                        ),
-                    activeTransport = null,
-                    snackbarHostState = SnackbarHostState(),
-                    onToggleConnection = {},
-                    onRunReport = {},
-                    onCancelReport = {},
-                )
+                SimpleRunningReport()
             }
         }
     }
@@ -65,6 +38,24 @@ class RoborazziSimpleHomeScreenTest {
     @Test
     fun simpleHomeReportCompleted() {
         captureRipDpiScreenshot(widthDp = 412, heightDp = 915) {
+            RipDpiTheme(themePreference = "light") {
+                SimpleCompletedReport()
+            }
+        }
+    }
+
+    @Test
+    fun simpleHomeReportRunningMaximumFont() {
+        captureRipDpiScreenshot(widthDp = 412, heightDp = 915, fontScale = 2f) {
+            RipDpiTheme(themePreference = "light") {
+                SimpleRunningReport()
+            }
+        }
+    }
+
+    @Test
+    fun simpleHomeReportCompletedMaximumFont() {
+        captureRipDpiScreenshot(widthDp = 412, heightDp = 915, fontScale = 2f) {
             RipDpiTheme(themePreference = "light") {
                 SimpleCompletedReport()
             }
@@ -150,6 +141,38 @@ private fun SimpleCompletedReport(
         onRunReport = {},
         onCancelReport = {},
         onShareReport = {},
+    )
+}
+
+@Composable
+private fun SimpleRunningReport() {
+    SimpleHomeContent(
+        connectionState = ConnectionState.Disconnected,
+        diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction =
+                    HomeDiagnosticsActionUiState(
+                        supportingText = "Stage 2 of 4 · Testing TLS handshake",
+                        busy = true,
+                    ),
+                analysisProgress =
+                    AnalysisProgressUiState(
+                        stages =
+                            persistentListOf(
+                                AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                                AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.5f),
+                                AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                                AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                            ),
+                        activeStageIndex = 1,
+                    ),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
+            ),
+        activeTransport = null,
+        snackbarHostState = SnackbarHostState(),
+        onToggleConnection = {},
+        onRunReport = {},
+        onCancelReport = {},
     )
 }
 
