@@ -12,6 +12,10 @@
     <string name="config">Подключение</string>
     <string name="settings">Настройки</string>
     <string name="diagnostics">Диагностика</string>
+    <string name="bottom_nav_home_compact">Статус</string>
+    <string name="bottom_nav_config_compact">Связь</string>
+    <string name="bottom_nav_diagnostics_compact">Тесты</string>
+    <string name="bottom_nav_settings_compact">Настр.</string>
     <string name="logs">Журналы</string>
     <string name="persona_simple">С подсказками</string>
     <string name="persona_advanced">Расширенный</string>
@@ -2369,7 +2373,7 @@ fakeddisorder endhost</string>
     <string name="home_connection_actuator_state_fault">Сбой защищённой линии в %1$s</string>
     <string name="home_connection_actuator_state_locked">Защищённая линия заблокирована</string>
     <string name="home_connection_actuator_state_direct">Прямая линия заблокирована</string>
-    <string name="home_connection_actuator_state_open">Защищённая линия открыта</string>
+    <string name="home_connection_actuator_state_open">Защищённая линия отключена</string>
     <string name="home_connection_stage_handshake">Рукопожатие</string>
     <string name="home_connection_stage_network">Сеть</string>
     <string name="home_connection_stage_route">Маршрут</string>

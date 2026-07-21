@@ -30,14 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -45,6 +43,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val CompactBottomNavFontScale = 1.5f
+private val AccessibilityBottomBarExtraHeight = 16.dp
 
 @Suppress("LongMethod")
 @Composable
@@ -62,21 +63,9 @@ fun BottomNavBar(
         RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator)
     val destinations = Route.topLevel
     val selectedIndex = destinations.indexOfFirst { it == selectedRoute }.takeIf { it >= 0 }
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val labelLineHeight =
-        with(density) {
-            RipDpiThemeTokens.type.navLabel.lineHeight
-                .toDp()
-        }
-    val labelLineCount = if (density.fontScale > 1f) BottomNavMaximumLabelLines else 1
+    val useCompactLabels = LocalDensity.current.fontScale >= CompactBottomNavFontScale
     val bottomBarHeight =
-        maxOf(
-            layout.bottomBarHeight,
-            components.navigation.bottomNavIndicatorTopOffset * 2 +
-                components.navigation.bottomNavIndicatorHeight +
-                labelLineHeight * labelLineCount,
-        )
+        layout.bottomBarHeight + if (useCompactLabels) AccessibilityBottomBarExtraHeight else 0.dp
 
     Column(
         modifier =
@@ -100,20 +89,19 @@ fun BottomNavBar(
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
                         ).height(bottomBarHeight)
-                        .ripDpiTestTag(RipDpiTestTags.BottomNavBar)
                         .padding(horizontal = components.navigation.bottomNavHorizontalPadding),
             ) {
+                val density = LocalDensity.current
                 val slotWidth = maxWidth / destinations.size.coerceAtLeast(1)
-                val indicatorStartOffset =
-                    selectedIndex?.let { index ->
-                        slotWidth * index +
-                            ((slotWidth - components.navigation.bottomNavIndicatorWidth) / 2)
-                    } ?: 0.dp
                 val indicatorOffsetPxTarget =
-                    with(density) {
-                        indicatorStartOffset.toPx() *
-                            if (layoutDirection == LayoutDirection.Ltr) 1f else -1f
-                    }
+                    selectedIndex?.let { index ->
+                        with(density) {
+                            (
+                                slotWidth * index +
+                                    ((slotWidth - components.navigation.bottomNavIndicatorWidth) / 2)
+                            ).toPx()
+                        }
+                    } ?: 0f
                 val indicatorOffsetPx by animateFloatAsState(
                     targetValue = indicatorOffsetPxTarget,
                     animationSpec = motion.emphasizedTween(easing = FastOutSlowInEasing),
@@ -133,6 +121,7 @@ fun BottomNavBar(
                     with(density) {
                         components.navigation.bottomNavIndicatorTopOffset.toPx()
                     }
+
                 Box(
                     modifier = Modifier.fillMaxSize(),
                 ) {
@@ -147,8 +136,7 @@ fun BottomNavBar(
                                     translationY = indicatorTopOffsetPx
                                     alpha = indicatorAlpha
                                     scaleX = indicatorScaleX
-                                }.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
-                                .background(
+                                }.background(
                                     color = indicatorSurface.container,
                                     shape = RipDpiThemeTokens.shapes.xxl,
                                 ),
@@ -159,8 +147,19 @@ fun BottomNavBar(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         destinations.forEach { destination ->
+                            val fullLabel = stringResource(destination.titleRes)
                             BottomNavItem(
                                 destination = destination,
+                                label =
+                                    stringResource(
+                                        if (useCompactLabels) {
+                                            destination.compactBottomNavTitleRes()
+                                        } else {
+                                            destination.titleRes
+                                        },
+                                    ),
+                                contentDescription = fullLabel,
+                                compact = useCompactLabels,
                                 selected = destination == selectedRoute,
                                 onClick = { onNavigate(destination) },
                             )
@@ -175,6 +174,9 @@ fun BottomNavBar(
 @Composable
 private fun RowScope.BottomNavItem(
     destination: Route,
+    label: String,
+    contentDescription: String,
+    compact: Boolean,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -236,23 +238,29 @@ private fun RowScope.BottomNavItem(
         ) {
             Icon(
                 imageVector = requireNotNull(destination.icon),
-                contentDescription = stringResource(destination.titleRes),
+                contentDescription = contentDescription,
                 tint = iconTint,
                 modifier = Modifier.size(RipDpiIconSizes.Default),
             )
         }
         Text(
-            text = stringResource(destination.titleRes),
-            style = type.navLabel,
+            text = label,
+            style = if (compact) type.caption else type.navLabel,
             color = labelColor,
-            maxLines = BottomNavMaximumLabelLines,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
         )
     }
 }
 
-private const val BottomNavMaximumLabelLines = 2
+private fun Route.compactBottomNavTitleRes(): Int =
+    when (this) {
+        Route.Home -> R.string.bottom_nav_home_compact
+        Route.Config -> R.string.bottom_nav_config_compact
+        Route.Settings -> R.string.bottom_nav_settings_compact
+        is Route.Diagnostics -> R.string.bottom_nav_diagnostics_compact
+        else -> titleRes
+    }
 
 @Preview(showBackground = true)
 @Composable

@@ -13,6 +13,10 @@
     <string name="config">الاتصال</string>
     <string name="settings">الإعدادات</string>
     <string name="diagnostics">التشخيص</string>
+    <string name="bottom_nav_home_compact">حالة</string>
+    <string name="bottom_nav_config_compact">اتصال</string>
+    <string name="bottom_nav_diagnostics_compact">فحص</string>
+    <string name="bottom_nav_settings_compact">ضبط</string>
     <string name="logs">السجلات</string>
     <string name="persona_simple">موجّه</string>
     <string name="persona_advanced">متقدم</string>
@@ -395,7 +399,7 @@
     <string name="home_connection_actuator_open">مفتوح</string>
     <string name="home_connection_actuator_secure">آمن</string>
     <string name="home_connection_actuator_direct">مباشر</string>
-    <string name="home_connection_actuator_state_open">الخط الآمن مفتوح</string>
+    <string name="home_connection_actuator_state_open">الخط الآمن غير مُفعّل</string>
     <string name="home_connection_actuator_state_engaging">الخط الآمن يتصل</string>
     <string name="home_connection_actuator_state_locked">الخط الآمن مقفل</string>
     <string name="home_connection_actuator_state_direct">الخط المباشر مقفل</string>

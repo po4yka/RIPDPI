@@ -462,6 +462,20 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
+    fun settingsMaximumFontScreen() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 1600, fontScale = 2f) {
+            RipDpiSettingsMediumPreviewScene()
+        }
+    }
+
+    @Test
+    fun diagnosticsMaximumFontScreen() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 1600, fontScale = 2f) {
+            RipDpiDiagnosticsScanPreviewScene()
+        }
+    }
+
+    @Test
     fun configMediumScreen() {
         captureRipDpiScreenshot(widthDp = 720, heightDp = 900) {
             RipDpiConfigPreviewScene()

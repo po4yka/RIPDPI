@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -46,6 +47,8 @@ enum class SettingsRowVariant {
     Selected,
 }
 
+private const val SettingsRowStackFontScale = 1.5f
+
 @Composable
 fun SettingsRow(
     title: String,
@@ -64,7 +67,6 @@ fun SettingsRow(
     testTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
     val switchStateDescription =
         checked?.let {
             stringResource(
@@ -81,26 +83,96 @@ fun SettingsRow(
         )
     Column(modifier = modifier.fillMaxWidth()) {
         val rowInteractionSource = remember { MutableInteractionSource() }
-        Row(
-            modifier =
-                Modifier.settingsRowModifier(
-                    testTag = testTag,
-                    accessibilityDescription =
-                        settingsRowAccessibilityDescription(
-                            title = title,
-                            subtitle = subtitle,
-                            value = value,
-                        ),
-                    stateDescription = switchStateDescription,
-                    variant = variant,
-                    subtitle = subtitle,
-                    enabled = enabled,
+        val contentModifier =
+            Modifier.settingsRowModifier(
+                testTag = testTag,
+                accessibilityDescription =
+                    settingsRowAccessibilityDescription(
+                        title = title,
+                        subtitle = subtitle,
+                        value = value,
+                    ),
+                stateDescription = switchStateDescription,
+                variant = variant,
+                subtitle = subtitle,
+                enabled = enabled,
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                onClick = onClick,
+                state = state,
+                interactionSource = rowInteractionSource,
+            )
+        val stackTrailing =
+            LocalDensity.current.fontScale >= SettingsRowStackFontScale &&
+                value != null
+        SettingsRowContent(
+            title = title,
+            subtitle = subtitle,
+            value = value,
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            leadingIcon = leadingIcon,
+            enabled = enabled,
+            showChevron = showChevron,
+            monospaceValue = monospaceValue,
+            state = state,
+            stackTrailing = stackTrailing,
+            modifier = contentModifier,
+        )
+        if (showDivider) {
+            HorizontalDivider(color = colors.divider)
+        }
+    }
+}
+
+@Composable
+private fun SettingsRowContent(
+    title: String,
+    subtitle: String?,
+    value: String?,
+    checked: Boolean?,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    leadingIcon: ImageVector?,
+    enabled: Boolean,
+    showChevron: Boolean,
+    monospaceValue: Boolean,
+    state: RipDpiSettingsRowStateStyle,
+    stackTrailing: Boolean,
+    modifier: Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    if (stackTrailing) {
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                verticalAlignment = Alignment.Top,
+            ) {
+                SettingsRowLeadingIcon(leadingIcon = leadingIcon, state = state)
+                SettingsRowText(title = title, subtitle = subtitle, state = state)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SettingsRowTrailing(
                     checked = checked,
                     onCheckedChange = onCheckedChange,
-                    onClick = onClick,
+                    enabled = enabled,
+                    value = value,
+                    monospaceValue = monospaceValue,
+                    showChevron = showChevron,
                     state = state,
-                    interactionSource = rowInteractionSource,
-                ),
+                )
+            }
+        }
+    } else {
+        Row(
+            modifier = modifier,
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -115,9 +187,6 @@ fun SettingsRow(
                 showChevron = showChevron,
                 state = state,
             )
-        }
-        if (showDivider) {
-            HorizontalDivider(color = colors.divider)
         }
     }
 }

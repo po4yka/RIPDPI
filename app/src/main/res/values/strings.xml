@@ -13,6 +13,10 @@
     <string name="config">Connection</string>
     <string name="settings">Settings</string>
     <string name="diagnostics">Diagnose</string>
+    <string name="bottom_nav_home_compact">Status</string>
+    <string name="bottom_nav_config_compact">Connect</string>
+    <string name="bottom_nav_diagnostics_compact">Checks</string>
+    <string name="bottom_nav_settings_compact">Settings</string>
     <string name="logs">Logs</string>
     <string name="persona_simple">Guided</string>
     <string name="persona_advanced">Advanced</string>
@@ -406,7 +410,7 @@
     <string name="home_connection_actuator_open">Open</string>
     <string name="home_connection_actuator_secure">Secure</string>
     <string name="home_connection_actuator_direct">Direct</string>
-    <string name="home_connection_actuator_state_open">Secure line open</string>
+    <string name="home_connection_actuator_state_open">Secure line disengaged</string>
     <string name="home_connection_actuator_state_engaging">Secure line engaging</string>
     <string name="home_connection_actuator_state_locked">Secure line locked</string>
     <string name="home_connection_actuator_state_direct">Direct line locked</string>

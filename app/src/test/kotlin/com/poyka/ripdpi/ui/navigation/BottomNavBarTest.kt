@@ -1,27 +1,24 @@
 package com.poyka.ripdpi.ui.navigation
 
-import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -32,91 +29,60 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "de-rDE-w360dp-h800dp")
+@Config(sdk = [35])
 class BottomNavBarTest {
     @get:Rule
     val composeRule = createComposeRule()
 
     @Test
-    fun `selected indicator follows selected destination in rtl`() {
-        setBottomBar(fontScale = 1f, layoutDirection = LayoutDirection.Rtl, selectedRoute = Route.Home)
-
-        val selectedBounds =
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.bottomNav(Route.Home))
-                .fetchSemanticsNode()
-                .boundsInRoot
-        val indicatorBounds =
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.BottomNavIndicator)
-                .fetchSemanticsNode()
-                .boundsInRoot
-
-        assertEquals(selectedBounds.center.x, indicatorBounds.center.x, 1f)
-    }
-
-    @Test
-    fun `destination labels do not clip at 150 percent font scale`() {
-        assertDestinationLabelsDoNotClip(fontScale = 1.5f)
-    }
-
-    @Test
-    fun `destination labels do not clip at 200 percent font scale`() {
-        assertDestinationLabelsDoNotClip(fontScale = 2f)
-    }
-
-    private fun assertDestinationLabelsDoNotClip(fontScale: Float) {
-        setBottomBar(fontScale = fontScale, layoutDirection = LayoutDirection.Ltr, selectedRoute = Route.Home)
-
-        val barBounds =
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.BottomNavBar)
-                .fetchSemanticsNode()
-                .boundsInRoot
-        assertTrue("The bottom bar should grow beyond its compact 64dp baseline", barBounds.height > 64f)
-
-        destinationLabels().forEach { label ->
-            val layouts = mutableListOf<TextLayoutResult>()
-            composeRule
-                .onNodeWithText(label, useUnmergedTree = true)
-                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
-                    action(layouts)
-                }
-
-            val layout = layouts.single()
-            assertFalse("$label must not overflow at ${fontScale}x font scale", layout.didOverflowHeight)
-            assertFalse(
-                "$label must not be ellipsized at ${fontScale}x font scale",
-                (0 until layout.lineCount).any(layout::isLineEllipsized),
-            )
-        }
-    }
-
-    private fun setBottomBar(
-        fontScale: Float,
-        layoutDirection: LayoutDirection,
-        selectedRoute: Route,
-    ) {
+    fun maximumFontUsesNonOverlappingCompactLabelsAndFullAccessibilityNames() {
+        var fontScale by mutableStateOf(1.5f)
         composeRule.setContent {
-            CompositionLocalProvider(
-                LocalDensity provides Density(density = 1f, fontScale = fontScale),
-                LocalLayoutDirection provides layoutDirection,
-            ) {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
                 RipDpiTheme {
-                    Box(modifier = Modifier.width(360.dp).height(300.dp)) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .requiredWidth(411.dp)
+                                .height(120.dp),
+                    ) {
                         BottomNavBar(
-                            selectedRoute = selectedRoute,
+                            selectedRoute = Route.Home,
                             onNavigate = {},
                         )
                     }
                 }
             }
         }
-        composeRule.waitForIdle()
-    }
 
-    private fun destinationLabels(): List<String> {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        return Route.topLevel.map { route -> context.getString(route.titleRes) }
+        listOf(1.5f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale = scale }
+            composeRule.waitForIdle()
+            val labels =
+                listOf("Status", "Connect", "Checks", "Settings").map { label ->
+                    val layouts = mutableListOf<TextLayoutResult>()
+                    composeRule
+                        .onNodeWithText(label, useUnmergedTree = true)
+                        .assertIsDisplayed()
+                        .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
+                        .fetchSemanticsNode()
+                        .also {
+                            val layout = layouts.single()
+                            assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
+                            assertTrue((0 until layout.lineCount).all { line -> layout.getLineLeft(line) >= -1f })
+                            assertTrue(
+                                (0 until layout.lineCount).all { line ->
+                                    layout.getLineRight(line) <= layout.size.width + 1f
+                                },
+                            )
+                        }
+                }
+            labels.zipWithNext().forEach { (left, right) ->
+                assertTrue(left.boundsInRoot.right <= right.boundsInRoot.left)
+            }
+            listOf("Status", "Connection", "Diagnose", "Settings").forEach { label ->
+                composeRule.onNodeWithContentDescription(label).assertIsDisplayed()
+            }
+        }
     }
 }

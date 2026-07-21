@@ -277,7 +277,7 @@ class RipDpiConnectionActuatorTest {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
                 RipDpiTheme {
-                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                    Box(modifier = Modifier.requiredWidth(371.dp)) {
                         RipDpiConnectionActuator(
                             state =
                                 actuatorState(HomeConnectionActuatorStatus.Engaging).copy(
@@ -304,31 +304,41 @@ class RipDpiConnectionActuatorTest {
         listOf(1.5f, 2f).forEach { scale ->
             composeRule.runOnIdle { fontScale = scale }
             composeRule.waitForIdle()
-            labels.forEach { label ->
+            labels.forEachIndexed { index, label ->
                 val textLayouts = mutableListOf<TextLayoutResult>()
-                composeRule
-                    .onNodeWithText(label, useUnmergedTree = true)
-                    .assertIsDisplayed()
-                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
-                        action(textLayouts)
-                    }
+                val textNode =
+                    composeRule
+                        .onNodeWithText(label, useUnmergedTree = true)
+                        .assertIsDisplayed()
+                        .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+                            action(textLayouts)
+                        }.fetchSemanticsNode()
+                val stageNode =
+                    composeRule
+                        .onNodeWithTag(
+                            RipDpiTestTags.homeConnectionStage(HomeConnectionActuatorStage.entries[index].stableKey),
+                        ).fetchSemanticsNode()
                 assertTrue(
                     textLayouts.single().let { layout ->
                         (0 until layout.lineCount).none(layout::isLineEllipsized)
                     },
                 )
+                assertTrue(textNode.boundsInRoot.left >= stageNode.boundsInRoot.left)
+                assertTrue(textNode.boundsInRoot.top >= stageNode.boundsInRoot.top)
+                assertTrue(textNode.boundsInRoot.right <= stageNode.boundsInRoot.right)
+                assertTrue(textNode.boundsInRoot.bottom <= stageNode.boundsInRoot.bottom)
             }
         }
     }
 
     @Test
-    fun `route label stays readable above rail at compact accessibility font scales`() {
+    fun `route label stays readable when accessibility layout hides decorative rail`() {
         val routeLabel = "Local VPN through protected outbound route"
         var fontScale by mutableStateOf(1.5f)
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
                 RipDpiTheme {
-                    Box(modifier = Modifier.requiredWidth(411.dp)) {
+                    Box(modifier = Modifier.requiredWidth(371.dp)) {
                         RipDpiConnectionActuator(
                             state =
                                 actuatorState(HomeConnectionActuatorStatus.Engaging).copy(
@@ -356,18 +366,52 @@ class RipDpiConnectionActuatorTest {
                     .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
                         action(textLayouts)
                     }.fetchSemanticsNode()
-            val rail =
-                composeRule
-                    .onNodeWithTag(RipDpiTestTags.ConnectionActuatorRail, useUnmergedTree = true)
-                    .fetchSemanticsNode()
-
             assertTrue(
                 textLayouts.single().let { layout ->
                     (0 until layout.lineCount).none(layout::isLineEllipsized)
                 },
             )
-            assertTrue(route.boundsInRoot.bottom <= rail.boundsInRoot.top)
+            assertTrue(route.boundsInRoot.width > 0f)
+            composeRule
+                .onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorRail, useUnmergedTree = true)
+                .assertCountEquals(0)
         }
+    }
+
+    @Test
+    fun `accessibility layout keeps tap action but ignores horizontal drags`() {
+        var fontScale by mutableStateOf(1.5f)
+        var activations = 0
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(371.dp)) {
+                        RipDpiConnectionActuator(
+                            state = actuatorState(HomeConnectionActuatorStatus.Open),
+                            onActivate = { activations++ },
+                            onDeactivate = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = RipDpiTestTags.ConnectionActuatorButton,
+                        )
+                    }
+                }
+            }
+        }
+
+        listOf(1.5f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale = scale }
+            composeRule.waitForIdle()
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+                .assertHasClickAction()
+                .performTouchInput { swipeRight() }
+            composeRule.runOnIdle { assertEquals(0, activations) }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .performTouchInput { click() }
+        composeRule.runOnIdle { assertEquals(1, activations) }
     }
 
     @Test
@@ -397,11 +441,11 @@ class RipDpiConnectionActuatorTest {
     }
 
     @Test
-    fun `direct terminal label is not ellipsized at maximum accessibility font scale`() {
+    fun `maximum accessibility font uses explicit route instead of decorative terminal`() {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
                 RipDpiTheme {
-                    Box(modifier = Modifier.requiredWidth(532.dp)) {
+                    Box(modifier = Modifier.requiredWidth(371.dp)) {
                         RipDpiConnectionActuator(
                             state =
                                 actuatorState(HomeConnectionActuatorStatus.Locked).copy(
@@ -417,19 +461,12 @@ class RipDpiConnectionActuatorTest {
             }
         }
 
-        val textLayouts = mutableListOf<TextLayoutResult>()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorTerminalLabel, useUnmergedTree = true)
-            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
-                action(textLayouts)
-            }
-
-        val layout = textLayouts.single()
-        assertEquals(1, layout.lineCount)
-        assertFalse(
-            "Direct layout size=${layout.size}, lineWidth=${layout.getLineRight(0)}",
-            layout.isLineEllipsized(0),
-        )
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorRouteLabel, useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorTerminalLabel, useUnmergedTree = true)
+            .assertCountEquals(0)
     }
 
     @Test

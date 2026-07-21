@@ -93,6 +93,7 @@ private const val StripeStepPx = 10f
 private const val StripeStrokePx = 2f
 private const val CarriageGripCount = 4
 private const val EndpointLabelHorizontalGapCount = 4
+private const val AccessibilityLayoutFontScale = 1.5f
 
 @Composable
 fun RipDpiConnectionActuator(
@@ -114,6 +115,7 @@ fun RipDpiConnectionActuator(
             animationSpec = motion.stateTween(),
             label = "actuatorCarriageFraction",
         )
+    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityLayoutFontScale
     val interactionModifier =
         rememberActuatorInteractionModifier(
             state = state,
@@ -138,18 +140,23 @@ fun RipDpiConnectionActuator(
                 state = state,
                 stateStyle = stateStyle,
             )
-            ActuatorRailLayout(
-                state = state,
-                stateStyle = stateStyle,
-                railColor = railColor,
-                terminalColor = terminalColor,
-                carriageColor = carriageColor,
-                baseFraction = baseFraction,
-                interactionModifier = interactionModifier,
-            )
+            if (!useAccessibilityLayout) {
+                ActuatorRailLayout(
+                    state = state,
+                    stateStyle = stateStyle,
+                    railColor = railColor,
+                    terminalColor = terminalColor,
+                    carriageColor = carriageColor,
+                    baseFraction = baseFraction,
+                    interactionModifier = interactionModifier,
+                )
+            }
         }
         if (state.status.showsPipeline) {
-            ActuatorPipeline(stages = state.stages)
+            ActuatorPipeline(
+                stages = state.stages,
+                useAccessibilityLayout = useAccessibilityLayout,
+            )
         }
     }
 }
@@ -419,6 +426,7 @@ private fun handleActuatorDragStop(
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
 ) {
+    if (railWidthPx <= 0f) return
     val activated = state.isActivationAvailable && dragDeltaPx >= railWidthPx * ActivateDragThreshold
     val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -railWidthPx * DeactivateDragThreshold
     when {
@@ -574,14 +582,31 @@ private fun ActuatorCarriage(
 }
 
 @Composable
-private fun ActuatorPipeline(stages: List<HomeConnectionActuatorStageUiState>) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
-        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
-    ) {
-        stages.forEach { stage ->
-            StageSegment(stage = stage)
+private fun ActuatorPipeline(
+    stages: List<HomeConnectionActuatorStageUiState>,
+    useAccessibilityLayout: Boolean,
+) {
+    if (useAccessibilityLayout) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            stages.forEach { stage ->
+                StageSegment(
+                    stage = stage,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    } else {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            stages.forEach { stage ->
+                StageSegment(stage = stage)
+            }
         }
     }
 }

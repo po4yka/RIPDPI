@@ -11,6 +11,10 @@
     <string name="config">اتصال</string>
     <string name="settings">تنظیمات</string>
     <string name="diagnostics">تشخیص</string>
+    <string name="bottom_nav_home_compact">وضعیت</string>
+    <string name="bottom_nav_config_compact">اتصال</string>
+    <string name="bottom_nav_diagnostics_compact">بررسی</string>
+    <string name="bottom_nav_settings_compact">تنظیم</string>
     <string name="logs">گزارش‌ها</string>
     <string name="persona_simple">راهنمایی‌شده</string>
     <string name="persona_advanced">پیشرفته</string>
@@ -399,7 +403,7 @@
     <string name="home_connection_actuator_open">باز</string>
     <string name="home_connection_actuator_secure">امن</string>
     <string name="home_connection_actuator_direct">مستقیم</string>
-    <string name="home_connection_actuator_state_open">خط امن باز است</string>
+    <string name="home_connection_actuator_state_open">خط امن غیرفعال است</string>
     <string name="home_connection_actuator_state_engaging">خط امن در حال درگیر شدن است</string>
     <string name="home_connection_actuator_state_locked">خط امن قفل است</string>
     <string name="home_connection_actuator_state_direct">خط مستقیم قفل است</string>
