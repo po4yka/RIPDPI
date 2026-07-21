@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import com.poyka.ripdpi.ui.components.RipDpiDiagnosticsScanPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
 import com.poyka.ripdpi.ui.navigation.BottomNavBar
@@ -47,7 +48,14 @@ class MaximumFontNavigationShellScreenshotTest {
             fontScale = 2f,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.weight(1f)) { scene() }
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clipToBounds(),
+                ) {
+                    scene()
+                }
                 BottomNavBar(
                     selectedRoute = selectedRoute,
                     onNavigate = {},
