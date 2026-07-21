@@ -670,7 +670,16 @@ private fun OnboardingInfoHero(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.height(introLayout.topActionRowHeight))
+        Spacer(
+            modifier =
+                Modifier.height(
+                    if (LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale) {
+                        0.dp
+                    } else {
+                        introLayout.topActionRowHeight
+                    },
+                ),
+        )
         OnboardingIllustrationBox(
             modifier =
                 Modifier

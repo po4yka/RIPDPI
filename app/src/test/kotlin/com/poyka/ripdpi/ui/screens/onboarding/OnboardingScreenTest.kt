@@ -383,6 +383,16 @@ class OnboardingScreenTest {
             assertTrue(footerBounds.bottom <= rootBounds.bottom)
         }
 
+        composeRule.runOnIdle { uiState = uiState.copy(currentPage = 0) }
+        composeRule.waitForIdle()
+        val introLayouts = mutableListOf<TextLayoutResult>()
+        val introNode =
+            composeRule
+                .onNodeWithText("No cloud sync", useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(introLayouts) }
+                .fetchSemanticsNode()
+        assertTrue(introNode.boundsInRoot.height + 1f >= introLayouts.single().size.height)
+
         composeRule.runOnIdle { uiState = uiState.copy(currentPage = OnboardingInfoPageCount) }
         composeRule.waitForIdle()
         listOf(
