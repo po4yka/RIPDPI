@@ -9,6 +9,7 @@ import android.os.Process
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -31,6 +32,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,13 +42,24 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.net.Inet6Address
+import java.net.InetAddress
 import java.util.UUID
 import javax.inject.Inject
 
 private const val VpnEncryptedDnsAutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover: "
 private const val FixtureDnsTimeoutFaultDelayMs = 5_000L
 private const val SoBindEvidenceProfileArg = "ripdpi.soBindEvidenceProfile"
+private const val SoBindIpv6HostArg = "ripdpi.soBindIpv6Host"
+private const val SoBindTcpEchoPortArg = "ripdpi.soBindTcpEchoPort"
+private const val SoBindUdpEchoPortArg = "ripdpi.soBindUdpEchoPort"
+private const val SoBindRunIdArg = "ripdpi.soBindRunId"
+private const val SoBindSourceShaArg = "ripdpi.soBindSourceSha"
+private const val SoBindAppApkSha256Arg = "ripdpi.soBindAppApkSha256"
+private const val SoBindTestApkSha256Arg = "ripdpi.soBindTestApkSha256"
 private const val PhysicalSoBindEvidenceProfile = "physical_pixel_api37_kernel61"
+private const val PhysicalSoBindEvidenceFile = "so-bind-physical-evidence.json"
+private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v1"
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -597,6 +611,9 @@ class NetworkPathE2ETest {
     fun vpnServiceDeniesExcludedTestUidBoundToTun0() {
         assumePhysicalSoBindEvidencePrerequisites()
         ensureVpnConsentGranted(appContext)
+        val ipv6Host = requirePhysicalIpv6FixtureHost()
+        requirePhysicalFixturePort(SoBindTcpEchoPortArg, fixture.tcpEchoPort)
+        requirePhysicalFixturePort(SoBindUdpEchoPortArg, fixture.udpEchoPort)
         val testPackage =
             androidx.test.platform.app.InstrumentationRegistry
                 .getInstrumentation()
@@ -610,36 +627,64 @@ class NetworkPathE2ETest {
                 .toString()
                 .replace("-", "")
                 .take(12)
-
-        val tcpPayload = httpEchoPayloadText("so-bind-direct-tcp-$nonce")
-        val directTcp =
-            testProcessTcpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.tcpEchoPort,
-                payload = tcpPayload,
+        val families =
+            listOf(
+                PhysicalSoBindFamily("ipv4", fixture.androidHost, false, 0),
+                PhysicalSoBindFamily("ipv6", ipv6Host, true, 41),
             )
-        assertTrue(
-            "Unbound test-process TCP control failed kind=${directTcp.failureKind} errno=${directTcp.errno}",
-            directTcp.ok,
-        )
-        assertEquals(tcpPayload, directTcp.response)
-        assertEquals(testUid, directTcp.probeUid)
-        assertTrue("Probe receiver must run outside the instrumentation process", directTcp.probePid != Process.myPid())
+        val counters = families.associate { it.id to PhysicalSoBindCounters() }
 
-        val udpPayload = "so-bind-direct-udp-$nonce"
-        val directUdp =
-            testProcessUdpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.udpEchoPort,
-                payload = udpPayload,
+        families.forEach { family ->
+            val tcpPayload = physicalSoBindPayload("direct", "tcp", family, nonce)
+            val directTcp =
+                testProcessTcpRoundTrip(
+                    host = family.host,
+                    port = fixture.tcpEchoPort,
+                    payload = tcpPayload,
+                )
+            assertSuccessfulPhysicalProbe(
+                "${family.id} unbound TCP",
+                directTcp.ok,
+                directTcp.failureKind,
+                directTcp.errno,
             )
-        assertTrue(
-            "Unbound test-process UDP control failed kind=${directUdp.failureKind} errno=${directUdp.errno}",
-            directUdp.ok,
-        )
-        assertEquals(udpPayload, directUdp.response)
-        assertEquals(testUid, directUdp.probeUid)
-        assertEquals(directTcp.probePid, directUdp.probePid)
+            assertEquals(tcpPayload, directTcp.response)
+            assertEquals(testUid, directTcp.probeUid)
+            assertTrue("Probe receiver must run outside instrumentation", directTcp.probePid != Process.myPid())
+            assertPhysicalSourceFamily(family, directTcp.localAddress)
+
+            val udpPayload = physicalSoBindPayload("direct", "udp", family, nonce)
+            val directUdp =
+                testProcessUdpRoundTrip(
+                    host = family.host,
+                    port = fixture.udpEchoPort,
+                    payload = udpPayload,
+                )
+            assertSuccessfulPhysicalProbe(
+                "${family.id} unbound UDP",
+                directUdp.ok,
+                directUdp.failureKind,
+                directUdp.errno,
+            )
+            assertEquals(udpPayload, directUdp.response)
+            assertEquals(testUid, directUdp.probeUid)
+            assertEquals(directTcp.probePid, directUdp.probePid)
+            assertPhysicalSourceFamily(family, directUdp.localAddress)
+            counters.getValue(family.id).apply {
+                directTcpRoundTrips = 1
+                directUdpRoundTrips = 1
+            }
+        }
+        val directEvents = fixtureClient.events()
+        families.forEach { family ->
+            val familyCounters = counters.getValue(family.id)
+            familyCounters.directTcpFixtureEvents =
+                directEvents.countPhysicalEcho("tcp_echo", "tcp", fixture.tcpEchoPort, "direct", "tcp", family, nonce)
+            familyCounters.directUdpFixtureEvents =
+                directEvents.countPhysicalEcho("udp_echo", "udp", fixture.udpEchoPort, "direct", "udp", family, nonce)
+            assertTrue("${family.id} direct TCP was not observed by fixture", familyCounters.directTcpFixtureEvents > 0)
+            assertTrue("${family.id} direct UDP was not observed by fixture", familyCounters.directUdpFixtureEvents > 0)
+        }
         fixtureClient.resetEvents()
 
         val listenPort = reserveLoopbackPort()
@@ -648,6 +693,7 @@ class NetworkPathE2ETest {
                 proxyPort = listenPort
                 proxyIp = "127.0.0.1"
                 dnsIp = "1.1.1.1"
+                ipv6Enable = true
                 fullTunnelMode = true
                 setSplitTunnelMode(SplitTunnelMode.Off)
                 clearSplitTunnelPackages()
@@ -657,44 +703,49 @@ class NetworkPathE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
         val allowedBaselineTelemetry = serviceStateStore.telemetry.value
-        val allowedTcpPayload = httpEchoPayloadText("so-bind-allowed-tcp-$nonce")
-        val allowedUdpPayload = "so-bind-allowed-udp-$nonce"
+        families.forEach { family ->
+            val tcpPayload = physicalSoBindPayload("allowed", "tcp", family, nonce)
+            val allowedTcp =
+                testProcessTcpRoundTrip(
+                    host = family.host,
+                    port = fixture.tcpEchoPort,
+                    payload = tcpPayload,
+                    bindDevice = "tun0",
+                )
+            assertEquals("${family.id} allowed TCP did not retain SO_BINDTODEVICE", "tun0", allowedTcp.boundDevice)
+            assertSuccessfulPhysicalProbe(
+                "${family.id} allowed bound TCP",
+                allowedTcp.ok,
+                allowedTcp.failureKind,
+                allowedTcp.errno,
+            )
+            assertEquals(tcpPayload, allowedTcp.response)
+            assertTrue("${family.id} allowed TCP source port is missing", allowedTcp.localPort != null)
+            assertPhysicalSourceFamily(family, allowedTcp.localAddress)
 
-        val allowedTcp =
-            testProcessTcpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.tcpEchoPort,
-                payload = allowedTcpPayload,
-                bindDevice = "tun0",
+            val udpPayload = physicalSoBindPayload("allowed", "udp", family, nonce)
+            val allowedUdp =
+                testProcessUdpRoundTrip(
+                    host = family.host,
+                    port = fixture.udpEchoPort,
+                    payload = udpPayload,
+                    bindDevice = "tun0",
+                )
+            assertEquals("${family.id} allowed UDP did not retain SO_BINDTODEVICE", "tun0", allowedUdp.boundDevice)
+            assertSuccessfulPhysicalProbe(
+                "${family.id} allowed bound UDP",
+                allowedUdp.ok,
+                allowedUdp.failureKind,
+                allowedUdp.errno,
             )
-        assertEquals(
-            "Allowed bound TCP did not retain SO_BINDTODEVICE " +
-                "ok=${allowedTcp.ok} kind=${allowedTcp.failureKind} " +
-                "stage=${allowedTcp.failureStage} errno=${allowedTcp.errno} " +
-                "error=${allowedTcp.errorClass}: ${allowedTcp.errorMessage}",
-            "tun0",
-            allowedTcp.boundDevice,
-        )
-        assertTrue(
-            "Allowed bound TCP did not reach fixture kind=${allowedTcp.failureKind} errno=${allowedTcp.errno}",
-            allowedTcp.ok,
-        )
-        assertEquals(allowedTcpPayload, allowedTcp.response)
-        assertTrue("Allowed TCP probe must expose a concrete source tuple", allowedTcp.localPort != null)
-        val allowedUdp =
-            testProcessUdpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.udpEchoPort,
-                payload = allowedUdpPayload,
-                bindDevice = "tun0",
-            )
-        assertEquals("tun0", allowedUdp.boundDevice)
-        assertTrue(
-            "Allowed bound UDP did not reach fixture kind=${allowedUdp.failureKind} errno=${allowedUdp.errno}",
-            allowedUdp.ok,
-        )
-        assertEquals(allowedUdpPayload, allowedUdp.response)
-        assertTrue("Allowed UDP probe must expose a concrete source tuple", allowedUdp.localPort != null)
+            assertEquals(udpPayload, allowedUdp.response)
+            assertTrue("${family.id} allowed UDP source port is missing", allowedUdp.localPort != null)
+            assertPhysicalSourceFamily(family, allowedUdp.localAddress)
+            counters.getValue(family.id).apply {
+                allowedTcpRoundTrips = 1
+                allowedUdpRoundTrips = 1
+            }
+        }
         awaitUntil(
             timeoutMs = 5_000L,
             failureMessage = { redactedTunnelSummary() },
@@ -703,32 +754,21 @@ class NetworkPathE2ETest {
             delta.txPackets > 0 && delta.rxPackets > 0
         }
         val allowedEvents = fixtureClient.events()
-        val allowedTcpEvents =
-            allowedEvents.count {
-                it.matchesEcho(
-                    service = "tcp_echo",
-                    protocol = "tcp",
-                    targetPort = fixture.tcpEchoPort,
-                    payloadBytes = allowedTcpPayload.toByteArray().size,
-                )
-            }
-        val allowedUdpEvents =
-            allowedEvents.count {
-                it.matchesEcho(
-                    service = "udp_echo",
-                    protocol = "udp",
-                    targetPort = fixture.udpEchoPort,
-                    payloadBytes = allowedUdpPayload.toByteArray().size,
-                )
-            }
-        assertTrue(
-            "Allowed bound TCP was not observed by fixture tcpEvents=$allowedTcpEvents udpEvents=$allowedUdpEvents",
-            allowedTcpEvents > 0,
-        )
-        assertTrue(
-            "Allowed bound UDP was not observed by fixture tcpEvents=$allowedTcpEvents udpEvents=$allowedUdpEvents",
-            allowedUdpEvents > 0,
-        )
+        families.forEach { family ->
+            val familyCounters = counters.getValue(family.id)
+            familyCounters.allowedTcpFixtureEvents =
+                allowedEvents.countPhysicalEcho("tcp_echo", "tcp", fixture.tcpEchoPort, "allowed", "tcp", family, nonce)
+            familyCounters.allowedUdpFixtureEvents =
+                allowedEvents.countPhysicalEcho("udp_echo", "udp", fixture.udpEchoPort, "allowed", "udp", family, nonce)
+            assertTrue(
+                "${family.id} allowed TCP was not observed by fixture",
+                familyCounters.allowedTcpFixtureEvents > 0,
+            )
+            assertTrue(
+                "${family.id} allowed UDP was not observed by fixture",
+                familyCounters.allowedUdpFixtureEvents > 0,
+            )
+        }
 
         stopService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Halted, Mode.VPN, fixtureClient)
@@ -738,6 +778,7 @@ class NetworkPathE2ETest {
                 proxyPort = listenPort
                 proxyIp = "127.0.0.1"
                 dnsIp = "1.1.1.1"
+                ipv6Enable = true
                 fullTunnelMode = false
                 setSplitTunnelMode(SplitTunnelMode.Exclude)
                 clearSplitTunnelPackages()
@@ -749,47 +790,36 @@ class NetworkPathE2ETest {
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
         fixtureClient.resetEvents()
         val baselineTelemetry = serviceStateStore.telemetry.value
-        val deniedTcpPayload = httpEchoPayloadText("so-bind-denied-tcp-$nonce")
-        val deniedUdpPayload = "so-bind-denied-udp-$nonce"
+        families.forEach { family ->
+            val deniedTcp =
+                testProcessTcpRoundTrip(
+                    host = family.host,
+                    port = fixture.tcpEchoPort,
+                    payload = physicalSoBindPayload("denied", "tcp", family, nonce),
+                    readTimeoutMs = 1_000L,
+                    throwOnBroadcastTimeout = false,
+                    bindDevice = "tun0",
+                )
+            assertEquals("${family.id} denied TCP did not retain SO_BINDTODEVICE", "tun0", deniedTcp.boundDevice)
+            assertFalse("${family.id} bound TCP unexpectedly reached fixture", deniedTcp.ok)
+            assertEquals("${family.id} bound TCP denial must be a reset", "CONNECTION_RESET", deniedTcp.failureKind)
 
-        val boundTcp =
-            testProcessTcpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.tcpEchoPort,
-                payload = deniedTcpPayload,
-                readTimeoutMs = 1_000L,
-                throwOnBroadcastTimeout = false,
-                bindDevice = "tun0",
-            )
-        assertEquals("tun0", boundTcp.boundDevice)
-        assertFalse(
-            "Bound TCP unexpectedly reached fixture kind=${boundTcp.failureKind} errno=${boundTcp.errno}",
-            boundTcp.ok,
-        )
-        assertEquals(
-            "Bound TCP denial should be a canonical reset kind=${boundTcp.failureKind} errno=${boundTcp.errno}",
-            "CONNECTION_RESET",
-            boundTcp.failureKind,
-        )
-
-        val boundUdp =
-            testProcessUdpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.udpEchoPort,
-                payload = deniedUdpPayload,
-                timeoutMs = 1_000L,
-                bindDevice = "tun0",
-            )
-        assertEquals("tun0", boundUdp.boundDevice)
-        assertFalse(
-            "Bound UDP unexpectedly reached fixture kind=${boundUdp.failureKind} errno=${boundUdp.errno}",
-            boundUdp.ok,
-        )
-        assertEquals(
-            "Bound UDP denial should drop until timeout kind=${boundUdp.failureKind} errno=${boundUdp.errno}",
-            "TIMEOUT",
-            boundUdp.failureKind,
-        )
+            val deniedUdp =
+                testProcessUdpRoundTrip(
+                    host = family.host,
+                    port = fixture.udpEchoPort,
+                    payload = physicalSoBindPayload("denied", "udp", family, nonce),
+                    timeoutMs = 1_000L,
+                    bindDevice = "tun0",
+                )
+            assertEquals("${family.id} denied UDP did not retain SO_BINDTODEVICE", "tun0", deniedUdp.boundDevice)
+            assertFalse("${family.id} bound UDP unexpectedly reached fixture", deniedUdp.ok)
+            assertEquals("${family.id} bound UDP denial must time out", "TIMEOUT", deniedUdp.failureKind)
+            counters.getValue(family.id).apply {
+                deniedTcpResets = 1
+                deniedUdpTimeouts = 1
+            }
+        }
 
         awaitUntil(
             timeoutMs = 5_000L,
@@ -806,47 +836,213 @@ class NetworkPathE2ETest {
             deniedTcpEvents == 0 && deniedUdpEvents == 0,
         )
 
-        val livenessTcpPayload = httpEchoPayloadText("so-bind-liveness-tcp-$nonce")
-        val livenessUdpPayload = "so-bind-liveness-udp-$nonce"
-        val livenessTcp =
-            testProcessTcpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.tcpEchoPort,
-                payload = livenessTcpPayload,
+        families.forEach { family ->
+            val livenessTcpPayload = physicalSoBindPayload("liveness", "tcp", family, nonce)
+            val livenessUdpPayload = physicalSoBindPayload("liveness", "udp", family, nonce)
+            val livenessTcp = testProcessTcpRoundTrip(family.host, fixture.tcpEchoPort, livenessTcpPayload)
+            val livenessUdp = testProcessUdpRoundTrip(family.host, fixture.udpEchoPort, livenessUdpPayload)
+            assertSuccessfulPhysicalProbe(
+                "${family.id} post-denial TCP",
+                livenessTcp.ok,
+                livenessTcp.failureKind,
+                livenessTcp.errno,
             )
-        val livenessUdp =
-            testProcessUdpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.udpEchoPort,
-                payload = livenessUdpPayload,
+            assertEquals(livenessTcpPayload, livenessTcp.response)
+            assertPhysicalSourceFamily(family, livenessTcp.localAddress)
+            assertSuccessfulPhysicalProbe(
+                "${family.id} post-denial UDP",
+                livenessUdp.ok,
+                livenessUdp.failureKind,
+                livenessUdp.errno,
             )
-        assertTrue("Fixture TCP liveness failed after denial kind=${livenessTcp.failureKind}", livenessTcp.ok)
-        assertEquals(livenessTcpPayload, livenessTcp.response)
-        assertTrue("Fixture UDP liveness failed after denial kind=${livenessUdp.failureKind}", livenessUdp.ok)
-        assertEquals(livenessUdpPayload, livenessUdp.response)
+            assertEquals(livenessUdpPayload, livenessUdp.response)
+            assertPhysicalSourceFamily(family, livenessUdp.localAddress)
+            counters.getValue(family.id).apply {
+                livenessTcpRoundTrips = 1
+                livenessUdpRoundTrips = 1
+            }
+        }
         val livenessEvents = fixtureClient.events()
-        assertTrue(
-            "Fixture did not record the correlated post-denial TCP control",
-            livenessEvents.any {
-                it.matchesEcho(
-                    service = "tcp_echo",
-                    protocol = "tcp",
-                    targetPort = fixture.tcpEchoPort,
-                    payloadBytes = livenessTcpPayload.toByteArray().size,
+        families.forEach { family ->
+            val familyCounters = counters.getValue(family.id)
+            familyCounters.livenessTcpFixtureEvents =
+                livenessEvents.countPhysicalEcho(
+                    "tcp_echo",
+                    "tcp",
+                    fixture.tcpEchoPort,
+                    "liveness",
+                    "tcp",
+                    family,
+                    nonce,
                 )
-            },
-        )
-        assertTrue(
-            "Fixture did not record the correlated post-denial UDP control",
-            livenessEvents.any {
-                it.matchesEcho(
-                    service = "udp_echo",
-                    protocol = "udp",
-                    targetPort = fixture.udpEchoPort,
-                    payloadBytes = livenessUdpPayload.toByteArray().size,
+            familyCounters.livenessUdpFixtureEvents =
+                livenessEvents.countPhysicalEcho(
+                    "udp_echo",
+                    "udp",
+                    fixture.udpEchoPort,
+                    "liveness",
+                    "udp",
+                    family,
+                    nonce,
                 )
-            },
+            assertTrue("${family.id} post-denial TCP was not observed", familyCounters.livenessTcpFixtureEvents > 0)
+            assertTrue("${family.id} post-denial UDP was not observed", familyCounters.livenessUdpFixtureEvents > 0)
+            familyCounters.deniedTcpFixtureEvents = 0
+            familyCounters.deniedUdpFixtureEvents = 0
+        }
+        writePhysicalSoBindEvidence(families, counters)
+    }
+
+    private fun requirePhysicalIpv6FixtureHost(): String {
+        val rawHost =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString(SoBindIpv6HostArg)
+                ?.trim()
+                .orEmpty()
+        assertTrue("Physical SO_BIND evidence requires a numeric IPv6 fixture host", rawHost.contains(':'))
+        val address = runCatching { InetAddress.getByName(rawHost) }.getOrNull()
+        assertTrue("Physical SO_BIND IPv6 fixture host is malformed", address is Inet6Address)
+        require(address is Inet6Address)
+        assertTrue(
+            "Physical SO_BIND IPv6 fixture must be non-loopback, non-link-local, and non-multicast",
+            !address.isAnyLocalAddress && !address.isLoopbackAddress && !address.isLinkLocalAddress &&
+                !address.isMulticastAddress,
         )
+        return requireNotNull(address.hostAddress).substringBefore('%')
+    }
+
+    private fun requirePhysicalFixturePort(
+        argument: String,
+        expected: Int,
+    ) {
+        val value =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString(argument)
+                ?.toIntOrNull()
+        assertEquals("Physical fixture port $argument does not match the fetched manifest", expected, value)
+    }
+
+    private fun assertSuccessfulPhysicalProbe(
+        label: String,
+        ok: Boolean,
+        failureKind: String?,
+        errno: Int?,
+    ) {
+        assertTrue("$label failed kind=$failureKind errno=$errno", ok)
+    }
+
+    private fun assertPhysicalSourceFamily(
+        family: PhysicalSoBindFamily,
+        localAddress: String?,
+    ) {
+        val parsed = localAddress?.let { runCatching { InetAddress.getByName(it.substringBefore('%')) }.getOrNull() }
+        assertTrue("${family.id} probe did not expose a ${family.id} source address", parsed != null)
+        assertEquals("${family.id} probe used the wrong source family", family.ipv6, parsed is Inet6Address)
+    }
+
+    private fun physicalSoBindPayload(
+        stage: String,
+        protocol: String,
+        family: PhysicalSoBindFamily,
+        nonce: String,
+    ): String {
+        val marker = "so-bind-$stage-$protocol-${family.id}-$nonce${"x".repeat(family.payloadPadding)}"
+        return if (protocol == "tcp") httpEchoPayloadText(marker) else marker
+    }
+
+    private fun List<FixtureEventDto>.countPhysicalEcho(
+        service: String,
+        protocol: String,
+        targetPort: Int,
+        stage: String,
+        payloadProtocol: String,
+        family: PhysicalSoBindFamily,
+        nonce: String,
+    ): Int =
+        count {
+            it.matchesEcho(
+                service = service,
+                protocol = protocol,
+                targetPort = targetPort,
+                payloadBytes = physicalSoBindPayload(stage, payloadProtocol, family, nonce).toByteArray().size,
+            ) && it.targetAddressIsIpv6() == family.ipv6
+        }
+
+    private fun writePhysicalSoBindEvidence(
+        families: List<PhysicalSoBindFamily>,
+        counters: Map<String, PhysicalSoBindCounters>,
+    ) {
+        val arguments =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+        val runId = requirePhysicalEvidenceArgument(arguments, SoBindRunIdArg, Regex("[0-9a-f]{32}"))
+        val sourceSha = requirePhysicalEvidenceArgument(arguments, SoBindSourceShaArg, Regex("[0-9a-f]{40}"))
+        assertTrue(
+            "Installed app APK was not built from the attributed source SHA",
+            BuildConfig.GIT_COMMIT.matches(Regex("[0-9a-f]{7,40}")) && sourceSha.startsWith(BuildConfig.GIT_COMMIT),
+        )
+        val appApkSha256 = requirePhysicalEvidenceArgument(arguments, SoBindAppApkSha256Arg, Regex("[0-9a-f]{64}"))
+        val testApkSha256 = requirePhysicalEvidenceArgument(arguments, SoBindTestApkSha256Arg, Regex("[0-9a-f]{64}"))
+        val familyEvidence =
+            JSONArray().apply {
+                families.forEach { family ->
+                    val values = counters.getValue(family.id)
+                    put(
+                        JSONObject()
+                            .put("family", family.id)
+                            .put("sourceFamilyVerified", true)
+                            .put("directTcpRoundTrips", values.directTcpRoundTrips)
+                            .put("directUdpRoundTrips", values.directUdpRoundTrips)
+                            .put("directTcpFixtureEvents", values.directTcpFixtureEvents)
+                            .put("directUdpFixtureEvents", values.directUdpFixtureEvents)
+                            .put("allowedTcpRoundTrips", values.allowedTcpRoundTrips)
+                            .put("allowedUdpRoundTrips", values.allowedUdpRoundTrips)
+                            .put("allowedTcpFixtureEvents", values.allowedTcpFixtureEvents)
+                            .put("allowedUdpFixtureEvents", values.allowedUdpFixtureEvents)
+                            .put("deniedTcpResets", values.deniedTcpResets)
+                            .put("deniedUdpTimeouts", values.deniedUdpTimeouts)
+                            .put("deniedTcpFixtureEvents", values.deniedTcpFixtureEvents)
+                            .put("deniedUdpFixtureEvents", values.deniedUdpFixtureEvents)
+                            .put("livenessTcpRoundTrips", values.livenessTcpRoundTrips)
+                            .put("livenessUdpRoundTrips", values.livenessUdpRoundTrips)
+                            .put("livenessTcpFixtureEvents", values.livenessTcpFixtureEvents)
+                            .put("livenessUdpFixtureEvents", values.livenessUdpFixtureEvents),
+                    )
+                }
+            }
+        val evidence =
+            JSONObject()
+                .put("version", PhysicalSoBindEvidenceVersion)
+                .put("status", "PASS")
+                .put("profile", PhysicalSoBindEvidenceProfile)
+                .put("runId", runId)
+                .put("sourceSha", sourceSha)
+                .put("appApkSha256", appApkSha256)
+                .put("testApkSha256", testApkSha256)
+                .put("deviceManufacturer", Build.MANUFACTURER)
+                .put("deviceCodename", Build.DEVICE)
+                .put("apiLevel", Build.VERSION.SDK_INT)
+                .put("kernelFamily", "6.1")
+                .put("realTun", true)
+                .put("tunPacketPathObserved", true)
+                .put("families", familyEvidence)
+        val instrumentationContext =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getInstrumentation()
+                .context
+        instrumentationContext.cacheDir.resolve(PhysicalSoBindEvidenceFile).writeText(evidence.toString() + "\n")
+    }
+
+    private fun requirePhysicalEvidenceArgument(
+        arguments: Bundle,
+        key: String,
+        pattern: Regex,
+    ): String {
+        val value = arguments.getString(key).orEmpty()
+        assertTrue("Physical SO_BIND evidence argument $key is missing or malformed", pattern.matches(value))
+        return value
     }
 
     private fun startService(serviceClass: Class<*>) {
@@ -971,6 +1167,10 @@ class NetworkPathE2ETest {
             evidenceProfile == PhysicalSoBindEvidenceProfile,
         )
         assumeTrue("SO_BINDTODEVICE evidence is qualified on Android API 37", Build.VERSION.SDK_INT == 37)
+        assumeTrue(
+            "SO_BINDTODEVICE evidence is qualified on the Google Pixel 7 hardware profile",
+            Build.MANUFACTURER.equals("Google", ignoreCase = true) && Build.DEVICE == "panther",
+        )
         val kernelRelease = System.getProperty("os.version").orEmpty()
         assumeTrue(
             "SO_BINDTODEVICE evidence is qualified on the Pixel 6.1 kernel family",
@@ -985,6 +1185,32 @@ class NetworkPathE2ETest {
     }
 }
 
+private data class PhysicalSoBindFamily(
+    val id: String,
+    val host: String,
+    val ipv6: Boolean,
+    val payloadPadding: Int,
+)
+
+private data class PhysicalSoBindCounters(
+    var directTcpRoundTrips: Int = 0,
+    var directUdpRoundTrips: Int = 0,
+    var directTcpFixtureEvents: Int = 0,
+    var directUdpFixtureEvents: Int = 0,
+    var allowedTcpRoundTrips: Int = 0,
+    var allowedUdpRoundTrips: Int = 0,
+    var allowedTcpFixtureEvents: Int = 0,
+    var allowedUdpFixtureEvents: Int = 0,
+    var deniedTcpResets: Int = 0,
+    var deniedUdpTimeouts: Int = 0,
+    var deniedTcpFixtureEvents: Int = 0,
+    var deniedUdpFixtureEvents: Int = 0,
+    var livenessTcpRoundTrips: Int = 0,
+    var livenessUdpRoundTrips: Int = 0,
+    var livenessTcpFixtureEvents: Int = 0,
+    var livenessUdpFixtureEvents: Int = 0,
+)
+
 private fun Bundle.optionalProbeInt(key: String): Int? = getInt(key).takeIf { containsKey(key) }
 
 private fun FixtureEventDto.matchesEcho(
@@ -998,6 +1224,19 @@ private fun FixtureEventDto.matchesEcho(
         detail == "echo" &&
         bytes == payloadBytes &&
         target.substringAfterLast(':').toIntOrNull() == targetPort
+
+private fun FixtureEventDto.targetAddressIsIpv6(): Boolean? {
+    val host =
+        if (target.startsWith("[")) {
+            target.substringAfter('[').substringBefore(']')
+        } else {
+            target.substringBeforeLast(':')
+        }
+    val isIpv6Literal = host.contains(':') && host.matches(Regex("[0-9A-Fa-f:.%]+"))
+    val isIpv4Literal = !host.contains(':') && host.matches(Regex("[0-9.]+"))
+    if (!isIpv6Literal && !isIpv4Literal) return null
+    return runCatching { InetAddress.getByName(host.substringBefore('%')) is Inet6Address }.getOrNull()
+}
 
 private fun String?.describesDnsTimeout(): Boolean =
     this != null &&

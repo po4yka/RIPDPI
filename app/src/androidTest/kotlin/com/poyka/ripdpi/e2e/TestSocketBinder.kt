@@ -11,7 +11,8 @@ internal object TestSocketBinder {
     private const val ResultErrno = 4
     private const val ResultLocalPort = 5
     private const val ResultFailureStage = 6
-    private const val ResultWidth = 7
+    private const val ResultLocalAddress = 7
+    private const val ResultWidth = 8
 
     private const val ExtraOk = "ok"
     private const val ExtraResponse = "response"
@@ -20,6 +21,7 @@ internal object TestSocketBinder {
     private const val ExtraErrno = "errno"
     private const val ExtraLocalPort = "local_port"
     private const val ExtraFailureStage = "failure_stage"
+    private const val ExtraLocalAddress = "local_address"
 
     init {
         System.loadLibrary("test_socket_binder")
@@ -76,6 +78,7 @@ internal object TestSocketBinder {
         extras.putIntOrSkip(ExtraErrno, result[ResultErrno])
         extras.putIntOrSkip(ExtraLocalPort, result[ResultLocalPort])
         extras.putStringOrSkip(ExtraFailureStage, result[ResultFailureStage])
+        extras.putStringOrSkip(ExtraLocalAddress, result[ResultLocalAddress])
     }
 
     private fun Bundle.putStringOrSkip(

@@ -42,3 +42,18 @@ so_bind_physical_valid_port() {
     local port="${1:-}"
     [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
 }
+
+so_bind_physical_normalize_global_ipv6() {
+    python3 - "${1:-}" <<'PY'
+import ipaddress
+import sys
+
+try:
+    address = ipaddress.ip_address(sys.argv[1])
+except ValueError:
+    raise SystemExit(1)
+if address.version != 6 or not address.is_global or address.ipv4_mapped is not None:
+    raise SystemExit(1)
+print(address.compressed)
+PY
+}
