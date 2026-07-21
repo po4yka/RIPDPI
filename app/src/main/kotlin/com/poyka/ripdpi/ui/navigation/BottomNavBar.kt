@@ -33,8 +33,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -234,15 +234,15 @@ private fun RowScope.BottomNavItem(
                     scaleX = selectionScale
                     scaleY = selectionScale
                     alpha = contentAlpha
-                }.semantics(mergeDescendants = true) {
-                    contentDescription = accessibilityLabel
                 }.ripDpiSelectable(
                     selected = selected,
                     role = Role.Tab,
                     interactionSource = interactionSource,
                     showIndication = false,
                     onClick = onClick,
-                ),
+                ).clearAndSetSemantics {
+                    contentDescription = accessibilityLabel
+                },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
