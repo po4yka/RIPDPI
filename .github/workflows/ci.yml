@@ -622,7 +622,9 @@ jobs:
 
       - name: Verify screenshot baselines
         run: >-
-          ./gradlew :app:verifyRoborazziGithubFullDebug
+          ./gradlew
+          :app:verifyRoborazziGithubFullDebug
+          :app:verifyRoborazziGithubSimpleDebug
           -Pripdpi.skipNativeBuild=true
           -Pripdpi.includeRoborazziUnitTests=true
           --tests 'com.poyka.ripdpi.ui.screenshot.*'
