@@ -40,6 +40,8 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -159,7 +161,8 @@ internal fun SimpleHomeContent(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = spacing.xl),
+                            .padding(top = spacing.xl)
+                            .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorButton),
                     text =
                         stringResource(
                             if (active) R.string.simple_disconnect else R.string.simple_connect,
@@ -174,7 +177,8 @@ internal fun SimpleHomeContent(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = spacing.md),
+                            .padding(top = spacing.md)
+                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
                     text =
                         stringResource(
                             if (reportCancellable) R.string.diagnostics_action_cancel else R.string.simple_run_report,
@@ -270,7 +274,10 @@ internal fun SimpleDiagnosticsStatus(
                     textAlign = TextAlign.Center,
                 )
                 RipDpiButton(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsShareAction),
                     text = stringResource(R.string.home_diagnostics_share_action),
                     onClick = onShareReport,
                     loading = sheet.shareBusy,

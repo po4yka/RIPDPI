@@ -1639,6 +1639,20 @@ jobs:
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
+      - name: Run Simple experience integration on ${{ matrix.device }}
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          ./gradlew :app:connectedGithubSimpleDebugAndroidTest \
+            -Pripdpi.nativeAbisOverride=x86_64 \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
+            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
       - name: Capture Android instrumented-test emulator diagnostics
         if: always()
         run: |

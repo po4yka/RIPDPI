@@ -112,6 +112,7 @@ verify-spec-versions:
 [group('test')]
 test-instrumented:
     ./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
+    ./gradlew :app:pixel6Api35GoogleGithubSimpleDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel
 
 # ─── Lint ─────────────────────────────────────────────────────────
 
