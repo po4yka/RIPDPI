@@ -243,14 +243,17 @@ internal fun SimpleDiagnosticsStatus(
             } else {
                 statusLabel
             }
+        val statusModifier =
+            if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
+                Modifier.clearAndSetSemantics {
+                    stateDescription = announcement
+                    liveRegion = LiveRegionMode.Polite
+                }
+            } else {
+                Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            }
         Text(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {
-                        stateDescription = announcement
-                        liveRegion = LiveRegionMode.Polite
-                    },
+            modifier = Modifier.fillMaxWidth().then(statusModifier),
             text = statusLabel,
             style = if (completedResultVisible) RipDpiThemeTokens.type.sectionTitle else RipDpiThemeTokens.type.caption,
             color = if (completedResultVisible) colors.foreground else colors.mutedForeground,
