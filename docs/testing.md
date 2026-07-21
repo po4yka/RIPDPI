@@ -190,6 +190,27 @@ Run the host-side network E2E suite with:
 bash scripts/ci/run-rust-network-e2e.sh
 ```
 
+Generate the fail-closed local MASQUE/H3 PMTUD evidence from a clean exact
+commit with an output directory outside the checkout:
+
+```bash
+bash scripts/ci/run-pmtud-local-evidence.sh \
+  --output-dir /tmp/ripdpi-pmtud-evidence
+python3 scripts/ci/pmtud_local_evidence.py validate \
+  --manifest /tmp/ripdpi-pmtud-evidence/manifest.json \
+  --artifact-dir /tmp/ripdpi-pmtud-evidence/artifacts \
+  --source-sha "$(git rev-parse HEAD)"
+```
+
+The runner uses a `git archive` snapshot and `cargo test --locked --offline`.
+Its canonical manifest requires all six named controls: clear-path discovery,
+black-hole fault injection, context-zero DATAGRAM payload integrity, the exact
+DATAGRAM size boundary, and MASQUE/H3 recovery over IPv4 and IPv6 underlays.
+Missing, reordered, skipped, partial, stale, digest-tampered, or non-PASS
+evidence is rejected. The environment is an allowlisted OS/architecture and
+tool-version summary; usernames, hostnames, paths, addresses, packet payloads,
+and inherited environment values are not written to artifacts.
+
 Run the raw host packet-smoke lane with:
 
 ```bash
