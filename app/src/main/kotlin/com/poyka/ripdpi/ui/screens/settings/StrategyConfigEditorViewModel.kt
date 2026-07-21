@@ -19,7 +19,6 @@ import javax.inject.Inject
 
 internal const val StrategyConfigSessionIdSavedStateKey = "strategy_config_session_id"
 private const val StrategyConfigBestEffortAttempts = 2
-private const val StrategyConfigAutomaticPersistenceAttempts = 3
 private const val StrategyConfigPersistenceRetryDelayMillis = 1_000L
 
 @HiltViewModel
@@ -401,7 +400,6 @@ private class StrategyConfigPersistenceCoordinator(
                 is Exception -> {
                     onPersistenceErrorChanged(true)
                     attempt += 1
-                    if (attempt >= StrategyConfigAutomaticPersistenceAttempts) return
                     if (attempt >= StrategyConfigBestEffortAttempts) {
                         delay(StrategyConfigPersistenceRetryDelayMillis)
                     }

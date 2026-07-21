@@ -106,9 +106,9 @@ class StrategyConfigEditorViewModelTest {
         }
 
     @Test
-    fun `persistent draft failure surfaces warning and continues delayed retry`() =
+    fun `draft persistence keeps retrying past the former cap and clears warning`() =
         runTest {
-            val store = AlwaysFailPersistStrategyConfigDraftStore()
+            val store = FailFourTimesPersistStrategyConfigDraftStore()
             val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
             viewModel.syncBuiltIn("tcp: split")
             viewModel.update { copy(configText = "tcp: latest") }
@@ -122,6 +122,12 @@ class StrategyConfigEditorViewModelTest {
 
             assertEquals(3, store.persistCount)
             assertTrue(viewModel.hasPersistenceError)
+
+            advanceTimeBy(StrategyConfigPersistenceRetryDelayMillisForTest * 2)
+            runCurrent()
+
+            assertEquals(5, store.persistCount)
+            assertFalse(viewModel.hasPersistenceError)
         }
 
     @Test
@@ -582,7 +588,7 @@ private class FailFirstPersistStrategyConfigDraftStore : FakeStrategyConfigDraft
     }
 }
 
-private class AlwaysFailPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+private class FailFourTimesPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
     var persistCount = 0
         private set
 
@@ -591,7 +597,8 @@ private class AlwaysFailPersistStrategyConfigDraftStore : FakeStrategyConfigDraf
         session: StrategyConfigEditorSession,
     ) {
         persistCount += 1
-        throw java.io.IOException("unavailable")
+        if (persistCount <= 4) throw java.io.IOException("unavailable")
+        super.persist(sessionId, session)
     }
 }
 
