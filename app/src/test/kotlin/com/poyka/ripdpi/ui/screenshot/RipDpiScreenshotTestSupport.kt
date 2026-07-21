@@ -62,6 +62,7 @@ internal fun captureExperienceRipDpiScreenshot(
     fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
+    assumeFullExperienceScreenshot()
     val moduleRoot = System.getProperty("user.dir")
     captureStaticRoboImage(
         filePath =
