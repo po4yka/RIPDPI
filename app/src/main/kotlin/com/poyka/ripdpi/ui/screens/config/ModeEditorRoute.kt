@@ -28,6 +28,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -97,6 +98,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.coroutines.launch
 
 internal data class MasqueImportRequest(
     val action: MasqueImportAction,
@@ -125,11 +127,14 @@ fun ModeEditorRoute(
     SecureWindowEffect()
     val snackbarHostState = remember { SnackbarHostState() }
     var pkcs12Password by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
     var hydrationFailurePending by rememberSaveable { mutableStateOf(false) }
-    val discardAndNavigate = {
-        if (viewModel.cancelEditing()) {
-            onBack()
+    val discardAndNavigate: () -> Unit = {
+        scope.launch {
+            if (viewModel.cancelEditing()) {
+                onBack()
+            }
         }
     }
     val requestBack =
@@ -421,12 +426,15 @@ private fun modeEditorBackAction(
     onBack: () -> Unit,
     onConfirmDiscard: () -> Unit,
 ): () -> Unit {
-    val requestBack = {
-        handleModeEditorExitDecision(
-            decision = viewModel.requestEditorExit(),
-            onBack = onBack,
-            onConfirmDiscard = onConfirmDiscard,
-        )
+    val scope = rememberCoroutineScope()
+    val requestBack: () -> Unit = {
+        scope.launch {
+            handleModeEditorExitDecision(
+                decision = viewModel.requestEditorExit(),
+                onBack = onBack,
+                onConfirmDiscard = onConfirmDiscard,
+            )
+        }
     }
     BackHandler(onBack = requestBack)
     return requestBack

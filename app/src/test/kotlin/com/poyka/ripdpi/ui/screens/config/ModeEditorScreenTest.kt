@@ -81,6 +81,17 @@ class ModeEditorScreenTest {
     }
 
     @Test
+    fun recoveryPersistenceFailureStaysVisibleWhileAutomaticRetryRuns() {
+        setScreen(hasEditorRecoveryPersistenceError = true)
+
+        composeRule.onNodeWithText("Draft not saved").assertExists()
+        composeRule
+            .onNodeWithText(
+                "RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.",
+            ).assertExists()
+    }
+
+    @Test
     fun explicitCancelUsesDedicatedDiscardAction() {
         var backCalls = 0
         var cancelCalls = 0
@@ -320,6 +331,7 @@ class ModeEditorScreenTest {
         stateful: Boolean = false,
         isEditorLoading: Boolean = false,
         isEditorSaving: Boolean = false,
+        hasEditorRecoveryPersistenceError: Boolean = false,
         relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
         onStatefulDraftChanged: (ConfigDraft) -> Unit = {},
         actions: ModeEditorActions = NoOpModeEditorActions,
@@ -343,6 +355,7 @@ class ModeEditorScreenTest {
                             relayPresets = relayPresets,
                             isEditorLoading = isEditorLoading,
                             isEditorSaving = isEditorSaving,
+                            hasEditorRecoveryPersistenceError = hasEditorRecoveryPersistenceError,
                         ),
                     snackbarHostState = SnackbarHostState(),
                     actions =

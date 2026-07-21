@@ -66,6 +66,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -893,7 +894,39 @@ class ConfigViewModelPersistenceTest {
         }
 
     @Test
-    fun `late recovery result cannot resurrect a discarded draft`() =
+    fun `old saved state tombstone preserves the current draft after process death`() =
+        runTest {
+            val oldId = newConfigEditorRecoverySessionId()
+            val currentId = newConfigEditorRecoverySessionId()
+            val currentDraft = defaultDraft.copy(relayMasqueAuthToken = "fixture-current-recovery")
+            val store = InMemoryConfigEditorDraftStore()
+            store.persist(
+                currentId,
+                ConfigEditorSession(
+                    presetId = "custom",
+                    baselineDraft = defaultDraft,
+                    draft = currentDraft,
+                    draftRevision = 1L,
+                ),
+            )
+            val handle =
+                SavedStateHandle(
+                    mapOf(
+                        ConfigEditorRecoverySessionIdSavedStateKey to currentId,
+                        ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey to arrayListOf(oldId),
+                    ),
+                )
+
+            val recreated = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { recreated.uiState.collect() }
+            advanceUntilIdle()
+
+            assertTrue(recreated.uiState.value.isEditorDirty)
+            assertEquals(currentDraft, recreated.uiState.value.draft)
+        }
+
+    @Test
+    fun `exit stays blocked until late recovery resolves`() =
         runTest {
             val staleId = newConfigEditorRecoverySessionId()
             val staleDraft = defaultDraft.copy(proxyPort = "1087", relayMasqueAuthToken = "fixture-stale-marker")
@@ -904,8 +937,8 @@ class ConfigViewModelPersistenceTest {
             runCurrent()
             store.restoreStarted.await()
 
-            assertTrue(viewModel.cancelEditing())
-            val rotatedId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            assertFalse(viewModel.cancelEditing())
+            assertEquals(ConfigEditorExitDecision.Blocked, viewModel.requestEditorExit())
             store.restoreResult.complete(
                 ConfigEditorDraftRestoreResult.Restored(
                     ConfigEditorSession(
@@ -918,11 +951,139 @@ class ConfigViewModelPersistenceTest {
             )
             advanceUntilIdle()
 
-            assertFalse(staleId == rotatedId)
-            assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertEquals(staleId, handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            assertTrue(viewModel.uiState.value.isEditorDirty)
             assertFalse(viewModel.uiState.value.isEditorLoading)
-            assertEquals(defaultDraft, viewModel.uiState.value.draft)
-            assertTrue(store.deletedSessionIds.contains(staleId))
+            assertEquals(staleDraft, viewModel.uiState.value.draft)
+            assertFalse(store.deletedSessionIds.contains(staleId))
+            assertEquals(ConfigEditorExitDecision.ConfirmDiscard, viewModel.requestEditorExit())
+        }
+
+    @Test
+    fun `failed durable invalidation keeps the current draft recoverable`() =
+        runTest {
+            val failure = IllegalStateException("fixture invalidation failure")
+            val store = InMemoryConfigEditorDraftStore(invalidationFailure = failure)
+            val handle = SavedStateHandle()
+            val viewModel = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            val errorEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
+            advanceUntilIdle()
+            viewModel.startEditingPreset()
+            viewModel.updateDraft { copy(proxyPort = "1087") }
+            advanceUntilIdle()
+            val recoverySessionId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+
+            assertFalse(viewModel.cancelEditing())
+
+            assertTrue(viewModel.uiState.value.isEditorDirty)
+            assertEquals("1087", viewModel.uiState.value.draft.proxyPort)
+            assertEquals(recoverySessionId, handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            assertFalse(handle.contains(ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey))
+            assertEquals(ConfigEffect.Message("unexpected error"), errorEffect.await())
+        }
+
+    @Test
+    fun `save invalidation failure keeps the draft and does not report success`() =
+        runTest {
+            val store = InMemoryConfigEditorDraftStore(invalidationFailure = java.io.IOException("fixture failure"))
+            val handle = SavedStateHandle()
+            val viewModel = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            advanceUntilIdle()
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            viewModel.updateDraft { copy(proxyPort = "1087") }
+            advanceUntilIdle()
+            val recoverySessionId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            val effects = mutableListOf<ConfigEffect>()
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    viewModel.effects.collect { effects += it }
+                }
+
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+            assertEquals("1087", viewModel.uiState.value.draft.proxyPort)
+            assertEquals(recoverySessionId, handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            assertEquals(listOf(ConfigEffect.Message("unexpected error")), effects)
+
+            val recreated = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { recreated.uiState.collect() }
+            advanceUntilIdle()
+
+            assertTrue(recreated.uiState.value.isEditorDirty)
+            assertEquals("1087", recreated.uiState.value.draft.proxyPort)
+            collector.cancel()
+        }
+
+    @Test
+    fun `mode draft persistence warning remains visible until automatic retry succeeds`() =
+        runTest {
+            val store = InMemoryConfigEditorDraftStore(persistFailuresRemaining = 1)
+            val handle = SavedStateHandle()
+            val viewModel = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            advanceUntilIdle()
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+
+            viewModel.updateDraft { copy(proxyPort = "1087") }
+            runCurrent()
+
+            assertEquals(1, store.persistCalls)
+            assertTrue(viewModel.uiState.value.hasEditorRecoveryPersistenceError)
+
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            assertEquals(2, store.persistCalls)
+            assertFalse(viewModel.uiState.value.hasEditorRecoveryPersistenceError)
+            val recoverySessionId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            val recreated =
+                createConfigViewModel(
+                    savedStateHandle =
+                        SavedStateHandle(
+                            mapOf(ConfigEditorRecoverySessionIdSavedStateKey to recoverySessionId),
+                        ),
+                    editorDraftStore = store,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { recreated.uiState.collect() }
+            advanceUntilIdle()
+            assertEquals("1087", recreated.uiState.value.draft.proxyPort)
+        }
+
+    @Test
+    fun `durably invalidated saved state id rotates before accepting a new draft`() =
+        runTest {
+            val staleId = newConfigEditorRecoverySessionId()
+            val store = InMemoryConfigEditorDraftStore()
+            store.invalidate(staleId)
+            val handle = SavedStateHandle(mapOf(ConfigEditorRecoverySessionIdSavedStateKey to staleId))
+            val viewModel = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            advanceUntilIdle()
+
+            val currentId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            assertFalse(staleId == currentId)
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            viewModel.updateDraft { copy(proxyPort = "1087") }
+            advanceUntilIdle()
+
+            val recreated =
+                createConfigViewModel(
+                    savedStateHandle = SavedStateHandle(mapOf(ConfigEditorRecoverySessionIdSavedStateKey to currentId)),
+                    editorDraftStore = store,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { recreated.uiState.collect() }
+            advanceUntilIdle()
+
+            assertTrue(recreated.uiState.value.isEditorDirty)
+            assertEquals("1087", recreated.uiState.value.draft.proxyPort)
         }
 
     @Test
@@ -1478,12 +1639,18 @@ private fun createConfigViewModel(
         stringResolver = ResourceStringResolver(),
     )
 
-private class InMemoryConfigEditorDraftStore : ConfigEditorDraftStore {
+private class InMemoryConfigEditorDraftStore(
+    private val invalidationFailure: Throwable? = null,
+    var persistFailuresRemaining: Int = 0,
+) : ConfigEditorDraftStore {
     private var recoverySessionId: String? = null
     private var session: ConfigEditorSession? = null
+    private val invalidatedSessionIds = mutableSetOf<String>()
+    var persistCalls: Int = 0
+        private set
 
     override suspend fun restore(recoverySessionId: String): ConfigEditorDraftRestoreResult =
-        if (this.recoverySessionId == recoverySessionId) {
+        if (recoverySessionId !in invalidatedSessionIds && this.recoverySessionId == recoverySessionId) {
             ConfigEditorDraftRestoreResult.Restored(requireNotNull(session))
         } else {
             ConfigEditorDraftRestoreResult.MissingOrInvalid
@@ -1493,6 +1660,12 @@ private class InMemoryConfigEditorDraftStore : ConfigEditorDraftStore {
         recoverySessionId: String,
         session: ConfigEditorSession,
     ) {
+        persistCalls += 1
+        if (persistFailuresRemaining > 0) {
+            persistFailuresRemaining -= 1
+            throw java.io.IOException("fixture persistence failure")
+        }
+        if (recoverySessionId in invalidatedSessionIds) return
         this.recoverySessionId = recoverySessionId
         this.session = session
     }
@@ -1504,7 +1677,9 @@ private class InMemoryConfigEditorDraftStore : ConfigEditorDraftStore {
         }
     }
 
-    override fun invalidate(recoverySessionId: String) {
+    override suspend fun invalidate(recoverySessionId: String) {
+        invalidationFailure?.let { throw it }
+        invalidatedSessionIds += recoverySessionId
         if (this.recoverySessionId == recoverySessionId) {
             this.recoverySessionId = null
             session = null
@@ -1531,7 +1706,7 @@ private class GatedRestoreConfigEditorDraftStore : ConfigEditorDraftStore {
         deletedSessionIds += recoverySessionId
     }
 
-    override fun invalidate(recoverySessionId: String) {
+    override suspend fun invalidate(recoverySessionId: String) {
         deletedSessionIds += recoverySessionId
     }
 }

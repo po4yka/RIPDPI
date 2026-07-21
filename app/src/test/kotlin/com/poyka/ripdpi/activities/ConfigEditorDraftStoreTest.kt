@@ -168,6 +168,50 @@ class ConfigEditorDraftStoreTest {
         }
 
     @Test
+    fun `invalidating an old session preserves the current active record`() =
+        runTest {
+            val fixture = StoreFixture()
+            val oldRecoverySessionId = newConfigEditorRecoverySessionId()
+            val currentRecoverySessionId = newConfigEditorRecoverySessionId()
+            val currentSession = recoverableSession("fixture-current-after-recreation")
+            fixture.store.persist(currentRecoverySessionId, currentSession)
+
+            fixture.store.invalidate(oldRecoverySessionId)
+
+            assertEquals(
+                ConfigEditorDraftRestoreResult.Restored(currentSession.withoutRuntimeState()),
+                fixture.store.restore(currentRecoverySessionId),
+            )
+            assertTrue(
+                fixture.preferences
+                    .getString(ConfigEditorDraftInvalidatedSessionIdsKey, null)
+                    .orEmpty()
+                    .contains(oldRecoverySessionId),
+            )
+        }
+
+    @Test
+    fun `replayed invalidation keeps the durable ledger unique without evicting another tombstone`() =
+        runTest {
+            val fixture = StoreFixture()
+            val first = newConfigEditorRecoverySessionId()
+            val second = newConfigEditorRecoverySessionId()
+
+            fixture.store.invalidate(first)
+            fixture.store.invalidate(second)
+            repeat(40) { fixture.store.invalidate(first) }
+
+            val invalidated =
+                fixture.preferences
+                    .getString(ConfigEditorDraftInvalidatedSessionIdsKey, null)
+                    .orEmpty()
+                    .split(',')
+                    .filter(String::isNotBlank)
+            assertEquals(listOf(first, second), invalidated)
+            assertEquals(invalidated.size, invalidated.toSet().size)
+        }
+
+    @Test
     fun `invalidation wins over delayed persist after many session rotations`() =
         runTest {
             val cipher = BlockingEncryptDraftCipher()

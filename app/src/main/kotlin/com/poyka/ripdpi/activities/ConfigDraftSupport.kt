@@ -278,6 +278,7 @@ data class ConfigUiState(
     val isEditorLoading: Boolean = false,
     val isEditorSaving: Boolean = false,
     val isEditorImporting: Boolean = false,
+    val hasEditorRecoveryPersistenceError: Boolean = false,
     val isLoading: Boolean = false,
 )
 

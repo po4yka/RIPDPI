@@ -1,11 +1,16 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.displayMessage
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
@@ -49,6 +54,38 @@ internal suspend fun applySavedConfigDraftToRunningService(
     if (halted) startRuntimeMode(draft.mode)
 }
 
+internal fun startConfigRuntimeMode(
+    mode: Mode,
+    serviceController: ServiceController,
+    stringResolver: StringResolver,
+    effects: MutableSharedFlow<ConfigEffect>,
+) {
+    when (val result = serviceController.start(mode)) {
+        is ServiceStartResult.Accepted -> {
+            return
+        }
+
+        is ServiceStartResult.Rejected -> {
+            val senderName = result.mode.startSenderName(stringResolver)
+            val message =
+                stringResolver.getString(R.string.failed_to_start, senderName) +
+                    ": " +
+                    result.reason.displayMessage(stringResolver)
+            effects.tryEmit(ConfigEffect.Message(message))
+        }
+    }
+}
+
+internal fun stopConfigRuntimeMode(
+    mode: Mode,
+    serviceStateStore: ServiceStateStore,
+    serviceController: ServiceController,
+) {
+    if (serviceStateStore.status.value == AppStatus.Running to mode) {
+        serviceController.stop()
+    }
+}
+
 internal data class ConfigSaveRequest(
     val sessionId: Long,
     val draftRevision: Long,
@@ -60,6 +97,7 @@ internal data class ConfigEditorState(
     val saveInFlight: Boolean,
     val importInFlight: Boolean,
     val recoveryPending: Boolean,
+    val recoveryPersistenceError: Boolean,
 )
 
 internal data class ConfigEditorRecoverySnapshot(
@@ -171,6 +209,34 @@ internal data class ConfigSaveCompletion(
     val completedCurrentRevision: Boolean = false,
     val shouldNotifySuccess: Boolean = false,
 )
+
+internal suspend fun finishSuccessfulConfigSave(
+    editorSession: MutableStateFlow<ConfigEditorSession>,
+    request: ConfigSaveRequest,
+    rotateRecoverySession: suspend (() -> Boolean) -> Boolean,
+    notifySuccess: suspend () -> Unit,
+) {
+    val current = editorSession.value
+    if (
+        current.sessionId == request.sessionId &&
+        current.savePending &&
+        current.draftRevision == request.draftRevision
+    ) {
+        var completion = ConfigSaveCompletion()
+        val rotated =
+            rotateRecoverySession {
+                completion = completeSuccessfulConfigSave(editorSession, request)
+                true
+            }
+        if (!rotated) {
+            clearConfigSavePending(editorSession, request)
+        } else if (completion.shouldNotifySuccess) {
+            notifySuccess()
+        }
+    } else {
+        completeSuccessfulConfigSave(editorSession, request)
+    }
+}
 
 internal fun suppressActiveConfigSaveSuccess(
     editorSession: MutableStateFlow<ConfigEditorSession>,

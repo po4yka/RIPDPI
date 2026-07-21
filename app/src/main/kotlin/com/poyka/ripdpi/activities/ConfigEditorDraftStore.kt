@@ -53,7 +53,7 @@ internal interface ConfigEditorDraftStore {
 
     suspend fun delete(recoverySessionId: String)
 
-    fun invalidate(recoverySessionId: String)
+    suspend fun invalidate(recoverySessionId: String)
 }
 
 internal sealed interface ConfigEditorDraftRestoreResult {
@@ -116,13 +116,16 @@ internal class EncryptedConfigEditorDraftStore
                         }
                         ?: return@withContext ConfigEditorDraftRestoreResult.MissingOrInvalid
                 if (encoded.toByteArray(Charsets.UTF_8).size > ConfigEditorDraftMaxRecordBytes) {
-                    deleteRecord(recoverySessionId)
+                    deleteRecordUnconditionally()
                     return@withContext ConfigEditorDraftRestoreResult.MissingOrInvalid
                 }
                 val record =
                     runCatching { RipDpiJson.decodeFromString<ConfigEditorDraftRecord>(encoded) }
                         .getOrNull()
-                if (record == null || !record.isValid(recoverySessionId, currentTimeMillis())) {
+                if (record == null) {
+                    deleteRecordUnconditionally()
+                    ConfigEditorDraftRestoreResult.MissingOrInvalid
+                } else if (!record.isValid(recoverySessionId, currentTimeMillis())) {
                     deleteRecord(recoverySessionId)
                     ConfigEditorDraftRestoreResult.MissingOrInvalid
                 } else {
@@ -168,21 +171,43 @@ internal class EncryptedConfigEditorDraftStore
                 deleteRecord(recoverySessionId)
             }
 
-        override fun invalidate(recoverySessionId: String) {
-            if (!isValidConfigEditorRecoverySessionId(recoverySessionId)) return
-            synchronized(recordLock) {
-                invalidatedInProcess += recoverySessionId
-                val invalidated =
-                    (invalidatedSessionIds(preferences) + recoverySessionId)
-                        .takeLast(ConfigEditorMaxInvalidatedSessionIds)
-                        .joinToString(",")
-                preferences
-                    .edit()
-                    .putString(ConfigEditorDraftInvalidatedSessionIdsKey, invalidated)
-                    .remove(ConfigEditorDraftRecordKey)
-                    .apply()
+        override suspend fun invalidate(recoverySessionId: String) =
+            withContext(Dispatchers.IO) {
+                if (!isValidConfigEditorRecoverySessionId(recoverySessionId)) return@withContext
+                synchronized(recordLock) {
+                    val previousInvalidated =
+                        preferences.getString(ConfigEditorDraftInvalidatedSessionIdsKey, null)
+                    val previousRecord = preferences.getString(ConfigEditorDraftRecordKey, null)
+                    val invalidated =
+                        (invalidatedSessionIds(preferences) + recoverySessionId)
+                            .distinct()
+                            .takeLast(ConfigEditorMaxInvalidatedSessionIds)
+                            .joinToString(",")
+                    val editor =
+                        preferences
+                            .edit()
+                            .putString(ConfigEditorDraftInvalidatedSessionIdsKey, invalidated)
+                    if (storedRecoverySessionId() == recoverySessionId) {
+                        editor.remove(ConfigEditorDraftRecordKey)
+                    }
+                    if (!editor.commit()) {
+                        val rollback = preferences.edit()
+                        if (previousInvalidated == null) {
+                            rollback.remove(ConfigEditorDraftInvalidatedSessionIdsKey)
+                        } else {
+                            rollback.putString(ConfigEditorDraftInvalidatedSessionIdsKey, previousInvalidated)
+                        }
+                        if (previousRecord == null) {
+                            rollback.remove(ConfigEditorDraftRecordKey)
+                        } else {
+                            rollback.putString(ConfigEditorDraftRecordKey, previousRecord)
+                        }
+                        rollback.commit()
+                        error("Could not durably invalidate mode editor recovery")
+                    }
+                    invalidatedInProcess += recoverySessionId
+                }
             }
-        }
 
         private fun isInvalidated(recoverySessionId: String): Boolean =
             synchronized(recordLock) {
@@ -199,19 +224,9 @@ internal class EncryptedConfigEditorDraftStore
 
         private fun deleteRecord(expectedRecoverySessionId: String) {
             synchronized(recordLock) {
-                val storedSessionId =
-                    preferences
-                        .getString(ConfigEditorDraftRecordKey, null)
-                        ?.let { encrypted -> runCatching { cipher.decrypt(encrypted) }.getOrNull() }
-                        ?.takeIf { encoded ->
-                            encoded.toByteArray(Charsets.UTF_8).size <=
-                                ConfigEditorDraftMaxRecordBytes
-                        }?.let { encoded ->
-                            runCatching { RipDpiJson.decodeFromString<ConfigEditorDraftRecord>(encoded) }
-                                .getOrNull()
-                                ?.recoverySessionId
-                        }
-                if (storedSessionId != null && storedSessionId != expectedRecoverySessionId) return
+                if (!preferences.contains(ConfigEditorDraftRecordKey)) return
+                val storedSessionId = storedRecoverySessionId()
+                if (storedSessionId == null || storedSessionId != expectedRecoverySessionId) return
                 check(preferences.edit().remove(ConfigEditorDraftRecordKey).commit()) {
                     "Could not delete mode editor recovery"
                 }
@@ -220,6 +235,18 @@ internal class EncryptedConfigEditorDraftStore
 
         private fun readRecord(): String? =
             preferences.getString(ConfigEditorDraftRecordKey, null)?.let(cipher::decrypt)
+
+        private fun storedRecoverySessionId(): String? =
+            preferences
+                .getString(ConfigEditorDraftRecordKey, null)
+                ?.let { encrypted -> runCatching { cipher.decrypt(encrypted) }.getOrNull() }
+                ?.takeIf { encoded ->
+                    encoded.toByteArray(Charsets.UTF_8).size <= ConfigEditorDraftMaxRecordBytes
+                }?.let { encoded ->
+                    runCatching { RipDpiJson.decodeFromString<ConfigEditorDraftRecord>(encoded) }
+                        .getOrNull()
+                        ?.recoverySessionId
+                }
 
         private fun deleteRecordUnconditionally() {
             synchronized(recordLock) {

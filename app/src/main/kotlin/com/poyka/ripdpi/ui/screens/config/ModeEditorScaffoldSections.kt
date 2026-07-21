@@ -130,12 +130,24 @@ internal fun ModeEditorBody(
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             ModeEditorIntroCard(uiState = uiState)
+            ModeEditorRecoveryPersistenceBanner(uiState = uiState)
             ModeEditorValidationBanner(uiState = uiState)
             ModeEditorModeSection(draft = draft, actions = actions)
             ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
             ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
             ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
         }
+    }
+}
+
+@Composable
+private fun ModeEditorRecoveryPersistenceBanner(uiState: ConfigUiState) {
+    if (uiState.hasEditorRecoveryPersistenceError) {
+        WarningBanner(
+            title = stringResource(R.string.strategy_config_draft_save_failed_title),
+            message = stringResource(R.string.strategy_config_draft_save_failed_body),
+            tone = WarningBannerTone.Warning,
+        )
     }
 }
 

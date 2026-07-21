@@ -20,11 +20,9 @@ import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
-import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
@@ -38,7 +36,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -48,7 +45,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -115,6 +111,7 @@ class ConfigViewModel
             )
         private val editorRecoveryReady = MutableStateFlow(false)
         private val editorRecoveryPending = MutableStateFlow(false)
+        private val editorRecoveryPersistenceError = MutableStateFlow(false)
         private val editorRecoveryStoreLock = Mutex()
         private var editorRecoveryRestoreFailed = false
         private var pendingEditorStartPresetId: String? = null
@@ -160,12 +157,14 @@ class ConfigViewModel
                 activeSaveRequest,
                 masqueImportSessionCoordinator.inFlightOperations,
                 editorRecoveryPending,
-            ) { session, saveRequest, imports, recoveryPending ->
+                editorRecoveryPersistenceError,
+            ) { session, saveRequest, imports, recoveryPending, recoveryPersistenceError ->
                 ConfigEditorState(
                     session = session,
                     saveInFlight = saveRequest != null,
                     importInFlight = imports.any { operation -> operation.sessionId == session.sessionId },
                     recoveryPending = recoveryPending,
+                    recoveryPersistenceError = recoveryPersistenceError,
                 )
             }
         private val masqueImportController =
@@ -304,6 +303,7 @@ class ConfigViewModel
                     isEditorLoading = session.hydrationPending || editorState.recoveryPending,
                     isEditorSaving = editorState.saveInFlight,
                     isEditorImporting = editorState.importInFlight,
+                    hasEditorRecoveryPersistenceError = editorState.recoveryPersistenceError,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -312,7 +312,6 @@ class ConfigViewModel
             )
 
         init {
-            invalidatedEditorRecoverySessionIds.forEach(editorDraftStore::invalidate)
             observeEditorDraftRecovery()
             restoreEditorDraft()
         }
@@ -356,28 +355,10 @@ class ConfigViewModel
             }
         }
 
-        private fun startRuntimeMode(mode: Mode) {
-            when (val result = serviceController.start(mode)) {
-                is ServiceStartResult.Accepted -> {
-                    return
-                }
+        private fun startRuntimeMode(mode: Mode) =
+            startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
 
-                is ServiceStartResult.Rejected -> {
-                    val senderName = result.mode.startSenderName(stringResolver)
-                    val message =
-                        stringResolver.getString(R.string.failed_to_start, senderName) +
-                            ": " +
-                            result.reason.displayMessage(stringResolver)
-                    _effects.tryEmit(ConfigEffect.Message(message))
-                }
-            }
-        }
-
-        private fun stopRuntimeMode(mode: Mode) {
-            if (serviceStateStore.status.value == AppStatus.Running to mode) {
-                serviceController.stop()
-            }
-        }
+        private fun stopRuntimeMode(mode: Mode) = stopConfigRuntimeMode(mode, serviceStateStore, serviceController)
 
         fun selectPreset(presetId: String) {
             val saveJob = activeSaveJob.get()
@@ -403,8 +384,10 @@ class ConfigViewModel
                             appSettingsRepository.update {
                                 applyConfigDraft(preset.draft)
                             }
-                            if (editorSession.compareAndSet(expectedSession, ConfigEditorSession())) {
-                                rotateEditorRecoverySession()
+                            if (editorSession.value == expectedSession) {
+                                rotateEditorRecoverySessionAndClearMasqueState {
+                                    editorSession.compareAndSet(expectedSession, ConfigEditorSession())
+                                }
                             }
                         }
                     }
@@ -521,36 +504,59 @@ class ConfigViewModel
             }
         }
 
-        fun cancelEditing(): Boolean =
-            synchronized(editorOperationLock) {
-                if (activeSaveRequest.value != null || activeSaveJob.get() != null) {
-                    false
-                } else {
-                    editorSession.value = ConfigEditorSession()
-                    clearMasqueImportState()
-                    rotateEditorRecoverySession()
-                    true
-                }
-            }
-
-        internal fun requestEditorExit(): ConfigEditorExitDecision =
-            synchronized(editorOperationLock) {
-                when {
-                    activeSaveRequest.value != null || activeSaveJob.get() != null -> {
-                        ConfigEditorExitDecision.Blocked
-                    }
-
-                    editorSession.value.isDirty -> {
-                        ConfigEditorExitDecision.ConfirmDiscard
-                    }
-
-                    else -> {
-                        editorSession.value = ConfigEditorSession()
-                        rotateEditorRecoverySession()
-                        ConfigEditorExitDecision.Exit
+        suspend fun cancelEditing(): Boolean {
+            val canCancel =
+                synchronized(editorOperationLock) {
+                    if (
+                        editorRecoveryPending.value ||
+                        activeSaveRequest.value != null ||
+                        activeSaveJob.get() != null
+                    ) {
+                        false
+                    } else {
+                        true
                     }
                 }
+            val expectedSession = editorSession.value
+            return canCancel &&
+                rotateEditorRecoverySessionAndClearMasqueState {
+                    editorSession.compareAndSet(expectedSession, ConfigEditorSession())
+                }
+        }
+
+        internal suspend fun requestEditorExit(): ConfigEditorExitDecision {
+            val decision =
+                synchronized(editorOperationLock) {
+                    when {
+                        editorRecoveryPending.value -> {
+                            ConfigEditorExitDecision.Blocked
+                        }
+
+                        activeSaveRequest.value != null || activeSaveJob.get() != null -> {
+                            ConfigEditorExitDecision.Blocked
+                        }
+
+                        editorSession.value.isDirty -> {
+                            ConfigEditorExitDecision.ConfirmDiscard
+                        }
+
+                        else -> {
+                            ConfigEditorExitDecision.Exit
+                        }
+                    }
+                }
+            if (decision != ConfigEditorExitDecision.Exit) return decision
+            val expectedSession = editorSession.value
+            return if (
+                rotateEditorRecoverySessionAndClearMasqueState {
+                    editorSession.compareAndSet(expectedSession, ConfigEditorSession())
+                }
+            ) {
+                ConfigEditorExitDecision.Exit
+            } else {
+                ConfigEditorExitDecision.Blocked
             }
+        }
 
         internal val currentEditorSessionId: Long?
             get() =
@@ -660,14 +666,12 @@ class ConfigViewModel
                     }
 
                     ConfigSaveOutcome.Saved -> {
-                        val completion = completeSuccessfulConfigSave(editorSession, request)
-                        if (completion.completedCurrentRevision) {
-                            clearMasqueImportState()
-                            rotateEditorRecoverySession()
-                        }
-                        if (completion.shouldNotifySuccess) {
-                            _effects.emit(ConfigEffect.SaveSuccess)
-                        }
+                        finishSuccessfulConfigSave(
+                            editorSession = editorSession,
+                            request = request,
+                            rotateRecoverySession = ::rotateEditorRecoverySessionAndClearMasqueState,
+                            notifySuccess = { _effects.emit(ConfigEffect.SaveSuccess) },
+                        )
                     }
 
                     ConfigSaveOutcome.Stale -> {
@@ -686,12 +690,16 @@ class ConfigViewModel
                 return
             }
             viewModelScope.launch {
+                val expectedSession = editorSession.value
                 val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
                 appSettingsRepository.update {
                     applyConfigDraft(defaultDraft)
                 }
-                editorSession.value = ConfigEditorSession()
-                rotateEditorRecoverySession()
+                if (editorSession.value == expectedSession) {
+                    rotateEditorRecoverySessionAndClearMasqueState {
+                        editorSession.compareAndSet(expectedSession, ConfigEditorSession())
+                    }
+                }
             }
         }
 
@@ -699,35 +707,26 @@ class ConfigViewModel
             masqueImports.clear()
         }
 
-        private fun observeEditorDraftRecovery() {
-            viewModelScope.launch {
-                combine(
-                    editorSession,
-                    editorRecoverySessionId,
-                    editorRecoveryReady,
-                ) { session, recoverySessionId, ready ->
-                    ConfigEditorRecoverySnapshot(session, recoverySessionId, ready)
-                }.collectLatest { snapshot ->
-                    if (!snapshot.ready) return@collectLatest
-                    val failure =
-                        runCatching {
-                            if (snapshot.session.isDirty) {
-                                editorRecoveryStoreLock.withLock {
-                                    editorDraftStore.persist(snapshot.recoverySessionId, snapshot.session)
-                                }
-                            } else {
-                                editorRecoveryStoreLock.withLock {
-                                    editorDraftStore.delete(snapshot.recoverySessionId)
-                                }
-                            }
-                        }.exceptionOrNull()
-                    when (failure) {
-                        null -> Unit
-                        is CancellationException -> throw failure
-                        else -> log.e(failure) { "Failed to update mode editor recovery" }
-                    }
+        private suspend fun rotateEditorRecoverySessionAndClearMasqueState(
+            transitionAfterInvalidation: () -> Boolean,
+        ): Boolean =
+            rotateEditorRecoverySession {
+                transitionAfterInvalidation().also { transitioned ->
+                    if (transitioned) clearMasqueImportState()
                 }
             }
+
+        private fun observeEditorDraftRecovery() {
+            observeConfigEditorDraftRecovery(
+                scope = viewModelScope,
+                editorSession = editorSession,
+                recoverySessionId = editorRecoverySessionId,
+                recoveryReady = editorRecoveryReady,
+                persistenceError = editorRecoveryPersistenceError,
+                storeLock = editorRecoveryStoreLock,
+                store = editorDraftStore,
+                log = log,
+            )
         }
 
         private fun restoreEditorDraft() {
@@ -737,14 +736,12 @@ class ConfigViewModel
             viewModelScope.launch {
                 val recoverySessionId = editorRecoverySessionId.value
                 val result =
-                    runCatching {
-                        editorRecoveryStoreLock.withLock {
-                            editorDraftStore.restore(recoverySessionId)
-                        }
-                    }.getOrElse { failure ->
-                        if (failure is CancellationException) throw failure
-                        ConfigEditorDraftRestoreResult.RestoreFailed(failure)
-                    }
+                    restoreConfigEditorDraftRecovery(
+                        storeLock = editorRecoveryStoreLock,
+                        store = editorDraftStore,
+                        invalidatedSessionIds = invalidatedEditorRecoverySessionIds,
+                        recoverySessionId = recoverySessionId,
+                    )
                 if (editorRecoverySessionId.value != recoverySessionId) return@launch
                 when (result) {
                     is ConfigEditorDraftRestoreResult.Restored -> {
@@ -762,6 +759,9 @@ class ConfigViewModel
                     }
 
                     ConfigEditorDraftRestoreResult.MissingOrInvalid -> {
+                        val next = newConfigEditorRecoverySessionId()
+                        updateEditorRecoverySessionId(next)
+                        editorRecoverySessionId.value = next
                         editorRecoveryRestoreFailed = false
                         editorRecoveryPending.value = false
                         editorRecoveryReady.value = true
@@ -788,16 +788,30 @@ class ConfigViewModel
             }
         }
 
-        private fun rotateEditorRecoverySession() {
-            val previous = editorRecoverySessionId.value
-            rememberInvalidatedEditorRecoverySessionId(previous)
-            editorDraftStore.invalidate(previous)
-            editorRecoveryRestoreFailed = false
-            editorRecoveryPending.value = false
-            editorRecoveryReady.value = true
-            pendingEditorStartPresetId = null
-            val next = newConfigEditorRecoverySessionId()
-            updateEditorRecoverySessionId(next)
-            editorRecoverySessionId.value = next
-        }
+        private suspend fun rotateEditorRecoverySession(
+            transitionAfterInvalidation: () -> Boolean = { true },
+        ): Boolean =
+            rotateConfigEditorRecoverySession(
+                previousSessionId = editorRecoverySessionId.value,
+                recoveryPending = editorRecoveryPending,
+                recoveryReady = editorRecoveryReady,
+                persistenceError = editorRecoveryPersistenceError,
+                storeLock = editorRecoveryStoreLock,
+                store = editorDraftStore,
+                transitionAfterInvalidation = transitionAfterInvalidation,
+                onInvalidationFailure = { failure ->
+                    log.e(failure) { "Failed to invalidate mode editor recovery" }
+                    _effects.emit(ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
+                },
+                onInvalidated = rememberInvalidatedEditorRecoverySessionId,
+                onRotationSucceeded = {
+                    editorRecoveryRestoreFailed = false
+                    pendingEditorStartPresetId = null
+                },
+                newSessionId = ::newConfigEditorRecoverySessionId,
+                updateSessionId = { next ->
+                    updateEditorRecoverySessionId(next)
+                    editorRecoverySessionId.value = next
+                },
+            )
     }
