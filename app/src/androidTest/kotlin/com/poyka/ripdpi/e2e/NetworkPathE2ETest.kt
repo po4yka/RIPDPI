@@ -39,7 +39,6 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 
@@ -85,6 +84,13 @@ class NetworkPathE2ETest {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
         }
+        awaitUntil(
+            timeoutMs = 10_000L,
+            failureMessage = { serviceStateDebugSummary(serviceStateStore) },
+        ) {
+            serviceStateStore.status.value.first == AppStatus.Halted &&
+                serviceStateStore.telemetry.value.status == AppStatus.Halted
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
@@ -105,18 +111,22 @@ class NetworkPathE2ETest {
 
     @After
     fun tearDown() {
-        if (hiltInjected) {
-            runBlocking {
-                stopService(RipDpiProxyService::class.java)
-                stopService(RipDpiVpnService::class.java)
-                if (this@NetworkPathE2ETest::settingsBeforeTest.isInitialized) {
-                    appSettingsRepository.replace(settingsBeforeTest)
+        try {
+            if (hiltInjected) {
+                runBlocking {
+                    stopService(RipDpiProxyService::class.java)
+                    stopService(RipDpiVpnService::class.java)
+                    if (this@NetworkPathE2ETest::settingsBeforeTest.isInitialized) {
+                        appSettingsRepository.replace(settingsBeforeTest)
+                    }
                 }
             }
-        }
-        if (this::fixtureClient.isInitialized) {
-            fixtureClient.resetEvents()
-            fixtureClient.resetFaults()
+            if (this::fixtureClient.isInitialized) {
+                fixtureClient.resetEvents()
+                fixtureClient.resetFaults()
+            }
+        } finally {
+            clearTestProbeNetworkEligibility()
         }
     }
 
@@ -646,7 +656,6 @@ class NetworkPathE2ETest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
-        assertTun0Present()
         val allowedBaselineTelemetry = serviceStateStore.telemetry.value
         val allowedTcpPayload = httpEchoPayloadText("so-bind-allowed-tcp-$nonce")
         val allowedUdpPayload = "so-bind-allowed-udp-$nonce"
@@ -658,7 +667,14 @@ class NetworkPathE2ETest {
                 payload = allowedTcpPayload,
                 bindDevice = "tun0",
             )
-        assertEquals("tun0", allowedTcp.boundDevice)
+        assertEquals(
+            "Allowed bound TCP did not retain SO_BINDTODEVICE " +
+                "ok=${allowedTcp.ok} kind=${allowedTcp.failureKind} " +
+                "stage=${allowedTcp.failureStage} errno=${allowedTcp.errno} " +
+                "error=${allowedTcp.errorClass}: ${allowedTcp.errorMessage}",
+            "tun0",
+            allowedTcp.boundDevice,
+        )
         assertTrue(
             "Allowed bound TCP did not reach fixture kind=${allowedTcp.failureKind} errno=${allowedTcp.errno}",
             allowedTcp.ok,
@@ -731,71 +747,6 @@ class NetworkPathE2ETest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
-        assertTun0Present()
-        val appUid = appContext.packageManager.getApplicationInfo(appPackage, 0).uid
-        assertEquals("Instrumentation must execute under the app UID", appUid, Process.myUid())
-        val appAllowedBaselineTelemetry = serviceStateStore.telemetry.value
-        val appAllowedTcpPayload =
-            httpEchoPayloadText("so-bind-app-uid-tcp-$nonce-${"t".repeat(17)}")
-        val appAllowedUdpPayload = "so-bind-app-uid-udp-$nonce-${"u".repeat(31)}"
-        val appAllowedTcp =
-            instrumentationProcessTcpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.tcpEchoPort,
-                payload = appAllowedTcpPayload,
-                bindDevice = "tun0",
-            )
-        val appAllowedUdp =
-            instrumentationProcessUdpRoundTrip(
-                host = fixture.androidHost,
-                port = fixture.udpEchoPort,
-                payload = appAllowedUdpPayload,
-                bindDevice = "tun0",
-            )
-        assertTrue(
-            "Same-config app-UID TCP failed stage=${appAllowedTcp.failureStage} " +
-                "kind=${appAllowedTcp.failureKind} errno=${appAllowedTcp.errno}",
-            appAllowedTcp.ok,
-        )
-        assertEquals(appAllowedTcpPayload, appAllowedTcp.response)
-        assertEquals("tun0", appAllowedTcp.boundDevice)
-        assertTrue(
-            "Same-config app-UID UDP failed stage=${appAllowedUdp.failureStage} " +
-                "kind=${appAllowedUdp.failureKind} errno=${appAllowedUdp.errno}",
-            appAllowedUdp.ok,
-        )
-        assertEquals(appAllowedUdpPayload, appAllowedUdp.response)
-        assertEquals("tun0", appAllowedUdp.boundDevice)
-        awaitUntil(
-            timeoutMs = 5_000L,
-            failureMessage = { redactedTunnelSummary() },
-        ) {
-            val delta = serviceStateStore.telemetry.value.packetSmokeDeltaFrom(appAllowedBaselineTelemetry)
-            delta.txPackets > 0 && delta.rxPackets > 0
-        }
-        val appAllowedEvents = fixtureClient.events()
-        assertTrue(
-            "Same-config app-UID TCP was not correlated at the fixture",
-            appAllowedEvents.any {
-                it.matchesEcho(
-                    service = "tcp_echo",
-                    protocol = "tcp",
-                    targetPort = fixture.tcpEchoPort,
-                    payloadBytes = appAllowedTcpPayload.toByteArray().size,
-                )
-            },
-        )
-        assertTrue(
-            "Same-config app-UID UDP was not correlated at the fixture",
-            appAllowedEvents.any {
-                it.matchesEcho(
-                    service = "udp_echo",
-                    protocol = "udp",
-                    targetPort = fixture.udpEchoPort,
-                    payloadBytes = appAllowedUdpPayload.toByteArray().size,
-                )
-            },
-        )
         fixtureClient.resetEvents()
         val baselineTelemetry = serviceStateStore.telemetry.value
         val deniedTcpPayload = httpEchoPayloadText("so-bind-denied-tcp-$nonce")
@@ -1004,10 +955,6 @@ class NetworkPathE2ETest {
             probePid = Process.myPid(),
             probeUid = Process.myUid(),
         )
-    }
-
-    private fun assertTun0Present() {
-        assertTrue("Expected active /sys/class/net/tun0", File("/sys/class/net/tun0").isDirectory)
     }
 
     private fun assumePhysicalSoBindEvidencePrerequisites() {

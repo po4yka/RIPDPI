@@ -10,6 +10,7 @@ readonly test_method="vpnServiceDeniesExcludedTestUidBoundToTun0"
 readonly test_selector="$test_class#$test_method"
 readonly evidence_profile="physical_pixel_api37_kernel61"
 readonly instrumentation_timeout_seconds="${RIPDPI_SO_BIND_INSTRUMENTATION_TIMEOUT_SECONDS:-180}"
+readonly test_probe_allowlist_duration_ms="300000"
 readonly adb_bin="${ADB_BIN:-adb}"
 readonly android_serial="${ANDROID_SERIAL:-}"
 readonly fixture_host="${RIPDPI_FIXTURE_ANDROID_HOST:-}"
@@ -36,6 +37,7 @@ adb_device() {
 
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
 cleanup() {
+    adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
@@ -78,12 +80,24 @@ kernel_release="$(adb_device shell uname -r 2>/dev/null | tr -d '\r')"
 install_and_verify_apk "$app_apk" "com.poyka.ripdpi" "app"
 install_and_verify_apk "$test_apk" "com.poyka.ripdpi.test" "test"
 
+test_uid_line="$(adb_device shell pm list packages -U com.poyka.ripdpi.test 2>/dev/null | tr -d '\r')" ||
+    fail "test package UID lookup failed"
+[[ "$test_uid_line" =~ ^package:com\.poyka\.ripdpi\.test[[:space:]]uid:([0-9]+)$ ]] ||
+    fail "test package UID lookup was malformed"
+test_uid="${BASH_REMATCH[1]}"
+adb_device shell cmd deviceidle tempwhitelist -d "$test_probe_allowlist_duration_ms" com.poyka.ripdpi.test \
+    >/dev/null 2>&1 || fail "test probe temporary allowlist grant failed"
+adb_device shell dumpsys deviceidle >"$temp_dir/deviceidle.txt" 2>/dev/null ||
+    fail "test probe temporary allowlist verification failed"
+grep -Eq "^[[:space:]]*UID=${test_uid}:" "$temp_dir/deviceidle.txt" ||
+    fail "test probe UID is absent from the temporary allowlist"
+
 adb_device shell toybox nc -z -w 5 "$fixture_host" "$fixture_port" >/dev/null 2>&1 ||
     fail "fixture control port is not directly reachable from the physical device"
 
 instrumentation_components="$(
     adb_device shell pm list instrumentation 2>/dev/null | tr -d '\r' | awk '
-        /target=com\.poyka\.ripdpi/ && $0 !~ /baselineprofile/ {
+        /\(target=com\.poyka\.ripdpi\)$/ && $0 !~ /baselineprofile/ {
             sub(/^instrumentation:/, "", $0)
             sub(/ .*/, "", $0)
             print
@@ -108,7 +122,9 @@ instrumentation_status=$?
 set -e
 
 [[ "$instrumentation_status" == "0" ]] || fail "instrumentation command failed"
-so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_method" ||
+if ! so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_method"; then
+    sed 's/^/SO_BIND instrumentation: /' "$output_file" >&2
     fail "instrumentation output was skipped, failed, incomplete, or ambiguous"
+fi
 
 echo "SO_BIND physical E2E passed: one exact physical instrumentation test"

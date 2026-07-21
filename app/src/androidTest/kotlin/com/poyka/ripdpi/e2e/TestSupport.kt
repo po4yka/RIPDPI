@@ -1935,6 +1935,14 @@ private fun ensureTestProbeNetworkEligibility() {
     execShell("cmd deviceidle tempwhitelist -d $TestProbeNetworkAllowlistDurationMs $testPackage")
 }
 
+fun clearTestProbeNetworkEligibility() {
+    val testPackage = InstrumentationRegistry.getInstrumentation().context.packageName
+    check(testPackage.matches(Regex("[A-Za-z0-9_.]+"))) {
+        "Unexpected instrumentation package name"
+    }
+    execShell("cmd deviceidle tempwhitelist -r $testPackage")
+}
+
 private fun parseManifest(body: String): FixtureManifestDto {
     val json = org.json.JSONObject(body)
     return FixtureManifestDto(

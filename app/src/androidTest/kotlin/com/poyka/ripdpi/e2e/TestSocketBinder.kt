@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.e2e
 
 import android.os.Bundle
+import java.nio.charset.StandardCharsets
 
 internal object TestSocketBinder {
     private const val ResultOk = 0
@@ -37,10 +38,10 @@ internal object TestSocketBinder {
         nativeTcpRoundTrip(
             host,
             port,
-            payload.encodeToByteArray(),
+            payload.utf8Bytes(),
             connectTimeoutMs,
             readTimeoutMs,
-            device.encodeToByteArray(),
+            device.utf8Bytes(),
         ),
     )
 
@@ -53,15 +54,22 @@ internal object TestSocketBinder {
         extras: Bundle,
     ) = writeResult(
         extras,
-        nativeUdpRoundTrip(host, port, payload.encodeToByteArray(), timeoutMs, device.encodeToByteArray()),
+        nativeUdpRoundTrip(host, port, payload.utf8Bytes(), timeoutMs, device.utf8Bytes()),
     )
+
+    private fun String.utf8Bytes(): ByteArray {
+        val encoded = StandardCharsets.UTF_8.encode(this)
+        val bytes = ByteArray(encoded.remaining())
+        encoded.get(bytes)
+        return bytes
+    }
 
     private fun writeResult(
         extras: Bundle,
         result: Array<String>?,
     ) {
         check(result?.size == ResultWidth) { "Unexpected native socket probe result width" }
-        extras.putBoolean(ExtraOk, result[ResultOk].toBoolean())
+        extras.putBoolean(ExtraOk, java.lang.Boolean.parseBoolean(result[ResultOk]))
         extras.putStringOrSkip(ExtraResponse, result[ResultResponse])
         extras.putStringOrSkip(ExtraBoundDevice, result[ResultBoundDevice])
         extras.putStringOrSkip(ExtraFailureKind, result[ResultFailureKind])
@@ -74,14 +82,18 @@ internal object TestSocketBinder {
         key: String,
         value: String?,
     ) {
-        value?.let { putString(key, it) }
+        if (value != null) {
+            putString(key, value)
+        }
     }
 
     private fun Bundle.putIntOrSkip(
         key: String,
         value: String?,
     ) {
-        value?.toInt()?.let { putInt(key, it) }
+        if (value != null) {
+            putInt(key, Integer.parseInt(value))
+        }
     }
 
     @JvmStatic
