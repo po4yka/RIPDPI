@@ -234,7 +234,6 @@ private fun WorkflowRemediationLadder(
                     }
 
                     DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> {
-                        Unit
                     }
                 }
             },
