@@ -40,6 +40,7 @@ import kotlinx.collections.immutable.persistentListOf
 
 private const val RecoveryActionsStackFontScale = 1.3f
 private val RecoveryActionsSideBySideMinWidth = 320.dp
+private val StrategyConfigActionsSideBySideMinWidth = 320.dp
 
 internal enum class StrategyConfigSource {
     BuiltIn,
@@ -400,30 +401,79 @@ private fun StrategyConfigActionRows(
     secondaryLoading: Boolean = false,
     enabled: Boolean = true,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-    ) {
-        RipDpiButton(
-            text = primaryLabel,
-            onClick = onPrimary,
-            modifier = Modifier.weight(1f),
-            density = RipDpiControlDensity.Compact,
-            leadingIcon = primaryIcon,
-            loading = primaryLoading,
-            enabled = enabled,
-        )
-        RipDpiButton(
-            text = secondaryLabel,
-            onClick = onSecondary,
-            modifier = Modifier.weight(1f),
-            variant = RipDpiButtonVariant.Outline,
-            density = RipDpiControlDensity.Compact,
-            leadingIcon = secondaryIcon,
-            loading = secondaryLoading,
-            enabled = enabled,
-        )
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val stackActions =
+            maxWidth < StrategyConfigActionsSideBySideMinWidth * LocalDensity.current.fontScale
+        if (stackActions) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+            ) {
+                StrategyConfigActionButtons(
+                    primaryLabel = primaryLabel,
+                    primaryIcon = primaryIcon,
+                    onPrimary = onPrimary,
+                    secondaryLabel = secondaryLabel,
+                    secondaryIcon = secondaryIcon,
+                    onSecondary = onSecondary,
+                    primaryLoading = primaryLoading,
+                    secondaryLoading = secondaryLoading,
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+            ) {
+                StrategyConfigActionButtons(
+                    primaryLabel = primaryLabel,
+                    primaryIcon = primaryIcon,
+                    onPrimary = onPrimary,
+                    secondaryLabel = secondaryLabel,
+                    secondaryIcon = secondaryIcon,
+                    onSecondary = onSecondary,
+                    primaryLoading = primaryLoading,
+                    secondaryLoading = secondaryLoading,
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun StrategyConfigActionButtons(
+    primaryLabel: String,
+    primaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    onPrimary: () -> Unit,
+    secondaryLabel: String,
+    secondaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    onSecondary: () -> Unit,
+    primaryLoading: Boolean,
+    secondaryLoading: Boolean,
+    enabled: Boolean,
+    modifier: Modifier,
+) {
+    RipDpiButton(
+        text = primaryLabel,
+        onClick = onPrimary,
+        modifier = modifier,
+        density = RipDpiControlDensity.Compact,
+        leadingIcon = primaryIcon,
+        loading = primaryLoading,
+        enabled = enabled,
+    )
+    RipDpiButton(
+        text = secondaryLabel,
+        onClick = onSecondary,
+        modifier = modifier,
+        variant = RipDpiButtonVariant.Outline,
+        density = RipDpiControlDensity.Compact,
+        leadingIcon = secondaryIcon,
+        loading = secondaryLoading,
+        enabled = enabled,
+    )
 }
 
 @Composable

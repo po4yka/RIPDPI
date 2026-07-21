@@ -146,4 +146,72 @@ class StrategyConfigScreenScreenshotTest {
             )
         }
     }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ru")
+    fun customYamlMaximumFontRussian() {
+        captureScreenBothThemes(
+            name = "customYamlMaximumFontRussian",
+            widthDp = 411,
+            heightDp = 1_600,
+            fontScale = 2f,
+            testClassFqn = javaClass.name,
+        ) {
+            StrategyConfigScreen(
+                state =
+                    StrategyConfigScreenState(
+                        source = StrategyConfigSource.CustomYaml,
+                        configText = "version: 1\nstrategies:\n  - tcp: split\n",
+                        luaPath = "",
+                        luaFunction = "",
+                        activePath = "imported.yaml",
+                        banner = null,
+                    ),
+                onBack = {},
+                onSourceChanged = {},
+                onConfigTextChanged = {},
+                onLuaPathChanged = {},
+                onLuaFunctionChanged = {},
+                onImport = {},
+                onExport = {},
+                onSave = {},
+                onReload = {},
+                onValidateLua = {},
+            )
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "fa")
+    fun luaMaximumFontPersianRtl() {
+        captureScreenBothThemes(
+            name = "luaMaximumFontPersianRtl",
+            widthDp = 411,
+            heightDp = 1_600,
+            fontScale = 2f,
+            testClassFqn = javaClass.name,
+        ) {
+            StrategyConfigScreen(
+                state =
+                    StrategyConfigScreenState(
+                        source = StrategyConfigSource.LuaScript,
+                        configText = "",
+                        luaPath = "/storage/emulated/0/strategy.lua",
+                        luaFunction = "build_strategy",
+                        activePath = "strategy.lua",
+                        banner = null,
+                    ),
+                onBack = {},
+                onSourceChanged = {},
+                onConfigTextChanged = {},
+                onLuaPathChanged = {},
+                onLuaFunctionChanged = {},
+                onImport = {},
+                onExport = {},
+                onSave = {},
+                onReload = {},
+                onValidateLua = {},
+            )
+        }
+    }
 }

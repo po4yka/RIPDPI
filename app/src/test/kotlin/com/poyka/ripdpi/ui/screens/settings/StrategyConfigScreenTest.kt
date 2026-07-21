@@ -1,12 +1,25 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -72,6 +85,30 @@ class StrategyConfigScreenTest {
         composeRule.onNodeWithText("Import").assertDoesNotExist()
     }
 
+    @Test
+    @Config(sdk = [35], qualifiers = "ru")
+    fun maximumFontStacksRegularActionsWithoutTruncation() {
+        setScreen(fontScale = 2f)
+
+        val actionLabels = listOf("Сохранить", "Перезагрузить", "Импорт", "Экспорт")
+        composeRule.onNodeWithText("Экспорт", useUnmergedTree = true).performScrollTo()
+        val nodes =
+            actionLabels.map { label ->
+                val layouts = mutableListOf<TextLayoutResult>()
+                composeRule
+                    .onNodeWithText(label, useUnmergedTree = true)
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
+                    .fetchSemanticsNode()
+                    .also {
+                        assertFalse(layouts.single().isLineEllipsized(0))
+                    }
+            }
+
+        nodes.zipWithNext().forEach { (upper, lower) ->
+            assertTrue(upper.boundsInRoot.bottom <= lower.boundsInRoot.top)
+        }
+    }
+
     private fun setScreen(
         onImport: () -> Unit = {},
         onExport: () -> Unit = {},
@@ -80,35 +117,45 @@ class StrategyConfigScreenTest {
         hasHydrationError: Boolean = false,
         onRetryRecovery: () -> Unit = {},
         onDiscardRecovery: () -> Unit = {},
+        fontScale: Float = 1f,
     ) {
         composeRule.setContent {
-            RipDpiTheme {
-                StrategyConfigScreen(
-                    state =
-                        StrategyConfigScreenState(
-                            source = StrategyConfigSource.CustomYaml,
-                            configText = "version: 1\nstrategies: []\n",
-                            luaPath = "",
-                            luaFunction = "",
-                            activePath = "imported.yaml",
-                            banner = null,
-                            isSaving = isSaving,
-                            isHydrating = isHydrating,
-                            hasHydrationError = hasHydrationError,
-                        ),
-                    onBack = {},
-                    onSourceChanged = {},
-                    onConfigTextChanged = {},
-                    onLuaPathChanged = {},
-                    onLuaFunctionChanged = {},
-                    onImport = onImport,
-                    onExport = onExport,
-                    onSave = {},
-                    onReload = {},
-                    onValidateLua = {},
-                    onRetryRecovery = onRetryRecovery,
-                    onDiscardRecovery = onDiscardRecovery,
-                )
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
+                RipDpiTheme {
+                    Box(
+                        modifier =
+                            Modifier
+                                .requiredWidth(411.dp)
+                                .height(1_600.dp),
+                    ) {
+                        StrategyConfigScreen(
+                            state =
+                                StrategyConfigScreenState(
+                                    source = StrategyConfigSource.CustomYaml,
+                                    configText = "version: 1\nstrategies: []\n",
+                                    luaPath = "",
+                                    luaFunction = "",
+                                    activePath = "imported.yaml",
+                                    banner = null,
+                                    isSaving = isSaving,
+                                    isHydrating = isHydrating,
+                                    hasHydrationError = hasHydrationError,
+                                ),
+                            onBack = {},
+                            onSourceChanged = {},
+                            onConfigTextChanged = {},
+                            onLuaPathChanged = {},
+                            onLuaFunctionChanged = {},
+                            onImport = onImport,
+                            onExport = onExport,
+                            onSave = {},
+                            onReload = {},
+                            onValidateLua = {},
+                            onRetryRecovery = onRetryRecovery,
+                            onDiscardRecovery = onDiscardRecovery,
+                        )
+                    }
+                }
             }
         }
     }
