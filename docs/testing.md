@@ -249,10 +249,15 @@ The prepare hook owns the private modem/SIM mapping for those namespace keys. It
 
 ## Redacted dual-vantage release evidence
 
-DNS, IPv6, kill-switch, and direct-window release evidence is produced only by
-the physical self-hosted workflow in
-`.github/workflows/dns-ipv6-killswitch-evidence.yml`. The runner requires one
-connected Android device and a private mode-0600 config outside the checkout:
+DNS and the TUN-establish-to-native-ready direct window require redacted
+dual-vantage packet evidence for Android releases. Fleet-profile rollout keeps
+all 19 applicable gates on its ordinary-results contract. IPv6 and the remaining kill-switch gates use the
+ordinary gate-results document. A release decision is complete only when the
+checker receives both inputs and their disjoint gate maps cover every applicable
+policy gate. The capture can run from a clean local checkout or the physical
+self-hosted workflow in `.github/workflows/dns-ipv6-killswitch-evidence.yml`.
+It requires one connected Android device and a private mode-0600 config outside
+the checkout:
 
 ```json
 {
@@ -273,7 +278,8 @@ All four values must be distinct. Labels, SSIDs, BSSIDs, IP addresses, hostnames
 device identifiers, and unsalted hashes derived from those low-entropy values are
 forbidden. Vantage and network identifiers use separate domain prefixes before
 SHA-256 hashing; their raw values and hook paths never leave the runner. The
-runner also records executable digests for both collectors and the workload,
+runner also records executable digests for itself, the validator, the policy,
+the source-pinned producer policy, both collectors, and the workload,
 rejects a shared collector path, and requires a non-emulated ADB device. Before
 capture, the workflow builds `GithubFullDebug` from the checked-out SHA for the
 physical device ABI, installs it, pulls the installed base APK back, verifies byte
@@ -281,20 +287,84 @@ equality, and records its SHA-256 in provenance. The observer hook owns the
 authenticated remote capture transport; its credentials and endpoint stay in the
 runner-owned installation.
 
+The runtime accepts manifest, observation, and scenario-plan v2 only. The v1
+schema remains archived for interpreting historical artifacts; it is not an
+accepted release-evidence input. The runner first extracts its own script, the
+validator, gate policy, and producer policy directly from the selected Git
+commit, re-executes that immutable snapshot, and records the four blob digests.
+Before capture, the mode-0600 config is opened once with no-follow semantics,
+validated through the same descriptor, and copied into private scratch. Hooks
+and the APK are likewise copied
+through no-follow file descriptors into the mode-0700 scratch directory and the
+immutable copies are hashed and used. Collector, workload, and APK digests must
+also appear in the source-pinned
+`quality/release-gates/network-evidence-producers.json` allowlist. That committed
+allowlist is intentionally empty until real private hook binaries and an
+exact-source signed release-candidate APK have been locally materialized,
+reviewed, captured, and pinned. The current `GithubFullDebug` evidence workflow
+does not attest a signed release candidate and therefore remains fail-closed.
+A real capture therefore
+currently fails closed at producer and client-artifact approval rather than
+trusting caller-controlled config. ADB operations and the workload are bounded
+by runner-owned timeouts. The runner requires exactly one physical
+ADB device, pulls its installed base APK, and compares it byte-for-byte with the
+scratch artifact both before and after capture.
+
 The fixed hooks receive only a correlation digest, source SHA, marker paths,
-and output paths. `run-dual-vantage-network-evidence.sh` starts both collectors
+artifact path and digest, and output paths. The workload emits a strict v2
+scenario plan with action and outcome marker digests derived from a
+domain-separated hash of correlation ID, gate ID, gate kind, and purpose. All
+markers must be unique across both purposes. Both
+observations must attest those markers and the canonical plan digest with
+positive action/outcome counts. Validation immediately before publication uses
+the all-PASS mode, so a valid but FAIL or INCONCLUSIVE bundle is never uploaded
+as release evidence. `run-dual-vantage-network-evidence.sh` starts both collectors
 in isolated process groups before the workload, stops their complete process
-trees on every exit path, and publishes exactly
+trees on every exit path, and runs the workload in its own process group. A
+workload timeout sends TERM and then KILL to the whole group and waits for it
+before failing publication. The runner publishes exactly
 `manifest.json`, `client-observation.json`, and `observer-observation.json`.
 Raw PCAP and private logs remain in the mode-0700 scratch directory and are
 deleted; only their SHA-256 digests and allowlisted packet counters are kept.
 
 The manifest validator rejects missing/duplicate vantages, unknown fields,
-wrong source or workflow provenance, stale or non-overlapping windows, missing
+wrong source or execution provenance, stale or non-overlapping windows, missing
 positive controls, digest tampering, path traversal, and a declared result that
 does not match the two observations. Capture errors derive `INCONCLUSIVE`, while
 observed forbidden packets derive `FAIL`; both are release-blocking. Observations
 must be canonical JSON and cannot be repackaged after their freshness window.
+For a real local capture, start from a clean checkout and pass the APK itself;
+the runner derives and verifies `HEAD` and hashes the artifact locally:
+
+```bash
+execution_id="local-$(date +%s)"
+test-lab/scripts/run-dual-vantage-network-evidence.sh \
+  --config /absolute/private/network-evidence-runner.json \
+  --output-dir /tmp/ripdpi-network-evidence \
+  --source-root "$PWD" \
+  --client-artifact /absolute/path/to/installed-and-verified.apk \
+  --execution-kind local \
+  --execution-id "$execution_id" \
+  --execution-attempt 1
+
+python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
+  --results /absolute/path/to/ordinary-gate-results.json \
+  --evidence-manifest /tmp/ripdpi-network-evidence/manifest.json \
+  --applies-to android-client-release \
+  --expected-source-sha "$(git rev-parse HEAD)" \
+  --expected-execution-kind local \
+  --expected-execution-id "$execution_id" \
+  --expected-execution-attempt 1
+```
+
+The ordinary results file must omit the DNS and startup direct-window gates;
+those results are derived exclusively from the dual-vantage observations. The
+local command is not evidence unless the configured hooks perform real captures
+from distinct networks and the APK path identifies the exact installed client.
+There is currently no checked-in producer for the ordinary 11-gate Android
+artifact. The compatibility release workflow therefore requires
+`RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS` to identify a real exact-SHA artifact and
+fails closed when it is absent; it never synthesizes PASS results.
 Run the local contract checks with:
 
 ```bash

@@ -79,8 +79,20 @@ jobs:
           run-id: ${{ env.EVIDENCE_RUN_ID }}
 
       - name: Enforce DNS/IPv6/kill-switch release evidence
+        env:
+          RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS: ${{ vars.RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS }}
         run: |
+          results_path="${RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS:-}"
+          test -n "$results_path" || {
+            echo "RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS must name a real exact-SHA ordinary-results artifact" >&2
+            exit 1
+          }
+          test -f "$results_path" || {
+            echo "ordinary DNS/IPv6/kill-switch results artifact not found: $results_path" >&2
+            exit 1
+          }
           python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
+            --results "$results_path" \
             --evidence-manifest "$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence/manifest.json" \
             --applies-to android-client-release \
             --expected-source-sha "$GITHUB_SHA" \
