@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -20,7 +20,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
@@ -218,11 +217,12 @@ class HomeScreenTest {
     }
 
     @Test
+    @Config(sdk = [35], qualifiers = "en-w411dp-h891dp")
     fun `primary actuator stays above setup warnings at Pixel 7 width and maximum font`() {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
                 RipDpiTheme {
-                    Box(modifier = Modifier.requiredSize(411.dp, 891.dp)) {
+                    Box(modifier = Modifier.fillMaxSize()) {
                         HomeScreen(
                             uiState =
                                 MainUiState(
