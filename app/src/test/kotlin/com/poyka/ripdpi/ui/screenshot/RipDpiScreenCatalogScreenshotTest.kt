@@ -212,6 +212,24 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
+    fun connectionHealthMaximumFontScreen() {
+        val previewState = previewConnectionHealthUiState()
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 891, fontScale = 2f) {
+            RipDpiTheme {
+                ConnectionHealthScreen(
+                    uiState =
+                        previewState.copy(
+                            rows = persistentListOf(previewState.rows.first()),
+                            latencyDistributions = persistentListOf(),
+                            dnsCounters = null,
+                        ),
+                    onBack = {},
+                )
+            }
+        }
+    }
+
+    @Test
     fun subscriptionFailoverScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
             RipDpiTheme {
