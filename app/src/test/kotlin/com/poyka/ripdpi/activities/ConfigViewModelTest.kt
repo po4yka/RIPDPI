@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toRelayPresetReason
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
@@ -788,6 +789,182 @@ class ConfigViewModelPersistenceTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun `dirty mode editor draft and credentials survive process recreation via opaque saved state`() =
+        runTest {
+            val store = InMemoryConfigEditorDraftStore()
+            val firstHandle = SavedStateHandle()
+            val first = createConfigViewModel(savedStateHandle = firstHandle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { first.uiState.collect() }
+            advanceUntilIdle()
+
+            first.startEditingPreset()
+            advanceUntilIdle()
+            first.updateDraft {
+                copy(
+                    proxyPort = "1087",
+                    relayMasqueAuthToken = "fixture-recovery-marker",
+                    relayMasqueClientPrivateKeyPem = samplePrivateKeyPem(),
+                )
+            }
+            advanceUntilIdle()
+
+            val recoverySessionId =
+                requireNotNull(firstHandle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            assertEquals(setOf(ConfigEditorRecoverySessionIdSavedStateKey), firstHandle.keys())
+            assertFalse(recoverySessionId.contains("fixture-recovery-marker"))
+
+            val restored =
+                createConfigViewModel(
+                    savedStateHandle =
+                        SavedStateHandle(
+                            mapOf(ConfigEditorRecoverySessionIdSavedStateKey to recoverySessionId),
+                        ),
+                    editorDraftStore = store,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { restored.uiState.collect() }
+            advanceUntilIdle()
+
+            assertEquals("1087", restored.uiState.value.draft.proxyPort)
+            assertEquals("fixture-recovery-marker", restored.uiState.value.draft.relayMasqueAuthToken)
+            assertEquals(samplePrivateKeyPem(), restored.uiState.value.draft.relayMasqueClientPrivateKeyPem)
+            assertTrue(restored.uiState.value.isEditorDirty)
+            assertFalse(restored.uiState.value.isEditorLoading)
+        }
+
+    @Test
+    fun `discard rotates opaque recovery id and stale record cannot be restored`() =
+        runTest {
+            val store = InMemoryConfigEditorDraftStore()
+            val handle = SavedStateHandle()
+            val first = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { first.uiState.collect() }
+            advanceUntilIdle()
+            first.startEditingPreset()
+            advanceUntilIdle()
+            first.updateDraft { copy(proxyPort = "1087") }
+            advanceUntilIdle()
+            val staleId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+
+            assertTrue(first.cancelEditing())
+            val rotatedId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            advanceUntilIdle()
+
+            assertFalse(staleId == rotatedId)
+            val recreated =
+                createConfigViewModel(
+                    savedStateHandle = SavedStateHandle(mapOf(ConfigEditorRecoverySessionIdSavedStateKey to staleId)),
+                    editorDraftStore = store,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { recreated.uiState.collect() }
+            advanceUntilIdle()
+            assertFalse(recreated.uiState.value.isEditorDirty)
+            assertEquals(defaultDraft, recreated.uiState.value.draft)
+        }
+
+    @Test
+    fun `saved state invalidation tombstone blocks a discarded draft after process death`() =
+        runTest {
+            val staleId = newConfigEditorRecoverySessionId()
+            val store = InMemoryConfigEditorDraftStore()
+            store.persist(
+                staleId,
+                ConfigEditorSession(
+                    presetId = "custom",
+                    baselineDraft = defaultDraft,
+                    draft = defaultDraft.copy(relayMasqueAuthToken = "fixture-discarded-marker"),
+                    draftRevision = 1L,
+                ),
+            )
+            val handle =
+                SavedStateHandle(
+                    mapOf(
+                        ConfigEditorRecoverySessionIdSavedStateKey to staleId,
+                        ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey to arrayListOf(staleId),
+                    ),
+                )
+
+            val recreated = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { recreated.uiState.collect() }
+            advanceUntilIdle()
+
+            assertFalse(recreated.uiState.value.isEditorDirty)
+            assertEquals(defaultDraft, recreated.uiState.value.draft)
+            assertFalse(staleId == handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+        }
+
+    @Test
+    fun `late recovery result cannot resurrect a discarded draft`() =
+        runTest {
+            val staleId = newConfigEditorRecoverySessionId()
+            val staleDraft = defaultDraft.copy(proxyPort = "1087", relayMasqueAuthToken = "fixture-stale-marker")
+            val store = GatedRestoreConfigEditorDraftStore()
+            val handle = SavedStateHandle(mapOf(ConfigEditorRecoverySessionIdSavedStateKey to staleId))
+            val viewModel = createConfigViewModel(savedStateHandle = handle, editorDraftStore = store)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            runCurrent()
+            store.restoreStarted.await()
+
+            assertTrue(viewModel.cancelEditing())
+            val rotatedId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            store.restoreResult.complete(
+                ConfigEditorDraftRestoreResult.Restored(
+                    ConfigEditorSession(
+                        presetId = "custom",
+                        baselineDraft = defaultDraft,
+                        draft = staleDraft,
+                        draftRevision = 1L,
+                    ),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertFalse(staleId == rotatedId)
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorLoading)
+            assertEquals(defaultDraft, viewModel.uiState.value.draft)
+            assertTrue(store.deletedSessionIds.contains(staleId))
+        }
+
+    @Test
+    fun `suppressed successful save rotates recovery and cannot restore saved draft`() =
+        runTest {
+            val store = InMemoryConfigEditorDraftStore()
+            val handle = SavedStateHandle()
+            val saveGate = CompletableDeferred<Unit>()
+            val viewModel =
+                createConfigViewModel(
+                    savedStateHandle = handle,
+                    relayProfileStore = ControllableRelayProfileStore(saveGate = saveGate),
+                    editorDraftStore = store,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            advanceUntilIdle()
+            viewModel.startEditingPreset()
+            advanceUntilIdle()
+            viewModel.updateDraft { copy(proxyPort = "1087") }
+            advanceUntilIdle()
+            val staleId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+
+            viewModel.saveDraft()
+            runCurrent()
+            viewModel.selectMode(Mode.Proxy)
+            saveGate.complete(Unit)
+            advanceUntilIdle()
+
+            val rotatedId = requireNotNull(handle.get<String>(ConfigEditorRecoverySessionIdSavedStateKey))
+            assertFalse(staleId == rotatedId)
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+            val recreated =
+                createConfigViewModel(
+                    savedStateHandle = SavedStateHandle(mapOf(ConfigEditorRecoverySessionIdSavedStateKey to staleId)),
+                    editorDraftStore = store,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { recreated.uiState.collect() }
+            advanceUntilIdle()
+            assertFalse(recreated.uiState.value.isEditorDirty)
+        }
+
+    @Test
     fun `throwing hydration aborts the exact editor session and allows retry`() =
         runTest {
             val profileStore = ControllableRelayProfileStore(loadFailure = IllegalStateException("hydrate failed"))
@@ -1261,14 +1438,17 @@ class ConfigViewModelPersistenceTest {
 }
 
 private fun createConfigViewModel(
+    savedStateHandle: SavedStateHandle = SavedStateHandle(),
     appSettingsRepository: AppSettingsRepository = FakeAppSettingsRepository(),
     serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
     serviceController: FakeServiceController = FakeServiceController(),
     relayProfileStore: RelayProfileStore = InMemoryRelayProfileStore(),
     relayCredentialStore: RelayCredentialStore = InMemoryRelayCredentialStore(),
     masqueClientCredentialImporter: MasqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
+    editorDraftStore: ConfigEditorDraftStore = InMemoryConfigEditorDraftStore(),
 ): ConfigViewModel =
     ConfigViewModel(
+        savedStateHandle = savedStateHandle,
         dependencies =
             ConfigViewModelDependencies(
                 appSettingsRepository = appSettingsRepository,
@@ -1288,6 +1468,7 @@ private fun createConfigViewModel(
                         networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                         serverCapabilityStore = NoOpServerCapabilityStore(),
                     ),
+                editorDraftStore = editorDraftStore,
             ),
         importDependencies =
             ConfigImportDependencies(
@@ -1296,6 +1477,64 @@ private fun createConfigViewModel(
             ),
         stringResolver = ResourceStringResolver(),
     )
+
+private class InMemoryConfigEditorDraftStore : ConfigEditorDraftStore {
+    private var recoverySessionId: String? = null
+    private var session: ConfigEditorSession? = null
+
+    override suspend fun restore(recoverySessionId: String): ConfigEditorDraftRestoreResult =
+        if (this.recoverySessionId == recoverySessionId) {
+            ConfigEditorDraftRestoreResult.Restored(requireNotNull(session))
+        } else {
+            ConfigEditorDraftRestoreResult.MissingOrInvalid
+        }
+
+    override suspend fun persist(
+        recoverySessionId: String,
+        session: ConfigEditorSession,
+    ) {
+        this.recoverySessionId = recoverySessionId
+        this.session = session
+    }
+
+    override suspend fun delete(recoverySessionId: String) {
+        if (this.recoverySessionId == recoverySessionId) {
+            this.recoverySessionId = null
+            session = null
+        }
+    }
+
+    override fun invalidate(recoverySessionId: String) {
+        if (this.recoverySessionId == recoverySessionId) {
+            this.recoverySessionId = null
+            session = null
+        }
+    }
+}
+
+private class GatedRestoreConfigEditorDraftStore : ConfigEditorDraftStore {
+    val restoreStarted = CompletableDeferred<Unit>()
+    val restoreResult = CompletableDeferred<ConfigEditorDraftRestoreResult>()
+    val deletedSessionIds = mutableListOf<String>()
+
+    override suspend fun restore(recoverySessionId: String): ConfigEditorDraftRestoreResult {
+        restoreStarted.complete(Unit)
+        return restoreResult.await()
+    }
+
+    override suspend fun persist(
+        recoverySessionId: String,
+        session: ConfigEditorSession,
+    ) = Unit
+
+    override suspend fun delete(recoverySessionId: String) {
+        deletedSessionIds += recoverySessionId
+    }
+
+    override fun invalidate(recoverySessionId: String) {
+        deletedSessionIds += recoverySessionId
+    }
+}
 
 private class GatedUpdateAppSettingsRepository(
     private val updateGate: CompletableDeferred<Unit>,

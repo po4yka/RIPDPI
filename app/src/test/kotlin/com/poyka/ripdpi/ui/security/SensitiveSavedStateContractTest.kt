@@ -20,6 +20,15 @@ class SensitiveSavedStateContractTest {
         val dialogs = source("ui/screens/config/ModeEditorRouteDialogs.kt").readText()
         assertTrue(dialogs.contains("KeyboardType.Password"))
         assertTrue(dialogs.contains("PasswordVisualTransformation()"))
+
+        val viewModel = source("activities/ConfigViewModel.kt").readText()
+        val recoveryStore = source("activities/ConfigEditorDraftStore.kt").readText()
+        assertTrue(viewModel.contains("ConfigEditorRecoverySessionIdSavedStateKey"))
+        assertTrue(viewModel.contains("ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey"))
+        assertFalse(viewModel.contains("savedStateHandle[ConfigEditorRecoverySessionIdSavedStateKey] = editorSession"))
+        assertFalse(viewModel.contains("savedStateHandle[ConfigEditorRecoverySessionIdSavedStateKey] = uiState"))
+        assertTrue(recoveryStore.contains("AndroidKeyStore"))
+        assertTrue(recoveryStore.contains("AES/GCM/NoPadding"))
     }
 
     private fun source(relativePath: String): File =

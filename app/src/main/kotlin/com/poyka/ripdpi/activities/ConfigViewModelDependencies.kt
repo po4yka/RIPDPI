@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 class ConfigViewModelDependencies
     @Inject
-    constructor(
+    internal constructor(
         val appSettingsRepository: AppSettingsRepository,
         val relayArtifacts: ConfigRelayArtifactRepository,
         val relayPresetCatalog: RelayPresetCatalog,
@@ -23,6 +23,7 @@ class ConfigViewModelDependencies
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val capabilityObserver: ConfigCapabilityObserver,
         val dispatchers: AppCoroutineDispatchers,
+        internal val editorDraftStore: ConfigEditorDraftStore,
     )
 
 class ConfigImportDependencies

@@ -47,6 +47,13 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 
 internal const val defaultTtlMax = 255
 internal const val defaultRelayPort = 443
@@ -58,6 +65,7 @@ internal const val relayFinalmaskFragmentBytesMax = 65535
 
 private val DefaultConfigDnsSeed = canonicalDefaultEncryptedDnsSettings()
 
+@Serializable
 data class ConfigDraft(
     val mode: Mode = Mode.VPN,
     val dnsIp: String = DefaultConfigDnsSeed.dnsIp,
@@ -68,7 +76,9 @@ data class ConfigDraft(
     val bufferSize: String = "16384",
     val useCommandLineSettings: Boolean = false,
     val commandLineArgs: String = "",
+    @Serializable(with = TcpChainStepImmutableListSerializer::class)
     val tcpChainSteps: ImmutableList<TcpChainStepModel> = persistentListOf(),
+    @Serializable(with = UdpChainStepImmutableListSerializer::class)
     val udpChainSteps: ImmutableList<UdpChainStepModel> = persistentListOf(),
     val chainDsl: String = "",
     val desyncMethod: String = "split",
@@ -113,6 +123,7 @@ data class ConfigDraft(
     // hop; this list carries only the middle hops. Persisted to the relay profile store via
     // the `relay_chain_middle_profile_ids` proto field, resolved into the ordered N-hop chain,
     // and carried over the JNI wire as `chainHops` for 3-/4-hop chains.
+    @Serializable(with = StringImmutableListSerializer::class)
     val relayChainMiddleProfileIds: ImmutableList<String> = persistentListOf(),
     val relayMasqueUrl: String = "",
     val relayMasqueAuthMode: String = RelayMasqueAuthModeBearer,
@@ -191,6 +202,47 @@ data class ConfigDraft(
             chainDsl = formatStrategyChainDsl(tcpSteps, udpSteps),
             desyncMethod = primaryDesyncMethod(tcpSteps),
         )
+}
+
+internal object TcpChainStepImmutableListSerializer : KSerializer<ImmutableList<TcpChainStepModel>> {
+    private val delegate = ListSerializer(TcpChainStepModel.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun serialize(
+        encoder: Encoder,
+        value: ImmutableList<TcpChainStepModel>,
+    ) = delegate.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): ImmutableList<TcpChainStepModel> =
+        delegate.deserialize(decoder).toImmutableList()
+}
+
+internal object UdpChainStepImmutableListSerializer : KSerializer<ImmutableList<UdpChainStepModel>> {
+    private val delegate = ListSerializer(UdpChainStepModel.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun serialize(
+        encoder: Encoder,
+        value: ImmutableList<UdpChainStepModel>,
+    ) = delegate.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): ImmutableList<UdpChainStepModel> =
+        delegate.deserialize(decoder).toImmutableList()
+}
+
+internal object StringImmutableListSerializer : KSerializer<ImmutableList<String>> {
+    private val delegate = ListSerializer(String.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun serialize(
+        encoder: Encoder,
+        value: ImmutableList<String>,
+    ) = delegate.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): ImmutableList<String> = delegate.deserialize(decoder).toImmutableList()
 }
 
 enum class ConfigPresetKind {
