@@ -11,9 +11,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
@@ -62,7 +66,7 @@ class BottomNavBarTest {
         mapOf(
             1f to listOf("Status", "Connection", "Diagnose", "Settings"),
             1.5f to listOf("Status", "Connect", "Checks", "Settings"),
-            2f to listOf("Home", "Link", "Test", "More"),
+            2f to listOf("Status", "Connect", "Checks", "Settings"),
         ).forEach { (scale, expectedLabels) ->
             composeRule.runOnIdle { fontScale = scale }
             composeRule.waitForIdle()
@@ -88,8 +92,16 @@ class BottomNavBarTest {
             labels.zipWithNext().forEach { (left, right) ->
                 assertTrue(left.boundsInRoot.right <= right.boundsInRoot.left)
             }
-            listOf("Status", "Connection", "Diagnose", "Settings").forEach { label ->
-                composeRule.onNodeWithContentDescription(label).assertIsDisplayed()
+            Route.topLevel.zip(listOf("Status", "Connection", "Diagnose", "Settings")).forEach { (route, label) ->
+                composeRule
+                    .onAllNodesWithContentDescription(label, useUnmergedTree = true)
+                    .assertCountEquals(1)
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                    .assertHasClickAction()
+                    .run {
+                        if (route == Route.Home) assertIsSelected() else assertIsNotSelected()
+                    }
             }
         }
     }

@@ -16,10 +16,10 @@
     <string name="bottom_nav_config_compact">Связь</string>
     <string name="bottom_nav_diagnostics_compact">Тесты</string>
     <string name="bottom_nav_settings_compact">Настр.</string>
-    <string name="bottom_nav_home_maximum">Домой</string>
+    <string name="bottom_nav_home_maximum">Статус</string>
     <string name="bottom_nav_config_maximum">Связь</string>
     <string name="bottom_nav_diagnostics_maximum">Тест</string>
-    <string name="bottom_nav_settings_maximum">Ещё</string>
+    <string name="bottom_nav_settings_maximum">Настр.</string>
     <string name="logs">Журналы</string>
     <string name="persona_simple">С подсказками</string>
     <string name="persona_advanced">Расширенный</string>

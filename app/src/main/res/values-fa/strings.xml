@@ -15,10 +15,10 @@
     <string name="bottom_nav_config_compact">اتصال</string>
     <string name="bottom_nav_diagnostics_compact">بررسی</string>
     <string name="bottom_nav_settings_compact">تنظیم</string>
-    <string name="bottom_nav_home_maximum">خانه</string>
+    <string name="bottom_nav_home_maximum">وضعیت</string>
     <string name="bottom_nav_config_maximum">اتصال</string>
-    <string name="bottom_nav_diagnostics_maximum">تست</string>
-    <string name="bottom_nav_settings_maximum">بیشتر</string>
+    <string name="bottom_nav_diagnostics_maximum">بررسی</string>
+    <string name="bottom_nav_settings_maximum">تنظیم</string>
     <string name="logs">گزارش‌ها</string>
     <string name="persona_simple">راهنمایی‌شده</string>
     <string name="persona_advanced">پیشرفته</string>

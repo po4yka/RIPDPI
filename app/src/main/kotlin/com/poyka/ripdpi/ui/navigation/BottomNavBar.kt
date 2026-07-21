@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -172,7 +174,7 @@ fun BottomNavBar(
                                             destination.titleRes
                                         },
                                     ),
-                                contentDescription = fullLabel,
+                                accessibilityLabel = fullLabel,
                                 compact = useCompactLabels,
                                 selected = destination == selectedRoute,
                                 onClick = { onNavigate(destination) },
@@ -189,7 +191,7 @@ fun BottomNavBar(
 private fun RowScope.BottomNavItem(
     destination: Route,
     label: String,
-    contentDescription: String,
+    accessibilityLabel: String,
     compact: Boolean,
     selected: Boolean,
     onClick: () -> Unit,
@@ -232,6 +234,8 @@ private fun RowScope.BottomNavItem(
                     scaleX = selectionScale
                     scaleY = selectionScale
                     alpha = contentAlpha
+                }.semantics(mergeDescendants = true) {
+                    contentDescription = accessibilityLabel
                 }.ripDpiSelectable(
                     selected = selected,
                     role = Role.Tab,
@@ -253,7 +257,7 @@ private fun RowScope.BottomNavItem(
         ) {
             Icon(
                 imageVector = requireNotNull(destination.icon),
-                contentDescription = contentDescription,
+                contentDescription = null,
                 tint = iconTint,
                 modifier = Modifier.size(RipDpiIconSizes.Default),
             )

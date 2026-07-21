@@ -17,10 +17,10 @@
     <string name="bottom_nav_config_compact">اتصال</string>
     <string name="bottom_nav_diagnostics_compact">فحص</string>
     <string name="bottom_nav_settings_compact">ضبط</string>
-    <string name="bottom_nav_home_maximum">رئيسية</string>
+    <string name="bottom_nav_home_maximum">حالة</string>
     <string name="bottom_nav_config_maximum">اتصال</string>
     <string name="bottom_nav_diagnostics_maximum">فحص</string>
-    <string name="bottom_nav_settings_maximum">المزيد</string>
+    <string name="bottom_nav_settings_maximum">ضبط</string>
     <string name="logs">السجلات</string>
     <string name="persona_simple">موجّه</string>
     <string name="persona_advanced">متقدم</string>
