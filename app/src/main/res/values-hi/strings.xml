@@ -16,6 +16,10 @@
     <string name="bottom_nav_config_compact">कनेक्ट</string>
     <string name="bottom_nav_diagnostics_compact">जाँच</string>
     <string name="bottom_nav_settings_compact">सेटिंग</string>
+    <string name="bottom_nav_home_maximum">होम</string>
+    <string name="bottom_nav_config_maximum">लिंक</string>
+    <string name="bottom_nav_diagnostics_maximum">जाँच</string>
+    <string name="bottom_nav_settings_maximum">अधिक</string>
     <string name="logs">लॉग</string>
     <string name="persona_simple">निर्देशित</string>
     <string name="persona_advanced">उन्नत</string>

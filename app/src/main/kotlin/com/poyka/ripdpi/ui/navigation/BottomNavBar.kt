@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val CompactBottomNavFontScale = 1.5f
+private const val MaximumBottomNavFontScale = 1.8f
 private val AccessibilityBottomBarExtraHeight = 16.dp
 
 @Suppress("LongMethod")
@@ -63,7 +65,9 @@ fun BottomNavBar(
         RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator)
     val destinations = Route.topLevel
     val selectedIndex = destinations.indexOfFirst { it == selectedRoute }.takeIf { it >= 0 }
-    val useCompactLabels = LocalDensity.current.fontScale >= CompactBottomNavFontScale
+    val fontScale = LocalDensity.current.fontScale
+    val useCompactLabels = fontScale >= CompactBottomNavFontScale
+    val useMaximumLabels = fontScale >= MaximumBottomNavFontScale
     val bottomBarHeight =
         layout.bottomBarHeight + if (useCompactLabels) AccessibilityBottomBarExtraHeight else 0.dp
 
@@ -153,7 +157,11 @@ fun BottomNavBar(
                                 label =
                                     stringResource(
                                         if (useCompactLabels) {
-                                            destination.compactBottomNavTitleRes()
+                                            if (useMaximumLabels) {
+                                                destination.maximumBottomNavTitleRes()
+                                            } else {
+                                                destination.compactBottomNavTitleRes()
+                                            }
                                         } else {
                                             destination.titleRes
                                         },
@@ -183,6 +191,7 @@ private fun RowScope.BottomNavItem(
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
+    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val iconTint by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
@@ -247,8 +256,10 @@ private fun RowScope.BottomNavItem(
             text = label,
             style = if (compact) type.caption else type.navLabel,
             color = labelColor,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Clip,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.xs),
         )
     }
 }
@@ -259,6 +270,15 @@ private fun Route.compactBottomNavTitleRes(): Int =
         Route.Config -> R.string.bottom_nav_config_compact
         Route.Settings -> R.string.bottom_nav_settings_compact
         is Route.Diagnostics -> R.string.bottom_nav_diagnostics_compact
+        else -> titleRes
+    }
+
+private fun Route.maximumBottomNavTitleRes(): Int =
+    when (this) {
+        Route.Home -> R.string.bottom_nav_home_maximum
+        Route.Config -> R.string.bottom_nav_config_maximum
+        Route.Settings -> R.string.bottom_nav_settings_maximum
+        is Route.Diagnostics -> R.string.bottom_nav_diagnostics_maximum
         else -> titleRes
     }
 

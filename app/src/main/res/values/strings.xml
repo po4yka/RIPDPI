@@ -17,6 +17,10 @@
     <string name="bottom_nav_config_compact">Connect</string>
     <string name="bottom_nav_diagnostics_compact">Checks</string>
     <string name="bottom_nav_settings_compact">Settings</string>
+    <string name="bottom_nav_home_maximum">Home</string>
+    <string name="bottom_nav_config_maximum">Link</string>
+    <string name="bottom_nav_diagnostics_maximum">Test</string>
+    <string name="bottom_nav_settings_maximum">More</string>
     <string name="logs">Logs</string>
     <string name="persona_simple">Guided</string>
     <string name="persona_advanced">Advanced</string>

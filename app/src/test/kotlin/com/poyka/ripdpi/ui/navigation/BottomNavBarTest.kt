@@ -36,7 +36,7 @@ class BottomNavBarTest {
 
     @Test
     fun maximumFontUsesNonOverlappingCompactLabelsAndFullAccessibilityNames() {
-        var fontScale by mutableStateOf(1.5f)
+        var fontScale by mutableStateOf(1f)
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
                 RipDpiTheme {
@@ -55,11 +55,15 @@ class BottomNavBarTest {
             }
         }
 
-        listOf(1.5f, 2f).forEach { scale ->
+        mapOf(
+            1f to listOf("Status", "Connection", "Diagnose", "Settings"),
+            1.5f to listOf("Status", "Connect", "Checks", "Settings"),
+            2f to listOf("Home", "Link", "Test", "More"),
+        ).forEach { (scale, expectedLabels) ->
             composeRule.runOnIdle { fontScale = scale }
             composeRule.waitForIdle()
             val labels =
-                listOf("Status", "Connect", "Checks", "Settings").map { label ->
+                expectedLabels.map { label ->
                     val layouts = mutableListOf<TextLayoutResult>()
                     composeRule
                         .onNodeWithText(label, useUnmergedTree = true)

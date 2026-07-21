@@ -52,6 +52,26 @@ class ArabicBottomNavBarScreenshotTest {
     }
 }
 
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "fr-rFR")
+class FrenchBottomNavBarScreenshotTest {
+    @Test
+    fun maximumAccessibilityFont() {
+        captureMaximumFontBottomBar(javaClass.name)
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "hi-rIN")
+class HindiBottomNavBarScreenshotTest {
+    @Test
+    fun maximumAccessibilityFont() {
+        captureMaximumFontBottomBar(javaClass.name)
+    }
+}
+
 private fun captureMaximumFontBottomBar(
     testClassFqn: String,
     layoutDirection: LayoutDirection = LayoutDirection.Ltr,
