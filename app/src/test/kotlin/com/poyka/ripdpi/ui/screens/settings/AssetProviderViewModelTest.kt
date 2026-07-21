@@ -21,7 +21,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -290,6 +292,92 @@ class AssetProviderViewModelTest {
         }
 
     @Test
+    fun `persistence failure warns retries and manual retry saves latest draft`() =
+        runTest {
+            val initialSettings = configuredSettingsRepository().snapshot()
+            val settingsRepository = FailingAppSettingsRepository(initialSettings, failuresRemaining = 3)
+            val viewModel = AssetProviderViewModel(settingsRepository, FakeGeoAssetRepository())
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.updateCustomBaseUrl("  $ChangedCustomUrl  ")
+            advanceUntilIdle()
+
+            assertEquals(3, settingsRepository.updateCalls)
+            assertTrue(viewModel.uiState.value.hasPersistenceError)
+            assertEquals("  $ChangedCustomUrl  ", viewModel.uiState.value.customBaseUrl)
+            assertEquals(InitialCustomUrl, settingsRepository.snapshot().geoAssetCustomBaseUrl)
+
+            settingsRepository.failuresRemaining = 0
+            viewModel.retryConfigurationPersistence()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.hasPersistenceError)
+            assertEquals(ChangedCustomUrl, settingsRepository.snapshot().geoAssetCustomBaseUrl)
+        }
+
+    @Test
+    fun `acknowledged exit flush survives ViewModel recreation`() =
+        runTest {
+            val settingsRepository = configuredSettingsRepository()
+            val firstViewModel = AssetProviderViewModel(settingsRepository, FakeGeoAssetRepository())
+            backgroundScope.launch { firstViewModel.uiState.collect() }
+            runCurrent()
+
+            firstViewModel.selectProvider(ChangedProviderId)
+            firstViewModel.updateCustomBaseUrl("  $ChangedCustomUrl  ")
+
+            assertTrue(firstViewModel.persistConfigurationBeforeExit())
+            val recreatedViewModel = AssetProviderViewModel(settingsRepository, FakeGeoAssetRepository())
+            backgroundScope.launch { recreatedViewModel.uiState.collect() }
+            runCurrent()
+
+            assertEquals(ChangedProviderId, recreatedViewModel.uiState.value.providerId)
+            assertEquals(ChangedCustomUrl, recreatedViewModel.uiState.value.customBaseUrl)
+            assertFalse(recreatedViewModel.uiState.value.hasPersistenceError)
+        }
+
+    @Test
+    fun `check stops at configuration storage failure and reports storage`() =
+        runTest {
+            val initialSettings = configuredSettingsRepository().snapshot()
+            val settingsRepository = FailingAppSettingsRepository(initialSettings, failuresRemaining = Int.MAX_VALUE)
+            val repository = FakeGeoAssetRepository()
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.updateCustomBaseUrl(ChangedCustomUrl)
+            viewModel.checkForUpdates()
+            advanceUntilIdle()
+
+            assertEquals(0, repository.checkCalls)
+            assertEquals(
+                AssetProviderCheckOutcome.Failed(AssetProviderFailureReason.Storage),
+                viewModel.uiState.value.lastResult,
+            )
+            assertTrue(viewModel.uiState.value.hasPersistenceError)
+        }
+
+    @Test
+    fun `unchecked provider result reports missing configuration`() =
+        runTest {
+            val repository = FakeGeoAssetRepository()
+            repository.checkResult = repository.checkResult.copy(anyChecked = false)
+            val viewModel = AssetProviderViewModel(FakeAppSettingsRepository(), repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.checkForUpdates()
+            advanceUntilIdle()
+
+            assertEquals(
+                AssetProviderCheckOutcome.Failed(AssetProviderFailureReason.MissingConfiguration),
+                viewModel.uiState.value.lastResult,
+            )
+        }
+
+    @Test
     fun `import operation rejects provider configuration changes until result commits`() =
         runTest {
             val settingsRepository = configuredSettingsRepository()
@@ -398,6 +486,35 @@ class AssetProviderViewModelTest {
         override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
             updateStarted.complete(Unit)
             continueUpdate.await()
+            state.value =
+                state.value
+                    .toBuilder()
+                    .apply(transform)
+                    .build()
+        }
+
+        override suspend fun replace(settings: AppSettings) {
+            state.value = settings
+        }
+    }
+
+    private class FailingAppSettingsRepository(
+        initialSettings: AppSettings,
+        var failuresRemaining: Int,
+    ) : AppSettingsRepository {
+        private val state = MutableStateFlow(initialSettings)
+        var updateCalls = 0
+
+        override val settings: Flow<AppSettings> = state
+
+        override suspend fun snapshot(): AppSettings = state.value
+
+        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+            updateCalls += 1
+            if (failuresRemaining > 0) {
+                failuresRemaining -= 1
+                throw IOException("settings unavailable")
+            }
             state.value =
                 state.value
                     .toBuilder()

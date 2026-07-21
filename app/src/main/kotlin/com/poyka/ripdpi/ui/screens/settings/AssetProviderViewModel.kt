@@ -12,6 +12,9 @@ import com.poyka.ripdpi.data.assets.DefaultAssetProviderId
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +47,8 @@ data class AssetProviderUiState(
     val staleness: GeoAssetStaleness = GeoAssetStaleness.Never,
     val activeOperation: AssetProviderOperation? = null,
     val lastResult: AssetProviderCheckOutcome? = null,
+    val hasPersistenceError: Boolean = false,
+    val isExitPersistenceInProgress: Boolean = false,
 )
 
 enum class AssetProviderOperation {
@@ -58,6 +63,7 @@ enum class AssetProviderFailureReason {
     TooLarge,
     Storage,
     Network,
+    MissingConfiguration,
     Unexpected,
 }
 
@@ -86,6 +92,12 @@ class AssetProviderViewModel
     ) : ViewModel() {
         private val transient = MutableStateFlow(TransientState())
         private val configurationOperationMutex = Mutex()
+        private val configurationPersistence =
+            AssetProviderConfigurationPersistence(
+                scope = viewModelScope,
+                settingsRepository = settingsRepository,
+                onPersistenceResult = ::handlePersistenceResult,
+            )
 
         val uiState: StateFlow<AssetProviderUiState> =
             combinePersistedAndTransient()
@@ -96,27 +108,37 @@ class AssetProviderViewModel
                 )
 
         fun selectProvider(providerId: String) {
-            if (!acceptConfigurationDraft { it.copy(providerIdDraft = providerId) }) return
-            viewModelScope.launch {
-                configurationOperationMutex.withLock {
-                    persistLatestConfigurationDrafts()
-                }
-            }
+            val draft = acceptConfigurationDraft { it.copy(providerIdDraft = providerId) } ?: return
+            configurationPersistence.persistBestEffort(draft)
         }
 
         fun updateCustomBaseUrl(url: String) {
-            if (!acceptConfigurationDraft { it.copy(customBaseUrlDraft = url) }) return
-            viewModelScope.launch {
-                configurationOperationMutex.withLock {
-                    persistLatestConfigurationDrafts()
-                }
-            }
+            val draft = acceptConfigurationDraft { it.copy(customBaseUrlDraft = url) } ?: return
+            configurationPersistence.persistBestEffort(draft)
         }
 
         fun checkForUpdates() {
             launchOperation(AssetProviderOperation.CheckUpdates) {
-                persistLatestConfigurationDrafts()
+                configurationPersistence.persistAndAwait(latestConfigurationDraft())
                 mapResult(geoAssetRepository.checkAndUpdate())
+            }
+        }
+
+        fun retryConfigurationPersistence() {
+            configurationPersistence.persistBestEffort(latestConfigurationDraft())
+        }
+
+        suspend fun persistConfigurationBeforeExit(): Boolean {
+            if (!claimExitPersistence()) return false
+            return try {
+                configurationPersistence.persistAndAwait(latestConfigurationDraft())
+                true
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: AssetProviderConfigurationPersistenceException) {
+                false
+            } finally {
+                transient.update { it.copy(isExitPersistenceInProgress = false) }
             }
         }
 
@@ -152,23 +174,45 @@ class AssetProviderViewModel
                         staleness = computeStaleness(settings.geoAssetLastUpdatedEpochMillis),
                         activeOperation = t.activeOperation,
                         lastResult = t.lastResult,
+                        hasPersistenceError = t.hasPersistenceError,
+                        isExitPersistenceInProgress = t.isExitPersistenceInProgress,
                     )
                 }
 
-        private fun acceptConfigurationDraft(transform: (TransientState) -> TransientState): Boolean {
+        private fun acceptConfigurationDraft(
+            transform: (TransientState) -> TransientState,
+        ): AssetProviderConfigurationDraft? {
             while (true) {
                 val current = transient.value
-                if (current.activeOperation != null) return false
-                if (transient.compareAndSet(current, transform(current))) return true
+                if (current.activeOperation != null || current.isExitPersistenceInProgress) return null
+                val updated =
+                    transform(current).copy(
+                        configurationSequence = current.configurationSequence + 1,
+                    )
+                if (transient.compareAndSet(current, updated)) return updated.toConfigurationDraft()
             }
         }
 
-        private suspend fun persistLatestConfigurationDrafts() {
-            val current = transient.value
-            if (current.providerIdDraft == null && current.customBaseUrlDraft == null) return
-            settingsRepository.update {
-                current.providerIdDraft?.let { geoAssetProviderId = it }
-                current.customBaseUrlDraft?.let { geoAssetCustomBaseUrl = it.trim() }
+        private fun claimExitPersistence(): Boolean {
+            while (true) {
+                val current = transient.value
+                if (current.isExitPersistenceInProgress) return false
+                if (transient.compareAndSet(current, current.copy(isExitPersistenceInProgress = true))) return true
+            }
+        }
+
+        private fun latestConfigurationDraft(): AssetProviderConfigurationDraft = transient.value.toConfigurationDraft()
+
+        private fun handlePersistenceResult(
+            sequence: Long,
+            error: Exception?,
+        ) {
+            transient.update { current ->
+                if (sequence < current.configurationSequence) {
+                    current
+                } else {
+                    current.copy(hasPersistenceError = error != null)
+                }
             }
         }
 
@@ -208,7 +252,7 @@ class AssetProviderViewModel
         private fun claimOperation(operation: AssetProviderOperation): Boolean {
             while (true) {
                 val current = transient.value
-                if (current.activeOperation != null) return false
+                if (current.activeOperation != null || current.isExitPersistenceInProgress) return false
                 if (
                     transient.compareAndSet(
                         current,
@@ -222,6 +266,10 @@ class AssetProviderViewModel
 
         private fun mapFailure(error: Exception): AssetProviderFailureReason =
             when (error) {
+                is AssetProviderConfigurationPersistenceException -> {
+                    AssetProviderFailureReason.Storage
+                }
+
                 is GeoAssetIntegrityException -> {
                     when (error.reason) {
                         GeoAssetIntegrityFailure.UnableToOpen -> AssetProviderFailureReason.UnableToOpen
@@ -249,21 +297,134 @@ class AssetProviderViewModel
         }
 
         private fun mapResult(result: GeoAssetUpdateResult): AssetProviderCheckOutcome =
-            if (result.updatedAny) {
-                AssetProviderCheckOutcome.Updated(result.geoipTag, result.geositeTag)
-            } else {
-                AssetProviderCheckOutcome.UpToDate
+            when {
+                !result.anyChecked -> {
+                    AssetProviderCheckOutcome.Failed(AssetProviderFailureReason.MissingConfiguration)
+                }
+
+                result.updatedAny -> {
+                    AssetProviderCheckOutcome.Updated(result.geoipTag, result.geositeTag)
+                }
+
+                else -> {
+                    AssetProviderCheckOutcome.UpToDate
+                }
             }
 
         private data class TransientState(
             val providerIdDraft: String? = null,
             val customBaseUrlDraft: String? = null,
+            val configurationSequence: Long = 0L,
+            val hasPersistenceError: Boolean = false,
+            val isExitPersistenceInProgress: Boolean = false,
             val activeOperation: AssetProviderOperation? = null,
             val lastResult: AssetProviderCheckOutcome? = null,
-        )
+        ) {
+            fun toConfigurationDraft(): AssetProviderConfigurationDraft =
+                AssetProviderConfigurationDraft(
+                    sequence = configurationSequence,
+                    providerId = providerIdDraft,
+                    customBaseUrl = customBaseUrlDraft,
+                )
+        }
 
         private companion object {
             const val STOP_TIMEOUT_MILLIS = 5_000L
             const val MILLIS_PER_DAY = 86_400_000L
         }
     }
+
+private data class AssetProviderConfigurationDraft(
+    val sequence: Long,
+    val providerId: String?,
+    val customBaseUrl: String?,
+) {
+    val isEmpty: Boolean get() = providerId == null && customBaseUrl == null
+}
+
+private class AssetProviderConfigurationPersistenceException(
+    cause: Exception,
+) : Exception(cause)
+
+private class AssetProviderConfigurationPersistence(
+    scope: CoroutineScope,
+    private val settingsRepository: AppSettingsRepository,
+    private val onPersistenceResult: (Long, Exception?) -> Unit,
+) {
+    private val commands = Channel<AssetProviderConfigurationDraft>(Channel.CONFLATED)
+    private val persistenceMutex = Mutex()
+    private var latestSequence = 0L
+    private var acknowledgedThroughSequence = 0L
+
+    init {
+        scope.launch {
+            for (command in commands) {
+                persistWithRetry(command, throwOnFailure = false)
+            }
+        }
+    }
+
+    fun persistBestEffort(draft: AssetProviderConfigurationDraft) {
+        if (draft.isEmpty) return
+        latestSequence = maxOf(latestSequence, draft.sequence)
+        commands.trySend(draft)
+    }
+
+    suspend fun persistAndAwait(draft: AssetProviderConfigurationDraft) {
+        if (draft.isEmpty || draft.sequence <= acknowledgedThroughSequence) return
+        latestSequence = maxOf(latestSequence, draft.sequence)
+        persistWithRetry(draft, throwOnFailure = true)
+    }
+
+    private suspend fun persistWithRetry(
+        draft: AssetProviderConfigurationDraft,
+        throwOnFailure: Boolean,
+    ) {
+        var attempt = 0
+        while (draft.sequence > acknowledgedThroughSequence) {
+            if (!throwOnFailure && draft.sequence < latestSequence) return
+            val failure = runCatching { persistOnce(draft) }.exceptionOrNull()
+            when (failure) {
+                null -> {
+                    onPersistenceResult(draft.sequence, null)
+                    return
+                }
+
+                is CancellationException -> {
+                    throw failure
+                }
+
+                is Exception -> {
+                    onPersistenceResult(draft.sequence, failure)
+                    attempt += 1
+                    if (attempt >= AutomaticPersistenceAttempts) {
+                        if (throwOnFailure) throw AssetProviderConfigurationPersistenceException(failure)
+                        return
+                    }
+                    if (attempt >= ImmediatePersistenceAttempts) delay(PersistenceRetryDelayMillis)
+                }
+
+                else -> {
+                    throw failure
+                }
+            }
+        }
+    }
+
+    private suspend fun persistOnce(draft: AssetProviderConfigurationDraft) {
+        persistenceMutex.withLock {
+            if (draft.sequence <= acknowledgedThroughSequence) return
+            settingsRepository.update {
+                draft.providerId?.let { geoAssetProviderId = it }
+                draft.customBaseUrl?.let { geoAssetCustomBaseUrl = it.trim() }
+            }
+            acknowledgedThroughSequence = maxOf(acknowledgedThroughSequence, draft.sequence)
+        }
+    }
+
+    private companion object {
+        const val ImmediatePersistenceAttempts = 2
+        const val AutomaticPersistenceAttempts = 3
+        const val PersistenceRetryDelayMillis = 1_000L
+    }
+}
