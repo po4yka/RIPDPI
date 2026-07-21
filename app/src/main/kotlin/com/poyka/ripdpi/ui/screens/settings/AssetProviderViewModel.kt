@@ -96,27 +96,26 @@ class AssetProviderViewModel
                 )
 
         fun selectProvider(providerId: String) {
-            if (transient.value.activeOperation != null) return
+            if (!acceptConfigurationDraft { it.copy(providerIdDraft = providerId) }) return
             viewModelScope.launch {
                 configurationOperationMutex.withLock {
-                    if (transient.value.activeOperation != null) return@withLock
-                    settingsRepository.update { geoAssetProviderId = providerId }
+                    persistLatestConfigurationDrafts()
                 }
             }
         }
 
         fun updateCustomBaseUrl(url: String) {
-            if (transient.value.activeOperation != null) return
+            if (!acceptConfigurationDraft { it.copy(customBaseUrlDraft = url) }) return
             viewModelScope.launch {
                 configurationOperationMutex.withLock {
-                    if (transient.value.activeOperation != null) return@withLock
-                    settingsRepository.update { geoAssetCustomBaseUrl = url.trim() }
+                    persistLatestConfigurationDrafts()
                 }
             }
         }
 
         fun checkForUpdates() {
             launchOperation(AssetProviderOperation.CheckUpdates) {
+                persistLatestConfigurationDrafts()
                 mapResult(geoAssetRepository.checkAndUpdate())
             }
         }
@@ -144,8 +143,10 @@ class AssetProviderViewModel
             kotlinx.coroutines.flow
                 .combine(settingsRepository.settings, transient.asStateFlow()) { settings, t ->
                     AssetProviderUiState(
-                        providerId = settings.geoAssetProviderId.ifEmpty { DefaultAssetProviderId },
-                        customBaseUrl = settings.geoAssetCustomBaseUrl,
+                        providerId =
+                            t.providerIdDraft
+                                ?: settings.geoAssetProviderId.ifEmpty { DefaultAssetProviderId },
+                        customBaseUrl = t.customBaseUrlDraft ?: settings.geoAssetCustomBaseUrl,
                         geoipTag = settings.geoAssetGeoipVersionTag,
                         geositeTag = settings.geoAssetGeositeVersionTag,
                         staleness = computeStaleness(settings.geoAssetLastUpdatedEpochMillis),
@@ -153,6 +154,23 @@ class AssetProviderViewModel
                         lastResult = t.lastResult,
                     )
                 }
+
+        private fun acceptConfigurationDraft(transform: (TransientState) -> TransientState): Boolean {
+            while (true) {
+                val current = transient.value
+                if (current.activeOperation != null) return false
+                if (transient.compareAndSet(current, transform(current))) return true
+            }
+        }
+
+        private suspend fun persistLatestConfigurationDrafts() {
+            val current = transient.value
+            if (current.providerIdDraft == null && current.customBaseUrlDraft == null) return
+            settingsRepository.update {
+                current.providerIdDraft?.let { geoAssetProviderId = it }
+                current.customBaseUrlDraft?.let { geoAssetCustomBaseUrl = it.trim() }
+            }
+        }
 
         private fun launchOperation(
             operation: AssetProviderOperation,
@@ -238,6 +256,8 @@ class AssetProviderViewModel
             }
 
         private data class TransientState(
+            val providerIdDraft: String? = null,
+            val customBaseUrlDraft: String? = null,
             val activeOperation: AssetProviderOperation? = null,
             val lastResult: AssetProviderCheckOutcome? = null,
         )

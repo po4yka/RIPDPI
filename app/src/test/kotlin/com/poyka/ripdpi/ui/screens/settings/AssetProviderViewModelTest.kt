@@ -241,6 +241,55 @@ class AssetProviderViewModelTest {
         }
 
     @Test
+    fun `custom URL draft stays responsive while persistence is blocked`() =
+        runTest {
+            val initialSettings = configuredSettingsRepository().snapshot()
+            val settingsRepository = BlockingAppSettingsRepository(initialSettings)
+            val viewModel = AssetProviderViewModel(settingsRepository, FakeGeoAssetRepository())
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.updateCustomBaseUrl(" https://assets.example/first ")
+            settingsRepository.updateStarted.await()
+            viewModel.updateCustomBaseUrl(" https://assets.example/latest ")
+            runCurrent()
+
+            assertEquals(" https://assets.example/latest ", viewModel.uiState.value.customBaseUrl)
+            assertEquals(InitialCustomUrl, settingsRepository.snapshot().geoAssetCustomBaseUrl)
+
+            settingsRepository.continueUpdate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals("https://assets.example/latest", settingsRepository.snapshot().geoAssetCustomBaseUrl)
+            assertEquals(" https://assets.example/latest ", viewModel.uiState.value.customBaseUrl)
+        }
+
+    @Test
+    fun `check immediately after configuration edits uses latest accepted drafts`() =
+        runTest {
+            val settingsRepository = configuredSettingsRepository()
+            val repository = FakeGeoAssetRepository()
+            repository.checkAction = {
+                val settings = settingsRepository.snapshot()
+                repository.observedProviderId = settings.geoAssetProviderId
+                repository.observedCustomBaseUrl = settings.geoAssetCustomBaseUrl
+            }
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.selectProvider(ChangedProviderId)
+            viewModel.updateCustomBaseUrl("  $ChangedCustomUrl  ")
+            viewModel.checkForUpdates()
+            advanceUntilIdle()
+
+            assertEquals(ChangedProviderId, repository.observedProviderId)
+            assertEquals(ChangedCustomUrl, repository.observedCustomBaseUrl)
+            assertEquals(ChangedProviderId, settingsRepository.snapshot().geoAssetProviderId)
+            assertEquals(ChangedCustomUrl, settingsRepository.snapshot().geoAssetCustomBaseUrl)
+        }
+
+    @Test
     fun `import operation rejects provider configuration changes until result commits`() =
         runTest {
             val settingsRepository = configuredSettingsRepository()
@@ -309,6 +358,7 @@ class AssetProviderViewModelTest {
         var checkAction: suspend () -> Unit = {}
         var checkCalls: Int = 0
         var observedProviderId: String? = null
+        var observedCustomBaseUrl: String? = null
         var checkResult =
             GeoAssetUpdateResult(
                 providerId = InitialProviderId,
