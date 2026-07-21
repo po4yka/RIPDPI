@@ -4,7 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -201,6 +204,7 @@ private fun RowScope.BottomNavItem(
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val focusShape = RipDpiThemeTokens.shapes.md
     val iconTint by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
         animationSpec = motion.stateTween(),
@@ -218,6 +222,12 @@ private fun RowScope.BottomNavItem(
     )
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val focusBorderColor by animateColorAsState(
+        targetValue = bottomNavFocusBorderColor(isFocused, colors.outline),
+        animationSpec = motion.quickTween(),
+        label = "bottomNavFocusBorder",
+    )
     val contentAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.6f else 1f,
         animationSpec = motion.quickTween(),
@@ -229,6 +239,7 @@ private fun RowScope.BottomNavItem(
             Modifier
                 .fillMaxHeight()
                 .weight(1f)
+                .border(RipDpiStroke.Thick, focusBorderColor, focusShape)
                 .ripDpiTestTag(RipDpiTestTags.bottomNav(destination))
                 .graphicsLayer {
                     scaleX = selectionScale
@@ -273,6 +284,11 @@ private fun RowScope.BottomNavItem(
         )
     }
 }
+
+internal fun bottomNavFocusBorderColor(
+    isFocused: Boolean,
+    outlineColor: Color,
+): Color = if (isFocused) outlineColor else Color.Transparent
 
 private fun Route.compactBottomNavTitleRes(): Int =
     when (this) {

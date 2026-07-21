@@ -3,9 +3,17 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -74,6 +82,41 @@ class DiagnosticsSectionSwitcherTest {
         }
         nodes.zipWithNext().forEach { (upper, lower) ->
             assertTrue(upper.boundsInRoot.bottom <= lower.boundsInRoot.top)
+        }
+    }
+
+    @Test
+    fun sectionSwitcherExposesOneTabGroupAtDefaultAndMaximumFont() {
+        var fontScale by mutableStateOf(1f)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, fontScale)) {
+                RipDpiTheme {
+                    DiagnosticsSectionSwitcher(
+                        selectedSection = DiagnosticsSection.Dashboard,
+                        onSelectSection = {},
+                    )
+                }
+            }
+        }
+
+        listOf(1f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale = scale }
+            composeRule.waitForIdle()
+
+            composeRule
+                .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.SelectableGroup))
+                .assertCountEquals(1)
+            DiagnosticsSection.entries.forEach { section ->
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.diagnosticsSection(section))
+                    .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+                    .assert(
+                        SemanticsMatcher.expectValue(
+                            SemanticsProperties.Selected,
+                            section == DiagnosticsSection.Dashboard,
+                        ),
+                    )
+            }
         }
     }
 }

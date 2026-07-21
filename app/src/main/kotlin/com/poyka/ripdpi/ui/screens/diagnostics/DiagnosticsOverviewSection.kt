@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsHealth
@@ -66,6 +68,7 @@ internal fun DiagnosticsSectionSwitcher(
             modifier =
                 modifier
                     .fillMaxWidth()
+                    .selectableGroup()
                     .padding(top = spacing.sm, bottom = spacing.sm),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
@@ -90,6 +93,7 @@ internal fun DiagnosticsSectionSwitcher(
             modifier =
                 modifier
                     .fillMaxWidth()
+                    .selectableGroup()
                     .padding(top = spacing.sm, bottom = spacing.sm),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -115,6 +119,7 @@ private fun DiagnosticsSectionChip(
     RipDpiChip(
         text = section.label(),
         selected = selected,
+        role = Role.Tab,
         onClick = { onSelect(section) },
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSection(section)),
     )

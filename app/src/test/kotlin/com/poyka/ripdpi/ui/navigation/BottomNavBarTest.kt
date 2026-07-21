@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -153,5 +155,26 @@ class BottomNavBarTest {
             assertTrue(indicator.boundsInRoot.left >= selectedTab.boundsInRoot.left)
             assertTrue(indicator.boundsInRoot.right <= selectedTab.boundsInRoot.right)
         }
+    }
+
+    @Test
+    fun everyTabExposesKeyboardFocusActionAndVisibleFocusStyle() {
+        composeRule.setContent {
+            RipDpiTheme {
+                BottomNavBar(
+                    selectedRoute = Route.Home,
+                    onNavigate = {},
+                )
+            }
+        }
+
+        Route.topLevel.forEach { route ->
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.RequestFocus))
+        }
+        val outline = Color(0xFF123456)
+        assertEquals(outline, bottomNavFocusBorderColor(isFocused = true, outlineColor = outline))
+        assertEquals(Color.Transparent, bottomNavFocusBorderColor(isFocused = false, outlineColor = outline))
     }
 }
