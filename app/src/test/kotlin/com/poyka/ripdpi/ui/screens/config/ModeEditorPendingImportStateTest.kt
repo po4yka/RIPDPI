@@ -2,10 +2,8 @@ package com.poyka.ripdpi.ui.screens.config
 
 import android.net.Uri
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -48,8 +46,9 @@ class ModeEditorPendingImportStateTest {
                 PendingMasqueDocumentResult(
                     MasqueImportAction.CertificateChain,
                     Uri.parse("content://credential/client.pem"),
+                    42L,
                 )
-            pkcs12State.value = PendingMasquePkcs12Import(Uri.parse("content://credential/client.p12"))
+            pkcs12State.value = PendingMasquePkcs12Import(Uri.parse("content://credential/client.p12"), 43L)
             passwordState.value = "never-save-this"
         }
 
@@ -61,11 +60,12 @@ class ModeEditorPendingImportStateTest {
                 PendingMasqueDocumentResult(
                     MasqueImportAction.CertificateChain,
                     Uri.parse("content://credential/client.pem"),
+                    42L,
                 ),
                 resultState.value,
             )
             assertEquals(
-                PendingMasquePkcs12Import(Uri.parse("content://credential/client.p12")),
+                PendingMasquePkcs12Import(Uri.parse("content://credential/client.p12"), 43L),
                 pkcs12State.value,
             )
             assertEquals("", passwordState.value)
@@ -73,47 +73,136 @@ class ModeEditorPendingImportStateTest {
     }
 
     @Test
-    fun `selected document waits for a fresh ready editor session`() {
-        var readySessionId: Long? by mutableStateOf(null)
+    fun `selected document is consumed for its original editor session`() {
         val pending =
             PendingMasqueDocumentResult(
                 MasqueImportAction.PrivateKey,
                 Uri.parse("content://credential/client.key"),
+                77L,
             )
-        var consumed: Pair<PendingMasqueDocumentResult, Long>? = null
+        var consumed: PendingMasqueDocumentResult? = null
 
         composeRule.setContent {
-            ModeEditorPendingDocumentResultEffect(pending, readySessionId) { result, sessionId ->
-                consumed = result to sessionId
-            }
+            ModeEditorPendingDocumentResultEffect(
+                pendingResult = pending,
+                editorSessionId = 77L,
+                onReady = { consumed = it },
+                onDiscard = {},
+            )
         }
 
         composeRule.runOnIdle {
-            assertNull(consumed)
-            readySessionId = 77L
-        }
-        composeRule.runOnIdle {
-            assertEquals(pending to 77L, consumed)
+            assertEquals(pending, consumed)
         }
     }
 
     @Test
-    fun `permission result waits for a fresh ready editor session`() {
-        var readySessionId: Long? by mutableStateOf(null)
+    fun `selected document is discarded for a replacement editor session`() {
+        val pending =
+            PendingMasqueDocumentResult(
+                MasqueImportAction.PrivateKey,
+                Uri.parse("content://credential/client.key"),
+                77L,
+            )
+        var consumed: PendingMasqueDocumentResult? = null
+        var discarded = false
+
+        composeRule.setContent {
+            ModeEditorPendingDocumentResultEffect(
+                pendingResult = pending,
+                editorSessionId = 88L,
+                onReady = { consumed = it },
+                onDiscard = { discarded = true },
+            )
+        }
+
+        composeRule.runOnIdle {
+            assertNull(consumed)
+            assertEquals(true, discarded)
+        }
+    }
+
+    @Test
+    fun `selected document is discarded while editor session is absent`() {
+        val pending =
+            PendingMasqueDocumentResult(
+                MasqueImportAction.PrivateKey,
+                Uri.parse("content://credential/client.key"),
+                77L,
+            )
+        var consumed: PendingMasqueDocumentResult? = null
+        var discarded = false
+
+        composeRule.setContent {
+            ModeEditorPendingDocumentResultEffect(
+                pendingResult = pending,
+                editorSessionId = null,
+                onReady = { consumed = it },
+                onDiscard = { discarded = true },
+            )
+        }
+
+        composeRule.runOnIdle {
+            assertNull(consumed)
+            assertEquals(true, discarded)
+        }
+    }
+
+    @Test
+    fun `permission result is consumed for its original editor session`() {
         var consumedSessionId: Long? = null
 
         composeRule.setContent {
-            ModeEditorPendingDraftUpdateEffect(pending = true, readySessionId) { sessionId ->
-                consumedSessionId = sessionId
-            }
+            ModeEditorPendingDraftUpdateEffect(
+                pendingSessionId = 88L,
+                editorSessionId = 88L,
+                onReady = { consumedSessionId = it },
+                onDiscard = {},
+            )
+        }
+
+        composeRule.runOnIdle {
+            assertEquals(88L, consumedSessionId)
+        }
+    }
+
+    @Test
+    fun `permission result is discarded while editor session is absent`() {
+        var consumedSessionId: Long? = null
+        var discarded = false
+
+        composeRule.setContent {
+            ModeEditorPendingDraftUpdateEffect(
+                pendingSessionId = 88L,
+                editorSessionId = null,
+                onReady = { consumedSessionId = it },
+                onDiscard = { discarded = true },
+            )
         }
 
         composeRule.runOnIdle {
             assertNull(consumedSessionId)
-            readySessionId = 88L
+            assertEquals(true, discarded)
         }
+    }
+
+    @Test
+    fun `permission result is discarded for a replacement editor session`() {
+        var consumedSessionId: Long? = null
+        var discarded = false
+
+        composeRule.setContent {
+            ModeEditorPendingDraftUpdateEffect(
+                pendingSessionId = 88L,
+                editorSessionId = 99L,
+                onReady = { consumedSessionId = it },
+                onDiscard = { discarded = true },
+            )
+        }
+
         composeRule.runOnIdle {
-            assertEquals(88L, consumedSessionId)
+            assertNull(consumedSessionId)
+            assertEquals(true, discarded)
         }
     }
 

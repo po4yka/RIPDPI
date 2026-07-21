@@ -105,11 +105,13 @@ internal data class MasqueImportRequest(
 
 internal data class PendingMasquePkcs12Import(
     val uri: Uri,
+    val sessionId: Long,
 )
 
 internal data class PendingMasqueDocumentResult(
     val action: MasqueImportAction,
     val uri: Uri,
+    val sessionId: Long,
 )
 
 @Composable
@@ -205,22 +207,36 @@ fun ModeEditorRoute(
 
 @Composable
 private fun rememberModeEditorCoarseLocationPermissionAction(viewModel: ConfigViewModel): (String) -> Unit {
-    var pendingEnable by rememberSaveable { mutableStateOf(false) }
+    var permissionRequestSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingEnableSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
     val editorSessionId = viewModel.currentEditorSessionId
-    ModeEditorPendingDraftUpdateEffect(pendingEnable, editorSessionId) { readySessionId ->
-        if (
+    LaunchedEffect(permissionRequestSessionId, editorSessionId) {
+        val requestSessionId = permissionRequestSessionId ?: return@LaunchedEffect
+        if (requestSessionId != editorSessionId) permissionRequestSessionId = null
+    }
+    ModeEditorPendingDraftUpdateEffect(
+        pendingSessionId = pendingEnableSessionId,
+        editorSessionId = editorSessionId,
+        onReady = { readySessionId ->
             viewModel.updateDraft(expectedSessionId = readySessionId) {
                 copy(relayMasqueCloudflareGeohashEnabled = true)
             }
-        ) {
-            pendingEnable = false
-        }
-    }
+            pendingEnableSessionId = null
+        },
+        onDiscard = { pendingEnableSessionId = null },
+    )
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) pendingEnable = true
+            val requestSessionId = permissionRequestSessionId
+            permissionRequestSessionId = null
+            pendingEnableSessionId = requestSessionId.takeIf { granted }
         }
-    return launcher::launch
+    return { permission ->
+        viewModel.currentEditorSessionId?.let { sessionId ->
+            permissionRequestSessionId = sessionId
+            launcher.launch(permission)
+        }
+    }
 }
 
 @Composable
@@ -230,34 +246,52 @@ private fun rememberModeEditorMasqueImportAction(viewModel: ConfigViewModel): (M
     var pendingPkcs12 by rememberPendingMasquePkcs12ImportState()
     var pkcs12Password by remember { mutableStateOf("") }
     val editorSessionId = viewModel.currentEditorSessionId
+    LaunchedEffect(pendingRequest, editorSessionId) {
+        val request = pendingRequest ?: return@LaunchedEffect
+        if (request.sessionId != editorSessionId) pendingRequest = null
+    }
     val documentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             val request = pendingRequest
             pendingRequest = null
             pendingResult =
-                if (request == null || uri == null) null else PendingMasqueDocumentResult(request.action, uri)
+                if (request == null || uri == null) {
+                    null
+                } else {
+                    PendingMasqueDocumentResult(request.action, uri, request.sessionId)
+                }
         }
 
-    ModeEditorPendingDocumentResultEffect(pendingResult, viewModel.currentEditorSessionId) { result, sessionId ->
-        pendingResult = null
-        handleMasqueDocumentResult(
-            viewModel = viewModel,
-            request = MasqueImportRequest(result.action, sessionId),
-            uri = result.uri,
-            onPkcs12Selected = { pendingPkcs12 = it },
-        )
-    }
     val clearPkcs12 = {
         pendingPkcs12 = null
         pkcs12Password = ""
     }
+    ModeEditorPendingDocumentResultEffect(
+        pendingResult = pendingResult,
+        editorSessionId = editorSessionId,
+        onReady = { result ->
+            pendingResult = null
+            handleMasqueDocumentResult(
+                viewModel = viewModel,
+                request = MasqueImportRequest(result.action, result.sessionId),
+                uri = result.uri,
+                onPkcs12Selected = { pendingPkcs12 = it },
+            )
+        },
+        onDiscard = { pendingResult = null },
+    )
+    LaunchedEffect(pendingPkcs12, editorSessionId) {
+        val pending = pendingPkcs12 ?: return@LaunchedEffect
+        if (pending.sessionId != editorSessionId) clearPkcs12()
+    }
+    val activePkcs12 = pendingPkcs12?.takeIf { it.sessionId == editorSessionId }
     ModeEditorPkcs12Dialog(
-        uri = pendingPkcs12?.uri?.takeIf { editorSessionId != null },
+        uri = activePkcs12?.uri,
         password = pkcs12Password,
         onPasswordChanged = { pkcs12Password = it },
         onImport = { selectedUri, password ->
-            editorSessionId?.let { readySessionId ->
-                viewModel.importRelayMasquePkcs12(selectedUri, password, readySessionId)
+            activePkcs12?.let { pending ->
+                viewModel.importRelayMasquePkcs12(selectedUri, password, pending.sessionId)
                 clearPkcs12()
             }
         },
@@ -308,6 +342,7 @@ internal fun rememberPendingMasquePkcs12ImportState(): MutableState<PendingMasqu
                     } else {
                         mapOf(
                             "uri" to pending.uri.toString(),
+                            "sessionId" to pending.sessionId,
                         )
                     }
                 },
@@ -317,6 +352,7 @@ internal fun rememberPendingMasquePkcs12ImportState(): MutableState<PendingMasqu
                     } else {
                         PendingMasquePkcs12Import(
                             uri = Uri.parse(values.getValue("uri") as String),
+                            sessionId = values.getValue("sessionId") as Long,
                         )
                     }
                 },
@@ -335,6 +371,7 @@ internal fun rememberPendingMasqueDocumentResultState(): MutableState<PendingMas
                         mapOf(
                             "action" to result.action.name,
                             "uri" to result.uri.toString(),
+                            "sessionId" to result.sessionId,
                         )
                     }
                 },
@@ -345,6 +382,7 @@ internal fun rememberPendingMasqueDocumentResultState(): MutableState<PendingMas
                         PendingMasqueDocumentResult(
                             action = MasqueImportAction.valueOf(values.getValue("action") as String),
                             uri = Uri.parse(values.getValue("uri") as String),
+                            sessionId = values.getValue("sessionId") as Long,
                         )
                     }
                 },
@@ -355,23 +393,25 @@ internal fun rememberPendingMasqueDocumentResultState(): MutableState<PendingMas
 internal fun ModeEditorPendingDocumentResultEffect(
     pendingResult: PendingMasqueDocumentResult?,
     editorSessionId: Long?,
-    onReady: (PendingMasqueDocumentResult, Long) -> Unit,
+    onReady: (PendingMasqueDocumentResult) -> Unit,
+    onDiscard: () -> Unit,
 ) {
     LaunchedEffect(pendingResult, editorSessionId) {
         val result = pendingResult ?: return@LaunchedEffect
-        val readySessionId = editorSessionId ?: return@LaunchedEffect
-        onReady(result, readySessionId)
+        if (result.sessionId == editorSessionId) onReady(result) else onDiscard()
     }
 }
 
 @Composable
 internal fun ModeEditorPendingDraftUpdateEffect(
-    pending: Boolean,
+    pendingSessionId: Long?,
     editorSessionId: Long?,
     onReady: (Long) -> Unit,
+    onDiscard: () -> Unit,
 ) {
-    LaunchedEffect(pending, editorSessionId) {
-        if (pending && editorSessionId != null) onReady(editorSessionId)
+    LaunchedEffect(pendingSessionId, editorSessionId) {
+        val expectedSessionId = pendingSessionId ?: return@LaunchedEffect
+        if (expectedSessionId == editorSessionId) onReady(expectedSessionId) else onDiscard()
     }
 }
 
