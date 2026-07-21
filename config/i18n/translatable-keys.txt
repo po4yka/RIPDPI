@@ -461,6 +461,14 @@ app:blockcheck_section_title
 app:blockcheck_status_format
 app:blockcheck_try_recommended_strategy
 app:blockcheck_try_recommended_strategy_format
+app:bottom_nav_config_compact
+app:bottom_nav_config_maximum
+app:bottom_nav_diagnostics_compact
+app:bottom_nav_diagnostics_maximum
+app:bottom_nav_home_compact
+app:bottom_nav_home_maximum
+app:bottom_nav_settings_compact
+app:bottom_nav_settings_maximum
 app:brand_badge_content_description
 app:bye_dpi_proxy_ip_setting
 app:cd_coach_mark
@@ -604,6 +612,7 @@ app:config_dns_summary_disabled
 app:config_dns_summary_enabled
 app:config_edit_current
 app:config_editor_body
+app:config_editor_hydration_failed
 app:config_editor_title
 app:config_engine_section
 app:config_error_invalid_chain
@@ -3451,6 +3460,8 @@ app:strategy_ab_badge_candidate
 app:strategy_ab_badge_current
 app:strategy_ab_title
 app:strategy_config_active_path_label
+app:strategy_config_draft_save_failed_body
+app:strategy_config_draft_save_failed_title
 app:strategy_config_editor_label
 app:strategy_config_entry_body
 app:strategy_config_entry_title
@@ -3485,6 +3496,10 @@ app:strategy_config_reload_action
 app:strategy_config_reload_failed_title
 app:strategy_config_reloaded_body
 app:strategy_config_reloaded_title
+app:strategy_config_restore_failed_body
+app:strategy_config_restore_failed_title
+app:strategy_config_restore_retry
+app:strategy_config_restoring_draft
 app:strategy_config_saved_body
 app:strategy_config_saved_restart_pending_body
 app:strategy_config_saved_restarting_body
