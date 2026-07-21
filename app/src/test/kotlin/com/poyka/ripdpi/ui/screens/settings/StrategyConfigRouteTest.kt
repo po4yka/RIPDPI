@@ -79,4 +79,22 @@ class StrategyConfigRouteTest {
             assertFalse(requireNotNull(viewModel.session).isSaving)
             assertFalse(banner.saved)
         }
+
+    @Test
+    fun `draft persistence error takes precedence over an older banner`() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val previous =
+            StrategyConfigBanner(
+                title = "Saved",
+                message = "Saved for the next connection",
+                tone = WarningBannerTone.Info,
+            )
+
+        val failure = resolveStrategyConfigRouteBanner(context, previous, hasPersistenceError = true)
+
+        assertEquals(context.getString(R.string.strategy_config_draft_save_failed_title), failure?.title)
+        assertEquals(context.getString(R.string.strategy_config_draft_save_failed_body), failure?.message)
+        assertEquals(WarningBannerTone.Error, failure?.tone)
+        assertEquals(previous, resolveStrategyConfigRouteBanner(context, previous, hasPersistenceError = false))
+    }
 }

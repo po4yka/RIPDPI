@@ -219,20 +219,25 @@ private fun StrategyConfigEditorSession.toRouteScreenState(
 ): StrategyConfigScreenState =
     toScreenState(
         activePath = activePathLabel(context, draft.source, draft.luaPath),
-        banner =
-            banner
-                ?: if (hasPersistenceError) {
-                    StrategyConfigBanner(
-                        title = context.getString(R.string.strategy_config_draft_save_failed_title),
-                        message = context.getString(R.string.strategy_config_draft_save_failed_body),
-                        tone = WarningBannerTone.Error,
-                    )
-                } else {
-                    null
-                },
+        banner = resolveStrategyConfigRouteBanner(context, banner, hasPersistenceError),
         isHydrating = isHydrating,
         hasHydrationError = hasHydrationError,
     )
+
+internal fun resolveStrategyConfigRouteBanner(
+    context: Context,
+    banner: StrategyConfigBanner?,
+    hasPersistenceError: Boolean,
+): StrategyConfigBanner? =
+    if (hasPersistenceError) {
+        StrategyConfigBanner(
+            title = context.getString(R.string.strategy_config_draft_save_failed_title),
+            message = context.getString(R.string.strategy_config_draft_save_failed_body),
+            tone = WarningBannerTone.Error,
+        )
+    } else {
+        banner
+    }
 
 private fun StrategyConfigEditorViewModel.sessionOrInitial(configText: String): StrategyConfigEditorSession =
     session ?: StrategyConfigEditorSession.initial(configText.boundedUtf8(StrategyConfigMaxImportBytes))
