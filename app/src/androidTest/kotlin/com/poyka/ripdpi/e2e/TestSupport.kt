@@ -1441,6 +1441,44 @@ class TestProcessDnsProbeServiceHandle internal constructor(
 ) : Closeable {
     private val closed = AtomicBoolean(false)
 
+    fun isVpnDefaultNetwork(): Boolean = transactForBoolean(TestNetworkProbeIsVpnTransactionCode)
+
+    fun awaitVpnDefaultNetwork(timeoutMs: Long): Boolean {
+        require(timeoutMs in 1..Int.MAX_VALUE.toLong()) { "Invalid VPN default-network timeout: $timeoutMs" }
+        check(!closed.get()) { "Test-process network probe service is closed" }
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(TestNetworkProbeServiceDescriptor)
+            data.writeInt(timeoutMs.toInt())
+            check(binder.transact(TestNetworkProbeAwaitVpnTransactionCode, data, reply, 0)) {
+                "Test-process network probe service rejected the VPN await transaction"
+            }
+            reply.readException()
+            return reply.readInt() == 1
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
+    private fun transactForBoolean(code: Int): Boolean {
+        check(!closed.get()) { "Test-process network probe service is closed" }
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(TestNetworkProbeServiceDescriptor)
+            check(binder.transact(code, data, reply, 0)) {
+                "Test-process network probe service rejected transaction $code"
+            }
+            reply.readException()
+            return reply.readInt() == 1
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
     @Suppress("DEPRECATION")
     fun dnsProbe(
         queryHost: String,
