@@ -231,7 +231,11 @@ class DnsNetworkEvidenceE2ETest {
             if (expectSuccess) {
                 assertTrue("Expected encrypted DNS success: $result", result.ok)
                 assertEquals(0, result.rcode)
-                assertEquals(listOf(fixture.dnsAnswerIpv4), result.answers)
+                assertEquals(1, result.answers.size)
+                assertTrue(
+                    "Expected a synthetic MapDNS answer, got ${result.answers}",
+                    result.answers.single().startsWith("198.18."),
+                )
             } else {
                 assertFalse("Resolver outage unexpectedly returned a DNS answer: $result", result.ok)
             }
