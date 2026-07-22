@@ -143,6 +143,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 limit_nofile,
                 uid_policy_mode: None,
                 uid_policy_uids: Vec::new(),
+                uid_policy_allow_icmp: false,
                 log_context: None,
                 filter_injected_resets: None,
                 webrtc_protection_enabled: false,
@@ -278,6 +279,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 limit_nofile,
                 uid_policy_mode: None,
                 uid_policy_uids: Vec::new(),
+                uid_policy_allow_icmp: false,
                 log_context: None,
                 filter_injected_resets: None,
                 webrtc_protection_enabled: false,
@@ -507,6 +509,16 @@ fn accepts_kotlin_defaulted_tunnel_fields_when_omitted() {
     assert_eq!(config.socks5.udp.as_deref(), Some("udp"));
     assert_eq!(config.misc.task_stack_size, 81_920);
     assert_eq!(config.misc.log_level, "warn");
+    assert!(!config.misc.uid_policy_allow_icmp);
+}
+
+#[test]
+fn parses_explicit_uid_policy_icmp_opt_in() {
+    let payload = parse_tunnel_config_json(r#"{"socks5Port":1080,"uidPolicyAllowIcmp":true}"#).expect("payload");
+
+    let config = config_from_payload(payload).expect("config");
+
+    assert!(config.misc.uid_policy_allow_icmp);
 }
 
 proptest! {
@@ -617,6 +629,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "limitNofile": 4096,
         "uidPolicyMode": "allowlist",
         "uidPolicyUids": [10123, 10124],
+        "uidPolicyAllowIcmp": true,
         "filterInjectedResets": true,
         "webrtcProtectionEnabled": true,
         "logContext": {

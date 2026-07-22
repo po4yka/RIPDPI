@@ -158,7 +158,7 @@ private fun QualityLinePlot(
     val shapes = RipDpiThemeTokens.components.shapes
     val colors = RipDpiThemeTokens.colors
     val bgColor = colors.inputBackground
-    val lineColor = colors.accent
+    val lineColor = colors.info
     val lineStroke = RipDpiStroke.Thick
 
     // plotHeight = section(40) + xxxl(32) + xxl(24) + xs(4) = 100 dp
@@ -261,12 +261,12 @@ private fun QualityLegend(
     val colors = RipDpiThemeTokens.colors
     Row(horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
         QualityLegendItem(
-            swatchColor = colors.accent,
+            swatchColor = colors.info,
             label = stringResource(R.string.vpn_quality_graph_legend_now),
             value = nowLabel,
         )
         QualityLegendItem(
-            swatchColor = colors.accent,
+            swatchColor = colors.info,
             label = stringResource(R.string.vpn_quality_graph_legend_p50),
             value = p50Label,
         )

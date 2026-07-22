@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
@@ -53,6 +54,7 @@ internal fun OnboardingOptionCard(
     val components = RipDpiThemeTokens.components
     val shape = RipDpiThemeTokens.shapes.xl
     val interactionSource = remember { MutableInteractionSource() }
+    val showCompleteText = LocalDensity.current.fontScale >= AccessibilityOptionTextFontScale
 
     // Selection reads as a subtle filled container + the radio dot — NOT a harsh black outline.
     // Borders stay on the quiet outline ramp so the card looks like a real Material surface, with
@@ -100,16 +102,16 @@ internal fun OnboardingOptionCard(
             text = description,
             style = type.secondaryBody,
             color = colors.mutedForeground,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
+            maxLines = if (showCompleteText) Int.MAX_VALUE else 3,
+            overflow = if (showCompleteText) TextOverflow.Clip else TextOverflow.Ellipsis,
         )
         metadata?.let { meta ->
             Text(
                 text = meta,
                 style = type.caption,
                 color = colors.mutedForeground,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = if (showCompleteText) Int.MAX_VALUE else 2,
+                overflow = if (showCompleteText) TextOverflow.Clip else TextOverflow.Ellipsis,
             )
         }
     }
@@ -168,3 +170,5 @@ private fun OnboardingRadioIndicator(selected: Boolean) {
         }
     }
 }
+
+private const val AccessibilityOptionTextFontScale = 1.5f

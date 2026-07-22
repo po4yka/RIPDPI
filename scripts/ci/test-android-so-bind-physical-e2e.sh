@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+source_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+temp_dir="$(mktemp -d)"
+repo_root="$temp_dir/repo"
+mkdir -p "$repo_root/scripts/ci"
+cp \
+    "$source_repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh" \
+    "$source_repo_root/scripts/ci/android-so-bind-physical-lib.sh" \
+    "$source_repo_root/scripts/ci/check_android_so_bind_physical_evidence.py" \
+    "$repo_root/scripts/ci/"
 runner="$repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh"
 library="$repo_root/scripts/ci/android-so-bind-physical-lib.sh"
 # shellcheck source=scripts/ci/android-so-bind-physical-lib.sh
 source "$library"
-temp_dir="$(mktemp -d)"
-source_bound_app_apk="$repo_root/app/build/outputs/apk/github/full/debug/app-github-full-debug.apk"
+source_bound_app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 source_bound_test_apk="$repo_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 cleanup() {
-    rm -f "$source_bound_app_apk" "$source_bound_test_apk"
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
@@ -60,9 +66,10 @@ set -euo pipefail
 [[ "$*" == *":app:assembleGithubFullDebug"* ]] || exit 84
 [[ "$*" == *":app:assembleGithubFullDebugAndroidTest"* ]] || exit 83
 [[ "$*" == *"-Pripdpi.localNativeAbis=arm64-v8a"* ]] || exit 82
+[[ "$*" == *"-Pripdpi.enableAbiSplits=false"* ]] || exit 79
 [[ "$*" == *"-Pripdpi.skipNativeBuild=false"* ]] || exit 81
 [[ "$*" == *"-Pripdpi.prebuiltJniLibsDir="* ]] || exit 80
-app_output="$FAKE_REPO_ROOT/app/build/outputs/apk/github/full/debug/app-github-full-debug.apk"
+app_output="$FAKE_REPO_ROOT/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 test_output="$FAKE_REPO_ROOT/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 mkdir -p "$(dirname "$app_output")" "$(dirname "$test_output")"
 cp "$FAKE_APP_APK_SEED" "$app_output"
@@ -98,12 +105,14 @@ case "$*" in
     "shell getprop ro.product.device") echo "${FAKE_PRODUCT_DEVICE:-panther}" ;;
     "shell getprop ro.build.version.sdk") echo "${FAKE_API:-37}" ;;
     "shell uname -r") echo "${FAKE_KERNEL:-6.1.99-test}" ;;
-    "shell ip -6 route get 2606:4700:4700::1111")
+    "shell ip -6 route get "*)
         [[ "${FAKE_IPV6_ROUTE_UNAVAILABLE:-0}" != "1" ]] || exit 1
-        echo '2606:4700:4700::1111 from :: dev wlan0 src 2001:4860:1::10 metric 1024'
+        target="${*: -1}"
+        echo "$target from :: dev ${FAKE_IPV6_DEVICE:-wlan0} src ${FAKE_IPV6_SOURCE:-2001:4860:1::10} metric 1024"
         ;;
     "install -r -d "*)
         [[ "${FAKE_INSTALL_FAILURE:-0}" != "1" ]] || exit 1
+        echo installed >>"$FAKE_INSTALL_MARKER"
         echo Success
         ;;
     "shell pm path com.poyka.ripdpi")
@@ -111,9 +120,26 @@ case "$*" in
         [[ "${FAKE_AMBIGUOUS_PATH:-0}" != "1" ]] || echo 'package:/data/app/app/split.apk'
         ;;
     "shell pm path com.poyka.ripdpi.test") echo 'package:/data/app/test/base.apk' ;;
+    "shell input keyevent HOME")
+        [[ "$(wc -l <"$FAKE_INSTALL_MARKER" | tr -d ' ')" == "2" ]] || exit 77
+        [[ "${FAKE_HOME_FAILURE:-0}" != "1" ]] || exit 1
+        : >"$FAKE_HOME_MARKER"
+        ;;
+    "shell am force-stop com.poyka.ripdpi")
+        [[ -f "$FAKE_HOME_MARKER" ]] || exit 76
+        [[ "${FAKE_TARGET_STOP_FAILURE:-0}" != "1" ]] || exit 1
+        : >"$FAKE_TARGET_STOP_MARKER"
+        ;;
+    "shell am force-stop com.poyka.ripdpi.test")
+        [[ -f "$FAKE_TARGET_STOP_MARKER" ]] || exit 75
+        [[ "${FAKE_TEST_STOP_FAILURE:-0}" != "1" ]] || exit 1
+        : >"$FAKE_TEST_STOP_MARKER"
+        ;;
+    "shell pidof com.poyka.ripdpi") [[ "${FAKE_TARGET_PID_REMAINS:-0}" != "1" ]] || echo 123 ;;
+    "shell pidof com.poyka.ripdpi.test") [[ "${FAKE_TEST_PID_REMAINS:-0}" != "1" ]] || echo 456 ;;
     "shell pm list packages -U com.poyka.ripdpi.test") echo 'package:com.poyka.ripdpi.test uid:10444' ;;
-    "shell run-as com.poyka.ripdpi.test rm -f cache/so-bind-physical-evidence.json") : ;;
-    "shell run-as com.poyka.ripdpi.test cat cache/so-bind-physical-evidence.json")
+    "shell run-as com.poyka.ripdpi rm -f files/so-bind-physical-evidence.json") : ;;
+    "shell run-as com.poyka.ripdpi cat files/so-bind-physical-evidence.json")
         [[ "${FAKE_EVIDENCE_MISSING:-0}" != "1" ]] || exit 1
         cat "$FAKE_EVIDENCE"
         ;;
@@ -125,7 +151,11 @@ case "$*" in
         echo '  Temp whitelist schedule:'
         echo '    UID=10444: +4m59s - shell'
         ;;
-    "shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test") rm -f "$FAKE_ALLOWLIST_MARKER" ;;
+    "shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test")
+        [[ -d "$FAKE_DEVICE_LOCK_DIR" ]] || exit 72
+        rm -f "$FAKE_ALLOWLIST_MARKER"
+        : >"$FAKE_ALLOWLIST_REMOVE_MARKER"
+        ;;
     "pull /data/app/app/base.apk "*)
         destination="${@: -1}"
         if [[ "${FAKE_APK_MISMATCH:-0}" == "1" ]]; then
@@ -166,9 +196,10 @@ case "$*" in
         ;;
     "shell timeout "*)
         [[ -f "$FAKE_ALLOWLIST_MARKER" ]] || exit 95
+        [[ -f "$FAKE_TARGET_STOP_MARKER" && -f "$FAKE_TEST_STOP_MARKER" ]] || exit 73
         [[ "$3" == "180" ]] || exit 89
         [[ "$*" == *"-e ripdpi.soBindEvidenceProfile physical_pixel_api37_kernel61"* ]] || exit 91
-        [[ "$*" == *"-e ripdpi.soBindIpv6Host 2606:4700:4700::1111"* ]] || exit 96
+        [[ "$*" == *"-e ripdpi.soBindIpv6Host ${FAKE_IPV6_HOST:-2606:4700:4700::1111}"* ]] || exit 96
         [[ "$*" == *"-e ripdpi.soBindTcpEchoPort 46091"* ]] || exit 86
         [[ "$*" == *"-e ripdpi.soBindUdpEchoPort 46092"* ]] || exit 85
         [[ "$*" == *"-e class com.poyka.ripdpi.e2e.NetworkPathE2ETest#vpnServiceDeniesExcludedTestUidBoundToTun0"* ]] || exit 92
@@ -186,19 +217,25 @@ import sys
 positive_names = (
     "directTcpRoundTrips", "directUdpRoundTrips", "directTcpFixtureEvents", "directUdpFixtureEvents",
     "allowedTcpRoundTrips", "allowedUdpRoundTrips", "allowedTcpFixtureEvents", "allowedUdpFixtureEvents",
-    "deniedTcpResets", "deniedUdpTimeouts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
+    "deniedTcpBlockedAttempts", "deniedUdpBlockedAttempts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
     "livenessTcpFixtureEvents", "livenessUdpFixtureEvents",
 )
 positive = {name: 1 for name in positive_names}
 families = [{
     "family": family,
     "sourceFamilyVerified": True,
+    "deniedTcpErrno": 110,
+    "deniedTcpFailureKind": "TIMEOUT",
+    "deniedTcpFailureStage": "connect",
+    "deniedUdpErrno": 110,
+    "deniedUdpFailureKind": "TIMEOUT",
+    "deniedUdpFailureStage": "receive",
     **positive,
     "deniedTcpFixtureEvents": 0,
     "deniedUdpFixtureEvents": 0,
 } for family in ("ipv4", "ipv6")]
 evidence = {
-        "version": "android_so_bind_physical_evidence_v1",
+        "version": "android_so_bind_physical_evidence_v2",
         "status": "PASS",
         "profile": "physical_pixel_api37_kernel61",
         "runId": sys.argv[2],
@@ -307,18 +344,29 @@ OUTPUT
     cat "$readonly_scope_stderr" >&2
     exit 1
 }
-normalized_ipv6="$(so_bind_physical_normalize_global_ipv6 '2606:4700:4700:0:0:0:0:1111')"
+normalized_ipv6="$(so_bind_physical_normalize_routed_ipv6 '2606:4700:4700:0:0:0:0:1111')"
 [[ "$normalized_ipv6" == "2606:4700:4700::1111" ]] || {
-    echo "assertion failed: global IPv6 normalization was not canonical" >&2
+    echo "assertion failed: routed IPv6 normalization was not canonical" >&2
     exit 1
 }
-if so_bind_physical_normalize_global_ipv6 '::ffff:8.8.8.8' >/dev/null 2>&1; then
+normalized_ula="$(so_bind_physical_normalize_routed_ipv6 'fd08:7888:d1e0:45b1:0:0:0:1')"
+[[ "$normalized_ula" == "fd08:7888:d1e0:45b1::1" ]] || {
+    echo "assertion failed: routed ULA normalization was not canonical" >&2
+    exit 1
+}
+if so_bind_physical_normalize_routed_ipv6 '::ffff:8.8.8.8' >/dev/null 2>&1; then
     echo "assertion failed: IPv4-mapped IPv6 endpoint was accepted" >&2
     exit 1
 fi
+for unrouted in '::' '::1' 'fe80::1' 'ff02::1' 'fd00::1%wlan0' 'fec0::1'; do
+    if so_bind_physical_normalize_routed_ipv6 "$unrouted" >/dev/null 2>&1; then
+        echo "assertion failed: unrouted IPv6 endpoint was accepted: $unrouted" >&2
+        exit 1
+    fi
+done
 
 run_runner() {
-    rm -f "$temp_dir/build.marker"
+    rm -f "$temp_dir"/*.marker
     env \
         ADB_BIN="$fake_adb" \
         GIT_BIN="$fake_git" \
@@ -337,6 +385,13 @@ run_runner() {
         FAKE_TEST_APK="$source_bound_test_apk" \
         FAKE_EVIDENCE="$evidence" \
         FAKE_ALLOWLIST_MARKER="$temp_dir/allowlist.marker" \
+        FAKE_ALLOWLIST_REMOVE_MARKER="$temp_dir/allowlist-remove.marker" \
+        FAKE_INSTALL_MARKER="$temp_dir/install.marker" \
+        FAKE_HOME_MARKER="$temp_dir/home.marker" \
+        FAKE_TARGET_STOP_MARKER="$temp_dir/target-stop.marker" \
+        FAKE_TEST_STOP_MARKER="$temp_dir/test-stop.marker" \
+        RIPDPI_ANDROID_DEVICE_LOCK_ROOT="$temp_dir/device-locks" \
+        FAKE_DEVICE_LOCK_DIR="$temp_dir/device-locks/ripdpi-android-device-pixel-serial.lock" \
         "$@" \
         bash "$runner" >"$temp_dir/runner.stdout" 2>"$temp_dir/runner.stderr"
 }
@@ -357,7 +412,28 @@ assert_status() {
     fi
 }
 
+device_lock="$temp_dir/device-locks/ripdpi-android-device-pixel-serial.lock"
+mkdir -p "$device_lock"
+assert_status 1 "busy physical device lane rejected" run_runner FAKE_RESULT=pass
+[[ ! -f "$temp_dir/allowlist-remove.marker" ]] || {
+    echo "assertion failed: busy lock contender changed device allowlist state" >&2
+    exit 1
+}
+rmdir "$device_lock"
 assert_status 0 "exact pass" run_runner FAKE_RESULT=pass
+[[ -f "$temp_dir/allowlist-remove.marker" && ! -d "$device_lock" ]] || {
+    echo "assertion failed: lock owner did not clean device state before releasing the lane" >&2
+    exit 1
+}
+assert_status 0 "routed ULA endpoint and source pass" run_runner \
+    RIPDPI_FIXTURE_ANDROID_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_SOURCE=fd08:7888:d1e0:45b1::2
+assert_status 2 "VPN interface cannot satisfy physical IPv6 route" run_runner \
+    RIPDPI_FIXTURE_ANDROID_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_SOURCE=fd08:7888:d1e0:45b1::2 \
+    FAKE_IPV6_DEVICE=tun0
 assert_status 0 "global skip-native override defeated" run_runner \
     ORG_GRADLE_PROJECT_ripdpi.skipNativeBuild=true
 assert_status 0 "global prebuilt-native override defeated" run_runner \
@@ -376,6 +452,11 @@ assert_status 1 "dirty source rejected" run_runner FAKE_DIRTY_SOURCE=1
 assert_status 1 "source-bound APK build failure rejected" run_runner FAKE_BUILD_FAILURE=1
 assert_status 1 "source-changing APK build rejected" run_runner FAKE_BUILD_DIRTY_SOURCE=1
 assert_status 1 "install failure rejected" run_runner FAKE_INSTALL_FAILURE=1
+assert_status 1 "HOME isolation failure rejected" run_runner FAKE_HOME_FAILURE=1
+assert_status 1 "target force-stop failure rejected" run_runner FAKE_TARGET_STOP_FAILURE=1
+assert_status 1 "test force-stop failure rejected" run_runner FAKE_TEST_STOP_FAILURE=1
+assert_status 1 "remaining target process rejected" run_runner FAKE_TARGET_PID_REMAINS=1
+assert_status 1 "remaining test process rejected" run_runner FAKE_TEST_PID_REMAINS=1
 assert_status 1 "APK byte mismatch rejected" run_runner FAKE_APK_MISMATCH=1
 assert_status 1 "ambiguous package path rejected" run_runner FAKE_AMBIGUOUS_PATH=1
 assert_status 1 "unreachable direct fixture rejected" run_runner FAKE_FIXTURE_UNREACHABLE=1

@@ -11,17 +11,25 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.AppStartupReadinessState
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiRemediationCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.debug.RecompositionReportEffect
 import com.poyka.ripdpi.ui.screens.crash.CrashReportDialog
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 internal fun MainActivityContent(
@@ -29,48 +37,109 @@ internal fun MainActivityContent(
     controller: MainActivityShellController,
 ) {
     val startupState by viewModel.startupState.collectAsStateWithLifecycle()
+
+    RecompositionReportEffect()
+
+    RipDpiTheme(themePreference = startupState.theme) {
+        when (startupState.readiness) {
+            AppStartupReadinessState.Pending -> {
+                StartupRecoveryGateContent(failed = false, onRetry = {})
+            }
+
+            AppStartupReadinessState.Failed -> {
+                StartupRecoveryGateContent(failed = true, onRetry = viewModel.retryStartupRecovery)
+            }
+
+            AppStartupReadinessState.Ready -> {
+                ReadyMainActivityContent(
+                    viewModel = viewModel,
+                    controller = controller,
+                    startupState = startupState,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StartupRecoveryGateContent(
+    failed: Boolean,
+    onRetry: () -> Unit,
+) {
+    RipDpiContentScreenScaffold(
+        title =
+            androidx.compose.ui.res
+                .stringResource(R.string.app_name),
+        contentWidth = RipDpiScaffoldWidth.Form,
+    ) {
+        RipDpiRemediationCard(
+            title =
+                androidx.compose.ui.res.stringResource(
+                    if (failed) R.string.startup_recovery_failed_title else R.string.startup_recovery_preparing_title,
+                ),
+            summary =
+                androidx.compose.ui.res.stringResource(
+                    if (failed) R.string.startup_recovery_failed_body else R.string.startup_recovery_preparing_body,
+                ),
+            steps = persistentListOf(),
+            tone = if (failed) StatusIndicatorTone.Error else StatusIndicatorTone.Active,
+            actionLabel =
+                if (failed) {
+                    androidx.compose.ui.res
+                        .stringResource(R.string.startup_recovery_retry)
+                } else {
+                    null
+                },
+            onAction = if (failed) onRetry else null,
+            actionVariant = RipDpiButtonVariant.Primary,
+            cardTestTag =
+                if (failed) RipDpiTestTags.StartupRecoveryFailure else RipDpiTestTags.StartupRecoveryPending,
+            actionTestTag = if (failed) RipDpiTestTags.StartupRecoveryRetry else null,
+        )
+    }
+}
+
+@Composable
+private fun ReadyMainActivityContent(
+    viewModel: MainViewModel,
+    controller: MainActivityShellController,
+    startupState: MainStartupState,
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    RecompositionReportEffect()
 
     MainActivityEffects(
         viewModel = viewModel,
         controller = controller,
         shellState = shellState,
-        canHandleStartConfiguredModeRequest = startupState.isReady && uiState.settingsLoaded,
+        canHandleStartConfiguredModeRequest = uiState.settingsLoaded,
         connectionState = uiState.connectionState,
         snackbarHostState = snackbarHostState,
     )
-
-    RipDpiTheme(themePreference = startupState.theme) {
-        if (startupState.isReady) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .ripDpiAutomationTreeRoot(),
-            ) {
-                key(startupState.startDestination) {
-                    // Flavor seam: the "full" source set renders the full nav host;
-                    // the "simple" source set renders the two-action SimpleHomeScreen.
-                    AppExperienceContent(
-                        startDestination = startupState.startDestination,
-                        viewModel = viewModel,
-                        controller = controller,
-                        shellState = shellState,
-                        snackbarHostState = snackbarHostState,
-                    )
-                }
-                MainActivityDialogs(
-                    viewModel = viewModel,
-                    controller = controller,
-                    uiState = uiState,
-                    shellState = shellState,
-                )
-            }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .ripDpiAutomationTreeRoot(),
+    ) {
+        key(startupState.startDestination) {
+            // Flavor seam: the "full" source set renders the full nav host;
+            // the "simple" source set renders the two-action SimpleHomeScreen.
+            AppExperienceContent(
+                startDestination = startupState.startDestination,
+                viewModel = viewModel,
+                controller = controller,
+                shellState = shellState,
+                snackbarHostState = snackbarHostState,
+            )
         }
+        MainActivityDialogs(
+            viewModel = viewModel,
+            controller = controller,
+            uiState = uiState,
+            shellState = shellState,
+        )
     }
 }
 
@@ -85,6 +154,7 @@ private fun MainActivityEffects(
 ) {
     LaunchedEffect(viewModel) {
         viewModel.initialize()
+        viewModel.onForeground()
     }
 
     LifecycleEventEffect(viewModel.effects, controller::onEffect)

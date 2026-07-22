@@ -683,7 +683,7 @@ private fun ChainEditorCollapsibleDescription() {
                     stringResource(R.string.action_learn_more)
                 },
             style = RipDpiThemeTokens.type.secondaryBody,
-            color = colors.accent,
+            color = colors.info,
             modifier =
                 Modifier
                     .ripDpiClickable(role = Role.Button, onClick = { expanded = !expanded })

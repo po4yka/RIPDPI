@@ -3,6 +3,11 @@
 <resources>
     <string name="navigation_back">رجوع</string>
     <string name="action_dismiss">تجاهل</string>
+    <string name="startup_recovery_preparing_title">جارٍ تجهيز RIPDPI</string>
+    <string name="startup_recovery_preparing_body">يتم التحقق من الإعدادات المحلية قبل اتصال التطبيق.</string>
+    <string name="startup_recovery_failed_title">فشل استرداد بدء التشغيل</string>
+    <string name="startup_recovery_failed_body">تعذّر على RIPDPI إكمال استرداد الإعدادات المحلية بأمان. سيبقى التطبيق غير متصل حتى ينجح الاسترداد.</string>
+    <string name="startup_recovery_retry">المحاولة مرة أخرى</string>
     <string name="vpn_connect">اتصال</string>
     <string name="vpn_disconnect">قطع الاتصال</string>
     <string name="vpn_connected">متصل</string>
@@ -13,6 +18,14 @@
     <string name="config">الاتصال</string>
     <string name="settings">الإعدادات</string>
     <string name="diagnostics">التشخيص</string>
+    <string name="bottom_nav_home_compact">حالة</string>
+    <string name="bottom_nav_config_compact">اتصال</string>
+    <string name="bottom_nav_diagnostics_compact">فحص</string>
+    <string name="bottom_nav_settings_compact">ضبط</string>
+    <string name="bottom_nav_home_maximum">حالة</string>
+    <string name="bottom_nav_config_maximum">اتصال</string>
+    <string name="bottom_nav_diagnostics_maximum">فحص</string>
+    <string name="bottom_nav_settings_maximum">ضبط</string>
     <string name="logs">السجلات</string>
     <string name="persona_simple">موجّه</string>
     <string name="persona_advanced">متقدم</string>
@@ -388,13 +401,14 @@
     <string name="home_permission_issue_with_retry">%1$s استخدم زر الاتصال لمتابعة منح الإذن.</string>
     <string name="home_permission_issue_with_settings">%1$s افتح الإعدادات أو استخدم الزر أدناه لإصلاح الوصول.</string>
     <string name="home_setup_health_title">صحة الإعداد</string>
+    <string name="home_modes_diagnostics_title">الأوضاع والتشخيصات</string>
     <string name="home_setup_health_collapsed_format">عناصر تحتاج إلى انتباه: %1$d</string>
     <string name="home_setup_health_expanded">راجع عناصر الإعداد وإجراءات الاسترداد.</string>
     <string name="home_connection_button_connecting">جارٍ الاتصال\u2026</string>
     <string name="home_connection_actuator_open">مفتوح</string>
     <string name="home_connection_actuator_secure">آمن</string>
     <string name="home_connection_actuator_direct">مباشر</string>
-    <string name="home_connection_actuator_state_open">الخط الآمن مفتوح</string>
+    <string name="home_connection_actuator_state_open">الخط الآمن غير مُفعّل</string>
     <string name="home_connection_actuator_state_engaging">الخط الآمن يتصل</string>
     <string name="home_connection_actuator_state_locked">الخط الآمن مقفل</string>
     <string name="home_connection_actuator_state_direct">الخط المباشر مقفل</string>
@@ -627,6 +641,10 @@
     <string name="config_edit_current">تعديل الملف الشخصي</string>
     <string name="config_save">حفظ</string>
     <string name="config_cancel">إلغاء</string>
+    <string name="unsaved_changes_title">هل تريد تجاهل التغييرات غير المحفوظة؟</string>
+    <string name="unsaved_changes_body">لم تُحفظ تعديلاتك. هل تريد تجاهلها ومغادرة هذه الشاشة؟</string>
+    <string name="unsaved_changes_discard">تجاهل</string>
+    <string name="unsaved_changes_keep_editing">متابعة التعديل</string>
     <string name="config_preset_recommended_title">الملف الشخصي الموصى به</string>
     <string name="config_preset_recommended_body">ملف شخصي موصى به لمعظم الشبكات. يحافظ على مسار VPN المحلي وضبط RIPDPI الآمن.</string>
     <string name="config_preset_proxy_title">ملف Local bypass الشخصي</string>
@@ -1217,6 +1235,7 @@
     <string name="config_cli_banner_title">تجاوزات سطر الأوامر مفعّلة</string>
     <string name="config_cli_banner_body">الوسيطات أدناه تأخذ الأولوية على الضوابط المرئية في هذه الشاشة.</string>
     <string name="config_validation_fix">تحقق من الحقول المحددة قبل الحفظ.</string>
+    <string name="config_editor_hydration_failed">تعذّر فتح هذا الإعداد. لم تتغيّر بيانات الاعتماد المحفوظة.</string>
     <string name="config_validation_banner_title">بعض القيم تحتاج إلى انتباه</string>
     <string name="config_validation_banner_body">المحرر يتحقق في الوقت الفعلي. أصلح الحقول المحددة ثم احفظ مجدداً.</string>
     <string name="config_error_invalid_dns">أدخل عنوان DNS صالحاً وغير محلي.</string>
@@ -1558,6 +1577,7 @@ fakeddisorder endhost</string>
     <string name="logs_stream_section">تدفق السجل</string>
     <string name="logs_stream_title">الإدخالات الأخيرة</string>
     <string name="logs_entries_count">%1$d إدخال</string>
+    <string name="logs_copy_entry">نسخ سجل %1$s عند %2$s</string>
     <string name="logs_empty_title">لا توجد سجلات بعد</string>
     <string name="logs_empty_body">شغِّل RIPDPI أو أطلق حدثاً تشخيصياً لملء تدفق البيانات على الجهاز.</string>
     <string name="logs_filtered_empty_title">لا توجد إدخالات تطابق المرشِّحات الحالية</string>
@@ -3160,7 +3180,18 @@ fakeddisorder endhost</string>
     <string name="asset_provider_uptodate_body">قواعد البيانات على القرص تطابق أحدث إصدار.</string>
     <string name="asset_provider_imported_title">تم استيراد الأصل</string>
     <string name="asset_provider_imported_body">أعد تشغيل الخدمة لتطبيق قاعدة البيانات المستوردة.</string>
-    <string name="asset_provider_failed_title">فشل التحديث</string>
+    <string name="asset_provider_failed_title">فشلت عملية البيانات</string>
+    <string name="asset_provider_failure_unable_to_open">تعذّر على RIPDPI فتح الملف المحدد. اختره مرة أخرى.</string>
+    <string name="asset_provider_failure_invalid_payload">الملف المحدد ليس قاعدة بيانات جغرافية صالحة.</string>
+    <string name="asset_provider_failure_too_large">الملف المحدد كبير جدًا. اختر ملفًا أصغر من 64 ميغابايت.</string>
+    <string name="asset_provider_failure_network">تعذّر الاتصال بموفّر البيانات. تحقّق من اتصالك وحاول مرة أخرى.</string>
+    <string name="asset_provider_failure_storage">تعذّر حفظ قاعدة البيانات على الجهاز. وفّر بعض مساحة التخزين ثم حاول مرة أخرى.</string>
+    <string name="asset_provider_failure_missing_configuration">أدخل عنوان URL أساسيًا مخصّصًا قبل التحقق من التحديثات.</string>
+    <string name="asset_provider_failure_unexpected">فشلت عملية البيانات. حاول مرة أخرى.</string>
+    <string name="asset_provider_persistence_failed_title">لم تُحفظ إعدادات الموفّر</string>
+    <string name="asset_provider_persistence_failed_body">تعذّر على RIPDPI حفظ هذه الإعدادات. اضغط للمحاولة مرة أخرى قبل المغادرة.</string>
+    <string name="asset_provider_exit_pending_title">مغادرة موفّر الأصول</string>
+    <string name="asset_provider_exit_pending_body">يلغي RIPDPI أي عملية أصول نشطة، ويحفظ إعدادات الموفّر، ثم يعود.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسيا)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعة قواعد تجاوز RU الفعلية؛ أحدث من antizapret لوسوم geoip/geosite الخاصة بـ v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">تم التحديث منذ %1$d يوم</string>
@@ -4165,4 +4196,10 @@ fakeddisorder endhost</string>
     <string name="backup_encryption_confirm_passphrase">تأكيد عبارة المرور</string>
     <string name="backup_encryption_passphrase_mismatch">عبارتا المرور غير متطابقتين</string>
     <string name="backup_import_legacy_full_warning">هذه النسخة الاحتياطية الكاملة القديمة غير مشفرة. استعدها فقط من مصدر موثوق، ثم صدّر نسخة مشفرة جديدة.</string>
+    <string name="strategy_config_restore_failed_title">تعذّر استرداد المسودة</string>
+    <string name="strategy_config_restore_failed_body">ما زالت المسودة المحفوظة على هذا الجهاز. أعد محاولة الاسترداد أو تجاهلها للمغادرة.</string>
+    <string name="strategy_config_restore_retry">حاول مجددًا</string>
+    <string name="strategy_config_restoring_draft">جارٍ استرداد المسودة المحفوظة…</string>
+    <string name="strategy_config_draft_save_failed_title">لم تُحفظ المسودة</string>
+    <string name="strategy_config_draft_save_failed_body">يعيد RIPDPI محاولة حفظ المسودة محليًا. أبقِ هذه الشاشة مفتوحة حتى يختفي التحذير.</string>
 </resources>

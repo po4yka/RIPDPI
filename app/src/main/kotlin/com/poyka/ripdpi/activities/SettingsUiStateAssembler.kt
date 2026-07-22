@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.WarpPayloadGenSuggestion
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -60,6 +61,7 @@ internal class SettingsUiStateAssembler
     @Inject
     constructor(
         private val biometricCapabilityChecker: BiometricCapabilityChecker,
+        private val dispatchers: AppCoroutineDispatchers,
     ) {
         fun assemble(
             scope: CoroutineScope,
@@ -79,7 +81,7 @@ internal class SettingsUiStateAssembler
                         rememberedNetworkCount = rememberedPolicies.size,
                         settingsUiDependencies = settingsUiDependencies,
                     )
-                }
+                }.flowOn(dispatchers.io)
             return combine(
                 staticSnapshots,
                 settingsUiDependencies.serviceStateStore.telemetry,
@@ -88,7 +90,7 @@ internal class SettingsUiStateAssembler
             }.stateIn(
                 scope = scope,
                 started = SharingStarted.WhileSubscribed(SettingsStateSubscriptionMillis),
-                initialValue = buildUiState(initialSnapshot(settingsUiDependencies)),
+                initialValue = SettingsUiState(isHydrated = false),
             )
         }
 
@@ -152,13 +154,5 @@ internal class SettingsUiStateAssembler
                         .orEmpty(),
                 seqovlSupported = snapshot.seqovlSupported,
                 systemPrivateDnsStatus = snapshot.systemPrivateDnsStatus,
-            )
-
-        private fun initialSnapshot(settingsUiDependencies: SettingsUiDependencies): SettingsUiStateAssemblySnapshot =
-            buildAssemblySnapshot(
-                settings = AppSettingsSerializer.defaultValue,
-                serviceTelemetry = settingsUiDependencies.serviceStateStore.telemetry.value,
-                rememberedNetworkCount = 0,
-                settingsUiDependencies = settingsUiDependencies,
             )
     }

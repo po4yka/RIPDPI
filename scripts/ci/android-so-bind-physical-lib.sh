@@ -43,7 +43,7 @@ so_bind_physical_valid_port() {
     [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
 }
 
-so_bind_physical_normalize_global_ipv6() {
+so_bind_physical_normalize_routed_ipv6() {
     python3 - "${1:-}" <<'PY'
 import ipaddress
 import sys
@@ -52,8 +52,23 @@ try:
     address = ipaddress.ip_address(sys.argv[1])
 except ValueError:
     raise SystemExit(1)
-if address.version != 6 or not address.is_global or address.ipv4_mapped is not None:
+gua = ipaddress.ip_network("2000::/3")
+ula = ipaddress.ip_network("fc00::/7")
+if (
+    address.version != 6
+    or address.scope_id is not None
+    or address.is_unspecified
+    or address.is_loopback
+    or address.is_link_local
+    or address.is_multicast
+    or address.ipv4_mapped is not None
+    or (address not in gua and address not in ula)
+):
     raise SystemExit(1)
 print(address.compressed)
 PY
+}
+
+so_bind_physical_is_underlay_interface() {
+    [[ "${1:-}" =~ ^(wlan[0-9]+|rmnet[A-Za-z0-9_.-]*|ccmni[0-9]+|eth[0-9]+|usb[0-9]+|rndis[0-9]+)$ ]]
 }

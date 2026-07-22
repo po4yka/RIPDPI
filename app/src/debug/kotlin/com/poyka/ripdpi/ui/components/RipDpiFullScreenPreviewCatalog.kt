@@ -13,6 +13,7 @@ import com.poyka.ripdpi.activities.HistoryConnectionFiltersUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.HomeModeSummaryFacet
@@ -82,6 +83,7 @@ internal fun RipDpiHomeErrorPreviewScene() {
             uiState =
                 MainUiState(
                     connectionState = ConnectionState.Error,
+                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Fault),
                     errorMessage = "Failed to start VPN",
                     configuredMode = Mode.Proxy,
                     proxyIp = "127.0.0.1",
@@ -598,6 +600,7 @@ internal fun RipDpiHomeHighContrastPreviewScene() {
                 MainUiState(
                     appStatus = AppStatus.Running,
                     connectionState = ConnectionState.Connected,
+                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
                     modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),
             onToggleConnection = {},

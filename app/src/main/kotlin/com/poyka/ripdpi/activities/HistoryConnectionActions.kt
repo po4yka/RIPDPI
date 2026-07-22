@@ -22,7 +22,7 @@ internal class HistoryConnectionActions(
     }
 
     fun clearFilters() {
-        connectionFilters.update { it.copy(modeFilter = null, statusFilter = null) }
+        connectionFilters.update { it.copy(modeFilter = null, statusFilter = null, search = "") }
     }
 
     fun selectConnection(sessionId: String) {
@@ -56,7 +56,7 @@ internal class HistoryDiagnosticsActions(
     }
 
     fun clearFilters() {
-        diagnosticsFilters.update { it.copy(pathModeFilter = null, statusFilter = null) }
+        diagnosticsFilters.update { it.copy(pathModeFilter = null, statusFilter = null, search = "") }
     }
 
     fun selectSession(sessionId: String) {
@@ -95,7 +95,7 @@ internal class HistoryEventActions(
     }
 
     fun clearFilters() {
-        eventFilters.update { it.copy(sourceFilter = null, severityFilter = null) }
+        eventFilters.update { it.copy(sourceFilter = null, severityFilter = null, search = "") }
     }
 
     fun setAutoScroll(enabled: Boolean) {

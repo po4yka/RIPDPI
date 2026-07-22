@@ -33,6 +33,8 @@ pub struct MiscConfig {
     pub uid_policy_mode: String,
     #[serde(default)]
     pub uid_policy_uids: Vec<u32>,
+    #[serde(default)]
+    pub uid_policy_allow_icmp: bool,
     pub strategy_chain_yaml: Option<String>,
     pub protect_path: Option<String>,
     pub root_helper_socket_path: Option<String>,
@@ -62,6 +64,7 @@ impl Default for MiscConfig {
             webrtc_protection_enabled: false,
             uid_policy_mode: default_uid_policy_mode(),
             uid_policy_uids: Vec::new(),
+            uid_policy_allow_icmp: false,
             strategy_chain_yaml: None,
             protect_path: None,
             root_helper_socket_path: None,

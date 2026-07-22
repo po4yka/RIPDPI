@@ -174,7 +174,7 @@ class ServiceSessionModuleTest {
                     dependencies = runtimeDependencies,
                     protectSocketServer = protectSocketServer,
                     rootHelperManager = RootHelperManager(),
-                    flowAttributionBridge = FlowAttributionBridge(NoOpFlowAppAttributionStore, null),
+                    flowAttributionBridge = testFlowAttributionBridge(),
                 )
             val encryptedDnsFailoverController =
                 VpnServiceSessionModule.provideVpnEncryptedDnsFailoverController(
@@ -448,6 +448,17 @@ class ServiceSessionModuleTest {
         }
     }
 }
+
+private fun testFlowAttributionBridge(): FlowAttributionBridge =
+    FlowAttributionBridge(
+        NoOpFlowAppAttributionStore,
+        null,
+        SoBindToDeviceUidPolicyEligibility.forTest(
+            sdkInt = android.os.Build.VERSION_CODES.S,
+            kernelRelease = "5.10.0-android",
+            probe = { true },
+        ),
+    )
 
 /** No-op [AmneziaWgRuntimeSupervisorFactory] for module wiring tests — proxy mode never starts AWG. */
 private class NoOpAmneziaWgRuntimeSupervisorFactory :

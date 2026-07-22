@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.XrayNativeBridge
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
@@ -200,6 +201,7 @@ internal object VpnServiceSessionModule {
     @Provides
     @ServiceSessionScope
     fun provideXrayProviderSessionController(
+        profileMutations: ProfileMutationCoordinator,
         selectionStore: XrayProviderSelectionStore,
         profileStore: DurableXrayProfileStore,
         xrayNativeBridge: XrayNativeBridge,
@@ -240,6 +242,7 @@ internal object VpnServiceSessionModule {
                 }
             },
             lastProtectFailureDetail = { protectController.lastFailureDetail },
+            recoverPendingProfileMutations = profileMutations::recover,
             probeCoordinator = probeCoordinator,
         )
     }

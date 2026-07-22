@@ -67,11 +67,12 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         evidence.write_canonical_json(
             evidence.PRODUCER_POLICY_PATH,
             {
-                "version": "network_evidence_producers_v1",
+                "version": "network_evidence_producers_v2",
                 "clientCollectorSha256": ["e" * 64],
                 "observerCollectorSha256": ["f" * 64],
                 "workloadSha256": ["9" * 64],
                 "clientArtifactSha256": ["8" * 64],
+                "testArtifactSha256": ["7" * 64],
             },
         )
         self.gate_ids = sorted(evidence.required_gate_ids())
@@ -92,7 +93,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         correlation = correlation_id or self.correlation_id
         plan = self.plan(correlation_id=correlation)
         return {
-            "version": "network_evidence_observation_v2",
+            "version": "network_evidence_observation_v3",
             "sourceSha": self.source_sha,
             "correlationId": correlation,
             "role": role,
@@ -100,6 +101,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             "networkIdSha256": ("3" if role == "client-underlay" else "4") * 64,
             "collectorSha256": ("e" if role == "client-underlay" else "f") * 64,
             "clientArtifactSha256": "8" * 64,
+            "testArtifactSha256": "7" * 64,
             "scenarioPlanSha256": evidence.sha256_bytes(
                 evidence.canonical_json_bytes(plan)
             ),
@@ -126,6 +128,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             "sourceSha": self.source_sha,
             "correlationId": correlation,
             "clientArtifactSha256": "8" * 64,
+            "testArtifactSha256": "7" * 64,
             "windows": [
                 {
                     "id": gate_id,
@@ -171,13 +174,16 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             execution_attempt=1,
             execution_definition="local",
             runner_sha256=evidence.sha256_bytes(evidence.RUNNER_PATH.read_bytes()),
-            validator_sha256=evidence.sha256_bytes(Path(evidence.__file__).read_bytes()),
+            validator_sha256=evidence.sha256_bytes(
+                Path(evidence.__file__).read_bytes()
+            ),
             policy_sha256=evidence.sha256_bytes(evidence.POLICY_PATH.read_bytes()),
             producer_policy_sha256=evidence.sha256_bytes(
                 evidence.PRODUCER_POLICY_PATH.read_bytes()
             ),
             workload_sha256="9" * 64,
             client_artifact_sha256="8" * 64,
+            test_artifact_sha256="7" * 64,
         )
         evidence.write_canonical_json(self.root / "manifest.json", manifest)
         return manifest
@@ -266,6 +272,8 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             "9" * 64,
             "--client-artifact-sha256",
             "8" * 64,
+            "--test-artifact-sha256",
+            "7" * 64,
             "--output",
             str(output_path),
         ]
@@ -318,6 +326,8 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             "6" * 64,
             "--client-artifact-sha256",
             "8" * 64,
+            "--test-artifact-sha256",
+            "7" * 64,
         ]
 
     def write_cli_inputs(self, input_dir: Path) -> dict[str, Path]:
@@ -340,13 +350,16 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             execution_attempt=1,
             execution_definition="local",
             runner_sha256=evidence.sha256_bytes(evidence.RUNNER_PATH.read_bytes()),
-            validator_sha256=evidence.sha256_bytes(Path(evidence.__file__).read_bytes()),
+            validator_sha256=evidence.sha256_bytes(
+                Path(evidence.__file__).read_bytes()
+            ),
             policy_sha256=evidence.sha256_bytes(evidence.POLICY_PATH.read_bytes()),
             producer_policy_sha256=evidence.sha256_bytes(
                 evidence.PRODUCER_POLICY_PATH.read_bytes()
             ),
             workload_sha256="9" * 64,
             client_artifact_sha256="8" * 64,
+            test_artifact_sha256="7" * 64,
         )
         evidence.write_canonical_json(manifest_path, manifest)
         return {
@@ -398,23 +411,21 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, destination)
         producer_policy = {
-            "version": "network_evidence_producers_v1",
+            "version": "network_evidence_producers_v2",
             "clientCollectorSha256": [
                 evidence.sha256_bytes(LEAKING_COLLECTOR_PATH.read_bytes())
             ],
             "observerCollectorSha256": [
                 evidence.sha256_bytes(LEAKING_COLLECTOR_PATH.read_bytes())
             ],
-                "workloadSha256": [
-                    evidence.sha256_bytes(FAKE_WORKLOAD_PATH.read_bytes())
-                ],
-                "clientArtifactSha256": [
-                    evidence.sha256_bytes(b"synthetic client artifact\n")
-                ],
+            "workloadSha256": [evidence.sha256_bytes(FAKE_WORKLOAD_PATH.read_bytes())],
+            "clientArtifactSha256": [
+                evidence.sha256_bytes(b"synthetic client artifact\n")
+            ],
+            "testArtifactSha256": [evidence.sha256_bytes(b"synthetic test artifact\n")],
         }
         evidence.write_canonical_json(
-            staging_checkout
-            / "quality/release-gates/network-evidence-producers.json",
+            staging_checkout / "quality/release-gates/network-evidence-producers.json",
             producer_policy,
         )
         subprocess.run(
@@ -457,6 +468,8 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         ).stdout.strip()
         client_artifact = self.root / "runner-client.apk"
         client_artifact.write_bytes(b"synthetic client artifact\n")
+        test_artifact = self.root / "runner-test.apk"
+        test_artifact.write_bytes(b"synthetic test artifact\n")
         case_root = self.root / "runner" / f"{case['id']}-{leak_role}"
         case_root.mkdir(parents=True)
         client_hook = case_root / "client-collector.py"
@@ -507,9 +520,17 @@ if [[ "${1:-}" == shell && "${2:-}" == getprop && "${3:-}" == ro.kernel.qemu ]];
 elif [[ "${1:-}" == shell && "${2:-}" == getprop && "${3:-}" == ro.product.name ]]; then
   printf 'pixel_physical\\n'
 elif [[ "${1:-}" == shell && "${2:-}" == pm && "${3:-}" == path ]]; then
-  printf 'package:/data/app/ripdpi/base.apk\\n'
+  if [[ "${4:-}" == com.poyka.ripdpi.test ]]; then
+    printf 'package:/data/app/ripdpi-test/base.apk\\n'
+  else
+    printf 'package:/data/app/ripdpi/base.apk\\n'
+  fi
 elif [[ "${1:-}" == pull ]]; then
-  cp "$RIPDPI_TEST_INSTALLED_APK" "$3"
+  if [[ "$2" == */ripdpi-test/* ]]; then
+    cp "$RIPDPI_TEST_INSTALLED_TEST_APK" "$3"
+  else
+    cp "$RIPDPI_TEST_INSTALLED_APK" "$3"
+  fi
 else
   exit 2
 fi
@@ -523,6 +544,7 @@ fi
             {
                 "RIPDPI_TEST_REPO_ROOT": str(source_checkout),
                 "RIPDPI_TEST_INSTALLED_APK": str(client_artifact),
+                "RIPDPI_TEST_INSTALLED_TEST_APK": str(test_artifact),
                 "RIPDPI_TEST_LEAK_CASE": json.dumps(
                     {"field": case["field"], "value": case["value"]},
                     separators=(",", ":"),
@@ -549,6 +571,8 @@ fi
                 str(source_checkout),
                 "--client-artifact",
                 str(client_artifact),
+                "--test-artifact",
+                str(test_artifact),
                 "--execution-kind",
                 "local",
                 "--execution-id",
@@ -599,6 +623,7 @@ fi
                 ),
                 "workloadSha256": "9" * 64,
                 "clientArtifactSha256": "8" * 64,
+                "testArtifactSha256": "7" * 64,
             },
         )
         self.assertEqual(
@@ -617,15 +642,43 @@ fi
         with self.assertRaisesRegex(ValueError, "workload digest is not approved"):
             self.validate(manifest)
 
+    def test_validator_rejects_unapproved_test_artifact(self) -> None:
+        with self.assertRaisesRegex(ValueError, "test artifact digest is not approved"):
+            evidence.enforce_producer_policy(
+                client_collector_sha256="e" * 64,
+                observer_collector_sha256="f" * 64,
+                workload_sha256="9" * 64,
+                client_artifact_sha256="8" * 64,
+                test_artifact_sha256="a" * 64,
+            )
+
+    def test_assembler_rejects_observation_test_artifact_mismatch(self) -> None:
+        observer = self.observation("external-observer")
+        observer["testArtifactSha256"] = "a" * 64
+        with self.assertRaisesRegex(ValueError, "test artifact digest"):
+            self.assemble(observer=observer)
+
+    def test_plan_test_artifact_must_match_runner(self) -> None:
+        with self.assertRaisesRegex(ValueError, "test artifact digest"):
+            evidence.validate_plan(
+                self.plan(),
+                expected_source_sha=self.source_sha,
+                expected_correlation_id=self.correlation_id,
+                expected_client_artifact_sha256="8" * 64,
+                expected_test_artifact_sha256="a" * 64,
+                applies_to="android-client-release",
+            )
+
     def test_assembler_rejects_empty_producer_allowlist(self) -> None:
         evidence.write_canonical_json(
             evidence.PRODUCER_POLICY_PATH,
             {
-                "version": "network_evidence_producers_v1",
+                "version": "network_evidence_producers_v2",
                 "clientCollectorSha256": [],
                 "observerCollectorSha256": [],
                 "workloadSha256": [],
                 "clientArtifactSha256": [],
+                "testArtifactSha256": [],
             },
         )
         with self.assertRaisesRegex(ValueError, "digest is not approved"):
@@ -634,7 +687,7 @@ fi
     def test_repo_schema_pins_manifest_and_observation_versions(self) -> None:
         schema = json.loads(
             (
-                ROOT / "quality/release-gates/network-evidence-manifest-v2.schema.json"
+                ROOT / "quality/release-gates/network-evidence-manifest-v3.schema.json"
             ).read_text(encoding="utf-8")
         )
         self.assertEqual(
@@ -694,11 +747,24 @@ fi
                 "clientArtifactSha256",
             },
         )
+        v2_schema = json.loads(
+            (
+                ROOT / "quality/release-gates/network-evidence-manifest-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            v2_schema["properties"]["version"]["const"],
+            "network_evidence_manifest_v2",
+        )
+        for definition in ("provenance", "observation", "scenarioPlan"):
+            self.assertNotIn(
+                "testArtifactSha256", v2_schema["$defs"][definition]["required"]
+            )
 
     def test_repo_schema_validates_emitted_manifest_and_observations(self) -> None:
         schema = json.loads(
             (
-                ROOT / "quality/release-gates/network-evidence-manifest-v2.schema.json"
+                ROOT / "quality/release-gates/network-evidence-manifest-v3.schema.json"
             ).read_text(encoding="utf-8")
         )
         Draft202012Validator.check_schema(schema)
@@ -787,6 +853,7 @@ fi
             network_id_sha256="7" * 64,
             collector_sha256="6" * 64,
             client_artifact_sha256="8" * 64,
+            test_artifact_sha256="7" * 64,
         )
 
         self.assertEqual(stamped["vantageIdSha256"], "5" * 64)
@@ -811,6 +878,7 @@ fi
                 network_id_sha256="7" * 64,
                 collector_sha256="6" * 64,
                 client_artifact_sha256="8" * 64,
+                test_artifact_sha256="7" * 64,
             )
 
     def test_missing_gate_window_is_rejected(self) -> None:
@@ -861,6 +929,7 @@ fi
                 expected_source_sha=self.source_sha,
                 expected_correlation_id=self.correlation_id,
                 expected_client_artifact_sha256="8" * 64,
+                expected_test_artifact_sha256="7" * 64,
                 applies_to="android-client-release",
             )
 
@@ -873,6 +942,7 @@ fi
                 expected_source_sha=self.source_sha,
                 expected_correlation_id=self.correlation_id,
                 expected_client_artifact_sha256="8" * 64,
+                expected_test_artifact_sha256="7" * 64,
                 applies_to="android-client-release",
             )
 
@@ -888,6 +958,7 @@ fi
                 expected_source_sha=self.source_sha,
                 expected_correlation_id=self.correlation_id,
                 expected_client_artifact_sha256="8" * 64,
+                expected_test_artifact_sha256="7" * 64,
                 applies_to="android-client-release",
             )
 
@@ -902,6 +973,7 @@ fi
                 expected_source_sha=self.source_sha,
                 expected_correlation_id=self.correlation_id,
                 expected_client_artifact_sha256="8" * 64,
+                expected_test_artifact_sha256="7" * 64,
                 applies_to="android-client-release",
             )
 

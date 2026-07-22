@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -39,14 +41,17 @@ class PmtudLocalEvidenceTest(unittest.TestCase):
         for case in evidence.REQUIRED_CASES:
             artifact = {
                 "caseId": case.case_id,
+                "executableSha256": "6" * 64,
                 "failed": 0,
                 "failureCode": "NONE",
                 "ignored": 0,
                 "measured": 0,
+                "measurement": evidence.example_measurement(case),
                 "passed": 1,
                 "result": "PASS",
                 "sourceSha": SOURCE_SHA,
                 "testName": case.test_name,
+                "toolchainChannel": "1.96.0",
                 "version": evidence.ARTIFACT_VERSION,
             }
             path = self.artifact_dir / f"{case.case_id}.json"
@@ -55,6 +60,7 @@ class PmtudLocalEvidenceTest(unittest.TestCase):
                 {
                     "artifact": path.name,
                     "artifactSha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "executableSha256": "6" * 64,
                     "id": case.case_id,
                     "package": case.package,
                     "result": "PASS",
@@ -67,15 +73,22 @@ class PmtudLocalEvidenceTest(unittest.TestCase):
             "completedAt": "2026-07-22T10:10:00Z",
             "environment": {
                 "architecture": "arm64",
-                "cargoVersion": "cargo 1.88.0 (873a06493 2025-05-10)",
+                "cargoExecutableSha256": "7" * 64,
+                "cargoVersion": "cargo 1.96.0 (873a06493 2025-05-10)",
                 "operatingSystem": "darwin",
-                "rustcVersion": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+                "rustcExecutableSha256": "8" * 64,
+                "rustcVersion": "rustc 1.96.0 (6b00bc388 2025-06-23)",
+                "rustdocExecutableSha256": "9" * 64,
+                "rustupExecutableSha256": "a" * 64,
+                "toolchainChannel": "1.96.0",
             },
             "provenance": {
+                "cargoConfigSha256": "1" * 64,
                 "cargoLockSha256": "2" * 64,
                 "runnerSha256": "3" * 64,
                 "snapshotMethod": "git-archive",
                 "suiteDefinitionSha256": "5" * 64,
+                "toolchainFileSha256": "6" * 64,
                 "validatorSha256": "4" * 64,
             },
             "result": "PASS",
@@ -199,15 +212,20 @@ class PmtudLocalEvidenceTest(unittest.TestCase):
     def test_source_provenance_digests_are_verified_not_just_well_formed(self) -> None:
         path = self.write_pass_manifest()
         blobs = {
+            evidence.CARGO_CONFIG_RELATIVE: b"[build]\n",
             evidence.LOCK_RELATIVE: b"locked-dependencies\n",
             evidence.RUNNER_RELATIVE: (
                 evidence.ROOT / evidence.RUNNER_RELATIVE
             ).read_bytes(),
             evidence.VALIDATOR_RELATIVE: Path(evidence.__file__).read_bytes(),
+            evidence.TOOLCHAIN_RELATIVE: b'[toolchain]\nchannel = "1.96.0"\n',
         }
 
         def bind_provenance(value) -> None:
             value["provenance"] = {
+                "cargoConfigSha256": hashlib.sha256(
+                    blobs[evidence.CARGO_CONFIG_RELATIVE]
+                ).hexdigest(),
                 "cargoLockSha256": hashlib.sha256(
                     blobs[evidence.LOCK_RELATIVE]
                 ).hexdigest(),
@@ -216,6 +234,9 @@ class PmtudLocalEvidenceTest(unittest.TestCase):
                 ).hexdigest(),
                 "snapshotMethod": "git-archive",
                 "suiteDefinitionSha256": evidence.suite_definition_sha256(),
+                "toolchainFileSha256": hashlib.sha256(
+                    blobs[evidence.TOOLCHAIN_RELATIVE]
+                ).hexdigest(),
                 "validatorSha256": hashlib.sha256(
                     blobs[evidence.VALIDATOR_RELATIVE]
                 ).hexdigest(),
@@ -259,6 +280,62 @@ class PmtudLocalEvidenceTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     evidence.parse_test_summary(bad)
 
+    def test_parse_measurement_requires_one_complete_case_bound_marker(self) -> None:
+        case = evidence.REQUIRED_CASES[0]
+        measurement = evidence.example_measurement(case)
+        marker = evidence.MEASUREMENT_MARKER + json.dumps(
+            measurement, sort_keys=True, separators=(",", ":")
+        )
+        output = (
+            "test tests::example ... "
+            + marker
+            + "\n"
+            + "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n"
+        )
+        self.assertEqual(evidence.parse_measurement(output, case), measurement)
+
+        malformed = dict(measurement)
+        malformed.pop("payloadSha256")
+        mismatched = dict(measurement, caseId=evidence.REQUIRED_CASES[1].case_id)
+        for bad in (
+            "",
+            evidence.MEASUREMENT_MARKER + json.dumps(malformed),
+            evidence.MEASUREMENT_MARKER + json.dumps(mismatched),
+            marker + "\n" + marker,
+        ):
+            with self.subTest(output=bad):
+                with self.assertRaises(ValueError):
+                    evidence.parse_measurement(bad, case)
+
+    def test_rejects_missing_partial_tampered_and_inconsistent_measurements(self) -> None:
+        first_case = evidence.REQUIRED_CASES[0]
+        artifact_path = self.artifact_dir / f"{first_case.case_id}.json"
+        mutations = (
+            lambda value: value.pop("measurement"),
+            lambda value: value["measurement"].pop("payloadSha256"),
+            lambda value: value["measurement"].update(payloadLength=1),
+            lambda value: value["measurement"].update(integrity=False),
+            lambda value: value["measurement"].update(caseId="wrong-case"),
+            lambda value: value["measurement"].update(highMtu=1199),
+            lambda value: value.update(executableSha256="f" * 64),
+            lambda value: value.update(toolchainChannel="9.9.9"),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                manifest_path = self.write_pass_manifest()
+                artifact = json.loads(artifact_path.read_text())
+                mutate(artifact)
+                artifact_path.write_bytes(evidence.canonical_json_bytes(artifact))
+
+                def update_digest(value) -> None:
+                    value["artifacts"][0]["artifactSha256"] = hashlib.sha256(
+                        artifact_path.read_bytes()
+                    ).hexdigest()
+
+                self.rewrite(manifest_path, update_digest)
+                with self.assertRaises(ValueError):
+                    self.validate(manifest_path)
+
     def test_failure_manifest_is_structural_but_never_a_pass_gate(self) -> None:
         path = self.write_pass_manifest()
         first_case = evidence.REQUIRED_CASES[0]
@@ -298,6 +375,80 @@ class PmtudLocalEvidenceTest(unittest.TestCase):
 
     def test_validity_window_constant_is_bounded(self) -> None:
         self.assertLessEqual(evidence.MAX_VALIDITY, timedelta(hours=6))
+
+    def test_suite_digest_binds_measurement_profile_and_target_family(self) -> None:
+        original = evidence.suite_definition_sha256()
+        first = evidence.REQUIRED_CASES[0]
+        with mock.patch.object(
+            evidence,
+            "REQUIRED_CASES",
+            (replace(first, measurement_profile="tampered"), *evidence.REQUIRED_CASES[1:]),
+        ):
+            self.assertNotEqual(evidence.suite_definition_sha256(), original)
+        with mock.patch.object(
+            evidence,
+            "REQUIRED_CASES",
+            (replace(first, target_family="ipv6"), *evidence.REQUIRED_CASES[1:]),
+        ):
+            self.assertNotEqual(evidence.suite_definition_sha256(), original)
+
+    def test_rejects_runner_wrapper_toolchain_and_cargo_home_overrides(self) -> None:
+        forbidden = (
+            "CARGO_HOME",
+            "RUSTUP_HOME",
+            "RUSTUP_TOOLCHAIN",
+            "RUSTC_WRAPPER",
+            "RUSTC_WORKSPACE_WRAPPER",
+            "CARGO_BUILD_RUSTC",
+            "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER",
+        )
+        for key in forbidden:
+            with self.subTest(key=key):
+                with self.assertRaisesRegex(ValueError, key):
+                    evidence.reject_environment_overrides({key: "/tmp/fake"})
+
+    def test_rejects_unsafe_cargo_config_execution_overrides(self) -> None:
+        snippets = (
+            '[build]\nrustc = "/tmp/fake"\n',
+            '[build]\nrustc-wrapper = "/tmp/fake"\n',
+            '[build]\nrustc-workspace-wrapper = "/tmp/fake"\n',
+            '[build]\ntarget = "fake-target"\n',
+            '[target.aarch64-apple-darwin]\nrunner = "/tmp/fake"\n',
+            'paths = ["/tmp/fake-crate"]\n',
+        )
+        for snippet in snippets:
+            with self.subTest(snippet=snippet):
+                path = self.root / "config.toml"
+                path.write_text(snippet)
+                with self.assertRaisesRegex(ValueError, "unsafe Cargo config"):
+                    evidence.validate_cargo_config(path)
+
+    def test_trusted_tool_resolution_ignores_fake_path_cargo(self) -> None:
+        tools = self.root / "trusted"
+        tools.mkdir()
+        cargo = tools / "cargo"
+        rustc = tools / "rustc"
+        rustup = tools / "rustup"
+        cargo.write_text("#!/bin/sh\necho 'cargo 1.96.0 (a00000000 2026-01-01)'\n")
+        rustc.write_text("#!/bin/sh\necho 'rustc 1.96.0 (b00000000 2026-01-01)'\n")
+        rustup.write_text(
+            "#!/bin/sh\n"
+            f"case \"$4\" in cargo) echo '{cargo}' ;; rustc) echo '{rustc}' ;; rustdoc) echo '{rustc}' ;; *) exit 9 ;; esac\n"
+        )
+        for path in (cargo, rustc, rustup):
+            path.chmod(0o700)
+        fake = self.root / "fake-path"
+        fake.mkdir()
+        fake_cargo = fake / "cargo"
+        fake_cargo.write_text("#!/bin/sh\necho forged >&2\nexit 99\n")
+        fake_cargo.chmod(0o700)
+
+        with mock.patch.object(evidence, "trusted_rustup_path", return_value=rustup):
+            resolved = evidence.resolve_trusted_toolchain(
+                "1.96.0", caller_environment={"PATH": str(fake)}
+            )
+        self.assertEqual(resolved.cargo, cargo.resolve())
+        self.assertNotEqual(resolved.cargo, fake_cargo.resolve())
 
 
 if __name__ == "__main__":

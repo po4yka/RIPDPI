@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.HandoffOutcome
+import com.poyka.ripdpi.core.RipDpiLogContext
 
 /**
  * Thin connect-flow collaborator that keeps the embedded-Xray provider logic out
@@ -44,6 +45,7 @@ internal class XrayConnectFlowDelegate(
 ) {
     /** True while the active session is bound to the Xray provider path. */
     private var active = false
+    private var ownsProviderPath = false
 
     /** Whether the active session is currently bound to the Xray provider. */
     val isActive: Boolean
@@ -67,6 +69,7 @@ internal class XrayConnectFlowDelegate(
         val outcome = controller.start(startParams(session, resolution))
         active = outcome is HandoffOutcome.Running
         if (outcome is HandoffOutcome.Running) {
+            ownsProviderPath = true
             publishActiveDnsState(session, resolution)
             return true
         }
@@ -84,11 +87,15 @@ internal class XrayConnectFlowDelegate(
      * the coordinator to stop the native stack.
      */
     suspend fun tryStop(): Boolean {
-        if (!active) {
+        if (!ownsProviderPath) {
             return false
         }
-        controller.stop()
-        active = false
+        try {
+            controller.stop()
+        } finally {
+            active = false
+            ownsProviderPath = false
+        }
         return true
     }
 
@@ -100,20 +107,27 @@ internal class XrayConnectFlowDelegate(
      * but the handover failed, so the generic handover retry / failure path sees
      * the failure instead of marking the handover as successful.
      */
+    @Suppress("TooGenericExceptionCaught")
     suspend fun tryRestart(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ): Boolean {
-        if (!active) {
+        if (!ownsProviderPath) {
             return false
         }
-        resetSessionDnsState(session)
-        applyActiveConnectionPolicy(session, resolution, "network_handover", appliedAt)
-        val outcome = controller.restart(startParams(session, resolution))
+        val outcome =
+            try {
+                controller.restart(startParams(session, resolution))
+            } catch (error: Exception) {
+                active = controller.isActive
+                throw error
+            }
         active = outcome is HandoffOutcome.Running
         when (outcome) {
             is HandoffOutcome.Running -> {
+                resetSessionDnsState(session)
+                applyActiveConnectionPolicy(session, resolution, "network_handover", appliedAt)
                 publishActiveDnsState(session, resolution)
             }
 
@@ -122,6 +136,7 @@ internal class XrayConnectFlowDelegate(
             }
 
             HandoffOutcome.Stopped -> {
+                ownsProviderPath = false
                 // The provider selection changed while this handover was in
                 // flight. Xray has stopped cleanly and the coordinator should
                 // treat the active provider path as handled for this lifecycle
@@ -134,6 +149,7 @@ internal class XrayConnectFlowDelegate(
     /** Clear the provider-active flag after a full stop. */
     fun reset() {
         active = false
+        ownsProviderPath = false
     }
 
     private fun resetSessionDnsState(session: VpnRuntimeSession) {
@@ -176,6 +192,12 @@ internal fun defaultXrayStartParams(
     XrayTunnelStartParams(
         activeDns = resolution.activeDns,
         overrideReason = resolution.resolverFallbackReason,
-        logContext = session.buildLogContext(session.currentActiveConnectionPolicy),
+        logContext =
+            RipDpiLogContext(
+                runtimeId = session.runtimeId,
+                mode = session.mode.preferenceValue,
+                policySignature = resolution.policySignature,
+                fingerprintHash = resolution.fingerprintHash,
+            ),
         forceTunnelDns = false,
     )

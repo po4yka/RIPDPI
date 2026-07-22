@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.TemporaryResolverOverride
@@ -52,8 +53,8 @@ data class ConnectionPolicyResolution(
 /**
  * The connection-policy decision authority. `resolve` merges app settings, DNS
  * configuration, VPN options, and the network-specific remembered policy into
- * a single `ConnectionPolicyResolution`. The default implementation is
- * `DefaultConnectionPolicyResolver`. See this module's `README.md`,
+ * a single `ConnectionPolicyResolution`. Production uses
+ * `RecoveringConnectionPolicyResolver` around `DefaultConnectionPolicyResolver`. See this module's `README.md`,
  * "Policy memory".
  */
 interface ConnectionPolicyResolver {
@@ -364,10 +365,40 @@ class DefaultConnectionPolicyResolver
         )
     }
 
+/** Waits for durable profile mutations before any settings-backed policy snapshot. */
+@Singleton
+class RecoveringConnectionPolicyResolver
+    private constructor(
+        private val resolvePolicy:
+            suspend (Mode, TemporaryResolverOverride?, NetworkFingerprint?, String?) -> ConnectionPolicyResolution,
+        private val profileMutations: ProfileMutationCoordinator,
+    ) : ConnectionPolicyResolver {
+        @Inject
+        constructor(
+            delegate: DefaultConnectionPolicyResolver,
+            profileMutations: ProfileMutationCoordinator,
+        ) : this(delegate::resolve, profileMutations)
+
+        internal constructor(
+            delegate: ConnectionPolicyResolver,
+            profileMutations: ProfileMutationCoordinator,
+        ) : this(delegate::resolve, profileMutations)
+
+        override suspend fun resolve(
+            mode: Mode,
+            resolverOverride: TemporaryResolverOverride?,
+            fingerprint: NetworkFingerprint?,
+            handoverClassification: String?,
+        ): ConnectionPolicyResolution {
+            profileMutations.recover()
+            return resolvePolicy(mode, resolverOverride, fingerprint, handoverClassification)
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ConnectionPolicyResolverModule {
     @Binds
     @Singleton
-    abstract fun bindConnectionPolicyResolver(resolver: DefaultConnectionPolicyResolver): ConnectionPolicyResolver
+    abstract fun bindConnectionPolicyResolver(resolver: RecoveringConnectionPolicyResolver): ConnectionPolicyResolver
 }

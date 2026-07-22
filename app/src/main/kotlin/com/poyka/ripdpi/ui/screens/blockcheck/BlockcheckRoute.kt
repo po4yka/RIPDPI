@@ -332,7 +332,7 @@ private fun BlockcheckRankedRow(
                     stringResource(R.string.percent_value, (result.successRate * PercentScale).toInt())
                 },
             style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = if (isBest) RipDpiThemeTokens.colors.accent else RipDpiThemeTokens.colors.foreground,
+            color = if (isBest) RipDpiThemeTokens.colors.info else RipDpiThemeTokens.colors.foreground,
         )
     }
 }

@@ -56,6 +56,7 @@ internal fun captureSingle(
     widthDp: Int,
     heightDp: Int,
     darkMode: Boolean,
+    fontScale: Float = 1f,
     layoutDirection: LayoutDirection? = null,
     testClassFqn: String = DefaultTestClassFqn,
     content: @Composable () -> Unit,
@@ -70,7 +71,7 @@ internal fun captureSingle(
         roborazziComposeOptions =
             RoborazziComposeOptions {
                 size(widthDp = widthDp, heightDp = heightDp)
-                fontScale(1f)
+                fontScale(fontScale)
                 inspectionMode(true)
             },
     ) {
@@ -108,6 +109,7 @@ internal fun captureBothThemes(
     name: String,
     widthDp: Int = 360,
     heightDp: Int = 200,
+    fontScale: Float = 1f,
     testClassFqn: String = DefaultTestClassFqn,
     content: @Composable () -> Unit,
 ) {
@@ -118,6 +120,7 @@ internal fun captureBothThemes(
             widthDp = widthDp,
             heightDp = heightDp,
             darkMode = darkMode,
+            fontScale = fontScale,
             // layoutDirection = null → no CompositionLocalProvider wrapper, byte-identical
             // to the original inlined implementation. Do not pass LayoutDirection.Ltr here.
             testClassFqn = testClassFqn,

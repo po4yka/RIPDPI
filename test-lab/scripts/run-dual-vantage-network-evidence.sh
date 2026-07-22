@@ -8,6 +8,7 @@ output_dir=""
 source_sha=""
 source_root="${RIPDPI_EVIDENCE_SOURCE_ROOT:-$repo_root}"
 client_artifact=""
+test_artifact=""
 applies_to="android-client-release"
 execution_kind=""
 execution_id=""
@@ -56,7 +57,8 @@ PY
 usage() {
   cat <<'USAGE'
 Usage: run-dual-vantage-network-evidence.sh --config FILE --output-dir DIR \
-       --client-artifact FILE [--source-root CLEAN_GIT_CHECKOUT] \
+       --client-artifact FILE --test-artifact FILE \
+       [--source-root CLEAN_GIT_CHECKOUT] \
        [--source-sha SHA] \
        [--applies-to android-client-release] \
        [--execution-kind github-actions|local --execution-id ID \
@@ -93,6 +95,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --client-artifact)
       client_artifact="${2:?missing --client-artifact value}"
+      shift 2
+      ;;
+    --test-artifact)
+      test_artifact="${2:?missing --test-artifact value}"
       shift 2
       ;;
     --applies-to)
@@ -208,6 +214,10 @@ PY
   echo "client artifact must be a regular non-symlink file" >&2
   exit 2
 }
+[[ -n "$test_artifact" && -f "$test_artifact" && ! -L "$test_artifact" ]] || {
+  echo "test artifact must be a regular non-symlink file" >&2
+  exit 2
+}
 [[ "$applies_to" == "android-client-release" ]] || { echo "unsupported evidence scope" >&2; exit 2; }
 if [[ -z "$execution_kind" && -n "${GITHUB_RUN_ID:-}" ]]; then
   execution_kind="github-actions"
@@ -295,19 +305,24 @@ publish_dir="$scratch/publish"
 client_pid=""
 observer_pid=""
 
-python3 - "$client_artifact" "$scratch/client-artifact.apk" "$scratch/client-artifact.sha256" <<'PY'
+copy_artifact() {
+  local source="$1"
+  local destination="$2"
+  local digest_path="$3"
+  local label="$4"
+  python3 - "$source" "$destination" "$digest_path" "$label" <<'PY'
 import hashlib
 import os
 import stat
 import sys
 
-source, destination, digest_path = sys.argv[1:]
+source, destination, digest_path, label = sys.argv[1:]
 flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 descriptor = os.open(source, flags)
 try:
     metadata = os.fstat(descriptor)
     if not stat.S_ISREG(metadata.st_mode):
-        raise SystemExit("client artifact must remain a regular file")
+        raise SystemExit(f"{label} artifact must remain a regular file")
     chunks = []
     while chunk := os.read(descriptor, 1024 * 1024):
         chunks.append(chunk)
@@ -320,8 +335,19 @@ os.chmod(destination, 0o400)
 with open(digest_path, "x", encoding="ascii") as handle:
     handle.write(hashlib.sha256(payload).hexdigest())
 PY
+}
+copy_artifact "$client_artifact" "$scratch/client-artifact.apk" \
+  "$scratch/client-artifact.sha256" client
+copy_artifact "$test_artifact" "$scratch/test-artifact.apk" \
+  "$scratch/test-artifact.sha256" test
 client_artifact="$scratch/client-artifact.apk"
+test_artifact="$scratch/test-artifact.apk"
 client_artifact_sha256="$(<"$scratch/client-artifact.sha256")"
+test_artifact_sha256="$(<"$scratch/test-artifact.sha256")"
+[[ "$client_artifact_sha256" != "$test_artifact_sha256" ]] || {
+  echo "client and test artifacts must be distinct" >&2
+  exit 2
+}
 
 hook_process_running() {
   local pid="$1"
@@ -372,7 +398,7 @@ trap 'exit 143' TERM
 
 python3 - "$config_path" "$scratch" \
   "$repo_root/quality/release-gates/network-evidence-producers.json" \
-  "$client_artifact_sha256" <<'PY'
+  "$client_artifact_sha256" "$test_artifact_sha256" <<'PY'
 import hashlib
 import json
 import os
@@ -384,6 +410,7 @@ config_path = Path(sys.argv[1])
 scratch = Path(sys.argv[2])
 producer_policy_path = Path(sys.argv[3])
 client_artifact_sha256 = sys.argv[4]
+test_artifact_sha256 = sys.argv[5]
 descriptor = os.open(config_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
 try:
     metadata = os.fstat(descriptor)
@@ -411,13 +438,16 @@ expected_policy_fields = {
     "observerCollectorSha256",
     "workloadSha256",
     "clientArtifactSha256",
+    "testArtifactSha256",
 }
 if not isinstance(producer_policy, dict) or set(producer_policy) != expected_policy_fields:
-    raise SystemExit("network evidence producer policy fields do not match the v1 contract")
-if producer_policy["version"] != "network_evidence_producers_v1":
+    raise SystemExit("network evidence producer policy fields do not match the v2 contract")
+if producer_policy["version"] != "network_evidence_producers_v2":
     raise SystemExit("unsupported network evidence producer policy version")
 if client_artifact_sha256 not in producer_policy["clientArtifactSha256"]:
     raise SystemExit("client artifact digest is not approved by the source producer policy")
+if test_artifact_sha256 not in producer_policy["testArtifactSha256"]:
+    raise SystemExit("test artifact digest is not approved by the source producer policy")
 expected = {
     "version",
     "clientHook",
@@ -520,7 +550,7 @@ observer_vantage_sha256="$(<"$scratch/observerVantageId.sha256")"
 client_network_sha256="$(<"$scratch/clientNetworkId.sha256")"
 observer_network_sha256="$(<"$scratch/observerNetworkId.sha256")"
 
-verify_installed_client() {
+verify_installed_artifacts() {
   local phase="$1"
   local device_lines device_count
   device_lines="$(run_bounded 30 adb devices | awk '$2 == "device" { print $1 }')"
@@ -530,28 +560,38 @@ verify_installed_client() {
     return 1
   }
   local serial="$device_lines"
-  local qemu product remote_apk pulled
+  local qemu product package_name artifact label remote_apk pulled path_count
   qemu="$(run_bounded 30 adb -s "$serial" shell getprop ro.kernel.qemu | tr -d '\r')"
   product="$(run_bounded 30 adb -s "$serial" shell getprop ro.product.name | tr -d '\r')"
   [[ "$qemu" != "1" && "$product" != *sdk* && "$product" != *emulator* ]] || {
     echo "network evidence requires a physical Android device" >&2
     return 1
   }
-  remote_apk="$(run_bounded 30 adb -s "$serial" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | head -1 | tr -d '\r')"
-  [[ -n "$remote_apk" ]] || {
-    echo "installed RIPDPI base APK was not found" >&2
-    return 1
-  }
-  pulled="$scratch/installed-${phase}.apk"
-  run_bounded 60 adb -s "$serial" pull "$remote_apk" "$pulled" >/dev/null
-  cmp -s "$client_artifact" "$pulled" || {
-    echo "installed RIPDPI APK does not match the supplied client artifact" >&2
-    return 1
-  }
-  rm -f "$pulled"
+  for package_name in com.poyka.ripdpi com.poyka.ripdpi.test; do
+    if [[ "$package_name" == "com.poyka.ripdpi" ]]; then
+      artifact="$client_artifact"
+      label="client"
+    else
+      artifact="$test_artifact"
+      label="test"
+    fi
+    remote_apk="$(run_bounded 30 adb -s "$serial" shell pm path "$package_name" | sed -n 's/^package://p' | tr -d '\r')"
+    path_count="$(printf '%s\n' "$remote_apk" | awk 'NF { count++ } END { print count + 0 }')"
+    [[ "$path_count" -eq 1 ]] || {
+      echo "installed RIPDPI $label package must resolve to exactly one APK" >&2
+      return 1
+    }
+    pulled="$scratch/installed-${label}-${phase}.apk"
+    run_bounded 60 adb -s "$serial" pull "$remote_apk" "$pulled" >/dev/null
+    cmp -s "$artifact" "$pulled" || {
+      echo "installed RIPDPI $label APK does not match the supplied artifact" >&2
+      return 1
+    }
+    rm -f "$pulled"
+  done
 }
 
-verify_installed_client before
+verify_installed_artifacts before
 correlation_id="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 runner_sha256="$(python3 - "$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh" <<'PY'
 import hashlib
@@ -641,7 +681,9 @@ run_workload_bounded "$workload_timeout_seconds" "$workload_hook" \
   "$source_sha" \
   "$plan_path" \
   "$client_artifact" \
-  "$client_artifact_sha256" >/dev/null 2>&1 || {
+  "$client_artifact_sha256" \
+  "$test_artifact" \
+  "$test_artifact_sha256" >/dev/null 2>&1 || {
   echo "network evidence workload failed" >&2
   exit 1
 }
@@ -653,6 +695,7 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" validate-plan \
   --source-sha "$source_sha" \
   --correlation-id "$correlation_id" \
   --client-artifact-sha256 "$client_artifact_sha256" \
+  --test-artifact-sha256 "$test_artifact_sha256" \
   --applies-to "$applies_to"
 mv "$validated_plan_path" "$plan_path"
 : > "$stop_file"
@@ -678,7 +721,7 @@ for pid in "$client_pid" "$observer_pid"; do
     exit 1
   fi
 done
-verify_installed_client after
+verify_installed_artifacts after
 [[ -s "$client_observation" ]] || { echo "client observation is missing" >&2; exit 1; }
 [[ -s "$observer_observation" ]] || { echo "observer observation is missing" >&2; exit 1; }
 
@@ -694,6 +737,7 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" stamp-observation \
   --network-id-sha256 "$client_network_sha256" \
   --collector-sha256 "$client_collector_sha256" \
   --client-artifact-sha256 "$client_artifact_sha256" \
+  --test-artifact-sha256 "$test_artifact_sha256" \
   --applies-to "$applies_to"
 python3 "$repo_root/scripts/ci/network_evidence_manifest.py" stamp-observation \
   --input "$observer_observation" \
@@ -706,6 +750,7 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" stamp-observation \
   --network-id-sha256 "$observer_network_sha256" \
   --collector-sha256 "$observer_collector_sha256" \
   --client-artifact-sha256 "$client_artifact_sha256" \
+  --test-artifact-sha256 "$test_artifact_sha256" \
   --applies-to "$applies_to"
 python3 "$repo_root/scripts/ci/network_evidence_manifest.py" assemble \
   --client "$publish_dir/client-observation.json" \
@@ -722,6 +767,7 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" assemble \
   --producer-policy-sha256 "$producer_policy_sha256" \
   --workload-sha256 "$workload_sha256" \
   --client-artifact-sha256 "$client_artifact_sha256" \
+  --test-artifact-sha256 "$test_artifact_sha256" \
   --output "$publish_dir/manifest.json"
 python3 "$repo_root/scripts/ci/network_evidence_manifest.py" validate \
   --manifest "$publish_dir/manifest.json" \

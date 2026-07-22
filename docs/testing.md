@@ -302,34 +302,36 @@ SHA-256 hashing; their raw values and hook paths never leave the runner. The
 runner also records executable digests for itself, the validator, the policy,
 the source-pinned producer policy, both collectors, and the workload,
 rejects a shared collector path, and requires a non-emulated ADB device. Before
-capture, the workflow builds `GithubFullDebug` from the checked-out SHA for the
-physical device ABI, installs it, pulls the installed base APK back, verifies byte
-equality, and records its SHA-256 in provenance. The observer hook owns the
+capture, the workflow builds both the `GithubFullDebug` client and its androidTest
+APK from the checked-out SHA for the physical device ABI, installs them, pulls
+both installed APKs back, verifies byte equality, and records both SHA-256 values
+in provenance. The observer hook owns the
 authenticated remote capture transport; its credentials and endpoint stay in the
 runner-owned installation.
 
-The runtime accepts manifest, observation, and scenario-plan v2 only. The v1
-schema remains archived for interpreting historical artifacts; it is not an
-accepted release-evidence input. The runner first extracts its own script, the
+The runtime accepts manifest, observation, and scenario-plan v3 only. The v1 and
+v2 schemas remain archived for interpreting historical artifacts; they are not
+accepted release-evidence inputs. The runner first extracts its own script, the
 validator, gate policy, and producer policy directly from the selected Git
 commit, re-executes that immutable snapshot, and records the four blob digests.
 Before capture, the mode-0600 config is opened once with no-follow semantics,
 validated through the same descriptor, and copied into private scratch. Hooks
-and the APK are likewise copied
+and both APKs are likewise copied
 through no-follow file descriptors into the mode-0700 scratch directory and the
 immutable copies are hashed and used. Collector, workload, and APK digests must
 also appear in the source-pinned
 `quality/release-gates/network-evidence-producers.json` allowlist. That committed
 allowlist is intentionally empty until real private hook binaries and an
-exact-source signed release-candidate APK have been locally materialized,
+exact-source signed release-candidate and androidTest APKs have been locally materialized,
 reviewed, captured, and pinned. The current `GithubFullDebug` evidence workflow
 does not attest a signed release candidate and therefore remains fail-closed.
 A real capture therefore
 currently fails closed at producer and client-artifact approval rather than
 trusting caller-controlled config. ADB operations and the workload are bounded
 by runner-owned timeouts. The runner requires exactly one physical
-ADB device, pulls its installed base APK, and compares it byte-for-byte with the
-scratch artifact both before and after capture.
+ADB device, requires exactly one package path for `com.poyka.ripdpi` and
+`com.poyka.ripdpi.test`, and compares both installed APKs byte-for-byte with the
+scratch artifacts before and after capture.
 
 `test-lab/scripts/network-evidence-ssh-capture.py` is a checked-in private
 capture utility for acquiring a PCAP from an owner-controlled SSH/tcpdump
@@ -344,22 +346,62 @@ reachable from the Mac, sharing an Internet exit, or observing unrelated
 traffic is not proof that a router can see the Pixel's packets.
 
 The backend deliberately emits private-capture metadata rather than a release
-observation. It is not yet listed in `network-evidence-producers.json`: the ten
-gate-specific Android actions, packet oracles, ordinary-results producer, and
-signed release APK are still missing. Copying its digest into the producer
-allowlist before those pieces exist would turn a capture plumbing check into
-false release evidence.
+observation. `test-lab/scripts/network-evidence-pcap-oracle.py` now provides the
+source-owned raw-artifact boundary for later hooks: it validates both canonical
+capture-metadata documents and a strict private action ledger, parses bounded
+classic PCAP for Ethernet, raw IP, Linux SLL, and Linux SLL2 (including a bounded
+VLAN stack), aligns each vantage by its action/outcome packet markers rather than
+mixing local and remote clocks, and derives canonical mode-0600 unstamped
+observations without publishing addresses or payloads. Caller-supplied counters
+and verdicts are rejected; snap-length truncation becomes a capture error.
+
+The oracle keeps the generic marker-pair rule only for non-policy self-tests and
+explicitly rejects it for every Android dual-vantage release gate. The
+`tun-establish-native-ready-v1` rule is the first gate-specific implementation:
+it validates the private Android action receipt and canonical fixture identity,
+reassembles bounded TCP marker streams independently at both vantages, treats
+the conservative interval from before VPN start through confirmed native
+readiness as the direct-window boundary, and permits only the receipt-bound
+post-ready fixture DNS exchange observed identically in both captures without
+publishing its endpoint or question. Any other non-control packet within that
+interval is emitted as unexpected evidence; truncated packets are capture
+errors. The oracle remains outside
+`network-evidence-producers.json` until an authorized physical capture and the
+remaining producer-provenance review are complete.
+
+The first source-owned Android action contract is registered in
+`quality/release-gates/android-network-evidence-actions.json` for
+`killswitch-tun-establish-native-ready`. Its fixed host runner,
+`test-lab/scripts/run-android-network-evidence-action.sh`, invokes exactly
+`VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady` and
+accepts only a private test-produced receipt bound to the clean source SHA,
+client/androidTest artifact digests, fixture identity, a private DNS-query
+digest, and source-derived wire
+markers. Skipped, zero-test, ambiguous, stale, non-private, or semantically
+incomplete receipts fail closed. The action is explicitly `productionReady:
+false`: its analyzer is implemented, but an authorized physical capture and
+producer-provenance approval are still missing, so it cannot open a producer
+allowlist or establish a release PASS. The runner starts and stops RIPDPI VPN;
+it must not be executed without operator authorization for the current device
+and network state.
+
 On success, the utility leaves the raw PCAP at the explicitly requested private
 path for the future gate-specific analyzer. The operator must delete it after
 analysis; unlike the integrated runner scratch directory, this standalone
 utility does not apply an automatic successful-run retention policy.
 
+Network-switch scenarios require a separately authorized operator action and a
+source-owned action receipt. Capture or workload tooling must not change Wi-Fi,
+cellular, routes, DNS, Private DNS, VPN state, or airplane mode on its own; an
+absent receipt remains release-blocking.
+
 The fixed hooks receive only a correlation digest, source SHA, marker paths,
-artifact path and digest, and output paths. The workload emits a strict v2
+artifact paths and digests, and output paths. The workload emits a strict v3
 scenario plan with action and outcome marker digests derived from a
 domain-separated hash of correlation ID, gate ID, gate kind, and purpose. All
-markers must be unique across both purposes. Both
-observations must attest those markers and the canonical plan digest with
+markers must be unique across both purposes. The plan, both observations, and
+manifest provenance bind both the client and androidTest artifact digests. Both
+observations must also attest those markers and the canonical plan digest with
 positive action/outcome counts. Validation immediately before publication uses
 the all-PASS mode, so a valid but FAIL or INCONCLUSIVE bundle is never uploaded
 as release evidence. `run-dual-vantage-network-evidence.sh` starts both collectors
@@ -387,6 +429,7 @@ test-lab/scripts/run-dual-vantage-network-evidence.sh \
   --output-dir /tmp/ripdpi-network-evidence \
   --source-root "$PWD" \
   --client-artifact /absolute/path/to/installed-and-verified.apk \
+  --test-artifact /absolute/path/to/installed-and-verified-androidTest.apk \
   --execution-kind local \
   --execution-id "$execution_id" \
   --execution-attempt 1
@@ -405,7 +448,8 @@ from distinct networks and the APK path identifies the exact installed client.
 The checked-in ordinary producer intentionally emits 11 structured no-ship
 failures until source-owned raw-artifact verifiers exist; it cannot self-attest
 a PASS. The local acceptance entrypoint derives the exact clean `HEAD`, requires
-local execution provenance, snapshots both input artifacts into a private
+local execution provenance, snapshots the ordinary results and dual-vantage
+manifest into a private
 directory, and runs the checker extracted from that exact commit. GitHub Actions
 is not an acceptance prerequisite. The optional
 compatibility release workflow still requires
@@ -417,6 +461,7 @@ Run the local contract checks with:
 python3 -m unittest \
   scripts.tests.test_dns_ipv6_killswitch_gates \
   scripts.tests.test_network_evidence_manifest \
+  scripts.tests.test_network_evidence_pcap_oracle \
   scripts.tests.test_local_android_release_acceptance
 bash test-lab/scripts/test-dual-vantage-network-evidence.sh
 ```

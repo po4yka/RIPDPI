@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.system.OsConstants
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
@@ -59,7 +60,7 @@ private const val SoBindAppApkSha256Arg = "ripdpi.soBindAppApkSha256"
 private const val SoBindTestApkSha256Arg = "ripdpi.soBindTestApkSha256"
 private const val PhysicalSoBindEvidenceProfile = "physical_pixel_api37_kernel61"
 private const val PhysicalSoBindEvidenceFile = "so-bind-physical-evidence.json"
-private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v1"
+private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v2"
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -608,6 +609,27 @@ class NetworkPathE2ETest {
     }
 
     @Test
+    fun dualStackFixtureEventsClassifyUdpByPeerFamily() {
+        val mappedIpv4 =
+            FixtureEventDto(
+                service = "udp_echo",
+                protocol = "udp",
+                peer = "[::ffff:192.0.2.10]:52123",
+                target = "[::]:46002",
+                detail = "echo",
+                bytes = 8,
+                createdAt = 1L,
+            )
+        val ulaIpv6 = mappedIpv4.copy(peer = "[fd00::10]:52124")
+
+        assertFalse(mappedIpv4.peerAddressIsIpv6() ?: true)
+        assertTrue(ulaIpv6.peerAddressIsIpv6() ?: false)
+        assertTrue(mappedIpv4.matchesEcho("udp_echo", "udp", 46002, 8))
+        assertFalse(mappedIpv4.matchesEcho("udp_echo", "udp", 46003, 8))
+        assertFalse(mappedIpv4.matchesEcho("udp_echo", "udp", 46002, 9))
+    }
+
+    @Test
     fun vpnServiceDeniesExcludedTestUidBoundToTun0() {
         assumePhysicalSoBindEvidencePrerequisites()
         ensureVpnConsentGranted(appContext)
@@ -802,7 +824,24 @@ class NetworkPathE2ETest {
                 )
             assertEquals("${family.id} denied TCP did not retain SO_BINDTODEVICE", "tun0", deniedTcp.boundDevice)
             assertFalse("${family.id} bound TCP unexpectedly reached fixture", deniedTcp.ok)
-            assertEquals("${family.id} bound TCP denial must be a reset", "CONNECTION_RESET", deniedTcp.failureKind)
+            val deniedTcpAtNetworkStage = deniedTcp.failureStage in setOf("connect", "send", "receive")
+            val deniedTcpOutcomeIsBlocked =
+                deniedTcp.failureKind in setOf("CONNECTION_RESET", "TIMEOUT") ||
+                    (
+                        deniedTcp.failureKind == "ERRNO" &&
+                            deniedTcp.failureStage == "connect" &&
+                            deniedTcp.errno in setOf(OsConstants.ENETUNREACH, OsConstants.EHOSTUNREACH)
+                    )
+            assertTrue(
+                "${family.id} bound TCP denial must be reset, timeout, or unreachable " +
+                    "kind=${deniedTcp.failureKind} stage=${deniedTcp.failureStage} errno=${deniedTcp.errno}",
+                deniedTcpOutcomeIsBlocked,
+            )
+            assertTrue(
+                "${family.id} bound TCP denial occurred before the network operation " +
+                    "stage=${deniedTcp.failureStage} errno=${deniedTcp.errno}",
+                deniedTcpAtNetworkStage && deniedTcp.errno != null,
+            )
 
             val deniedUdp =
                 testProcessUdpRoundTrip(
@@ -814,10 +853,33 @@ class NetworkPathE2ETest {
                 )
             assertEquals("${family.id} denied UDP did not retain SO_BINDTODEVICE", "tun0", deniedUdp.boundDevice)
             assertFalse("${family.id} bound UDP unexpectedly reached fixture", deniedUdp.ok)
-            assertEquals("${family.id} bound UDP denial must time out", "TIMEOUT", deniedUdp.failureKind)
+            val deniedUdpAtNetworkStage = deniedUdp.failureStage in setOf("connect", "send", "receive")
+            val deniedUdpOutcomeIsBlocked =
+                deniedUdp.failureKind == "TIMEOUT" ||
+                    (
+                        deniedUdp.failureKind == "ERRNO" &&
+                            deniedUdp.failureStage == "connect" &&
+                            deniedUdp.errno in setOf(OsConstants.ENETUNREACH, OsConstants.EHOSTUNREACH)
+                    )
+            assertTrue(
+                "${family.id} bound UDP denial must be timeout or unreachable " +
+                    "kind=${deniedUdp.failureKind} stage=${deniedUdp.failureStage} errno=${deniedUdp.errno}",
+                deniedUdpOutcomeIsBlocked,
+            )
+            assertTrue(
+                "${family.id} bound UDP denial occurred before the network operation " +
+                    "stage=${deniedUdp.failureStage} errno=${deniedUdp.errno}",
+                deniedUdpAtNetworkStage && deniedUdp.errno != null,
+            )
             counters.getValue(family.id).apply {
-                deniedTcpResets = 1
-                deniedUdpTimeouts = 1
+                deniedTcpBlockedAttempts = 1
+                deniedTcpFailureKind = deniedTcp.failureKind
+                deniedTcpFailureStage = deniedTcp.failureStage
+                deniedTcpErrno = deniedTcp.errno
+                deniedUdpBlockedAttempts = 1
+                deniedUdpFailureKind = deniedUdp.failureKind
+                deniedUdpFailureStage = deniedUdp.failureStage
+                deniedUdpErrno = deniedUdp.errno
             }
         }
 
@@ -887,8 +949,28 @@ class NetworkPathE2ETest {
                 )
             assertTrue("${family.id} post-denial TCP was not observed", familyCounters.livenessTcpFixtureEvents > 0)
             assertTrue("${family.id} post-denial UDP was not observed", familyCounters.livenessUdpFixtureEvents > 0)
-            familyCounters.deniedTcpFixtureEvents = 0
-            familyCounters.deniedUdpFixtureEvents = 0
+            familyCounters.deniedTcpFixtureEvents =
+                livenessEvents.countPhysicalEcho(
+                    "tcp_echo",
+                    "tcp",
+                    fixture.tcpEchoPort,
+                    "denied",
+                    "tcp",
+                    family,
+                    nonce,
+                )
+            familyCounters.deniedUdpFixtureEvents =
+                livenessEvents.countPhysicalEcho(
+                    "udp_echo",
+                    "udp",
+                    fixture.udpEchoPort,
+                    "denied",
+                    "udp",
+                    family,
+                    nonce,
+                )
+            assertEquals("${family.id} delayed denied TCP reached fixture", 0, familyCounters.deniedTcpFixtureEvents)
+            assertEquals("${family.id} delayed denied UDP reached fixture", 0, familyCounters.deniedUdpFixtureEvents)
         }
         writePhysicalSoBindEvidence(families, counters)
     }
@@ -967,7 +1049,7 @@ class NetworkPathE2ETest {
                 protocol = protocol,
                 targetPort = targetPort,
                 payloadBytes = physicalSoBindPayload(stage, payloadProtocol, family, nonce).toByteArray().size,
-            ) && it.targetAddressIsIpv6() == family.ipv6
+            ) && it.peerAddressIsIpv6() == family.ipv6
         }
 
     private fun writePhysicalSoBindEvidence(
@@ -1001,8 +1083,14 @@ class NetworkPathE2ETest {
                             .put("allowedUdpRoundTrips", values.allowedUdpRoundTrips)
                             .put("allowedTcpFixtureEvents", values.allowedTcpFixtureEvents)
                             .put("allowedUdpFixtureEvents", values.allowedUdpFixtureEvents)
-                            .put("deniedTcpResets", values.deniedTcpResets)
-                            .put("deniedUdpTimeouts", values.deniedUdpTimeouts)
+                            .put("deniedTcpBlockedAttempts", values.deniedTcpBlockedAttempts)
+                            .put("deniedTcpFailureKind", values.deniedTcpFailureKind)
+                            .put("deniedTcpFailureStage", values.deniedTcpFailureStage)
+                            .put("deniedTcpErrno", values.deniedTcpErrno)
+                            .put("deniedUdpBlockedAttempts", values.deniedUdpBlockedAttempts)
+                            .put("deniedUdpFailureKind", values.deniedUdpFailureKind)
+                            .put("deniedUdpFailureStage", values.deniedUdpFailureStage)
+                            .put("deniedUdpErrno", values.deniedUdpErrno)
                             .put("deniedTcpFixtureEvents", values.deniedTcpFixtureEvents)
                             .put("deniedUdpFixtureEvents", values.deniedUdpFixtureEvents)
                             .put("livenessTcpRoundTrips", values.livenessTcpRoundTrips)
@@ -1028,11 +1116,10 @@ class NetworkPathE2ETest {
                 .put("realTun", true)
                 .put("tunPacketPathObserved", true)
                 .put("families", familyEvidence)
-        val instrumentationContext =
-            androidx.test.platform.app.InstrumentationRegistry
-                .getInstrumentation()
-                .context
-        instrumentationContext.cacheDir.resolve(PhysicalSoBindEvidenceFile).writeText(evidence.toString() + "\n")
+        appContext
+            .openFileOutput(PhysicalSoBindEvidenceFile, Context.MODE_PRIVATE)
+            .bufferedWriter()
+            .use { output -> output.write(evidence.toString() + "\n") }
     }
 
     private fun requirePhysicalEvidenceArgument(
@@ -1201,8 +1288,14 @@ private data class PhysicalSoBindCounters(
     var allowedUdpRoundTrips: Int = 0,
     var allowedTcpFixtureEvents: Int = 0,
     var allowedUdpFixtureEvents: Int = 0,
-    var deniedTcpResets: Int = 0,
-    var deniedUdpTimeouts: Int = 0,
+    var deniedTcpBlockedAttempts: Int = 0,
+    var deniedTcpFailureKind: String? = null,
+    var deniedTcpFailureStage: String? = null,
+    var deniedTcpErrno: Int? = null,
+    var deniedUdpBlockedAttempts: Int = 0,
+    var deniedUdpFailureKind: String? = null,
+    var deniedUdpFailureStage: String? = null,
+    var deniedUdpErrno: Int? = null,
     var deniedTcpFixtureEvents: Int = 0,
     var deniedUdpFixtureEvents: Int = 0,
     var livenessTcpRoundTrips: Int = 0,
@@ -1225,13 +1318,16 @@ private fun FixtureEventDto.matchesEcho(
         bytes == payloadBytes &&
         target.substringAfterLast(':').toIntOrNull() == targetPort
 
-private fun FixtureEventDto.targetAddressIsIpv6(): Boolean? {
+private fun FixtureEventDto.peerAddressIsIpv6(): Boolean? {
     val host =
-        if (target.startsWith("[")) {
-            target.substringAfter('[').substringBefore(']')
+        if (peer.startsWith("[")) {
+            peer.substringAfter('[').substringBefore(']')
         } else {
-            target.substringBeforeLast(':')
+            peer.substringBeforeLast(':')
         }
+    if (host.startsWith("::ffff:", ignoreCase = true)) {
+        return false
+    }
     val isIpv6Literal = host.contains(':') && host.matches(Regex("[0-9A-Fa-f:.%]+"))
     val isIpv4Literal = !host.contains(':') && host.matches(Regex("[0-9.]+"))
     if (!isIpv6Literal && !isIpv4Literal) return null

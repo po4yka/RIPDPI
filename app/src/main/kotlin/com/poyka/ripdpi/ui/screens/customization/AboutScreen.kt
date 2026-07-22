@@ -6,12 +6,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -154,12 +158,36 @@ private fun AboutBuildSection() {
                 value = BuildConfig.BUILD_TYPE,
                 showDivider = true,
             )
-            SettingsRow(
-                title = stringResource(R.string.about_package_name),
-                value = BuildConfig.APPLICATION_ID,
-                monospaceValue = true,
-            )
+            AboutPackageRow()
         }
+    }
+}
+
+@Composable
+private fun AboutPackageRow() {
+    val components = RipDpiThemeTokens.components
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val title = stringResource(R.string.about_package_name)
+    val value = BuildConfig.APPLICATION_ID
+    val displayValue = value.replace(".", ".\u200B")
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) { contentDescription = "$title, $value" }
+                .heightIn(min = components.rows.settingsRowMinHeight)
+                .padding(vertical = components.rows.settingsRowVerticalPadding),
+        verticalArrangement = Arrangement.spacedBy(components.rows.compactPillVerticalPadding),
+    ) {
+        Text(text = title, style = type.body, color = colors.foreground)
+        Text(
+            text = displayValue,
+            style = type.monoValue,
+            color = colors.mutedForeground,
+            maxLines = 2,
+            softWrap = true,
+        )
     }
 }
 

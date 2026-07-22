@@ -3,6 +3,11 @@ package com.poyka.ripdpi.ui.screenshot
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.HardKillSwitchUiState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
@@ -57,6 +62,7 @@ class ConfigSetupHealthScreenshotTest {
             widthDp = PhoneWidthDp,
             heightDp = HomeScreenHeightDp,
             testClassFqn = FQN,
+            isolateByExperience = true,
         ) {
             HomeScreen(
                 uiState = setupHealthPermissionState(),
@@ -76,9 +82,52 @@ class ConfigSetupHealthScreenshotTest {
             widthDp = PhoneWidthDp,
             heightDp = HomeScreenHeightDp,
             testClassFqn = FQN,
+            isolateByExperience = true,
         ) {
             HomeScreen(
                 uiState = setupHealthBatteryRecommendationState(),
+                onToggleConnection = {},
+                onOpenDiagnostics = {},
+                onOpenHistory = {},
+                onRepairPermission = {},
+                onOpenVpnPermissionDialog = {},
+            )
+        }
+    }
+
+    @Test
+    fun homeSetupAtPixel7LargeFont() {
+        captureScreenBothThemes(
+            name = "homeSetupAtPixel7LargeFont",
+            widthDp = Pixel7WidthDp,
+            heightDp = Pixel7HeightDp,
+            testClassFqn = FQN,
+            fontScale = 1.5f,
+            isolateByExperience = true,
+        ) {
+            HomeScreen(
+                uiState = setupHealthPermissionState(),
+                onToggleConnection = {},
+                onOpenDiagnostics = {},
+                onOpenHistory = {},
+                onRepairPermission = {},
+                onOpenVpnPermissionDialog = {},
+            )
+        }
+    }
+
+    @Test
+    fun homeTransitionAtPixel7MaximumFont() {
+        captureScreenBothThemes(
+            name = "homeTransitionAtPixel7MaximumFont",
+            widthDp = Pixel7WidthDp,
+            heightDp = Pixel7HeightDp,
+            testClassFqn = FQN,
+            fontScale = 2f,
+            isolateByExperience = true,
+        ) {
+            HomeScreen(
+                uiState = setupHealthPermissionState().copy(connectionActuator = engagingActuatorState()),
                 onToggleConnection = {},
                 onOpenDiagnostics = {},
                 onOpenHistory = {},
@@ -218,9 +267,43 @@ class ConfigSetupHealthScreenshotTest {
             ),
         ).toImmutableList()
 
+    private fun engagingActuatorState() =
+        HomeConnectionActuatorUiState(
+            status = HomeConnectionActuatorStatus.Engaging,
+            leadingLabel = "Open",
+            trailingLabel = "Secure",
+            routeLabel = "VLESS Reality via local VPN",
+            statusDescription = "Secure line engaging",
+            actionLabel = "Secure line is engaging",
+            carriageFraction = 0.48f,
+            stages =
+                HomeConnectionActuatorStage.entries
+                    .map { stage ->
+                        HomeConnectionActuatorStageUiState(
+                            stage = stage,
+                            label =
+                                when (stage) {
+                                    HomeConnectionActuatorStage.Network -> "Network handover"
+                                    HomeConnectionActuatorStage.Dns -> "Encrypted DNS resolver"
+                                    HomeConnectionActuatorStage.Handshake -> "Secure handshake"
+                                    HomeConnectionActuatorStage.Tunnel -> "Protected tunnel"
+                                    HomeConnectionActuatorStage.Route -> "Outbound route"
+                                },
+                            state =
+                                if (stage == HomeConnectionActuatorStage.Handshake) {
+                                    HomeConnectionActuatorStageState.Active
+                                } else {
+                                    HomeConnectionActuatorStageState.Pending
+                                },
+                        )
+                    }.toImmutableList(),
+        )
+
     companion object {
         private const val FQN = "com.poyka.ripdpi.ui.screenshot.ConfigSetupHealthScreenshotTest"
         private const val PhoneWidthDp = 420
+        private const val Pixel7WidthDp = 411
+        private const val Pixel7HeightDp = 891
         private const val HomeScreenHeightDp = 1160
         private const val TallScreenHeightDp = 1480
     }

@@ -1,0 +1,782 @@
+package com.poyka.ripdpi.ui.screens.settings
+
+import androidx.lifecycle.SavedStateHandle
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class StrategyConfigEditorViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `new view model restores every dirty field while handle contains only opaque id`() {
+        val store = FakeStrategyConfigDraftStore()
+        val firstHandle = SavedStateHandle()
+        val first = StrategyConfigEditorViewModel(firstHandle, store)
+        first.syncBuiltIn("tcp: split")
+        first.selectSource(StrategyConfigSource.LuaScript, "tcp: split")
+        first.update {
+            copy(
+                configText = "version: 1",
+                luaPath = "custom.lua",
+                luaFunction = "route",
+            )
+        }
+
+        val sessionId = firstHandle.get<String>(StrategyConfigSessionIdSavedStateKey)
+        assertNotNull(sessionId)
+        assertTrue(isValidStrategyConfigSessionId(requireNotNull(sessionId)))
+        assertEquals(setOf(StrategyConfigSessionIdSavedStateKey), firstHandle.keys())
+        assertNotEquals("version: 1", sessionId)
+
+        val restoredHandle = SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to sessionId))
+        val restored = StrategyConfigEditorViewModel(restoredHandle, store)
+        restored.syncBuiltIn("tcp: settings changed")
+
+        val session = requireNotNull(restored.session)
+        assertEquals(StrategyConfigSource.LuaScript, session.draft.source)
+        assertEquals("version: 1", session.draft.configText)
+        assertEquals("custom.lua", session.draft.luaPath)
+        assertEquals("route", session.draft.luaFunction)
+        assertEquals("tcp: split", session.baseline.configText)
+        assertTrue(session.isDirty)
+        assertFalse(session.isSaving)
+        assertEquals(setOf(StrategyConfigSessionIdSavedStateKey), restoredHandle.keys())
+    }
+
+    @Test
+    fun `latest edit made during save survives restore without active save`() {
+        val store = FakeStrategyConfigDraftStore()
+        val handle = SavedStateHandle()
+        val first = StrategyConfigEditorViewModel(handle, store)
+        first.syncBuiltIn("tcp: split")
+        first.update { copy(configText = "tcp: submitted") }
+        requireNotNull(first.beginSave())
+        first.update { copy(configText = "tcp: newest") }
+
+        val restored =
+            StrategyConfigEditorViewModel(
+                SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                store,
+            )
+
+        assertEquals("tcp: newest", requireNotNull(restored.session).draft.configText)
+        assertFalse(requireNotNull(restored.session).isSaving)
+    }
+
+    @Test
+    fun `first draft persist failure retries without another edit and survives recreation`() =
+        runTest {
+            val store = FailFirstPersistStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val first = StrategyConfigEditorViewModel(handle, store)
+            first.syncBuiltIn("tcp: split")
+            first.update { copy(configText = "tcp: latest") }
+            runCurrent()
+
+            assertEquals(2, store.persistCount)
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: split")
+            runCurrent()
+
+            val restored = requireNotNull(recreated.session)
+            assertEquals("tcp: latest", restored.draft.configText)
+            assertEquals("tcp: split", restored.baseline.configText)
+            assertTrue(restored.isDirty)
+        }
+
+    @Test
+    fun `draft persistence keeps retrying past the former cap and clears warning`() =
+        runTest {
+            val store = FailFourTimesPersistStrategyConfigDraftStore()
+            val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: latest") }
+            runCurrent()
+
+            assertEquals(2, store.persistCount)
+            assertTrue(viewModel.hasPersistenceError)
+
+            advanceTimeBy(StrategyConfigPersistenceRetryDelayMillisForTest)
+            runCurrent()
+
+            assertEquals(3, store.persistCount)
+            assertTrue(viewModel.hasPersistenceError)
+
+            advanceTimeBy(StrategyConfigPersistenceRetryDelayMillisForTest * 2)
+            runCurrent()
+
+            assertEquals(5, store.persistCount)
+            assertFalse(viewModel.hasPersistenceError)
+        }
+
+    @Test
+    fun `draft persistence warning clears after delayed retry and latest draft survives recreation`() =
+        runTest {
+            val store = FailTwicePersistStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val first = StrategyConfigEditorViewModel(handle, store)
+            first.syncBuiltIn("tcp: split")
+            first.update { copy(configText = "tcp: latest") }
+            runCurrent()
+
+            assertEquals(2, store.persistCount)
+            assertTrue(first.hasPersistenceError)
+
+            advanceTimeBy(StrategyConfigPersistenceRetryDelayMillisForTest)
+            runCurrent()
+
+            assertEquals(3, store.persistCount)
+            assertFalse(first.hasPersistenceError)
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: split")
+            runCurrent()
+
+            assertEquals("tcp: latest", requireNotNull(recreated.session).draft.configText)
+        }
+
+    @Test
+    fun `import result received during hydration is queued without false acceptance`() {
+        val store = PausedRestoreStrategyConfigDraftStore(dirtySession())
+        val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+
+        assertFalse(viewModel.importConfig("version: queued"))
+        assertNull(viewModel.session)
+
+        store.finishRestore()
+
+        val imported = requireNotNull(viewModel.session)
+        assertEquals(StrategyConfigSource.CustomYaml, imported.draft.source)
+        assertEquals("version: queued", imported.draft.configText)
+        assertTrue(imported.isDirty)
+    }
+
+    @Test
+    fun `successful clean save and explicit discard delete persistence`() =
+        runTest {
+            val store = FakeStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: saved") }
+            val request = requireNotNull(viewModel.beginSave())
+
+            viewModel.completeSave(request, succeeded = true)
+
+            assertNull(store.sessions[handle.sessionId()])
+            viewModel.update { copy(configText = "tcp: discarded") }
+            assertNotNull(store.sessions[handle.sessionId()])
+
+            viewModel.discard()
+
+            assertNull(store.sessions[handle.sessionId()])
+        }
+
+    @Test
+    fun `cancelled discard waiter still completes deletion and clears dirty session`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: discard after rotation") }
+            store.pauseNextDelete = true
+
+            val discard = async { viewModel.discard() }
+            runCurrent()
+            discard.cancel()
+            store.finishDelete()
+            discard.join()
+            runCurrent()
+
+            assertTrue(discard.isCancelled)
+            assertFalse(requireNotNull(viewModel.session).isDirty)
+            assertNull(store.sessions[handle.sessionId()])
+        }
+
+    @Test
+    fun `failed and cancelled saves retain the newest dirty draft`() =
+        runTest {
+            val store = FakeStrategyConfigDraftStore()
+            val failedHandle = SavedStateHandle()
+            val failed = StrategyConfigEditorViewModel(failedHandle, store)
+            failed.syncBuiltIn("tcp: split")
+            failed.update { copy(configText = "tcp: failed") }
+            val failedRequest = requireNotNull(failed.beginSave())
+
+            failed.completeSave(failedRequest, succeeded = false)
+
+            assertEquals(
+                "tcp: failed",
+                store.sessions
+                    .getValue(failedHandle.sessionId())
+                    .draft.configText,
+            )
+            assertFalse(requireNotNull(failed.session).isSaving)
+
+            val cancelledHandle = SavedStateHandle()
+            val cancelled = StrategyConfigEditorViewModel(cancelledHandle, store)
+            cancelled.syncBuiltIn("tcp: split")
+            cancelled.update { copy(configText = "tcp: submitted") }
+            val cancelledRequest = requireNotNull(cancelled.beginSave())
+            cancelled.update { copy(configText = "tcp: newest after submit") }
+
+            var wasCancelled = false
+            try {
+                cancelled.runSave(cancelledRequest) { throw CancellationException("recreated") }
+            } catch (_: CancellationException) {
+                wasCancelled = true
+            }
+
+            assertTrue(wasCancelled)
+            assertEquals(
+                "tcp: newest after submit",
+                store.sessions
+                    .getValue(cancelledHandle.sessionId())
+                    .draft.configText,
+            )
+            assertFalse(requireNotNull(cancelled.session).isSaving)
+        }
+
+    @Test
+    fun `pending settings sync cannot replace a restored dirty session`() {
+        val sessionId = newStrategyConfigSessionId()
+        val store = PausedRestoreStrategyConfigDraftStore(dirtySession())
+        val viewModel =
+            StrategyConfigEditorViewModel(
+                SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to sessionId)),
+                store,
+            )
+
+        viewModel.syncBuiltIn("tcp: late settings")
+        assertTrue(viewModel.isHydrating)
+        store.finishRestore()
+
+        val session = requireNotNull(viewModel.session)
+        assertFalse(viewModel.isHydrating)
+        assertEquals("tcp: draft", session.draft.configText)
+        assertEquals("tcp: baseline", session.baseline.configText)
+        assertTrue(session.isDirty)
+    }
+
+    @Test
+    fun `transient restore failure keeps hydration blocked and retries without deleting draft`() {
+        val restoredSession = dirtySession()
+        val store = TransientThenPausedRestoreStrategyConfigDraftStore(restoredSession)
+        val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+
+        assertTrue(viewModel.isHydrating)
+        assertNull(viewModel.session)
+        assertEquals(0, store.deleteCount)
+
+        viewModel.syncBuiltIn("tcp: settings")
+        assertTrue(viewModel.isHydrating)
+        assertNull(viewModel.session)
+        assertEquals(0, store.deleteCount)
+
+        store.finishRetry()
+
+        assertFalse(viewModel.isHydrating)
+        assertEquals(restoredSession.draft, requireNotNull(viewModel.session).draft)
+        assertTrue(requireNotNull(viewModel.session).isDirty)
+        assertEquals(0, store.deleteCount)
+    }
+
+    @Test
+    fun `repeated restore failure exposes retry and requires explicit discard before exit`() =
+        runTest {
+            val store = RepeatedFailureStrategyConfigDraftStore()
+            val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+
+            viewModel.syncBuiltIn("tcp: settings")
+
+            assertEquals(2, store.restoreCount)
+            assertFalse(viewModel.isHydrating)
+            assertTrue(viewModel.hasHydrationError)
+            assertNull(viewModel.session)
+            assertEquals(0, store.deleteCount)
+
+            viewModel.retryHydration()
+
+            assertEquals(3, store.restoreCount)
+            assertFalse(viewModel.isHydrating)
+            assertTrue(viewModel.hasHydrationError)
+
+            viewModel.requestExit()
+            assertEquals(StrategyConfigExitDecision.ConfirmDiscard, viewModel.exitDecision)
+
+            viewModel.discard()
+            assertEquals(1, store.deleteCount)
+        }
+
+    @Test
+    fun `exit requested during hydration is decided once from restored dirty state`() {
+        val sessionId = newStrategyConfigSessionId()
+        val store = PausedRestoreStrategyConfigDraftStore(dirtySession())
+        val viewModel =
+            StrategyConfigEditorViewModel(
+                SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to sessionId)),
+                store,
+            )
+        viewModel.syncBuiltIn("tcp: settings")
+
+        viewModel.requestExit()
+        viewModel.requestExit()
+        assertNull(viewModel.exitDecision)
+
+        store.finishRestore()
+
+        assertEquals(StrategyConfigExitDecision.ConfirmDiscard, viewModel.exitDecision)
+        viewModel.consumeExitDecision(StrategyConfigExitDecision.ConfirmDiscard)
+        assertNull(viewModel.exitDecision)
+    }
+
+    @Test
+    fun `exit requested during save is decided once after save releases`() =
+        runTest {
+            val store = FakeStrategyConfigDraftStore()
+            val viewModel = StrategyConfigEditorViewModel(SavedStateHandle(), store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: dirty") }
+            val request = requireNotNull(viewModel.beginSave())
+
+            viewModel.requestExit()
+            viewModel.requestExit()
+            assertNull(viewModel.exitDecision)
+
+            viewModel.completeSave(request, succeeded = false)
+
+            assertEquals(StrategyConfigExitDecision.ConfirmDiscard, viewModel.exitDecision)
+            viewModel.consumeExitDecision(StrategyConfigExitDecision.ConfirmDiscard)
+            assertNull(viewModel.exitDecision)
+        }
+
+    @Test
+    fun `successful save waits until clean draft deletion is durable`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: saved") }
+            val request = requireNotNull(viewModel.beginSave())
+            store.pauseNextDelete = true
+
+            val result =
+                async {
+                    viewModel.runSave(request) {
+                        StrategyConfigBanner(
+                            title = "saved",
+                            message = "saved",
+                            tone = WarningBannerTone.Info,
+                            saved = true,
+                        )
+                    }
+                }
+            runCurrent()
+
+            assertFalse(result.isCompleted)
+            assertNotNull(store.sessions[handle.sessionId()])
+            store.finishDelete()
+
+            assertTrue(result.await().saved)
+            assertNull(store.sessions[handle.sessionId()])
+        }
+
+    @Test
+    fun `pending stale persist cannot recreate draft after successful save`() =
+        runTest {
+            val store = PausedPersistStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: first") }
+            runCurrent()
+            viewModel.update { copy(configText = "tcp: saved") }
+            val request = requireNotNull(viewModel.beginSave())
+
+            val completion = async { viewModel.completeSave(request, succeeded = true) }
+            runCurrent()
+            assertFalse(completion.isCompleted)
+
+            store.finishPersist()
+            completion.await()
+            runCurrent()
+
+            assertNull(store.sessions[handle.sessionId()])
+        }
+
+    @Test
+    fun `throwing delete does not acknowledge explicit discard`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: keep") }
+            store.failNextDelete = true
+
+            val failure = runCatching { viewModel.discard() }.exceptionOrNull()
+
+            assertNotNull(failure)
+            assertNotNull(store.sessions[handle.sessionId()])
+            viewModel.update { copy(luaFunction = "still-editable") }
+            assertEquals(
+                "still-editable",
+                store.sessions
+                    .getValue(handle.sessionId())
+                    .draft.luaFunction,
+            )
+        }
+
+    @Test
+    fun `failed clean-draft deletion keeps submitted draft dirty and rejects finalization edits`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: submitted") }
+            val request = requireNotNull(viewModel.beginSave())
+            store.pauseNextDelete = true
+
+            val result =
+                async {
+                    runCatching {
+                        viewModel.runSave(request) {
+                            StrategyConfigBanner(
+                                title = "saved",
+                                message = "saved",
+                                tone = WarningBannerTone.Info,
+                                saved = true,
+                            )
+                        }
+                    }
+                }
+            runCurrent()
+            viewModel.update { copy(configText = "tcp: latest while deleting") }
+            store.failDelete(IllegalStateException("/data/user/0/private-draft.json"))
+
+            assertNotNull(result.await().exceptionOrNull())
+            runCurrent()
+            val current = requireNotNull(viewModel.session)
+            assertFalse(current.isSaving)
+            assertTrue(current.isDirty)
+            assertEquals("tcp: submitted", current.draft.configText)
+            assertEquals("tcp: split", current.baseline.configText)
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: split")
+
+            assertEquals("tcp: submitted", requireNotNull(recreated.session).draft.configText)
+            assertTrue(requireNotNull(recreated.session).isDirty)
+        }
+
+    @Test
+    fun `editing is rejected while successful save finalization waits`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: submitted") }
+            val request = requireNotNull(viewModel.beginSave())
+            store.pauseNextDelete = true
+            val result =
+                async {
+                    viewModel.runSave(request) {
+                        StrategyConfigBanner("saved", "saved", WarningBannerTone.Info, saved = true)
+                    }
+                }
+            runCurrent()
+
+            viewModel.update { copy(configText = "tcp: latest while deleting") }
+            viewModel.selectSource(StrategyConfigSource.LuaScript, "tcp: built in")
+            assertFalse(viewModel.importConfig("tcp: imported while deleting"))
+            assertEquals("tcp: submitted", requireNotNull(viewModel.session).draft.configText)
+            store.finishDelete()
+            assertTrue(result.await().saved)
+            runCurrent()
+
+            val recreated =
+                StrategyConfigEditorViewModel(
+                    SavedStateHandle(mapOf(StrategyConfigSessionIdSavedStateKey to handle.sessionId())),
+                    store,
+                )
+            recreated.syncBuiltIn("tcp: submitted")
+            assertEquals("tcp: submitted", requireNotNull(recreated.session).draft.configText)
+            assertFalse(requireNotNull(recreated.session).isDirty)
+        }
+
+    @Test
+    fun `discard is rejected while save remains active`() =
+        runTest {
+            val store = FakeStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: saving") }
+            requireNotNull(viewModel.beginSave())
+
+            val failure = runCatching { viewModel.discard() }.exceptionOrNull()
+
+            assertNotNull(failure)
+            assertNotNull(store.sessions[handle.sessionId()])
+            assertTrue(requireNotNull(viewModel.session).isSaving)
+        }
+
+    private fun SavedStateHandle.sessionId(): String = requireNotNull(get<String>(StrategyConfigSessionIdSavedStateKey))
+
+    private fun dirtySession(): StrategyConfigEditorSession =
+        StrategyConfigEditorSession(
+            baseline =
+                StrategyConfigDraft(
+                    source = StrategyConfigSource.BuiltIn,
+                    configText = "tcp: baseline",
+                    luaPath = "",
+                    luaFunction = "",
+                ),
+            draft =
+                StrategyConfigDraft(
+                    source = StrategyConfigSource.CustomYaml,
+                    configText = "tcp: draft",
+                    luaPath = "draft.lua",
+                    luaFunction = "route",
+                ),
+        )
+}
+
+private open class FakeStrategyConfigDraftStore : StrategyConfigDraftStore {
+    val sessions = mutableMapOf<String, StrategyConfigEditorSession>()
+
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult =
+        sessions[sessionId]
+            ?.let(StrategyConfigDraftRestoreResult::Restored)
+            ?: StrategyConfigDraftRestoreResult.MissingOrCorrupt
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        sessions[sessionId] =
+            StrategyConfigEditorSession(
+                baseline = session.baseline,
+                draft = session.draft,
+            )
+    }
+
+    override suspend fun delete(sessionId: String) {
+        sessions.remove(sessionId)
+    }
+}
+
+private class FailFirstPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    var persistCount = 0
+        private set
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        persistCount += 1
+        if (persistCount == 1) throw java.io.IOException("temporarily unavailable")
+        super.persist(sessionId, session)
+    }
+}
+
+private class FailFourTimesPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    var persistCount = 0
+        private set
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        persistCount += 1
+        if (persistCount <= 4) throw java.io.IOException("unavailable")
+        super.persist(sessionId, session)
+    }
+}
+
+private class FailTwicePersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    var persistCount = 0
+        private set
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        persistCount += 1
+        if (persistCount <= 2) throw java.io.IOException("temporarily unavailable")
+        super.persist(sessionId, session)
+    }
+}
+
+private const val StrategyConfigPersistenceRetryDelayMillisForTest = 1_000L
+
+private class ControllableDeleteStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    var pauseNextDelete = false
+    var failNextDelete = false
+    private var pendingDelete: Pair<String, kotlin.coroutines.Continuation<Unit>>? = null
+
+    override suspend fun delete(sessionId: String) {
+        when {
+            failNextDelete -> {
+                failNextDelete = false
+                error("delete failed")
+            }
+
+            pauseNextDelete -> {
+                pauseNextDelete = false
+                kotlin.coroutines.suspendCoroutine { pendingDelete = sessionId to it }
+            }
+
+            else -> {
+                super.delete(sessionId)
+            }
+        }
+    }
+
+    fun finishDelete() {
+        val (sessionId, continuation) = requireNotNull(pendingDelete)
+        sessions.remove(sessionId)
+        pendingDelete = null
+        continuation.resumeWith(Result.success(Unit))
+    }
+
+    fun failDelete(failure: Throwable) {
+        val (_, continuation) = requireNotNull(pendingDelete)
+        pendingDelete = null
+        continuation.resumeWith(Result.failure(failure))
+    }
+}
+
+private class PausedRestoreStrategyConfigDraftStore(
+    private val restored: StrategyConfigEditorSession,
+) : StrategyConfigDraftStore {
+    private var continuation: kotlin.coroutines.Continuation<StrategyConfigDraftRestoreResult>? = null
+
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult =
+        kotlin.coroutines.suspendCoroutine { continuation = it }
+
+    fun finishRestore() {
+        requireNotNull(continuation).resumeWith(
+            Result.success(StrategyConfigDraftRestoreResult.Restored(restored)),
+        )
+    }
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) = Unit
+
+    override suspend fun delete(sessionId: String) = Unit
+}
+
+private class TransientThenPausedRestoreStrategyConfigDraftStore(
+    private val restored: StrategyConfigEditorSession,
+) : StrategyConfigDraftStore {
+    private var attempts = 0
+    private var retryContinuation: kotlin.coroutines.Continuation<StrategyConfigDraftRestoreResult>? = null
+    var deleteCount = 0
+        private set
+
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult {
+        attempts += 1
+        return if (attempts == 1) {
+            StrategyConfigDraftRestoreResult.RestoreFailed(java.io.IOException("temporarily unavailable"))
+        } else {
+            kotlin.coroutines.suspendCoroutine { retryContinuation = it }
+        }
+    }
+
+    fun finishRetry() {
+        requireNotNull(retryContinuation).resumeWith(
+            Result.success(StrategyConfigDraftRestoreResult.Restored(restored)),
+        )
+    }
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) = Unit
+
+    override suspend fun delete(sessionId: String) {
+        deleteCount += 1
+    }
+}
+
+private class RepeatedFailureStrategyConfigDraftStore : StrategyConfigDraftStore {
+    var restoreCount = 0
+        private set
+    var deleteCount = 0
+        private set
+
+    override suspend fun restore(sessionId: String): StrategyConfigDraftRestoreResult {
+        restoreCount += 1
+        return StrategyConfigDraftRestoreResult.RestoreFailed(java.io.IOException("unavailable"))
+    }
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) = Unit
+
+    override suspend fun delete(sessionId: String) {
+        deleteCount += 1
+    }
+}
+
+private class PausedPersistStrategyConfigDraftStore : FakeStrategyConfigDraftStore() {
+    private var pendingPersist:
+        Triple<String, StrategyConfigEditorSession, kotlin.coroutines.Continuation<Unit>>? = null
+
+    override suspend fun persist(
+        sessionId: String,
+        session: StrategyConfigEditorSession,
+    ) {
+        kotlin.coroutines.suspendCoroutine { continuation ->
+            pendingPersist = Triple(sessionId, session, continuation)
+        }
+    }
+
+    fun finishPersist() {
+        val (sessionId, session, continuation) = requireNotNull(pendingPersist)
+        sessions[sessionId] =
+            StrategyConfigEditorSession(
+                baseline = session.baseline,
+                draft = session.draft,
+            )
+        pendingPersist = null
+        continuation.resumeWith(Result.success(Unit))
+    }
+}

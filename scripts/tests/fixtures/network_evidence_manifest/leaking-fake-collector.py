@@ -47,11 +47,12 @@ windows = [
     for window in plan["windows"]
 ]
 observation = {
-    "version": "network_evidence_observation_v2",
+    "version": "network_evidence_observation_v3",
     "sourceSha": source_sha,
     "correlationId": correlation_id,
     "role": role,
     "clientArtifactSha256": plan["clientArtifactSha256"],
+    "testArtifactSha256": plan["testArtifactSha256"],
     "scenarioPlanSha256": plan_sha256,
     "captureStartedAtEpoch": capture_started,
     "captureFinishedAtEpoch": capture_finished,

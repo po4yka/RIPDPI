@@ -43,11 +43,12 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         gates.network_evidence_manifest.write_canonical_json(
             producer_policy_path,
             {
-                "version": "network_evidence_producers_v1",
+                "version": "network_evidence_producers_v2",
                 "clientCollectorSha256": ["3" * 64],
                 "observerCollectorSha256": ["4" * 64],
                 "workloadSha256": ["9" * 64],
                 "clientArtifactSha256": ["8" * 64],
+                "testArtifactSha256": ["7" * 64],
             },
         )
         gates.network_evidence_manifest.PRODUCER_POLICY_PATH = producer_policy_path
@@ -110,6 +111,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             "sourceSha": "a" * 40,
             "correlationId": correlation_id,
             "clientArtifactSha256": "8" * 64,
+            "testArtifactSha256": "7" * 64,
             "windows": [
                 {
                     "id": gate_id,
@@ -138,7 +140,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
 
         def observation(role: str) -> dict:
             return {
-                "version": "network_evidence_observation_v2",
+                "version": "network_evidence_observation_v3",
                 "sourceSha": "a" * 40,
                 "correlationId": correlation_id,
                 "role": role,
@@ -146,6 +148,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 "networkIdSha256": ("5" if role == "client-underlay" else "6") * 64,
                 "collectorSha256": ("3" if role == "client-underlay" else "4") * 64,
                 "clientArtifactSha256": "8" * 64,
+                "testArtifactSha256": "7" * 64,
                 "scenarioPlanSha256": plan_sha256,
                 "captureStartedAtEpoch": now - 21,
                 "captureFinishedAtEpoch": now - 8,
@@ -199,6 +202,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             ),
             workload_sha256="9" * 64,
             client_artifact_sha256="8" * 64,
+            test_artifact_sha256="7" * 64,
         )
         manifest_path = directory / "manifest.json"
         gates.network_evidence_manifest.write_canonical_json(manifest_path, manifest)
@@ -629,11 +633,12 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         manifest_path = self.evidence_bundle(root)
         results_path = self.write_ordinary_results(root)
         empty_policy = {
-            "version": "network_evidence_producers_v1",
+            "version": "network_evidence_producers_v2",
             "clientCollectorSha256": [],
             "observerCollectorSha256": [],
             "workloadSha256": [],
             "clientArtifactSha256": [],
+            "testArtifactSha256": [],
         }
         gates.network_evidence_manifest.write_canonical_json(
             gates.network_evidence_manifest.PRODUCER_POLICY_PATH, empty_policy
@@ -865,6 +870,10 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertIn("ripdpi-network-evidence", evidence)
         self.assertIn("physical-android", evidence)
         self.assertIn("run-dual-vantage-network-evidence.sh", evidence)
+        self.assertIn(":app:assembleGithubFullDebugAndroidTest", evidence)
+        self.assertIn('--test-artifact "$TEST_ARTIFACT_PATH"', evidence)
+        self.assertIn("com.poyka.ripdpi.test", evidence)
+        self.assertIn("TEST_ARTIFACT_SHA256", evidence)
         self.assertIn('--expected-source-sha "$GITHUB_SHA"', evidence)
         self.assertNotIn("--results", evidence)
         self.assertIn("network_evidence_manifest.py validate", evidence)
@@ -886,6 +895,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertNotIn("if: always()", evidence)
         self.assertNotIn("$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence", evidence)
         self.assertIn("scripts.tests.test_network_evidence_manifest", ci)
+        self.assertIn("scripts.tests.test_network_evidence_pcap_oracle", ci)
         self.assertIn("test-dual-vantage-network-evidence.sh", ci)
         self.assertIn("jsonschema==4.26.0", ci)
 

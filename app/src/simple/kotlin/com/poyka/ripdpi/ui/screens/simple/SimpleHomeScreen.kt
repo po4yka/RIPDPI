@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.ui.screens.simple
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
@@ -37,6 +40,8 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -70,6 +75,7 @@ fun SimpleHomeScreen(
         },
         onRunReport = viewModel::onRunHomeFullAnalysis,
         onCancelReport = viewModel::onCancelHomeAnalysis,
+        onShareReport = viewModel.onShareHomeAnalysis,
         modifier = modifier,
     )
 }
@@ -84,9 +90,11 @@ internal fun SimpleHomeContent(
     onToggleConnection: (active: Boolean) -> Unit,
     onRunReport: () -> Unit,
     onCancelReport: () -> Unit,
+    onShareReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
 
     val connecting = connectionState == ConnectionState.Connecting
@@ -103,71 +111,84 @@ internal fun SimpleHomeContent(
         containerColor = colors.background,
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        Column(
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = spacing.xl, vertical = spacing.xxl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                    .padding(horizontal = spacing.xl),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = stringResource(R.string.simple_title),
-                style = RipDpiThemeTokens.type.screenTitle,
-                color = colors.foreground,
-                textAlign = TextAlign.Center,
-            )
-            SimpleConnectionStatus(
-                connectionState = connectionState,
-                modifier = Modifier.padding(top = spacing.sm),
-            )
-
-            if (protocolLabel != null) {
+            Column(
+                modifier =
+                    Modifier
+                        .widthIn(max = layout.formMaxWidth)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = spacing.xxl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
                 Text(
-                    modifier = Modifier.padding(top = spacing.xs),
-                    text = protocolLabel,
-                    style = RipDpiThemeTokens.type.caption,
-                    color = colors.mutedForeground,
+                    text = stringResource(R.string.simple_title),
+                    style = RipDpiThemeTokens.type.screenTitle,
+                    color = colors.foreground,
                     textAlign = TextAlign.Center,
                 )
+                SimpleConnectionStatus(
+                    connectionState = connectionState,
+                    modifier = Modifier.padding(top = spacing.sm),
+                )
+
+                if (protocolLabel != null) {
+                    Text(
+                        modifier = Modifier.padding(top = spacing.xs),
+                        text = protocolLabel,
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                SimpleDiagnosticsStatus(
+                    diagnostics = diagnostics,
+                    onShareReport = onShareReport,
+                    modifier = Modifier.padding(top = spacing.lg),
+                )
+
+                RipDpiButton(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = spacing.xl)
+                            .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorButton),
+                    text =
+                        stringResource(
+                            if (active) R.string.simple_disconnect else R.string.simple_connect,
+                        ),
+                    onClick = { onToggleConnection(active) },
+                    loading = connecting,
+                    enabled = !reportBusy && !disconnectBlocked,
+                    variant = RipDpiButtonVariant.Primary,
+                )
+
+                RipDpiButton(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = spacing.md)
+                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
+                    text =
+                        stringResource(
+                            if (reportCancellable) R.string.diagnostics_action_cancel else R.string.simple_run_report,
+                        ),
+                    onClick = if (reportCancellable) onCancelReport else onRunReport,
+                    loading = reportStarting,
+                    enabled = reportCancellable || (!reportBusy && diagnostics.analysisAction.enabled),
+                    variant = RipDpiButtonVariant.Outline,
+                )
             }
-
-            SimpleDiagnosticsStatus(
-                diagnostics = diagnostics,
-                modifier = Modifier.padding(top = spacing.lg),
-            )
-
-            RipDpiButton(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = spacing.xl),
-                text =
-                    stringResource(
-                        if (active) R.string.simple_disconnect else R.string.simple_connect,
-                    ),
-                onClick = { onToggleConnection(active) },
-                loading = connecting,
-                enabled = !reportBusy && !disconnectBlocked,
-                variant = RipDpiButtonVariant.Primary,
-            )
-
-            RipDpiButton(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = spacing.md),
-                text =
-                    stringResource(
-                        if (reportCancellable) R.string.diagnostics_action_cancel else R.string.simple_run_report,
-                    ),
-                onClick = if (reportCancellable) onCancelReport else onRunReport,
-                loading = reportStarting,
-                enabled = !reportBusy || reportCancellable,
-                variant = RipDpiButtonVariant.Outline,
-            )
         }
     }
 }
@@ -175,21 +196,41 @@ internal fun SimpleHomeContent(
 @Composable
 internal fun SimpleDiagnosticsStatus(
     diagnostics: HomeDiagnosticsUiState,
+    onShareReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val statusLabel =
         when (diagnostics.analysisRunStatus) {
-            HomeDiagnosticsRunUiStatus.IDLE -> null
-            HomeDiagnosticsRunUiStatus.STARTING -> diagnostics.analysisAction.supportingText
-            HomeDiagnosticsRunUiStatus.RUNNING -> diagnostics.analysisAction.supportingText
-            HomeDiagnosticsRunUiStatus.COMPLETED -> stringResource(R.string.diagnostics_snackbar_scan_complete)
-            HomeDiagnosticsRunUiStatus.CANCELLED -> stringResource(R.string.simple_report_cancelled)
-            HomeDiagnosticsRunUiStatus.FAILED -> stringResource(R.string.simple_report_failed)
+            HomeDiagnosticsRunUiStatus.IDLE -> {
+                diagnostics.analysisAction.supportingText.takeIf { it.isNotBlank() }
+            }
+
+            HomeDiagnosticsRunUiStatus.STARTING -> {
+                diagnostics.analysisAction.supportingText
+            }
+
+            HomeDiagnosticsRunUiStatus.RUNNING -> {
+                diagnostics.analysisAction.supportingText
+            }
+
+            HomeDiagnosticsRunUiStatus.COMPLETED -> {
+                diagnostics.analysisSheet?.headline ?: stringResource(R.string.diagnostics_snackbar_scan_complete)
+            }
+
+            HomeDiagnosticsRunUiStatus.CANCELLED -> {
+                stringResource(R.string.simple_report_cancelled)
+            }
+
+            HomeDiagnosticsRunUiStatus.FAILED -> {
+                stringResource(R.string.simple_report_failed)
+            }
         }
     if (statusLabel == null) return
 
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
+    val completedResultVisible =
+        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED && diagnostics.analysisSheet != null
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -206,19 +247,44 @@ internal fun SimpleDiagnosticsStatus(
             } else {
                 statusLabel
             }
+        val statusModifier =
+            if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
+                Modifier.clearAndSetSemantics {
+                    stateDescription = announcement
+                    liveRegion = LiveRegionMode.Polite
+                }
+            } else {
+                Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            }
         Text(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {
-                        stateDescription = announcement
-                        liveRegion = LiveRegionMode.Polite
-                    },
+            modifier = Modifier.fillMaxWidth().then(statusModifier),
             text = statusLabel,
-            style = RipDpiThemeTokens.type.caption,
-            color = colors.mutedForeground,
+            style = if (completedResultVisible) RipDpiThemeTokens.type.sectionTitle else RipDpiThemeTokens.type.caption,
+            color = if (completedResultVisible) colors.foreground else colors.mutedForeground,
             textAlign = TextAlign.Center,
         )
+        diagnostics.analysisSheet
+            ?.takeIf { diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED }
+            ?.let { sheet ->
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = sheet.summary,
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.mutedForeground,
+                    textAlign = TextAlign.Center,
+                )
+                RipDpiButton(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsShareAction),
+                    text = stringResource(R.string.home_diagnostics_share_action),
+                    onClick = onShareReport,
+                    loading = sheet.shareBusy,
+                    enabled = !sheet.shareBusy,
+                    variant = RipDpiButtonVariant.Outline,
+                )
+            }
     }
 }
 

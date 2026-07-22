@@ -10,9 +10,15 @@ import time
 from pathlib import Path
 
 
-correlation_id, source_sha, plan_path, client_artifact_path, client_artifact_sha256 = (
-    sys.argv[1:]
-)
+(
+    correlation_id,
+    source_sha,
+    plan_path,
+    client_artifact_path,
+    client_artifact_sha256,
+    test_artifact_path,
+    test_artifact_sha256,
+) = sys.argv[1:]
 if os.environ.get("RIPDPI_TEST_WORKLOAD_FAIL") == "1":
     raise SystemExit(23)
 workload_child_pid_file = os.environ.get("RIPDPI_TEST_WORKLOAD_CHILD_PID_FILE")
@@ -29,6 +35,11 @@ actual_client_artifact_sha256 = hashlib.sha256(
 ).hexdigest()
 if actual_client_artifact_sha256 != client_artifact_sha256:
     raise SystemExit("client artifact digest mismatch")
+actual_test_artifact_sha256 = hashlib.sha256(
+    Path(test_artifact_path).read_bytes()
+).hexdigest()
+if actual_test_artifact_sha256 != test_artifact_sha256:
+    raise SystemExit("test artifact digest mismatch")
 policy = json.loads(
     (root / "quality/release-gates/dns-ipv6-killswitch-gates.json").read_text(
         encoding="utf-8"
@@ -70,10 +81,11 @@ for gate in policy["gates"]:
 Path(plan_path).write_text(
     json.dumps(
         {
-            "version": "network_evidence_scenario_plan_v2",
+            "version": "network_evidence_scenario_plan_v3",
             "correlationId": correlation_id,
             "sourceSha": source_sha,
             "clientArtifactSha256": client_artifact_sha256,
+            "testArtifactSha256": test_artifact_sha256,
             "windows": windows,
         },
         sort_keys=True,

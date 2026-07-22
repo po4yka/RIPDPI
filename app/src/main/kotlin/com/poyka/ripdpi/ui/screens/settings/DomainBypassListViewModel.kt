@@ -5,26 +5,26 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.rules.DomainBypassList
 import com.poyka.ripdpi.data.rules.RuleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Persisted state of the domain bypass list. [initialText] is the editor text reconstructed from
- * the stored managed rule; the screen owns the live (unsaved) edit buffer.
+ * Persisted rule status plus the retained, unsaved editor draft.
  */
 data class DomainBypassListUiState(
-    val initialText: String = "",
+    val text: String = "",
     val hasRule: Boolean = false,
+    val isDraftInitialized: Boolean = false,
 )
 
 /**
  * Backs the "Domain bypass list" screen (`add-custom-domain-bypass-list-screen`). Persistence and
- * compilation live in [RuleRepository] / [DomainBypassList]; this ViewModel is deliberately thin so
- * live per-line validation can run in the composable without a round trip.
+ * compilation live in [RuleRepository] / [DomainBypassList]. The edit buffer stays in this retained
+ * state holder so an Activity recreation cannot discard unsaved user input.
  */
 @HiltViewModel
 class DomainBypassListViewModel
@@ -32,27 +32,44 @@ class DomainBypassListViewModel
     constructor(
         private val ruleRepository: RuleRepository,
     ) : ViewModel() {
-        val uiState: StateFlow<DomainBypassListUiState> =
-            ruleRepository
-                .domainBypassRule()
-                .map { rule ->
-                    DomainBypassListUiState(
-                        initialText = DomainBypassList.toEditorText(rule),
-                        hasRule = rule != null,
-                    )
-                }.stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                    initialValue = DomainBypassListUiState(),
-                )
+        private val _uiState = MutableStateFlow(DomainBypassListUiState())
+        val uiState: StateFlow<DomainBypassListUiState> = _uiState.asStateFlow()
 
-        /** Compiles and persists [text] as the single managed bypass rule (or deletes it when empty). */
-        fun save(
-            text: String,
-            onSaved: (savedCount: Int) -> Unit,
-        ) {
+        init {
             viewModelScope.launch {
-                val result = ruleRepository.saveDomainBypassList(text)
+                ruleRepository.domainBypassRule().collect { rule ->
+                    _uiState.update { current ->
+                        if (current.isDraftInitialized) {
+                            current.copy(hasRule = rule != null)
+                        } else {
+                            current.copy(
+                                text = boundedDomainBypassDraft(DomainBypassList.toEditorText(rule)),
+                                hasRule = rule != null,
+                                isDraftInitialized = true,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        fun updateDraft(text: String) {
+            _uiState.update {
+                it.copy(
+                    text = boundedDomainBypassDraft(text),
+                    isDraftInitialized = true,
+                )
+            }
+        }
+
+        fun clearDraft() {
+            updateDraft("")
+        }
+
+        /** Compiles and persists the retained draft as the single managed bypass rule. */
+        fun save(onSaved: (savedCount: Int) -> Unit) {
+            viewModelScope.launch {
+                val result = ruleRepository.saveDomainBypassList(_uiState.value.text)
                 onSaved(result.cleanLines.size)
             }
         }
@@ -65,9 +82,5 @@ class DomainBypassListViewModel
             viewModelScope.launch {
                 onResult(ruleRepository.moveDomainBypassListToEditor(displayName))
             }
-        }
-
-        private companion object {
-            const val STOP_TIMEOUT_MILLIS = 5_000L
         }
     }

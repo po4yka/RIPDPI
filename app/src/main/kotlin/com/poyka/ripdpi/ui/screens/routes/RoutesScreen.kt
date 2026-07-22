@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,10 +88,11 @@ internal fun RoutesScreen(
 ) {
     // Local working order so a hand-rolled drag can reorder optimistically before persisting.
     var localRows by remember(state.rows) { mutableStateOf(state.rows) }
+    val rollbackToPersistedRows by rememberUpdatedState { localRows = state.rows }
 
     // Roll the optimistic order back to the persisted state when a reorder write fails.
-    LaunchedEffect(reorderFailures, state.rows) {
-        reorderFailures.collect { localRows = state.rows }
+    LaunchedEffect(reorderFailures) {
+        reorderFailures.collect { rollbackToPersistedRows() }
     }
 
     fun move(

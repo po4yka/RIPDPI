@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -235,7 +236,12 @@ private fun ResponsiveNavContent(
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
     if (isWideScreen && selectedTopLevel != null) {
-        Row(modifier = Modifier.padding(innerPadding)) {
+        Row(
+            modifier =
+                Modifier
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding),
+        ) {
             RipDpiNavRail(
                 selectedRoute = selectedTopLevel,
                 onNavigate = { destination -> navController.navigateTopLevel(destination) },
@@ -360,7 +366,10 @@ private fun RipDpiNavGraph(
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        modifier = Modifier.padding(innerPadding),
+        modifier =
+            Modifier
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
         enterTransition = { motion.routeEnterTransition() },
         exitTransition = { motion.routeExitTransition() },
         popEnterTransition = { motion.routeEnterTransition(initialScale = 0.992f) },

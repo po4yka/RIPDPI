@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -91,8 +90,6 @@ internal fun HomeTopBar(
                 modifier = Modifier.weight(1f),
                 style = type.brandMark,
                 color = colors.foreground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

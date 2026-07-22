@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -172,7 +173,7 @@ class MainViewModel
             ).uiState
 
         fun initialize() {
-            if (initialized) {
+            if (startupState.value.readiness != AppStartupReadinessState.Ready || initialized) {
                 return
             }
             initialized = true
@@ -188,6 +189,8 @@ class MainViewModel
             }
             lifecycleOwner.initialize()
         }
+
+        val retryStartupRecovery: () -> Unit = lifecycleOwner::retryStartupRecovery
 
         fun onPrimaryConnectionAction() {
             when (
@@ -249,6 +252,7 @@ class MainViewModel
         ) = permissionActions.onPermissionResult(kind, result)
 
         fun onForeground() {
+            if (startupState.value.readiness != AppStartupReadinessState.Ready) return
             mainServiceDependencies.serviceController.refreshHardKillSwitchState()
             permissionActions.refreshPermissionSnapshot()
         }

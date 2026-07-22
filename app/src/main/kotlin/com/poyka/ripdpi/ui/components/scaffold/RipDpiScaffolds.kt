@@ -123,6 +123,7 @@ fun RipDpiSettingsScaffold(
     navigationIcon: ImageVector? = null,
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
+    navigationEnabled: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
@@ -137,6 +138,7 @@ fun RipDpiSettingsScaffold(
                 navigationIcon = navigationIcon,
                 onNavigationClick = onNavigationClick,
                 navigationContentDescription = navigationContentDescription,
+                navigationEnabled = navigationEnabled,
                 actions = actions,
             )
         },

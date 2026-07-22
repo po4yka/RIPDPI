@@ -16,12 +16,20 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
 }
 
 fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_interceptor: bool) {
+    let ip_class = classify_ip_packet(packet, state.runtime.mapdns_classify);
+    if matches!(ip_class, IpClass::Icmp)
+        && state.runtime.uid_policy.is_enforcing()
+        && !state.runtime.uid_policy_allow_icmp
+    {
+        return;
+    }
+
     if run_egress_interceptor && state.runtime.tun_egress_interceptor.handle_packet(packet) {
         return;
     }
 
-    match classify_ip_packet(packet, state.runtime.mapdns_classify) {
-        IpClass::TcpOrOther => route_tcp_or_other_packet(packet, state),
+    match ip_class {
+        IpClass::TcpOrOther | IpClass::Icmp => route_tcp_or_other_packet(packet, state),
         IpClass::UdpDns { src, payload } => {
             let host = dns_query_name(payload);
             route_dns_packet(

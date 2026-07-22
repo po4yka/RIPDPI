@@ -25,9 +25,9 @@ POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 PRODUCER_POLICY_PATH = ROOT / "quality/release-gates/network-evidence-producers.json"
 RUNNER_PATH = ROOT / "test-lab/scripts/run-dual-vantage-network-evidence.sh"
 
-MANIFEST_VERSION = "network_evidence_manifest_v2"
-OBSERVATION_VERSION = "network_evidence_observation_v2"
-PLAN_VERSION = "network_evidence_scenario_plan_v2"
+MANIFEST_VERSION = "network_evidence_manifest_v3"
+OBSERVATION_VERSION = "network_evidence_observation_v3"
+PLAN_VERSION = "network_evidence_scenario_plan_v3"
 ALLOWED_APPLIES_TO = {"android-client-release", "fleet-profile-rollout"}
 REQUIRED_ROLES = ("client-underlay", "external-observer")
 ROLE_PATHS = {
@@ -51,6 +51,7 @@ OBSERVATION_FIELDS = {
     "networkIdSha256",
     "collectorSha256",
     "clientArtifactSha256",
+    "testArtifactSha256",
     "scenarioPlanSha256",
     "captureStartedAtEpoch",
     "captureFinishedAtEpoch",
@@ -80,6 +81,7 @@ PLAN_FIELDS = {
     "sourceSha",
     "correlationId",
     "clientArtifactSha256",
+    "testArtifactSha256",
     "windows",
 }
 PLAN_WINDOW_FIELDS = {
@@ -113,6 +115,7 @@ PROVENANCE_FIELDS = {
     "scenarioPlanSha256",
     "workloadSha256",
     "clientArtifactSha256",
+    "testArtifactSha256",
 }
 ARTIFACT_FIELDS = {
     "role",
@@ -185,12 +188,9 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def derive_marker(
-    correlation_id: str, gate_id: str, kind: str, purpose: str
-) -> str:
+def derive_marker(correlation_id: str, gate_id: str, kind: str, purpose: str) -> str:
     payload = (
-        "ripdpi:network-evidence-marker:v2:"
-        f"{correlation_id}:{gate_id}:{kind}:{purpose}"
+        f"ripdpi:network-evidence-marker:v2:{correlation_id}:{gate_id}:{kind}:{purpose}"
     ).encode("ascii")
     return sha256_bytes(payload)
 
@@ -203,11 +203,12 @@ def load_producer_policy() -> dict[str, Any]:
         "observerCollectorSha256",
         "workloadSha256",
         "clientArtifactSha256",
+        "testArtifactSha256",
     }
     if not isinstance(value, dict):
         raise ValueError("producer policy must be a JSON object")
     require_exact_fields(value, fields, "producer policy")
-    if value["version"] != "network_evidence_producers_v1":
+    if value["version"] != "network_evidence_producers_v2":
         raise ValueError("unsupported producer policy version")
     for field in fields - {"version"}:
         entries = value[field]
@@ -224,6 +225,7 @@ def enforce_producer_policy(
     observer_collector_sha256: str,
     workload_sha256: str,
     client_artifact_sha256: str,
+    test_artifact_sha256: str,
 ) -> None:
     policy = load_producer_policy()
     memberships = (
@@ -231,6 +233,7 @@ def enforce_producer_policy(
         (observer_collector_sha256, "observerCollectorSha256", "observer collector"),
         (workload_sha256, "workloadSha256", "workload"),
         (client_artifact_sha256, "clientArtifactSha256", "client artifact"),
+        (test_artifact_sha256, "testArtifactSha256", "test artifact"),
     )
     for digest, field, label in memberships:
         if digest not in policy[field]:
@@ -251,9 +254,7 @@ def required_gate_ids(*, applies_to: str = "android-client-release") -> set[str]
     return {
         gate["id"]
         for gate in policy["gates"]
-        if gate.get("evidenceSources", {}).get(
-            applies_to, gate.get("evidenceSource")
-        )
+        if gate.get("evidenceSources", {}).get(applies_to, gate.get("evidenceSource"))
         == "dual-vantage-network-manifest"
         and applies_to in gate.get("appliesTo", policy_scopes)
     }
@@ -296,6 +297,7 @@ def validate_plan(
     expected_source_sha: str,
     expected_correlation_id: str,
     expected_client_artifact_sha256: str,
+    expected_test_artifact_sha256: str,
     applies_to: str,
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
@@ -306,9 +308,13 @@ def validate_plan(
     if value["sourceSha"] != expected_source_sha:
         raise ValueError("scenario plan sourceSha does not match runner sourceSha")
     if value["correlationId"] != expected_correlation_id:
-        raise ValueError("scenario plan correlationId does not match runner correlationId")
+        raise ValueError(
+            "scenario plan correlationId does not match runner correlationId"
+        )
     if value["clientArtifactSha256"] != expected_client_artifact_sha256:
         raise ValueError("scenario plan client artifact digest does not match runner")
+    if value["testArtifactSha256"] != expected_test_artifact_sha256:
+        raise ValueError("scenario plan test artifact digest does not match runner")
     windows = value["windows"]
     if not isinstance(windows, list) or not windows:
         raise ValueError("scenario plan windows must be a non-empty array")
@@ -327,8 +333,12 @@ def validate_plan(
         seen_ids.add(gate_id)
         if window["kind"] != expected_kind(gate_id):
             raise ValueError(f"{context}.kind does not match release gate")
-        started = require_int(window["startedAtEpoch"], f"{context}.startedAtEpoch", minimum=1)
-        finished = require_int(window["finishedAtEpoch"], f"{context}.finishedAtEpoch", minimum=1)
+        started = require_int(
+            window["startedAtEpoch"], f"{context}.startedAtEpoch", minimum=1
+        )
+        finished = require_int(
+            window["finishedAtEpoch"], f"{context}.finishedAtEpoch", minimum=1
+        )
         if finished <= started:
             raise ValueError(f"{context} must have a positive duration")
         action = require_pattern(
@@ -344,7 +354,9 @@ def validate_plan(
             expected_correlation_id, gate_id, window["kind"], "outcome"
         )
         if action != expected_action or outcome != expected_outcome:
-            raise ValueError("scenario plan markers must match their correlation and gate")
+            raise ValueError(
+                "scenario plan markers must match their correlation and gate"
+            )
         if action in all_markers or outcome in all_markers or action == outcome:
             raise ValueError("scenario plan markers must be globally unique")
         all_markers.update((action, outcome))
@@ -399,7 +411,9 @@ def validate_window(
     require_pattern(
         window["outcomeMarkerSha256"], SHA256_RE, f"{context}.outcomeMarkerSha256"
     )
-    require_int(window["actionObservedCount"], f"{context}.actionObservedCount", minimum=1)
+    require_int(
+        window["actionObservedCount"], f"{context}.actionObservedCount", minimum=1
+    )
     require_int(
         window["outcomeObservedCount"], f"{context}.outcomeObservedCount", minimum=1
     )
@@ -431,6 +445,11 @@ def validate_observation(
         value["clientArtifactSha256"],
         SHA256_RE,
         "observation.clientArtifactSha256",
+    )
+    require_pattern(
+        value["testArtifactSha256"],
+        SHA256_RE,
+        "observation.testArtifactSha256",
     )
     require_pattern(
         value["scenarioPlanSha256"],
@@ -474,7 +493,9 @@ def validate_observation(
             value["correlationId"], gate_id, validated["kind"], "outcome"
         )
         if action != expected_action or outcome != expected_outcome:
-            raise ValueError("observation markers must match their correlation and gate")
+            raise ValueError(
+                "observation markers must match their correlation and gate"
+            )
         if action in all_markers or outcome in all_markers or action == outcome:
             raise ValueError("observation markers must be globally unique")
         all_markers.update((action, outcome))
@@ -501,6 +522,7 @@ def stamp_observation(
     network_id_sha256: str,
     collector_sha256: str,
     client_artifact_sha256: str,
+    test_artifact_sha256: str,
     applies_to: str = "android-client-release",
 ) -> dict[str, Any]:
     """Bind a hook summary to runner-owned collector, vantage, and network IDs."""
@@ -513,6 +535,7 @@ def stamp_observation(
     require_pattern(network_id_sha256, SHA256_RE, "networkIdSha256")
     require_pattern(collector_sha256, SHA256_RE, "collectorSha256")
     require_pattern(client_artifact_sha256, SHA256_RE, "clientArtifactSha256")
+    require_pattern(test_artifact_sha256, SHA256_RE, "testArtifactSha256")
     if value["role"] != expected_role:
         raise ValueError("unstamped observation role does not match runner role")
     if value["sourceSha"] != expected_source_sha:
@@ -526,6 +549,10 @@ def stamp_observation(
     if value["clientArtifactSha256"] != client_artifact_sha256:
         raise ValueError(
             "unstamped observation clientArtifactSha256 does not match runner artifact"
+        )
+    if value["testArtifactSha256"] != test_artifact_sha256:
+        raise ValueError(
+            "unstamped observation testArtifactSha256 does not match runner artifact"
         )
     plan_sha256 = sha256_bytes(canonical_json_bytes(plan))
     if value["scenarioPlanSha256"] != plan_sha256:
@@ -626,6 +653,7 @@ def assemble_manifest(
     producer_policy_sha256: str,
     workload_sha256: str,
     client_artifact_sha256: str,
+    test_artifact_sha256: str,
 ) -> dict[str, Any]:
     require_pattern(source_sha, SHA1_RE, "sourceSha")
     if applies_to not in ALLOWED_APPLIES_TO:
@@ -648,11 +676,10 @@ def assemble_manifest(
     require_pattern(producer_policy_sha256, SHA256_RE, "producerPolicySha256")
     require_pattern(workload_sha256, SHA256_RE, "workloadSha256")
     require_pattern(client_artifact_sha256, SHA256_RE, "clientArtifactSha256")
+    require_pattern(test_artifact_sha256, SHA256_RE, "testArtifactSha256")
     client, client_raw = load_json_bytes(client_path)
     observer, observer_raw = load_json_bytes(observer_path)
-    validate_observation(
-        client, expected_role="client-underlay", applies_to=applies_to
-    )
+    validate_observation(client, expected_role="client-underlay", applies_to=applies_to)
     validate_observation(
         observer, expected_role="external-observer", applies_to=applies_to
     )
@@ -661,6 +688,7 @@ def assemble_manifest(
         observer_collector_sha256=observer["collectorSha256"],
         workload_sha256=workload_sha256,
         client_artifact_sha256=client_artifact_sha256,
+        test_artifact_sha256=test_artifact_sha256,
     )
     if client["sourceSha"] != source_sha or observer["sourceSha"] != source_sha:
         raise ValueError("observation sourceSha does not match manifest sourceSha")
@@ -671,6 +699,11 @@ def assemble_manifest(
         for observation in (client, observer)
     ):
         raise ValueError("observation client artifact digest does not match manifest")
+    if any(
+        observation["testArtifactSha256"] != test_artifact_sha256
+        for observation in (client, observer)
+    ):
+        raise ValueError("observation test artifact digest does not match manifest")
     if client["scenarioPlanSha256"] != observer["scenarioPlanSha256"]:
         raise ValueError("observation scenario plan digests do not match")
     if client["vantageIdSha256"] == observer["vantageIdSha256"]:
@@ -701,6 +734,7 @@ def assemble_manifest(
             "scenarioPlanSha256": client["scenarioPlanSha256"],
             "workloadSha256": workload_sha256,
             "clientArtifactSha256": client_artifact_sha256,
+            "testArtifactSha256": test_artifact_sha256,
         },
         "artifacts": [
             {
@@ -842,7 +876,15 @@ def validate_manifest(
         SHA256_RE,
         "manifest.provenance.clientArtifactSha256",
     )
-    if expected_execution_kind is not None and execution_kind != expected_execution_kind:
+    require_pattern(
+        provenance["testArtifactSha256"],
+        SHA256_RE,
+        "manifest.provenance.testArtifactSha256",
+    )
+    if (
+        expected_execution_kind is not None
+        and execution_kind != expected_execution_kind
+    ):
         raise ValueError("manifest executionKind does not match selected execution")
     if expected_execution_id is not None and execution_id != expected_execution_id:
         raise ValueError("manifest executionId does not match selected execution")
@@ -875,9 +917,7 @@ def validate_manifest(
         )
         if sha256_bytes(raw) != expected_digest:
             raise ValueError(f"artifact digest mismatch for {role}")
-        validate_observation(
-            observation, expected_role=role, applies_to=applies_to
-        )
+        validate_observation(observation, expected_role=role, applies_to=applies_to)
         if observation["rawCaptureSha256"] != artifact["rawCaptureSha256"]:
             raise ValueError(f"raw capture digest mismatch for {role}")
         if observation["vantageIdSha256"] != artifact["vantageIdSha256"]:
@@ -886,11 +926,10 @@ def validate_manifest(
             raise ValueError(f"network identity digest mismatch for {role}")
         if observation["collectorSha256"] != artifact["collectorSha256"]:
             raise ValueError(f"collector digest mismatch for {role}")
-        if (
-            observation["clientArtifactSha256"]
-            != provenance["clientArtifactSha256"]
-        ):
+        if observation["clientArtifactSha256"] != provenance["clientArtifactSha256"]:
             raise ValueError(f"client artifact digest mismatch for {role}")
+        if observation["testArtifactSha256"] != provenance["testArtifactSha256"]:
+            raise ValueError(f"test artifact digest mismatch for {role}")
         if observation["scenarioPlanSha256"] != scenario_plan_sha256:
             raise ValueError(f"scenario plan digest mismatch for {role}")
         if observation["sourceSha"] != expected_source_sha:
@@ -911,6 +950,7 @@ def validate_manifest(
         observer_collector_sha256=by_role["external-observer"]["collectorSha256"],
         workload_sha256=provenance["workloadSha256"],
         client_artifact_sha256=provenance["clientArtifactSha256"],
+        test_artifact_sha256=provenance["testArtifactSha256"],
     )
     if (
         observations["client-underlay"]["vantageIdSha256"]
@@ -973,6 +1013,7 @@ def main(argv: list[str] | None = None) -> int:
     assemble.add_argument("--producer-policy-sha256", required=True)
     assemble.add_argument("--workload-sha256", required=True)
     assemble.add_argument("--client-artifact-sha256", required=True)
+    assemble.add_argument("--test-artifact-sha256", required=True)
     assemble.add_argument("--output", type=Path, required=True)
 
     stamp = subparsers.add_parser(
@@ -989,6 +1030,7 @@ def main(argv: list[str] | None = None) -> int:
     stamp.add_argument("--network-id-sha256", required=True)
     stamp.add_argument("--collector-sha256", required=True)
     stamp.add_argument("--client-artifact-sha256", required=True)
+    stamp.add_argument("--test-artifact-sha256", required=True)
     stamp.add_argument(
         "--applies-to",
         choices=sorted(ALLOWED_APPLIES_TO),
@@ -1022,6 +1064,7 @@ def main(argv: list[str] | None = None) -> int:
     validate_plan_parser.add_argument("--source-sha", required=True)
     validate_plan_parser.add_argument("--correlation-id", required=True)
     validate_plan_parser.add_argument("--client-artifact-sha256", required=True)
+    validate_plan_parser.add_argument("--test-artifact-sha256", required=True)
     validate_plan_parser.add_argument(
         "--applies-to", choices=sorted(ALLOWED_APPLIES_TO), required=True
     )
@@ -1049,6 +1092,7 @@ def main(argv: list[str] | None = None) -> int:
                 producer_policy_sha256=args.producer_policy_sha256,
                 workload_sha256=args.workload_sha256,
                 client_artifact_sha256=args.client_artifact_sha256,
+                test_artifact_sha256=args.test_artifact_sha256,
             )
             write_canonical_json(args.output, manifest)
             return 0
@@ -1064,6 +1108,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_source_sha=args.source_sha,
                 expected_correlation_id=args.correlation_id,
                 expected_client_artifact_sha256=args.client_artifact_sha256,
+                expected_test_artifact_sha256=args.test_artifact_sha256,
                 applies_to=args.applies_to,
             )
             stamped = stamp_observation(
@@ -1076,6 +1121,7 @@ def main(argv: list[str] | None = None) -> int:
                 network_id_sha256=args.network_id_sha256,
                 collector_sha256=args.collector_sha256,
                 client_artifact_sha256=args.client_artifact_sha256,
+                test_artifact_sha256=args.test_artifact_sha256,
                 applies_to=args.applies_to,
             )
             write_canonical_json(args.output, stamped)
@@ -1090,6 +1136,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_source_sha=args.source_sha,
                 expected_correlation_id=args.correlation_id,
                 expected_client_artifact_sha256=args.client_artifact_sha256,
+                expected_test_artifact_sha256=args.test_artifact_sha256,
                 applies_to=args.applies_to,
             )
             write_canonical_json(args.output, validated_plan)

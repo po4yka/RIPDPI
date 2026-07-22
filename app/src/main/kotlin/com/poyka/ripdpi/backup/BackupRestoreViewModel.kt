@@ -48,6 +48,7 @@ class BackupRestoreViewModel
         val resetEffects: Flow<BackupResetEffect> = resetEffectChannel.receiveAsFlow()
 
         internal val shareTempFiles = BackupShareTempFileOwner()
+        internal val pendingExport = BackupPendingExportOwner()
 
         private val exportCoordinator =
             BackupExportCoordinator(
@@ -175,6 +176,7 @@ class BackupRestoreViewModel
         fun confirmReset() = resetCoordinator.confirmReset()
 
         override fun onCleared() {
+            pendingExport.close()
             shareTempFiles.close()
             super.onCleared()
         }

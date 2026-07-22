@@ -47,7 +47,7 @@ private fun HomeCapabilityEvidenceSection(sheet: HomeDiagnosticsAnalysisSheetUiS
                     color = colors.mutedForeground,
                 )
                 evidence.fields.forEach { field ->
-                    SettingsRow(title = field.label, value = field.value, monospaceValue = false)
+                    SettingsRow(title = field.label, value = field.value)
                 }
             }
         }
@@ -114,7 +114,7 @@ private fun HomeNetworkCharacterSection(sheet: HomeDiagnosticsAnalysisSheetUiSta
     )
     HomeAnalysisInsetColumn {
         sheet.networkCharacterRows.forEach { row ->
-            SettingsRow(title = row.label, value = row.value, monospaceValue = false)
+            SettingsRow(title = row.label, value = row.value)
         }
         sheet.networkCharacterNotes.forEach { note ->
             Text(text = "• $note", style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
@@ -162,7 +162,7 @@ private fun HomeStrategyEffectivenessSection(sheet: HomeDiagnosticsAnalysisSheet
     )
     HomeAnalysisInsetColumn {
         sheet.strategyEffectivenessRows.forEach { row ->
-            SettingsRow(title = row.label, value = row.value, monospaceValue = false)
+            SettingsRow(title = row.label, value = row.value)
         }
     }
 }
@@ -182,7 +182,7 @@ private fun HomeRoutingSanitySection(sheet: HomeDiagnosticsAnalysisSheetUiState)
             Text(text = summary, style = RipDpiThemeTokens.type.body, color = colors.foreground)
         }
         sheet.routingSanityFindings.forEach { row ->
-            SettingsRow(title = row.label, value = row.value, monospaceValue = false)
+            SettingsRow(title = row.label, value = row.value)
         }
     }
 }

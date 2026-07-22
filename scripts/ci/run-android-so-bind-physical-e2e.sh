@@ -21,6 +21,7 @@ readonly fixture_tcp_echo_port="${RIPDPI_FIXTURE_TCP_ECHO_PORT:-}"
 readonly fixture_udp_echo_port="${RIPDPI_FIXTURE_UDP_ECHO_PORT:-}"
 readonly evidence_output="${RIPDPI_SO_BIND_EVIDENCE_OUTPUT:-}"
 readonly evidence_file_name="so-bind-physical-evidence.json"
+readonly device_lock_root="${RIPDPI_ANDROID_DEVICE_LOCK_ROOT:-${TMPDIR:-/tmp}}"
 
 fail() {
     echo "SO_BIND physical E2E: $1" >&2
@@ -35,8 +36,8 @@ fail_infra() {
 [[ -n "$android_serial" ]] || fail "ANDROID_SERIAL is required"
 so_bind_physical_valid_fixture_host "$fixture_host" || fail "a directly routed, non-loopback RIPDPI_FIXTURE_ANDROID_HOST is required"
 command -v python3 >/dev/null 2>&1 || fail "python3 is unavailable"
-fixture_ipv6_host="$(so_bind_physical_normalize_global_ipv6 "$fixture_ipv6_host_raw")" ||
-    fail_infra IPV6_ENDPOINT_REQUIRED "RIPDPI_FIXTURE_ANDROID_IPV6_HOST must be a numeric global IPv6 address"
+fixture_ipv6_host="$(so_bind_physical_normalize_routed_ipv6 "$fixture_ipv6_host_raw")" ||
+    fail_infra IPV6_ENDPOINT_REQUIRED "RIPDPI_FIXTURE_ANDROID_IPV6_HOST must be a numeric routed unicast IPv6 address"
 readonly fixture_ipv6_host
 so_bind_physical_valid_port "$fixture_port" || fail "RIPDPI_FIXTURE_CONTROL_PORT must be in 1..65535"
 so_bind_physical_valid_port "$fixture_tcp_echo_port" || fail "RIPDPI_FIXTURE_TCP_ECHO_PORT must be in 1..65535"
@@ -60,13 +61,14 @@ readonly gradle_bin="${GRADLE_BIN:-$source_root/gradlew}"
     :app:assembleGithubFullDebug \
     :app:assembleGithubFullDebugAndroidTest \
     -Pripdpi.localNativeAbis=arm64-v8a \
+    -Pripdpi.enableAbiSplits=false \
     -Pripdpi.skipNativeBuild=false \
     -Pripdpi.prebuiltJniLibsDir= || fail "source-bound physical APK build failed"
 [[ "$($git_bin -C "$source_root" rev-parse HEAD 2>/dev/null)" == "$source_sha" ]] ||
     fail "source checkout changed during the physical APK build"
 [[ -z "$($git_bin -C "$source_root" status --porcelain=v1 --untracked-files=all)" ]] ||
     fail "physical APK build changed tracked or untracked source inputs"
-readonly app_apk="$source_root/app/build/outputs/apk/github/full/debug/app-github-full-debug.apk"
+readonly app_apk="$source_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 readonly test_apk="$source_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 [[ -f "$app_apk" ]] || fail "source-bound app APK was not produced"
 [[ -f "$test_apk" ]] || fail "source-bound test APK was not produced"
@@ -100,11 +102,22 @@ adb_device() {
 }
 
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
+device_lock_acquired=0
+device_lock_serial="$(printf '%s' "$android_serial" | tr -c 'A-Za-z0-9._-' '_')"
+device_lock_dir="$device_lock_root/ripdpi-android-device-$device_lock_serial.lock"
 cleanup() {
-    adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
+    if [[ "$device_lock_acquired" == "1" ]]; then
+        adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
+        rm -rf "$device_lock_dir"
+    fi
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
+mkdir -p "$device_lock_root" || fail "could not prepare the Android device lock directory"
+mkdir "$device_lock_dir" 2>/dev/null ||
+    fail "physical Android device lane is already in use for $android_serial"
+device_lock_acquired=1
+printf '%s\n' "$$" >"$device_lock_dir/owner-pid"
 
 install_and_verify_apk() {
     local apk="$1"
@@ -153,12 +166,28 @@ grep -Eq '(^|[[:space:]])dev[[:space:]]+[^[:space:]]+' "$ipv6_route" ||
 grep -Eq '(^|[[:space:]])src[[:space:]]+[0-9A-Fa-f:]+' "$ipv6_route" ||
     fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route lacks a selected source address"
 ipv6_source="$(awk '{ for (field = 1; field <= NF; field++) if ($field == "src") { print $(field + 1); exit } }' "$ipv6_route")"
-so_bind_physical_normalize_global_ipv6 "$ipv6_source" >/dev/null ||
-    fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route does not select a global source address"
+ipv6_interface="$(awk '{ for (field = 1; field <= NF; field++) if ($field == "dev") { print $(field + 1); exit } }' "$ipv6_route")"
+so_bind_physical_is_underlay_interface "$ipv6_interface" ||
+    fail_infra IPV6_UNDERLAY_REQUIRED "IPv6 route does not select a physical Android underlay interface"
+so_bind_physical_normalize_routed_ipv6 "$ipv6_source" >/dev/null ||
+    fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route does not select a routed unicast source address"
 
 install_and_verify_apk "$app_apk" "com.poyka.ripdpi" "app"
 install_and_verify_apk "$test_apk" "com.poyka.ripdpi.test" "test"
-adb_device shell run-as com.poyka.ripdpi.test rm -f "cache/$evidence_file_name" >/dev/null 2>&1 ||
+# A foreground task may be recreated when install -r replaces its process. If
+# that happens under HiltTestApplication, MainActivity can start before JUnit
+# creates the per-test Hilt component. Quiesce both packages deterministically.
+adb_device shell input keyevent HOME >/dev/null 2>&1 ||
+    fail "could not background foreground tasks before instrumentation"
+adb_device shell am force-stop com.poyka.ripdpi >/dev/null 2>&1 ||
+    fail "could not stop the target package before instrumentation"
+adb_device shell am force-stop com.poyka.ripdpi.test >/dev/null 2>&1 ||
+    fail "could not stop the instrumentation package before instrumentation"
+target_pids="$(adb_device shell pidof com.poyka.ripdpi 2>/dev/null | tr -d '\r' || true)"
+test_pids="$(adb_device shell pidof com.poyka.ripdpi.test 2>/dev/null | tr -d '\r' || true)"
+[[ -z "$target_pids" && -z "$test_pids" ]] ||
+    fail "target or instrumentation process remained alive after force-stop"
+adb_device shell run-as com.poyka.ripdpi rm -f "files/$evidence_file_name" >/dev/null 2>&1 ||
     fail "could not clear prior physical evidence"
 
 test_uid_line="$(adb_device shell pm list packages -U com.poyka.ripdpi.test 2>/dev/null | tr -d '\r')" ||
@@ -235,7 +264,7 @@ if ! so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_m
 fi
 
 physical_evidence="$temp_dir/$evidence_file_name"
-adb_device shell run-as com.poyka.ripdpi.test cat "cache/$evidence_file_name" >"$physical_evidence" 2>/dev/null ||
+adb_device shell run-as com.poyka.ripdpi cat "files/$evidence_file_name" >"$physical_evidence" 2>/dev/null ||
     fail "physical evidence readback failed"
 finished_at_epoch_ms="$(python3 - <<'PY'
 import time

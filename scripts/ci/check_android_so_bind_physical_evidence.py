@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "android_so_bind_physical_evidence_v1"
+VERSION = "android_so_bind_physical_evidence_v2"
 PROFILE = "physical_pixel_api37_kernel61"
 FAMILIES = ("ipv4", "ipv6")
 POSITIVE_COUNTERS = (
@@ -23,8 +23,8 @@ POSITIVE_COUNTERS = (
     "allowedUdpRoundTrips",
     "allowedTcpFixtureEvents",
     "allowedUdpFixtureEvents",
-    "deniedTcpResets",
-    "deniedUdpTimeouts",
+    "deniedTcpBlockedAttempts",
+    "deniedUdpBlockedAttempts",
     "livenessTcpRoundTrips",
     "livenessUdpRoundTrips",
     "livenessTcpFixtureEvents",
@@ -54,7 +54,24 @@ HEX_40 = re.compile(r"[0-9a-f]{40}")
 HEX_64 = re.compile(r"[0-9a-f]{64}")
 MAX_RUN_DURATION_MS = 5 * 60 * 1000
 MAX_EVIDENCE_AGE_MS = 10 * 60 * 1000
-FAMILY_FIELDS = {"family", "sourceFamilyVerified", *POSITIVE_COUNTERS, *ZERO_COUNTERS}
+FAMILY_FIELDS = {
+    "family",
+    "sourceFamilyVerified",
+    "deniedTcpErrno",
+    "deniedTcpFailureKind",
+    "deniedTcpFailureStage",
+    "deniedUdpErrno",
+    "deniedUdpFailureKind",
+    "deniedUdpFailureStage",
+    *POSITIVE_COUNTERS,
+    *ZERO_COUNTERS,
+}
+TCP_BLOCK_FAILURE_KINDS = {"CONNECTION_RESET", "ERRNO", "TIMEOUT"}
+TCP_NETWORK_STAGES = {"connect", "receive", "send"}
+TCP_UNREACHABLE_ERRNOS = {101, 113}
+TCP_RESET_ERRNOS = {104}
+SOCKET_TIMEOUT_ERRNOS = {11, 110}
+UDP_BLOCK_FAILURE_KINDS = {"ERRNO", "TIMEOUT"}
 
 
 def require_exact_fields(value: dict[str, Any], expected: set[str], label: str) -> None:
@@ -143,6 +160,44 @@ def validate(
             raise ValueError(f"unexpected or duplicate family: {family!r}")
         if record["sourceFamilyVerified"] is not True:
             raise ValueError(f"{family} source family was not verified")
+        failure_kind = record["deniedTcpFailureKind"]
+        failure_stage = record["deniedTcpFailureStage"]
+        failure_errno = record["deniedTcpErrno"]
+        if failure_kind not in TCP_BLOCK_FAILURE_KINDS:
+            raise ValueError(f"{family}.deniedTcpFailureKind is not a blocked outcome")
+        if failure_stage not in TCP_NETWORK_STAGES:
+            raise ValueError(f"{family}.deniedTcpFailureStage is not a network stage")
+        if type(failure_errno) is not int or failure_errno <= 0:
+            raise ValueError(f"{family}.deniedTcpErrno must be a positive integer")
+        if failure_kind == "ERRNO" and (
+            failure_stage != "connect" or failure_errno not in TCP_UNREACHABLE_ERRNOS
+        ):
+            raise ValueError(f"{family} generic errno is not an unreachable connect outcome")
+        if failure_kind == "CONNECTION_RESET" and failure_errno not in TCP_RESET_ERRNOS:
+            raise ValueError(f"{family} reset kind/errno pair is inconsistent")
+        if failure_kind == "TIMEOUT" and failure_errno not in SOCKET_TIMEOUT_ERRNOS:
+            raise ValueError(f"{family} TCP timeout kind/errno pair is inconsistent")
+        udp_failure_kind = record["deniedUdpFailureKind"]
+        udp_failure_stage = record["deniedUdpFailureStage"]
+        udp_failure_errno = record["deniedUdpErrno"]
+        if udp_failure_kind not in UDP_BLOCK_FAILURE_KINDS:
+            raise ValueError(f"{family}.deniedUdpFailureKind is not a blocked outcome")
+        if udp_failure_stage not in TCP_NETWORK_STAGES:
+            raise ValueError(f"{family}.deniedUdpFailureStage is not a network stage")
+        if type(udp_failure_errno) is not int or udp_failure_errno <= 0:
+            raise ValueError(f"{family}.deniedUdpErrno must be a positive integer")
+        if udp_failure_kind == "ERRNO" and (
+            udp_failure_stage != "connect"
+            or udp_failure_errno not in TCP_UNREACHABLE_ERRNOS
+        ):
+            raise ValueError(
+                f"{family} UDP generic errno is not an unreachable connect outcome"
+            )
+        if (
+            udp_failure_kind == "TIMEOUT"
+            and udp_failure_errno not in SOCKET_TIMEOUT_ERRNOS
+        ):
+            raise ValueError(f"{family} UDP timeout kind/errno pair is inconsistent")
         for counter in POSITIVE_COUNTERS:
             value = record[counter]
             if type(value) is not int or value < 1:

@@ -14,6 +14,7 @@
   </description>
   <step>Launch the RIPDPI app from a cold start (force-stop it first if running).</step>
   <step>Confirm the Home screen is displayed.</step>
+  <step>Expand the "Modes &amp; diagnostics" section.</step>
   <step>Confirm the primary "Local DPI bypass" mode is visible on the Home screen.</step>
   <step>Tap the primary "Local DPI bypass" mode to start it.</step>
   <step>Confirm the primary "Local DPI bypass" mode is still visible and the Home screen reflects the change.</step>

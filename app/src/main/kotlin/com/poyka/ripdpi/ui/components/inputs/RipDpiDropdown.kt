@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -167,7 +168,7 @@ private fun DropdownField(
                 Modifier
                     .ripDpiTestTag(testTag)
                     .fillMaxWidth()
-                    .height(components.inputs.controlHeight)
+                    .heightIn(min = components.inputs.controlHeight)
                     .background(fieldState.container, RipDpiThemeTokens.shapes.xl)
                     .border(animatedBorderWidth, animatedBorderColor, RipDpiThemeTokens.shapes.xl)
                     .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
@@ -189,6 +190,8 @@ private fun DropdownField(
                 modifier = Modifier.weight(1f),
                 style = RipDpiThemeTokens.type.monoValue,
                 color = if (selectedLabel.isEmpty()) fieldState.placeholder else fieldState.content,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Icon(
                 imageVector = RipDpiIcons.ChevronRight,

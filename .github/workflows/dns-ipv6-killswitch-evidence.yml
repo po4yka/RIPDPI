@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: "17"
@@ -47,19 +47,31 @@ jobs:
           esac
           rm -rf app/build/outputs/apk
           ./gradlew --no-daemon :app:assembleGithubFullDebug \
+            :app:assembleGithubFullDebugAndroidTest \
             "-Pripdpi.nativeAbisOverride=$device_abi" \
             -Pripdpi.enableAbiSplits=false
           mapfile -t apks < <(find app/build/outputs/apk -type f -name '*.apk' ! -name '*androidTest*')
           test "${#apks[@]}" -eq 1
           apk="${apks[0]}"
+          mapfile -t test_apks < <(find app/build/outputs/apk/androidTest -type f -name '*.apk')
+          test "${#test_apks[@]}" -eq 1
+          test_apk="${test_apks[0]}"
           adb -s "$device_serial" install -r -d "$apk"
+          adb -s "$device_serial" install -r -d "$test_apk"
           remote_apk="$(adb -s "$device_serial" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r')"
           test -n "$remote_apk"
           adb -s "$device_serial" pull "$remote_apk" "$RUNNER_TEMP/installed-ripdpi.apk" >/dev/null
           cmp -s "$apk" "$RUNNER_TEMP/installed-ripdpi.apk"
+          remote_test_apk="$(adb -s "$device_serial" shell pm path com.poyka.ripdpi.test | sed -n 's/^package://p' | tr -d '\r')"
+          test -n "$remote_test_apk"
+          adb -s "$device_serial" pull "$remote_test_apk" "$RUNNER_TEMP/installed-ripdpi-test.apk" >/dev/null
+          cmp -s "$test_apk" "$RUNNER_TEMP/installed-ripdpi-test.apk"
           client_artifact_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$apk")"
           echo "CLIENT_ARTIFACT_SHA256=$client_artifact_sha256" >> "$GITHUB_ENV"
           echo "CLIENT_ARTIFACT_PATH=$apk" >> "$GITHUB_ENV"
+          test_artifact_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$test_apk")"
+          echo "TEST_ARTIFACT_SHA256=$test_artifact_sha256" >> "$GITHUB_ENV"
+          echo "TEST_ARTIFACT_PATH=$test_apk" >> "$GITHUB_ENV"
 
       - name: Capture client and external-observer evidence
         run: |
@@ -68,6 +80,7 @@ jobs:
             --output-dir "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME" \
             --source-sha "$GITHUB_SHA" \
             --client-artifact "$CLIENT_ARTIFACT_PATH" \
+            --test-artifact "$TEST_ARTIFACT_PATH" \
             --applies-to android-client-release
 
       - name: Reconfirm installed client after capture
@@ -78,6 +91,11 @@ jobs:
           adb -s "$device_serial" pull "$remote_apk" "$RUNNER_TEMP/post-capture-ripdpi.apk" >/dev/null
           installed_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$RUNNER_TEMP/post-capture-ripdpi.apk")"
           test "$installed_sha256" = "$CLIENT_ARTIFACT_SHA256"
+          remote_test_apk="$(adb -s "$device_serial" shell pm path com.poyka.ripdpi.test | sed -n 's/^package://p' | tr -d '\r')"
+          test -n "$remote_test_apk"
+          adb -s "$device_serial" pull "$remote_test_apk" "$RUNNER_TEMP/post-capture-ripdpi-test.apk" >/dev/null
+          installed_test_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$RUNNER_TEMP/post-capture-ripdpi-test.apk")"
+          test "$installed_test_sha256" = "$TEST_ARTIFACT_SHA256"
 
       - name: Validate exact-SHA dual-vantage bundle
         run: |
