@@ -204,7 +204,6 @@ private fun RowScope.BottomNavItem(
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val focusShape = RipDpiThemeTokens.shapes.md
     val iconTint by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
         animationSpec = motion.stateTween(),
@@ -222,12 +221,7 @@ private fun RowScope.BottomNavItem(
     )
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val focusBorderColor by animateColorAsState(
-        targetValue = bottomNavFocusBorderColor(isFocused, colors.outline),
-        animationSpec = motion.quickTween(),
-        label = "bottomNavFocusBorder",
-    )
+    val focusBorderColor = rememberBottomNavFocusBorderColor(interactionSource)
     val contentAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.6f else 1f,
         animationSpec = motion.quickTween(),
@@ -239,7 +233,7 @@ private fun RowScope.BottomNavItem(
             Modifier
                 .fillMaxHeight()
                 .weight(1f)
-                .border(RipDpiStroke.Thick, focusBorderColor, focusShape)
+                .border(RipDpiStroke.Thick, focusBorderColor, RipDpiThemeTokens.shapes.md)
                 .ripDpiTestTag(RipDpiTestTags.bottomNav(destination))
                 .graphicsLayer {
                     scaleX = selectionScale
@@ -283,6 +277,17 @@ private fun RowScope.BottomNavItem(
             modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.xs),
         )
     }
+}
+
+@Composable
+private fun rememberBottomNavFocusBorderColor(interactionSource: MutableInteractionSource): Color {
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val focusBorderColor by animateColorAsState(
+        targetValue = bottomNavFocusBorderColor(isFocused, RipDpiThemeTokens.colors.outline),
+        animationSpec = RipDpiThemeTokens.motion.quickTween(),
+        label = "bottomNavFocusBorder",
+    )
+    return focusBorderColor
 }
 
 internal fun bottomNavFocusBorderColor(
