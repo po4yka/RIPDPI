@@ -1392,6 +1392,8 @@ fun testProcessDnsProbe(
                         failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
                         failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
                         errno = extras.getInt(DebugNetworkProbeExtraErrno).takeIf { it != 0 },
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                     ),
                 )
                 latch.countDown()
