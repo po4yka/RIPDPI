@@ -23,6 +23,9 @@ internal object RipDpiTestTags {
     const val VpnPermissionDialogContinue = "vpn-permission-dialog-continue"
     const val VpnPermissionDialogDismiss = "vpn-permission-dialog-dismiss"
     const val MainErrorSnackbar = "main-error-snackbar"
+    const val StartupRecoveryPending = "startup-recovery-pending"
+    const val StartupRecoveryFailure = "startup-recovery-failure"
+    const val StartupRecoveryRetry = "startup-recovery-retry"
     const val BottomNavBar = "bottom-nav-bar"
     const val BottomNavIndicator = "bottom-nav-indicator"
 

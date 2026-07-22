@@ -8,6 +8,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.poyka.ripdpi.AppStartupReadiness
+import com.poyka.ripdpi.AppStartupReadinessState
+import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
@@ -70,6 +73,52 @@ class MainActivityContentTest {
         composeRule.waitForIdle()
 
         assertEquals(snapshotCalls, permissionStatusProvider.currentSnapshotCalls)
+    }
+
+    @Test
+    fun `pending recovery gates view model initialization until ready`() {
+        val permissionStatusProvider = FakePermissionStatusProvider()
+        val readiness = MutableAppStartupReadiness(AppStartupReadinessState.Pending)
+        val viewModel =
+            createViewModel(
+                permissionStatusProvider = permissionStatusProvider,
+                appStartupReadiness = readiness,
+            )
+
+        composeRule.setContent {
+            MainActivityContent(viewModel = viewModel, controller = MainActivityShellController())
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
+        composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryPending).assertIsDisplayed()
+
+        composeRule.runOnIdle { readiness.state.value = AppStartupReadinessState.Ready }
+        composeRule.waitUntil(timeoutMillis = 5_000) { permissionStatusProvider.currentSnapshotCalls > 0 }
+    }
+
+    @Test
+    fun `failed recovery renders retry without waiting for settings`() {
+        val readiness = MutableAppStartupReadiness(AppStartupReadinessState.Failed)
+        val permissionStatusProvider = FakePermissionStatusProvider()
+        val viewModel =
+            createViewModel(
+                appSettingsRepository = DelayedAppSettingsRepository(),
+                permissionStatusProvider = permissionStatusProvider,
+                appStartupReadiness = readiness,
+            )
+
+        composeRule.setContent {
+            MainActivityContent(viewModel = viewModel, controller = MainActivityShellController())
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryFailure).assertIsDisplayed()
+        assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
+        composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryRetry).performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, readiness.retryCalls)
+        composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryPending).assertIsDisplayed()
     }
 
     @Test
@@ -248,6 +297,7 @@ class MainActivityContentTest {
         strategyPackStateStore: com.poyka.ripdpi.data.InMemoryStrategyPackStateStore =
             com.poyka.ripdpi.data
                 .InMemoryStrategyPackStateStore(),
+        appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
     ): MainViewModel {
         val crashReportReader =
             com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
@@ -315,30 +365,36 @@ class MainActivityContentTest {
                             .SubscriptionExpiryClock { 0L },
                 ),
             mainLifecycleDependencies =
-                MainLifecycleDependencies(
-                    appLockLifecycleCoordinator =
-                        MainAppLockLifecycleCoordinator(
-                            com.poyka.ripdpi.security
-                                .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
-                        ),
-                    startupSideEffectsCoordinator =
-                        MainStartupSideEffectsCoordinator(
-                            appSettingsRepository = appSettingsRepository,
-                            crashReportReader = crashReportReader,
-                        ),
-                    settingsDismissCoordinator =
-                        MainSettingsDismissCoordinator(
-                            appSettingsRepository = appSettingsRepository,
-                        ),
-                    crashReportCoordinator =
-                        MainCrashReportCoordinator(
-                            crashReportReader = crashReportReader,
-                        ),
+                createLifecycleDependencies(
+                    appSettingsRepository = appSettingsRepository,
+                    crashReportReader = crashReportReader,
+                    appStartupReadiness = appStartupReadiness,
                 ),
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),
         )
     }
+
+    private fun createLifecycleDependencies(
+        appSettingsRepository: AppSettingsRepository,
+        crashReportReader: com.poyka.ripdpi.diagnostics.crash.CrashReportReader,
+        appStartupReadiness: AppStartupReadiness,
+    ): MainLifecycleDependencies =
+        MainLifecycleDependencies(
+            appLockLifecycleCoordinator =
+                MainAppLockLifecycleCoordinator(
+                    com.poyka.ripdpi.security
+                        .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+                ),
+            startupSideEffectsCoordinator =
+                MainStartupSideEffectsCoordinator(
+                    appSettingsRepository = appSettingsRepository,
+                    crashReportReader = crashReportReader,
+                ),
+            settingsDismissCoordinator = MainSettingsDismissCoordinator(appSettingsRepository),
+            crashReportCoordinator = MainCrashReportCoordinator(crashReportReader),
+            appStartupReadiness = appStartupReadiness,
+        )
 
     private fun grantedStartupPermissionStatusProvider(): FakePermissionStatusProvider =
         FakePermissionStatusProvider(
@@ -348,6 +404,21 @@ class MainActivityContentTest {
                 batteryOptimization = PermissionStatus.Granted,
             ),
         )
+
+    private class MutableAppStartupReadiness(
+        initial: AppStartupReadinessState,
+    ) : AppStartupReadiness {
+        val state = kotlinx.coroutines.flow.MutableStateFlow(initial)
+        var retryCalls = 0
+            private set
+
+        override val readiness = state
+
+        override fun retryRecovery() {
+            retryCalls += 1
+            state.value = AppStartupReadinessState.Pending
+        }
+    }
 
     private class DelayedAppSettingsRepository(
         initialSnapshot: AppSettings = AppSettingsSerializer.defaultValue,

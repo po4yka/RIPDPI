@@ -3,6 +3,11 @@
     <string name="about_build_section">Build</string>
     <string name="about_description">Compose-basierte lokale Konfigurationsoberfläche für die erhaltene RIPDPI-Engine, den Dienst und den DataStore-Stack.</string>
     <string name="action_dismiss">Schließen</string>
+    <string name="startup_recovery_preparing_title">RIPDPI wird vorbereitet</string>
+    <string name="startup_recovery_preparing_body">Lokale Einstellungen werden geprüft, bevor die App online geht.</string>
+    <string name="startup_recovery_failed_title">Startwiederherstellung fehlgeschlagen</string>
+    <string name="startup_recovery_failed_body">RIPDPI konnte die lokalen Einstellungen nicht sicher wiederherstellen. Die App bleibt offline, bis die Wiederherstellung erfolgreich ist.</string>
+    <string name="startup_recovery_retry">Erneut versuchen</string>
     <string name="activation_window_badge_payload">Nutzlast-gefiltert</string>
     <string name="activation_window_cli_title">Über Befehlszeile gesteuert</string>
     <string name="activation_window_field_from">Von</string>

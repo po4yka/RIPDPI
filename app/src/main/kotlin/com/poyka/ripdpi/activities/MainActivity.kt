@@ -13,6 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
@@ -29,6 +30,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Optional
 import javax.inject.Inject
@@ -98,7 +100,9 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        splashScreen.setKeepOnScreenCondition { !viewModel.startupState.value.isReady }
+        splashScreen.setKeepOnScreenCondition {
+            viewModel.startupState.value.readiness == AppStartupReadinessState.Pending
+        }
 
         setContent {
             MainActivityContent(viewModel = viewModel, controller = shellController)
@@ -112,6 +116,9 @@ class MainActivity : AppCompatActivity() {
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun resumeAfterProcessDeath() {
+        viewModel.startupState.first { state ->
+            state.readiness == AppStartupReadinessState.Ready
+        }
         try {
             processDeathResumeCoordinator.resumeIfNeeded()
         } catch (cancellation: CancellationException) {

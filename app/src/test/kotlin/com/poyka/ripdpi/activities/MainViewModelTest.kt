@@ -2,7 +2,10 @@ package com.poyka.ripdpi.activities
 
 import android.os.SystemClock
 import app.cash.turbine.test
+import com.poyka.ripdpi.AppStartupReadiness
+import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
@@ -558,6 +561,69 @@ class MainViewModelTest {
 
         assertEquals(Route.Home, resolveStartupDestination(settings))
     }
+
+    @Test
+    fun `startup remains gated until profile recovery is ready`() =
+        runTest {
+            val readinessState = kotlinx.coroutines.flow.MutableStateFlow(AppStartupReadinessState.Pending)
+            val viewModel =
+                createViewModel(
+                    appStartupReadiness =
+                        object : AppStartupReadiness {
+                            override val readiness = readinessState
+
+                            override fun retryRecovery() = Unit
+                        },
+                )
+            val collector = backgroundScope.launch { viewModel.startupState.collect {} }
+            runCurrent()
+
+            assertFalse(viewModel.startupState.value.isReady)
+
+            readinessState.value = AppStartupReadinessState.Ready
+            runCurrent()
+
+            assertTrue(viewModel.startupState.value.isReady)
+            collector.cancel()
+        }
+
+    @Test
+    fun `initialize and foreground work stay gated until recovery is ready`() =
+        runTest {
+            val readinessState = kotlinx.coroutines.flow.MutableStateFlow(AppStartupReadinessState.Pending)
+            val permissionStatusProvider = FakePermissionStatusProvider()
+            val serviceController = FakeServiceController()
+            val readiness =
+                object : AppStartupReadiness {
+                    override val readiness = readinessState
+
+                    override fun retryRecovery() = Unit
+                }
+            val viewModel =
+                createViewModel(
+                    appStartupReadiness = readiness,
+                    permissionStatusProvider = permissionStatusProvider,
+                    serviceController = serviceController,
+                    initialize = false,
+                )
+            runCurrent()
+
+            viewModel.initialize()
+            viewModel.onForeground()
+            runCurrent()
+
+            assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
+            assertEquals(0, serviceController.hardKillSwitchRefreshCount)
+
+            readinessState.value = AppStartupReadinessState.Ready
+            runCurrent()
+            viewModel.initialize()
+            viewModel.onForeground()
+            runCurrent()
+
+            assertTrue(permissionStatusProvider.currentSnapshotCalls > 0)
+            assertEquals(1, serviceController.hardKillSwitchRefreshCount)
+        }
 
     @Test
     fun `initialize is explicit and idempotent`() =
@@ -1658,6 +1724,7 @@ class MainViewModelTest {
                 workflowService = StubDiagnosticsHomeWorkflowService(),
                 compositeRunService = StubDiagnosticsHomeCompositeRunService(),
             ),
+        appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
         initialize: Boolean = true,
     ): MainViewModel {
         val crashReportReader =
@@ -1738,6 +1805,7 @@ class MainViewModelTest {
                         MainCrashReportCoordinator(
                             crashReportReader = crashReportReader,
                         ),
+                    appStartupReadiness = appStartupReadiness,
                 ),
             stringResolver = FakeStringResolver(),
             activeTransportProvider = java.util.Optional.empty(),

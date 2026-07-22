@@ -1,6 +1,11 @@
 <resources>
     <string name="navigation_back">返回</string>
     <string name="action_dismiss">关闭</string>
+    <string name="startup_recovery_preparing_title">正在准备 RIPDPI</string>
+    <string name="startup_recovery_preparing_body">应用联网前正在检查本地设置。</string>
+    <string name="startup_recovery_failed_title">启动恢复失败</string>
+    <string name="startup_recovery_failed_body">RIPDPI 无法安全完成本地设置恢复。在恢复成功之前，应用将保持离线。</string>
+    <string name="startup_recovery_retry">重试</string>
     <string name="vpn_connect">连接</string>
     <string name="vpn_disconnect">断开</string>
     <string name="vpn_connected">已连接</string>

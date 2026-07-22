@@ -3,6 +3,11 @@
     <string name="about_build_section">Build</string>
     <string name="about_description">Surface de configuration locale basée sur Compose pour le moteur RIPDPI préservé, le service et la pile DataStore.</string>
     <string name="action_dismiss">Ignorer</string>
+    <string name="startup_recovery_preparing_title">Préparation de RIPDPI</string>
+    <string name="startup_recovery_preparing_body">Vérification des paramètres locaux avant la mise en ligne de l’application.</string>
+    <string name="startup_recovery_failed_title">Échec de la récupération au démarrage</string>
+    <string name="startup_recovery_failed_body">RIPDPI n’a pas pu terminer la récupération sécurisée des paramètres locaux. L’application restera hors ligne jusqu’à la réussite de la récupération.</string>
+    <string name="startup_recovery_retry">Réessayer</string>
     <string name="activation_window_badge_payload">Charge utile filtrée</string>
     <string name="activation_window_cli_title">Contrôlé par la ligne de commande</string>
     <string name="activation_window_field_from">À partir de</string>

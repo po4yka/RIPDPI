@@ -3,6 +3,11 @@
 <resources>
     <string name="navigation_back">رجوع</string>
     <string name="action_dismiss">تجاهل</string>
+    <string name="startup_recovery_preparing_title">جارٍ تجهيز RIPDPI</string>
+    <string name="startup_recovery_preparing_body">يتم التحقق من الإعدادات المحلية قبل اتصال التطبيق.</string>
+    <string name="startup_recovery_failed_title">فشل استرداد بدء التشغيل</string>
+    <string name="startup_recovery_failed_body">تعذّر على RIPDPI إكمال استرداد الإعدادات المحلية بأمان. سيبقى التطبيق غير متصل حتى ينجح الاسترداد.</string>
+    <string name="startup_recovery_retry">المحاولة مرة أخرى</string>
     <string name="vpn_connect">اتصال</string>
     <string name="vpn_disconnect">قطع الاتصال</string>
     <string name="vpn_connected">متصل</string>

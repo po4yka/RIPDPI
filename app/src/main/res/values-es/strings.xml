@@ -3,6 +3,11 @@
     <string name="about_build_section">Compilación</string>
     <string name="about_description">Superficie de configuración local basada en Compose para el motor, servicio y pila de DataStore preservados de RIPDPI.</string>
     <string name="action_dismiss">Descartar</string>
+    <string name="startup_recovery_preparing_title">Preparando RIPDPI</string>
+    <string name="startup_recovery_preparing_body">Comprobando la configuración local antes de conectar la aplicación.</string>
+    <string name="startup_recovery_failed_title">Falló la recuperación de inicio</string>
+    <string name="startup_recovery_failed_body">RIPDPI no pudo terminar de recuperar la configuración local de forma segura. La aplicación permanecerá sin conexión hasta que la recuperación se complete.</string>
+    <string name="startup_recovery_retry">Intentar de nuevo</string>
     <string name="activation_window_badge_payload">Carga útil restringida</string>
     <string name="activation_window_cli_title">Controlado por línea de comandos</string>
     <string name="activation_window_field_from">Desde</string>

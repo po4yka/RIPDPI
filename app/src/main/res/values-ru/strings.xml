@@ -2,6 +2,11 @@
 <resources>
     <string name="navigation_back">Назад</string>
     <string name="action_dismiss">Скрыть</string>
+    <string name="startup_recovery_preparing_title">Подготовка RIPDPI</string>
+    <string name="startup_recovery_preparing_body">Проверяем локальные настройки перед выходом приложения в сеть.</string>
+    <string name="startup_recovery_failed_title">Не удалось восстановить запуск</string>
+    <string name="startup_recovery_failed_body">RIPDPI не удалось безопасно завершить восстановление локальных настроек. Приложение останется офлайн до успешного восстановления.</string>
+    <string name="startup_recovery_retry">Повторить</string>
     <string name="vpn_connect">Подключить</string>
     <string name="vpn_disconnect">Отключить</string>
     <string name="vpn_connected">Подключено</string>

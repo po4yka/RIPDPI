@@ -2,6 +2,11 @@
 <resources>
     <string name="navigation_back">वापस जाएँ</string>
     <string name="action_dismiss">खारिज करें</string>
+    <string name="startup_recovery_preparing_title">RIPDPI तैयार हो रहा है</string>
+    <string name="startup_recovery_preparing_body">ऐप के ऑनलाइन होने से पहले स्थानीय सेटिंग्स जाँची जा रही हैं।</string>
+    <string name="startup_recovery_failed_title">स्टार्टअप रिकवरी विफल हुई</string>
+    <string name="startup_recovery_failed_body">RIPDPI स्थानीय सेटिंग्स की सुरक्षित रिकवरी पूरी नहीं कर सका। रिकवरी सफल होने तक ऐप ऑफ़लाइन रहेगा।</string>
+    <string name="startup_recovery_retry">फिर से कोशिश करें</string>
     <string name="vpn_connect">कनेक्ट करें</string>
     <string name="vpn_disconnect">डिस्कनेक्ट करें</string>
     <string name="vpn_connected">कनेक्ट है</string>

@@ -1,6 +1,11 @@
 <resources>
     <string name="navigation_back">بازگشت</string>
     <string name="action_dismiss">بستن</string>
+    <string name="startup_recovery_preparing_title">در حال آماده‌سازی RIPDPI</string>
+    <string name="startup_recovery_preparing_body">پیش از آنلاین شدن برنامه، تنظیمات محلی بررسی می‌شوند.</string>
+    <string name="startup_recovery_failed_title">بازیابی هنگام راه‌اندازی ناموفق بود</string>
+    <string name="startup_recovery_failed_body">RIPDPI نتوانست بازیابی امن تنظیمات محلی را کامل کند. برنامه تا موفقیت بازیابی آفلاین می‌ماند.</string>
+    <string name="startup_recovery_retry">تلاش دوباره</string>
     <string name="vpn_connect">اتصال</string>
     <string name="vpn_disconnect">قطع اتصال</string>
     <string name="vpn_connected">متصل</string>

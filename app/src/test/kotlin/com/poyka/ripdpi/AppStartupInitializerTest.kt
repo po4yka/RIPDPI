@@ -33,14 +33,15 @@ import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -104,18 +105,94 @@ class AppStartupInitializerTest {
         }
 
     @Test
-    fun `initialize completes profile recovery before returning`() =
+    fun `initialize returns while recovery is suspended and gates downstream startup`() =
         runTest {
-            var recoverCalls = 0
+            val recoveryStarted = CompletableDeferred<Unit>()
+            val releaseRecovery = CompletableDeferred<Unit>()
             val profileMutations =
                 object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
                     override suspend fun recover() {
-                        recoverCalls += 1
+                        recoveryStarted.complete(Unit)
+                        releaseRecovery.await()
+                    }
+                }
+            val compatibilityResetter = RecordingAppCompatibilityResetter()
+            val strategyPackService = RecordingStrategyPackService()
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = strategyPackService,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
+                    profileMutations = profileMutations,
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            runCurrent()
+            recoveryStarted.await()
+
+            assertEquals(AppStartupReadinessState.Pending, initializer.readiness.value)
+            assertEquals(0, compatibilityResetter.calls)
+            assertEquals(0, strategyPackService.initializeCalls)
+            assertEquals(0, diagnosticsBootstrapper.calls)
+
+            releaseRecovery.complete(Unit)
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(1, compatibilityResetter.calls)
+            assertEquals(1, strategyPackService.initializeCalls)
+            assertEquals(1, diagnosticsBootstrapper.calls)
+        }
+
+    @Test
+    fun `recovery failure keeps startup gated and skips downstream subsystems`() =
+        runTest {
+            val compatibilityResetter = RecordingAppCompatibilityResetter()
+            val strategyPackService = RecordingStrategyPackService()
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = strategyPackService,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
+                    profileMutations =
+                        object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
+                            override suspend fun recover() = error("synthetic recovery failure")
+                        },
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            runCurrent()
+            initializer.readiness.first { it == AppStartupReadinessState.Failed }
+            runCurrent()
+
+            assertEquals(0, compatibilityResetter.calls)
+            assertEquals(0, strategyPackService.initializeCalls)
+            assertEquals(0, diagnosticsBootstrapper.calls)
+        }
+
+    @Test
+    fun `failed recovery can be retried once without parallel startup work`() =
+        runTest {
+            var recoveryAttempts = 0
+            val releaseRetry = CompletableDeferred<Unit>()
+            val retryStarted = CompletableDeferred<Unit>()
+            val compatibilityResetter = RecordingAppCompatibilityResetter()
+            val profileMutations =
+                object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
+                    override suspend fun recover() {
+                        recoveryAttempts += 1
+                        if (recoveryAttempts == 1) error("first recovery failed")
+                        retryStarted.complete(Unit)
+                        releaseRetry.await()
                     }
                 }
             val initializer =
                 createInitializer(
-                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    compatibilityResetter = compatibilityResetter,
                     strategyPackService = RecordingStrategyPackService(),
                     diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
                     profileMutations = profileMutations,
@@ -123,8 +200,24 @@ class AppStartupInitializerTest {
                 )
 
             initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Failed }
 
-            assertEquals(1, recoverCalls)
+            initializer.retryRecovery()
+            initializer.retryRecovery()
+            retryStarted.await()
+
+            assertEquals(AppStartupReadinessState.Pending, initializer.readiness.value)
+            assertEquals(2, recoveryAttempts)
+            assertEquals(0, compatibilityResetter.calls)
+
+            releaseRetry.complete(Unit)
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(1, compatibilityResetter.calls)
+            initializer.retryRecovery()
+            runCurrent()
+            assertEquals(2, recoveryAttempts)
         }
 
     @Test
@@ -232,7 +325,7 @@ class AppStartupInitializerTest {
                 )
 
             initializer.initialize()
-            yield()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
             runCurrent()
 
             assertEquals(1, compatibilityResetter.calls)
@@ -262,7 +355,7 @@ class AppStartupInitializerTest {
                 )
 
             initializer.initialize()
-            yield()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
             runCurrent()
 
             assertEquals(1, compatibilityResetter.calls)
