@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+internal_locked_body=0
+if [[ "${1:-}" == "--ripdpi-internal-locked-body" ]]; then
+    internal_locked_body=1
+    shift
+fi
+readonly original_args=("$@")
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ci/android-so-bind-physical-lib.sh
 source "$script_dir/android-so-bind-physical-lib.sh"
@@ -50,6 +57,23 @@ source_root="$($git_bin -C "$script_dir/../.." rev-parse --show-toplevel 2>/dev/
     fail "could not resolve source checkout"
 readonly source_root
 [[ "$source_root" == "$(cd "$script_dir/../.." && pwd)" ]] || fail "runner must execute from its source checkout"
+mkdir -p "$device_lock_root" || fail "could not prepare the Android device lock directory"
+device_lock_root_canonical="$(cd "$device_lock_root" && pwd -P)"
+device_lock_serial="$(printf '%s' "$android_serial" | tr -c 'A-Za-z0-9._-' '_')"
+device_lock_name="ripdpi-android-device-$device_lock_serial.lock"
+if [[ "$internal_locked_body" == "0" ]]; then
+    exec python3 "$source_root/test-lab/scripts/run-with-android-device-lock.py" run \
+        --lock-root "$device_lock_root_canonical" \
+        --lock-name "$device_lock_name" \
+        bash "$0" --ripdpi-internal-locked-body "${original_args[@]}"
+fi
+python3 "$source_root/test-lab/scripts/run-with-android-device-lock.py" verify \
+    --lock-root "$device_lock_root_canonical" \
+    --lock-name "$device_lock_name" \
+    --supervisor-pid "${RIPDPI_ANDROID_DEVICE_LOCK_SUPERVISOR_PID:-0}" \
+    --nonce "${RIPDPI_ANDROID_DEVICE_LOCK_AUTH:-}" ||
+    fail "physical Android device lane lock authentication failed"
+unset RIPDPI_ANDROID_DEVICE_LOCK_AUTH RIPDPI_ANDROID_DEVICE_LOCK_SUPERVISOR_PID
 source_sha="$($git_bin -C "$source_root" rev-parse HEAD 2>/dev/null)" || fail "could not resolve source SHA"
 readonly source_sha
 [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || fail "source SHA is malformed"
@@ -102,22 +126,11 @@ adb_device() {
 }
 
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
-device_lock_acquired=0
-device_lock_serial="$(printf '%s' "$android_serial" | tr -c 'A-Za-z0-9._-' '_')"
-device_lock_dir="$device_lock_root/ripdpi-android-device-$device_lock_serial.lock"
 cleanup() {
-    if [[ "$device_lock_acquired" == "1" ]]; then
-        adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
-        rm -rf "$device_lock_dir"
-    fi
+    adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
-mkdir -p "$device_lock_root" || fail "could not prepare the Android device lock directory"
-mkdir "$device_lock_dir" 2>/dev/null ||
-    fail "physical Android device lane is already in use for $android_serial"
-device_lock_acquired=1
-printf '%s\n' "$$" >"$device_lock_dir/owner-pid"
 
 install_and_verify_apk() {
     local apk="$1"

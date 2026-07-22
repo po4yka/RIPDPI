@@ -604,6 +604,7 @@ def main(argv: list[str] | None = None) -> int:
             expected_execution_kind=expected_execution_kind,
             expected_execution_id=expected_execution_id,
             expected_execution_attempt=expected_execution_attempt,
+            require_pass=True,
         )
         if set(evidence_summary["gateResults"]) != evidence_gate_ids:
             raise ValueError(

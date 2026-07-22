@@ -163,6 +163,7 @@ if [[ "$snapshot_active" == false ]]; then
     test-lab/scripts/run-dual-vantage-network-evidence.sh
     scripts/ci/network_evidence_manifest.py
     quality/release-gates/dns-ipv6-killswitch-gates.json
+    quality/release-gates/android-network-evidence-actions.json
     quality/release-gates/network-evidence-producers.json
   )
   for relative_path in "${snapshot_paths[@]}"; do
@@ -177,6 +178,7 @@ if [[ "$snapshot_active" == false ]]; then
   chmod 400 \
     "$source_snapshot/scripts/ci/network_evidence_manifest.py" \
     "$source_snapshot/quality/release-gates/dns-ipv6-killswitch-gates.json" \
+    "$source_snapshot/quality/release-gates/android-network-evidence-actions.json" \
     "$source_snapshot/quality/release-gates/network-evidence-producers.json"
   snapshot_status=0
   RIPDPI_EVIDENCE_SOURCE_ROOT="$source_root" \
@@ -198,6 +200,7 @@ paths = (
     "test-lab/scripts/run-dual-vantage-network-evidence.sh",
     "scripts/ci/network_evidence_manifest.py",
     "quality/release-gates/dns-ipv6-killswitch-gates.json",
+    "quality/release-gates/android-network-evidence-actions.json",
     "quality/release-gates/network-evidence-producers.json",
 )
 for relative in paths:

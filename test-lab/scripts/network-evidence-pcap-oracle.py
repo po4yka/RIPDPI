@@ -47,6 +47,18 @@ MAX_METADATA_BYTES = 64 * 1024
 MAX_WINDOWS = 64
 STARTUP_GATE_ID = "killswitch-tun-establish-native-ready"
 STARTUP_RULE = "tun-establish-native-ready-v1"
+DNS_RULES = {
+    "dns-virtual-vpn-resolver": "virtual-vpn-resolver-v1",
+    "dns-proxied-through-tunnelled-resolver": "proxied-domain-resolver-path-v1",
+    "dns-direct-ru-only-for-direct-domains": "direct-ru-domain-partition-v1",
+    "dns-allowlisted-bootstrap-resolution": "allowlisted-bootstrap-v1",
+    "dns-no-isp-fallback-on-encrypted-resolver-outage": "encrypted-outage-fail-closed-v1",
+    "dns-network-switch-behavior": "network-switch-dns-continuity-v1",
+    "dns-core-crash-behavior": "core-crash-dns-fail-closed-v1",
+    "dns-android-private-dns-conflict": "android-private-dns-conflict-v1",
+    "synthetic-authoritative-dns-query-sources": "authoritative-query-sources-v1",
+}
+SOURCE_OWNED_AUTHORITATIVE_IPV6 = ipaddress.ip_address("2001:db8::20").packed
 FIXTURE_IDENTITY_DOMAIN = "ripdpi:fixture-identity:v1"
 FIXTURE_IDENTITY_FIELDS = (
     "bindHost",
@@ -93,6 +105,7 @@ STARTUP_RULE_FIELDS = {
     "actionReceiptSha256",
     "fixtureIdentitySha256",
 }
+ACTION_RULE_FIELDS = STARTUP_RULE_FIELDS
 CAPTURE_FIELDS = {"rawCaptureSha256"}
 METADATA_FIELDS = {
     "version",
@@ -346,7 +359,9 @@ def validate_action_receipt(
     expected_digest: str,
     fixture_identity_sha256: str,
     plan: dict[str, Any],
-) -> str:
+    gate_id: str,
+    test_only_ready_override: Path | None = None,
+) -> tuple[str, dict[str, Any]]:
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     from scripts.ci.check_android_network_action_receipt import (  # noqa: PLC0415
@@ -361,14 +376,19 @@ def validate_action_receipt(
             raise ValueError("Android action receipt digest mismatch")
         validated = validate_receipt(
             value,
+            gate_id=gate_id,
             source_sha=plan["sourceSha"],
             correlation_id=plan["correlationId"],
             client_artifact_sha256=plan["clientArtifactSha256"],
             test_artifact_sha256=plan["testArtifactSha256"],
             fixture_identity_sha256=fixture_identity_sha256,
+            test_only_ready_override=test_only_ready_override,
         )
-        return require_pattern(
-            validated["dnsQuerySha256"], SHA256_RE, "receipt.dnsQuerySha256"
+        return (
+            require_pattern(
+                validated["querySetSha256"], SHA256_RE, "receipt.querySetSha256"
+            ),
+            validated["facts"],
         )
     except ReceiptError as error:
         raise ValueError(f"Android action receipt is invalid: {error}") from error
@@ -604,7 +624,9 @@ def validate_ledger(
             raise ValueError(f"{context} must be an object")
         rule_name = rule.get("rule")
         fields = (
-            STARTUP_RULE_FIELDS if rule_name == STARTUP_RULE else GENERIC_RULE_FIELDS
+            ACTION_RULE_FIELDS
+            if rule_name in ({STARTUP_RULE} | set(DNS_RULES.values()))
+            else GENERIC_RULE_FIELDS
         )
         require_exact_fields(rule, fields, context)
         window_id = require_pattern(
@@ -619,6 +641,26 @@ def validate_ledger(
             if window_id != STARTUP_GATE_ID or window.kind != "direct_window":
                 raise ValueError(
                     f"{STARTUP_RULE} is restricted to the startup direct-window gate"
+                )
+            semantic_rules[window_id] = SemanticRule(
+                window_id=window_id,
+                name=rule_name,
+                action_receipt_sha256=require_pattern(
+                    rule["actionReceiptSha256"],
+                    SHA256_RE,
+                    f"{context}.actionReceiptSha256",
+                ),
+                fixture_identity_sha256=require_pattern(
+                    rule["fixtureIdentitySha256"],
+                    SHA256_RE,
+                    f"{context}.fixtureIdentitySha256",
+                ),
+            )
+            continue
+        if rule_name in DNS_RULES.values():
+            if DNS_RULES.get(window_id) != rule_name or window.kind != "dns":
+                raise ValueError(
+                    f"{rule_name} is not bound to its exact DNS gate descriptor"
                 )
             semantic_rules[window_id] = SemanticRule(
                 window_id=window_id,
@@ -1097,18 +1139,25 @@ def _read_dns_name(
 def _dns_packet_facts(payload: bytes) -> DnsPacketFacts:
     if len(payload) < 12:
         raise ValueError("fixture DNS packet is shorter than its header")
-    transaction_id, flags, question_count, answer_count = struct.unpack_from(
-        "!HHHH", payload
-    )
+    (
+        transaction_id,
+        flags,
+        question_count,
+        answer_count,
+        authority_count,
+        additional_count,
+    ) = struct.unpack_from("!HHHHHH", payload)
     if question_count != 1:
         raise ValueError("fixture DNS packet must contain exactly one question")
+    if authority_count or additional_count:
+        raise ValueError("fixture DNS authority/additional sections are unsupported")
     labels, offset = _read_dns_name(payload, 12)
     if offset + 4 > len(payload):
         raise ValueError("fixture DNS question type/class is truncated")
     query_type, query_class = struct.unpack_from("!HH", payload, offset)
     offset += 4
     answers: list[tuple[tuple[bytes, ...], bytes]] = []
-    for _index in range(answer_count):
+    for record_index in range(answer_count + authority_count + additional_count):
         answer_name, offset = _read_dns_name(payload, offset)
         if offset + 10 > len(payload):
             raise ValueError("fixture DNS answer header is truncated")
@@ -1120,8 +1169,18 @@ def _dns_packet_facts(payload: bytes) -> DnsPacketFacts:
             raise ValueError("fixture DNS answer data is truncated")
         answer_data = payload[offset : offset + data_length]
         offset += data_length
-        if answer_type == 1 and answer_class == 1 and data_length == 4:
+        if (
+            record_index < answer_count
+            and answer_type == 1
+            and answer_class == 1
+            and data_length == 4
+        ):
             answers.append((answer_name, answer_data))
+    if offset != len(payload):
+        raise ValueError("fixture DNS packet contains trailing unparsed bytes")
+    is_response = bool(flags & 0x8000)
+    if not is_response and (answer_count or authority_count or additional_count):
+        raise ValueError("fixture DNS query contains resource records")
     identity = (
         struct.pack("!H", transaction_id)
         + b".".join(labels)
@@ -1130,7 +1189,7 @@ def _dns_packet_facts(payload: bytes) -> DnsPacketFacts:
     return DnsPacketFacts(
         identity=identity,
         question_labels=labels,
-        is_response=bool(flags & 0x8000),
+        is_response=is_response,
         rcode=flags & 0x000F,
         answer_records=tuple(answers),
     )
@@ -1204,6 +1263,188 @@ def _require_receipt_bound_dns(
     return proof, {query[0], response[0]}
 
 
+def _dns_evidence_query_sha256(labels: tuple[bytes, ...]) -> str:
+    return hashlib.sha256(
+        b"ripdpi:dns-evidence-query:v1:" + b".".join(labels).lower()
+    ).hexdigest()
+
+
+def _resolver_endpoint_sha256(packet: Packet) -> str:
+    assert (
+        packet.destination_address is not None and packet.destination_port is not None
+    )
+    return hashlib.sha256(
+        b"ripdpi:dns-evidence-resolver:v1:"
+        + packet.destination_address
+        + struct.pack("!H", packet.destination_port)
+    ).hexdigest()
+
+
+def _resolver_address_sha256(packet: Packet) -> str:
+    assert packet.destination_address is not None
+    return hashlib.sha256(
+        b"ripdpi:dns-evidence-address:v1:" + packet.destination_address
+    ).hexdigest()
+
+
+def _require_dns_rule_packets(
+    *,
+    role: str,
+    packets: list[Packet],
+    interval: tuple[int, int],
+    gate_id: str,
+    rule_name: str,
+    facts: dict[str, Any],
+    fixture: FixtureContext,
+) -> tuple[bytes, set[int]]:
+    expected_by_field = {
+        field: value
+        for field, value in facts.items()
+        if field.lower().endswith("querysha256")
+    }
+    expected = set(expected_by_field.values())
+    if not expected or any(
+        not isinstance(value, str) or SHA256_RE.fullmatch(value) is None
+        for value in expected
+    ):
+        raise ValueError(f"{gate_id} receipt does not bind an exact DNS query set")
+    start, finish = interval
+    queries: dict[str, list[tuple[int, DnsPacketFacts, Packet]]] = {
+        digest: [] for digest in expected
+    }
+    responses: dict[bytes, list[tuple[int, DnsPacketFacts, Packet]]] = {}
+    allowed: set[int] = set()
+    for record_index in range(start, finish + 1):
+        packet = packets[record_index]
+        if packet.payload is None or packet.transport != "udp":
+            continue
+        if packet.source_port == 53 or packet.destination_port == 53:
+            continue
+        try:
+            dns = _dns_packet_facts(packet.payload)
+        except ValueError:
+            continue
+        digest = _dns_evidence_query_sha256(dns.question_labels)
+        if digest not in expected:
+            continue
+        if dns.is_response:
+            responses.setdefault(dns.identity, []).append((record_index, dns, packet))
+        else:
+            queries[digest].append((record_index, dns, packet))
+    for digest, occurrences in queries.items():
+        if len(occurrences) != 1:
+            raise ValueError(
+                f"{role} {gate_id} must contain exactly one packet-parsed query for each receipt digest"
+            )
+        query_index, query, packet = occurrences[0]
+        if query.is_response or query.rcode != 0 or query.answer_records:
+            raise ValueError(
+                f"{role} {gate_id} packet-parsed DNS query flags are invalid"
+            )
+        expected_endpoint_address = (
+            SOURCE_OWNED_AUTHORITATIVE_IPV6
+            if packet.ip_version == 6
+            else fixture.address
+        )
+        if (
+            packet.destination_address != expected_endpoint_address
+            or packet.destination_port != fixture.dns_udp_port
+        ):
+            raise ValueError(
+                f"{role} {gate_id} query used an unbound resolver/authoritative endpoint"
+            )
+        query_field = next(
+            field for field, value in expected_by_field.items() if value == digest
+        )
+        resolver_fields = {
+            "virtualQuerySha256": "tunnelResolverProviderSha256",
+            "proxiedQuerySha256": (
+                "tunnelResolverSha256"
+                if "tunnelResolverSha256" in facts
+                else "resolverProviderSha256"
+            ),
+            "directQuerySha256": (
+                "directResolverSha256" if "directResolverSha256" in facts else None
+            ),
+            "bootstrapQuerySha256": "observedBootstrapResolverSha256",
+            "outageQuerySha256": "encryptedResolverProviderSha256",
+            "crashQuerySha256": "encryptedResolverProviderSha256",
+            "conflictQuerySha256": "privateDnsProviderSha256",
+        }
+        resolver_field = resolver_fields.get(query_field)
+        if (
+            resolver_field is not None
+            and _resolver_endpoint_sha256(packet) != facts[resolver_field]
+        ):
+            raise ValueError(
+                f"{role} {gate_id} query used the wrong packet-observed resolver/provider path"
+            )
+        if (
+            query_field == "virtualQuerySha256"
+            and _resolver_address_sha256(packet) != facts["virtualDnsAddressSha256"]
+        ):
+            raise ValueError(
+                f"{role} {gate_id} query did not use the bound virtual DNS address"
+            )
+        if query_field == "bootstrapQuerySha256":
+            expected_set = hashlib.sha256(
+                b"ripdpi:dns-evidence-resolver-set:v1:"
+                + _resolver_endpoint_sha256(packet).encode("ascii")
+            ).hexdigest()
+            if expected_set != facts["allowlistedResolverSetSha256"]:
+                raise ValueError(
+                    f"{role} {gate_id} bootstrap resolver is not in the packet-bound allowlist"
+                )
+        if query_field == "ipv6QuerySha256" and packet.ip_version != 6:
+            raise ValueError(
+                f"{role} {gate_id} authoritative IPv6 query has the wrong source class"
+            )
+        if (
+            query_field == "directQuerySha256"
+            and gate_id == "synthetic-authoritative-dns-query-sources"
+            and packet.ip_version != 4
+        ):
+            raise ValueError(
+                f"{role} {gate_id} authoritative direct query has the wrong source class"
+            )
+        allowed.add(query_index)
+        matching_responses = [
+            response
+            for response in responses.get(query.identity, [])
+            if response[0] > query_index
+            and response[1].rcode == 0
+            and response[1].answer_records
+            == ((query.question_labels, fixture.dns_answer_address),)
+            and response[2].source_address == packet.destination_address
+            and response[2].source_port == packet.destination_port
+            and response[2].destination_address == packet.source_address
+            and response[2].destination_port == packet.source_port
+        ]
+        fail_closed_rule = rule_name in {
+            "encrypted-outage-fail-closed-v1",
+            "core-crash-dns-fail-closed-v1",
+            "android-private-dns-conflict-v1",
+        }
+        if fail_closed_rule:
+            if matching_responses:
+                raise ValueError(
+                    f"{role} {gate_id} unexpectedly contains a successful DNS response"
+                )
+        else:
+            if len(matching_responses) != 1:
+                raise ValueError(
+                    f"{role} {gate_id} is missing an exact packet-parsed DNS response"
+                )
+            allowed.add(matching_responses[0][0])
+    proof_material = b"\0".join(sorted(value.encode("ascii") for value in expected))
+    return hashlib.sha256(
+        b"ripdpi:dns-evidence-packet-proof:v1:"
+        + gate_id.encode("ascii")
+        + b":"
+        + proof_material
+    ).digest(), allowed
+
+
 def derive_observation(
     *,
     role: str,
@@ -1215,6 +1456,7 @@ def derive_observation(
     semantic_rules: dict[str, SemanticRule],
     fixture: FixtureContext | None,
     startup_query_sha256: str | None,
+    dns_action_facts: dict[str, dict[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, bytes]]:
     counters = {
         window.identifier: {
@@ -1272,6 +1514,24 @@ def derive_observation(
             )
         semantic_proofs[window.identifier] = proof
         allowed_dns_records[window.identifier] = records
+    for index, window in enumerate(windows):
+        rule = semantic_rules[window.identifier]
+        if rule.name not in DNS_RULES.values():
+            continue
+        facts = dns_action_facts.get(window.identifier)
+        if facts is None:
+            raise ValueError(f"{window.identifier} requires its exact action receipt")
+        proof, records = _require_dns_rule_packets(
+            role=role,
+            packets=packets,
+            interval=intervals[index],
+            gate_id=window.identifier,
+            rule_name=rule.name,
+            facts=facts,
+            fixture=fixture,
+        )
+        semantic_proofs[window.identifier] = proof
+        allowed_dns_records[window.identifier] = records
     interval_starts = [start for start, _finish in intervals]
     for record_index, packet in enumerate(packets):
         interval_index = bisect.bisect_right(interval_starts, record_index) - 1
@@ -1304,6 +1564,25 @@ def derive_observation(
                 continue
             counters[window.identifier]["unexpected"] += 1
             continue
+        if rule.name in DNS_RULES.values():
+            if record_index in allowed_dns_records[window.identifier]:
+                counters[window.identifier]["expected"] += 1
+                continue
+            if matches:
+                if len(matches) != 1:
+                    raise ValueError(
+                        f"{role} packet contains duplicate or multiple markers"
+                    )
+                owner_id, phase = matches[0]
+                if owner_id != window.identifier:
+                    raise ValueError(
+                        f"{role} marker appears in the wrong ledger window"
+                    )
+                counters[owner_id]["expected"] += 1
+                counters[owner_id][phase] += 1
+                continue
+            counters[window.identifier]["unexpected"] += 1
+            continue
         if not matches:
             counters[window.identifier]["unexpected"] += 1
             continue
@@ -1322,6 +1601,13 @@ def derive_observation(
             raise ValueError(
                 f"{role} window {window.identifier} must contain exactly one action "
                 "and one outcome marker"
+            )
+        if (
+            semantic_rules[window.identifier].name in DNS_RULES.values()
+            and count["unexpected"] > 0
+        ):
+            raise ValueError(
+                f"{role} DNS gate {window.identifier} contains an unexpected or leak packet"
             )
         observation_windows.append(
             {
@@ -1438,7 +1724,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--client-metadata", required=True, type=Path)
     parser.add_argument("--observer-metadata", required=True, type=Path)
     parser.add_argument("--ledger", required=True, type=Path)
-    parser.add_argument("--action-receipt", type=Path)
+    parser.add_argument("--action-receipt", type=Path, action="append", default=[])
+    parser.add_argument("--test-only-action-registry-override", type=Path)
     parser.add_argument("--fixture-manifest", type=Path)
     parser.add_argument("--client-output", required=True, type=Path)
     parser.add_argument("--observer-output", required=True, type=Path)
@@ -1454,7 +1741,9 @@ def main() -> int:
             args.client_metadata,
             args.observer_metadata,
             args.ledger,
-            *(path for path in (args.action_receipt, args.fixture_manifest) if path),
+            *args.action_receipt,
+            *(path for path in (args.test_only_action_registry_override,) if path),
+            *(path for path in (args.fixture_manifest,) if path),
             args.client_output,
             args.observer_output,
         )
@@ -1472,33 +1761,57 @@ def main() -> int:
         plan, windows, digests, semantic_rules = validate_ledger(
             ledger, forbidden_generic_ids=load_android_dual_vantage_gate_ids()
         )
-        startup_rules = [
-            rule for rule in semantic_rules.values() if rule.name == STARTUP_RULE
+        action_rules = [
+            rule
+            for rule in semantic_rules.values()
+            if rule.name == STARTUP_RULE or rule.name in DNS_RULES.values()
         ]
         fixture: FixtureContext | None = None
         startup_query_sha256: str | None = None
-        if startup_rules:
-            if len(startup_rules) != 1:
-                raise ValueError("the startup semantic rule must appear exactly once")
-            if args.action_receipt is None or args.fixture_manifest is None:
+        dns_action_facts: dict[str, dict[str, Any]] = {}
+        if action_rules:
+            if (
+                len(args.action_receipt) != len(action_rules)
+                or args.fixture_manifest is None
+            ):
                 raise ValueError(
-                    "startup semantic rule requires --action-receipt and --fixture-manifest"
+                    "every action semantic rule requires one ordered --action-receipt and a fixture manifest"
                 )
-            startup_rule = startup_rules[0]
-            assert startup_rule.fixture_identity_sha256 is not None
-            assert startup_rule.action_receipt_sha256 is not None
-            fixture = load_fixture_context(
-                args.fixture_manifest, startup_rule.fixture_identity_sha256
-            )
-            startup_query_sha256 = validate_action_receipt(
-                args.action_receipt,
-                expected_digest=startup_rule.action_receipt_sha256,
-                fixture_identity_sha256=startup_rule.fixture_identity_sha256,
-                plan=plan,
-            )
-        elif args.action_receipt is not None or args.fixture_manifest is not None:
+            fixture_identities = {rule.fixture_identity_sha256 for rule in action_rules}
+            if None in fixture_identities or len(fixture_identities) != 1:
+                raise ValueError(
+                    "action semantic rules must bind one exact fixture identity"
+                )
+            fixture_identity = next(iter(fixture_identities))
+            assert fixture_identity is not None
+            fixture = load_fixture_context(args.fixture_manifest, fixture_identity)
+            for action_rule, receipt_path in zip(
+                action_rules, args.action_receipt, strict=True
+            ):
+                assert action_rule.action_receipt_sha256 is not None
+                _query_set_sha256, action_facts = validate_action_receipt(
+                    receipt_path,
+                    expected_digest=action_rule.action_receipt_sha256,
+                    fixture_identity_sha256=fixture_identity,
+                    plan=plan,
+                    gate_id=action_rule.window_id,
+                    test_only_ready_override=args.test_only_action_registry_override,
+                )
+                if action_rule.name == STARTUP_RULE:
+                    startup_query_sha256 = require_pattern(
+                        action_facts["dnsQuerySha256"],
+                        SHA256_RE,
+                        "receipt.facts.dnsQuerySha256",
+                    )
+                else:
+                    dns_action_facts[action_rule.window_id] = action_facts
+        elif (
+            args.action_receipt
+            or args.fixture_manifest is not None
+            or args.test_only_action_registry_override is not None
+        ):
             raise ValueError(
-                "action receipt and fixture manifest are forbidden without a startup semantic rule"
+                "action receipt and fixture manifest are forbidden without an action semantic rule"
             )
         client_metadata_value, _raw = load_strict_json(
             args.client_metadata,
@@ -1542,6 +1855,7 @@ def main() -> int:
             semantic_rules=semantic_rules,
             fixture=fixture,
             startup_query_sha256=startup_query_sha256,
+            dns_action_facts=dns_action_facts,
         )
         observer, observer_proofs = derive_observation(
             role="external-observer",
@@ -1553,9 +1867,10 @@ def main() -> int:
             semantic_rules=semantic_rules,
             fixture=fixture,
             startup_query_sha256=startup_query_sha256,
+            dns_action_facts=dns_action_facts,
         )
         if client_proofs != observer_proofs:
-            raise ValueError("dual-vantage startup DNS semantic proofs do not match")
+            raise ValueError("dual-vantage DNS semantic proofs do not match")
         write_private_json(args.client_output, client)
         write_private_json(args.observer_output, observer)
         validate_final_output(args.client_output)

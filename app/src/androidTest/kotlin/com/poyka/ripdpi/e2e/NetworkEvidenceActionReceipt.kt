@@ -9,18 +9,23 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
-internal const val NetworkEvidenceActionReceiptFile = "network-evidence-action-receipt.json"
 internal const val NetworkEvidenceStartupGateId = "killswitch-tun-establish-native-ready"
 internal const val NetworkEvidenceStartupKind = "direct_window"
 internal const val NetworkEvidenceStartupSelector =
     "com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady"
 
-private const val ReceiptVersion = "android_network_evidence_action_receipt_v2"
+internal const val NetworkEvidenceActionReceiptFile =
+    "network-evidence-action-receipt-killswitch-tun-establish-native-ready.json"
+private const val NetworkEvidenceStartupRule = "tun-establish-native-ready-v1"
+private const val ReceiptVersion = "android_network_evidence_action_receipt_v3"
 private const val WireMarkerPrefix = "RIPDPI-EVIDENCE-V2:"
 private const val MarkerDomain = "ripdpi:network-evidence-marker:v2"
 private const val CorrelationIdArg = "ripdpi.networkEvidenceCorrelationId"
 private const val GateIdArg = "ripdpi.networkEvidenceGateId"
 private const val KindArg = "ripdpi.networkEvidenceKind"
+private const val SelectorArg = "ripdpi.networkEvidenceSelector"
+private const val SemanticRuleArg = "ripdpi.networkEvidenceSemanticRule"
+private const val ReceiptFileArg = "ripdpi.networkEvidenceReceiptFile"
 private const val SourceShaArg = "ripdpi.networkEvidenceSourceSha"
 private const val ClientArtifactSha256Arg = "ripdpi.networkEvidenceClientArtifactSha256"
 private const val TestArtifactSha256Arg = "ripdpi.networkEvidenceTestArtifactSha256"
@@ -31,7 +36,24 @@ private const val OutcomeMarkerSha256Arg = "ripdpi.networkEvidenceOutcomeMarkerS
 private val Sha1Regex = Regex("[0-9a-f]{40}")
 private val Sha256Regex = Regex("[0-9a-f]{64}")
 
+private data class EvidenceDescriptor(
+    val kind: String,
+    val selector: String,
+    val semanticRule: String,
+)
+
+private val EvidenceDescriptors =
+    mapOf(
+        NetworkEvidenceStartupGateId to
+            EvidenceDescriptor(NetworkEvidenceStartupKind, NetworkEvidenceStartupSelector, NetworkEvidenceStartupRule),
+    )
+
 internal data class NetworkEvidenceActionContext(
+    val gateId: String,
+    val kind: String,
+    val selector: String,
+    val semanticRule: String,
+    val receiptFile: String,
     val correlationId: String,
     val sourceSha: String,
     val clientArtifactSha256: String,
@@ -78,6 +100,9 @@ internal fun networkEvidenceActionContextOrNull(arguments: Bundle): NetworkEvide
             CorrelationIdArg,
             GateIdArg,
             KindArg,
+            SelectorArg,
+            SemanticRuleArg,
+            ReceiptFileArg,
             SourceShaArg,
             ClientArtifactSha256Arg,
             TestArtifactSha256Arg,
@@ -99,8 +124,12 @@ internal fun networkEvidenceActionContextOrNull(arguments: Bundle): NetworkEvide
     }
 
     val correlationId = required(CorrelationIdArg, Sha256Regex)
-    val gateId = required(GateIdArg, Regex(Regex.escape(NetworkEvidenceStartupGateId)))
-    val kind = required(KindArg, Regex(Regex.escape(NetworkEvidenceStartupKind)))
+    val gateId = required(GateIdArg, Regex("[a-z0-9][a-z0-9_-]{0,127}"))
+    val descriptor = requireNotNull(EvidenceDescriptors[gateId]) { "Unknown network evidence gate" }
+    val kind = required(KindArg, Regex(Regex.escape(descriptor.kind)))
+    val selector = required(SelectorArg, Regex(Regex.escape(descriptor.selector)))
+    val semanticRule = required(SemanticRuleArg, Regex(Regex.escape(descriptor.semanticRule)))
+    val receiptFile = required(ReceiptFileArg, Regex(Regex.escape("network-evidence-action-receipt-$gateId.json")))
     val sourceSha = required(SourceShaArg, Sha1Regex)
     require(
         BuildConfig.GIT_COMMIT.matches(Regex("[0-9a-f]{7,40}")) &&
@@ -122,6 +151,11 @@ internal fun networkEvidenceActionContextOrNull(arguments: Bundle): NetworkEvide
         "Network evidence outcome marker digest mismatch"
     }
     return NetworkEvidenceActionContext(
+        gateId = gateId,
+        kind = kind,
+        selector = selector,
+        semanticRule = semanticRule,
+        receiptFile = receiptFile,
         correlationId = correlationId,
         sourceSha = sourceSha,
         clientArtifactSha256 = clientArtifactSha256,
@@ -163,16 +197,19 @@ internal fun fixtureIdentitySha256(fixture: FixtureManifestDto): String {
     return digest.digest().toHex()
 }
 
-internal fun clearNetworkEvidenceActionReceipt(context: Context) {
+internal fun clearNetworkEvidenceActionReceipt(
+    context: Context,
+    receiptFile: String = NetworkEvidenceActionReceiptFile,
+) {
     val deletedOrAbsent =
-        context.deleteFile(NetworkEvidenceActionReceiptFile) ||
+        context.deleteFile(receiptFile) ||
             !context
-                .getFileStreamPath(NetworkEvidenceActionReceiptFile)
+                .getFileStreamPath(receiptFile)
                 .exists()
     require(deletedOrAbsent) {
         "Could not clear stale network evidence action receipt"
     }
-    File(context.filesDir, "$NetworkEvidenceActionReceiptFile.tmp").delete()
+    File(context.filesDir, "$receiptFile.tmp").delete()
 }
 
 internal fun writeNetworkEvidenceStartupPassReceipt(
@@ -203,6 +240,7 @@ internal fun writeNetworkEvidenceStartupPassReceipt(
             .put("gateId", NetworkEvidenceStartupGateId)
             .put("kind", NetworkEvidenceStartupKind)
             .put("selector", NetworkEvidenceStartupSelector)
+            .put("semanticRule", NetworkEvidenceStartupRule)
             .put("correlationId", evidence.correlationId)
             .put("sourceSha", evidence.sourceSha)
             .put("clientArtifactSha256", evidence.clientArtifactSha256)
@@ -210,31 +248,36 @@ internal fun writeNetworkEvidenceStartupPassReceipt(
             .put("fixtureIdentitySha256", evidence.fixtureIdentitySha256)
             .put("actionMarkerSha256", evidence.actionMarkerSha256)
             .put("outcomeMarkerSha256", evidence.outcomeMarkerSha256)
+            .put("querySetSha256", networkEvidenceQuerySetSha256(NetworkEvidenceStartupGateId, facts.dnsQuerySha256))
             .put("startedAtElapsedRealtimeMs", facts.startedAtElapsedRealtimeMs)
             .put("finishedAtElapsedRealtimeMs", facts.finishedAtElapsedRealtimeMs)
             .put("actionMarkerAtElapsedRealtimeMs", facts.actionMarkerAtElapsedRealtimeMs)
             .put("outcomeMarkerAtElapsedRealtimeMs", facts.outcomeMarkerAtElapsedRealtimeMs)
-            .put("appAndTestUidsDistinct", true)
-            .put("actionMarkerRanAsTargetApp", true)
-            .put("outcomeMarkerRanAsTargetApp", true)
-            .put("dnsProbeRanAsAndroidTest", true)
-            .put("actionMarkerPidObserved", true)
-            .put("outcomeMarkerPidObserved", true)
-            .put("dnsProbePidObserved", true)
-            .put("tunFdObserved", true)
-            .put("closedWindowRunningCount", facts.closedWindowRunningCount)
-            .put("preReadyDnsEventCount", facts.preReadyDnsEventCount)
-            .put("startupWindowAssertionElapsedMs", facts.startupWindowAssertionElapsedMs)
-            .put("dnsRcode", facts.dnsRcode)
-            .put("dnsQuerySha256", facts.dnsQuerySha256)
-            .put("dnsAnswersExact", facts.dnsAnswersExact)
-            .put("postReadyDnsEventCount", facts.postReadyDnsEventCount)
-            .put("txPackets", facts.txPackets)
-            .put("rxPackets", facts.rxPackets)
-            .put("finalStatus", "Halted")
-            .put("gateClean", true)
-    val temporary = File(context.filesDir, "$NetworkEvidenceActionReceiptFile.tmp")
-    val destination = File(context.filesDir, NetworkEvidenceActionReceiptFile)
+            .put("appUid", facts.appUid)
+            .put("testUid", facts.testUid)
+            .put("actionMarkerPid", facts.actionMarkerPid)
+            .put("actionMarkerUid", facts.actionMarkerUid)
+            .put("outcomeMarkerPid", facts.outcomeMarkerPid)
+            .put("outcomeMarkerUid", facts.outcomeMarkerUid)
+            .put("dnsProbePids", org.json.JSONArray().put(facts.dnsProbePid))
+            .put("dnsProbeUid", facts.dnsProbeUid)
+            .put(
+                "facts",
+                JSONObject()
+                    .put("tunFd", facts.tunFd)
+                    .put("closedWindowRunningCount", facts.closedWindowRunningCount)
+                    .put("preReadyDnsEventCount", facts.preReadyDnsEventCount)
+                    .put("startupWindowAssertionElapsedMs", facts.startupWindowAssertionElapsedMs)
+                    .put("dnsRcode", facts.dnsRcode)
+                    .put("dnsQuerySha256", facts.dnsQuerySha256)
+                    .put("dnsAnswersExact", facts.dnsAnswersExact)
+                    .put("postReadyDnsEventCount", facts.postReadyDnsEventCount)
+                    .put("txPackets", facts.txPackets)
+                    .put("rxPackets", facts.rxPackets)
+                    .put("finalStatus", "Halted"),
+            )
+    val temporary = File(context.filesDir, "${evidence.receiptFile}.tmp")
+    val destination = File(context.filesDir, evidence.receiptFile)
     check(!destination.exists()) { "Network evidence action receipt already exists" }
     context.openFileOutput(temporary.name, Context.MODE_PRIVATE).use { output ->
         output.write((receipt.toString() + "\n").toByteArray(StandardCharsets.UTF_8))
@@ -248,6 +291,18 @@ internal fun networkEvidenceDnsQuerySha256(queryHost: String): String {
     return MessageDigest
         .getInstance("SHA-256")
         .digest("ripdpi:startup-dns-query:v1:${queryHost.lowercase()}".toByteArray(StandardCharsets.US_ASCII))
+        .toHex()
+}
+
+private fun networkEvidenceQuerySetSha256(
+    gateId: String,
+    querySha256: String,
+): String {
+    require(Sha256Regex.matches(querySha256))
+    val canonical = "{\"gateId\":\"$gateId\",\"queries\":[[\"dnsQuerySha256\",\"$querySha256\"]]}"
+    return MessageDigest
+        .getInstance("SHA-256")
+        .digest("ripdpi:network-evidence-query-set:v1:$canonical".toByteArray(StandardCharsets.US_ASCII))
         .toHex()
 }
 

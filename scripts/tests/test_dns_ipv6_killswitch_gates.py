@@ -39,6 +39,9 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.original_producer_policy_path = (
             gates.network_evidence_manifest.PRODUCER_POLICY_PATH
         )
+        self.original_action_registry_path = (
+            gates.network_evidence_manifest.ACTION_REGISTRY_PATH
+        )
         producer_policy_path = Path(self.temp.name) / "network-evidence-producers.json"
         gates.network_evidence_manifest.write_canonical_json(
             producer_policy_path,
@@ -52,10 +55,23 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             },
         )
         gates.network_evidence_manifest.PRODUCER_POLICY_PATH = producer_policy_path
+        ready_registry_path = (
+            Path(self.temp.name) / "android-network-evidence-actions.json"
+        )
+        ready_registry = gates.load_json(self.original_action_registry_path)
+        for action in ready_registry["actions"]:
+            action["productionReady"] = True
+        gates.network_evidence_manifest.write_canonical_json(
+            ready_registry_path, ready_registry
+        )
+        gates.network_evidence_manifest.ACTION_REGISTRY_PATH = ready_registry_path
 
     def tearDown(self) -> None:
         gates.network_evidence_manifest.PRODUCER_POLICY_PATH = (
             self.original_producer_policy_path
+        )
+        gates.network_evidence_manifest.ACTION_REGISTRY_PATH = (
+            self.original_action_registry_path
         )
         self.temp.cleanup()
 
@@ -627,6 +643,29 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                     ]
                 )
 
+    def test_release_checker_rejects_pass_manifest_with_unready_actions(self) -> None:
+        root = Path(self.temp.name) / "unready-actions"
+        root.mkdir()
+        manifest_path = self.evidence_bundle(root)
+        results_path = self.write_ordinary_results(root)
+        gates.network_evidence_manifest.ACTION_REGISTRY_PATH = (
+            self.original_action_registry_path
+        )
+
+        with self.assertRaisesRegex(ValueError, "not production ready"):
+            gates.main(
+                [
+                    "--results",
+                    str(results_path),
+                    "--evidence-manifest",
+                    str(manifest_path),
+                    "--applies-to",
+                    "android-client-release",
+                    "--expected-source-sha",
+                    "a" * 40,
+                ]
+            )
+
     def test_release_checker_rejects_unapproved_manifest_producers(self) -> None:
         root = Path(self.temp.name) / "unapproved-release"
         root.mkdir()
@@ -750,21 +789,18 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 root, failed_gate="killswitch-tun-establish-native-ready"
             )
             results_path = self.write_ordinary_failure_results(root)
-            with contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(
-                    gates.main(
-                        [
-                            "--results",
-                            str(results_path),
-                            "--evidence-manifest",
-                            str(manifest_path),
-                            "--applies-to",
-                            "android-client-release",
-                            "--expected-source-sha",
-                            "a" * 40,
-                        ]
-                    ),
-                    1,
+            with self.assertRaisesRegex(ValueError, "not all PASS"):
+                gates.main(
+                    [
+                        "--results",
+                        str(results_path),
+                        "--evidence-manifest",
+                        str(manifest_path),
+                        "--applies-to",
+                        "android-client-release",
+                        "--expected-source-sha",
+                        "a" * 40,
+                    ]
                 )
 
     def test_main_rejects_inconclusive_capture(self) -> None:
@@ -775,21 +811,18 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 capture_error_gate="killswitch-tun-establish-native-ready",
             )
             results_path = self.write_ordinary_failure_results(root)
-            with contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(
-                    gates.main(
-                        [
-                            "--results",
-                            str(results_path),
-                            "--evidence-manifest",
-                            str(manifest_path),
-                            "--applies-to",
-                            "android-client-release",
-                            "--expected-source-sha",
-                            "a" * 40,
-                        ]
-                    ),
-                    1,
+            with self.assertRaisesRegex(ValueError, "not all PASS"):
+                gates.main(
+                    [
+                        "--results",
+                        str(results_path),
+                        "--evidence-manifest",
+                        str(manifest_path),
+                        "--applies-to",
+                        "android-client-release",
+                        "--expected-source-sha",
+                        "a" * 40,
+                    ]
                 )
 
     def test_main_rejects_missing_results_file(self) -> None:

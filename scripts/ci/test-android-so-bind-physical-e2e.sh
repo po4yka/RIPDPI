@@ -4,22 +4,38 @@ set -euo pipefail
 source_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 temp_dir="$(mktemp -d)"
 repo_root="$temp_dir/repo"
-mkdir -p "$repo_root/scripts/ci"
+lock_holder_pid=""
+cleanup() {
+    if [[ -n "$lock_holder_pid" ]]; then
+        kill "$lock_holder_pid" 2>/dev/null || true
+        wait "$lock_holder_pid" 2>/dev/null || true
+    fi
+    rm -rf "$temp_dir"
+}
+trap cleanup EXIT
+
+network_action_runner="$source_repo_root/test-lab/scripts/run-android-network-evidence-action.sh"
+grep -Fq 'run-with-android-device-lock.py' "$network_action_runner"
+grep -Fq "ripdpi-android-device-\$device_lock_serial.lock" "$network_action_runner"
+grep -Fq 'run-with-android-device-lock.py' \
+    "$source_repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh"
+grep -Fq "ripdpi-android-device-\$device_lock_serial.lock" \
+    "$source_repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh"
+
+mkdir -p "$repo_root/scripts/ci" "$repo_root/test-lab/scripts"
 cp \
     "$source_repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh" \
     "$source_repo_root/scripts/ci/android-so-bind-physical-lib.sh" \
     "$source_repo_root/scripts/ci/check_android_so_bind_physical_evidence.py" \
     "$repo_root/scripts/ci/"
+cp "$source_repo_root/test-lab/scripts/run-with-android-device-lock.py" \
+    "$repo_root/test-lab/scripts/"
 runner="$repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh"
 library="$repo_root/scripts/ci/android-so-bind-physical-lib.sh"
 # shellcheck source=scripts/ci/android-so-bind-physical-lib.sh
 source "$library"
 source_bound_app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 source_bound_test_apk="$repo_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
-cleanup() {
-    rm -rf "$temp_dir"
-}
-trap cleanup EXIT
 
 grep -Fq 'RIPDPI_FIXTURE_ANDROID_IPV6_HOST' "$runner" || {
     echo "assertion failed: physical runner does not require an IPv6 fixture endpoint" >&2
@@ -152,7 +168,7 @@ case "$*" in
         echo '    UID=10444: +4m59s - shell'
         ;;
     "shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test")
-        [[ -d "$FAKE_DEVICE_LOCK_DIR" ]] || exit 72
+        [[ -f "$FAKE_DEVICE_LOCK_DIR" ]] || exit 72
         rm -f "$FAKE_ALLOWLIST_MARKER"
         : >"$FAKE_ALLOWLIST_REMOVE_MARKER"
         ;;
@@ -413,15 +429,26 @@ assert_status() {
 }
 
 device_lock="$temp_dir/device-locks/ripdpi-android-device-pixel-serial.lock"
-mkdir -p "$device_lock"
-assert_status 1 "busy physical device lane rejected" run_runner FAKE_RESULT=pass
+mkdir -p "$(dirname "$device_lock")"
+python3 "$repo_root/test-lab/scripts/run-with-android-device-lock.py" run \
+    --lock-root "$(dirname "$device_lock")" \
+    --lock-name "$(basename "$device_lock")" \
+    sleep 60 &
+lock_holder_pid=$!
+for _attempt in $(seq 1 100); do
+    [[ -s "$device_lock" ]] && break
+    sleep 0.05
+done
+assert_status 3 "busy physical device lane rejected" run_runner FAKE_RESULT=pass
 [[ ! -f "$temp_dir/allowlist-remove.marker" ]] || {
     echo "assertion failed: busy lock contender changed device allowlist state" >&2
     exit 1
 }
-rmdir "$device_lock"
+kill "$lock_holder_pid"
+wait "$lock_holder_pid" 2>/dev/null || true
+lock_holder_pid=""
 assert_status 0 "exact pass" run_runner FAKE_RESULT=pass
-[[ -f "$temp_dir/allowlist-remove.marker" && ! -d "$device_lock" ]] || {
+[[ -f "$temp_dir/allowlist-remove.marker" && -f "$device_lock" ]] || {
     echo "assertion failed: lock owner did not clean device state before releasing the lane" >&2
     exit 1
 }

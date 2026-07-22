@@ -407,6 +407,11 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             timeout=10,
         ).stdout.splitlines()
         for relative in sorted(set(changed + untracked)):
+            if not (ROOT / relative).exists():
+                target = staging_checkout / relative
+                if target.exists():
+                    target.unlink()
+                continue
             destination = staging_checkout / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, destination)
@@ -1004,6 +1009,20 @@ fi
 
         self.assertEqual(self.validate(manifest)["gateResults"][failed_gate], "FAIL")
         with self.assertRaisesRegex(ValueError, "not all PASS"):
+            evidence.validate_manifest(
+                manifest,
+                artifact_root=self.root,
+                expected_source_sha=self.source_sha,
+                applies_to="android-client-release",
+                current_epoch=self.finished_at + 4,
+                max_age_seconds=300,
+                require_pass=True,
+            )
+
+    def test_all_pass_manifest_is_not_releasable_with_unready_actions(self) -> None:
+        manifest = self.assemble()
+
+        with self.assertRaisesRegex(ValueError, "not production ready"):
             evidence.validate_manifest(
                 manifest,
                 artifact_root=self.root,

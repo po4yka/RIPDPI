@@ -23,6 +23,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 PRODUCER_POLICY_PATH = ROOT / "quality/release-gates/network-evidence-producers.json"
+ACTION_REGISTRY_PATH = (
+    ROOT / "quality/release-gates/android-network-evidence-actions.json"
+)
 RUNNER_PATH = ROOT / "test-lab/scripts/run-dual-vantage-network-evidence.sh"
 
 MANIFEST_VERSION = "network_evidence_manifest_v3"
@@ -251,13 +254,35 @@ def load_json_bytes(path: Path) -> tuple[dict[str, Any], bytes]:
 def required_gate_ids(*, applies_to: str = "android-client-release") -> set[str]:
     policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
     policy_scopes = policy.get("appliesTo", [])
-    return {
+    gate_ids = {
         gate["id"]
         for gate in policy["gates"]
         if gate.get("evidenceSources", {}).get(applies_to, gate.get("evidenceSource"))
         == "dual-vantage-network-manifest"
         and applies_to in gate.get("appliesTo", policy_scopes)
     }
+    if applies_to == "android-client-release":
+        registry = json.loads(ACTION_REGISTRY_PATH.read_text(encoding="utf-8"))
+        if (
+            not isinstance(registry, dict)
+            or set(registry) != {"version", "actions"}
+            or registry["version"] != "android_network_evidence_actions_v2"
+            or not isinstance(registry["actions"], list)
+        ):
+            raise ValueError("Android network action registry envelope is invalid")
+        descriptors = {
+            action.get("gateId"): action
+            for action in registry["actions"]
+            if isinstance(action, dict) and isinstance(action.get("gateId"), str)
+        }
+        if len(descriptors) != len(registry["actions"]) or set(descriptors) != gate_ids:
+            raise ValueError(
+                "Android network action registry does not exactly cover policy dual-vantage gates"
+            )
+        for gate_id, descriptor in descriptors.items():
+            if descriptor.get("kind") != expected_kind(gate_id):
+                raise ValueError(f"Android network action kind mismatch for {gate_id}")
+    return gate_ids
 
 
 def expected_kind(gate_id: str) -> str:
@@ -266,6 +291,25 @@ def expected_kind(gate_id: str) -> str:
     if "ipv6" in gate_id or gate_id.startswith(("ipv4only-", "dualstack-")):
         return "ipv6"
     return "direct_window"
+
+
+def require_production_ready_actions(*, applies_to: str) -> None:
+    if applies_to != "android-client-release":
+        return
+    registry = json.loads(ACTION_REGISTRY_PATH.read_text(encoding="utf-8"))
+    actions = registry.get("actions") if isinstance(registry, dict) else None
+    if not isinstance(actions, list):
+        raise ValueError("Android network action registry envelope is invalid")
+    blocked = sorted(
+        action.get("gateId", "<malformed>")
+        for action in actions
+        if not isinstance(action, dict) or action.get("productionReady") is not True
+    )
+    if blocked:
+        raise ValueError(
+            "Android network evidence actions are not production ready: "
+            + ", ".join(blocked)
+        )
 
 
 def require_exact_fields(
@@ -980,6 +1024,7 @@ def validate_manifest(
         }
         if non_pass:
             raise ValueError(f"evidence bundle is not all PASS: {non_pass}")
+        require_production_ready_actions(applies_to=applies_to)
     if generated < max(
         observation["captureFinishedAtEpoch"] for observation in observations.values()
     ):

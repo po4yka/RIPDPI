@@ -25,15 +25,20 @@ CORRELATION_ID = "2" * 64
 CLIENT_SHA = "3" * 64
 TEST_SHA = "4" * 64
 FIXTURE_SHA = "5" * 64
+TEST_READY_OVERRIDE = (
+    ROOT / "scripts/tests/fixtures/android-network-evidence-test-ready-override.json"
+)
 
 
 def valid_receipt() -> dict[str, object]:
+    facts = module.example_valid_facts(module.GATE_ID)
     return {
         "version": module.VERSION,
         "status": "PASS",
         "gateId": module.GATE_ID,
         "kind": module.KIND,
         "selector": module.SELECTOR,
+        "semanticRule": module.load_action_registry()[module.GATE_ID].semantic_rule,
         "correlationId": CORRELATION_ID,
         "sourceSha": SOURCE_SHA,
         "clientArtifactSha256": CLIENT_SHA,
@@ -41,29 +46,20 @@ def valid_receipt() -> dict[str, object]:
         "fixtureIdentitySha256": FIXTURE_SHA,
         "actionMarkerSha256": module.marker_sha256(CORRELATION_ID, "action"),
         "outcomeMarkerSha256": module.marker_sha256(CORRELATION_ID, "outcome"),
+        "querySetSha256": module.query_set_sha256(module.GATE_ID, facts),
         "startedAtElapsedRealtimeMs": 100,
         "actionMarkerAtElapsedRealtimeMs": 110,
         "outcomeMarkerAtElapsedRealtimeMs": 300,
         "finishedAtElapsedRealtimeMs": 400,
-        "appAndTestUidsDistinct": True,
-        "actionMarkerRanAsTargetApp": True,
-        "outcomeMarkerRanAsTargetApp": True,
-        "dnsProbeRanAsAndroidTest": True,
-        "actionMarkerPidObserved": True,
-        "outcomeMarkerPidObserved": True,
-        "dnsProbePidObserved": True,
-        "tunFdObserved": True,
-        "closedWindowRunningCount": 0,
-        "preReadyDnsEventCount": 0,
-        "startupWindowAssertionElapsedMs": 300,
-        "dnsRcode": 0,
-        "dnsQuerySha256": "7" * 64,
-        "dnsAnswersExact": True,
-        "postReadyDnsEventCount": 1,
-        "txPackets": 2,
-        "rxPackets": 1,
-        "finalStatus": "Halted",
-        "gateClean": True,
+        "appUid": 10101,
+        "testUid": 10102,
+        "actionMarkerPid": 201,
+        "actionMarkerUid": 10101,
+        "outcomeMarkerPid": 201,
+        "outcomeMarkerUid": 10101,
+        "dnsProbePids": [301],
+        "dnsProbeUid": 10102,
+        "facts": facts,
     }
 
 
@@ -76,6 +72,7 @@ class AndroidNetworkActionReceiptTest(unittest.TestCase):
             client_artifact_sha256=CLIENT_SHA,
             test_artifact_sha256=TEST_SHA,
             fixture_identity_sha256=FIXTURE_SHA,
+            test_only_ready_override=TEST_READY_OVERRIDE,
         )
 
     def test_valid_receipt(self) -> None:
@@ -83,7 +80,7 @@ class AndroidNetworkActionReceiptTest(unittest.TestCase):
 
     def test_unknown_or_missing_fields_fail(self) -> None:
         missing = valid_receipt()
-        del missing["gateClean"]
+        del missing["facts"]
         with self.assertRaisesRegex(module.ReceiptError, "fields mismatch"):
             self.validate(missing)
         unknown = valid_receipt()
@@ -99,7 +96,7 @@ class AndroidNetworkActionReceiptTest(unittest.TestCase):
             "fixtureIdentitySha256": "6" * 64,
             "actionMarkerSha256": "6" * 64,
             "outcomeMarkerSha256": "6" * 64,
-            "dnsQuerySha256": "malformed",
+            "querySetSha256": "malformed",
             "selector": "com.example.Wrong#test",
         }
         for field, replacement in mutations.items():
@@ -111,24 +108,14 @@ class AndroidNetworkActionReceiptTest(unittest.TestCase):
 
     def test_identity_observations_and_semantic_facts_fail_closed(self) -> None:
         mutations = {
-            "appAndTestUidsDistinct": False,
-            "actionMarkerRanAsTargetApp": False,
-            "outcomeMarkerRanAsTargetApp": False,
-            "dnsProbeRanAsAndroidTest": False,
-            "actionMarkerPidObserved": False,
-            "outcomeMarkerPidObserved": False,
-            "dnsProbePidObserved": False,
-            "tunFdObserved": False,
-            "closedWindowRunningCount": 1,
-            "preReadyDnsEventCount": 1,
-            "startupWindowAssertionElapsedMs": 4_000,
-            "dnsRcode": 2,
-            "dnsAnswersExact": False,
-            "postReadyDnsEventCount": 0,
-            "txPackets": 0,
-            "rxPackets": 0,
-            "finalStatus": "Running",
-            "gateClean": False,
+            "appUid": 0,
+            "testUid": 10101,
+            "actionMarkerPid": 0,
+            "actionMarkerUid": 10102,
+            "outcomeMarkerPid": 0,
+            "outcomeMarkerUid": 10102,
+            "dnsProbePids": [],
+            "dnsProbeUid": 10101,
         }
         for field, replacement in mutations.items():
             with self.subTest(field=field):
@@ -167,7 +154,7 @@ class AndroidNetworkActionReceiptTest(unittest.TestCase):
 
     def test_boolean_is_not_accepted_as_integer(self) -> None:
         receipt = copy.deepcopy(valid_receipt())
-        receipt["closedWindowRunningCount"] = False
+        receipt["facts"]["closedWindowRunningCount"] = False
         with self.assertRaises(module.ReceiptError):
             self.validate(receipt)
 

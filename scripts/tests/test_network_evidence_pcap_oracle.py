@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import ipaddress
 import json
 import os
@@ -11,9 +12,21 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.ci import check_android_network_action_receipt as receipt_contract
+
 
 ROOT = Path(__file__).resolve().parents[2]
+TEST_READY_OVERRIDE = (
+    ROOT / "scripts/tests/fixtures/android-network-evidence-test-ready-override.json"
+)
 ORACLE = ROOT / "test-lab/scripts/network-evidence-pcap-oracle.py"
+ORACLE_SPEC = importlib.util.spec_from_file_location(
+    "network_evidence_pcap_oracle", ORACLE
+)
+assert ORACLE_SPEC is not None and ORACLE_SPEC.loader is not None
+oracle = importlib.util.module_from_spec(ORACLE_SPEC)
+sys.modules[ORACLE_SPEC.name] = oracle
+ORACLE_SPEC.loader.exec_module(oracle)
 CORRELATION_ID = "c" * 64
 SOURCE_SHA = "d" * 40
 CLIENT_ARTIFACT_SHA256 = "e" * 64
@@ -111,10 +124,20 @@ def ethernet_ipv4_udp(
     return b"\x00" * 12 + struct.pack("!H", 0x0800) + ipv4 + udp
 
 
-def ethernet_ipv6_udp(payload: bytes) -> bytes:
-    udp = struct.pack("!HHHH", 12345, 443, 8 + len(payload), 0) + payload
-    source = ipaddress.ip_address("2001:db8::10").packed
-    destination = ipaddress.ip_address("2001:db8::20").packed
+def ethernet_ipv6_udp(
+    payload: bytes,
+    *,
+    source_port: int = 12345,
+    destination_port: int = 443,
+    source_address: str = "2001:db8::10",
+    destination_address: str = "2001:db8::20",
+) -> bytes:
+    udp = (
+        struct.pack("!HHHH", source_port, destination_port, 8 + len(payload), 0)
+        + payload
+    )
+    source = ipaddress.ip_address(source_address).packed
+    destination = ipaddress.ip_address(destination_address).packed
     ipv6 = struct.pack("!IHBB16s16s", 6 << 28, len(udp), 17, 64, source, destination)
     return b"\x00" * 12 + struct.pack("!H", 0x86DD) + ipv6 + udp
 
@@ -327,13 +350,46 @@ def dns_packet(
     return header + question + answer
 
 
+def dns_packet_for_name(
+    name: str,
+    *,
+    response: bool = False,
+    transaction_id: int = 0x1234,
+) -> bytes:
+    labels = name.rstrip(".").split(".")
+    encoded_name = (
+        b"".join(bytes((len(label),)) + label.encode("ascii") for label in labels)
+        + b"\0"
+    )
+    flags = 0x8180 if response else 0x0100
+    header = struct.pack("!HHHHHH", transaction_id, flags, 1, int(response), 0, 0)
+    question = encoded_name + struct.pack("!HH", 1, 1)
+    answer = b""
+    if response:
+        answer = (
+            b"\xc0\x0c"
+            + struct.pack("!HHIH", 1, 1, 60, 4)
+            + ipaddress.ip_address("203.0.113.9").packed
+        )
+    return header + question + answer
+
+
 def startup_receipt(fixture_sha: str) -> dict[str, object]:
+    query_sha256 = hashlib.sha256(
+        b"ripdpi:startup-dns-query:v1:startup-123.fixture.test"
+    ).hexdigest()
+    query_set = json.dumps(
+        {"gateId": STARTUP_GATE, "queries": [["dnsQuerySha256", query_sha256]]},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("ascii")
     return {
-        "version": "android_network_evidence_action_receipt_v2",
+        "version": "android_network_evidence_action_receipt_v3",
         "status": "PASS",
         "gateId": STARTUP_GATE,
         "kind": "direct_window",
         "selector": "com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady",
+        "semanticRule": "tun-establish-native-ready-v1",
         "correlationId": CORRELATION_ID,
         "sourceSha": SOURCE_SHA,
         "clientArtifactSha256": CLIENT_ARTIFACT_SHA256,
@@ -345,31 +401,34 @@ def startup_receipt(fixture_sha: str) -> dict[str, object]:
         "outcomeMarkerSha256": hashlib.sha256(
             marker_preimage(STARTUP_GATE, "direct_window", "outcome")
         ).hexdigest(),
+        "querySetSha256": hashlib.sha256(
+            b"ripdpi:network-evidence-query-set:v1:" + query_set
+        ).hexdigest(),
         "startedAtElapsedRealtimeMs": 100,
         "actionMarkerAtElapsedRealtimeMs": 120,
         "outcomeMarkerAtElapsedRealtimeMs": 300,
         "finishedAtElapsedRealtimeMs": 500,
-        "appAndTestUidsDistinct": True,
-        "actionMarkerRanAsTargetApp": True,
-        "outcomeMarkerRanAsTargetApp": True,
-        "dnsProbeRanAsAndroidTest": True,
-        "actionMarkerPidObserved": True,
-        "outcomeMarkerPidObserved": True,
-        "dnsProbePidObserved": True,
-        "tunFdObserved": True,
-        "closedWindowRunningCount": 0,
-        "preReadyDnsEventCount": 0,
-        "startupWindowAssertionElapsedMs": 300,
-        "dnsRcode": 0,
-        "dnsQuerySha256": hashlib.sha256(
-            b"ripdpi:startup-dns-query:v1:startup-123.fixture.test"
-        ).hexdigest(),
-        "dnsAnswersExact": True,
-        "postReadyDnsEventCount": 1,
-        "txPackets": 2,
-        "rxPackets": 1,
-        "finalStatus": "Halted",
-        "gateClean": True,
+        "appUid": 10101,
+        "testUid": 10102,
+        "actionMarkerPid": 201,
+        "actionMarkerUid": 10101,
+        "outcomeMarkerPid": 201,
+        "outcomeMarkerUid": 10101,
+        "dnsProbePids": [301],
+        "dnsProbeUid": 10102,
+        "facts": {
+            "tunFd": 41,
+            "closedWindowRunningCount": 0,
+            "preReadyDnsEventCount": 0,
+            "startupWindowAssertionElapsedMs": 300,
+            "dnsRcode": 0,
+            "dnsQuerySha256": query_sha256,
+            "dnsAnswersExact": True,
+            "postReadyDnsEventCount": 1,
+            "txPackets": 2,
+            "rxPackets": 1,
+            "finalStatus": "Halted",
+        },
     }
 
 
@@ -582,6 +641,233 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         self.write_metadata()
         return ledger
 
+    def write_dns_action_inputs(
+        self,
+        gate_id: str,
+        *,
+        forged_response_address: str | None = None,
+        forged_response_port: int | None = None,
+    ) -> dict[str, object]:
+        descriptor = receipt_contract.load_action_registry()[gate_id]
+        facts = receipt_contract.example_valid_facts(gate_id)
+        query_fields = sorted(
+            field for field in facts if field.lower().endswith("querysha256")
+        )
+        query_names = {
+            field: f"q{index}.{gate_id}.fixture.test"
+            for index, field in enumerate(query_fields, start=1)
+        }
+        for field, name in query_names.items():
+            facts[field] = hashlib.sha256(
+                b"ripdpi:dns-evidence-query:v1:" + name.encode("ascii")
+            ).hexdigest()
+        endpoint_sha256 = hashlib.sha256(
+            b"ripdpi:dns-evidence-resolver:v1:"
+            + ipaddress.ip_address(FIXTURE_ADDRESS).packed
+            + struct.pack("!H", FIXTURE_DNS_PORT)
+        ).hexdigest()
+        address_sha256 = hashlib.sha256(
+            b"ripdpi:dns-evidence-address:v1:"
+            + ipaddress.ip_address(FIXTURE_ADDRESS).packed
+        ).hexdigest()
+        for field in (
+            "tunnelResolverProviderSha256",
+            "resolverProviderSha256",
+            "directResolverSha256",
+            "tunnelResolverSha256",
+            "observedBootstrapResolverSha256",
+            "encryptedResolverProviderSha256",
+            "privateDnsProviderSha256",
+        ):
+            if field in facts:
+                facts[field] = endpoint_sha256
+        if "virtualDnsAddressSha256" in facts:
+            facts["virtualDnsAddressSha256"] = address_sha256
+        if "allowlistedResolverSetSha256" in facts:
+            facts["allowlistedResolverSetSha256"] = hashlib.sha256(
+                b"ripdpi:dns-evidence-resolver-set:v1:"
+                + endpoint_sha256.encode("ascii")
+            ).hexdigest()
+        query_set_sha256 = receipt_contract.query_set_sha256(gate_id, facts)
+        fixture = fixture_manifest()
+        fixture_sha = fixture_identity(fixture)
+        self.fixture_manifest.write_bytes(canonical(fixture))
+        os.chmod(self.fixture_manifest, 0o600)
+        action_sha = hashlib.sha256(
+            marker_preimage(gate_id, "dns", "action")
+        ).hexdigest()
+        outcome_sha = hashlib.sha256(
+            marker_preimage(gate_id, "dns", "outcome")
+        ).hexdigest()
+        receipt = {
+            "version": receipt_contract.VERSION,
+            "status": "PASS",
+            "gateId": gate_id,
+            "kind": "dns",
+            "selector": descriptor.selector,
+            "semanticRule": descriptor.semantic_rule,
+            "correlationId": CORRELATION_ID,
+            "sourceSha": SOURCE_SHA,
+            "clientArtifactSha256": CLIENT_ARTIFACT_SHA256,
+            "testArtifactSha256": TEST_ARTIFACT_SHA256,
+            "fixtureIdentitySha256": fixture_sha,
+            "actionMarkerSha256": action_sha,
+            "outcomeMarkerSha256": outcome_sha,
+            "querySetSha256": query_set_sha256,
+            "startedAtElapsedRealtimeMs": 100,
+            "actionMarkerAtElapsedRealtimeMs": 110,
+            "outcomeMarkerAtElapsedRealtimeMs": 300,
+            "finishedAtElapsedRealtimeMs": 400,
+            "appUid": 10101,
+            "testUid": 10102,
+            "actionMarkerPid": 201,
+            "actionMarkerUid": 10101,
+            "outcomeMarkerPid": 201,
+            "outcomeMarkerUid": 10101,
+            "dnsProbePids": [301],
+            "dnsProbeUid": 10102,
+            "facts": facts,
+        }
+        receipt_raw = canonical(receipt)
+        self.action_receipt.write_bytes(receipt_raw)
+        os.chmod(self.action_receipt, 0o600)
+
+        fail_closed = descriptor.semantic_rule in {
+            "encrypted-outage-fail-closed-v1",
+            "core-crash-dns-fail-closed-v1",
+            "android-private-dns-conflict-v1",
+        }
+
+        def packets(
+            source_address: str, source_port: int
+        ) -> list[tuple[int, int, bytes]]:
+            result = [
+                (
+                    100,
+                    100_000,
+                    ethernet_ipv4_tcp(
+                        marker(gate_id, "dns", "action"),
+                        source_port=source_port,
+                        destination_port=FIXTURE_CONTROL_PORT,
+                        source_address=source_address,
+                    ),
+                )
+            ]
+            for index, name in enumerate(query_names.values(), start=1):
+                transaction_id = 0x1200 + index
+                query_field = query_fields[index - 1]
+                is_ipv6_query = query_field == "ipv6QuerySha256"
+                query_frame = (
+                    ethernet_ipv6_udp(
+                        dns_packet_for_name(name, transaction_id=transaction_id),
+                        source_port=source_port + index,
+                        destination_port=FIXTURE_DNS_PORT,
+                    )
+                    if is_ipv6_query
+                    else ethernet_ipv4_udp(
+                        dns_packet_for_name(name, transaction_id=transaction_id),
+                        source_port=source_port + index,
+                        destination_port=FIXTURE_DNS_PORT,
+                        source_address=source_address,
+                    )
+                )
+                result.append(
+                    (
+                        100,
+                        120_000 + index * 10_000,
+                        query_frame,
+                    )
+                )
+                if not fail_closed:
+                    response_frame = (
+                        ethernet_ipv6_udp(
+                            dns_packet_for_name(
+                                name, response=True, transaction_id=transaction_id
+                            ),
+                            source_port=forged_response_port or FIXTURE_DNS_PORT,
+                            destination_port=source_port + index,
+                            source_address="2001:db8::20",
+                            destination_address="2001:db8::10",
+                        )
+                        if is_ipv6_query
+                        else ethernet_ipv4_udp(
+                            dns_packet_for_name(
+                                name, response=True, transaction_id=transaction_id
+                            ),
+                            source_port=forged_response_port or FIXTURE_DNS_PORT,
+                            destination_port=source_port + index,
+                            source_address=forged_response_address or FIXTURE_ADDRESS,
+                            destination_address=source_address,
+                        )
+                    )
+                    result.append(
+                        (
+                            100,
+                            125_000 + index * 10_000,
+                            response_frame,
+                        )
+                    )
+            result.append(
+                (
+                    100,
+                    300_000,
+                    ethernet_ipv4_tcp(
+                        marker(gate_id, "dns", "outcome"),
+                        source_port=source_port + 20,
+                        destination_port=FIXTURE_CONTROL_PORT,
+                        source_address=source_address,
+                    ),
+                )
+            )
+            return result
+
+        self.client_pcap.write_bytes(pcap_bytes(packets("192.0.2.10", 20000)))
+        self.observer_pcap.write_bytes(pcap_bytes(packets("203.0.113.77", 30000)))
+        plan = {
+            "version": "network_evidence_scenario_plan_v3",
+            "sourceSha": SOURCE_SHA,
+            "correlationId": CORRELATION_ID,
+            "clientArtifactSha256": CLIENT_ARTIFACT_SHA256,
+            "testArtifactSha256": TEST_ARTIFACT_SHA256,
+            "windows": [
+                {
+                    "id": gate_id,
+                    "kind": "dns",
+                    "startedAtEpoch": 100,
+                    "finishedAtEpoch": 101,
+                    "actionMarkerSha256": action_sha,
+                    "outcomeMarkerSha256": outcome_sha,
+                }
+            ],
+        }
+        ledger = {
+            "version": "network_evidence_action_ledger_v2",
+            "scenarioPlan": plan,
+            "semanticRules": [
+                {
+                    "windowId": gate_id,
+                    "rule": descriptor.semantic_rule,
+                    "actionReceiptSha256": hashlib.sha256(receipt_raw).hexdigest(),
+                    "fixtureIdentitySha256": fixture_sha,
+                }
+            ],
+            "captures": {
+                "client-underlay": {
+                    "rawCaptureSha256": hashlib.sha256(
+                        self.client_pcap.read_bytes()
+                    ).hexdigest()
+                },
+                "external-observer": {
+                    "rawCaptureSha256": hashlib.sha256(
+                        self.observer_pcap.read_bytes()
+                    ).hexdigest()
+                },
+            },
+        }
+        self.ledger_path.write_bytes(canonical(ledger))
+        self.write_metadata()
+        return ledger
+
     def write_metadata(self) -> None:
         self.client_metadata.write_bytes(
             canonical(
@@ -594,7 +880,9 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             )
         )
 
-    def run_oracle(self) -> subprocess.CompletedProcess[str]:
+    def run_oracle(
+        self, *, test_ready_override: bool = True
+    ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
             str(ORACLE),
@@ -618,6 +906,13 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                     str(self.fixture_manifest),
                 ]
             )
+            if test_ready_override:
+                command.extend(
+                    [
+                        "--test-only-action-registry-override",
+                        str(TEST_READY_OVERRIDE),
+                    ]
+                )
         command.extend(
             [
                 "--client-output",
@@ -729,6 +1024,103 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                 dns_packet(),
             ):
                 self.assertNotIn(private_value, published)
+
+    def test_all_dns_rules_dispatch_to_exact_packet_semantics(self) -> None:
+        dns_gates = [
+            gate_id
+            for gate_id, descriptor in receipt_contract.load_action_registry().items()
+            if descriptor.kind == "dns"
+        ]
+        self.assertEqual(len(dns_gates), 9)
+        for gate_id in dns_gates:
+            with self.subTest(gate_id=gate_id):
+                self.write_dns_action_inputs(gate_id)
+                result = self.run_oracle()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for output in (self.client_output, self.observer_output):
+                    window = json.loads(output.read_text(encoding="utf-8"))["windows"][
+                        0
+                    ]
+                    self.assertEqual(window["id"], gate_id)
+                    self.assertEqual(window["unexpectedPacketCount"], 0)
+                    self.assertEqual(window["captureErrorCount"], 0)
+
+    def test_production_registry_cannot_validate_synthetic_dns_pass(self) -> None:
+        self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+
+        result = self.run_oracle(test_ready_override=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not production ready", result.stderr)
+
+    def test_dns_rule_rejects_forged_response_source_address(self) -> None:
+        self.write_dns_action_inputs(
+            "dns-virtual-vpn-resolver", forged_response_address="203.0.113.200"
+        )
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing an exact packet-parsed DNS response", result.stderr)
+
+    def test_dns_rule_rejects_forged_response_source_port(self) -> None:
+        self.write_dns_action_inputs(
+            "dns-virtual-vpn-resolver", forged_response_port=5353
+        )
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing an exact packet-parsed DNS response", result.stderr)
+
+    def test_dns_parser_rejects_trailing_hidden_bytes(self) -> None:
+        with self.assertRaisesRegex(ValueError, "trailing unparsed bytes"):
+            oracle._dns_packet_facts(dns_packet_for_name("q.fixture.test") + b"hidden")
+
+    def test_dns_rule_rejects_plaintext_leak_on_either_vantage(self) -> None:
+        gate_id = "dns-no-isp-fallback-on-encrypted-resolver-outage"
+        for leaking_role in ("client-underlay", "external-observer"):
+            with self.subTest(leaking_role=leaking_role):
+                ledger = self.write_dns_action_inputs(gate_id)
+                capture = (
+                    self.client_pcap
+                    if leaking_role == "client-underlay"
+                    else self.observer_pcap
+                )
+                leak = ethernet_ipv4_udp(
+                    dns_packet_for_name("leak.fixture.test", transaction_id=0x9999),
+                    source_port=25000,
+                    destination_port=53,
+                )
+                raw = capture.read_bytes()
+                records = pcap_records(raw)
+                record = struct.pack("<IIII", 100, 200_000, len(leak), len(leak)) + leak
+                capture.write_bytes(
+                    raw[:24] + b"".join(records[:-1] + [record, records[-1]])
+                )
+                self.save_ledger(ledger)
+
+                result = self.run_oracle()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("unexpected or leak packet", result.stderr)
+
+    def test_dns_rule_rejects_wrong_packet_observed_provider(self) -> None:
+        gate_id = "dns-proxied-through-tunnelled-resolver"
+        ledger = self.write_dns_action_inputs(gate_id)
+        receipt = json.loads(self.action_receipt.read_text(encoding="utf-8"))
+        receipt["facts"]["resolverProviderSha256"] = "9" * 64
+        receipt_raw = canonical(receipt)
+        self.action_receipt.write_bytes(receipt_raw)
+        ledger["semanticRules"][0]["actionReceiptSha256"] = hashlib.sha256(
+            receipt_raw
+        ).hexdigest()
+        self.ledger_path.write_bytes(canonical(ledger))
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("wrong packet-observed resolver/provider path", result.stderr)
 
     def test_startup_rule_counts_direct_dns_inside_blocking_window(self) -> None:
         self.write_startup_inputs()

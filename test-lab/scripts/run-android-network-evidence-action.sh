@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly gate_id="killswitch-tun-establish-native-ready"
-readonly gate_kind="direct_window"
-readonly test_class="com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest"
-readonly test_method="vpnStartupWindowHoldsDnsPacketUntilNativeReady"
-readonly test_selector="$test_class#$test_method"
-readonly receipt_file="network-evidence-action-receipt.json"
+internal_locked_body=0
+if [[ "${1:-}" == "--ripdpi-internal-locked-body" ]]; then
+    internal_locked_body=1
+    shift
+fi
+readonly original_args=("$@")
+
 readonly adb_bin="${ADB_BIN:-adb}"
 readonly git_bin="${GIT_BIN:-git}"
 readonly android_serial="${ANDROID_SERIAL:-}"
@@ -55,7 +56,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ "$requested_gate" == "$gate_id" ]] || fail "unsupported or missing gate ID"
+[[ "$requested_gate" =~ ^[a-z0-9][a-z0-9_-]{0,127}$ ]] || fail "unsupported or missing gate ID"
 [[ "$correlation_id" =~ ^[0-9a-f]{64}$ ]] || fail "correlation ID is malformed"
 [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || fail "source SHA is malformed"
 [[ "$client_artifact_sha256" =~ ^[0-9a-f]{64}$ ]] || fail "client artifact digest is malformed"
@@ -75,6 +76,42 @@ if [[ ! "$instrumentation_timeout_seconds" =~ ^[1-9][0-9]*$ ]] ||
 fi
 command -v python3 >/dev/null 2>&1 || fail "python3 is unavailable"
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source_root="$(cd "$script_dir/../.." && pwd)"
+validator="$source_root/scripts/ci/check_android_network_action_receipt.py"
+[[ -f "$validator" ]] || fail "receipt validator is unavailable"
+descriptor="$({
+    python3 - "$validator" "$requested_gate" <<'PY'
+import importlib.util
+import sys
+
+path, gate_id = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("network_action_receipt", path)
+if spec is None or spec.loader is None:
+    raise SystemExit(1)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+descriptor = module.load_action_registry().get(gate_id)
+if descriptor is None:
+    raise SystemExit(1)
+print("\t".join((
+    descriptor.kind,
+    descriptor.selector,
+    descriptor.receipt_file,
+    descriptor.semantic_rule,
+    "true" if descriptor.production_ready else "false",
+)))
+PY
+} 2>/dev/null)" || fail "unsupported gate ID or invalid action registry"
+IFS=$'\t' read -r gate_kind test_selector receipt_file semantic_rule production_ready <<<"$descriptor"
+[[ -n "$gate_kind" && -n "$test_selector" && -n "$receipt_file" && -n "$semantic_rule" && -n "$production_ready" ]] ||
+    fail "action descriptor is incomplete"
+[[ "$production_ready" == "true" ]] || fail "action descriptor is not production ready: $requested_gate"
+[[ "$test_selector" == *#* && "$test_selector" != *#*#* ]] || fail "action selector is malformed"
+test_class="${test_selector%%#*}"
+test_method="${test_selector#*#}"
+readonly gate_id="$requested_gate" gate_kind test_selector receipt_file semantic_rule test_class test_method
+
 python3 - "$fixture_host" <<'PY' || fail "RIPDPI_FIXTURE_ANDROID_HOST must be a numeric routed unicast address"
 import ipaddress
 import sys
@@ -89,17 +126,13 @@ PY
 command -v "$adb_bin" >/dev/null 2>&1 || fail "adb is unavailable"
 command -v "$git_bin" >/dev/null 2>&1 || fail "git is unavailable"
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source_root="$($git_bin -C "$script_dir/../.." rev-parse --show-toplevel 2>/dev/null)" ||
+git_source_root="$($git_bin -C "$script_dir/../.." rev-parse --show-toplevel 2>/dev/null)" ||
     fail "could not resolve the source checkout"
-[[ "$source_root" == "$(cd "$script_dir/../.." && pwd)" ]] || fail "runner must execute from its source checkout"
+[[ "$git_source_root" == "$source_root" ]] || fail "runner must execute from its source checkout"
 [[ "$($git_bin -C "$source_root" rev-parse HEAD 2>/dev/null)" == "$source_sha" ]] ||
     fail "runner checkout does not match the attributed source SHA"
 [[ -z "$($git_bin -C "$source_root" status --porcelain=v1 --untracked-files=all)" ]] ||
     fail "network action evidence requires a clean source checkout"
-validator="$source_root/scripts/ci/check_android_network_action_receipt.py"
-[[ -f "$validator" ]] || fail "receipt validator is unavailable"
-
 markers="$(
     python3 - "$correlation_id" "$gate_id" "$gate_kind" <<'PY'
 import hashlib
@@ -165,23 +198,30 @@ instrumentation_output_is_exact_pass() {
         ! grep -Eqi '(^FAILURES!!!$|INSTRUMENTATION_STATUS_CODE: -|INSTRUMENTATION_RESULT: shortMsg=|Process crashed|assumption|ignored|skipped|0 tests|OK \(0 test)' "$output_file"
 }
 
+device_lock_serial="$(printf '%s' "$android_serial" | tr -c 'A-Za-z0-9._-' '_')"
+device_lock_name="ripdpi-android-device-$device_lock_serial.lock"
+mkdir -p "$device_lock_root" || fail "could not prepare the Android device lock directory"
+device_lock_root_canonical="$(cd "$device_lock_root" && pwd -P)"
+if [[ "$internal_locked_body" == "0" ]]; then
+    exec python3 "$source_root/test-lab/scripts/run-with-android-device-lock.py" run \
+        --lock-root "$device_lock_root_canonical" \
+        --lock-name "$device_lock_name" \
+        bash "$0" --ripdpi-internal-locked-body "${original_args[@]}"
+fi
+python3 "$source_root/test-lab/scripts/run-with-android-device-lock.py" verify \
+    --lock-root "$device_lock_root_canonical" \
+    --lock-name "$device_lock_name" \
+    --supervisor-pid "${RIPDPI_ANDROID_DEVICE_LOCK_SUPERVISOR_PID:-0}" \
+    --nonce "${RIPDPI_ANDROID_DEVICE_LOCK_AUTH:-}" ||
+    fail "physical Android device lane lock authentication failed"
+unset RIPDPI_ANDROID_DEVICE_LOCK_AUTH RIPDPI_ANDROID_DEVICE_LOCK_SUPERVISOR_PID
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-android-network-action.XXXXXX")"
 chmod 0700 "$temp_dir"
-device_lock_acquired=0
-device_lock_serial="$(printf '%s' "$android_serial" | tr -c 'A-Za-z0-9._-' '_')"
-device_lock_dir="$device_lock_root/ripdpi-android-device-$device_lock_serial.lock"
 cleanup() {
     adb_device shell run-as com.poyka.ripdpi rm -f "files/$receipt_file" "files/$receipt_file.tmp" >/dev/null 2>&1 || true
-    if [[ "$device_lock_acquired" == "1" ]]; then
-        rm -rf "$device_lock_dir"
-    fi
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
-mkdir -p "$device_lock_root" || fail "could not prepare the Android device lock directory"
-mkdir "$device_lock_dir" 2>/dev/null || fail "physical Android device lane is already in use for $android_serial"
-device_lock_acquired=1
-printf '%s\n' "$$" >"$device_lock_dir/owner-pid"
 
 [[ "$(adb_device get-state 2>/dev/null | tr -d '\r')" == "device" ]] || fail "selected Android device is not ready"
 qemu="$(adb_device shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r')"
@@ -225,6 +265,9 @@ adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r 
     -e ripdpi.networkEvidenceCorrelationId "$correlation_id" \
     -e ripdpi.networkEvidenceGateId "$gate_id" \
     -e ripdpi.networkEvidenceKind "$gate_kind" \
+    -e ripdpi.networkEvidenceSelector "$test_selector" \
+    -e ripdpi.networkEvidenceSemanticRule "$semantic_rule" \
+    -e ripdpi.networkEvidenceReceiptFile "$receipt_file" \
     -e ripdpi.networkEvidenceSourceSha "$source_sha" \
     -e ripdpi.networkEvidenceClientArtifactSha256 "$client_artifact_sha256" \
     -e ripdpi.networkEvidenceTestArtifactSha256 "$test_artifact_sha256" \
@@ -254,6 +297,7 @@ adb_device shell run-as com.poyka.ripdpi cat "files/$receipt_file" >"$private_re
     fail "action receipt readback failed"
 chmod 0600 "$private_receipt"
 python3 "$validator" "$private_receipt" \
+    --gate-id "$gate_id" \
     --source-sha "$source_sha" \
     --correlation-id "$correlation_id" \
     --client-artifact-sha256 "$client_artifact_sha256" \
