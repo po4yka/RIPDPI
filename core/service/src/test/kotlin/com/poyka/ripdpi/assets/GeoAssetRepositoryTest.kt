@@ -9,12 +9,15 @@ import com.poyka.ripdpi.data.assets.CustomAssetProviderId
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.data.assets.MinGeoAssetBytes
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -319,10 +322,58 @@ class GeoAssetRepositoryTest {
                 }
 
             assertTrue(stream.blockedReadStarted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
-            importJob.cancelAndJoin()
+            try {
+                withContext(Dispatchers.Default) {
+                    withTimeout(CancellationTimeoutMillis) { importJob.cancelAndJoin() }
+                }
+            } finally {
+                stream.releaseBlockedRead.countDown()
+            }
 
             assertTrue(importJob.isCancelled)
             assertArrayEquals(previous, target.readBytes())
+            assertNoTemporaryFiles(target.parentFile!!)
+        }
+
+    @Test
+    fun `cancellation at install boundary completes file and metadata commit together`() =
+        runTest {
+            val previous = validPayload(MinGeoAssetBytes).reversedArray()
+            val replacement = validPayload(MinGeoAssetBytes + 32)
+            val target = temporaryFolder.newFile("commit-boundary-geoip.db").apply { writeBytes(previous) }
+            val replaceStarted = CountDownLatch(1)
+            val continueReplace = CountDownLatch(1)
+            val metadataPersisted = CompletableDeferred<Unit>()
+            val importJob =
+                launch(Dispatchers.Default) {
+                    streamGeoAssetUriToTargetInterruptibly(
+                        uri = Uri.parse("content://test/commit-boundary.db"),
+                        target = target,
+                        maxBytes = replacement.size.toLong(),
+                        openInput = { ByteArrayInputStream(replacement) },
+                        replaceTemp = { source, destination ->
+                            replaceStarted.countDown()
+                            continueReplace.await()
+                            replaceGeoAssetTempFile(source, destination)
+                        },
+                        afterInstall = { metadataPersisted.complete(Unit) },
+                    )
+                }
+
+            assertTrue(replaceStarted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
+            importJob.cancel()
+            try {
+                continueReplace.countDown()
+                withContext(Dispatchers.Default) {
+                    withTimeout(CancellationTimeoutMillis) { importJob.join() }
+                }
+            } finally {
+                continueReplace.countDown()
+            }
+
+            assertTrue(importJob.isCancelled)
+            assertArrayEquals(replacement, target.readBytes())
+            assertTrue(metadataPersisted.isCompleted)
             assertNoTemporaryFiles(target.parentFile!!)
         }
 
@@ -486,6 +537,7 @@ class GeoAssetRepositoryTest {
         private val delegate = ByteArrayInputStream(bytes)
         private var returnedChunk = false
         val blockedReadStarted = CountDownLatch(1)
+        val releaseBlockedRead = CountDownLatch(1)
 
         override fun read(): Int = error("Single-byte reads are not expected")
 
@@ -500,7 +552,7 @@ class GeoAssetRepositoryTest {
             }
             blockedReadStarted.countDown()
             try {
-                CountDownLatch(1).await()
+                releaseBlockedRead.await()
             } catch (error: InterruptedException) {
                 throw IOException("synthetic interrupted read", error)
             }
@@ -532,5 +584,6 @@ class GeoAssetRepositoryTest {
 
     private companion object {
         const val ReadStartTimeoutSeconds = 5L
+        const val CancellationTimeoutMillis = 5_000L
     }
 }

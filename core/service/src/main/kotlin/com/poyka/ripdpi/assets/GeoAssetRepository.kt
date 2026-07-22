@@ -22,6 +22,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
@@ -132,11 +133,12 @@ class DefaultGeoAssetRepository
                 uri = uri,
                 target = targetFile(kind),
                 openInput = context.contentResolver::openInputStream,
+                afterInstall = {
+                    persistAssetMetadata {
+                        geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
+                    }
+                },
             )
-            currentCoroutineContext().ensureActive()
-            persistAssetMetadata {
-                geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
-            }
         }
 
         // Guard-clause heavy by design: custom-provider, empty-base, no-repo, and
@@ -246,9 +248,13 @@ internal fun streamGeoAssetUriToTarget(
     replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
     cancellationCheck: () -> Unit = {},
 ) {
-    cancellationCheck()
-    val input = openGeoAssetInput(uri, openInput)
-    streamOpenedGeoAssetToTarget(input, target, maxBytes, replaceTemp, cancellationCheck)
+    val temp = prepareGeoAssetUriTemp(uri, target, maxBytes, openInput, cancellationCheck)
+    try {
+        cancellationCheck()
+        installGeoAssetTemp(temp, target, replaceTemp)
+    } finally {
+        temp.delete()
+    }
 }
 
 internal suspend fun streamGeoAssetUriToTargetInterruptibly(
@@ -257,17 +263,22 @@ internal suspend fun streamGeoAssetUriToTargetInterruptibly(
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
     openInput: (Uri) -> InputStream?,
     replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
+    afterInstall: suspend () -> Unit = {},
 ) {
     val operationContext = currentCoroutineContext()
-    runInterruptible(Dispatchers.IO) {
-        streamGeoAssetUriToTarget(
-            uri = uri,
-            target = target,
-            maxBytes = maxBytes,
-            openInput = openInput,
-            replaceTemp = replaceTemp,
-            cancellationCheck = { operationContext.ensureActive() },
-        )
+    val cancellationCheck = { operationContext.ensureActive() }
+    val temp =
+        runInterruptible(Dispatchers.IO) {
+            prepareGeoAssetUriTemp(uri, target, maxBytes, openInput, cancellationCheck)
+        }
+    try {
+        cancellationCheck()
+        withContext(NonCancellable + Dispatchers.IO) {
+            installGeoAssetTemp(temp, target, replaceTemp)
+            afterInstall()
+        }
+    } finally {
+        temp.delete()
     }
 }
 
@@ -286,26 +297,31 @@ private fun openGeoAssetInput(
     return input ?: throwUnableToOpen()
 }
 
-private fun streamOpenedGeoAssetToTarget(
-    input: InputStream,
+private fun prepareGeoAssetUriTemp(
+    uri: Uri,
     target: File,
     maxBytes: Long,
-    replaceTemp: (File, File) -> Unit,
+    openInput: (Uri) -> InputStream?,
     cancellationCheck: () -> Unit,
-) {
+): File {
+    cancellationCheck()
+    val input = openGeoAssetInput(uri, openInput)
     var temp: File? = null
     try {
         input.use { temp = writeGeoAssetInputToTemp(it, target, maxBytes, cancellationCheck) }
         cancellationCheck()
-        installGeoAssetTemp(checkNotNull(temp), target, replaceTemp)
+        return checkNotNull(temp)
     } catch (error: GeoAssetIntegrityException) {
+        temp?.delete()
         throw error
     } catch (error: IOException) {
+        temp?.delete()
+        cancellationCheck()
         throwUnableToOpen(error)
     } catch (error: SecurityException) {
-        throwUnableToOpen(error)
-    } finally {
         temp?.delete()
+        cancellationCheck()
+        throwUnableToOpen(error)
     }
 }
 

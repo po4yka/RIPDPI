@@ -462,6 +462,42 @@ class AssetProviderViewModelTest {
         }
 
     @Test
+    fun `second exit still waits when first exit waiter is cancelled`() =
+        runTest {
+            val operationStarted = CompletableDeferred<Unit>()
+            val releaseOperation = CompletableDeferred<Unit>()
+            val repository = FakeGeoAssetRepository()
+            repository.importAction = {
+                operationStarted.complete(Unit)
+                withContext(NonCancellable) { releaseOperation.await() }
+            }
+            val viewModel = AssetProviderViewModel(configuredSettingsRepository(), repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
+            runCurrent()
+
+            viewModel.importLocalAsset(GeoAssetKind.Geoip, Uri.parse("content://documents/geoip.db"))
+            operationStarted.await()
+            val firstExit = async { viewModel.persistConfigurationBeforeExit() }
+            runCurrent()
+
+            firstExit.cancel()
+            firstExit.join()
+            runCurrent()
+            assertEquals(AssetProviderOperation.ImportGeoip, viewModel.uiState.value.activeOperation)
+
+            val secondExit = async { viewModel.persistConfigurationBeforeExit() }
+            runCurrent()
+            assertFalse(secondExit.isCompleted)
+
+            releaseOperation.complete(Unit)
+            assertTrue(secondExit.await())
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertNull(viewModel.uiState.value.lastResult)
+        }
+
+    @Test
     fun `check stops at configuration storage failure and reports storage`() =
         runTest {
             val initialSettings = configuredSettingsRepository().snapshot()

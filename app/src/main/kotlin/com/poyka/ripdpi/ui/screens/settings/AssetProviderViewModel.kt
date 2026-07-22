@@ -266,7 +266,7 @@ class AssetProviderViewModel
         }
 
         private suspend fun cancelActiveOperationForExit() {
-            activeOperationJob.getAndSet(null)?.cancelAndJoin()
+            activeOperationJob.get()?.cancelAndJoin()
         }
 
         private fun claimOperation(operation: AssetProviderOperation): Boolean {
