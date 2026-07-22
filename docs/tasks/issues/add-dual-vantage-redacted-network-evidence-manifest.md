@@ -4,7 +4,7 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: Startup-window PCAP analyzer lane
+owner: Android ordinary raw verifier lane
 parent: null
 blocks: []
 blocked_by: []
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-22: Assigned the serialized writer lane for the ordinary Android raw-artifact verifier foundation. The lane owns private artifact provenance, exact action/gate inventory, source and APK binding, and fail-closed parsing mechanics; it may not authorize release PASS until source-owned semantic oracles cover all eleven ordinary gates.
 - 2026-07-22: Implemented `tun-establish-native-ready-v1`. The source-owned markers conservatively bracket the complete no-ship interval from before VPN start through confirmed native readiness. The private v2 ledger binds the validated Android receipt and fixture identity; the receipt additionally binds the randomized post-ready DNS question by digest. The oracle retains private L3/L4 facts, reassembles segmented/retransmitted TCP marker streams, validates the exact NOERROR fixture answer at both NAT-independent vantages, permits only that receipt-bound DNS exchange inside the window, flags every other non-control packet, and publishes only redacted counters and digests. The action remains `productionReady: false` because no authorized physical capture or producer-provenance approval exists.
 - 2026-07-22: Implemented the first fail-closed Android action receipt for `killswitch-tun-establish-native-ready`. The exact startup-window selector binds source/client/test/fixture digests, verifies distinct target/test UIDs and probe processes inside the test, and writes a redacted private atomic PASS receipt only after native readiness, exact fixture DNS, positive tunnel telemetry, `Halted`, and gate cleanup. A source-owned single-selector host runner rejects skipped, ambiguous, stale, non-private, symlinked, pre-existing, duplicate-key, or semantically tampered receipts and verifies the installed app/test APK digests before and after instrumentation. The current Pixel/Mac network state may not be changed or exercised without fresh operator authorization.
 - 2026-07-22: Assigned the serialized evidence lane to the source-owned Android action workload and test-produced receipt contract. This lane must reject skipped or zero-body instrumentation, bind the exact selector and correlation markers, and must not autonomously change Wi-Fi, cellular, routes, DNS, Private DNS, VPN, or airplane mode.
