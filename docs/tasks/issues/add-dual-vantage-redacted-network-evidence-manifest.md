@@ -4,13 +4,13 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: Android action provenance lane
+owner: Android action workload lane
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-07-16
 updated: 2026-07-22
-status_detail: Local acceptance and raw PCAP parsing are source-owned; missing gate-specific Android action semantics and the ordinary raw verifier block the first real PASS
+status_detail: Local acceptance, raw PCAP parsing, and both APK provenance are source-owned; missing gate-specific Android action semantics and the ordinary raw verifier block the first real PASS
 ---
 
 ## Goal
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-22: Assigned the serialized evidence lane to the source-owned Android action workload and test-produced receipt contract. This lane must reject skipped or zero-body instrumentation, bind the exact selector and correlation markers, and must not autonomously change Wi-Fi, cellular, routes, DNS, Private DNS, VPN, or airplane mode.
 - 2026-07-22: Added a source-owned dual-vantage PCAP oracle. It binds distinct raw captures to canonical producer metadata and a strict private ledger, parses Ethernet/raw-IP/SLL/SLL2 plus bounded VLAN stacks and all classic-PCAP byte-order/timestamp encodings, aligns windows by packet marker order without mixing local and remote clocks, derives counters itself, and emits redacted mode-0600 unstamped observations. Malformed, truncated, aliased, copied-single-vantage, and caller-verdict inputs fail closed; current-time freshness remains enforced by the downstream exact-source manifest validator. The generic marker seam is forbidden for every real Android dual-vantage gate, so no producer allowlist or release PASS was opened. Gate-specific Android action semantics, a test-APK provenance chain, and the ordinary raw verifier remain blocking.
 - 2026-07-22: Added a GitHub-independent local release-acceptance entrypoint. It derives exact clean `HEAD`, requires local executor provenance, snapshots both inputs into private storage, and validates ordinary plus dual-vantage evidence as one complete gate inventory using the checker extracted from that exact commit. The first real PASS remains blocked by the missing source-owned Android action/oracle and ordinary raw-artifact verifiers, not by hosted-runner availability.
 - 2026-07-22: The dual-vantage producer lane added a source-owned SSH/tcpdump private capture utility with peer-and-endpoint-scoped BPF, bounded remote lifetime and size, explicit remote cleanup verification, marker-based path visibility preflight, canonical private metadata, and fail-closed deletion. A live scoped capture on the P2 Tailscale interface observed the injected marker. The proposed Raspberry Pi client-underlay vantage correctly failed the same preflight because the Pixel is attached to a different wireless network that the Pi cannot observe. The utility remains outside the producer allowlist because there is still no truthful ten-scenario Android action driver, packet oracle, ordinary-results producer, or signed release-candidate APK.
