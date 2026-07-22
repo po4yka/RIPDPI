@@ -8,8 +8,9 @@ supplied by the dual-vantage manifest. They currently fail closed.
 Ordinary PASS is forbidden until the repository contains audited, source-owned
 semantic oracles that derive every result directly from raw packet and route
 artifacts. The checked-in preflight now validates the private bundle's source,
-APK, run, window, vantage, inventory, size, and digest bindings, but it does not
-interpret those artifacts as gate success. In particular, the checker does not
+APK, structural run/window/vantage metadata, inventory, size, and digest
+bindings, but it does not interpret those artifacts as gate success. In
+particular, the checker does not
 accept:
 
 - operator-authored PASS or counter fields;
@@ -42,10 +43,13 @@ three unique mode-0600 single-link files under the artifact root:
 - `route-snapshot` from the `android-client` vantage.
 
 Every artifact entry repeats the action window and carries its exact byte size
-and SHA-256 digest. Extra, partial, reordered, stale, cross-run, symlinked,
-hardlinked, noncanonical, or digest-tampered inputs fail closed. The results
-output must be absolute, outside the artifact root, and must not alias any
-input.
+and SHA-256 digest. Extra, partial, reordered, stale-metadata, mixed-correlation,
+symlinked, hardlinked, noncanonical, or digest-tampered inputs fail closed. The
+results output must be absolute, use a current-user-owned private parent, stay
+outside the artifact root, and must not alias any input. Binding the packet/route
+contents themselves to those run fields is part of the seven missing semantic
+oracles; copied or relabelled bytes therefore remain an explicit FAIL blocker
+and cannot produce PASS.
 
 ## Current local command
 

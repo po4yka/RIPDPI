@@ -320,6 +320,94 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertEqual(app_apk.read_bytes(), before)
 
+    def test_cli_refuses_untrusted_manifest_before_overwriting_artifact(self) -> None:
+        mutations = ("noncanonical", "privacy", "malformed")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory_name:
+                    directory = Path(directory_name)
+                    manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                        directory
+                    )
+                    artifact = manifest["actions"][0]["artifacts"][0]
+                    output = Path(manifest["artifactRoot"]) / artifact["path"]
+                    before = output.read_bytes()
+                    if mutation == "noncanonical":
+                        manifest_path.write_text(
+                            json.dumps(manifest, indent=2), encoding="utf-8"
+                        )
+                        manifest_path.chmod(0o600)
+                    elif mutation == "privacy":
+                        manifest_path.chmod(0o644)
+                    else:
+                        manifest_path.write_bytes(b"{malformed\n")
+                        manifest_path.chmod(0o600)
+                    status = producer.main(
+                        [
+                            "--output",
+                            str(output),
+                            "--raw-manifest",
+                            str(manifest_path),
+                            "--app-apk",
+                            str(app_apk),
+                            "--test-apk",
+                            str(test_apk),
+                        ]
+                    )
+                    self.assertEqual(status, 2)
+                    self.assertEqual(output.read_bytes(), before)
+
+    def test_fd_relative_output_survives_parent_symlink_swap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact = manifest["actions"][0]["artifacts"][0]
+            raw_artifact = Path(manifest["artifactRoot"]) / artifact["path"]
+            raw_before = raw_artifact.read_bytes()
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            moved_parent = directory / "opened-output"
+            output = output_parent / artifact["path"]
+
+            def swap_parent() -> str:
+                output_parent.rename(moved_parent)
+                output_parent.symlink_to(
+                    Path(manifest["artifactRoot"]), target_is_directory=True
+                )
+                return self.source_sha
+
+            with (
+                mock.patch.object(
+                    producer, "current_head_sha", side_effect=swap_parent
+                ),
+                mock.patch.object(
+                    producer, "current_source_sha", return_value=self.source_sha
+                ),
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            self.assertEqual(raw_artifact.read_bytes(), raw_before)
+            results = json.loads((moved_parent / artifact["path"]).read_text())
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL"
+                    for value in results["gateResults"].values()
+                )
+            )
+
     def test_apk_hashing_streams_without_whole_file_helper(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             apk = Path(directory_name) / "large.apk"
@@ -536,7 +624,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                         )
 
     def test_raw_bundle_rejects_stale_or_mixed_run_metadata(self) -> None:
-        mutations = ("stale", "correlation", "window", "vantage")
+        mutations = ("stale", "stale-window", "correlation", "window", "vantage")
         for mutation in mutations:
             with self.subTest(mutation=mutation):
                 with tempfile.TemporaryDirectory() as directory_name:
@@ -553,6 +641,15 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                             for artifact in action["artifacts"]:
                                 artifact["windowStartedAtEpochMs"] -= delta
                                 artifact["windowFinishedAtEpochMs"] -= delta
+                        expected = "EVIDENCE_STALE"
+                    elif mutation == "stale-window":
+                        delta = raw_evidence.MAX_EVIDENCE_AGE_MS + 1
+                        action = manifest["actions"][0]
+                        action["windowStartedAtEpochMs"] -= delta
+                        action["windowFinishedAtEpochMs"] -= delta
+                        for artifact in action["artifacts"]:
+                            artifact["windowStartedAtEpochMs"] -= delta
+                            artifact["windowFinishedAtEpochMs"] -= delta
                         expected = "EVIDENCE_STALE"
                     elif mutation == "correlation":
                         manifest["actions"][1]["correlationId"] = manifest["actions"][
