@@ -34,11 +34,12 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 | medium | ui | [Disable Simple disconnect controls under Android lockdown](issues/disable-simple-disconnect-under-android-lockdown.md) | Codex Simple lockdown lane | 2026-07-18 |
 
-## Review (5)
+## Review (6)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | high | diagnostics | [Add connection-concurrency as an independent evidence axis](issues/add-connection-concurrency-evidence-axis.md) | Codex | 2026-07-10 |
+| high | testing | [Produce Android ordinary release-gate results locally](issues/produce-android-ordinary-release-gate-results.md) | Android ordinary gate producer lane | 2026-07-22 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | high | transport | [Add a parallel active-probe race for initial transport selection](issues/parallel-active-probe-race-initial-transport-selection.md) | Codex | 2026-07-10 |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | unassigned | 2026-07-14 |

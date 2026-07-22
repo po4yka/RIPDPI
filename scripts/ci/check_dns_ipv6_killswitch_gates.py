@@ -49,6 +49,7 @@ from release_gate_results import (  # noqa: E402
     normalize_gate_result,
 )
 import network_evidence_manifest  # noqa: E402
+import produce_android_ordinary_gate_results as android_ordinary_results  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -213,7 +214,9 @@ def validate_policy(policy: dict) -> dict:
         if "fleet-profile-rollout" in gate.get("appliesTo", policy.get("appliesTo", []))
     }
     if fleet_applicable != MANDATORY_FLEET_ORDINARY_GATE_IDS:
-        raise ValueError("fleet applicable gate set must match the mandatory ordinary set")
+        raise ValueError(
+            "fleet applicable gate set must match the mandatory ordinary set"
+        )
     for gate_id in MANDATORY_FLEET_ORDINARY_GATE_IDS:
         gate = gate_index[gate_id]
         effective_source = gate.get("evidenceSources", {}).get(
@@ -283,9 +286,10 @@ def evaluate_results(
             violations.append(na_violation)
             continue
         if result.state in ("FAIL", "WARN") and gate.get("noShip") is True:
+            reason_suffix = f"; reason={result.reason}" if result.reason else ""
             violations.append(
                 f"{gate_id}: {result.state} on no-ship gate "
-                f"({gate.get('failureClassification')})"
+                f"({gate.get('failureClassification')}){reason_suffix}"
             )
 
     unknown = sorted(set(result_map) - set(gate_index))
@@ -331,6 +335,38 @@ def validate_results_document(
         )
     if not isinstance(results.get("gateResults"), dict):
         raise ValueError("results document must contain a gateResults object")
+    ordinary_gate_ids = applicable_gate_ids(
+        policy, applies_to=applies_to
+    ) - dual_vantage_gate_ids(policy, applies_to=applies_to)
+    actual_gate_ids = set(results["gateResults"])
+    ordinary_values = {
+        gate_id: normalize_gate_result(gate_id, results["gateResults"][gate_id])
+        for gate_id in actual_gate_ids & ordinary_gate_ids
+    }
+    if applies_to == "android-client-release" and any(
+        value.state == "PASS" for value in ordinary_values.values()
+    ):
+        android_ordinary_results.validate_pass_results(results)
+    if (
+        applies_to == "android-client-release"
+        and actual_gate_ids.issubset(ordinary_gate_ids)
+        and actual_gate_ids != ordinary_gate_ids
+    ):
+        raise ValueError(
+            "Android ordinary results must exactly cover all ordinary gates"
+        )
+    if applies_to == "android-client-release" and actual_gate_ids == ordinary_gate_ids:
+        if not all(
+            isinstance(value, dict)
+            and value.get("state") == "FAIL"
+            and isinstance(value.get("reason"), str)
+            and value["reason"].strip()
+            for value in results["gateResults"].values()
+        ):
+            raise ValueError(
+                "Android ordinary results must be structured all-FAIL until the "
+                "checked-in raw-artifact verifier is implemented"
+            )
     return results
 
 
@@ -340,9 +376,7 @@ def dual_vantage_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
     return {
         gate["id"]
         for gate in policy["gates"]
-        if gate.get("evidenceSources", {}).get(
-            applies_to, gate.get("evidenceSource")
-        )
+        if gate.get("evidenceSources", {}).get(applies_to, gate.get("evidenceSource"))
         == DUAL_VANTAGE_EVIDENCE_SOURCE
         and applies_to in gate.get("appliesTo", policy_scopes)
     }

@@ -83,6 +83,16 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         path.write_text(json.dumps(self.ordinary_results_document()), encoding="utf-8")
         return path
 
+    def write_ordinary_failure_results(self, directory: Path) -> Path:
+        document = self.ordinary_results_document()
+        document["gateResults"] = {
+            gate_id: {"reason": "physical ordinary oracle unavailable", "state": "FAIL"}
+            for gate_id in document["gateResults"]
+        }
+        path = directory / "results.json"
+        path.write_text(json.dumps(document), encoding="utf-8")
+        return path
+
     def evidence_bundle(
         self,
         directory: Path,
@@ -144,7 +154,9 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                     {
                         **window,
                         "expectedPacketCount": 2,
-                        "unexpectedPacketCount": 1 if window["id"] == failed_gate else 0,
+                        "unexpectedPacketCount": 1
+                        if window["id"] == failed_gate
+                        else 0,
                         "captureErrorCount": (
                             1 if window["id"] == capture_error_gate else 0
                         ),
@@ -218,9 +230,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertEqual(matching[0]["category"], "kill-switch")
         self.assertTrue(matching[0]["noShip"])
         self.assertEqual(matching[0]["appliesTo"], ["android-client-release"])
-        self.assertEqual(
-            matching[0]["evidenceSource"], "dual-vantage-network-manifest"
-        )
+        self.assertEqual(matching[0]["evidenceSource"], "dual-vantage-network-manifest")
 
     def test_dns_and_startup_windows_require_dual_vantage_evidence(self) -> None:
         evidence_ids = gates.dual_vantage_gate_ids(
@@ -371,9 +381,19 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertEqual(evaluation["evaluated"], len(self.policy["gates"]))
 
     def test_results_document_must_match_expected_source_and_scope(self) -> None:
+        def fail_closed_document(source_sha: str = "a" * 40) -> dict:
+            document = self.results_document(source_sha=source_sha)
+            ordinary_ids = set(gates.android_ordinary_results.ORDINARY_GATE_IDS)
+            for gate_id in ordinary_ids & set(document["gateResults"]):
+                document["gateResults"][gate_id] = {
+                    "reason": "source-owned verifier unavailable",
+                    "state": "FAIL",
+                }
+            return document
+
         validated = gates.validate_results_document(
             self.policy,
-            self.results_document(),
+            fail_closed_document(),
             expected_source_sha="a" * 40,
             applies_to="android-client-release",
         )
@@ -382,12 +402,12 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sourceSha"):
             gates.validate_results_document(
                 self.policy,
-                self.results_document(source_sha="b" * 40),
+                fail_closed_document(source_sha="b" * 40),
                 expected_source_sha="a" * 40,
                 applies_to="android-client-release",
             )
 
-        wrong_scope = self.results_document()
+        wrong_scope = fail_closed_document()
         wrong_scope["appliesTo"] = "fleet-profile-rollout"
         with self.assertRaisesRegex(ValueError, "appliesTo"):
             gates.validate_results_document(
@@ -550,12 +570,16 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 )
             self.assertIn("require --evidence-manifest", stderr.getvalue())
 
-    def test_main_accepts_derived_dual_vantage_evidence(self) -> None:
+    def test_main_rejects_self_attested_ordinary_pass_with_dual_vantage_evidence(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             manifest_path = self.evidence_bundle(root)
             results_path = self.write_ordinary_results(root)
-            self.assertEqual(
+            with self.assertRaisesRegex(
+                ValueError, "SOURCE_OWNED_VERIFIER_UNAVAILABLE"
+            ):
                 gates.main(
                     [
                         "--results",
@@ -567,9 +591,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                         "--expected-source-sha",
                         "a" * 40,
                     ]
-                ),
-                0,
-            )
+                )
 
     def test_release_checker_rejects_unapproved_manifest_producers(self) -> None:
         root = Path(self.temp.name) / "unapproved-release"
@@ -639,6 +661,13 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             root = Path(directory)
             manifest_path = self.evidence_bundle(root)
             results = self.ordinary_results_document()
+            results["gateResults"] = {
+                gate_id: {
+                    "reason": "source-owned verifier unavailable",
+                    "state": "FAIL",
+                }
+                for gate_id in results["gateResults"]
+            }
             results["gateResults"].pop("ipv4only-no-direct-ipv6")
             results_path = root / "results.json"
             results_path.write_text(json.dumps(results), encoding="utf-8")
@@ -685,7 +714,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             manifest_path = self.evidence_bundle(
                 root, failed_gate="killswitch-tun-establish-native-ready"
             )
-            results_path = self.write_ordinary_results(root)
+            results_path = self.write_ordinary_failure_results(root)
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(
                     gates.main(
@@ -710,7 +739,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 root,
                 capture_error_gate="killswitch-tun-establish-native-ready",
             )
-            results_path = self.write_ordinary_results(root)
+            results_path = self.write_ordinary_failure_results(root)
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(
                     gates.main(
