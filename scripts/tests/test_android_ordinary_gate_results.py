@@ -127,7 +127,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             "reason": "extra",
             "state": "FAIL",
         }
-        with self.assertRaisesRegex(ValueError, producer.UNAVAILABLE_CODE):
+        with self.assertRaisesRegex(ValueError, "exactly cover"):
             self.validate(results)
 
     def test_checker_rejects_partial_or_non_structured_failure(self) -> None:

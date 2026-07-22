@@ -417,6 +417,36 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
                 applies_to="android-client-release",
             )
 
+    def test_android_results_reject_partial_ordinary_inventory_with_unknown_extra(
+        self,
+    ) -> None:
+        document = self.ordinary_results_document()
+        document["gateResults"].pop("ipv4only-no-direct-ipv6")
+        document["gateResults"]["not-a-policy-gate"] = "FAIL"
+
+        with self.assertRaisesRegex(ValueError, "exactly cover"):
+            gates.validate_results_document(
+                self.policy,
+                document,
+                expected_source_sha="a" * 40,
+                applies_to="android-client-release",
+            )
+
+    def test_android_results_reject_partial_ordinary_inventory_with_dual_extra(
+        self,
+    ) -> None:
+        document = self.ordinary_results_document()
+        document["gateResults"].pop("ipv4only-no-direct-ipv6")
+        document["gateResults"]["dns-virtual-vpn-resolver"] = "PASS"
+
+        with self.assertRaisesRegex(ValueError, "exactly cover"):
+            gates.validate_results_document(
+                self.policy,
+                document,
+                expected_source_sha="a" * 40,
+                applies_to="android-client-release",
+            )
+
     def test_results_fail_on_noship_gate_is_violation(self) -> None:
         gates.validate_policy(self.policy)
         results = {g["id"]: "PASS" for g in self.policy["gates"]}

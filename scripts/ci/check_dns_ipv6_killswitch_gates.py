@@ -335,10 +335,22 @@ def validate_results_document(
         )
     if not isinstance(results.get("gateResults"), dict):
         raise ValueError("results document must contain a gateResults object")
-    ordinary_gate_ids = applicable_gate_ids(
+    applicable_ids = applicable_gate_ids(policy, applies_to=applies_to)
+    ordinary_gate_ids = applicable_ids - dual_vantage_gate_ids(
         policy, applies_to=applies_to
-    ) - dual_vantage_gate_ids(policy, applies_to=applies_to)
+    )
     actual_gate_ids = set(results["gateResults"])
+    if applies_to == "android-client-release" and actual_gate_ids not in (
+        ordinary_gate_ids,
+        applicable_ids,
+    ):
+        raise ValueError(
+            "Android results must exactly cover all ordinary gates or all "
+            "applicable gates; "
+            f"missingOrdinary={sorted(ordinary_gate_ids - actual_gate_ids)}, "
+            f"missingApplicable={sorted(applicable_ids - actual_gate_ids)}, "
+            f"extra={sorted(actual_gate_ids - applicable_ids)}"
+        )
     ordinary_values = {
         gate_id: normalize_gate_result(gate_id, results["gateResults"][gate_id])
         for gate_id in actual_gate_ids & ordinary_gate_ids
@@ -347,14 +359,6 @@ def validate_results_document(
         value.state == "PASS" for value in ordinary_values.values()
     ):
         android_ordinary_results.validate_pass_results(results)
-    if (
-        applies_to == "android-client-release"
-        and actual_gate_ids.issubset(ordinary_gate_ids)
-        and actual_gate_ids != ordinary_gate_ids
-    ):
-        raise ValueError(
-            "Android ordinary results must exactly cover all ordinary gates"
-        )
     if applies_to == "android-client-release" and actual_gate_ids == ordinary_gate_ids:
         if not all(
             isinstance(value, dict)
