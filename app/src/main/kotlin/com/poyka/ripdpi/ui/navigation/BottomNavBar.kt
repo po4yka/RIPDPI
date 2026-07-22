@@ -101,6 +101,7 @@ fun BottomNavBar(
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
                         ).height(bottomBarHeight)
+                        .ripDpiTestTag(RipDpiTestTags.BottomNavBar)
                         .padding(horizontal = components.navigation.bottomNavHorizontalPadding),
             ) {
                 val density = LocalDensity.current

@@ -75,6 +75,7 @@ class BottomNavBarTest {
         ).forEach { (scale, expectedLabels) ->
             assertBottomNavAtScale(fontScale, scale, expectedLabels)
         }
+        composeRule.onNodeWithTag(RipDpiTestTags.BottomNavBar).assertIsDisplayed()
     }
 
     private fun assertBottomNavAtScale(
