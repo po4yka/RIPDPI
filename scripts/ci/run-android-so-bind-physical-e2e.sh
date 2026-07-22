@@ -162,7 +162,7 @@ so_bind_physical_normalize_routed_ipv6 "$ipv6_source" >/dev/null ||
 
 install_and_verify_apk "$app_apk" "com.poyka.ripdpi" "app"
 install_and_verify_apk "$test_apk" "com.poyka.ripdpi.test" "test"
-adb_device shell run-as com.poyka.ripdpi.test rm -f "cache/$evidence_file_name" >/dev/null 2>&1 ||
+adb_device shell run-as com.poyka.ripdpi rm -f "files/$evidence_file_name" >/dev/null 2>&1 ||
     fail "could not clear prior physical evidence"
 
 test_uid_line="$(adb_device shell pm list packages -U com.poyka.ripdpi.test 2>/dev/null | tr -d '\r')" ||
@@ -239,7 +239,7 @@ if ! so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_m
 fi
 
 physical_evidence="$temp_dir/$evidence_file_name"
-adb_device shell run-as com.poyka.ripdpi.test cat "cache/$evidence_file_name" >"$physical_evidence" 2>/dev/null ||
+adb_device shell run-as com.poyka.ripdpi cat "files/$evidence_file_name" >"$physical_evidence" 2>/dev/null ||
     fail "physical evidence readback failed"
 finished_at_epoch_ms="$(python3 - <<'PY'
 import time

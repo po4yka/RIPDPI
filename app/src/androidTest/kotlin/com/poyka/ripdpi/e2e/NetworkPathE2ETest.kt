@@ -1096,11 +1096,10 @@ class NetworkPathE2ETest {
                 .put("realTun", true)
                 .put("tunPacketPathObserved", true)
                 .put("families", familyEvidence)
-        val instrumentationContext =
-            androidx.test.platform.app.InstrumentationRegistry
-                .getInstrumentation()
-                .context
-        instrumentationContext.cacheDir.resolve(PhysicalSoBindEvidenceFile).writeText(evidence.toString() + "\n")
+        appContext
+            .openFileOutput(PhysicalSoBindEvidenceFile, Context.MODE_PRIVATE)
+            .bufferedWriter()
+            .use { output -> output.write(evidence.toString() + "\n") }
     }
 
     private fun requirePhysicalEvidenceArgument(

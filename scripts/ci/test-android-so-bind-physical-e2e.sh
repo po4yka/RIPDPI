@@ -114,8 +114,8 @@ case "$*" in
         ;;
     "shell pm path com.poyka.ripdpi.test") echo 'package:/data/app/test/base.apk' ;;
     "shell pm list packages -U com.poyka.ripdpi.test") echo 'package:com.poyka.ripdpi.test uid:10444' ;;
-    "shell run-as com.poyka.ripdpi.test rm -f cache/so-bind-physical-evidence.json") : ;;
-    "shell run-as com.poyka.ripdpi.test cat cache/so-bind-physical-evidence.json")
+    "shell run-as com.poyka.ripdpi rm -f files/so-bind-physical-evidence.json") : ;;
+    "shell run-as com.poyka.ripdpi cat files/so-bind-physical-evidence.json")
         [[ "${FAKE_EVIDENCE_MISSING:-0}" != "1" ]] || exit 1
         cat "$FAKE_EVIDENCE"
         ;;
