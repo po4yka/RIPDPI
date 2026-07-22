@@ -53,26 +53,34 @@ class PinnedArtifact:
 
     def revalidate(self, root_descriptor: int) -> None:
         try:
-            current = os.stat(
-                self.relative, dir_fd=root_descriptor, follow_symlinks=False
+            current_descriptor = os.open(
+                self.relative,
+                os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                dir_fd=root_descriptor,
             )
         except OSError as error:
             raise RawEvidenceError(
                 "ARTIFACT_CHANGED", f"{self.label} path changed after verification"
             ) from error
-        if _stable_metadata(current) != _stable_metadata(self.metadata):
-            raise RawEvidenceError(
-                "ARTIFACT_CHANGED", f"{self.label} path changed after verification"
-            )
-        if (
-            hashlib.sha256(
-                _read_descriptor(self.descriptor, self.metadata, label=self.label)
-            ).hexdigest()
-            != self.digest
-        ):
-            raise RawEvidenceError(
-                "ARTIFACT_CHANGED", f"{self.label} content changed after verification"
-            )
+        try:
+            current = os.fstat(current_descriptor)
+            if _stable_metadata(current) != _stable_metadata(self.metadata):
+                raise RawEvidenceError(
+                    "ARTIFACT_CHANGED",
+                    f"{self.label} path changed after verification",
+                )
+            if (
+                hashlib.sha256(
+                    _read_descriptor(current_descriptor, current, label=self.label)
+                ).hexdigest()
+                != self.digest
+            ):
+                raise RawEvidenceError(
+                    "ARTIFACT_CHANGED",
+                    f"{self.label} content changed after verification",
+                )
+        finally:
+            os.close(current_descriptor)
 
     def close(self) -> None:
         os.close(self.descriptor)
