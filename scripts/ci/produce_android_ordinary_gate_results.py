@@ -410,6 +410,8 @@ def require_safe_pinned_paths(
         artifact_root.require_unchanged()
     for raw_bundle in raw_bundles:
         raw_bundle.revalidate()
+    if artifact_root is not None:
+        artifact_root.require_unchanged()
 
 
 def publish_results(

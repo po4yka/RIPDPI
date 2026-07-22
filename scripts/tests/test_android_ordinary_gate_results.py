@@ -1192,6 +1192,167 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                     )
                 )
 
+    def test_root_path_replacement_during_final_hash_drops_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_root = Path(manifest["artifactRoot"])
+            moved_root = directory / "original-artifacts"
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            publish_results = producer.publish_results
+            revalidate_artifact = raw_evidence.PinnedArtifact.revalidate
+            provenance_published = False
+            replaced = False
+
+            def observe_publication(
+                destination: producer.OutputDestination,
+                path: Path,
+                value: dict,
+            ) -> bool:
+                nonlocal provenance_published
+                published = publish_results(destination, path, value)
+                if "rawBundleProvenance" in value:
+                    provenance_published = True
+                return published
+
+            def replace_root_during_final_hash(
+                artifact: raw_evidence.PinnedArtifact, root_descriptor: int
+            ) -> None:
+                nonlocal replaced
+                revalidate_artifact(artifact, root_descriptor)
+                if provenance_published and not replaced:
+                    replaced = True
+                    artifact_root.rename(moved_root)
+                    artifact_root.mkdir(mode=0o700)
+                    artifact_root.chmod(0o700)
+
+            with (
+                mock.patch.object(
+                    producer, "publish_results", side_effect=observe_publication
+                ),
+                mock.patch.object(
+                    raw_evidence.PinnedArtifact,
+                    "revalidate",
+                    autospec=True,
+                    side_effect=replace_root_during_final_hash,
+                ),
+                mock.patch.object(
+                    producer, "current_head_sha", return_value=self.source_sha
+                ),
+                mock.patch.object(
+                    producer, "current_source_sha", return_value=self.source_sha
+                ),
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            self.assertTrue(replaced)
+            results = json.loads(output.read_text())
+            self.assertNotIn("rawBundleProvenance", results)
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL"
+                    and "ARTIFACT_ROOT_CHANGED" in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+
+    def test_expiry_crossing_inside_final_hash_drops_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            clock = [manifest["createdAtEpochMs"]]
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            publish_results = producer.publish_results
+            revalidate_artifact = raw_evidence.PinnedArtifact.revalidate
+            provenance_published = False
+            crossed_expiry = False
+
+            def observe_publication(
+                destination: producer.OutputDestination,
+                path: Path,
+                value: dict,
+            ) -> bool:
+                nonlocal provenance_published
+                published = publish_results(destination, path, value)
+                if "rawBundleProvenance" in value:
+                    provenance_published = True
+                return published
+
+            def cross_expiry_during_final_hash(
+                artifact: raw_evidence.PinnedArtifact, root_descriptor: int
+            ) -> None:
+                nonlocal crossed_expiry
+                revalidate_artifact(artifact, root_descriptor)
+                if provenance_published and not crossed_expiry:
+                    crossed_expiry = True
+                    clock[0] = (
+                        manifest["createdAtEpochMs"]
+                        + raw_evidence.MAX_EVIDENCE_AGE_MS
+                        + 1
+                    )
+
+            with (
+                mock.patch.object(
+                    raw_evidence, "current_epoch_ms", side_effect=lambda: clock[0]
+                ),
+                mock.patch.object(
+                    producer, "publish_results", side_effect=observe_publication
+                ),
+                mock.patch.object(
+                    raw_evidence.PinnedArtifact,
+                    "revalidate",
+                    autospec=True,
+                    side_effect=cross_expiry_during_final_hash,
+                ),
+                mock.patch.object(
+                    producer, "current_head_sha", return_value=self.source_sha
+                ),
+                mock.patch.object(
+                    producer, "current_source_sha", return_value=self.source_sha
+                ),
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            self.assertTrue(crossed_expiry)
+            results = json.loads(output.read_text())
+            self.assertNotIn("rawBundleProvenance", results)
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL" and "EVIDENCE_STALE" in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+
     def test_raw_mutation_before_pending_write_replaces_forged_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             directory = Path(directory_name)

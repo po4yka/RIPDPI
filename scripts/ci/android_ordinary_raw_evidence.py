@@ -123,6 +123,10 @@ class ValidatedRawBundle:
         for artifact in self.artifacts:
             artifact.revalidate(self.root_descriptor)
         self._require_root_state()
+        if self.current_time_ms() > self.expires_at_epoch_ms:
+            raise RawEvidenceError(
+                "EVIDENCE_STALE", "raw artifact bundle expired during verification"
+            )
 
     def close(self) -> None:
         for artifact in self.artifacts:
