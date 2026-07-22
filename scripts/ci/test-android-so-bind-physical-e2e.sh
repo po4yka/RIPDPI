@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+source_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+temp_dir="$(mktemp -d)"
+repo_root="$temp_dir/repo"
+mkdir -p "$repo_root/scripts/ci"
+cp \
+    "$source_repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh" \
+    "$source_repo_root/scripts/ci/android-so-bind-physical-lib.sh" \
+    "$source_repo_root/scripts/ci/check_android_so_bind_physical_evidence.py" \
+    "$repo_root/scripts/ci/"
 runner="$repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh"
 library="$repo_root/scripts/ci/android-so-bind-physical-lib.sh"
 # shellcheck source=scripts/ci/android-so-bind-physical-lib.sh
 source "$library"
-temp_dir="$(mktemp -d)"
 source_bound_app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 source_bound_test_apk="$repo_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 cleanup() {
-    rm -f "$source_bound_app_apk" "$source_bound_test_apk"
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
