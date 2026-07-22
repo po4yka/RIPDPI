@@ -5,6 +5,9 @@ import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.routing.DestinationRoutingAction
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -18,7 +21,11 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.rules.OutboundTag
+import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompileResult
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompiler
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -412,6 +419,184 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.factory.runtimes.size)
             assertEquals(initialTunnelConfig.socks5Port, refreshedTunnelConfig.socks5Port)
             assertEquals(initialTunnelConfig.password, refreshedTunnelConfig.password)
+        }
+
+    @Test
+    fun routingPolicyRefreshReconfiguresProxyBehindExistingTunForEncryptedAndPlainDns() =
+        runTest {
+            listOf(DnsModeEncrypted, DnsModePlainUdp).forEach { dnsMode ->
+                val settings =
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setDnsMode(dnsMode)
+                        .build()
+                val initialPolicy = destinationPolicy(DestinationRoutingAction.TUNNELED)
+                val updatedPolicy = destinationPolicy(DestinationRoutingAction.DIRECT)
+                val initialResolution =
+                    sampleResolution(
+                        mode = Mode.VPN,
+                        settings = settings,
+                        activeDns = settings.activeDnsSettings(),
+                        proxyPreferences = RipDpiProxyUIPreferences(destinationRouting = initialPolicy),
+                        policySignature = "route-a-$dnsMode",
+                        appliedPolicy = null,
+                    ).copy(destinationRoutingDigest = initialPolicy.canonicalDigest)
+                val updatedResolution =
+                    sampleResolution(
+                        mode = Mode.VPN,
+                        settings = settings,
+                        activeDns = settings.activeDnsSettings(),
+                        proxyPreferences = RipDpiProxyUIPreferences(destinationRouting = updatedPolicy),
+                        policySignature = "route-b-$dnsMode",
+                        appliedPolicy = null,
+                    ).copy(destinationRoutingDigest = updatedPolicy.canonicalDigest)
+                val env = newEnv(resolutions = listOf(initialResolution))
+
+                env.coordinator.start()
+                runCurrent()
+                env.resolver.enqueue(updatedResolution)
+                env.tunnelProvider.session = TestVpnTunnelSession(tunFd = 8, events = env.events)
+
+                advanceTimeBy(1_000L)
+                repeat(3) { runCurrent() }
+
+                assertEquals(2, env.factory.runtimes.size)
+                assertEquals(
+                    updatedPolicy.canonicalDigest,
+                    decodeRipDpiProxyUiPreferences(
+                        requireNotNull(
+                            env.factory.runtimes
+                                .last()
+                                .lastPreferences,
+                        ).toNativeConfigJson(),
+                    )?.destinationRouting?.canonicalDigest,
+                )
+                val establishIndices = env.events.indices.filter { env.events[it] == "vpn:establish" }
+                val firstSessionClose = env.events.indexOf("vpn:session-close")
+                assertEquals(2, establishIndices.size)
+                assertTrue(firstSessionClose > establishIndices.last())
+                assertEquals(
+                    updatedPolicy.canonicalDigest,
+                    (env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession).currentDestinationRoutingDigest,
+                )
+
+                env.coordinator.stop()
+                runCurrent()
+            }
+        }
+
+    @Test
+    fun routingPolicyRefreshProxyFailureKeepsExistingTunAndReportsFailure() =
+        runTest {
+            val initialResolution = routingResolution(DestinationRoutingAction.TUNNELED, "route-a")
+            val updatedResolution = routingResolution(DestinationRoutingAction.DIRECT, "route-b")
+            var runtimeCount = 0
+            val env =
+                newEnv(
+                    resolutions = listOf(initialResolution),
+                    runtimeFactory = { events ->
+                        runtimeCount += 1
+                        TestProxyRuntime(events).apply {
+                            if (runtimeCount > 1) startFailure = IOException("replacement proxy failed")
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            val existingTun = env.tunnelProvider.session
+            env.resolver.enqueue(updatedResolution)
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertTrue(env.store.eventHistory.last() is ServiceEvent.Failed)
+            assertFalse(existingTun.closed)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(1, env.events.count { it == "vpn:establish" })
+        }
+
+    @Test
+    fun routingPolicySourceUnavailableKeepsActiveBlockPolicyAndTunFailClosed() =
+        runTest {
+            val initialResolution = routingResolution(DestinationRoutingAction.BLOCK, "route-block")
+            val env = newEnv(resolutions = listOf(initialResolution))
+
+            env.coordinator.start()
+            runCurrent()
+            val existingTun = env.tunnelProvider.session
+            val activeSession = env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession
+            val originalPolicy = activeSession.currentActiveConnectionPolicy
+            env.resolver.enqueueFailure(IllegalStateException("destination routing policy unavailable"))
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+            val currentProxyPolicyDigest =
+                decodeRipDpiProxyUiPreferences(
+                    requireNotNull(
+                        env.factory.runtimes
+                            .single()
+                            .lastPreferences,
+                    ).toNativeConfigJson(),
+                )?.destinationRouting?.canonicalDigest
+
+            assertTrue(env.store.eventHistory.last() is ServiceEvent.Failed)
+            assertFalse(existingTun.closed)
+            assertEquals(0, env.bridgeFactory.bridge.stopCount)
+            assertEquals(1, env.events.count { it == "vpn:establish" })
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(originalPolicy, activeSession.currentActiveConnectionPolicy)
+            assertEquals(initialResolution.destinationRoutingDigest, activeSession.currentDestinationRoutingDigest)
+            assertEquals(
+                initialResolution.destinationRoutingDigest,
+                currentProxyPolicyDigest,
+            )
+        }
+
+    @Test
+    fun routingPolicyRefreshProxyStopFailureKeepsExistingTunAndSkipsReplacementEstablish() =
+        runTest {
+            val initialResolution = routingResolution(DestinationRoutingAction.TUNNELED, "route-a")
+            val updatedResolution = routingResolution(DestinationRoutingAction.DIRECT, "route-b")
+            val env = newEnv(resolutions = listOf(initialResolution))
+
+            env.coordinator.start()
+            runCurrent()
+            val existingTun = env.tunnelProvider.session
+            env.factory.runtimes
+                .single()
+                .stopFailure = IOException("existing proxy stop failed")
+            env.resolver.enqueue(updatedResolution)
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertTrue(env.store.eventHistory.last() is ServiceEvent.Failed)
+            assertFalse(existingTun.closed)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(1, env.events.count { it == "vpn:establish" })
+        }
+
+    @Test
+    fun routingPolicyRefreshTunEstablishFailureKeepsExistingTunAndReportsFailure() =
+        runTest {
+            val initialResolution = routingResolution(DestinationRoutingAction.TUNNELED, "route-a")
+            val updatedResolution = routingResolution(DestinationRoutingAction.DIRECT, "route-b")
+            val env = newEnv(resolutions = listOf(initialResolution))
+
+            env.coordinator.start()
+            runCurrent()
+            val existingTun = env.tunnelProvider.session
+            env.resolver.enqueue(updatedResolution)
+            env.tunnelProvider.establishFailure = IllegalStateException("replacement establish failed")
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertTrue(env.store.eventHistory.last() is ServiceEvent.Failed)
+            assertFalse(existingTun.closed)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(2, env.events.count { it == "vpn:establish" })
         }
 
     @Test
@@ -1064,6 +1249,44 @@ class VpnServiceRuntimeCoordinatorTest {
                     session = TestVpnTunnelSession(events = events),
                 ),
         )
+
+    private fun destinationPolicy(action: DestinationRoutingAction): DestinationRoutingPolicy =
+        (
+            DestinationRoutingPolicyCompiler.compile(
+                listOf(
+                    RuleEntity(
+                        id = 1,
+                        domains = "direct.example",
+                        outboundTag =
+                            when (action) {
+                                DestinationRoutingAction.TUNNELED -> OutboundTag.Proxy
+                                DestinationRoutingAction.DIRECT -> OutboundTag.Bypass
+                                DestinationRoutingAction.BLOCK -> OutboundTag.Block
+                            },
+                    ),
+                ),
+            ) as DestinationRoutingPolicyCompileResult.Success
+        ).policy
+
+    private fun routingResolution(
+        action: DestinationRoutingAction,
+        signature: String,
+    ): ConnectionPolicyResolution {
+        val policy = destinationPolicy(action)
+        val settings =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setDnsMode(DnsModeEncrypted)
+                .build()
+        return sampleResolution(
+            mode = Mode.VPN,
+            settings = settings,
+            activeDns = settings.activeDnsSettings(),
+            proxyPreferences = RipDpiProxyUIPreferences(destinationRouting = policy),
+            policySignature = signature,
+            appliedPolicy = null,
+        ).copy(destinationRoutingDigest = policy.canonicalDigest)
+    }
 
     private fun buildTestUpstreamRelaySupervisor(
         scope: kotlinx.coroutines.CoroutineScope,

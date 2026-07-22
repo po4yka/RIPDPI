@@ -112,10 +112,12 @@ internal class XrayConnectFlowDelegate(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
+        restartReason: String = "network_handover",
     ): Boolean {
         if (!ownsProviderPath) {
             return false
         }
+        requireTransactionalPolicyRefresh(restartReason)
         val outcome =
             try {
                 controller.restart(startParams(session, resolution))
@@ -127,7 +129,7 @@ internal class XrayConnectFlowDelegate(
         when (outcome) {
             is HandoffOutcome.Running -> {
                 resetSessionDnsState(session)
-                applyActiveConnectionPolicy(session, resolution, "network_handover", appliedAt)
+                applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
                 publishActiveDnsState(session, resolution)
             }
 
@@ -158,6 +160,16 @@ internal class XrayConnectFlowDelegate(
         session.currentNetworkScopeKey = null
         session.encryptedDnsFailoverState.resetAll()
     }
+
+    private fun requireTransactionalPolicyRefresh(restartReason: String) {
+        if (restartReason == RoutingPolicyRefreshReason) {
+            throw XrayProviderPolicyRefreshUnsupportedException()
+        }
+    }
+
+    private companion object {
+        const val RoutingPolicyRefreshReason = "routing_policy_refresh"
+    }
 }
 
 /**
@@ -178,6 +190,9 @@ internal class XrayProviderStartException(
 internal class XrayProviderHandoverException(
     message: String,
 ) : IllegalStateException(message)
+
+internal class XrayProviderPolicyRefreshUnsupportedException :
+    IllegalStateException("Active Xray route-policy refresh requires a transactional provider handoff")
 
 /**
  * Default Xray tunnel start-params derivation, mirroring the native composition
@@ -200,4 +215,5 @@ internal fun defaultXrayStartParams(
                 fingerprintHash = resolution.fingerprintHash,
             ),
         forceTunnelDns = false,
+        splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
     )

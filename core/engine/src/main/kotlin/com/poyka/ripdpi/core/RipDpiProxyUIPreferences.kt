@@ -173,6 +173,36 @@ fun RipDpiProxyUIPreferences.withConnectionConcurrencyPolicy(
         awg = awg,
     )
 
+/** Replaces the destination-route snapshot while preserving every other runtime preference. */
+fun RipDpiProxyUIPreferences.withDestinationRoutingPolicy(
+    policy: DestinationRoutingPolicy,
+    awgOverride: AwgActivationRequest? = awg,
+): RipDpiProxyUIPreferences =
+    RipDpiProxyUIPreferences(
+        listen = listen,
+        protocols = protocols,
+        chains = chains,
+        fakePackets = fakePackets,
+        parserEvasions = parserEvasions,
+        adaptiveFallback = adaptiveFallback,
+        quic = quic,
+        hosts = hosts,
+        relay = relay,
+        warp = warp,
+        hostAutolearn = hostAutolearn,
+        wsTunnel = wsTunnel,
+        nativeLogLevel = nativeLogLevel,
+        runtimeContext = runtimeContext,
+        logContext = logContext,
+        rootMode = rootMode,
+        rootHelperSocketPath = rootHelperSocketPath,
+        geoipDbPath = geoipDbPath,
+        geositeDbPath = geositeDbPath,
+        environmentKind = environmentKind,
+        destinationRouting = policy,
+        awg = awgOverride,
+    )
+
 fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings? = null): StrategyLaneFamilies =
     deriveStrategyLaneFamilies(
         tcpSteps = chains.tcpSteps,

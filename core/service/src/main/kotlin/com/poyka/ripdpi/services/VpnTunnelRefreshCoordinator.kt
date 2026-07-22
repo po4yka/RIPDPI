@@ -23,17 +23,23 @@ internal class VpnTunnelRefreshCoordinator(
                     activeSession?.runtimeId == session.runtimeId
             if (!canRefresh) return@withLock
             val refreshSession = checkNotNull(activeSession)
-            val latestRefreshPlan =
-                dependencies.dnsPolicyCoordinator.planRefresh(
-                    currentSignature = dependencies.vpnTunnelRuntime.currentDnsSignature,
-                    tunnelRunning = dependencies.vpnTunnelRuntime.isRunning,
-                )
+            val latestRefreshPlan = planRefreshOrFail(refreshSession) ?: return@withLock
+            val latestConnectionPolicy = checkNotNull(latestRefreshPlan.connectionPolicy)
+            if (latestRefreshPlan.requiresRuntimeRecompose) {
+                try {
+                    callbacks.recomposeRuntimeForPolicyChange(refreshSession, latestConnectionPolicy)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    failCurrentGeneration(refreshSession, error)
+                }
+                return@withLock
+            }
             if (!latestRefreshPlan.requiresTunnelRebuild &&
                 (!interfacePolicyChangeObserved || !dependencies.vpnTunnelRuntime.requiresInterfacePolicyRebuild())
             ) {
                 return@withLock
             }
-            val latestConnectionPolicy = checkNotNull(latestRefreshPlan.connectionPolicy)
             try {
                 dependencies.vpnTunnelRuntime.rebuild(
                     activeDns = latestConnectionPolicy.activeDns,
@@ -43,19 +49,41 @@ internal class VpnTunnelRefreshCoordinator(
                         checkNotNull(state.currentLocalProxyEndpoint()) {
                             "VPN tunnel refresh requires an active local proxy endpoint"
                         },
+                    splitStrictDnsPolicy = latestConnectionPolicy.splitStrictDnsPolicy,
                 )
                 callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                val isCurrentRuntimeGeneration =
-                    state.runtimeSession()?.runtimeId == refreshSession.runtimeId &&
-                        state.status() == ServiceStatus.Connected
-                if (isCurrentRuntimeGeneration) {
-                    callbacks.failTunnelRefresh(refreshSession, error)
-                }
+                failCurrentGeneration(refreshSession, error)
             }
         }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun planRefreshOrFail(session: VpnRuntimeSession): ResolverRefreshPlan? =
+        try {
+            dependencies.dnsPolicyCoordinator
+                .planRefresh(
+                    currentSignature = dependencies.vpnTunnelRuntime.currentDnsSignature,
+                    currentDestinationRoutingDigest = session.currentDestinationRoutingDigest,
+                    tunnelRunning = dependencies.vpnTunnelRuntime.isRunning,
+                ).also { checkNotNull(it.connectionPolicy) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            failCurrentGeneration(session, error)
+            null
+        }
+
+    private fun failCurrentGeneration(
+        session: VpnRuntimeSession,
+        error: Exception,
+    ) {
+        val isCurrentRuntimeGeneration =
+            state.runtimeSession()?.runtimeId == session.runtimeId &&
+                state.status() == ServiceStatus.Connected
+        if (isCurrentRuntimeGeneration) callbacks.failTunnelRefresh(session, error)
     }
 
     suspend fun recoverIfNeeded(
@@ -76,6 +104,11 @@ internal interface VpnTunnelRefreshDependencies {
 }
 
 internal interface VpnTunnelRefreshCallbacks {
+    suspend fun recomposeRuntimeForPolicyChange(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+    )
+
     fun updateRuntimeDnsState(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,

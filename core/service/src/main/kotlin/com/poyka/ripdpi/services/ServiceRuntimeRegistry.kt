@@ -58,8 +58,17 @@ class VpnRuntimeSession(
     override var lastSuccessfulHandoverAt: Long = 0L
     var currentDns: ActiveDnsSettings? = null
     var currentDnsSignature: String? = null
+    var currentDestinationRoutingDigest: String? = null
     var currentNetworkScopeKey: String? = null
     internal val encryptedDnsFailoverState = VpnEncryptedDnsFailoverState()
+}
+
+internal fun VpnRuntimeSession.recordDestinationPolicy(resolution: ConnectionPolicyResolution) {
+    currentDestinationRoutingDigest = resolution.destinationRoutingDigest
+}
+
+internal fun VpnRuntimeSession.clearDestinationPolicy() {
+    currentDestinationRoutingDigest = null
 }
 
 class ProxyRuntimeSession(

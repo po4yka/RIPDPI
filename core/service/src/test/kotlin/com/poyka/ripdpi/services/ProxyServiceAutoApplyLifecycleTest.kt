@@ -189,6 +189,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 environmentDetector = EnvironmentDetector(),
                 serverCapabilityStore = TestServerCapabilityStore(),
                 awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(

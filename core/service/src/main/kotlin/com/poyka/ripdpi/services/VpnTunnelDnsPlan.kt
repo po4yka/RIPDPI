@@ -9,11 +9,13 @@ internal data class VpnTunnelDnsPlan(
     val resolverDns: ActiveDnsSettings,
     val mapDnsEnabled: Boolean,
     val routeDnsThroughSocks5: Boolean,
+    val splitStrictPolicy: ValidatedSplitStrictDnsPolicy? = null,
 )
 
 internal fun vpnTunnelDnsPlan(
     activeDns: ActiveDnsSettings,
     forceTunnelDns: Boolean,
+    splitStrictPolicy: ValidatedSplitStrictDnsPolicy? = null,
 ): VpnTunnelDnsPlan {
     val resolverDns =
         if (forceTunnelDns && activeDns.mode != DnsModeEncrypted) {
@@ -34,5 +36,6 @@ internal fun vpnTunnelDnsPlan(
         // "route encrypted DNS through proxy" setting drive the native
         // MapDnsConfig "route-dns-through-socks5" flag.
         routeDnsThroughSocks5 = forceTunnelDns || activeDns.routeThroughProxy,
+        splitStrictPolicy = splitStrictPolicy,
     )
 }

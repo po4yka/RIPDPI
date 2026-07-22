@@ -38,6 +38,8 @@ import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -53,6 +55,34 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ConnectionPolicyResolverTest {
+    @Test
+    fun `initial resolution fails when destination routing source is unavailable`() =
+        runTest {
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource =
+                        DestinationRoutingPolicySource {
+                            DestinationRoutingPolicySnapshot.Unavailable("rule_source_unavailable")
+                        },
+                )
+
+            val failure = runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertTrue(failure?.message?.contains("rule_source_unavailable") == true)
+        }
+
     @Test
     fun `temporary override beats remembered vpn dns policy`() =
         runTest {
@@ -137,6 +167,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -144,6 +175,18 @@ class ConnectionPolicyResolverTest {
             assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
             assertEquals(EncryptedDnsProtocolDoh, resolution.activeDns.encryptedDnsProtocol)
             assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
+            assertEquals("", resolution.destinationRoutingDigest)
+            assertEquals("", resolution.splitStrictDnsPolicy?.canonicalDigest)
+            assertEquals(
+                buildConnectionPolicySignature(
+                    mode = Mode.VPN,
+                    proxyPreferences = resolution.proxyPreferences,
+                    activeDns = resolution.activeDns,
+                    resolverFallbackReason = resolution.resolverFallbackReason,
+                    matchedPolicy = null,
+                ),
+                resolution.policySignature,
+            )
         }
 
     @Test
@@ -176,6 +219,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -236,6 +280,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -275,6 +320,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -310,6 +356,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -371,6 +418,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -419,6 +467,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -472,6 +521,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -519,6 +569,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -560,6 +611,7 @@ class ConnectionPolicyResolverTest {
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)

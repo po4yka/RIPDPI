@@ -73,7 +73,9 @@ import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.XrayProviderSessionController
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -250,6 +252,21 @@ internal class VpnServiceRuntimeCoordinator(
                 },
             callbacks =
                 object : VpnTunnelRefreshCallbacks {
+                    override suspend fun recomposeRuntimeForPolicyChange(
+                        session: VpnRuntimeSession,
+                        resolution: ConnectionPolicyResolution,
+                    ) {
+                        if (runtimeSession?.runtimeId != session.runtimeId) return
+                        withContext(NonCancellable) {
+                            runtimeCompositionCoordinator.restartAfterPolicyChange(
+                                session = session,
+                                resolution = resolution,
+                                appliedAt = clock.nowMillis(),
+                                restartReason = "routing_policy_refresh",
+                            )
+                        }
+                    }
+
                     override fun updateRuntimeDnsState(
                         session: VpnRuntimeSession,
                         resolution: ConnectionPolicyResolution,

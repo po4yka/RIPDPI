@@ -14,6 +14,7 @@ internal class VpnResolverRefreshPlanner
     ) {
         suspend fun plan(
             currentSignature: String?,
+            currentDestinationRoutingDigest: String? = null,
             tunnelRunning: Boolean,
         ): ResolverRefreshPlan {
             val resolverOverride = resolverOverrideStore.override.value
@@ -30,11 +31,15 @@ internal class VpnResolverRefreshPlanner
                 dnsSignature(
                     activeDns = connectionPolicy.activeDns,
                     overrideReason = connectionPolicy.resolverFallbackReason,
+                    destinationRoutingDigest = connectionPolicy.splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
                 )
             return ResolverRefreshPlan(
                 resolution = resolution,
                 signature = signature,
                 requiresTunnelRebuild = tunnelRunning && currentSignature != signature,
+                requiresRuntimeRecompose =
+                    currentDestinationRoutingDigest != null &&
+                        currentDestinationRoutingDigest != connectionPolicy.destinationRoutingDigest,
                 connectionPolicy = connectionPolicy,
             )
         }

@@ -20,6 +20,33 @@ import org.junit.Test
 
 class VpnResolverRefreshPlannerTest {
     @Test
+    fun routePolicyMutationRequestsRuntimeRecompose() =
+        runTest {
+            val settings = AppSettingsSerializer.defaultValue
+            val resolution =
+                sampleResolution(
+                    mode = Mode.VPN,
+                    settings = settings,
+                ).copy(destinationRoutingDigest = "b".repeat(64))
+            val planner =
+                VpnResolverRefreshPlanner(
+                    connectionPolicyResolver = TestConnectionPolicyResolver(resolution),
+                    resolverOverrideStore = TestResolverOverrideStore(),
+                )
+
+            val plan =
+                planner.plan(
+                    currentSignature =
+                        dnsSignature(activeDns = settings.activeDnsSettings(), overrideReason = null),
+                    currentDestinationRoutingDigest = "a".repeat(64),
+                    tunnelRunning = true,
+                )
+
+            assertTrue(plan.requiresRuntimeRecompose)
+            assertFalse(plan.requiresTunnelRebuild)
+        }
+
+    @Test
     fun unchangedSignatureDoesNotRequestTunnelRebuild() =
         runTest {
             val settings = AppSettingsSerializer.defaultValue
@@ -37,6 +64,7 @@ class VpnResolverRefreshPlannerTest {
                 )
 
             assertFalse(plan.requiresTunnelRebuild)
+            assertFalse(plan.requiresRuntimeRecompose)
             assertNotNull(plan.connectionPolicy)
         }
 
@@ -71,6 +99,7 @@ class VpnResolverRefreshPlannerTest {
                 )
 
             assertTrue(plan.requiresTunnelRebuild)
+            assertFalse(plan.requiresRuntimeRecompose)
             assertEquals("8.8.8.8", plan.connectionPolicy?.activeDns?.dnsIp)
         }
 

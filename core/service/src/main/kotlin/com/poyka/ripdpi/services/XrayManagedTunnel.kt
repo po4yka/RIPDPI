@@ -17,6 +17,7 @@ internal data class XrayTunnelStartParams(
     val overrideReason: String?,
     val logContext: RipDpiLogContext?,
     val forceTunnelDns: Boolean,
+    val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
 )
 
 /**
@@ -80,6 +81,7 @@ internal interface XrayTunnelDriver {
                         logContext = params.logContext,
                         localProxyEndpoint = endpoint,
                         forceTunnelDns = params.forceTunnelDns,
+                        splitStrictDnsPolicy = params.splitStrictDnsPolicy,
                     )
                 }
 

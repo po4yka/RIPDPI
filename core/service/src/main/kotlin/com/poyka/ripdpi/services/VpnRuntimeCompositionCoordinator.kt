@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.relayConfigOrNull
 import java.util.UUID
 
@@ -84,8 +85,48 @@ internal class VpnRuntimeCompositionCoordinator(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
+    ) = restartComposedRuntime(session, resolution, appliedAt, "network_handover")
+
+    suspend fun restartAfterPolicyChange(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        appliedAt: Long,
+        restartReason: String,
     ) {
-        if (providerDelegate?.tryRestart(session, resolution, appliedAt) == true) {
+        if (providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason) == true) {
+            return
+        }
+        session.currentDns = null
+        session.currentDnsSignature = null
+        session.currentNetworkScopeKey = null
+        session.encryptedDnsFailoverState.resetAll()
+
+        // Keep the installed TUN as a blocking barrier while the proxy stack changes. The old
+        // TUN continues sending packets into the stopped local proxy, so no direct network window opens.
+        proxyRuntimeStack.stop(skipRuntimeShutdown = false)
+        currentLocalProxyEndpoint = null
+        applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
+        val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        val localProxyEndpoint = startProxyRuntime(resolution, logContext)
+        vpnTunnelRuntime.rebuild(
+            activeDns = resolution.activeDns,
+            overrideReason = resolution.resolverFallbackReason,
+            logContext = logContext,
+            localProxyEndpoint = localProxyEndpoint,
+            forceTunnelDns =
+                forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
+            splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
+        )
+        updateRuntimeDnsState(session, resolution)
+    }
+
+    private suspend fun restartComposedRuntime(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        appliedAt: Long,
+        restartReason: String,
+    ) {
+        if (providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason) == true) {
             return
         }
         session.currentDns = null
@@ -97,7 +138,7 @@ internal class VpnRuntimeCompositionCoordinator(
         applyActiveConnectionPolicy(
             session,
             resolution,
-            "network_handover",
+            restartReason,
             appliedAt,
         )
         startComposedRuntime(session, resolution)
@@ -108,8 +149,14 @@ internal class VpnRuntimeCompositionCoordinator(
         resolution: ConnectionPolicyResolution,
     ) {
         session.currentDns = resolution.activeDns
-        session.currentDnsSignature = dnsSignature(resolution.activeDns, resolution.resolverFallbackReason)
+        session.currentDnsSignature =
+            dnsSignature(
+                resolution.activeDns,
+                resolution.resolverFallbackReason,
+                resolution.splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
+            )
         session.currentNetworkScopeKey = resolution.networkScopeKey
+        session.recordDestinationPolicy(resolution)
     }
 
     fun resetAfterStop(session: VpnRuntimeSession?) {
@@ -117,6 +164,7 @@ internal class VpnRuntimeCompositionCoordinator(
         currentLocalProxyEndpoint = null
         providerDelegate?.reset()
         session?.encryptedDnsFailoverState?.resetAll()
+        session?.clearDestinationPolicy()
     }
 
     private suspend fun startComposedRuntime(
@@ -131,6 +179,23 @@ internal class VpnRuntimeCompositionCoordinator(
         }
 
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        val localProxyEndpoint = startProxyRuntime(resolution, logContext)
+        vpnTunnelRuntime.start(
+            activeDns = resolution.activeDns,
+            overrideReason = resolution.resolverFallbackReason,
+            logContext = logContext,
+            localProxyEndpoint = localProxyEndpoint,
+            forceTunnelDns =
+                forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
+            splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
+        )
+        updateRuntimeDnsState(session, resolution)
+    }
+
+    private suspend fun startProxyRuntime(
+        resolution: ConnectionPolicyResolution,
+        logContext: RipDpiLogContext,
+    ): LocalProxyEndpoint {
         val authToken =
             UUID
                 .randomUUID()
@@ -143,8 +208,8 @@ internal class VpnRuntimeCompositionCoordinator(
                 configuredRelayKind = configuredRelay?.kind,
                 networkScopeKey = resolution.networkScopeKey,
             )
-        val localProxyEndpoint =
-            proxyRuntimeStack.start(
+        return proxyRuntimeStack
+            .start(
                 proxyPreferences =
                     resolution
                         .proxyPreferences
@@ -157,16 +222,6 @@ internal class VpnRuntimeCompositionCoordinator(
                 initialRelayRacePlan = racePlan,
                 onInitialRelayRaceState = { state -> initialRelayRacePolicy?.onStateChanged(state) },
                 onInitialRelaySelected = { result -> initialRelayRacePolicy?.onSelected(result) },
-            )
-        currentLocalProxyEndpoint = localProxyEndpoint
-        vpnTunnelRuntime.start(
-            activeDns = resolution.activeDns,
-            overrideReason = resolution.resolverFallbackReason,
-            logContext = logContext,
-            localProxyEndpoint = localProxyEndpoint,
-            forceTunnelDns =
-                forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
-        )
-        updateRuntimeDnsState(session, resolution)
+            ).also { currentLocalProxyEndpoint = it }
     }
 }

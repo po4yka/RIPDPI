@@ -360,6 +360,51 @@ class XrayProviderSessionControllerTest {
             assertTrue(delegate.isActive)
         }
 
+    @Test
+    fun `route policy refresh rejects destructive xray restart and preserves active provider`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            var appliedPolicies = 0
+            var publishedDnsStates = 0
+            val ctrl = controller()
+            val delegate =
+                XrayConnectFlowDelegate(
+                    controller = ctrl,
+                    startParams = { _, _ -> params() },
+                    publishActiveDnsState = { _, _ -> publishedDnsStates += 1 },
+                    applyActiveConnectionPolicy = { _, _, _, _ -> appliedPolicies += 1 },
+                )
+            val session = VpnRuntimeSession().apply { recordDestinationPolicy(sampleResolution()) }
+            assertTrue(delegate.tryStart(session, sampleResolution()))
+            val bridgeStarts = bridge.startCount
+            val bridgeStops = bridge.stopCount
+            val tunnelStarts = tunnel.startCount
+            val tunnelStops = tunnel.stopCount
+            val oldDigest = session.currentDestinationRoutingDigest
+
+            val failure =
+                runCatching {
+                    delegate.tryRestart(
+                        session,
+                        sampleResolution().copy(destinationRoutingDigest = "replacement"),
+                        appliedAt = 2L,
+                        restartReason = "routing_policy_refresh",
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is XrayProviderPolicyRefreshUnsupportedException)
+            assertTrue(delegate.isActive)
+            assertTrue(ctrl.isActive)
+            assertEquals(bridgeStarts, bridge.startCount)
+            assertEquals(bridgeStops, bridge.stopCount)
+            assertEquals(tunnelStarts, tunnel.startCount)
+            assertEquals(tunnelStops, tunnel.stopCount)
+            assertEquals(0, appliedPolicies)
+            assertEquals(1, publishedDnsStates)
+            assertEquals(oldDigest, session.currentDestinationRoutingDigest)
+        }
+
     private fun params(): XrayTunnelStartParams =
         XrayTunnelStartParams(
             activeDns =

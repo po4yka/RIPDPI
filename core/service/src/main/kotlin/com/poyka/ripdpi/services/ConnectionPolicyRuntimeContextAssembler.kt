@@ -6,8 +6,11 @@ import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
+import com.poyka.ripdpi.core.withDestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
@@ -138,6 +141,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
             hostAutolearnStorePath: String,
             networkScopeKey: String?,
             runtimeContext: RipDpiRuntimeContext?,
+            destinationRouting: DestinationRoutingPolicy,
             awg: AwgActivationRequest? = null,
         ): RipDpiProxyPreferences =
             if (settings.enableCmdSettings) {
@@ -155,6 +159,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     rootMode = settings.rootModeEnabled,
                     rootHelperSocketPath = rootHelperManager.socketPath,
                     environmentKind = environmentDetector.kind,
+                    destinationRouting = destinationRouting,
                     awg = awg,
                 )
             }
@@ -165,16 +170,22 @@ internal class ConnectionPolicyRuntimeContextAssembler
             networkScopeKey: String?,
             runtimeContext: RipDpiRuntimeContext?,
             settings: AppSettings,
+            destinationRouting: DestinationRoutingPolicy,
             awg: AwgActivationRequest? = null,
-        ): RipDpiProxyPreferences =
-            com.poyka.ripdpi.core.RipDpiProxyJsonPreferences(
-                configJson = configJson,
-                hostAutolearnStorePath = hostAutolearnStorePath,
-                networkScopeKey = networkScopeKey,
-                runtimeContext = runtimeContext,
-                rootMode = settings.rootModeEnabled,
-                rootHelperSocketPath = rootHelperManager.socketPath,
-                environmentKind = environmentDetector.kind,
-                awg = awg,
-            )
+        ): RipDpiProxyPreferences {
+            val remembered =
+                com.poyka.ripdpi.core.RipDpiProxyJsonPreferences(
+                    configJson = configJson,
+                    hostAutolearnStorePath = hostAutolearnStorePath,
+                    networkScopeKey = networkScopeKey,
+                    runtimeContext = runtimeContext,
+                    rootMode = settings.rootModeEnabled,
+                    rootHelperSocketPath = rootHelperManager.socketPath,
+                    environmentKind = environmentDetector.kind,
+                    awg = awg,
+                )
+            return checkNotNull(decodeRipDpiProxyUiPreferences(remembered.toNativeConfigJson())) {
+                "Remembered proxy policy cannot be overlaid with canonical destination routing"
+            }.withDestinationRoutingPolicy(destinationRouting, awgOverride = awg)
+        }
     }

@@ -19,6 +19,7 @@ internal class ConnectionPolicySignatureBuilder
             activeDns: ActiveDnsSettings,
             resolverFallbackReason: String?,
             matchedPolicy: RememberedNetworkPolicyEntity?,
+            destinationRoutingDigest: String = "",
         ): String =
             buildConnectionPolicySignature(
                 mode = mode,
@@ -26,6 +27,7 @@ internal class ConnectionPolicySignatureBuilder
                 activeDns = activeDns,
                 resolverFallbackReason = resolverFallbackReason,
                 matchedPolicy = matchedPolicy,
+                destinationRoutingDigest = destinationRoutingDigest,
             )
     }
 
@@ -35,33 +37,38 @@ internal fun buildConnectionPolicySignature(
     activeDns: ActiveDnsSettings,
     resolverFallbackReason: String?,
     matchedPolicy: RememberedNetworkPolicyEntity?,
+    destinationRoutingDigest: String = "",
 ): String =
-    listOf(
-        mode.preferenceValue,
-        stripRipDpiRuntimeContext(proxyPreferences.toNativeConfigJson()),
-        activeDns.mode,
-        activeDns.providerId,
-        activeDns.dnsIp,
-        activeDns.encryptedDnsProtocol,
-        activeDns.encryptedDnsHost,
-        activeDns.encryptedDnsPort.toString(),
-        activeDns.encryptedDnsTlsServerName,
-        activeDns.encryptedDnsBootstrapIps.joinToString(","),
-        activeDns.encryptedDnsDohUrl,
-        activeDns.encryptedDnsDnscryptProviderName,
-        activeDns.encryptedDnsDnscryptPublicKey,
-        activeDns.encryptedDnsOdohProxyUrl,
-        activeDns.encryptedDnsOdohProxyOperatorId,
-        activeDns.encryptedDnsOdohTargetHost,
-        activeDns.encryptedDnsOdohTargetPath,
-        activeDns.encryptedDnsOdohTargetOperatorId,
-        activeDns.encryptedDnsOdohConfigSource,
-        activeDns.encryptedDnsOdohConfigsHex,
-        activeDns.encryptedDnsOdohConfigsRetrievedAtSecs.toString(),
-        activeDns.encryptedDnsOdohConfigsTtlSecs.toString(),
-        resolverFallbackReason.orEmpty(),
-        matchedPolicy?.id?.toString().orEmpty(),
+    (
+        listOf(
+            mode.preferenceValue,
+            stripRipDpiRuntimeContext(proxyPreferences.toNativeConfigJson()),
+            activeDns.mode,
+            activeDns.providerId,
+            activeDns.dnsIp,
+            activeDns.encryptedDnsProtocol,
+            activeDns.encryptedDnsHost,
+            activeDns.encryptedDnsPort.toString(),
+            activeDns.encryptedDnsTlsServerName,
+            activeDns.encryptedDnsBootstrapIps.joinToString(","),
+            activeDns.encryptedDnsDohUrl,
+            activeDns.encryptedDnsDnscryptProviderName,
+            activeDns.encryptedDnsDnscryptPublicKey,
+            activeDns.encryptedDnsOdohProxyUrl,
+            activeDns.encryptedDnsOdohProxyOperatorId,
+            activeDns.encryptedDnsOdohTargetHost,
+            activeDns.encryptedDnsOdohTargetPath,
+            activeDns.encryptedDnsOdohTargetOperatorId,
+            activeDns.encryptedDnsOdohConfigSource,
+            activeDns.encryptedDnsOdohConfigsHex,
+            activeDns.encryptedDnsOdohConfigsRetrievedAtSecs.toString(),
+            activeDns.encryptedDnsOdohConfigsTtlSecs.toString(),
+            resolverFallbackReason.orEmpty(),
+            matchedPolicy?.id?.toString().orEmpty(),
+        ) + destinationRoutingDigest.takeIf(String::isNotEmpty).orEmptyList()
     ).joinToString("|").encodeSha256()
+
+private fun String?.orEmptyList(): List<String> = if (this == null) emptyList() else listOf(this)
 
 private const val HexRadix = 16
 private const val HexNibbleShift = 4

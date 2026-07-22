@@ -87,6 +87,11 @@ class VpnTunnelRefreshCoordinatorTest {
                     state = state,
                     callbacks =
                         object : VpnTunnelRefreshCallbacks {
+                            override suspend fun recomposeRuntimeForPolicyChange(
+                                session: VpnRuntimeSession,
+                                resolution: ConnectionPolicyResolution,
+                            ) = Unit
+
                             override fun updateRuntimeDnsState(
                                 session: VpnRuntimeSession,
                                 resolution: ConnectionPolicyResolution,
@@ -225,6 +230,11 @@ class VpnTunnelRefreshCoordinatorTest {
             state = state,
             callbacks =
                 object : VpnTunnelRefreshCallbacks {
+                    override suspend fun recomposeRuntimeForPolicyChange(
+                        session: VpnRuntimeSession,
+                        resolution: ConnectionPolicyResolution,
+                    ) = Unit
+
                     override fun updateRuntimeDnsState(
                         session: VpnRuntimeSession,
                         resolution: ConnectionPolicyResolution,

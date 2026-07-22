@@ -97,6 +97,7 @@ internal class VpnTunnelRuntime(
         logContext: RipDpiLogContext?,
         localProxyEndpoint: LocalProxyEndpoint,
         forceTunnelDns: Boolean = false,
+        splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     ) {
         check(tunSession == null) { "VPN field not null" }
 
@@ -107,6 +108,7 @@ internal class VpnTunnelRuntime(
                 logContext = logContext,
                 localProxyEndpoint = localProxyEndpoint,
                 forceTunnelDns = forceTunnelDns,
+                splitStrictDnsPolicy = splitStrictDnsPolicy,
             )
         // Builder.establish() has already installed Android's default routes.
         // Retain this session as a fail-closed barrier until native forwarding
@@ -134,6 +136,7 @@ internal class VpnTunnelRuntime(
         logContext: RipDpiLogContext?,
         localProxyEndpoint: LocalProxyEndpoint,
         forceTunnelDns: Boolean = false,
+        splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     ) {
         val previousSession = checkNotNull(tunSession) { "VPN tunnel is not running" }
         val previousBridge = checkNotNull(tun2SocksBridge) { "VPN tunnel is not forwarding" }
@@ -144,6 +147,7 @@ internal class VpnTunnelRuntime(
                 logContext = logContext,
                 localProxyEndpoint = localProxyEndpoint,
                 forceTunnelDns = forceTunnelDns,
+                splitStrictDnsPolicy = splitStrictDnsPolicy,
             )
 
         // Establishment has already moved Android routing to this replacement TUN.
@@ -172,9 +176,10 @@ internal class VpnTunnelRuntime(
         logContext: RipDpiLogContext?,
         localProxyEndpoint: LocalProxyEndpoint,
         forceTunnelDns: Boolean,
+        splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy?,
     ): PendingTunnel {
         val settings = appSettingsRepository.snapshot()
-        val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns)
+        val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns, splitStrictDnsPolicy)
         val ipv6 = settings.ipv6Enable
         val tunnelNetworkParameters = vpnHost.currentTunnelNetworkParameters()
         val interfacePolicy =
@@ -216,7 +221,12 @@ internal class VpnTunnelRuntime(
         return PendingTunnel(
             session = tunnelSession,
             config = config,
-            dnsSignature = dnsSignature(activeDns, overrideReason),
+            dnsSignature =
+                dnsSignature(
+                    activeDns,
+                    overrideReason,
+                    splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
+                ),
             interfacePolicySignature = interfacePolicy.signature,
         )
     }

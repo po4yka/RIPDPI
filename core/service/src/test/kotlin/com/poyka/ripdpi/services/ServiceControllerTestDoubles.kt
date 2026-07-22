@@ -640,16 +640,20 @@ internal class TestConnectionPolicyResolver(
         val handoverClassification: String?,
     )
 
-    private val queuedResolutions = ArrayDeque<ConnectionPolicyResolution>()
+    private val queuedResolutions = ArrayDeque<Result<ConnectionPolicyResolution>>()
     private var fallbackResolution: ConnectionPolicyResolution = initialResolution
 
     val calls = mutableListOf<ResolveCall>()
 
     fun enqueue(vararg resolutions: ConnectionPolicyResolution) {
-        queuedResolutions.addAll(resolutions.toList())
+        queuedResolutions.addAll(resolutions.map(Result.Companion::success))
         if (resolutions.isNotEmpty()) {
             fallbackResolution = resolutions.last()
         }
+    }
+
+    fun enqueueFailure(error: Exception) {
+        queuedResolutions.add(Result.failure(error))
     }
 
     override suspend fun resolve(
@@ -659,7 +663,7 @@ internal class TestConnectionPolicyResolver(
         handoverClassification: String?,
     ): ConnectionPolicyResolution {
         calls += ResolveCall(mode, resolverOverride, fingerprint, handoverClassification)
-        queuedResolutions.removeFirstOrNull()?.let { return it }
+        queuedResolutions.removeFirstOrNull()?.let { return it.getOrThrow() }
         return if (resolverOverride != null) {
             fallbackResolution.copy(
                 activeDns = resolverOverride.toActiveDnsSettings(),

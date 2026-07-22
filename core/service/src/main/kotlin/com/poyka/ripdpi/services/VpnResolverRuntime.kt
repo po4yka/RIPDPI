@@ -16,6 +16,7 @@ internal data class ResolverRefreshPlan(
     val resolution: EffectiveDnsResolution,
     val signature: String,
     val requiresTunnelRebuild: Boolean,
+    val requiresRuntimeRecompose: Boolean = false,
     val connectionPolicy: ConnectionPolicyResolution? = null,
 )
 
@@ -64,30 +65,35 @@ internal fun planResolverRefresh(
 internal fun dnsSignature(
     activeDns: ActiveDnsSettings,
     overrideReason: String?,
+    destinationRoutingDigest: String = "",
 ): String =
-    listOf(
-        activeDns.mode,
-        activeDns.providerId,
-        activeDns.dnsIp,
-        activeDns.encryptedDnsProtocol,
-        activeDns.encryptedDnsHost,
-        activeDns.encryptedDnsPort.toString(),
-        activeDns.encryptedDnsTlsServerName,
-        activeDns.encryptedDnsBootstrapIps.joinToString(","),
-        activeDns.encryptedDnsDohUrl,
-        activeDns.encryptedDnsDnscryptProviderName,
-        activeDns.encryptedDnsDnscryptPublicKey,
-        activeDns.encryptedDnsOdohProxyUrl,
-        activeDns.encryptedDnsOdohProxyOperatorId,
-        activeDns.encryptedDnsOdohTargetHost,
-        activeDns.encryptedDnsOdohTargetPath,
-        activeDns.encryptedDnsOdohTargetOperatorId,
-        activeDns.encryptedDnsOdohConfigSource,
-        activeDns.encryptedDnsOdohConfigsHex,
-        activeDns.encryptedDnsOdohConfigsRetrievedAtSecs.toString(),
-        activeDns.encryptedDnsOdohConfigsTtlSecs.toString(),
-        overrideReason.orEmpty(),
+    (
+        listOf(
+            activeDns.mode,
+            activeDns.providerId,
+            activeDns.dnsIp,
+            activeDns.encryptedDnsProtocol,
+            activeDns.encryptedDnsHost,
+            activeDns.encryptedDnsPort.toString(),
+            activeDns.encryptedDnsTlsServerName,
+            activeDns.encryptedDnsBootstrapIps.joinToString(","),
+            activeDns.encryptedDnsDohUrl,
+            activeDns.encryptedDnsDnscryptProviderName,
+            activeDns.encryptedDnsDnscryptPublicKey,
+            activeDns.encryptedDnsOdohProxyUrl,
+            activeDns.encryptedDnsOdohProxyOperatorId,
+            activeDns.encryptedDnsOdohTargetHost,
+            activeDns.encryptedDnsOdohTargetPath,
+            activeDns.encryptedDnsOdohTargetOperatorId,
+            activeDns.encryptedDnsOdohConfigSource,
+            activeDns.encryptedDnsOdohConfigsHex,
+            activeDns.encryptedDnsOdohConfigsRetrievedAtSecs.toString(),
+            activeDns.encryptedDnsOdohConfigsTtlSecs.toString(),
+            overrideReason.orEmpty(),
+        ) + destinationRoutingDigest.takeIf(String::isNotEmpty).orEmptyList()
     ).joinToString("|")
+
+private fun String?.orEmptyList(): List<String> = if (this == null) emptyList() else listOf(this)
 
 internal fun classifyNetworkHandover(
     previous: NetworkFingerprint?,

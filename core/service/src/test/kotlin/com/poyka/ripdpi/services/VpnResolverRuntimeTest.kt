@@ -12,11 +12,21 @@ import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VpnResolverRuntimeTest {
+    @Test
+    fun `empty route digest preserves legacy signature while policy mutations change it`() {
+        val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
+        val legacy = dnsSignature(activeDns, overrideReason = null)
+
+        assertEquals(legacy, dnsSignature(activeDns, overrideReason = null, destinationRoutingDigest = ""))
+        assertNotEquals(legacy, dnsSignature(activeDns, overrideReason = null, destinationRoutingDigest = "route-a"))
+    }
+
     @Test
     fun `resolver override takes precedence over persisted settings`() {
         val settings =

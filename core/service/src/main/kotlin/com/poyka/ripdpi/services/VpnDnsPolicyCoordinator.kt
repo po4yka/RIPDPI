@@ -6,10 +6,12 @@ internal class VpnDnsPolicyCoordinator(
 ) {
     suspend fun planRefresh(
         currentSignature: String?,
+        currentDestinationRoutingDigest: String?,
         tunnelRunning: Boolean,
     ): ResolverRefreshPlan =
         resolverRefreshPlanner.plan(
             currentSignature = currentSignature,
+            currentDestinationRoutingDigest = currentDestinationRoutingDigest,
             tunnelRunning = tunnelRunning,
         )
 

@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.awgConfigOrNull
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
@@ -26,6 +27,8 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -48,6 +51,8 @@ data class ConnectionPolicyResolution(
     val policySignature: String,
     val resolverFallbackReason: String? = null,
     val handoverClassification: String? = null,
+    val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
+    val destinationRoutingDigest: String = "",
 )
 
 /**
@@ -81,6 +86,7 @@ class DefaultConnectionPolicyResolver
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
         private val awgEgressSelectionProvider: AwgEgressSelectionProvider,
+        private val destinationRoutingPolicySource: DestinationRoutingPolicySource,
     ) : ConnectionPolicyResolver {
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
@@ -129,6 +135,7 @@ class DefaultConnectionPolicyResolver
             rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
+            val destinationRoutingSnapshot = destinationRoutingPolicySource.snapshot()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()
             val directPathCapabilities = runtimeContextAssembler.directPathCapabilities(networkScopeKey)
             val baselineVpnDnsSelection =
@@ -141,12 +148,7 @@ class DefaultConnectionPolicyResolver
             val protectPath = runtimeContextAssembler.protectPath(mode)
             val preferredEdges = runtimeContextAssembler.preferredEdges(settings, networkScopeKey)
             val hostAutolearnStorePath = runtimeContextAssembler.hostAutolearnStorePath()
-            val selectedAwgEgress =
-                if (mode == Mode.VPN && !settings.enableCmdSettings) {
-                    selectedAwgEgress()
-                } else {
-                    null
-                }
+            val selectedAwgEgress = selectedAwgEgress(mode, settings)
             val baselinePreferences =
                 baselinePreferences(
                     settings = settings,
@@ -157,6 +159,13 @@ class DefaultConnectionPolicyResolver
                     preferredEdges = preferredEdges,
                     hostAutolearnStorePath = hostAutolearnStorePath,
                     awg = selectedAwgEgress,
+                    destinationRouting = destinationRoutingSnapshot.policyOrThrow(),
+                )
+            val splitStrictDnsPolicy =
+                splitStrictDnsPolicy(
+                    activeDns = baselineVpnDnsSelection.activeDns,
+                    routingSnapshot = destinationRoutingSnapshot,
+                    fingerprint = fingerprintSnapshot,
                 )
             val baselineLaneFamilies =
                 rememberedPolicyMatcher.deriveLaneFamilies(
@@ -191,11 +200,20 @@ class DefaultConnectionPolicyResolver
                         activeDns = baselineVpnDnsSelection.activeDns,
                         resolverFallbackReason = dnsResolution.override?.reason,
                         matchedPolicy = null,
+                        destinationRoutingDigest = splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
                     ),
+                fingerprint = fingerprintSnapshot,
+                destinationRoutingSnapshot = destinationRoutingSnapshot,
+                splitStrictDnsPolicy = splitStrictDnsPolicy,
             )
         }
 
         private suspend fun selectedAwgEgress(): AwgActivationRequest? = awgEgressSelectionProvider.selectedAwgEgress()
+
+        private suspend fun selectedAwgEgress(
+            mode: Mode,
+            settings: AppSettings,
+        ): AwgActivationRequest? = if (mode == Mode.VPN && !settings.enableCmdSettings) selectedAwgEgress() else null
 
         private suspend fun baselineVpnDnsSelection(
             mode: Mode,
@@ -219,12 +237,14 @@ class DefaultConnectionPolicyResolver
             preferredEdges: Map<String, List<PreferredEdgeCandidate>>,
             hostAutolearnStorePath: String,
             awg: AwgActivationRequest?,
+            destinationRouting: DestinationRoutingPolicy,
         ): RipDpiProxyPreferences =
             runtimeContextAssembler.baselinePreferences(
                 settings = settings,
                 hostAutolearnStorePath = hostAutolearnStorePath,
                 networkScopeKey = networkScopeKey,
                 awg = awg,
+                destinationRouting = destinationRouting,
                 runtimeContext =
                     runtimeContextAssembler.runtimeContext(
                         activeDns = baselineVpnDnsSelection.activeDns,
@@ -260,23 +280,18 @@ class DefaultConnectionPolicyResolver
                         resolverOverride = baseline.dnsResolution.override,
                     )
                 val effectiveDns = vpnDnsSelection.activeDns
-                val baseRuntimeContext =
-                    runtimeContextAssembler.runtimeContext(
+                val splitStrictDnsPolicy =
+                    splitStrictDnsPolicy(
                         activeDns = effectiveDns,
-                        protectPath = baseline.protectPath,
-                        preferredEdges = baseline.preferredEdges,
-                        directPathCapabilities = baseline.directPathCapabilities,
+                        routingSnapshot = baseline.destinationRoutingSnapshot,
+                        fingerprint = baseline.fingerprint,
                     )
-                val effectiveRuntimeContext =
-                    applyRememberedConnectionConcurrencyPolicy(baseRuntimeContext, rememberedPolicy)
                 val proxyPreferences =
-                    runtimeContextAssembler.rememberedPreferences(
+                    rememberedProxyPreferences(
+                        baseline = baseline,
+                        effectiveDns = effectiveDns,
+                        rememberedPolicy = rememberedPolicy,
                         configJson = matchedPolicy.proxyConfigJson,
-                        hostAutolearnStorePath = baseline.hostAutolearnStorePath,
-                        networkScopeKey = baseline.networkScopeKey,
-                        runtimeContext = effectiveRuntimeContext,
-                        settings = baseline.settings,
-                        awg = baseline.baselinePreferences.awgConfigOrNull(),
                     )
                 val appliedPolicy =
                     rememberedPolicyMatcher.appliedPolicy(
@@ -291,6 +306,7 @@ class DefaultConnectionPolicyResolver
                         activeDns = effectiveDns,
                         resolverFallbackReason = baseline.dnsResolution.override?.reason,
                         matchedPolicy = matchedPolicy,
+                        destinationRoutingDigest = splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
                     )
                 ConnectionPolicyResolution(
                     settings = baseline.settings,
@@ -305,6 +321,8 @@ class DefaultConnectionPolicyResolver
                     policySignature = policySignature,
                     resolverFallbackReason = baseline.dnsResolution.override?.reason,
                     handoverClassification = handoverClassification,
+                    splitStrictDnsPolicy = splitStrictDnsPolicy,
+                    destinationRoutingDigest = baseline.destinationRoutingSnapshot.policyOrThrow().canonicalDigest,
                 )
             } catch (error: CancellationException) {
                 throw error
@@ -331,6 +349,47 @@ class DefaultConnectionPolicyResolver
             )
         }
 
+        private suspend fun rememberedProxyPreferences(
+            baseline: BaselineConnectionPolicy,
+            effectiveDns: ActiveDnsSettings,
+            rememberedPolicy: RememberedNetworkPolicyJson?,
+            configJson: String,
+        ): RipDpiProxyPreferences {
+            val baseRuntimeContext =
+                runtimeContextAssembler.runtimeContext(
+                    activeDns = effectiveDns,
+                    protectPath = baseline.protectPath,
+                    preferredEdges = baseline.preferredEdges,
+                    directPathCapabilities = baseline.directPathCapabilities,
+                )
+            val effectiveRuntimeContext =
+                applyRememberedConnectionConcurrencyPolicy(baseRuntimeContext, rememberedPolicy)
+            return runtimeContextAssembler.rememberedPreferences(
+                configJson = configJson,
+                hostAutolearnStorePath = baseline.hostAutolearnStorePath,
+                networkScopeKey = baseline.networkScopeKey,
+                runtimeContext = effectiveRuntimeContext,
+                settings = baseline.settings,
+                awg = baseline.baselinePreferences.awgConfigOrNull(),
+                destinationRouting = baseline.destinationRoutingSnapshot.policyOrThrow(),
+            )
+        }
+
+        private fun splitStrictDnsPolicy(
+            activeDns: ActiveDnsSettings,
+            routingSnapshot: DestinationRoutingPolicySnapshot,
+            fingerprint: NetworkFingerprint?,
+        ): ValidatedSplitStrictDnsPolicy? =
+            activeDns
+                .takeIf(ActiveDnsSettings::isEncrypted)
+                ?.let { encryptedDns ->
+                    ValidatedSplitStrictDnsPolicy.build(
+                        activeDns = encryptedDns,
+                        routingSnapshot = routingSnapshot,
+                        underlayDnsServers = fingerprint.validatedDnsServers(),
+                    )
+                }
+
         private fun buildBaselineResolution(
             baseline: BaselineConnectionPolicy,
             handoverClassification: String?,
@@ -348,6 +407,8 @@ class DefaultConnectionPolicyResolver
                 policySignature = baseline.baselinePolicySignature,
                 resolverFallbackReason = baseline.dnsResolution.override?.reason,
                 handoverClassification = handoverClassification,
+                splitStrictDnsPolicy = baseline.splitStrictDnsPolicy,
+                destinationRoutingDigest = baseline.destinationRoutingSnapshot.policyOrThrow().canonicalDigest,
             )
 
         private data class BaselineConnectionPolicy(
@@ -362,8 +423,30 @@ class DefaultConnectionPolicyResolver
             val baselinePreferences: RipDpiProxyPreferences,
             val baselinePolicy: RememberedNetworkPolicyJson?,
             val baselinePolicySignature: String,
+            val fingerprint: NetworkFingerprint?,
+            val destinationRoutingSnapshot: DestinationRoutingPolicySnapshot,
+            val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy?,
         )
     }
+
+internal val EmptyDestinationRoutingPolicySource =
+    DestinationRoutingPolicySource {
+        DestinationRoutingPolicySnapshot.Available(DestinationRoutingPolicy(canonicalDigest = ""))
+    }
+
+private fun DestinationRoutingPolicySnapshot.policyOrThrow(): DestinationRoutingPolicy =
+    when (this) {
+        is DestinationRoutingPolicySnapshot.Available -> {
+            policy
+        }
+
+        is DestinationRoutingPolicySnapshot.Unavailable -> {
+            error("Destination routing policy is unavailable: $reason")
+        }
+    }
+
+private fun NetworkFingerprint?.validatedDnsServers(): List<String> =
+    if (this?.networkValidated == true && !captivePortalDetected) dnsServers else emptyList()
 
 /** Waits for durable profile mutations before any settings-backed policy snapshot. */
 @Singleton
