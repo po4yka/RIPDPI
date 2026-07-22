@@ -21,7 +21,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class ConfigEditorDraftKeystoreInstrumentedTest {
     @Test
-    fun productionKeystoreCipherPersistsOpaqueDraftAndRejectsTampering() =
+    fun productionKeystoreCipherPersistsOpaqueDraftAndRejectsTampering() {
         runBlocking {
             val context = ApplicationProvider.getApplicationContext<Context>()
             val preferences =
@@ -85,4 +85,5 @@ class ConfigEditorDraftKeystoreInstrumentedTest {
             assertFalse(preferences.contains(ConfigEditorDraftRecordKey))
             preferences.edit().clear().commit()
         }
+    }
 }
