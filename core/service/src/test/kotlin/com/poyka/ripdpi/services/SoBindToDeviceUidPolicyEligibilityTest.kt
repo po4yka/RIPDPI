@@ -61,6 +61,30 @@ class SoBindToDeviceUidPolicyEligibilityTest {
     }
 
     @Test
+    fun `android 11 rejects missing and malformed kernel releases when the probe fails`() {
+        listOf(null, "", "not-a-kernel-release").forEach { release ->
+            assertFalse(eligibility(Build.VERSION_CODES.R, release, probeResult = false).isEligible())
+        }
+    }
+
+    @Test
+    fun `android 12 accepts missing blank and malformed kernel releases when the probe fails`() {
+        listOf(null, "", "not-a-kernel-release").forEach { release ->
+            assertTrue(eligibility(Build.VERSION_CODES.S, release, probeResult = false).isEligible())
+        }
+    }
+
+    @Test
+    fun `android 10 accepts a newer kernel when the probe fails`() {
+        assertTrue(eligibility(Build.VERSION_CODES.Q, "6.1.99-android14-11-gki", probeResult = false).isEligible())
+    }
+
+    @Test
+    fun `kernel parser rejects a version with leading garbage`() {
+        assertFalse(eligibility(Build.VERSION_CODES.R, "release-6.1.99-android", probeResult = false).isEligible())
+    }
+
+    @Test
     fun `capability decision is cached for the process singleton`() {
         var probeCalls = 0
         val eligibility =
@@ -92,6 +116,36 @@ class SoBindToDeviceUidPolicyEligibilityTest {
 
         assertFalse(succeeded)
         assertEquals(socket, closedSocket)
+    }
+
+    @Test
+    fun `capability probe closes its socket exactly once after a successful bind`() {
+        val socket = FileDescriptor()
+        var closeCalls = 0
+
+        val succeeded =
+            probeUnprivilegedBindToDevice(
+                openSocket = { socket },
+                bindSocket = {},
+                closeSocket = { closeCalls += 1 },
+            )
+
+        assertTrue(succeeded)
+        assertEquals(1, closeCalls)
+    }
+
+    @Test
+    fun `capability probe rejects a successful bind when closing fails`() {
+        val socket = FileDescriptor()
+
+        val succeeded =
+            probeUnprivilegedBindToDevice(
+                openSocket = { socket },
+                bindSocket = {},
+                closeSocket = { throw IllegalStateException("close failed") },
+            )
+
+        assertFalse(succeeded)
     }
 
     @Test

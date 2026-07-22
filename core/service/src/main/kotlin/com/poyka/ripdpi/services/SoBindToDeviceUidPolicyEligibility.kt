@@ -98,11 +98,9 @@ internal fun probeUnprivilegedBindToDevice(
     closeSocket: (FileDescriptor) -> Unit,
 ): Boolean {
     val socket = runCatching(openSocket).getOrNull() ?: return false
-    return try {
-        runCatching { bindSocket(socket) }.isSuccess
-    } finally {
-        runCatching { closeSocket(socket) }
-    }
+    val bindSucceeded = runCatching { bindSocket(socket) }.isSuccess
+    val closeSucceeded = runCatching { closeSocket(socket) }.isSuccess
+    return bindSucceeded && closeSucceeded
 }
 
 private val setsockoptIfreqMethod by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
