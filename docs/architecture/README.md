@@ -27,7 +27,7 @@ Cross-boundary contract docs:
 
 ## Ownership Boundaries
 
-**Config contract:** Kotlin is authoritative for user-facing strategy models, defaults, validation, and JSON serialization. Rust consumes the JSON produced by Kotlin. Owners: `StrategyChains.kt` and `RipDpiProxyJsonCodec.kt`.
+**Config contract:** Kotlin is authoritative for user-facing strategy models, defaults, validation, and JSON serialization. Rust consumes the JSON produced by Kotlin. Owners: the `StrategyChain*.kt` files in `core/data/model` and `RipDpiProxyJsonCodec.kt`.
 
 **Diagnosis classification:** Rust produces the final blocking verdict because packet, TLS, DNS, and timing evidence is collected in the native monitor. Kotlin maps the result to UI and persistence without re-classifying. Owner: `native/rust/crates/ripdpi-diagnostics-classification/src/classification/diagnosis.rs`.
 

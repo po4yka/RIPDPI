@@ -121,6 +121,8 @@ Screen rules:
 - Forms and settings screens use `RipDpiSettingsScaffold` or `RipDpiContentScreenScaffold` with form-width constraints.
 - Dashboard and home screens use `RipDpiDashboardScaffold`; expanded layouts split primary and secondary sections instead of stretching one long column.
 - Intro and auth flows use `RipDpiIntroScaffold`; large font scale must remain unclipped.
+- Home mode summary facets use aligned label/value rows at the default font scale and stack each label above its value at `1.3x` and above. Home mode action pairs likewise stack vertically at accessibility font scales instead of weakening the shared one-line button contract.
+- Connection-actuator endpoint labels are measured before layout. When compact accessibility layouts cannot keep both labels clear of the carriage, the redundant endpoint text is hidden while the route label, status text, lock icon, and switch semantics preserve the connection meaning.
 
 ## Theme Variants
 
@@ -152,7 +154,8 @@ Home:
 
 - Use `RipDpiDashboardScaffold`.
 - Keep warning, permission, and degradation guidance above the mode cards so recovery information precedes mode selection.
-- Use three `HomeModeCard` entries as the primary dashboard contract: local path optimization, remote tunneled outbound, and network diagnostic. Each card owns its own title, summary, status, primary action, and configuration affordance.
+- Inside the default-collapsed `Modes & diagnostics` disclosure, use three `HomeModeCard` entries: local path optimization, remote tunneled outbound, and network diagnostic. Each card owns its own title, summary, status, primary action, and configuration affordance.
+- Keep the `Modes & diagnostics` disclosure collapsed by default. Its stable automation ID belongs to the clickable header; collapsed/expanded IDs are state markers only and must not replace the stable action selector.
 - Do not reintroduce the legacy `HomeStatusCard`, `HomeDiagnosticsCard`, or `HomeStatsGrid` layout; current Home tests intentionally require the mode-card dashboard without those tags.
 - Keep diagnostic detail in the Home bottom sheets or the Diagnostics screen. The Home surface may expose the PCAP toggle after the diagnostic card, but it should not recreate the old diagnostics card stack.
 

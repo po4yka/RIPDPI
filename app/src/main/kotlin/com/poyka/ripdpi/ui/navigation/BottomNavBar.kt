@@ -4,7 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,11 +30,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -40,6 +51,10 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val CompactBottomNavFontScale = 1.5f
+private const val MaximumBottomNavFontScale = 1.8f
+private val AccessibilityBottomBarExtraHeight = 16.dp
 
 @Suppress("LongMethod")
 @Composable
@@ -57,6 +72,12 @@ fun BottomNavBar(
         RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator)
     val destinations = Route.topLevel
     val selectedIndex = destinations.indexOfFirst { it == selectedRoute }.takeIf { it >= 0 }
+    val fontScale = LocalDensity.current.fontScale
+    val layoutDirection = LocalLayoutDirection.current
+    val useCompactLabels = fontScale >= CompactBottomNavFontScale
+    val useMaximumLabels = fontScale >= MaximumBottomNavFontScale
+    val bottomBarHeight =
+        layout.bottomBarHeight + if (useCompactLabels) AccessibilityBottomBarExtraHeight else 0.dp
 
     Column(
         modifier =
@@ -79,7 +100,8 @@ fun BottomNavBar(
                         .fillMaxWidth()
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
-                        ).height(layout.bottomBarHeight)
+                        ).height(bottomBarHeight)
+                        .ripDpiTestTag(RipDpiTestTags.BottomNavBar)
                         .padding(horizontal = components.navigation.bottomNavHorizontalPadding),
             ) {
                 val density = LocalDensity.current
@@ -123,11 +145,14 @@ fun BottomNavBar(
                                     width = components.navigation.bottomNavIndicatorWidth,
                                     height = components.navigation.bottomNavIndicatorHeight,
                                 ).graphicsLayer {
-                                    translationX = indicatorOffsetPx
+                                    translationX =
+                                        indicatorOffsetPx *
+                                        if (layoutDirection == LayoutDirection.Ltr) 1f else -1f
                                     translationY = indicatorTopOffsetPx
                                     alpha = indicatorAlpha
                                     scaleX = indicatorScaleX
-                                }.background(
+                                }.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
+                                .background(
                                     color = indicatorSurface.container,
                                     shape = RipDpiThemeTokens.shapes.xxl,
                                 ),
@@ -138,8 +163,23 @@ fun BottomNavBar(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         destinations.forEach { destination ->
+                            val fullLabel = stringResource(destination.titleRes)
                             BottomNavItem(
                                 destination = destination,
+                                label =
+                                    stringResource(
+                                        if (useCompactLabels) {
+                                            if (useMaximumLabels) {
+                                                destination.maximumBottomNavTitleRes()
+                                            } else {
+                                                destination.compactBottomNavTitleRes()
+                                            }
+                                        } else {
+                                            destination.titleRes
+                                        },
+                                    ),
+                                accessibilityLabel = fullLabel,
+                                compact = useCompactLabels,
                                 selected = destination == selectedRoute,
                                 onClick = { onNavigate(destination) },
                             )
@@ -154,12 +194,16 @@ fun BottomNavBar(
 @Composable
 private fun RowScope.BottomNavItem(
     destination: Route,
+    label: String,
+    accessibilityLabel: String,
+    compact: Boolean,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
+    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val iconTint by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
@@ -178,6 +222,7 @@ private fun RowScope.BottomNavItem(
     )
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val focusBorderColor = rememberBottomNavFocusBorderColor(interactionSource)
     val contentAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.6f else 1f,
         animationSpec = motion.quickTween(),
@@ -189,6 +234,7 @@ private fun RowScope.BottomNavItem(
             Modifier
                 .fillMaxHeight()
                 .weight(1f)
+                .border(RipDpiStroke.Thick, focusBorderColor, RipDpiThemeTokens.shapes.md)
                 .ripDpiTestTag(RipDpiTestTags.bottomNav(destination))
                 .graphicsLayer {
                     scaleX = selectionScale
@@ -200,7 +246,9 @@ private fun RowScope.BottomNavItem(
                     interactionSource = interactionSource,
                     showIndication = false,
                     onClick = onClick,
-                ),
+                ).clearAndSetSemantics {
+                    contentDescription = accessibilityLabel
+                },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -215,18 +263,56 @@ private fun RowScope.BottomNavItem(
         ) {
             Icon(
                 imageVector = requireNotNull(destination.icon),
-                contentDescription = stringResource(destination.titleRes),
+                contentDescription = null,
                 tint = iconTint,
                 modifier = Modifier.size(RipDpiIconSizes.Default),
             )
         }
         Text(
-            text = stringResource(destination.titleRes),
-            style = type.navLabel,
+            text = label,
+            style = if (compact) type.caption else type.navLabel,
             color = labelColor,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.xs),
         )
     }
 }
+
+@Composable
+private fun rememberBottomNavFocusBorderColor(interactionSource: MutableInteractionSource): Color {
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val focusBorderColor by animateColorAsState(
+        targetValue = bottomNavFocusBorderColor(isFocused, RipDpiThemeTokens.colors.outline),
+        animationSpec = RipDpiThemeTokens.motion.quickTween(),
+        label = "bottomNavFocusBorder",
+    )
+    return focusBorderColor
+}
+
+internal fun bottomNavFocusBorderColor(
+    isFocused: Boolean,
+    outlineColor: Color,
+): Color = if (isFocused) outlineColor else Color.Transparent
+
+private fun Route.compactBottomNavTitleRes(): Int =
+    when (this) {
+        Route.Home -> R.string.bottom_nav_home_compact
+        Route.Config -> R.string.bottom_nav_config_compact
+        Route.Settings -> R.string.bottom_nav_settings_compact
+        is Route.Diagnostics -> R.string.bottom_nav_diagnostics_compact
+        else -> titleRes
+    }
+
+private fun Route.maximumBottomNavTitleRes(): Int =
+    when (this) {
+        Route.Home -> R.string.bottom_nav_home_maximum
+        Route.Config -> R.string.bottom_nav_config_maximum
+        Route.Settings -> R.string.bottom_nav_settings_maximum
+        is Route.Diagnostics -> R.string.bottom_nav_diagnostics_maximum
+        else -> titleRes
+    }
 
 @Preview(showBackground = true)
 @Composable

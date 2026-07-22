@@ -61,7 +61,12 @@ import org.robolectric.annotation.GraphicsMode
 class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun homeExpandedScreen() {
-        captureRipDpiScreenshot(widthDp = 1040, heightDp = 920) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeExpandedScreen",
+            testClassFqn = FQN,
+            widthDp = 1040,
+            heightDp = 920,
+        ) {
             RipDpiHomeExpandedPreviewScene()
         }
     }
@@ -92,6 +97,46 @@ class RipDpiScreenCatalogScreenshotTest {
                 currentPage = OnboardingInfoPageCount,
                 selectedMode = Mode.VPN,
             ),
+        )
+    }
+
+    @Test
+    fun onboardingIntroMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = 0),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
+        )
+    }
+
+    @Test
+    fun onboardingPersonaMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
+        )
+    }
+
+    @Test
+    fun onboardingModeMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount + 1),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
+        )
+    }
+
+    @Test
+    fun onboardingValidationMaximumFontScreen() {
+        captureOnboardingScreen(
+            uiState = OnboardingUiState(currentPage = OnboardingPages.lastIndex),
+            widthDp = 411,
+            heightDp = 891,
+            fontScale = 2f,
         )
     }
 
@@ -154,14 +199,24 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeCompactScreen() {
-        captureRipDpiScreenshot(widthDp = 390, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeCompactScreen",
+            testClassFqn = FQN,
+            widthDp = 390,
+            heightDp = 800,
+        ) {
             RipDpiHomeCompactPreviewScene()
         }
     }
 
     @Test
     fun homeDarkScreen() {
-        captureRipDpiScreenshot(widthDp = 720, heightDp = 920) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeDarkScreen",
+            testClassFqn = FQN,
+            widthDp = 720,
+            heightDp = 920,
+        ) {
             RipDpiHomeDarkPreviewScene()
         }
     }
@@ -192,6 +247,24 @@ class RipDpiScreenCatalogScreenshotTest {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
             RipDpiTheme {
                 ConnectionHealthScreen(uiState = previewConnectionHealthUiState(), onBack = {})
+            }
+        }
+    }
+
+    @Test
+    fun connectionHealthMaximumFontScreen() {
+        val previewState = previewConnectionHealthUiState()
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 891, fontScale = 2f) {
+            RipDpiTheme {
+                ConnectionHealthScreen(
+                    uiState =
+                        previewState.copy(
+                            rows = persistentListOf(previewState.rows.first()),
+                            latencyDistributions = persistentListOf(),
+                            dnsCounters = null,
+                        ),
+                    onBack = {},
+                )
             }
         }
     }
@@ -243,21 +316,36 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeDisconnectedScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeDisconnectedScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeDisconnectedPreviewScene()
         }
     }
 
     @Test
     fun homeConnectingScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeConnectingScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeConnectingPreviewScene()
         }
     }
 
     @Test
     fun homeErrorScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeErrorScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeErrorPreviewScene()
         }
     }
@@ -299,6 +387,7 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun aboutScreen() {
+        assumeFullExperienceScreenshot()
         captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
             RipDpiAboutPreviewScene()
         }
@@ -400,14 +489,25 @@ class RipDpiScreenCatalogScreenshotTest {
 
     @Test
     fun homeHighContrastScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeHighContrastScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 800,
+        ) {
             RipDpiHomeHighContrastPreviewScene()
         }
     }
 
     @Test
     fun homeLargeFontScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 900, fontScale = 1.5f) {
+        captureExperienceRipDpiScreenshot(
+            name = "homeLargeFontScreen",
+            testClassFqn = FQN,
+            widthDp = 420,
+            heightDp = 900,
+            fontScale = 1.5f,
+        ) {
             RipDpiHomeCompactPreviewScene()
         }
     }
@@ -416,6 +516,20 @@ class RipDpiScreenCatalogScreenshotTest {
     fun settingsLargeFontScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 1200, fontScale = 1.5f) {
             RipDpiSettingsMediumPreviewScene()
+        }
+    }
+
+    @Test
+    fun settingsMaximumFontScreen() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 1600, fontScale = 2f) {
+            RipDpiSettingsMediumPreviewScene()
+        }
+    }
+
+    @Test
+    fun diagnosticsMaximumFontScreen() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 1600, fontScale = 2f) {
+            RipDpiDiagnosticsScanPreviewScene()
         }
     }
 
@@ -462,11 +576,17 @@ class RipDpiScreenCatalogScreenshotTest {
 
     private fun captureOnboardingScreen(
         uiState: OnboardingUiState,
+        widthDp: Int = 420,
         heightDp: Int = 900,
+        fontScale: Float = 1f,
     ) {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = heightDp) {
+        captureRipDpiScreenshot(widthDp = widthDp, heightDp = heightDp, fontScale = fontScale) {
             OnboardingScreenPreviewScene(uiState)
         }
+    }
+
+    private companion object {
+        const val FQN = "com.poyka.ripdpi.ui.screenshot.RipDpiScreenCatalogScreenshotTest"
     }
 }
 

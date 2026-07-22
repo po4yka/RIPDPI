@@ -190,29 +190,29 @@ private fun rememberBackupExportController(
     val biometricAuthManager = remember { BiometricAuthManager() }
 
     var showVariantPicker by rememberSaveable { mutableStateOf(false) }
-    // The variant chosen in the picker, carried across the SAF document-create round-trip.
-    var pendingVariant by rememberSaveable { mutableStateOf<BackupVariant?>(null) }
-    var pendingPassphrase by remember { mutableStateOf<String?>(null) }
-    var showPassphraseDialog by remember { mutableStateOf(false) }
+    var showPassphraseDialog by rememberSaveable { mutableStateOf(false) }
     // The Uri written by the last successful export, used for the SHARE follow-up.
     var lastWrittenUri by remember { mutableStateOf<Uri?>(null) }
 
     val onDocumentCreated: (Uri?) -> Unit = { uri ->
-        val variant = pendingVariant
-        if (uri == null || variant == null) {
-            pendingPassphrase = null
-            pendingVariant = null
+        val pending = viewModel.pendingExport.consume()
+        if (uri == null) {
+            pending?.close()
+        } else if (pending == null) {
+            // The picker result outlived its in-memory request (for example process death).
+            // Fail closed and remove the empty SAF document instead of exporting without a secret.
+            deletePartialDocument(context, uri)
         } else {
             lastWrittenUri = uri
-            viewModel.export(
-                variant = variant,
-                openOutput = { context.contentResolver.openOutputStream(uri, "wt") },
-                // Delete the partial document so a half-written backup is never left behind.
-                onWriteFailed = { deletePartialDocument(context, uri) },
-                passphrase = pendingPassphrase?.toCharArray(),
-            )
-            pendingPassphrase = null
-            pendingVariant = null
+            pending.use { request ->
+                viewModel.export(
+                    variant = request.variant,
+                    openOutput = { context.contentResolver.openOutputStream(uri, "wt") },
+                    // Delete the partial document so a half-written backup is never left behind.
+                    onWriteFailed = { deletePartialDocument(context, uri) },
+                    passphrase = request.passphrase,
+                )
+            }
         }
     }
 
@@ -225,10 +225,15 @@ private fun rememberBackupExportController(
         )
 
     val launchPicker: (BackupVariant) -> Unit = { variant ->
-        pendingVariant = variant
         when (variant) {
-            BackupVariant.SHARE -> createShareDocumentLauncher.launch(defaultBackupFilename())
-            BackupVariant.FULL -> createEncryptedDocumentLauncher.launch(defaultEncryptedBackupFilename())
+            BackupVariant.SHARE -> {
+                viewModel.pendingExport.stage(BackupVariant.SHARE)
+                createShareDocumentLauncher.launch(defaultBackupFilename())
+            }
+
+            BackupVariant.FULL -> {
+                createEncryptedDocumentLauncher.launch(defaultEncryptedBackupFilename())
+            }
         }
     }
 
@@ -255,9 +260,12 @@ private fun rememberBackupExportController(
         showPassphraseDialog = showPassphraseDialog,
         onVariantPickerDismiss = { showVariantPicker = false },
         onVariantChosen = onVariantChosen,
-        onPassphraseDismiss = { showPassphraseDialog = false },
+        onPassphraseDismiss = {
+            showPassphraseDialog = false
+            viewModel.pendingExport.clear()
+        },
         onPassphraseConfirmed = { confirmedPassphrase ->
-            pendingPassphrase = confirmedPassphrase
+            viewModel.pendingExport.stage(BackupVariant.FULL, confirmedPassphrase.toCharArray())
             showPassphraseDialog = false
             launchPicker(BackupVariant.FULL)
         },

@@ -13,6 +13,9 @@ import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
 import com.poyka.ripdpi.data.xray.XrayProviderProbeReport
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -53,6 +56,7 @@ internal class XrayProviderSessionController(
     private val bridgeIsAlive: () -> Boolean,
     private val renderedConfigSink: (String?) -> Unit,
     private val lastProtectFailureDetail: () -> String?,
+    private val recoverPendingProfileMutations: suspend () -> Unit = {},
     /**
      * Process-wide probe seam the `:app` Diagnostics surface triggers through.
      * The controller registers [runProbes] here on a successful Xray start and
@@ -84,7 +88,10 @@ internal class XrayProviderSessionController(
      * composition coordinator calls this BEFORE starting so it can keep the
      * native path untouched when Native is selected.
      */
-    suspend fun isXraySelected(): Boolean = selectionStore.current().kind == VpnProviderKind.Xray
+    suspend fun isXraySelected(): Boolean {
+        recoverPendingProfileMutations()
+        return selectionStore.current().kind == VpnProviderKind.Xray
+    }
 
     /**
      * Attempt to start the Xray provider for the durable selection. Returns the
@@ -94,6 +101,7 @@ internal class XrayProviderSessionController(
      * failure) and does NOT fall through to the native path.
      */
     suspend fun start(params: XrayTunnelStartParams): HandoffOutcome {
+        recoverPendingProfileMutations()
         val selection = selectionStore.current()
         if (selection.kind != VpnProviderKind.Xray) {
             return HandoffOutcome.Stopped
@@ -103,12 +111,15 @@ internal class XrayProviderSessionController(
 
     /** Restart the Xray session after a network handover (dual restart). */
     suspend fun restart(params: XrayTunnelStartParams): HandoffOutcome {
-        orchestrator.stop()
+        recoverPendingProfileMutations()
         val selection = selectionStore.current()
+        try {
+            orchestrator.stop()
+        } finally {
+            clearStoppedSessionState()
+            emitSnapshot()
+        }
         if (selection.kind != VpnProviderKind.Xray) {
-            renderedConfigSink(null)
-            startParamsHolder.current = null
-            probeCoordinator?.clear()
             return HandoffOutcome.Stopped
         }
         return bringUp(selection.activeProfileId, params)
@@ -116,14 +127,23 @@ internal class XrayProviderSessionController(
 
     /** Stop the Xray session. Idempotent. */
     suspend fun stop(): HandoffOutcome {
-        val outcome = orchestrator.stop()
-        renderedConfigSink(null)
-        startParamsHolder.current = null
-        probeCoordinator?.clear()
-        emitSnapshot()
+        val outcome =
+            try {
+                orchestrator.stop()
+            } finally {
+                clearStoppedSessionState()
+                emitSnapshot()
+            }
         return outcome
     }
 
+    private fun clearStoppedSessionState() {
+        renderedConfigSink(null)
+        startParamsHolder.current = null
+        probeCoordinator?.clear()
+    }
+
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun bringUp(
         profileId: String,
         params: XrayTunnelStartParams,
@@ -132,38 +152,55 @@ internal class XrayProviderSessionController(
         // synchronously when the orchestrator points the tunnel at the inbound.
         startParamsHolder.current = params
         val outcome =
-            when (val resolved = routeBuilder.build(profileId)) {
-                is XrayProviderRouteBuilder.Result.Resolved -> {
-                    lastFindings = emptyList()
-                    cacheProfileLabels(profileId)
-                    activeConfig = resolved.route.xrayConfig
-                    // Hand the secret-bearing config to the orchestrator's provider,
-                    // then clear it right after the start returns.
-                    renderedConfigSink(resolved.renderedConfig)
-                    val result = startOrchestrator(resolved.route)
-                    renderedConfigSink(null)
-                    if (result is HandoffOutcome.Running) {
-                        probeCoordinator?.register(::runProbes)
-                    } else {
-                        probeCoordinator?.clear()
+            try {
+                when (val resolved = routeBuilder.build(profileId)) {
+                    is XrayProviderRouteBuilder.Result.Resolved -> {
+                        lastFindings = emptyList()
+                        cacheProfileLabels(profileId)
+                        activeConfig = resolved.route.xrayConfig
+                        // Hand the secret-bearing config to the orchestrator's provider,
+                        // then clear it right after the start returns.
+                        renderedConfigSink(resolved.renderedConfig)
+                        val result =
+                            try {
+                                startOrchestrator(resolved.route)
+                            } finally {
+                                renderedConfigSink(null)
+                            }
+                        if (result is HandoffOutcome.Running) {
+                            probeCoordinator?.register(::runProbes)
+                        } else {
+                            probeCoordinator?.clear()
+                        }
+                        result
                     }
-                    result
-                }
 
-                is XrayProviderRouteBuilder.Result.Rejected -> {
-                    lastFindings = resolved.findings
-                    renderedConfigSink(null)
-                    log.e { "xray config rejected: ${resolved.findings.size} finding(s)" }
-                    HandoffOutcome.Failed("xray config rejected (${resolved.findings.size} findings)")
-                }
+                    is XrayProviderRouteBuilder.Result.Rejected -> {
+                        lastFindings = resolved.findings
+                        renderedConfigSink(null)
+                        log.e { "xray config rejected: ${resolved.findings.size} finding(s)" }
+                        HandoffOutcome.Failed("xray config rejected (${resolved.findings.size} findings)")
+                    }
 
-                XrayProviderRouteBuilder.Result.NoProfile -> {
-                    lastFindings = emptyList()
-                    renderedConfigSink(null)
-                    log.e { "xray selected but no durable profile persisted for id=$profileId" }
-                    HandoffOutcome.Failed("no xray profile persisted")
+                    XrayProviderRouteBuilder.Result.NoProfile -> {
+                        lastFindings = emptyList()
+                        renderedConfigSink(null)
+                        log.e { "xray selected but no durable profile persisted for id=$profileId" }
+                        HandoffOutcome.Failed("no xray profile persisted")
+                    }
                 }
+            } catch (cancellation: CancellationException) {
+                clearStoppedSessionState()
+                emitSnapshot()
+                throw cancellation
+            } catch (error: Exception) {
+                clearStoppedSessionState()
+                emitSnapshot()
+                throw error
             }
+        if (outcome !is HandoffOutcome.Running) {
+            clearStoppedSessionState()
+        }
         emitSnapshot()
         return outcome
     }
@@ -172,8 +209,11 @@ internal class XrayProviderSessionController(
     private suspend fun startOrchestrator(route: ProviderRoute): HandoffOutcome =
         try {
             orchestrator.start(route)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Exception) {
             // start() throws only on an already-active session; surface as failed.
+            currentCoroutineContext().ensureActive()
             HandoffOutcome.Failed("xray orchestrator start failed: ${error.message}")
         }
 

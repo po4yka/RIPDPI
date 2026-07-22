@@ -1537,7 +1537,7 @@
     <string name="asset_provider_uptodate_body">डिस्क पर मौजूद डेटाबेस नवीनतम रिलीज़ से मेल खाते हैं।</string>
     <string name="asset_provider_imported_title">एसेट आयात हुआ</string>
     <string name="asset_provider_imported_body">आयातित डेटाबेस लागू करने के लिए सेवा को पुनरारंभ करें।</string>
-    <string name="asset_provider_failed_title">अपडेट विफल</string>
+    <string name="asset_provider_failed_title">डेटा कार्रवाई विफल</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
     <string name="asset_provider_runetfreedom_desc">वास्तविक RU बायपास नियमसेट; v2ray/xray geoip/geosite टैग के लिए antizapret की तुलना में अधिक अद्यतन।</string>
     <string name="asset_provider_updated_days_ago">%1$d दिन पहले अपडेट हुआ</string>

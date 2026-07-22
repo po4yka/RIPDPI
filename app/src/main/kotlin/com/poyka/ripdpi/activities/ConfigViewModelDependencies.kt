@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -12,7 +13,7 @@ import javax.inject.Inject
 
 class ConfigViewModelDependencies
     @Inject
-    constructor(
+    internal constructor(
         val appSettingsRepository: AppSettingsRepository,
         val relayArtifacts: ConfigRelayArtifactRepository,
         val relayPresetCatalog: RelayPresetCatalog,
@@ -21,6 +22,8 @@ class ConfigViewModelDependencies
         val serviceController: ServiceController,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val capabilityObserver: ConfigCapabilityObserver,
+        val dispatchers: AppCoroutineDispatchers,
+        internal val editorDraftStore: ConfigEditorDraftStore,
     )
 
 class ConfigImportDependencies

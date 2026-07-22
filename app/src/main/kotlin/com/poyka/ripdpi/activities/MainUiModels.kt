@@ -164,10 +164,14 @@ internal fun shouldPollConnectionMetrics(connectionState: ConnectionState): Bool
 
 @Immutable
 data class MainStartupState(
-    val isReady: Boolean = false,
+    val readiness: com.poyka.ripdpi.AppStartupReadinessState =
+        com.poyka.ripdpi.AppStartupReadinessState.Pending,
     val theme: String = "system",
     val startDestination: Route = Route.Home,
-)
+) {
+    val isReady: Boolean
+        get() = readiness == com.poyka.ripdpi.AppStartupReadinessState.Ready
+}
 
 internal fun resolveStartupDestination(settings: AppSettings): Route =
     when {

@@ -86,6 +86,8 @@ pub(crate) struct TunnelConfigPayload {
     #[serde(default)]
     pub(crate) uid_policy_uids: Vec<u32>,
     #[serde(default)]
+    pub(crate) uid_policy_allow_icmp: bool,
+    #[serde(default)]
     pub(crate) log_context: Option<TunnelLogContext>,
 }
 

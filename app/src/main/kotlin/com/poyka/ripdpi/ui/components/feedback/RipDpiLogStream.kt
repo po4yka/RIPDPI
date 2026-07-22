@@ -112,7 +112,7 @@ fun RipDpiLogStream(
                 )
                 Text(
                     text = entry.tag,
-                    style = RipDpiThemeTokens.type.monoSmall.copy(color = colors.accent),
+                    style = RipDpiThemeTokens.type.monoSmall.copy(color = colors.info),
                 )
                 Text(
                     text = entry.message,

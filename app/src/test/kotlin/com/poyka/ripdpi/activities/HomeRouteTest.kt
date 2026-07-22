@@ -70,6 +70,10 @@ class HomeRouteTest {
         assertFalse(viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested)
 
         composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
+            .performScrollTo()
+            .performClick()
+        composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .performScrollTo()
             .assertIsDisplayed()

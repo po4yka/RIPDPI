@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.content.Intent
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import dagger.Binds
@@ -87,12 +88,19 @@ interface BootResumeProfileGuard {
  */
 @Singleton
 class DefaultBootResumeProfileGuard
-    @Inject
-    constructor(
+    internal constructor(
         private val proxyGroupRepository: ProxyGroupRepository,
+        private val recoverPendingProfileMutations: suspend () -> Unit,
     ) : BootResumeProfileGuard {
+        @Inject
+        constructor(
+            proxyGroupRepository: ProxyGroupRepository,
+            profileMutations: ProfileMutationCoordinator,
+        ) : this(proxyGroupRepository, profileMutations::recover)
+
         override suspend fun isResumable(profileId: String): Boolean {
             if (profileId.isBlank() || profileId == DefaultProfileId) return true
+            recoverPendingProfileMutations()
             return proxyGroupRepository.list().isNotEmpty()
         }
 

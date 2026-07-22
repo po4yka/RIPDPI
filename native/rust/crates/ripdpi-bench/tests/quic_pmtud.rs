@@ -48,6 +48,8 @@ const DROP_THRESHOLD: usize = 1300;
 /// practice); only a real stall (PMTUD broken) blows it.
 const RECOVERY_TIMEOUT: Duration = Duration::from_secs(30);
 const MASQUE_SAFE_PAYLOAD_LEN: usize = 1_000;
+const RECOVERY_PAYLOAD: &[u8] = b"post-recovery-integrity";
+const RECOVERY_PAYLOAD_SHA256: &str = "d506632fdf1d8cc95f5e4d1dec25150ffec318c5ad5b0483ea9fee3f4a584af8";
 
 /// One full-duplex round-trip: write `payload` while concurrently reading its
 /// echo into `recv`. The concurrency is load-bearing — writing the whole payload
@@ -171,9 +173,8 @@ fn masque_fixture_config(fixture: &MasqueH3ConnectUdpFixture) -> MasqueConfig {
 ///
 /// # Cancel safety
 ///
-/// Not cancel-safe: cancelling after send may leave the echo queued. Each PMTUD
-/// scenario owns one flow and only calls this helper under a bounded timeout.
-// NOT cancel-safe: cancellation after send can leave the matching echo queued.
+/// NOT cancel-safe: cancelling after send may leave the echo queued. Each PMTUD
+/// scenario owns one flow and drives it through joined fixture shutdown.
 async fn masque_echo(udp: &mut MasqueUdpRelay, target: &str, payload: &[u8]) {
     udp.send_to(target, payload).await.expect("send MASQUE H3 DATAGRAM");
     let (echo_target, echoed) = udp.recv_from().await.expect("receive MASQUE H3 DATAGRAM echo");
@@ -187,20 +188,32 @@ async fn masque_echo(udp: &mut MasqueUdpRelay, target: &str, payload: &[u8]) {
 ///
 /// # Cancel safety
 ///
-/// Not cancel-safe: the scenario deliberately observes loss across sequential
-/// sends. The outer test owns and drops the entire fixture on timeout.
-// NOT cancel-safe: the sequential loss/recovery observations form one transaction.
-async fn run_masque_h3_black_hole(socket: std::sync::Arc<MtuDropSocket>, threshold: quic_mtu_test_util::MtuThreshold) {
-    let fixture = MasqueH3ConnectUdpFixture::start_with_socket(socket.clone()).expect("start H3 PMTUD fixture");
+/// NOT cancel-safe: sequential loss/recovery observations, evidence emission,
+/// and joined fixture shutdown form one transaction.
+async fn run_masque_h3_black_hole(
+    socket: std::sync::Arc<MtuDropSocket>,
+    threshold: quic_mtu_test_util::MtuThreshold,
+    case_id: &str,
+    target_family: &str,
+) {
+    let fixture = if target_family == "ipv6" {
+        MasqueH3ConnectUdpFixture::start_with_socket_ipv6_target(socket.clone())
+    } else {
+        MasqueH3ConnectUdpFixture::start_with_socket(socket.clone())
+    }
+    .expect("start H3 PMTUD fixture");
     let client = MasqueClient::new(masque_fixture_config(&fixture)).expect("MASQUE client");
-    let target = fixture.udp_target();
+    let target = fixture.udp_target().to_string();
+    assert_eq!(target.parse::<std::net::SocketAddr>().expect("fixture target").is_ipv6(), target_family == "ipv6");
     let mut udp = client.udp_session();
     let safe_payload = vec![0x39; MASQUE_SAFE_PAYLOAD_LEN];
 
     let discovery_deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let mut pre_mtu = None;
     loop {
-        masque_echo(&mut udp, target, &safe_payload).await;
-        let snapshot = udp.quic_path_snapshot(target).expect("H3 QUIC path snapshot");
+        masque_echo(&mut udp, &target, &safe_payload).await;
+        let snapshot = udp.quic_path_snapshot(&target).expect("H3 QUIC path snapshot");
+        pre_mtu.get_or_insert(snapshot.current_mtu);
         if snapshot.current_mtu >= 1_400 {
             break;
         }
@@ -208,21 +221,24 @@ async fn run_masque_h3_black_hole(socket: std::sync::Arc<MtuDropSocket>, thresho
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 
-    let before = udp.quic_path_snapshot(target).expect("pre-cliff path snapshot");
+    let before = udp.quic_path_snapshot(&target).expect("pre-cliff path snapshot");
+    let pre_mtu = pre_mtu.expect("initial path MTU observation");
+    assert!(pre_mtu >= 1_200 && pre_mtu <= before.current_mtu);
+    assert!(before.current_mtu >= 1_400);
     let max_datagram = before.max_datagram_size.expect("negotiated H3 DATAGRAM size");
     let lossy_payload = vec![0xD7; max_datagram.saturating_sub(2)];
     threshold.set(DROP_THRESHOLD);
 
     let recovery_deadline = tokio::time::Instant::now() + RECOVERY_TIMEOUT;
     let recovered = loop {
-        match udp.send_to(target, &lossy_payload).await {
+        match udp.send_to(&target, &lossy_payload).await {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {}
             Err(error) => panic!("unexpected MASQUE loss injection error: {error}"),
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
-        masque_echo(&mut udp, target, &safe_payload).await;
-        let snapshot = udp.quic_path_snapshot(target).expect("post-cliff path snapshot");
+        masque_echo(&mut udp, &target, &safe_payload).await;
+        let snapshot = udp.quic_path_snapshot(&target).expect("post-cliff path snapshot");
         if snapshot.black_holes_detected > before.black_holes_detected && snapshot.current_mtu <= DROP_THRESHOLD as u16
         {
             break snapshot;
@@ -237,28 +253,54 @@ async fn run_masque_h3_black_hole(socket: std::sync::Arc<MtuDropSocket>, thresho
         "PLPMTUD loss telemetry must remain monotonic",
     );
     let evidence = socket.evidence();
-    assert!(evidence.dropped_rx + evidence.dropped_tx > 0, "fault injector must record redacted drop evidence");
+    let oversized_drop_delta = evidence.dropped_rx + evidence.dropped_tx;
+    let black_hole_delta = recovered.black_holes_detected - before.black_holes_detected;
+    assert!(oversized_drop_delta > 0, "fault injector must record redacted drop evidence");
+    assert!(black_hole_delta > 0, "black-hole telemetry must increase");
     assert!(
         evidence.max_dropped_rx_len.max(evidence.max_dropped_tx_len) > DROP_THRESHOLD,
         "drop evidence must cross the configured cliff",
     );
-    masque_echo(&mut udp, target, b"post-recovery-integrity").await;
+    masque_echo(&mut udp, &target, RECOVERY_PAYLOAD).await;
+    assert!(fixture.echoed_datagram_count() > 0, "fixture target path must echo datagrams");
+    let observed = fixture.observed_requests();
+    assert_eq!(observed.len(), 1);
+    assert!(observed[0].accepted, "CONNECT-UDP target must match the fixture echo target");
+    println!(
+        "PMTUD_MEASUREMENT {}",
+        serde_json::json!({
+            "blackHoleDelta": black_hole_delta,
+            "caseId": case_id,
+            "highMtu": before.current_mtu,
+            "integrity": true,
+            "oversizedDropDelta": oversized_drop_delta,
+            "payloadLength": RECOVERY_PAYLOAD.len(),
+            "payloadSha256": RECOVERY_PAYLOAD_SHA256,
+            "postCliffMtu": recovered.current_mtu,
+            "preMtu": pre_mtu,
+            "targetFamily": target_family,
+            "version": "pmtud_measurement_v1",
+        })
+    );
+    drop(udp);
+    drop(client);
+    fixture.shutdown().await;
 }
 
+/// # Cancel safety
+///
+/// NOT cancel-safe: recovery evidence and joined fixture cleanup must complete.
 #[tokio::test(flavor = "multi_thread")]
-// NOT cancel-safe: the timeout owns and drops the whole fixture/flow transaction.
 async fn masque_h3_recovers_from_mid_connection_mtu_black_hole_ipv4() {
     let (socket, threshold, _address) = MtuDropSocket::bind_localhost().expect("bind IPv4 MTU-drop socket");
-    tokio::time::timeout(RECOVERY_TIMEOUT + Duration::from_secs(15), run_masque_h3_black_hole(socket, threshold))
-        .await
-        .expect("MASQUE IPv4 PMTUD scenario timeout");
+    run_masque_h3_black_hole(socket, threshold, "masque_h3_black_hole_recovery_ipv4", "ipv4").await;
 }
 
+/// # Cancel safety
+///
+/// NOT cancel-safe: recovery evidence and joined fixture cleanup must complete.
 #[tokio::test(flavor = "multi_thread")]
-// NOT cancel-safe: the timeout owns and drops the whole fixture/flow transaction.
 async fn masque_h3_recovers_from_mid_connection_mtu_black_hole_ipv6() {
     let (socket, threshold, _address) = MtuDropSocket::bind_localhost_v6().expect("bind IPv6 MTU-drop socket");
-    tokio::time::timeout(RECOVERY_TIMEOUT + Duration::from_secs(15), run_masque_h3_black_hole(socket, threshold))
-        .await
-        .expect("MASQUE IPv6 PMTUD scenario timeout");
+    run_masque_h3_black_hole(socket, threshold, "masque_h3_black_hole_recovery_ipv6_target", "ipv6").await;
 }

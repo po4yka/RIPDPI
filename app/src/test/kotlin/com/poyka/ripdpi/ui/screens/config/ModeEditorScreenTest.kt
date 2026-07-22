@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -59,6 +60,54 @@ import org.robolectric.annotation.GraphicsMode
 class ModeEditorScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun loadingHydrationHidesEditableContentAndActions() {
+        setScreen(isEditorLoading = true)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorLoading).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorProxyIp).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorCancel).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorSave).assertDoesNotExist()
+    }
+
+    @Test
+    fun savingDisablesAllExitActionsAndRepeatedSave() {
+        setScreen(isEditorSaving = true)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorSave).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorCancel).assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("Navigate back").assertIsNotEnabled()
+    }
+
+    @Test
+    fun recoveryPersistenceFailureStaysVisibleWhileAutomaticRetryRuns() {
+        setScreen(hasEditorRecoveryPersistenceError = true)
+
+        composeRule.onNodeWithText("Draft not saved").assertExists()
+        composeRule
+            .onNodeWithText(
+                "RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.",
+            ).assertExists()
+    }
+
+    @Test
+    fun explicitCancelUsesDedicatedDiscardAction() {
+        var backCalls = 0
+        var cancelCalls = 0
+        setScreen(
+            actions =
+                NoOpModeEditorActions.copy(
+                    onBack = { backCalls += 1 },
+                    onCancel = { cancelCalls += 1 },
+                ),
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorCancel).performClick()
+
+        assertEquals(0, backCalls)
+        assertEquals(1, cancelCalls)
+    }
 
     @Test
     fun advancedFieldsAreCollapsedByDefault() {
@@ -280,8 +329,12 @@ class ModeEditorScreenTest {
     private fun setScreen(
         initialDraft: ConfigDraft = defaultDraft(),
         stateful: Boolean = false,
+        isEditorLoading: Boolean = false,
+        isEditorSaving: Boolean = false,
+        hasEditorRecoveryPersistenceError: Boolean = false,
         relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
         onStatefulDraftChanged: (ConfigDraft) -> Unit = {},
+        actions: ModeEditorActions = NoOpModeEditorActions,
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -300,11 +353,14 @@ class ModeEditorScreenTest {
                                 ),
                             draft = screenDraft,
                             relayPresets = relayPresets,
+                            isEditorLoading = isEditorLoading,
+                            isEditorSaving = isEditorSaving,
+                            hasEditorRecoveryPersistenceError = hasEditorRecoveryPersistenceError,
                         ),
                     snackbarHostState = SnackbarHostState(),
                     actions =
                         if (stateful) {
-                            NoOpModeEditorActions.copy(
+                            actions.copy(
                                 onChainDslChanged = {
                                     val updatedDraft = draft.withChainDsl(it)
                                     draft = updatedDraft
@@ -317,7 +373,7 @@ class ModeEditorScreenTest {
                                 },
                             )
                         } else {
-                            NoOpModeEditorActions
+                            actions
                         },
                 )
             }

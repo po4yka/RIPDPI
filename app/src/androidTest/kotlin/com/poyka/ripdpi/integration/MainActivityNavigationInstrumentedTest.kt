@@ -4,15 +4,20 @@ import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import com.poyka.ripdpi.BuildConfig
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
+import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
 import com.poyka.ripdpi.core.RipDpiProxyFactory
@@ -28,9 +33,11 @@ import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
@@ -89,6 +96,9 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
@@ -424,6 +434,78 @@ class MainActivityNavigationInstrumentedTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles))
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel() {
+        assumeTrue("githubSimple only", BuildConfig.APP_EXPERIENCE == "simple")
+        val runs = diagnosticsHomeCompositeRunService as StubInstrumentedDiagnosticsHomeCompositeRunService
+        val shares = diagnosticsShareService as StubInstrumentedDiagnosticsShareService
+        val host = mainActivityHost as RecordingMainActivityHost
+        val runAction = RipDpiTestTags.HomeDiagnosticsRunAnalysis
+
+        composeRule.waitForTag(runAction)
+        composeRule.onNodeWithTag(runAction).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 1 }
+        val cancelLabel = composeRule.activity.getString(R.string.diagnostics_action_cancel)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule
+                .onAllNodes(hasTestTag(runAction).and(hasText(cancelLabel)))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+
+        val cancelledRunId = runs.startedRunIds.single()
+        composeRule.onNodeWithTag(runAction).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runs.cancelledRunIds == listOf(cancelledRunId)
+        }
+        val runLabelId =
+            composeRule.activity.resources.getIdentifier(
+                "simple_run_report",
+                "string",
+                composeRule.activity.packageName,
+            )
+        assertTrue("simple_run_report resource is missing", runLabelId != 0)
+        val runLabel = composeRule.activity.getString(runLabelId)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule
+                .onAllNodes(hasTestTag(runAction).and(hasText(runLabel)))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag(runAction).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 2 }
+        val completedRunId = runs.startedRunIds.last()
+        runs.completeRun(
+            DiagnosticsHomeCompositeOutcome(
+                runId = completedRunId,
+                actionable = false,
+                headline = "Network analysis complete",
+                summary = "Report ready",
+                bundleSessionIds = listOf("session-1"),
+            ),
+        )
+
+        composeRule.waitForTag(RipDpiTestTags.HomeDiagnosticsShareAction)
+        composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
+        composeRule.onNodeWithText("Report ready").assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) { shares.archiveRequests.size == 1 }
+
+        val request = shares.archiveRequests.single()
+        assertEquals(completedRunId, request.homeRunId)
+        assertEquals(listOf("session-1"), request.sessionIds)
+        assertEquals(DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS, request.reason)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            host.commands.contains(
+                MainActivityHostCommand.ShareDiagnosticsArchive(
+                    filePath = "/tmp/home.zip",
+                    fileName = "home.zip",
+                ),
+            )
+        }
     }
 }
 

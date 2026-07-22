@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -14,11 +15,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -54,9 +56,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
@@ -69,6 +78,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStageRole
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStageStyle
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStateRole
+import com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -82,6 +92,8 @@ private const val WarningStagePulseAlpha = 0.82f
 private const val StripeStepPx = 10f
 private const val StripeStrokePx = 2f
 private const val CarriageGripCount = 4
+private const val EndpointLabelHorizontalGapCount = 4
+private const val AccessibilityLayoutFontScale = 1.5f
 
 @Composable
 fun RipDpiConnectionActuator(
@@ -92,13 +104,8 @@ fun RipDpiConnectionActuator(
     testTag: String? = null,
 ) {
     val motion = RipDpiThemeTokens.motion
-    val metrics = RipDpiThemeTokens.components.actuator
-    val density = LocalDensity.current
     val performHaptic = rememberRipDpiHapticPerformer()
-    val stateStyle =
-        RipDpiThemeTokens.state.actuator.resolve(
-            role = state.status.toThemeRole(),
-        )
+    val stateStyle = actuatorStateStyle(state)
     val railColor = animateColorAsState(stateStyle.rail, motion.stateTween(), label = "actuatorRail")
     val carriageColor = animateColorAsState(stateStyle.carriage, motion.stateTween(), label = "actuatorCarriage")
     val terminalColor = animateColorAsState(stateStyle.terminal, motion.stateTween(), label = "actuatorTerminal")
@@ -108,6 +115,7 @@ fun RipDpiConnectionActuator(
             animationSpec = motion.stateTween(),
             label = "actuatorCarriageFraction",
         )
+    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityLayoutFontScale
     val interactionModifier =
         rememberActuatorInteractionModifier(
             state = state,
@@ -117,45 +125,202 @@ fun RipDpiConnectionActuator(
         )
 
     Column(
-        modifier =
-            modifier
-                .ripDpiTestTag(testTag)
-                .then(interactionModifier.modifier),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        BoxWithConstraints(
+        Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(metrics.height)
-                    .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
+                    .then(interactionModifier.modifier)
+                    .ripDpiTestTag(testTag),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         ) {
-            val carriageWidthPx = with(density) { metrics.carriageWidth.toPx() }
-            val travelPx = (constraints.maxWidth - carriageWidthPx).coerceAtLeast(0f)
-
-            ActuatorRail(
-                modifier = Modifier.align(Alignment.Center),
+            ActuatorStateAction(
                 state = state,
-                railColor = railColor,
-                terminalColor = terminalColor,
                 stateStyle = stateStyle,
             )
-            ActuatorCarriage(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .offset {
-                            val dragFraction =
-                                if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
-                            val effectiveFraction = (baseFraction.value + dragFraction).coerceIn(0f, 1f)
-                            IntOffset(x = (effectiveFraction * travelPx).roundToInt(), y = 0)
-                        },
-                state = state,
-                carriageColor = carriageColor,
-                carriageContentColor = stateStyle.carriageContent,
+            if (!useAccessibilityLayout) {
+                ActuatorRailLayout(
+                    state = state,
+                    stateStyle = stateStyle,
+                    railColor = railColor,
+                    terminalColor = terminalColor,
+                    carriageColor = carriageColor,
+                    baseFraction = baseFraction,
+                    interactionModifier = interactionModifier,
+                )
+            }
+        }
+        if (state.status.showsPipeline) {
+            ActuatorPipeline(
+                stages = state.stages,
+                useAccessibilityLayout = useAccessibilityLayout,
             )
         }
-        ActuatorPipeline(stages = state.stages)
+    }
+}
+
+@Composable
+private fun ActuatorRailLayout(
+    state: HomeConnectionActuatorUiState,
+    stateStyle: RipDpiActuatorStateStyle,
+    railColor: State<Color>,
+    terminalColor: State<Color>,
+    carriageColor: State<Color>,
+    baseFraction: State<Float>,
+    interactionModifier: ActuatorInteractionModifier,
+) {
+    val metrics = RipDpiThemeTokens.components.actuator
+    val density = LocalDensity.current
+    BoxWithConstraints(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(metrics.height)
+                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRail)
+                .onSizeChanged { interactionModifier.onRailWidthChanged(it.width.toFloat()) },
+    ) {
+        val travelPx =
+            (constraints.maxWidth - with(density) { metrics.carriageWidth.toPx() }).coerceAtLeast(0f)
+        val endpointLayout =
+            rememberActuatorEndpointLayout(
+                availableWidth = maxWidth,
+                leadingLabel = state.leadingLabel,
+                trailingLabel = state.trailingLabel,
+            )
+
+        ActuatorRail(
+            modifier = Modifier.align(Alignment.Center),
+            state = state,
+            railColor = railColor,
+            terminalColor = terminalColor,
+            stateStyle = stateStyle,
+            endpointLayout = endpointLayout,
+        )
+        ActuatorCarriage(
+            modifier =
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .offset {
+                        val dragFraction =
+                            if (travelPx > 0f) interactionModifier.dragDeltaPx.value / travelPx else 0f
+                        val effectiveFraction = (baseFraction.value + dragFraction).coerceIn(0f, 1f)
+                        IntOffset(x = (effectiveFraction * travelPx).roundToInt(), y = 0)
+                    },
+            state = state,
+            carriageColor = carriageColor,
+            carriageContentColor = stateStyle.carriageContent,
+        )
+    }
+}
+
+@Composable
+private fun actuatorStateStyle(state: HomeConnectionActuatorUiState): RipDpiActuatorStateStyle =
+    RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
+
+@Composable
+private fun rememberActuatorEndpointLayout(
+    availableWidth: Dp,
+    leadingLabel: String,
+    trailingLabel: String,
+): ActuatorEndpointLayout {
+    val metrics = RipDpiThemeTokens.components.actuator
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val leadingWidth = measureTextWidth(leadingLabel, type.caption, textMeasurer, density)
+    val trailingWidth = measureTextWidth(trailingLabel, type.smallLabel, textMeasurer, density)
+    val labeledTerminalWidth =
+        maxOf(
+            metrics.terminalSlotWidth,
+            spacing.sm * 2 + RipDpiIconSizes.Small + spacing.xs + trailingWidth,
+        )
+    val requiredWidth =
+        metrics.carriageWidth +
+            leadingWidth +
+            labeledTerminalWidth +
+            spacing.md * EndpointLabelHorizontalGapCount
+    val accessibilityLabelsFit =
+        density.fontScale < EndpointLabelCollapseFontScale || availableWidth >= WideEndpointLabelWidth
+    val showLabels = accessibilityLabelsFit && availableWidth >= requiredWidth
+    return ActuatorEndpointLayout(
+        showLabels = showLabels,
+        terminalWidth = if (showLabels) labeledTerminalWidth else metrics.terminalSlotHeight,
+    )
+}
+
+private fun measureTextWidth(
+    text: String,
+    style: TextStyle,
+    textMeasurer: TextMeasurer,
+    density: Density,
+): Dp =
+    with(density) {
+        textMeasurer
+            .measure(AnnotatedString(text), style = style, maxLines = 1)
+            .size.width
+            .toDp()
+    }
+
+private data class ActuatorEndpointLayout(
+    val showLabels: Boolean,
+    val terminalWidth: Dp,
+)
+
+private const val EndpointLabelCollapseFontScale = 1.8f
+private val WideEndpointLabelWidth = 480.dp
+
+@Composable
+private fun ActuatorStateAction(
+    state: HomeConnectionActuatorUiState,
+    stateStyle: com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.compactCornerRadius)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Text(
+            text = state.statusDescription,
+            style = type.bodyEmphasisBold,
+            color = stateStyle.label,
+        )
+        Text(
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRouteLabel),
+            text = state.routeLabel,
+            style = type.smallLabel,
+            color = stateStyle.routeLabel,
+        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = RipDpiThemeTokens.components.buttons.minHeight)
+                    .clip(shape)
+                    .background(stateStyle.carriage, shape)
+                    .border(RipDpiStroke.Thin, stateStyle.carriageContent.copy(alpha = 0.38f), shape)
+                    .padding(horizontal = spacing.md, vertical = spacing.sm),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = state.status.icon(),
+                contentDescription = null,
+                modifier = Modifier.size(RipDpiIconSizes.Default),
+                tint = stateStyle.carriageContent,
+            )
+            Spacer(modifier = Modifier.width(spacing.sm))
+            Text(
+                text = state.actionLabel,
+                style = type.button,
+                color = stateStyle.carriageContent,
+            )
+        }
     }
 }
 
@@ -178,10 +343,21 @@ private fun rememberActuatorInteractionModifier(
         }
     val modifier =
         Modifier
-            .semantics {
+            .then(
+                if (dragEnabled) {
+                    Modifier.clickable(
+                        role = Role.Switch,
+                        onClick = {
+                            invokeActuatorClick(state, performHaptic, onActivate, onDeactivate)
+                        },
+                    )
+                } else {
+                    Modifier
+                },
+            ).semantics(mergeDescendants = true) {
                 role = Role.Switch
                 toggleableState = state.status.toToggleableState()
-                contentDescription = state.statusDescription
+                contentDescription = state.routeLabel
                 stateDescription = state.statusDescription
                 liveRegion = LiveRegionMode.Polite
                 if (dragEnabled) {
@@ -250,6 +426,7 @@ private fun handleActuatorDragStop(
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
 ) {
+    if (railWidthPx <= 0f) return
     val activated = state.isActivationAvailable && dragDeltaPx >= railWidthPx * ActivateDragThreshold
     val deactivated = state.isDeactivationAvailable && dragDeltaPx <= -railWidthPx * DeactivateDragThreshold
     when {
@@ -277,6 +454,7 @@ private fun ActuatorRail(
     railColor: State<Color>,
     terminalColor: State<Color>,
     stateStyle: com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle,
+    endpointLayout: ActuatorEndpointLayout,
     modifier: Modifier = Modifier,
 ) {
     val metrics = RipDpiThemeTokens.components.actuator
@@ -300,27 +478,19 @@ private fun ActuatorRail(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = state.leadingLabel,
-                style = type.caption,
-                color = stateStyle.label,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (endpointLayout.showLabels) {
+                Text(
+                    text = state.leadingLabel,
+                    style = type.caption,
+                    color = stateStyle.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
-            Text(
-                modifier =
-                    Modifier
-                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRouteLabel)
-                        .padding(horizontal = spacing.md),
-                text = state.routeLabel,
-                style = type.smallLabel,
-                color = stateStyle.routeLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
             TerminalSlot(
-                label = state.trailingLabel,
+                label = state.trailingLabel.takeIf { endpointLayout.showLabels },
+                width = endpointLayout.terminalWidth,
                 container = terminalColor,
                 content = stateStyle.slotContent,
                 border = stateStyle.terminalBorder,
@@ -331,20 +501,20 @@ private fun ActuatorRail(
 
 @Composable
 private fun TerminalSlot(
-    label: String,
+    label: String?,
+    width: Dp,
     container: State<Color>,
     content: Color,
     border: Color,
 ) {
-    val metrics = RipDpiThemeTokens.components.actuator
     val type = RipDpiThemeTokens.type
     val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
-    val terminalSlotWidth = metrics.terminalSlotWidth * LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val metrics = RipDpiThemeTokens.components.actuator
 
     Row(
         modifier =
             Modifier
-                .size(width = terminalSlotWidth, height = metrics.terminalSlotHeight)
+                .size(width = width, height = metrics.terminalSlotHeight)
                 .clip(shape)
                 .drawBehind { drawRect(container.value) }
                 .border(RipDpiStroke.Thin, border, shape)
@@ -358,15 +528,17 @@ private fun TerminalSlot(
             modifier = Modifier.size(RipDpiIconSizes.Small),
             tint = content,
         )
-        Spacer(modifier = Modifier.width(RipDpiThemeTokens.spacing.xs))
-        Text(
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
-            text = label,
-            style = type.smallLabel,
-            color = content,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (label != null) {
+            Spacer(modifier = Modifier.width(RipDpiThemeTokens.spacing.xs))
+            Text(
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
+                text = label,
+                style = type.smallLabel,
+                color = content,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -410,16 +582,31 @@ private fun ActuatorCarriage(
 }
 
 @Composable
-private fun ActuatorPipeline(stages: List<HomeConnectionActuatorStageUiState>) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
-    ) {
-        stages.forEach { stage ->
-            StageSegment(
-                stage = stage,
-                modifier = Modifier.weight(1f),
-            )
+private fun ActuatorPipeline(
+    stages: List<HomeConnectionActuatorStageUiState>,
+    useAccessibilityLayout: Boolean,
+) {
+    if (useAccessibilityLayout) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            stages.forEach { stage ->
+                StageSegment(
+                    stage = stage,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    } else {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            stages.forEach { stage ->
+                StageSegment(stage = stage)
+            }
         }
     }
 }
@@ -461,7 +648,7 @@ private fun StageSegment(
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.homeConnectionStage(stage.stage.stableKey))
-                .height(metrics.pipelineHeight)
+                .heightIn(min = metrics.pipelineHeight)
                 .clip(shape)
                 .drawBehind { drawRect(style.container.copy(alpha = pulseAlpha.value)) }
                 .stripedFill(enabled = style.striped, color = style.content.copy(alpha = 0.34f))
@@ -469,11 +656,13 @@ private fun StageSegment(
                 .semantics {
                     contentDescription = stage.label
                     stateDescription = stageStateDescription
-                }.padding(horizontal = metrics.stageHorizontalPadding),
+                }.padding(
+                    horizontal = metrics.stageHorizontalPadding,
+                    vertical = RipDpiThemeTokens.spacing.xs,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -490,8 +679,6 @@ private fun StageSegment(
                 text = stage.label,
                 style = type.caption,
                 color = style.content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -558,6 +745,19 @@ private fun HomeConnectionActuatorStageState.icon() =
         HomeConnectionActuatorStageState.Active,
         -> null
     }
+
+private val HomeConnectionActuatorStatus.showsPipeline: Boolean
+    get() =
+        when (this) {
+            HomeConnectionActuatorStatus.Open,
+            HomeConnectionActuatorStatus.Locked,
+            -> false
+
+            HomeConnectionActuatorStatus.Engaging,
+            HomeConnectionActuatorStatus.Degraded,
+            HomeConnectionActuatorStatus.Fault,
+            -> true
+        }
 
 private fun HomeConnectionActuatorStageState.stateDescriptionRes(): Int =
     when (this) {

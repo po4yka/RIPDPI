@@ -101,6 +101,7 @@ private const val illusLiftFraction = 0.15f
 // Fraction of the page viewport reserved BELOW the guarantee grid in the SpaceBetween info
 // layout. Larger value lifts the grid toward the body, shrinking the body->grid empty band.
 private const val guaranteeGridBottomInsetFraction = 0.12f
+private const val AccessibilityOnboardingFontScale = 1.5f
 
 @Composable
 fun OnboardingRoute(
@@ -250,6 +251,7 @@ internal fun OnboardingScreen(
     val validationState = uiState.validationState
     val validationBusy = validationState.isBusy
     val pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size)
+    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
 
     // Top action is reserved for the intro only ("Skip setup"). Inner steps rely on safe defaults +
     // the bottom CTA; the connection test keeps "Skip test" as a bottom secondary action instead.
@@ -274,7 +276,11 @@ internal fun OnboardingScreen(
                     .padding(horizontal = layout.horizontalPadding),
         ) {
             // 1) TOP BAR — status inset; intro-only "Skip setup"
-            OnboardingTopBar(skipVisible = skipVisible, onSkip = actions.onSkip)
+            OnboardingTopBar(
+                skipVisible = skipVisible,
+                collapseEmptySpace = useAccessibilityLayout && !skipVisible,
+                onSkip = actions.onSkip,
+            )
 
             // 2) CONTENT — weighted; each page renders its own title at the top
             OnboardingPagerContent(
@@ -350,6 +356,7 @@ private fun OnboardingPagerContent(
 @Composable
 private fun OnboardingTopBar(
     skipVisible: Boolean,
+    collapseEmptySpace: Boolean,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -361,7 +368,7 @@ private fun OnboardingTopBar(
             modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .height(introLayout.topActionRowHeight),
+                .height(if (collapseEmptySpace) 0.dp else introLayout.topActionRowHeight),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -598,7 +605,12 @@ private fun OnboardingInfoPageScene(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         // Captured here so it stays reachable inside the nested Column lambdas — Compose's
         // @LayoutScopeMarker hides the outer BoxWithConstraints receiver from inner layout scopes.
-        val gridBottomInset = maxHeight * guaranteeGridBottomInsetFraction
+        val gridBottomInset =
+            if (LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale) {
+                0.dp
+            } else {
+                maxHeight * guaranteeGridBottomInsetFraction
+            }
         // Two-zone layout: the hero cluster (illustration + title + body) anchors the top and the
         // guarantee grid is pushed toward the CTA by SpaceBetween, so the page reads as two
         // deliberate zones instead of a top-loaded block over an empty band. heightIn(min =
@@ -658,7 +670,16 @@ private fun OnboardingInfoHero(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.height(introLayout.topActionRowHeight))
+        Spacer(
+            modifier =
+                Modifier.height(
+                    if (LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale) {
+                        0.dp
+                    } else {
+                        introLayout.topActionRowHeight
+                    },
+                ),
+        )
         OnboardingIllustrationBox(
             modifier =
                 Modifier
@@ -718,23 +739,43 @@ private fun OnboardingGuaranteeGrid(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .widthIn(max = introLayout.guaranteeGridMaxWidth),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        OnboardingGuaranteeColumn(
-            headerRes = R.string.onboarding_guarantee_header_privacy,
-            labels = privacyLabels,
-            modifier = Modifier.weight(1f),
-        )
-        OnboardingGuaranteeColumn(
-            headerRes = R.string.onboarding_guarantee_header_local,
-            labels = localLabels,
-            modifier = Modifier.weight(1f),
-        )
+    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
+    val gridModifier =
+        modifier
+            .fillMaxWidth()
+            .widthIn(max = introLayout.guaranteeGridMaxWidth)
+    if (useAccessibilityLayout) {
+        Column(
+            modifier = gridModifier,
+            verticalArrangement = Arrangement.spacedBy(spacing.lg),
+        ) {
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_privacy,
+                labels = privacyLabels,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_local,
+                labels = localLabels,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    } else {
+        Row(
+            modifier = gridModifier,
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        ) {
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_privacy,
+                labels = privacyLabels,
+                modifier = Modifier.weight(1f),
+            )
+            OnboardingGuaranteeColumn(
+                headerRes = R.string.onboarding_guarantee_header_local,
+                labels = localLabels,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
@@ -817,8 +858,10 @@ private fun OnboardingSetupPageScene(
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val balanced = pageModel.kind != SetupPageKind.DnsSelection
+    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
+    val balanced = !useAccessibilityLayout && pageModel.kind != SetupPageKind.DnsSelection
     val headerToContentGap = introLayout.setupHeaderToContentGap
+    val spacing = RipDpiThemeTokens.spacing
 
     Column(
         modifier = modifier.fillMaxSize().padding(horizontal = introLayout.bodyHorizontalPadding),
@@ -828,7 +871,8 @@ private fun OnboardingSetupPageScene(
                 Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = if (useAccessibilityLayout) spacing.md else 0.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement =
                 if (balanced) {

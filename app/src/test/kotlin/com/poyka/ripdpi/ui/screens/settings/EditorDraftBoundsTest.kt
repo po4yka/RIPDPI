@@ -30,9 +30,18 @@ class EditorDraftBoundsTest {
         val domains = source("DomainBypassListScreen.kt").readText()
 
         assertFalse(strategy.contains("configText by rememberSaveable"))
+        assertFalse(strategy.contains("banner by rememberSaveable"))
         assertFalse(domains.contains("text by rememberSaveable"))
         assertFalse(domains.contains("remember(text) { DomainBypassList.compile"))
-        assertTrue(domains.contains("withContext(Dispatchers.Default) { DomainBypassList.compile(text) }"))
+        assertTrue(domains.contains("withContext(Dispatchers.Default) { DomainBypassList.compile(uiState.text) }"))
+    }
+
+    @Test
+    fun `transient strategy banner is not stored in saveable state`() {
+        val strategy = source("StrategyConfigRoute.kt").readText()
+
+        assertFalse(strategy.contains("banner by rememberSaveable"))
+        assertTrue(strategy.contains("banner by remember {"))
     }
 
     private fun source(name: String): File =

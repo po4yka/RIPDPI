@@ -50,6 +50,7 @@ fun RipDpiAccordion(
     onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     headerTestTag: String? = null,
+    stateTestTag: String? = null,
     body: @Composable () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -67,6 +68,7 @@ fun RipDpiAccordion(
         modifier =
             modifier
                 .fillMaxWidth()
+                .then(stateTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier)
                 .background(colors.card, shape)
                 .border(width = RipDpiStroke.Thin, color = colors.cardBorder, shape = shape)
                 .animateContentSize(animationSpec = motion.stateTween()),

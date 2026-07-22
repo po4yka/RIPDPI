@@ -30,6 +30,14 @@ const BORING_ECH_CONFIG_LIST: &[u8] = &[
     0x68, 0x2e, 0x63, 0x6f, 0x6d, 0x00, 0x00,
 ];
 
+fn sha256_hex(payload: &[u8]) -> String {
+    ring::digest::digest(&ring::digest::SHA256, payload).as_ref().iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn emit_pmtud_measurement(value: serde_json::Value) {
+    println!("PMTUD_MEASUREMENT {}", serde_json::to_string(&value).expect("serialize PMTUD measurement"));
+}
+
 #[test]
 fn unsupported_auth_mode_fails_before_connect() {
     let mut config = privacy_pass_test_config("https://provider.example/token".to_string(), None);
@@ -657,8 +665,11 @@ fn h3_connect_udp_fixture_config(fixture: &MasqueH3ConnectUdpFixture) -> MasqueC
     }
 }
 
+/// # Cancel safety
+///
+/// NOT cancel-safe: send, echo validation, evidence emission, and joined fixture
+/// shutdown form one transaction that must be driven to completion.
 #[tokio::test]
-// NOT cancel-safe: cancelling after send can leave the fixture echo queued until teardown.
 async fn h3_connect_udp_honors_root_certificate_and_echoes_context_zero_datagrams() {
     let fixture = MasqueH3ConnectUdpFixture::start().expect("start H3 CONNECT-UDP fixture");
     let client = MasqueClient::new(h3_connect_udp_fixture_config(&fixture)).expect("client");
@@ -684,10 +695,34 @@ async fn h3_connect_udp_honors_root_certificate_and_echoes_context_zero_datagram
     assert!(observed[0].accepted);
     assert_eq!(observed[0].protocol.as_deref(), Some("connect-udp"));
     assert_eq!(observed[0].capsule_protocol.as_deref(), Some("?1"));
+    let snapshot = udp.quic_path_snapshot(fixture.udp_target()).expect("H3 QUIC path measurement");
+    let payload = b"h3-pinned-root";
+    let payload_sha256 = sha256_hex(payload);
+    assert_eq!(payload.len(), 14);
+    assert_eq!(payload_sha256, "ab312dcb9c2b8ffca5aed6e8b80469592c3183408403752f8e8450b3c065cbdd");
+    emit_pmtud_measurement(serde_json::json!({
+        "blackHoleDelta": 0,
+        "caseId": "masque_h3_datagram_payload",
+        "highMtu": snapshot.current_mtu,
+        "integrity": true,
+        "oversizedDropDelta": 0,
+        "payloadLength": payload.len(),
+        "payloadSha256": payload_sha256,
+        "postCliffMtu": null,
+        "preMtu": snapshot.current_mtu,
+        "targetFamily": "ipv4",
+        "version": "pmtud_measurement_v1",
+    }));
+    drop(udp);
+    drop(client);
+    fixture.shutdown().await;
 }
 
+/// # Cancel safety
+///
+/// NOT cancel-safe: boundary discovery, post-error liveness, evidence emission,
+/// and joined fixture shutdown form one transaction.
 #[tokio::test]
-// NOT cancel-safe: boundary discovery and post-error liveness are one flow transaction.
 async fn h3_connect_udp_boundary_rejects_one_byte_over_limit_without_closing_flow() {
     let fixture = MasqueH3ConnectUdpFixture::start().expect("start H3 CONNECT-UDP fixture");
     let client = MasqueClient::new(h3_connect_udp_fixture_config(&fixture)).expect("client");
@@ -697,6 +732,7 @@ async fn h3_connect_udp_boundary_rejects_one_byte_over_limit_without_closing_flo
         .await
         .expect("open echo timeout")
         .expect("open echo");
+    let pre_mtu = udp.quic_path_snapshot(fixture.udp_target()).expect("initial QUIC path").current_mtu;
 
     let discovery_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
     loop {
@@ -736,6 +772,26 @@ async fn h3_connect_udp_boundary_rejects_one_byte_over_limit_without_closing_flo
         .expect("final echo timeout")
         .expect("final echo");
     assert_eq!(final_payload, b"still-open");
+    let high_mtu = udp.quic_path_snapshot(fixture.udp_target()).expect("final QUIC path").current_mtu;
+    let payload_sha256 = sha256_hex(&boundary);
+    assert!(pre_mtu >= 1_200 && high_mtu >= 1_400 && high_mtu >= pre_mtu);
+    assert_eq!(payload_sha256.len(), 64);
+    emit_pmtud_measurement(serde_json::json!({
+        "blackHoleDelta": 0,
+        "caseId": "masque_h3_datagram_boundary",
+        "highMtu": high_mtu,
+        "integrity": true,
+        "oversizedDropDelta": 1,
+        "payloadLength": boundary.len(),
+        "payloadSha256": payload_sha256,
+        "postCliffMtu": null,
+        "preMtu": pre_mtu,
+        "targetFamily": "ipv4",
+        "version": "pmtud_measurement_v1",
+    }));
+    drop(udp);
+    drop(client);
+    fixture.shutdown().await;
 }
 
 /// Integration coverage for the provider-adapter decoupling: the auth header the

@@ -23,7 +23,8 @@ enum result_index {
     RESULT_ERRNO = 4,
     RESULT_LOCAL_PORT = 5,
     RESULT_FAILURE_STAGE = 6,
-    RESULT_WIDTH = 7,
+    RESULT_LOCAL_ADDRESS = 7,
+    RESULT_WIDTH = 8,
 };
 
 static const char *failure_kind_for_errno(int error_number) {
@@ -292,21 +293,31 @@ static int open_bound_socket(
     return socket_fd;
 }
 
-static bool set_local_port(JNIEnv *env, jobjectArray result, int fd) {
+static bool set_local_endpoint(JNIEnv *env, jobjectArray result, int fd) {
     struct sockaddr_storage local_address;
     socklen_t local_length = sizeof(local_address);
     if (getsockname(fd, (struct sockaddr *)&local_address, &local_length) != 0) {
         return true;
     }
     uint16_t port = 0;
+    const void *address_bytes = NULL;
     if (local_address.ss_family == AF_INET) {
-        port = ntohs(((struct sockaddr_in *)&local_address)->sin_port);
+        const struct sockaddr_in *ipv4 = (const struct sockaddr_in *)&local_address;
+        port = ntohs(ipv4->sin_port);
+        address_bytes = &ipv4->sin_addr;
     } else if (local_address.ss_family == AF_INET6) {
-        port = ntohs(((struct sockaddr_in6 *)&local_address)->sin6_port);
+        const struct sockaddr_in6 *ipv6 = (const struct sockaddr_in6 *)&local_address;
+        port = ntohs(ipv6->sin6_port);
+        address_bytes = &ipv6->sin6_addr;
+    }
+    char address_text[INET6_ADDRSTRLEN];
+    if (address_bytes == NULL || inet_ntop(local_address.ss_family, address_bytes, address_text, sizeof(address_text)) == NULL) {
+        return true;
     }
     char port_text[8];
     (void)snprintf(port_text, sizeof(port_text), "%u", port);
-    return set_result_string(env, result, RESULT_LOCAL_PORT, port_text);
+    return set_result_string(env, result, RESULT_LOCAL_PORT, port_text) &&
+           set_result_string(env, result, RESULT_LOCAL_ADDRESS, address_text);
 }
 
 static bool copy_payload(JNIEnv *env, jbyteArray payload, uint8_t **bytes, jsize *length) {
@@ -489,7 +500,7 @@ Java_com_poyka_ripdpi_e2e_TestSocketBinder_nativeTcpRoundTrip(
                    ? result
                    : NULL;
     }
-    if (!set_local_port(env, result, socket_fd)) {
+    if (!set_local_endpoint(env, result, socket_fd)) {
         close(socket_fd);
         free(payload_bytes);
         return NULL;
@@ -568,7 +579,7 @@ Java_com_poyka_ripdpi_e2e_TestSocketBinder_nativeUdpRoundTrip(
                    ? result
                    : NULL;
     }
-    if (!set_local_port(env, result, socket_fd)) {
+    if (!set_local_endpoint(env, result, socket_fd)) {
         close(socket_fd);
         free(payload_bytes);
         return NULL;

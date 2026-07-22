@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.Mode
 
 internal data class ModeEditorActions(
     val onBack: () -> Unit,
+    val onCancel: () -> Unit,
     val onModeSelected: (Mode) -> Unit,
     val onDnsIpChanged: (String) -> Unit,
     val onProxyIpChanged: (String) -> Unit,
@@ -78,6 +79,7 @@ internal data class ModeEditorActions(
 internal val NoOpModeEditorActions =
     ModeEditorActions(
         onBack = {},
+        onCancel = {},
         onModeSelected = {},
         onDnsIpChanged = {},
         onProxyIpChanged = {},

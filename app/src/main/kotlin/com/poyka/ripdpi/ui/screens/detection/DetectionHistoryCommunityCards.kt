@@ -159,7 +159,7 @@ internal fun CommunityStatsLoadingCard() {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,
-                color = colors.accent,
+                color = colors.info,
             )
             Text(
                 text = stringResource(R.string.detection_community_loading),

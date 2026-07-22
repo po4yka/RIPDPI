@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.boot.BootSessionPointer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -137,7 +138,7 @@ class BootResumeTest {
     @Test
     fun `default profile id is always resumable`() =
         runTest {
-            val guard = DefaultBootResumeProfileGuard(FakeProxyGroupRepository(groups = emptyList()))
+            val guard = DefaultBootResumeProfileGuard(FakeProxyGroupRepository(groups = emptyList())) {}
             assertTrue(guard.isResumable("default"))
             assertTrue(guard.isResumable(""))
         }
@@ -145,7 +146,7 @@ class BootResumeTest {
     @Test
     fun `non-default profile is not resumable when no proxy groups remain`() =
         runTest {
-            val guard = DefaultBootResumeProfileGuard(FakeProxyGroupRepository(groups = emptyList()))
+            val guard = DefaultBootResumeProfileGuard(FakeProxyGroupRepository(groups = emptyList())) {}
             assertFalse(guard.isResumable("some-subscription-profile"))
         }
 
@@ -166,12 +167,42 @@ class BootResumeTest {
                                 ),
                             ),
                     ),
+                    recoverPendingProfileMutations = {},
                 )
             assertTrue(guard.isResumable("some-subscription-profile"))
         }
 
+    @Test
+    fun `non-default profile recovery completes before profile validation`() =
+        runTest {
+            val calls = mutableListOf<String>()
+            val repository = FakeProxyGroupRepository(emptyList()) { calls += "list" }
+            val guard = DefaultBootResumeProfileGuard(repository) { calls += "recover" }
+
+            guard.isResumable("subscription")
+
+            assertEquals(listOf("recover", "list"), calls)
+        }
+
+    @Test
+    fun `recovery cancellation does not validate stale profile state`() =
+        runTest {
+            var listed = false
+            val repository = FakeProxyGroupRepository(emptyList()) { listed = true }
+            val guard =
+                DefaultBootResumeProfileGuard(repository) {
+                    throw CancellationException("recovery cancelled")
+                }
+
+            val failure = runCatching { guard.isResumable("subscription") }.exceptionOrNull()
+
+            assertTrue(failure is CancellationException)
+            assertFalse(listed)
+        }
+
     private class FakeProxyGroupRepository(
         private val groups: List<ProxyGroup>,
+        private val onList: () -> Unit = {},
     ) : ProxyGroupRepository {
         override suspend fun add(group: ProxyGroup) = Unit
 
@@ -179,7 +210,10 @@ class BootResumeTest {
 
         override suspend fun delete(id: String) = Unit
 
-        override suspend fun list(): List<ProxyGroup> = groups
+        override suspend fun list(): List<ProxyGroup> {
+            onList()
+            return groups
+        }
 
         override fun groups(): Flow<List<ProxyGroup>> = flowOf(groups)
     }

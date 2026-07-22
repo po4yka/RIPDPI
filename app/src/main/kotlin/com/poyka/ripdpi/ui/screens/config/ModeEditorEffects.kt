@@ -18,6 +18,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 internal fun ModeEditorEffects(
     viewModel: ConfigViewModel,
     snackbarHostState: SnackbarHostState,
+    onHydrationFailure: () -> Unit,
     onBack: () -> Unit,
 ) {
     val validationMessage = stringResource(R.string.config_validation_fix)
@@ -37,6 +38,13 @@ internal fun ModeEditorEffects(
                     duration = SnackbarDuration.Short,
                     testTag = RipDpiTestTags.ModeEditorValidationSnackbar,
                 )
+            }
+
+            is ConfigEffect.EditorHydrationFailed -> {
+                if (viewModel.editorHydrationFailures.abort(effect.sessionId)) {
+                    onHydrationFailure()
+                    performHaptic(RipDpiHapticFeedback.Error)
+                }
             }
 
             is ConfigEffect.Message -> {

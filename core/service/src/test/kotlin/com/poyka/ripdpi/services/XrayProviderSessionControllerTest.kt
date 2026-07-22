@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.xray.XrayProfileRedactor
 import com.poyka.ripdpi.data.xray.XrayProviderFailureClass
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -57,7 +58,7 @@ class XrayProviderSessionControllerTest {
                 ),
         )
 
-    private fun controller(): XrayProviderSessionController {
+    private fun controller(recoverPendingProfileMutations: suspend () -> Unit = {}): XrayProviderSessionController {
         val orchestrator =
             XrayProviderOrchestrator(
                 // Run the runtime's blocking native stop inline instead of on the
@@ -84,8 +85,28 @@ class XrayProviderSessionControllerTest {
             bridgeIsAlive = { bridge.isAlive() },
             renderedConfigSink = { renderedConfig[0] = it },
             lastProtectFailureDetail = { protectDetail },
+            recoverPendingProfileMutations = recoverPendingProfileMutations,
         )
     }
+
+    @Test
+    fun `durable selection reads wait for pending profile mutation recovery`() =
+        runTest {
+            val callOrder = mutableListOf<String>()
+            selectionStore.onCurrent = { callOrder += "selection" }
+            val controller = controller { callOrder += "recover" }
+
+            controller.isXraySelected()
+            assertEquals(listOf("recover", "selection"), callOrder)
+
+            callOrder.clear()
+            controller.start(params())
+            assertEquals(listOf("recover", "selection"), callOrder)
+
+            callOrder.clear()
+            controller.restart(params())
+            assertEquals(listOf("recover", "selection"), callOrder)
+        }
 
     @Test
     fun `start protect-first then tunnel, leaving a clean running session`() =
@@ -225,6 +246,91 @@ class XrayProviderSessionControllerTest {
         }
 
     @Test
+    fun `restart params use the incoming policy context before session commit`() {
+        val session = VpnRuntimeSession(runtimeId = "runtime")
+        val resolution = sampleResolution(policySignature = "new-policy", networkScopeKey = "new-network")
+
+        val startParams = defaultXrayStartParams(session, resolution)
+
+        assertEquals("new-policy", startParams.logContext?.policySignature)
+        assertEquals("new-network", startParams.logContext?.fingerprintHash)
+    }
+
+    @Test
+    fun `restart recovery failure leaves the active session untouched`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            var recoveryFailure: Throwable? = null
+            val ctrl = controller { recoveryFailure?.let { throw it } }
+            val initialParams = params()
+            assertTrue(ctrl.start(initialParams) is HandoffOutcome.Running)
+            val stopsBeforeRestart = bridge.stopCount
+            recoveryFailure = IllegalStateException("recovery failed")
+
+            val failure = runCatching { ctrl.restart(params()) }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals(stopsBeforeRestart, bridge.stopCount)
+            assertTrue(ctrl.isActive)
+            assertEquals(initialParams, startParamsHolder.current)
+        }
+
+    @Test
+    fun `restart recovery cancellation leaves the active session untouched`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            var cancelRecovery = false
+            val ctrl =
+                controller {
+                    if (cancelRecovery) throw CancellationException("handover cancelled")
+                }
+            assertTrue(ctrl.start(params()) is HandoffOutcome.Running)
+            val stopsBeforeRestart = bridge.stopCount
+            cancelRecovery = true
+
+            val failure = runCatching { ctrl.restart(params()) }.exceptionOrNull()
+
+            assertTrue(failure is CancellationException)
+            assertEquals(stopsBeforeRestart, bridge.stopCount)
+            assertTrue(ctrl.isActive)
+        }
+
+    @Test
+    fun `restart cancellation after stop leaves controller and delegate stopped`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            val ctrl = controller()
+            val delegate =
+                XrayConnectFlowDelegate(
+                    controller = ctrl,
+                    startParams = { _, _ -> params() },
+                    publishActiveDnsState = { _, _ -> },
+                    applyActiveConnectionPolicy = { _, _, _, _ -> },
+                )
+            assertTrue(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
+            profileStore.onLoad = { throw CancellationException("profile load cancelled") }
+
+            val failure =
+                runCatching {
+                    delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 2L)
+                }.exceptionOrNull()
+
+            assertTrue(failure is CancellationException)
+            assertFalse(delegate.isActive)
+            assertFalse(ctrl.isActive)
+            assertEquals(VpnProviderState.Stopped, ctrl.providerState)
+            assertEquals(null, renderedConfig[0])
+            assertEquals(null, startParamsHolder.current)
+
+            profileStore.onLoad = {}
+            assertTrue(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
+            assertTrue(delegate.isActive)
+        }
+
+    @Test
     fun `delegate restart surfaces failed xray handover`() =
         runTest {
             selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
@@ -248,6 +354,10 @@ class XrayProviderSessionControllerTest {
             assertTrue(failure is XrayProviderHandoverException)
             assertTrue(failure?.message?.contains("fake tunnel start failure") == true)
             assertFalse(delegate.isActive)
+
+            tunnel.failOnStart = false
+            assertTrue(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
+            assertTrue(delegate.isActive)
         }
 
     private fun params(): XrayTunnelStartParams =
@@ -274,12 +384,16 @@ class XrayProviderSessionControllerTest {
 
 internal class FakeSelectionStore : XrayProviderSelectionStore {
     private var record = XrayProviderSelectionRecord()
+    var onCurrent: () -> Unit = {}
 
     fun set(record: XrayProviderSelectionRecord) {
         this.record = record
     }
 
-    override suspend fun current(): XrayProviderSelectionRecord = record
+    override suspend fun current(): XrayProviderSelectionRecord {
+        onCurrent()
+        return record
+    }
 
     override suspend fun update(record: XrayProviderSelectionRecord) {
         this.record = record

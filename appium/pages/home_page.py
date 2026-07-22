@@ -9,6 +9,8 @@ from .base_page import BasePage
 
 class HomePage(BasePage):
     SCREEN = "home-screen"
+    MODES_DISCLOSURE = "home-modes-diagnostics-header"
+    MODES_COLLAPSED = "home-modes-diagnostics-collapsed"
     CONNECTION_BUTTON = "home-mode-primary-remote-vpn"
     LOCAL_BYPASS_BUTTON = "home-mode-primary-local-dpi-bypass"
     DIAGNOSTIC_BUTTON = "home-mode-primary-diagnostic"
@@ -25,10 +27,19 @@ class HomePage(BasePage):
     def is_loaded(self) -> bool:
         return self.is_visible(self.SCREEN, timeout=10)
 
+    def ensure_modes_expanded(self) -> None:
+        self.scroll_incrementally_to(self.MODES_DISCLOSURE, max_swipes=12)
+        collapsed_disclosure = self._find_by_test_tag(self.MODES_COLLAPSED)
+        if collapsed_disclosure:
+            self.tap(self.MODES_DISCLOSURE)
+        self.wait_for(self.LOCAL_BYPASS_CARD, timeout=5)
+
     def tap_connect(self) -> None:
+        self.ensure_modes_expanded()
         self.tap(self.CONNECTION_BUTTON)
 
     def tap_any_primary_action(self) -> None:
+        self.ensure_modes_expanded()
         for tag in (self.CONNECTION_BUTTON, self.LOCAL_BYPASS_BUTTON, self.DIAGNOSTIC_BUTTON):
             if self.is_visible(tag, timeout=2):
                 self.tap(tag)
@@ -42,15 +53,19 @@ class HomePage(BasePage):
         raise AssertionError("No Home primary action is visible")
 
     def is_connection_button_visible(self) -> bool:
+        self.ensure_modes_expanded()
         return self.is_visible(self.CONNECTION_BUTTON)
 
     def is_stats_grid_visible(self) -> bool:
+        self.ensure_modes_expanded()
         return self.is_visible(self.STATS_GRID)
 
     def is_approach_card_visible(self) -> bool:
+        self.ensure_modes_expanded()
         return self.is_visible(self.APPROACH_CARD)
 
     def is_any_mode_card_visible(self) -> bool:
+        self.ensure_modes_expanded()
         return (
             self.is_visible(self.STATS_GRID)
             or self.is_visible(self.LOCAL_BYPASS_CARD)

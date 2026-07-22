@@ -3,6 +3,11 @@
     <string name="app_name" translatable="false">RIPDPI</string>
     <string name="navigation_back">Navigate back</string>
     <string name="action_dismiss">Dismiss</string>
+    <string name="startup_recovery_preparing_title">Preparing RIPDPI</string>
+    <string name="startup_recovery_preparing_body">Checking local settings before the app goes online.</string>
+    <string name="startup_recovery_failed_title">Startup recovery failed</string>
+    <string name="startup_recovery_failed_body">RIPDPI could not safely finish recovering local settings. The app will remain offline until recovery succeeds.</string>
+    <string name="startup_recovery_retry">Try again</string>
     <string name="vpn_connect">Connect</string>
     <string name="vpn_disconnect">Disconnect</string>
     <string name="vpn_connected">Connected</string>
@@ -13,6 +18,14 @@
     <string name="config">Connection</string>
     <string name="settings">Settings</string>
     <string name="diagnostics">Diagnose</string>
+    <string name="bottom_nav_home_compact">Status</string>
+    <string name="bottom_nav_config_compact">Connect</string>
+    <string name="bottom_nav_diagnostics_compact">Checks</string>
+    <string name="bottom_nav_settings_compact">Settings</string>
+    <string name="bottom_nav_home_maximum">Status</string>
+    <string name="bottom_nav_config_maximum">Connect</string>
+    <string name="bottom_nav_diagnostics_maximum">Checks</string>
+    <string name="bottom_nav_settings_maximum">Settings</string>
     <string name="logs">Logs</string>
     <string name="persona_simple">Guided</string>
     <string name="persona_advanced">Advanced</string>
@@ -399,13 +412,14 @@
     <string name="home_permission_issue_with_retry">%1$s Use the connection button to continue the permission flow.</string>
     <string name="home_permission_issue_with_settings">%1$s Open Settings or use the button below to repair access.</string>
     <string name="home_setup_health_title">Setup health</string>
+    <string name="home_modes_diagnostics_title">Modes &amp; diagnostics</string>
     <string name="home_setup_health_collapsed_format">Items needing attention: %1$d</string>
     <string name="home_setup_health_expanded">Review setup items and recovery actions.</string>
     <string name="home_connection_button_connecting">Connecting\u2026</string>
     <string name="home_connection_actuator_open">Open</string>
     <string name="home_connection_actuator_secure">Secure</string>
     <string name="home_connection_actuator_direct">Direct</string>
-    <string name="home_connection_actuator_state_open">Secure line open</string>
+    <string name="home_connection_actuator_state_open">Secure line disengaged</string>
     <string name="home_connection_actuator_state_engaging">Secure line engaging</string>
     <string name="home_connection_actuator_state_locked">Secure line locked</string>
     <string name="home_connection_actuator_state_direct">Direct line locked</string>
@@ -640,6 +654,10 @@
     <string name="config_edit_current">Edit profile</string>
     <string name="config_save">Save</string>
     <string name="config_cancel">Cancel</string>
+    <string name="unsaved_changes_title">Discard unsaved changes?</string>
+    <string name="unsaved_changes_body">Your edits have not been saved. Discard them and leave this screen?</string>
+    <string name="unsaved_changes_discard">Discard</string>
+    <string name="unsaved_changes_keep_editing">Keep editing</string>
     <string name="config_preset_recommended_title">Recommended profile</string>
     <string name="config_preset_recommended_body">Recommended profile for most networks. Keeps the local VPN path and safe RIPDPI tuning.</string>
     <string name="config_preset_proxy_title">Local bypass profile</string>
@@ -1243,6 +1261,7 @@
     <string name="config_cli_banner_title">Command line overrides enabled</string>
     <string name="config_cli_banner_body">Arguments below take precedence over the visual controls on this screen.</string>
     <string name="config_validation_fix">Check the highlighted fields before saving.</string>
+    <string name="config_editor_hydration_failed">Couldn\'t open this configuration. Your saved credentials were not changed.</string>
     <string name="config_validation_banner_title">Some values still need attention</string>
     <string name="config_validation_banner_body">The editor is validating in real time. Fix the marked fields, then save again.</string>
     <string name="config_error_invalid_dns">Enter a valid non-local DNS address.</string>
@@ -1588,6 +1607,7 @@ fakeddisorder endhost</string>
     <string name="logs_stream_section">Log stream</string>
     <string name="logs_stream_title">Recent entries</string>
     <string name="logs_entries_count">%1$d entries</string>
+    <string name="logs_copy_entry">Copy %1$s log at %2$s</string>
     <string name="logs_empty_title">No logs yet</string>
     <string name="logs_empty_body">Start RIPDPI or trigger a diagnostic event to populate the on-device stream.</string>
     <string name="logs_filtered_empty_title">No entries match the current filters</string>
@@ -3444,7 +3464,18 @@ Source: %2$s</string>
     <string name="asset_provider_uptodate_body">The on-disk databases match the latest release.</string>
     <string name="asset_provider_imported_title">Asset imported</string>
     <string name="asset_provider_imported_body">Restart the service to apply the imported database.</string>
-    <string name="asset_provider_failed_title">Update failed</string>
+    <string name="asset_provider_failed_title">Asset operation failed</string>
+    <string name="asset_provider_failure_unable_to_open">RIPDPI could not open the selected file. Choose it again.</string>
+    <string name="asset_provider_failure_invalid_payload">The selected file is not a valid geo database.</string>
+    <string name="asset_provider_failure_too_large">The selected file is too large. Choose a file smaller than 64 MB.</string>
+    <string name="asset_provider_failure_network">Could not reach the asset provider. Check your connection and try again.</string>
+    <string name="asset_provider_failure_storage">Could not save the database on this device. Free some storage and try again.</string>
+    <string name="asset_provider_failure_missing_configuration">Enter a custom base URL before checking for updates.</string>
+    <string name="asset_provider_failure_unexpected">The asset operation failed. Try again.</string>
+    <string name="asset_provider_persistence_failed_title">Provider settings not saved</string>
+    <string name="asset_provider_persistence_failed_body">RIPDPI could not save these settings. Tap to try again before leaving.</string>
+    <string name="asset_provider_exit_pending_title">Leaving asset provider</string>
+    <string name="asset_provider_exit_pending_body">RIPDPI cancels any active asset operation, saves the provider settings, and then returns.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
     <string name="asset_provider_runetfreedom_desc">De-facto RU bypass ruleset; more current than antizapret for v2ray/xray geoip/geosite tags.</string>
     <string name="asset_provider_updated_days_ago">Updated %1$d days ago</string>
@@ -4263,4 +4294,10 @@ Source: %2$s</string>
     <string name="backup_encryption_confirm_passphrase">Confirm passphrase</string>
     <string name="backup_encryption_passphrase_mismatch">Passphrases do not match</string>
     <string name="backup_import_legacy_full_warning">This legacy full backup is not encrypted. Restore it only from a trusted source, then export a new encrypted backup.</string>
+    <string name="strategy_config_restore_failed_title">Draft recovery failed</string>
+    <string name="strategy_config_restore_failed_body">Your saved draft is still on this device. Retry recovery or discard it to leave.</string>
+    <string name="strategy_config_restore_retry">Try again</string>
+    <string name="strategy_config_restoring_draft">Restoring saved draft…</string>
+    <string name="strategy_config_draft_save_failed_title">Draft not saved</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.</string>
 </resources>
