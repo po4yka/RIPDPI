@@ -49,7 +49,10 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-internal fun ModeEditorBottomBar(actions: ModeEditorActions) {
+internal fun ModeEditorBottomBar(
+    uiState: ConfigUiState,
+    actions: ModeEditorActions,
+) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -72,16 +75,19 @@ internal fun ModeEditorBottomBar(actions: ModeEditorActions) {
         ) {
             RipDpiButton(
                 text = stringResource(R.string.config_cancel),
-                onClick = actions.onBack,
+                onClick = actions.onCancel,
                 modifier =
                     Modifier
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.ModeEditorCancel),
                 variant = RipDpiButtonVariant.Outline,
+                enabled = !uiState.isEditorSaving,
             )
             RipDpiButton(
                 text = stringResource(R.string.config_save),
                 onClick = actions.onSave,
+                loading = uiState.isEditorSaving,
+                enabled = !uiState.isEditorSaving && !uiState.isEditorImporting,
                 modifier =
                     Modifier
                         .weight(1f)
@@ -124,12 +130,24 @@ internal fun ModeEditorBody(
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             ModeEditorIntroCard(uiState = uiState)
+            ModeEditorRecoveryPersistenceBanner(uiState = uiState)
             ModeEditorValidationBanner(uiState = uiState)
             ModeEditorModeSection(draft = draft, actions = actions)
             ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
             ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
             ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
         }
+    }
+}
+
+@Composable
+private fun ModeEditorRecoveryPersistenceBanner(uiState: ConfigUiState) {
+    if (uiState.hasEditorRecoveryPersistenceError) {
+        WarningBanner(
+            title = stringResource(R.string.strategy_config_draft_save_failed_title),
+            message = stringResource(R.string.strategy_config_draft_save_failed_body),
+            tone = WarningBannerTone.Warning,
+        )
     }
 }
 

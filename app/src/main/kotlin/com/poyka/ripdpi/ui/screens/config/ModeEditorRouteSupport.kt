@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.activities.ConfigEditorExitDecision
 import com.poyka.ripdpi.activities.ConfigViewModel
+import com.poyka.ripdpi.activities.MasqueImportAction
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
@@ -57,5 +59,44 @@ internal fun updateMasqueGeohash(
         viewModel.updateDraft { copy(relayMasqueCloudflareGeohashEnabled = true) }
     } else {
         requestCoarseLocationPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+}
+
+internal fun createModeEditorExternalActions(
+    viewModel: ConfigViewModel,
+    context: Context,
+    requestCoarseLocationPermission: (String) -> Unit,
+    requestDocument: (MasqueImportRequest) -> Unit,
+): ModeEditorExternalActions =
+    ModeEditorExternalActions(
+        onRelayMasqueCloudflareGeohashEnabledChanged = { enabled ->
+            updateMasqueGeohash(viewModel, context, requestCoarseLocationPermission, enabled)
+        },
+        onRelayMasqueImportCertificateChainClicked = {
+            viewModel.currentEditorSessionId?.let { sessionId ->
+                requestDocument(MasqueImportRequest(MasqueImportAction.CertificateChain, sessionId))
+            }
+        },
+        onRelayMasqueImportPrivateKeyClicked = {
+            viewModel.currentEditorSessionId?.let { sessionId ->
+                requestDocument(MasqueImportRequest(MasqueImportAction.PrivateKey, sessionId))
+            }
+        },
+        onRelayMasqueImportPkcs12Clicked = {
+            viewModel.currentEditorSessionId?.let { sessionId ->
+                requestDocument(MasqueImportRequest(MasqueImportAction.Pkcs12, sessionId))
+            }
+        },
+    )
+
+internal fun handleModeEditorExitDecision(
+    decision: ConfigEditorExitDecision,
+    onBack: () -> Unit,
+    onConfirmDiscard: () -> Unit,
+) {
+    when (decision) {
+        ConfigEditorExitDecision.Blocked -> Unit
+        ConfigEditorExitDecision.ConfirmDiscard -> onConfirmDiscard()
+        ConfigEditorExitDecision.Exit -> onBack()
     }
 }

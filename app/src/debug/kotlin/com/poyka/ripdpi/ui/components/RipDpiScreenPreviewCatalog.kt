@@ -17,6 +17,7 @@ import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.MainUiState
@@ -49,7 +50,8 @@ private fun HomeExpandedPreview() {
 
 @Composable
 internal fun RipDpiHomeExpandedPreviewScene(
-    connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
+    connectionActuator: HomeConnectionActuatorUiState =
+        homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
 ) {
     RipDpiTheme(themePreference = "light") {
         HomeScreen(
@@ -82,6 +84,7 @@ internal fun RipDpiHomeCompactPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
+                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
                     dataTransferred = 54_321_987L,
                     modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),
@@ -104,6 +107,7 @@ internal fun RipDpiHomeDarkPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
+                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
                     dataTransferred = 54_321_987L,
                     modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),
@@ -126,6 +130,7 @@ internal fun RipDpiHomeConnectingPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connecting,
+                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Engaging),
                     modeCards = homePreviewModeCards(loadingMode = HomeMode.RemoteVpn),
                 ),
             onToggleConnection = {},

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,7 +26,6 @@ import com.poyka.ripdpi.data.assets.BuiltInAssetProviders
 import com.poyka.ripdpi.data.assets.CustomAssetProviderId
 import com.poyka.ripdpi.data.assets.DefaultAssetProviderId
 import com.poyka.ripdpi.data.assets.GeoAssetKind
-import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -31,6 +34,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -40,6 +44,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 
 /** Immutable render state for [AssetProviderScreen]. */
 internal data class AssetProviderScreenState(
@@ -48,8 +53,10 @@ internal data class AssetProviderScreenState(
     val geoipTag: String,
     val geositeTag: String,
     val staleness: GeoAssetStaleness,
-    val checking: Boolean,
+    val activeOperation: AssetProviderOperation?,
     val resultBanner: AssetProviderBanner?,
+    val hasPersistenceError: Boolean = false,
+    val isExitPersistenceInProgress: Boolean = false,
 )
 
 internal data class AssetProviderBanner(
@@ -65,6 +72,14 @@ fun AssetProviderRoute(
     viewModel: AssetProviderViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
+    val requestBack: () -> Unit = {
+        coroutineScope.launch {
+            if (viewModel.persistConfigurationBeforeExit()) onBack()
+        }
+    }
+
+    BackHandler(onBack = requestBack)
 
     val geoipImportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -83,13 +98,16 @@ fun AssetProviderRoute(
                 geoipTag = uiState.geoipTag,
                 geositeTag = uiState.geositeTag,
                 staleness = uiState.staleness,
-                checking = uiState.checking,
+                activeOperation = uiState.activeOperation,
                 resultBanner = uiState.lastResult?.let { rememberOutcomeBanner(it) },
+                hasPersistenceError = uiState.hasPersistenceError,
+                isExitPersistenceInProgress = uiState.isExitPersistenceInProgress,
             ),
-        onBack = onBack,
+        onBack = requestBack,
         onProviderSelected = viewModel::selectProvider,
         onCustomUrlChanged = viewModel::updateCustomBaseUrl,
         onCheckForUpdates = viewModel::checkForUpdates,
+        onRetryConfigurationPersistence = viewModel::retryConfigurationPersistence,
         onImportGeoip = { geoipImportLauncher.launch(GeoAssetImportMimeTypes) },
         onImportGeosite = { geositeImportLauncher.launch(GeoAssetImportMimeTypes) },
         modifier = modifier,
@@ -99,7 +117,7 @@ fun AssetProviderRoute(
 private val GeoAssetImportMimeTypes = arrayOf("application/octet-stream", "*/*")
 
 @Composable
-private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProviderBanner =
+internal fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProviderBanner =
     when (outcome) {
         is AssetProviderCheckOutcome.Updated -> {
             AssetProviderBanner(
@@ -133,7 +151,38 @@ private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProv
         is AssetProviderCheckOutcome.Failed -> {
             AssetProviderBanner(
                 title = stringResource(R.string.asset_provider_failed_title),
-                message = outcome.message,
+                message =
+                    stringResource(
+                        when (outcome.reason) {
+                            AssetProviderFailureReason.UnableToOpen -> {
+                                R.string.asset_provider_failure_unable_to_open
+                            }
+
+                            AssetProviderFailureReason.InvalidPayload -> {
+                                R.string.asset_provider_failure_invalid_payload
+                            }
+
+                            AssetProviderFailureReason.TooLarge -> {
+                                R.string.asset_provider_failure_too_large
+                            }
+
+                            AssetProviderFailureReason.Storage -> {
+                                R.string.asset_provider_failure_storage
+                            }
+
+                            AssetProviderFailureReason.MissingConfiguration -> {
+                                R.string.asset_provider_failure_missing_configuration
+                            }
+
+                            AssetProviderFailureReason.Network -> {
+                                R.string.asset_provider_failure_network
+                            }
+
+                            AssetProviderFailureReason.Unexpected -> {
+                                R.string.asset_provider_failure_unexpected
+                            }
+                        },
+                    ),
                 tone = WarningBannerTone.Error,
             )
         }
@@ -146,6 +195,7 @@ internal fun AssetProviderScreen(
     onProviderSelected: (String) -> Unit,
     onCustomUrlChanged: (String) -> Unit,
     onCheckForUpdates: () -> Unit,
+    onRetryConfigurationPersistence: () -> Unit = {},
     onImportGeoip: () -> Unit,
     onImportGeosite: () -> Unit,
     modifier: Modifier = Modifier,
@@ -158,13 +208,33 @@ internal fun AssetProviderScreen(
         title = stringResource(R.string.title_asset_provider),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
+        navigationEnabled = !state.isExitPersistenceInProgress,
     ) {
+        if (state.isExitPersistenceInProgress) {
+            item(key = "asset_provider_exit_pending") {
+                WarningBanner(
+                    title = stringResource(R.string.asset_provider_exit_pending_title),
+                    message = stringResource(R.string.asset_provider_exit_pending_body),
+                    tone = WarningBannerTone.Info,
+                )
+            }
+        }
         item(key = "asset_provider_intro") {
             WarningBanner(
                 title = stringResource(R.string.asset_provider_intro_title),
                 message = stringResource(R.string.asset_provider_intro_body),
                 tone = WarningBannerTone.Info,
             )
+        }
+        if (state.hasPersistenceError) {
+            item(key = "asset_provider_persistence_error") {
+                WarningBanner(
+                    title = stringResource(R.string.asset_provider_persistence_failed_title),
+                    message = stringResource(R.string.asset_provider_persistence_failed_body),
+                    tone = WarningBannerTone.Error,
+                    onClick = onRetryConfigurationPersistence,
+                )
+            }
         }
         state.resultBanner?.let { banner ->
             item(key = "asset_provider_result") {
@@ -206,6 +276,7 @@ private fun AssetProviderPickerCard(
             }.toImmutableList()
     val selected = state.providerId.ifEmpty { DefaultAssetProviderId }
     val activeProvider = BuiltInAssetProviders.firstOrNull { it.id == selected }
+    val configurationEnabled = state.activeOperation == null && !state.isExitPersistenceInProgress
 
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
@@ -214,6 +285,7 @@ private fun AssetProviderPickerCard(
                 selectedValue = selected,
                 onValueSelected = onProviderSelected,
                 label = stringResource(R.string.asset_provider_label),
+                enabled = configurationEnabled,
                 testTag = RipDpiTestTags.AssetProviderDropdown,
             )
             activeProvider?.let { provider ->
@@ -234,6 +306,7 @@ private fun AssetProviderPickerCard(
                             helperText = stringResource(R.string.asset_provider_custom_url_helper),
                             testTag = RipDpiTestTags.AssetProviderCustomUrl,
                         ),
+                    behavior = RipDpiTextFieldBehavior(enabled = configurationEnabled),
                 )
             }
             VersionRow(
@@ -254,22 +327,63 @@ private fun VersionRow(
     label: String,
     tag: String,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Text(
-            text = tag.ifEmpty { stringResource(R.string.asset_provider_version_none) },
-            style = RipDpiThemeTokens.type.monoValue,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+    val version = tag.ifEmpty { stringResource(R.string.asset_provider_version_none) }
+    val useStackedLayout = LocalDensity.current.fontScale >= VersionRowStackedFontScale
+
+    if (useStackedLayout) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            VersionLabel(label)
+            VersionValue(version)
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        ) {
+            VersionLabel(label, Modifier.weight(VersionLabelWeight))
+            VersionValue(
+                version = version,
+                modifier = Modifier.weight(VersionValueWeight),
+                textAlign = TextAlign.End,
+            )
+        }
     }
 }
+
+@Composable
+private fun VersionLabel(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = label,
+        modifier = modifier,
+        style = RipDpiThemeTokens.type.body,
+        color = RipDpiThemeTokens.colors.foreground,
+    )
+}
+
+@Composable
+private fun VersionValue(
+    version: String,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Start,
+) {
+    Text(
+        text = version,
+        modifier = modifier,
+        style = RipDpiThemeTokens.type.monoValue,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        textAlign = textAlign,
+    )
+}
+
+private const val VersionRowStackedFontScale = 1.5f
+private const val VersionLabelWeight = 0.55f
+private const val VersionValueWeight = 0.45f
 
 @Composable
 private fun UpdatedRow(staleness: GeoAssetStaleness) {
@@ -301,34 +415,39 @@ private fun AssetProviderActionsCard(
     onImportGeoip: () -> Unit,
     onImportGeosite: () -> Unit,
 ) {
+    val operationInProgress = state.activeOperation != null || state.isExitPersistenceInProgress
+    val customProviderMissingUrl =
+        state.providerId == CustomAssetProviderId && state.customBaseUrl.isBlank()
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiButton(
                 text = stringResource(R.string.asset_provider_check_updates),
                 onClick = onCheckForUpdates,
                 modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderCheckUpdates),
-                loading = state.checking,
-                enabled = !state.checking,
+                loading = state.activeOperation == AssetProviderOperation.CheckUpdates,
+                enabled = !operationInProgress && !customProviderMissingUrl,
                 leadingIcon = RipDpiIcons.Refresh,
             )
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
             ) {
                 RipDpiButton(
                     text = stringResource(R.string.asset_provider_import_geoip),
                     onClick = onImportGeoip,
-                    modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.AssetProviderImport),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderImport),
                     variant = RipDpiButtonVariant.Outline,
-                    density = RipDpiControlDensity.Compact,
+                    loading = state.activeOperation == AssetProviderOperation.ImportGeoip,
+                    enabled = !operationInProgress,
                     leadingIcon = RipDpiIcons.Advanced,
                 )
                 RipDpiButton(
                     text = stringResource(R.string.asset_provider_import_geosite),
                     onClick = onImportGeosite,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AssetProviderImportGeosite),
                     variant = RipDpiButtonVariant.Outline,
-                    density = RipDpiControlDensity.Compact,
+                    loading = state.activeOperation == AssetProviderOperation.ImportGeosite,
+                    enabled = !operationInProgress,
                     leadingIcon = RipDpiIcons.Advanced,
                 )
             }
@@ -365,7 +484,7 @@ private fun previewAssetProviderScreen() {
                     geoipTag = "202405010000",
                     geositeTag = "",
                     staleness = GeoAssetStaleness.DaysAgo(PreviewStalenessDays),
-                    checking = false,
+                    activeOperation = null,
                     resultBanner =
                         AssetProviderBanner(
                             title = "Updated",
@@ -377,6 +496,7 @@ private fun previewAssetProviderScreen() {
             onProviderSelected = {},
             onCustomUrlChanged = {},
             onCheckForUpdates = {},
+            onRetryConfigurationPersistence = {},
             onImportGeoip = {},
             onImportGeosite = {},
         )
@@ -395,7 +515,7 @@ private fun previewAssetProviderScreenDark() {
                     geoipTag = "v1.2.3",
                     geositeTag = "v1.2.3",
                     staleness = GeoAssetStaleness.Never,
-                    checking = true,
+                    activeOperation = AssetProviderOperation.CheckUpdates,
                     resultBanner = null,
                 ),
             onBack = {},

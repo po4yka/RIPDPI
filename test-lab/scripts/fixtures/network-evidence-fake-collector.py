@@ -24,6 +24,9 @@ while not Path(stop_path).exists():
         raise SystemExit("stop marker timeout")
     time.sleep(0.02)
 plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+plan_sha256 = hashlib.sha256(
+    (json.dumps(plan, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
+).hexdigest()
 capture_finished = int(time.time())
 windows = [
     {
@@ -31,6 +34,8 @@ windows = [
         "expectedPacketCount": 1,
         "unexpectedPacketCount": 0,
         "captureErrorCount": 0,
+        "actionObservedCount": 1,
+        "outcomeObservedCount": 1,
     }
     for window in plan["windows"]
 ]
@@ -38,10 +43,13 @@ raw_digest = hashlib.sha256((role + correlation_id).encode("ascii")).hexdigest()
 Path(output_path).write_text(
     json.dumps(
         {
-            "version": "network_evidence_observation_v1",
+            "version": "network_evidence_observation_v3",
             "sourceSha": source_sha,
             "correlationId": correlation_id,
             "role": role,
+            "clientArtifactSha256": plan["clientArtifactSha256"],
+            "testArtifactSha256": plan["testArtifactSha256"],
+            "scenarioPlanSha256": plan_sha256,
             "captureStartedAtEpoch": capture_started,
             "captureFinishedAtEpoch": capture_finished,
             "rawCaptureSha256": raw_digest,

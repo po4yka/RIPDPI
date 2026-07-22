@@ -2,6 +2,7 @@ package com.poyka.ripdpi.integration
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.automation.AutomationPermissionPreset
@@ -36,6 +37,10 @@ class AutomationPermissionFlowInstrumentedTest {
     fun grantedPermissionLaunchShowsReadyHomeConnectionAction() {
         composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Home))
 
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
+            .performScrollTo()
+            .performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.LocalDpiBypass.name))
             .performScrollTo()

@@ -173,6 +173,16 @@ fn test_defaults_when_optional_sections_absent() {
     assert_eq!(cfg.misc.limit_nofile, 65535);
     assert_eq!(cfg.misc.uid_policy_mode, "disarmed");
     assert!(cfg.misc.uid_policy_uids.is_empty());
+    assert!(!cfg.misc.uid_policy_allow_icmp);
+}
+
+#[test]
+fn explicit_uid_policy_icmp_opt_in_parses_from_yaml() {
+    let yaml = format!("{MINIMAL_VALID}\nmisc:\n  uid-policy-allow-icmp: true\n");
+
+    let cfg = Config::from_str(&yaml).expect("ICMP opt-in YAML should parse");
+
+    assert!(cfg.misc.uid_policy_allow_icmp);
 }
 
 #[test]

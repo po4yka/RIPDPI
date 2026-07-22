@@ -11,6 +11,8 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -23,6 +25,7 @@ import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -185,20 +188,7 @@ class SimpleHomeScreenTest {
                     SemanticsProperties.LiveRegion,
                     LiveRegionMode.Polite,
                 ),
-            )
-        val visibleOrAnnouncedStatus =
-            hasText("Stage 2 of 4 · Testing TLS") or
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.StateDescription,
-                    "Stage 2 of 4",
-                )
-        assertEquals(
-            1,
-            composeRule
-                .onAllNodes(visibleOrAnnouncedStatus, useUnmergedTree = true)
-                .fetchSemanticsNodes()
-                .size,
-        )
+            ).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Text))
         composeRule.runOnIdle { assertEquals(1, cancelClicks) }
     }
 
@@ -227,6 +217,120 @@ class SimpleHomeScreenTest {
         composeRule.onNodeWithText("Connect").assertIsNotEnabled()
         composeRule.onNodeWithText("Run diagnostic report").assertIsNotEnabled()
         composeRule.onNodeWithText("Starting diagnostics").assertExists()
+    }
+
+    @Test
+    fun `idle report action follows authoritative availability and explains why it is disabled`() {
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction =
+                    HomeDiagnosticsActionUiState(
+                        supportingText = "Disable command line settings to run diagnostics",
+                        enabled = false,
+                    ),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Run diagnostic report").assertIsNotEnabled()
+        composeRule.onNodeWithText("Disable command line settings to run diagnostics").assertIsDisplayed()
+    }
+
+    @Test
+    fun `idle report action is enabled when authoritative state allows it`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics =
+                        HomeDiagnosticsUiState(
+                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                        ),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Run diagnostic report").assertIsEnabled()
+    }
+
+    @Test
+    fun `completed report shows result and a working share action`() {
+        var shareClicks = 0
+        val diagnostics =
+            HomeDiagnosticsUiState(
+                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+                analysisSheet =
+                    HomeDiagnosticsAnalysisSheetUiState(
+                        runId = "run-1",
+                        headline = "Network analysis complete",
+                        summary = "Two recommended settings are ready to review.",
+                    ),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = diagnostics,
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                    onShareReport = { shareClicks += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
+        composeRule.onNodeWithText("Two recommended settings are ready to review.").assertIsDisplayed()
+        composeRule.onNodeWithText("Share Logs & Results").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(1, shareClicks) }
+    }
+
+    @Test
+    @Config(qualifiers = "en-w1200dp-h900dp")
+    fun `expanded window keeps primary controls at centered form width`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics =
+                        HomeDiagnosticsUiState(
+                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                        ),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithText("Connect")
+            .assertWidthIsEqualTo(680.dp)
+            .assertLeftPositionInRootIsEqualTo(260.dp)
+        composeRule.onNodeWithText("Run diagnostic report").assertWidthIsEqualTo(680.dp)
     }
 
     @Test

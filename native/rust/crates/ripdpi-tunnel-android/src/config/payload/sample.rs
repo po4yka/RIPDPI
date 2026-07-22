@@ -61,6 +61,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         webrtc_protection_enabled: false,
         uid_policy_mode: None,
         uid_policy_uids: Vec::new(),
+        uid_policy_allow_icmp: false,
         log_context: None,
     }
 }

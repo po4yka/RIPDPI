@@ -36,6 +36,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
@@ -44,6 +46,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStarted
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
@@ -75,7 +78,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 class FakeInstrumentedAppSettingsRepository(
     initialSettings: AppSettings,
@@ -291,14 +296,23 @@ class StubInstrumentedDiagnosticsDetailLoader : DiagnosticsDetailLoader {
 }
 
 class StubInstrumentedDiagnosticsShareService : DiagnosticsShareService {
+    val archiveRequests = CopyOnWriteArrayList<DiagnosticsArchiveRequest>()
+
     override suspend fun buildShareSummary(sessionId: String?): com.poyka.ripdpi.diagnostics.ShareSummary {
         error("unused")
     }
 
-    override suspend fun createArchive(
-        request: com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest,
-    ): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
-        error("unused")
+    override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
+        archiveRequests += request
+        return DiagnosticsArchive(
+            fileName = "home.zip",
+            absolutePath = "/tmp/home.zip",
+            sessionId = null,
+            createdAt = 1L,
+            scope = "home",
+            schemaVersion = 1,
+            privacyMode = "standard",
+        )
     }
 }
 
@@ -440,18 +454,29 @@ class StubInstrumentedDiagnosticsHomeWorkflowService : DiagnosticsHomeWorkflowSe
 }
 
 class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
+    private val nextRunNumber = AtomicInteger()
+    private val runs = ConcurrentHashMap<String, MutableStateFlow<DiagnosticsHomeCompositeProgress>>()
+    val startedRunIds = CopyOnWriteArrayList<String>()
+    val cancelledRunIds = CopyOnWriteArrayList<String>()
+
     override suspend fun startHomeAnalysis(
         options: com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions,
-    ): DiagnosticsHomeCompositeRunStarted = DiagnosticsHomeCompositeRunStarted(runId = "test-run")
+    ): DiagnosticsHomeCompositeRunStarted = startRun("test-run")
 
     override suspend fun startQuickAnalysis(
         options: com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions,
-    ): DiagnosticsHomeCompositeRunStarted = DiagnosticsHomeCompositeRunStarted(runId = "test-quick-run")
+    ): DiagnosticsHomeCompositeRunStarted = startRun("test-quick-run")
 
-    override fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress> =
-        MutableStateFlow(DiagnosticsHomeCompositeProgress(runId = runId))
+    override fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress> = requireNotNull(runs[runId])
 
-    override suspend fun cancelHomeRun(runId: String) = Unit
+    override suspend fun cancelHomeRun(runId: String) {
+        cancelledRunIds += runId
+        runs.getValue(runId).value =
+            DiagnosticsHomeCompositeProgress(
+                runId = runId,
+                status = DiagnosticsHomeCompositeRunStatus.CANCELLED,
+            )
+    }
 
     override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
         DiagnosticsHomeCompositeOutcome(
@@ -461,11 +486,27 @@ class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompos
             summary = "Test stub",
         )
 
-    override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = null
+    override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = runs[runId]?.value?.outcome
 
     override suspend fun lookupCachedOutcome(
         fingerprintHash: String,
     ): com.poyka.ripdpi.diagnostics.CachedProbeOutcome? = null
 
     override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
+
+    fun completeRun(outcome: DiagnosticsHomeCompositeOutcome) {
+        runs.getValue(outcome.runId).value =
+            DiagnosticsHomeCompositeProgress(
+                runId = outcome.runId,
+                status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
+                outcome = outcome,
+            )
+    }
+
+    private fun startRun(prefix: String): DiagnosticsHomeCompositeRunStarted {
+        val runId = "$prefix-${nextRunNumber.incrementAndGet()}"
+        startedRunIds += runId
+        runs[runId] = MutableStateFlow(DiagnosticsHomeCompositeProgress(runId = runId))
+        return DiagnosticsHomeCompositeRunStarted(runId = runId)
+    }
 }

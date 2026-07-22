@@ -23,8 +23,14 @@ internal object RipDpiTestTags {
     const val VpnPermissionDialogContinue = "vpn-permission-dialog-continue"
     const val VpnPermissionDialogDismiss = "vpn-permission-dialog-dismiss"
     const val MainErrorSnackbar = "main-error-snackbar"
+    const val StartupRecoveryPending = "startup-recovery-pending"
+    const val StartupRecoveryFailure = "startup-recovery-failure"
+    const val StartupRecoveryRetry = "startup-recovery-retry"
+    const val BottomNavBar = "bottom-nav-bar"
+    const val BottomNavIndicator = "bottom-nav-indicator"
 
     const val ConnectionActuatorButton = "connection-actuator-button"
+    const val ConnectionActuatorRail = "connection-actuator-rail"
     const val ConnectionActuatorRouteLabel = "connection-actuator-route-label"
     const val ConnectionActuatorTerminalLabel = "connection-actuator-terminal-label"
     const val RouteStack = "route-stack"
@@ -57,6 +63,9 @@ internal object RipDpiTestTags {
     const val HomeSetupHealthRow = "home-setup-health-row"
     const val HomeSetupHealthDetails = "home-setup-health-details"
     const val HomeSetupHealthAction = "home-setup-health-action"
+    const val HomeModesDiagnosticsHeader = "home-modes-diagnostics-header"
+    const val HomeModesDiagnosticsCollapsed = "home-modes-diagnostics-collapsed"
+    const val HomeModesDiagnosticsExpanded = "home-modes-diagnostics-expanded"
     const val HomeModeDisabledHint = "home-mode-disabled-hint"
     const val HomeNetworkConditionBanner = "home-network-condition-banner"
 
@@ -122,6 +131,10 @@ internal object RipDpiTestTags {
     const val ModeEditorCommandLineToggle = "mode-editor-command-line-toggle"
     const val ModeEditorCommandLineArgs = "mode-editor-command-line-args"
     const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"
+    const val ModeEditorLoading = "mode-editor-loading"
+    const val UnsavedChangesDialog = "unsaved-changes-dialog"
+    const val UnsavedChangesKeepEditing = "unsaved-changes-keep-editing"
+    const val UnsavedChangesDiscard = "unsaved-changes-discard"
 
     const val SettingsDnsSettings = "settings-dns-settings"
     const val SettingsAdvancedConnectivity = "settings-advanced-connectivity"
@@ -177,6 +190,7 @@ internal object RipDpiTestTags {
     const val AssetProviderCheckUpdates = "asset-provider-check-updates"
     const val AssetProviderCustomUrl = "asset-provider-custom-url"
     const val AssetProviderImport = "asset-provider-import"
+    const val AssetProviderImportGeosite = "asset-provider-import-geosite"
     const val SettingsRoutingRules = "settings-routing-rules"
     const val RoutesList = "routes-list"
     const val RoutesAddRule = "routes-add-rule"
@@ -419,6 +433,8 @@ internal object RipDpiTestTags {
     val logsFilter: (LogType) -> String = { type -> "logs-filter-${sanitize(type.name)}" }
     val logsSubsystemFilter: (LogSubsystem) -> String = { type -> "logs-subsystem-${sanitize(type.name)}" }
     val logsSeverityFilter: (LogSeverity) -> String = { severity -> "logs-severity-${sanitize(severity.name)}" }
+    val logsEntry: (String) -> String = { id -> "logs-entry-${sanitize(id)}" }
+    val logsEntryCopy: (String) -> String = { id -> "logs-entry-copy-${sanitize(id)}" }
 
     val historySection: (HistorySection) -> String = { section -> "history-section-${sanitize(section.name)}" }
 

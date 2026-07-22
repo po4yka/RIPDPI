@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,10 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
@@ -42,6 +45,8 @@ fun HomeModeCard(
     modifier: Modifier = Modifier,
     onCardClick: (() -> Unit)? = null,
     onDisabledHintClick: (() -> Unit)? = null,
+    primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
+    configureActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Outline,
 ) {
     val primaryEnabled = uiState.primaryActionEnabled && !uiState.isLoading
     val statusLabel = homeModeStatusLabel(uiState)
@@ -78,6 +83,8 @@ fun HomeModeCard(
             onPrimaryAction = onPrimaryAction,
             onConfigure = onConfigure,
             onDisabledHintClick = onDisabledHintClick,
+            primaryActionVariant = primaryActionVariant,
+            configureActionVariant = configureActionVariant,
         )
     }
 }
@@ -112,26 +119,49 @@ private fun HomeModeCardHeader(
     uiState: HomeModeCardUiState,
     statusLabel: String,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = uiState.title,
-            style = type.bodyEmphasisBold,
-            color = colors.foreground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        StatusIndicator(
-            label = statusLabel,
-            tone = homeModeStatusTone(uiState),
-        )
+    val stackHeader = LocalDensity.current.fontScale >= HomeModeStackedSummaryFontScale
+    if (stackHeader) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            HomeModeCardTitle(title = uiState.title)
+            HomeModeCardStatus(uiState = uiState, statusLabel = statusLabel)
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            HomeModeCardTitle(title = uiState.title, modifier = Modifier.weight(1f))
+            HomeModeCardStatus(uiState = uiState, statusLabel = statusLabel)
+        }
     }
+}
+
+@Composable
+private fun HomeModeCardTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = title,
+        style = RipDpiThemeTokens.type.bodyEmphasisBold,
+        color = RipDpiThemeTokens.colors.foreground,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun HomeModeCardStatus(
+    uiState: HomeModeCardUiState,
+    statusLabel: String,
+) {
+    StatusIndicator(
+        label = statusLabel,
+        tone = homeModeStatusTone(uiState),
+    )
 }
 
 @Composable
@@ -180,9 +210,9 @@ private fun HomeModeCardBody(
 @Composable
 private fun HomeModeSummaryStrip(facets: ImmutableList<HomeModeSummaryFacet>) {
     val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.md
+    val stackFacets = LocalDensity.current.fontScale >= HomeModeStackedSummaryFontScale
     Column(
         modifier =
             Modifier
@@ -193,30 +223,60 @@ private fun HomeModeSummaryStrip(facets: ImmutableList<HomeModeSummaryFacet>) {
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         facets.forEach { facet ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = facet.label,
-                    style = type.caption,
-                    color = colors.mutedForeground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(HomeModeSummaryLabelWeight),
-                )
-                Text(
-                    text = facet.value,
-                    style = type.monoSmall,
-                    color = colors.foreground,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(HomeModeSummaryValueWeight),
-                )
+            if (stackFacets) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                ) {
+                    HomeModeSummaryLabel(facet = facet)
+                    HomeModeSummaryValue(facet = facet)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    HomeModeSummaryLabel(
+                        facet = facet,
+                        modifier = Modifier.weight(HomeModeSummaryLabelWeight),
+                    )
+                    HomeModeSummaryValue(
+                        facet = facet,
+                        modifier = Modifier.weight(HomeModeSummaryValueWeight),
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun HomeModeSummaryLabel(
+    facet: HomeModeSummaryFacet,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = facet.label,
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun HomeModeSummaryValue(
+    facet: HomeModeSummaryFacet,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = facet.value,
+        style = RipDpiThemeTokens.type.monoSmall,
+        color = RipDpiThemeTokens.colors.foreground,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
 }
 
 // Labels are short ("Strategy", "DNS"); give the mono value column the extra
@@ -224,6 +284,8 @@ private fun HomeModeSummaryStrip(facets: ImmutableList<HomeModeSummaryFacet>) {
 // lines instead of wrapping under a half-empty label column.
 private const val HomeModeSummaryLabelWeight = 0.25f
 private const val HomeModeSummaryValueWeight = 0.75f
+private const val HomeModeStackedSummaryFontScale = 1.3f
+private val HomeModeSideBySideActionsMinWidth = 320.dp
 
 @Composable
 private fun HomeModeCardActions(
@@ -234,39 +296,69 @@ private fun HomeModeCardActions(
     onPrimaryAction: () -> Unit,
     onConfigure: () -> Unit,
     onDisabledHintClick: (() -> Unit)?,
+    primaryActionVariant: RipDpiButtonVariant,
+    configureActionVariant: RipDpiButtonVariant,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
-    ) {
-        Row(
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val stackActions =
+            maxWidth < HomeModeSideBySideActionsMinWidth * LocalDensity.current.fontScale
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
         ) {
-            RipDpiButton(
-                text = primaryActionLabel,
-                onClick = onPrimaryAction,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
-                enabled = primaryEnabled,
-                loading = uiState.isLoading,
-            )
-            RipDpiButton(
-                text = configureLabel,
-                onClick = onConfigure,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
-                variant = RipDpiButtonVariant.Outline,
+            if (stackActions) {
+                RipDpiButton(
+                    text = primaryActionLabel,
+                    onClick = onPrimaryAction,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
+                    variant = primaryActionVariant,
+                    enabled = primaryEnabled,
+                    loading = uiState.isLoading,
+                )
+                RipDpiButton(
+                    text = configureLabel,
+                    onClick = onConfigure,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
+                    variant = configureActionVariant,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                ) {
+                    RipDpiButton(
+                        text = primaryActionLabel,
+                        onClick = onPrimaryAction,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
+                        variant = primaryActionVariant,
+                        enabled = primaryEnabled,
+                        loading = uiState.isLoading,
+                    )
+                    RipDpiButton(
+                        text = configureLabel,
+                        onClick = onConfigure,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
+                        variant = configureActionVariant,
+                    )
+                }
+            }
+            HomeModeDisabledHint(
+                hint = uiState.primaryActionDisabledHint.takeIf { !primaryEnabled },
+                onClick = onDisabledHintClick ?: onConfigure,
             )
         }
-        HomeModeDisabledHint(
-            hint = uiState.primaryActionDisabledHint.takeIf { !primaryEnabled },
-            onClick = onDisabledHintClick ?: onConfigure,
-        )
     }
 }
 

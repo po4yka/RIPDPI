@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.AppStartupReadiness
+import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -62,4 +64,18 @@ class MainLifecycleDependencies
         val startupSideEffectsCoordinator: MainStartupSideEffectsCoordinator,
         val settingsDismissCoordinator: MainSettingsDismissCoordinator,
         val crashReportCoordinator: MainCrashReportCoordinator,
-    )
+        val appStartupReadiness: AppStartupReadiness,
+    ) {
+        constructor(
+            appLockLifecycleCoordinator: MainAppLockLifecycleCoordinator,
+            startupSideEffectsCoordinator: MainStartupSideEffectsCoordinator,
+            settingsDismissCoordinator: MainSettingsDismissCoordinator,
+            crashReportCoordinator: MainCrashReportCoordinator,
+        ) : this(
+            appLockLifecycleCoordinator = appLockLifecycleCoordinator,
+            startupSideEffectsCoordinator = startupSideEffectsCoordinator,
+            settingsDismissCoordinator = settingsDismissCoordinator,
+            crashReportCoordinator = crashReportCoordinator,
+            appStartupReadiness = ReadyAppStartupReadiness,
+        )
+    }

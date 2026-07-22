@@ -27,6 +27,7 @@ internal fun buildVpnTun2SocksConfig(
     rootHelperSocketPath: String? = null,
     luaScriptBaseDir: String? = null,
     uidPolicy: NativeUidPolicy = NativeUidPolicy.Disarmed,
+    uidPolicyAllowIcmp: Boolean = false,
 ): Tun2SocksConfig {
     val tunnelDns = dnsPlan.resolverDns
     val mapDnsEnabled = dnsPlan.mapDnsEnabled
@@ -76,6 +77,7 @@ internal fun buildVpnTun2SocksConfig(
         webrtcProtectionEnabled = webrtcProtectionEnabled,
         uidPolicyMode = uidPolicy.mode,
         uidPolicyUids = uidPolicy.uids,
+        uidPolicyAllowIcmp = uidPolicyAllowIcmp,
         logContext = logContext,
         username = localProxyEndpoint.username,
         password = localProxyEndpoint.password,

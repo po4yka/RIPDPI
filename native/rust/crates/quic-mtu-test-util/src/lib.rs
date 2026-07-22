@@ -260,6 +260,8 @@ mod tests {
         AsyncUdpSocket, ClientConfig, Endpoint, EndpointConfig, MtuDiscoveryConfig, ServerConfig, TokioRuntime,
         TransportConfig,
     };
+    use tokio::sync::watch;
+    use tokio::task::JoinSet;
 
     use super::MtuDropSocket;
 
@@ -306,6 +308,15 @@ mod tests {
     /// quinn's RFC 9000 base max-UDP-payload; the floor a disabled-PMTUD path and
     /// a recovered black hole both settle at.
     const BASE_MTU: u16 = 1200;
+    const PAYLOAD_SHA256: &str = "0653241fc6bafa8ce77356a1d25dbfe6e44fd1d22c7faeb480816dcafdac4b02";
+
+    struct ScenarioOutcome {
+        integrity: bool,
+        pre_mtu: u16,
+        post_mtu: u16,
+        oversized_drop_delta: usize,
+        black_hole_delta: u64,
+    }
 
     struct RawEchoServer {
         endpoint: Endpoint,
@@ -340,23 +351,63 @@ mod tests {
         RawEchoServer { endpoint, addr, cert_der }
     }
 
-    /// Accept connections and echo every bidirectional stream.
+    /// Accept connections and own every connection task until shutdown.
     ///
     /// # Cancel safety
-    /// Cancel-safe: every `.await` is a quinn accept/stream operation; dropping
-    /// the task simply stops accepting and closes in-flight streams cleanly.
-    async fn run_echo_server(endpoint: Endpoint) {
-        while let Some(incoming) = endpoint.accept().await {
-            tokio::spawn(async move {
-                let Ok(connection) = incoming.await else { return };
-                while let Ok((mut send, mut recv)) = connection.accept_bi().await {
-                    tokio::spawn(async move {
-                        let _ = tokio::io::copy(&mut recv, &mut send).await;
-                        let _ = send.finish();
-                    });
+    /// NOT cancel-safe: callers signal shutdown and await this function so its
+    /// connection `JoinSet` can abort and join all children.
+    async fn run_echo_server(endpoint: Endpoint, mut shutdown: watch::Receiver<bool>) {
+        let mut connections = JoinSet::new();
+        loop {
+            tokio::select! {
+                _ = shutdown.changed() => break,
+                completed = connections.join_next(), if !connections.is_empty() => {
+                    let _ = completed;
                 }
-            });
+                incoming = endpoint.accept() => {
+                    let Some(incoming) = incoming else { break };
+                    let child_shutdown = shutdown.clone();
+                    connections.spawn(run_echo_connection(incoming, child_shutdown));
+                }
+            }
         }
+        while connections.join_next().await.is_some() {}
+    }
+
+    /// Own every stream task for one echo connection.
+    ///
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: callers signal shutdown and await the owning server,
+    /// which aborts and joins this connection and all stream children.
+    async fn run_echo_connection(incoming: quinn::Incoming, mut shutdown: watch::Receiver<bool>) {
+        let Ok(connection) = incoming.await else { return };
+        let mut streams = JoinSet::new();
+        loop {
+            tokio::select! {
+                _ = shutdown.changed() => break,
+                completed = streams.join_next(), if !streams.is_empty() => {
+                    let _ = completed;
+                }
+                stream = connection.accept_bi() => {
+                    let Ok((send, recv)) = stream else { break };
+                    streams.spawn(echo_stream(send, recv));
+                }
+            }
+        }
+        streams.abort_all();
+        while streams.join_next().await.is_some() {}
+    }
+
+    /// Echo one bidirectional stream.
+    ///
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: `copy` may consume bytes before cancellation; the owning
+    /// connection aborts and joins this fixture-confined task during shutdown.
+    async fn echo_stream(mut send: quinn::SendStream, mut recv: quinn::RecvStream) {
+        let _ = tokio::io::copy(&mut recv, &mut send).await;
+        let _ = send.finish();
     }
 
     fn client_config(cert_der: &[u8], enable_pmtud: bool) -> ClientConfig {
@@ -386,7 +437,7 @@ mod tests {
     /// Returns whether the bytes round-tripped intact.
     ///
     /// # Cancel safety
-    /// Not cancel-safe: dropping mid-call leaves the stream partially read; the
+    /// NOT cancel-safe: dropping mid-call leaves the stream partially read; the
     /// scenario owns the stream for its whole lifetime, so that never happens.
     async fn echo(send: &mut quinn::SendStream, recv: &mut quinn::RecvStream, len: usize) -> bool {
         let payload = vec![0xC3u8; len];
@@ -401,13 +452,19 @@ mod tests {
     /// validate the (initially unconstrained) path MTU, optionally lower the drop
     /// threshold to model a mid-connection cliff, then transfer `PAYLOAD_LEN` and
     /// report `(round-trip intact, post-transfer path MTU)`.
-    async fn run_scenario(enable_pmtud: bool, drop_after_warmup: Option<usize>) -> (bool, u16) {
+    ///
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: warm-up, cliff injection, telemetry, and joined server
+    /// cleanup form one fixture-owned transaction.
+    async fn run_scenario(enable_pmtud: bool, drop_after_warmup: Option<usize>) -> ScenarioOutcome {
         let server = build_echo_server();
-        tokio::spawn(run_echo_server(server.endpoint.clone()));
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        let server_task = tokio::spawn(run_echo_server(server.endpoint.clone(), shutdown_rx));
 
         let (socket, threshold, _addr) = MtuDropSocket::bind_localhost().expect("bind client socket");
         let mut client =
-            Endpoint::new_with_abstract_socket(EndpointConfig::default(), None, socket, Arc::new(TokioRuntime))
+            Endpoint::new_with_abstract_socket(EndpointConfig::default(), None, socket.clone(), Arc::new(TokioRuntime))
                 .expect("client endpoint");
         client.set_default_client_config(client_config(&server.cert_der, enable_pmtud));
 
@@ -417,14 +474,29 @@ mod tests {
         // Warm up on the unconstrained path so DPLPMTUD can validate a high MTU.
         assert!(echo(&mut send, &mut recv, WARMUP_LEN).await, "warm-up integrity");
         tokio::time::sleep(Duration::from_millis(300)).await;
+        let before = connection.stats().path;
 
         if let Some(threshold_bytes) = drop_after_warmup {
             threshold.set(threshold_bytes);
         }
 
-        let ok = echo(&mut send, &mut recv, PAYLOAD_LEN).await;
+        let integrity = echo(&mut send, &mut recv, PAYLOAD_LEN).await;
         tokio::time::sleep(Duration::from_millis(100)).await;
-        (ok, connection.stats().path.current_mtu)
+        let after = connection.stats().path;
+        let drop_evidence = socket.evidence();
+        let outcome = ScenarioOutcome {
+            integrity,
+            pre_mtu: before.current_mtu,
+            post_mtu: after.current_mtu,
+            oversized_drop_delta: drop_evidence.dropped_tx + drop_evidence.dropped_rx,
+            black_hole_delta: after.black_holes_detected.saturating_sub(before.black_holes_detected),
+        };
+        connection.close(0_u32.into(), b"test complete");
+        client.close(0_u32.into(), b"test complete");
+        server.endpoint.close(0_u32.into(), b"test complete");
+        let _ = shutdown_tx.send(true);
+        server_task.await.expect("join raw echo server");
+        outcome
     }
 
     /// DoD teeth: disabling `mtu_discovery_config` is observable. On a clear
@@ -432,16 +504,32 @@ mod tests {
     /// disabled, the connection is pinned at the base. A regression that drops
     /// `mtu_discovery_config(Some(..))` collapses `enabled_mtu` to the base and
     /// fails the strict inequality.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: both scenarios and their joined echo-server cleanup form
+    /// one comparison that must run to completion.
     #[tokio::test(flavor = "multi_thread")]
     async fn pmtud_enabled_discovers_larger_path_mtu_than_disabled() {
-        let (enabled_ok, enabled_mtu) = run_scenario(true, None).await;
-        let (disabled_ok, disabled_mtu) = run_scenario(false, None).await;
-        assert!(enabled_ok && disabled_ok, "both connections must round-trip on a clear path");
-        assert!(disabled_mtu <= BASE_MTU, "PMTUD disabled must stay pinned at the {BASE_MTU} base, got {disabled_mtu}");
+        let enabled = run_scenario(true, None).await;
+        let disabled = run_scenario(false, None).await;
+        assert!(enabled.integrity && disabled.integrity, "both connections must round-trip on a clear path");
         assert!(
-            enabled_mtu > disabled_mtu && enabled_mtu >= 1400,
-            "DPLPMTUD must validate a path MTU ({enabled_mtu}) above the disabled base ({disabled_mtu}); \
+            disabled.post_mtu <= BASE_MTU,
+            "PMTUD disabled must stay pinned at the {BASE_MTU} base, got {}",
+            disabled.post_mtu
+        );
+        assert!(
+            enabled.post_mtu > disabled.post_mtu && enabled.post_mtu >= 1400,
+            "DPLPMTUD must validate a path MTU ({}) above the disabled base ({}); \
              disabling mtu_discovery_config regresses this",
+            enabled.post_mtu,
+            disabled.post_mtu,
+        );
+        assert_eq!(enabled.oversized_drop_delta + disabled.oversized_drop_delta, 0);
+        assert_eq!(enabled.black_hole_delta + disabled.black_hole_delta, 0);
+        println!(
+            "PMTUD_MEASUREMENT {{\"blackHoleDelta\":0,\"caseId\":\"pmtud_clear_path_control\",\"highMtu\":{},\"integrity\":true,\"oversizedDropDelta\":0,\"payloadLength\":{},\"payloadSha256\":\"{}\",\"postCliffMtu\":null,\"preMtu\":{},\"targetFamily\":\"ipv4\",\"version\":\"pmtud_measurement_v1\"}}",
+            enabled.post_mtu, PAYLOAD_LEN, PAYLOAD_SHA256, disabled.post_mtu,
         );
     }
 
@@ -449,18 +537,38 @@ mod tests {
     /// path MTU it lowers the threshold mid-connection; the transfer survives
     /// (QUIC base MTU + black-hole recovery) and the path MTU is capped below the
     /// unconstrained path.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: capped and clear scenarios plus joined cleanup form one
+    /// fault-control comparison that must run to completion.
     #[tokio::test(flavor = "multi_thread")]
     async fn mtu_drop_socket_injects_recoverable_cliff() {
-        let (capped_ok, capped_mtu) = run_scenario(true, Some(DROP_THRESHOLD)).await;
-        let (clear_ok, clear_mtu) = run_scenario(true, None).await;
-        assert!(capped_ok && clear_ok, "the transfer must survive the mid-connection MTU drop");
+        let capped = run_scenario(true, Some(DROP_THRESHOLD)).await;
+        let clear = run_scenario(true, None).await;
+        assert!(capped.integrity && clear.integrity, "the transfer must survive the mid-connection MTU drop");
         assert!(
-            capped_mtu <= DROP_THRESHOLD as u16,
-            "after the injected cliff the path MTU ({capped_mtu}) must fall to/below the threshold ({DROP_THRESHOLD})",
+            capped.post_mtu <= DROP_THRESHOLD as u16,
+            "after the injected cliff the path MTU ({}) must fall to/below the threshold ({DROP_THRESHOLD})",
+            capped.post_mtu,
         );
         assert!(
-            capped_mtu < clear_mtu,
-            "the cliff must cap the path MTU ({capped_mtu}) below the unconstrained path ({clear_mtu})",
+            capped.post_mtu < clear.post_mtu,
+            "the cliff must cap the path MTU ({}) below the unconstrained path ({})",
+            capped.post_mtu,
+            clear.post_mtu,
+        );
+        assert!(capped.pre_mtu >= 1400 && clear.post_mtu >= capped.pre_mtu);
+        assert!(capped.oversized_drop_delta > 0);
+        assert!(capped.black_hole_delta > 0);
+        println!(
+            "PMTUD_MEASUREMENT {{\"blackHoleDelta\":{},\"caseId\":\"pmtud_black_hole_fault_control\",\"highMtu\":{},\"integrity\":true,\"oversizedDropDelta\":{},\"payloadLength\":{},\"payloadSha256\":\"{}\",\"postCliffMtu\":{},\"preMtu\":{},\"targetFamily\":\"ipv4\",\"version\":\"pmtud_measurement_v1\"}}",
+            capped.black_hole_delta,
+            clear.post_mtu,
+            capped.oversized_drop_delta,
+            PAYLOAD_LEN,
+            PAYLOAD_SHA256,
+            capped.post_mtu,
+            capped.pre_mtu,
         );
     }
 }

@@ -23,7 +23,8 @@ Use UiAutomator2 against a debug build:
 - Install a `debug` APK, not `release`.
 - Start the app with automation extras before attaching the inspector.
 - Use `DISABLE_MOTION=true` for inspector sessions.
-- Verify resource IDs are visible for: `home-screen`, `settings-screen`, `advanced_settings-screen`, `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`
+- Verify resource IDs are visible for: `home-screen`, `settings-screen`, `advanced_settings-screen`, `home-modes-diagnostics-header`
+- Expand `home-modes-diagnostics-header` before checking the nested Home mode actions listed in the selector registry.
 - Check that bottom nav IDs are present: `bottom-nav-home`, `bottom-nav-settings`
 - Check that form controls expose the same IDs as `RipDpiTestTags`.
 
@@ -56,7 +57,8 @@ adb shell am start \
 Use the raw tag values from `RipDpiTestTags` as your locator contract.
 
 - Screen roots are generated from every entry in `Route.all` via `RipDpiTestTags.screen(route)`; each result is the stable route plus the `-screen` suffix. Do not duplicate the route inventory in this document.
-- Primary actions: `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`, `home-mode-primary-diagnostic`, `settings-advanced-settings`, `settings-dns-settings`, `mode-editor-save`, `dns-custom-save`
+- Home mode disclosure: `home-modes-diagnostics-header`; expand it before locating nested Home mode actions.
+- Other primary actions: `settings-advanced-settings`, `settings-dns-settings`, `mode-editor-save`, `dns-custom-save`
 - DNS configuration: `dns-mode-encrypted`, `dns-mode-plain-udp`, `dns-protocol-doh`, `dns-protocol-dot`, `dns-protocol-dnscrypt`, `dns-resolver-cloudflare`, `dns-resolver-google`, `dns-resolver-quad9`, `dns-resolver-adguard`
 - Diagnostics and sharing: `diagnostics-top-history-action`, `diagnostics-share-archive`, `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`
 - Dialogs: `vpn-permission-dialog`, `vpn-permission-dialog-continue`, `vpn-permission-dialog-dismiss`

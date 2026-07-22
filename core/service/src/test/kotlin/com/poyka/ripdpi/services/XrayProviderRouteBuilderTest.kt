@@ -76,8 +76,12 @@ class XrayProviderRouteBuilderTest {
 
 internal class FakeDurableXrayProfileStore : DurableXrayProfileStore {
     private val profiles = mutableMapOf<String, XrayProfile>()
+    var onLoad: suspend () -> Unit = {}
 
-    override suspend fun load(profileId: String): XrayProfile? = profiles[profileId]
+    override suspend fun load(profileId: String): XrayProfile? {
+        onLoad()
+        return profiles[profileId]
+    }
 
     override suspend fun save(
         profileId: String,

@@ -114,10 +114,10 @@ pages:
     flow_from: "onboarding"
     flow_label: "finish setup"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-local-dpi-bypass", "home-mode-card-remote-vpn", "home-mode-primary-local-dpi-bypass", "bottom-nav-config", "bottom-nav-diagnostics", "bottom-nav-settings"]
+    required_elements: ["home-modes-diagnostics-header", "bottom-nav-config", "bottom-nav-diagnostics", "bottom-nav-settings"]
     state: "idle"
     description: |
-      Primary status surface with per-mode connection cards and bottom navigation.
+      Primary status surface with collapsed mode controls and bottom navigation.
 
   - id: home_vpn_missing
     title: "Home Setup Health"
@@ -138,10 +138,10 @@ pages:
     flow_label: "proxy connected"
     service_preset: "connected_proxy"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-local-dpi-bypass", "home-mode-primary-local-dpi-bypass"]
+    required_elements: ["connection-actuator-button", "connection-actuator-route-label", "home-modes-diagnostics-header"]
     state: "connected proxy"
     description: |
-      Connected proxy state with the per-mode stop action and route context on the home surface.
+      Connected proxy state with route context and collapsed secondary mode controls.
 
   - id: home_connected_vpn
     title: "Home Connected VPN"
@@ -150,10 +150,10 @@ pages:
     flow_label: "VPN connected"
     service_preset: "connected_vpn"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-remote-vpn", "home-mode-primary-remote-vpn"]
+    required_elements: ["connection-actuator-button", "connection-actuator-route-label", "home-modes-diagnostics-header"]
     state: "connected VPN"
     description: |
-      Connected VPN state with tunnel status and the per-mode stop action visible.
+      Connected VPN state with tunnel status and collapsed secondary mode controls.
 
   - id: config
     title: "Config"

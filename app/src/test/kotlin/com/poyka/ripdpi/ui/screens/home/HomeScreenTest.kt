@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipboardManager
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
@@ -14,12 +19,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.unit.Density
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -31,6 +39,10 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
+import com.poyka.ripdpi.permissions.PermissionIssueUiState
+import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.permissions.PermissionRecovery
+import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -117,7 +129,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `home renders primary actuator and the three mode cards in order`() {
+    fun `home keeps mode cards collapsed until disclosure expands`() {
         var primaryConnectionToggles = 0
         composeRule.setContent {
             RipDpiTheme {
@@ -135,13 +147,25 @@ class HomeScreenTest {
         HomeMode.entries.forEach { mode ->
             composeRule
                 .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
-                .assertCountEquals(1)
+                .assertCountEquals(0)
         }
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).assertCountEquals(1)
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).assertHasClickAction()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsExpanded).assertCountEquals(0)
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .assertIsDisplayed()
             .assertHasClickAction()
             .performSemanticsAction(SemanticsActions.OnClick)
+        expandModesAndDiagnostics()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsExpanded).assertIsDisplayed()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed).assertCountEquals(0)
+        HomeMode.entries.forEach { mode ->
+            composeRule
+                .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
+                .assertCountEquals(1)
+        }
         composeRule.onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.Diagnostic.name)).performScrollTo()
         val bypassTop = cardTop(HomeMode.LocalDpiBypass)
         val vpnTop = cardTop(HomeMode.RemoteVpn)
@@ -158,7 +182,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `mode cards route primary and card actions through screen callbacks`() {
+    fun `mode cards route low emphasis actions through screen callbacks`() {
         var bypassEnabled: Boolean? = null
         var vpnEnabled: Boolean? = null
         var bypassOpened = false
@@ -180,6 +204,7 @@ class HomeScreenTest {
             }
         }
 
+        expandModesAndDiagnostics()
         clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
         clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
         clickHomeNode(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name))
@@ -189,6 +214,81 @@ class HomeScreenTest {
         assertEquals(true, vpnEnabled)
         assertTrue(bypassOpened)
         assertTrue(vpnOpened)
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "en-w411dp-h891dp")
+    fun `primary actuator stays above setup warnings at Pixel 7 width and maximum font`() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        HomeScreen(
+                            uiState =
+                                MainUiState(
+                                    permissionSummary =
+                                        PermissionSummaryUiState(
+                                            issue =
+                                                PermissionIssueUiState(
+                                                    kind = PermissionKind.VpnConsent,
+                                                    title = "VPN permission needed",
+                                                    message = "Allow RIPDPI to create the local VPN before connecting.",
+                                                    recovery = PermissionRecovery.ShowVpnPermissionDialog,
+                                                    actionLabel = "Allow VPN",
+                                                    blocking = true,
+                                                ),
+                                        ),
+                                    modeCards = modeCards(),
+                                ),
+                            onToggleConnection = {},
+                            onOpenDiagnostics = {},
+                            onOpenHistory = {},
+                            onRepairPermission = {},
+                            onOpenVpnPermissionDialog = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        val actuator =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+                .assertIsDisplayed()
+                .fetchSemanticsNode()
+        val setupWarning = composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow).fetchSemanticsNode()
+        assertTrue(actuator.boundsInRoot.bottom <= setupWarning.boundsInRoot.top)
+    }
+
+    @Test
+    fun `fault actuator stays above error recovery banner`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            connectionState = ConnectionState.Error,
+                            errorMessage = "Tunnel failed",
+                            connectionActuator =
+                                HomeConnectionActuatorUiState(
+                                    status = HomeConnectionActuatorStatus.Fault,
+                                    statusDescription = "Secure line fault at Tunnel",
+                                    actionLabel = "Retry secure line",
+                                ),
+                            modeCards = modeCards(),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        val actuator = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode()
+        val error = composeRule.onNodeWithTag(RipDpiTestTags.HomeErrorBanner).fetchSemanticsNode()
+        assertTrue(actuator.boundsInRoot.bottom <= error.boundsInRoot.top)
     }
 
     @Test
@@ -210,6 +310,7 @@ class HomeScreenTest {
             }
         }
 
+        expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name))
             .performScrollTo()
@@ -323,6 +424,10 @@ class HomeScreenTest {
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .assertCountEquals(0)
+        expandModesAndDiagnostics()
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertCountEquals(0)
     }
 
     @Test
@@ -353,6 +458,10 @@ class HomeScreenTest {
             }
         }
 
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertCountEquals(0)
+        expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .performScrollTo()
@@ -392,6 +501,10 @@ class HomeScreenTest {
             }
         }
 
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertCountEquals(0)
+        expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .performScrollTo()
@@ -458,6 +571,14 @@ class HomeScreenTest {
 
     private fun clickHomeNode(tag: String) {
         composeRule.onNodeWithTag(tag).performScrollTo().performClick()
+    }
+
+    private fun expandModesAndDiagnostics() {
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
     }
 
     private fun modeCards(activeMode: HomeMode? = null) =

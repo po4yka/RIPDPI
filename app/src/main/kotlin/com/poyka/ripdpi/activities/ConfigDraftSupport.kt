@@ -46,6 +46,14 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 
 internal const val defaultTtlMax = 255
 internal const val defaultRelayPort = 443
@@ -57,6 +65,7 @@ internal const val relayFinalmaskFragmentBytesMax = 65535
 
 private val DefaultConfigDnsSeed = canonicalDefaultEncryptedDnsSettings()
 
+@Serializable
 data class ConfigDraft(
     val mode: Mode = Mode.VPN,
     val dnsIp: String = DefaultConfigDnsSeed.dnsIp,
@@ -67,7 +76,9 @@ data class ConfigDraft(
     val bufferSize: String = "16384",
     val useCommandLineSettings: Boolean = false,
     val commandLineArgs: String = "",
+    @Serializable(with = TcpChainStepImmutableListSerializer::class)
     val tcpChainSteps: ImmutableList<TcpChainStepModel> = persistentListOf(),
+    @Serializable(with = UdpChainStepImmutableListSerializer::class)
     val udpChainSteps: ImmutableList<UdpChainStepModel> = persistentListOf(),
     val chainDsl: String = "",
     val desyncMethod: String = "split",
@@ -112,6 +123,7 @@ data class ConfigDraft(
     // hop; this list carries only the middle hops. Persisted to the relay profile store via
     // the `relay_chain_middle_profile_ids` proto field, resolved into the ordered N-hop chain,
     // and carried over the JNI wire as `chainHops` for 3-/4-hop chains.
+    @Serializable(with = StringImmutableListSerializer::class)
     val relayChainMiddleProfileIds: ImmutableList<String> = persistentListOf(),
     val relayMasqueUrl: String = "",
     val relayMasqueAuthMode: String = RelayMasqueAuthModeBearer,
@@ -192,6 +204,47 @@ data class ConfigDraft(
         )
 }
 
+internal object TcpChainStepImmutableListSerializer : KSerializer<ImmutableList<TcpChainStepModel>> {
+    private val delegate = ListSerializer(TcpChainStepModel.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun serialize(
+        encoder: Encoder,
+        value: ImmutableList<TcpChainStepModel>,
+    ) = delegate.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): ImmutableList<TcpChainStepModel> =
+        delegate.deserialize(decoder).toImmutableList()
+}
+
+internal object UdpChainStepImmutableListSerializer : KSerializer<ImmutableList<UdpChainStepModel>> {
+    private val delegate = ListSerializer(UdpChainStepModel.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun serialize(
+        encoder: Encoder,
+        value: ImmutableList<UdpChainStepModel>,
+    ) = delegate.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): ImmutableList<UdpChainStepModel> =
+        delegate.deserialize(decoder).toImmutableList()
+}
+
+internal object StringImmutableListSerializer : KSerializer<ImmutableList<String>> {
+    private val delegate = ListSerializer(String.serializer())
+
+    override val descriptor: SerialDescriptor = delegate.descriptor
+
+    override fun serialize(
+        encoder: Encoder,
+        value: ImmutableList<String>,
+    ) = delegate.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): ImmutableList<String> = delegate.deserialize(decoder).toImmutableList()
+}
+
 enum class ConfigPresetKind {
     Recommended,
     Proxy,
@@ -221,6 +274,11 @@ data class ConfigUiState(
     val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,
     val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl,
+    val isEditorDirty: Boolean = false,
+    val isEditorLoading: Boolean = false,
+    val isEditorSaving: Boolean = false,
+    val isEditorImporting: Boolean = false,
+    val hasEditorRecoveryPersistenceError: Boolean = false,
     val isLoading: Boolean = false,
 )
 
@@ -241,15 +299,81 @@ sealed interface ConfigEffect {
 
     data object ValidationFailed : ConfigEffect
 
+    data class EditorHydrationFailed(
+        val sessionId: Long,
+    ) : ConfigEffect
+
     data class Message(
         val text: String,
     ) : ConfigEffect
 }
 
+internal enum class ConfigEditorExitDecision {
+    Blocked,
+    ConfirmDiscard,
+    Exit,
+}
+
 internal data class ConfigEditorSession(
+    val sessionId: Long = 0L,
     val presetId: String? = null,
+    val baselineDraft: ConfigDraft? = null,
     val draft: ConfigDraft? = null,
-)
+    val hydrationPending: Boolean = false,
+    val draftRevision: Long = 0L,
+    val savePending: Boolean = false,
+    val suppressSaveSuccess: Boolean = false,
+) {
+    val isDirty: Boolean
+        get() = !hydrationPending && baselineDraft != null && draft != baselineDraft
+
+    fun completeHydration(
+        expectedSessionId: Long,
+        hydratedDraft: ConfigDraft,
+    ): ConfigEditorSession =
+        if (sessionId == expectedSessionId && hydrationPending) {
+            copy(
+                baselineDraft = hydratedDraft,
+                draft = hydratedDraft,
+                hydrationPending = false,
+            )
+        } else {
+            this
+        }
+}
+
+internal fun MutableStateFlow<ConfigEditorSession>.updateDraftForSession(
+    expectedSessionId: Long,
+    transform: ConfigDraft.() -> ConfigDraft,
+): Boolean {
+    while (true) {
+        val current = value
+        if (
+            current.sessionId != expectedSessionId ||
+            current.presetId == null ||
+            current.hydrationPending
+        ) {
+            return false
+        }
+        val updated =
+            current.copy(
+                draft = requireNotNull(current.draft).transform(),
+                draftRevision = current.draftRevision + 1,
+            )
+        if (compareAndSet(current, updated)) return true
+    }
+}
+
+internal class ConfigEditorHydrationFailureHandler(
+    private val editorSession: MutableStateFlow<ConfigEditorSession>,
+) {
+    fun abort(expectedSessionId: Long): Boolean {
+        val current = editorSession.value
+        return current.sessionId == expectedSessionId &&
+            current.hydrationPending &&
+            editorSession.compareAndSet(current, ConfigEditorSession())
+    }
+}
 
 internal const val ConfigFieldDnsIp = "dnsIp"
 internal const val ConfigFieldProxyIp = "proxyIp"

@@ -1,10 +1,11 @@
 use std::net::{IpAddr, SocketAddr};
 
-use etherparse::{NetSlice, SlicedPacket, TransportSlice};
+use etherparse::{IpNumber, NetSlice, SlicedPacket, TransportSlice};
 
 #[derive(Debug)]
 pub enum IpClass<'a> {
     TcpOrOther,
+    Icmp,
     UdpDns { src: SocketAddr, payload: &'a [u8] },
     Udp { src: SocketAddr, dst: SocketAddr, payload: &'a [u8] },
 }
@@ -18,12 +19,25 @@ pub fn classify_ip_packet<'a>(pkt: &'a [u8], mapdns: Option<(u32, u32, u16)>) ->
         return IpClass::TcpOrOther;
     };
 
-    let Some(TransportSlice::Udp(udp)) = parsed.transport else {
-        return IpClass::TcpOrOther;
-    };
-
     let Some(net) = parsed.net else {
         return IpClass::TcpOrOther;
+    };
+    let is_icmp = match &net {
+        NetSlice::Ipv4(ipv4) => ipv4.payload_ip_number() == IpNumber::ICMP,
+        NetSlice::Ipv6(ipv6) => ipv6.payload().ip_number == IpNumber::IPV6_ICMP,
+        NetSlice::Arp(_) => false,
+    };
+    if is_icmp {
+        return IpClass::Icmp;
+    }
+
+    let Some(transport) = parsed.transport else {
+        return IpClass::TcpOrOther;
+    };
+    let udp = match transport {
+        TransportSlice::Icmpv4(_) | TransportSlice::Icmpv6(_) => return IpClass::TcpOrOther,
+        TransportSlice::Udp(udp) => udp,
+        TransportSlice::Tcp(_) => return IpClass::TcpOrOther,
     };
 
     let src_port = udp.source_port();
@@ -119,6 +133,31 @@ mod tests {
         pkt[42..44].copy_from_slice(&dst_port.to_be_bytes());
         pkt[44..46].copy_from_slice(&payload_len.to_be_bytes());
         pkt[48..48 + payload.len()].copy_from_slice(payload);
+        pkt
+    }
+
+    fn ipv4_fragment(protocol: u8, first_fragment: bool) -> Vec<u8> {
+        let mut pkt = vec![0u8; 28];
+        pkt[0] = 0x45;
+        pkt[2..4].copy_from_slice(&28u16.to_be_bytes());
+        pkt[6..8].copy_from_slice(&(if first_fragment { 0x2000_u16 } else { 0x0001_u16 }).to_be_bytes());
+        pkt[8] = 64;
+        pkt[9] = protocol;
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
+        pkt
+    }
+
+    fn ipv6_fragment(next_header: u8, first_fragment: bool) -> Vec<u8> {
+        let mut pkt = vec![0u8; 56];
+        pkt[0] = 0x60;
+        pkt[4..6].copy_from_slice(&16u16.to_be_bytes());
+        pkt[6] = 44; // Fragment extension header
+        pkt[7] = 64;
+        pkt[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[40] = next_header;
+        pkt[42..44].copy_from_slice(&(if first_fragment { 0x0001_u16 } else { 0x0008_u16 }).to_be_bytes());
         pkt
     }
 
@@ -260,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn icmp_packet_is_tcp_or_other() {
+    fn ipv4_icmp_is_classified_as_icmp() {
         let mut pkt = vec![0u8; 28];
         pkt[0] = 0x45;
         pkt[2..4].copy_from_slice(&28u16.to_be_bytes());
@@ -269,7 +308,37 @@ mod tests {
         pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
         pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
 
-        assert!(matches!(classify_ip_packet(&pkt, None), IpClass::TcpOrOther));
+        assert!(matches!(classify_ip_packet(&pkt, None), IpClass::Icmp));
+    }
+
+    #[test]
+    fn ipv6_icmp_is_classified_as_icmp() {
+        let mut pkt = vec![0u8; 48];
+        pkt[0] = 0x60;
+        pkt[4..6].copy_from_slice(&8u16.to_be_bytes());
+        pkt[6] = 58; // ICMPv6
+        pkt[7] = 64;
+        pkt[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[40] = 128; // Echo Request
+
+        assert!(matches!(classify_ip_packet(&pkt, None), IpClass::Icmp));
+    }
+
+    #[test]
+    fn fragmented_icmp_is_classified_from_final_ip_protocol() {
+        for pkt in [ipv4_fragment(1, true), ipv4_fragment(1, false), ipv6_fragment(58, true), ipv6_fragment(58, false)]
+        {
+            assert!(matches!(classify_ip_packet(&pkt, None), IpClass::Icmp));
+        }
+    }
+
+    #[test]
+    fn fragmented_tcp_and_udp_are_not_misclassified_as_icmp() {
+        for pkt in [ipv4_fragment(6, true), ipv4_fragment(17, false), ipv6_fragment(6, true), ipv6_fragment(17, false)]
+        {
+            assert!(matches!(classify_ip_packet(&pkt, None), IpClass::TcpOrOther));
+        }
     }
 
     #[test]

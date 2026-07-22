@@ -199,6 +199,8 @@ data class AppProcessDnsProbeResult(
     val latencyMs: Long? = null,
     val localAddress: String? = null,
     val localPort: Int? = null,
+    val probePid: Int? = null,
+    val probeUid: Int? = null,
     val errorClass: String? = null,
     val errorMessage: String? = null,
 )
@@ -1441,6 +1443,44 @@ class TestProcessDnsProbeServiceHandle internal constructor(
 ) : Closeable {
     private val closed = AtomicBoolean(false)
 
+    fun isVpnDefaultNetwork(): Boolean = transactForBoolean(TestNetworkProbeIsVpnTransactionCode)
+
+    fun awaitVpnDefaultNetwork(timeoutMs: Long): Boolean {
+        require(timeoutMs in 1..Int.MAX_VALUE.toLong()) { "Invalid VPN default-network timeout: $timeoutMs" }
+        check(!closed.get()) { "Test-process network probe service is closed" }
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(TestNetworkProbeServiceDescriptor)
+            data.writeInt(timeoutMs.toInt())
+            check(binder.transact(TestNetworkProbeAwaitVpnTransactionCode, data, reply, 0)) {
+                "Test-process network probe service rejected the VPN await transaction"
+            }
+            reply.readException()
+            return reply.readInt() == 1
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
+    private fun transactForBoolean(code: Int): Boolean {
+        check(!closed.get()) { "Test-process network probe service is closed" }
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(TestNetworkProbeServiceDescriptor)
+            check(binder.transact(code, data, reply, 0)) {
+                "Test-process network probe service rejected transaction $code"
+            }
+            reply.readException()
+            return reply.readInt() == 1
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
     @Suppress("DEPRECATION")
     fun dnsProbe(
         queryHost: String,
@@ -1484,6 +1524,8 @@ class TestProcessDnsProbeServiceHandle internal constructor(
                         ?.getLong(DebugNetworkProbeExtraDnsLatencyMs),
                 localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                 localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                 errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                 errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
             )
@@ -1584,6 +1626,8 @@ fun appProcessTcpRoundTrip(
                         localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
                         response = extras.getString(DebugNetworkProbeExtraResponse),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -1933,6 +1977,14 @@ private fun ensureTestProbeNetworkEligibility() {
     }
     execShell("am set-standby-bucket $testPackage active")
     execShell("cmd deviceidle tempwhitelist -d $TestProbeNetworkAllowlistDurationMs $testPackage")
+}
+
+fun clearTestProbeNetworkEligibility() {
+    val testPackage = InstrumentationRegistry.getInstrumentation().context.packageName
+    check(testPackage.matches(Regex("[A-Za-z0-9_.]+"))) {
+        "Unexpected instrumentation package name"
+    }
+    execShell("cmd deviceidle tempwhitelist -r $testPackage")
 }
 
 private fun parseManifest(body: String): FixtureManifestDto {

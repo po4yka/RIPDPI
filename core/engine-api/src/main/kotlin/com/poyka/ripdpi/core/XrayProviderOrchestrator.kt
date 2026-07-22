@@ -3,6 +3,11 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 
 /**
  * Tunnel seam the orchestrator drives, decoupled from the native tun2socks
@@ -216,8 +221,12 @@ class XrayProviderOrchestrator(
             tunnel.start(upstream)
             activeRoute = route
             HandoffOutcome.Running(upstream)
+        } catch (cancellation: CancellationException) {
+            withContext(NonCancellable) { runCatching { tunnel.stop() } }
+            throw cancellation
         } catch (e: Exception) {
-            runCatching { tunnel.stop() }
+            withContext(NonCancellable) { runCatching { tunnel.stop() } }
+            currentCoroutineContext().ensureActive()
             HandoffOutcome.Failed("native tunnel start failed: ${e.message}")
         }
 
@@ -233,8 +242,12 @@ class XrayProviderOrchestrator(
         try {
             xray.start(renderedConfigProvider(route), protectController)
             xray.awaitReady()
+        } catch (cancellation: CancellationException) {
+            withContext(NonCancellable) { runCatching { xray.stop() } }
+            throw cancellation
         } catch (e: Exception) {
-            runCatching { xray.stop() }
+            withContext(NonCancellable) { runCatching { xray.stop() } }
+            currentCoroutineContext().ensureActive()
             return HandoffOutcome.Failed("xray start failed: ${e.message}")
         }
 
@@ -244,20 +257,32 @@ class XrayProviderOrchestrator(
             activeXray = xray
             activeRoute = route
             HandoffOutcome.Running(upstream)
+        } catch (cancellation: CancellationException) {
+            withContext(NonCancellable) {
+                runCatching { tunnel.stop() }
+                runCatching { xray.stop() }
+            }
+            throw cancellation
         } catch (e: Exception) {
             // Tunnel failed: tear Xray back down so we don't leak a half session.
-            runCatching { tunnel.stop() }
-            runCatching { xray.stop() }
+            withContext(NonCancellable) {
+                runCatching { tunnel.stop() }
+                runCatching { xray.stop() }
+            }
+            currentCoroutineContext().ensureActive()
             HandoffOutcome.Failed("tunnel start failed after xray ready: ${e.message}")
         }
     }
 
     private suspend fun tearDown() {
-        // Stop the tunnel FIRST so no packets are sent to an inbound that is
-        // about to disappear, THEN stop Xray.
-        runCatching { tunnel.stop() }
-        activeXray?.let { runCatching { it.stop() } }
-        activeXray = null
-        activeRoute = null
+        withContext(NonCancellable) {
+            // Stop the tunnel FIRST so no packets are sent to an inbound that is
+            // about to disappear, THEN stop Xray.
+            runCatching { tunnel.stop() }
+            activeXray?.let { runCatching { it.stop() } }
+            activeXray = null
+            activeRoute = null
+        }
+        currentCoroutineContext().ensureActive()
     }
 }

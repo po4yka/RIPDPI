@@ -554,6 +554,7 @@ class NativeConfigContractSnapshotTest {
                     webrtcProtectionEnabled = true,
                     uidPolicyMode = "allowlist",
                     uidPolicyUids = listOf(10123, 10124),
+                    uidPolicyAllowIcmp = true,
                 ),
             )
 
@@ -607,6 +608,7 @@ class NativeConfigContractSnapshotTest {
                     10123,
                     10124
                   ],
+                  "uidPolicyAllowIcmp": true,
                   "schemaVersion": 2
                 }
                 """,

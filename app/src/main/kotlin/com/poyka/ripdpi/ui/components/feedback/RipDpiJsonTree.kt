@@ -75,7 +75,7 @@ private fun JsonNodeRow(
                 if (node.key != null) {
                     Text(
                         text = "\"${node.key}\": ",
-                        style = RipDpiThemeTokens.type.monoLog.copy(color = colors.accent),
+                        style = RipDpiThemeTokens.type.monoLog.copy(color = colors.info),
                     )
                 }
                 Text(
@@ -119,7 +119,7 @@ private fun JsonNodeRow(
                 if (node.key != null) {
                     Text(
                         text = "\"${node.key}\": ",
-                        style = RipDpiThemeTokens.type.monoLog.copy(color = colors.accent),
+                        style = RipDpiThemeTokens.type.monoLog.copy(color = colors.info),
                     )
                 }
                 Text(
