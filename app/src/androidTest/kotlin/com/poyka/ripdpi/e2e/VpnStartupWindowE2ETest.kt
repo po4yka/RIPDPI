@@ -9,6 +9,7 @@ import android.os.Parcel
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.core.NativeTun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBindings
@@ -26,8 +27,10 @@ import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.SplitTunnelMode
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -65,6 +68,7 @@ private const val GateClosedObservationMs = 250L
 private const val ProbeServiceBindTimeoutMs = 1_500L
 private const val ProbeDatagramSentTimeoutMs = 500L
 private const val ProbeResponseTimeoutMs = 12_000L
+private const val VpnRouteActivationTimeoutMs = 10_000L
 private const val GateReleaseTimeoutMs = 10_000L
 private const val StartupWindowAssertionBudgetMs = 4_000L
 private const val ControlReadTimeoutMs = 750L
@@ -101,6 +105,7 @@ class VpnStartupWindowE2ETest {
         get() = ApplicationProvider.getApplicationContext()
 
     private var hiltInjected = false
+    private lateinit var settingsBeforeTest: AppSettings
     private val startedServices = mutableSetOf<Class<*>>()
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
@@ -111,8 +116,13 @@ class VpnStartupWindowE2ETest {
         VpnStartupWindowGate.reset()
         hiltRule.inject()
         hiltInjected = true
+        settingsBeforeTest = runBlocking { appSettingsRepository.snapshot() }
         stopService(RipDpiProxyService::class.java)
         stopService(RipDpiVpnService::class.java)
+        awaitUntil(timeoutMs = 10_000L) {
+            serviceStateStore.status.value.first == AppStatus.Halted &&
+                serviceStateStore.telemetry.value.status == AppStatus.Halted
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
@@ -128,6 +138,9 @@ class VpnStartupWindowE2ETest {
                 proxyPort = reserveLoopbackPort()
                 dnsIp = "1.1.1.1"
                 ipv6Enable = false
+                fullTunnelMode = true
+                setSplitTunnelMode(SplitTunnelMode.Off)
+                clearSplitTunnelPackages()
                 enableCmdSettings = false
                 desyncHttp = false
                 desyncHttps = false
@@ -140,15 +153,38 @@ class VpnStartupWindowE2ETest {
     @After
     fun tearDown() {
         VpnStartupWindowGate.release()
-        if (hiltInjected) {
-            stopService(RipDpiVpnService::class.java)
-            stopService(RipDpiProxyService::class.java)
+        try {
+            if (hiltInjected) {
+                try {
+                    stopService(RipDpiVpnService::class.java)
+                    stopService(RipDpiProxyService::class.java)
+                    awaitUntil(timeoutMs = 15_000L) {
+                        serviceStateStore.status.value.first == AppStatus.Halted &&
+                            serviceStateStore.telemetry.value.status == AppStatus.Halted
+                    }
+                } finally {
+                    if (this::settingsBeforeTest.isInitialized) {
+                        runBlocking { appSettingsRepository.replace(settingsBeforeTest) }
+                    }
+                }
+            }
+        } finally {
+            try {
+                if (this::fixtureClient.isInitialized) {
+                    try {
+                        fixtureClient.resetEvents()
+                    } finally {
+                        fixtureClient.resetFaults()
+                    }
+                }
+            } finally {
+                try {
+                    clearTestProbeNetworkEligibility()
+                } finally {
+                    VpnStartupWindowGate.reset()
+                }
+            }
         }
-        if (this::fixtureClient.isInitialized) {
-            fixtureClient.resetEvents()
-            fixtureClient.resetFaults()
-        }
-        VpnStartupWindowGate.reset()
     }
 
     @Test
@@ -173,10 +209,19 @@ class VpnStartupWindowE2ETest {
             var dnsProbe: Deferred<AppProcessDnsProbeResult>? = null
 
             try {
+                assertDistinctAppAndTestUids()
+                testProcessDnsProbeService = bindTestProcessDnsProbeService(ProbeServiceBindTimeoutMs)
+                assertFalse(
+                    "Test-process default network was already a VPN before RIPDPI startup",
+                    requireNotNull(testProcessDnsProbeService).isVpnDefaultNetwork(),
+                )
                 startService(RipDpiVpnService::class.java)
                 gateCycle.awaitStartEntered()
+                assertTrue(
+                    "Test-process default network did not converge to the blocking VPN route",
+                    requireNotNull(testProcessDnsProbeService).awaitVpnDefaultNetwork(VpnRouteActivationTimeoutMs),
+                )
                 val startupWindowAssertionStartedAt = SystemClock.elapsedRealtime()
-                testProcessDnsProbeService = bindTestProcessDnsProbeService(ProbeServiceBindTimeoutMs)
                 val queryHost = "startup-${SystemClock.elapsedRealtime()}.${fixture.fixtureDomain}"
                 dnsProbe =
                     async(Dispatchers.IO) {
@@ -206,9 +251,8 @@ class VpnStartupWindowE2ETest {
                     "VPN reported Running before native tunnel start was released: $closedWindowStatuses",
                     closedWindowStatuses.any { (status, mode) -> status == AppStatus.Running && mode == Mode.VPN },
                 )
-                val closedWindowEvents = fixtureEventsViaExcludedAppProcess()
                 assertNoCorrelatedDnsUdpEvent(
-                    events = closedWindowEvents,
+                    events = fixtureEventsViaExcludedAppProcess(),
                     queryHost = queryHost,
                     message = "Fixture observed DNS UDP before native tunnel start was released",
                 )
@@ -285,6 +329,14 @@ class VpnStartupWindowE2ETest {
         )
     }
 
+    private fun assertDistinctAppAndTestUids() {
+        val testPackage = InstrumentationRegistry.getInstrumentation().context.packageName
+        val packageManager = appContext.packageManager
+        val appUid = packageManager.getApplicationInfo(appContext.packageName, 0).uid
+        val testUid = packageManager.getApplicationInfo(testPackage, 0).uid
+        assertTrue("Startup-window probe must run under a distinct test UID", appUid != testUid)
+    }
+
     private fun stopService(serviceClass: Class<*>) {
         if (startedServices.remove(serviceClass)) {
             appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
@@ -313,6 +365,19 @@ class VpnStartupWindowE2ETest {
             "Connection: close\r\n" +
             "X-Pad: ${"a".repeat(ControlRequestPaddingBytes)}\r\n\r\n"
 
+    private fun assertNoCorrelatedDnsUdpEvent(
+        events: List<FixtureEventDto>,
+        queryHost: String,
+        message: String,
+    ) {
+        assertFalse(
+            "$message: $events",
+            events.any { event ->
+                event.service == "dns_udp" && event.protocol == "udp" && event.detail == queryHost
+            },
+        )
+    }
+
     private fun parseFixtureEventsHttpResponse(response: String): List<FixtureEventDto> {
         val body =
             response
@@ -337,19 +402,6 @@ class VpnStartupWindowE2ETest {
                 )
             }
         }
-    }
-
-    private fun assertNoCorrelatedDnsUdpEvent(
-        events: List<FixtureEventDto>,
-        queryHost: String,
-        message: String,
-    ) {
-        assertFalse(
-            "$message: $events",
-            events.any { event ->
-                event.service == "dns_udp" && event.protocol == "udp" && event.detail == queryHost
-            },
-        )
     }
 }
 
