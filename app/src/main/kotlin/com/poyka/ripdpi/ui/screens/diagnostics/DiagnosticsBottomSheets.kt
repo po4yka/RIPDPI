@@ -169,7 +169,7 @@ internal fun DiagnosticsBottomSheetHost(
                     color = colors.foreground,
                 )
                 detail.signature.forEach { item ->
-                    SettingsRow(title = item.label, value = item.value, monospaceValue = false)
+                    SettingsRow(title = item.label, value = item.value)
                 }
             }
             if (detail.breakdown.isNotEmpty()) {
@@ -319,7 +319,6 @@ internal fun DiagnosticsBottomSheetHost(
                     SettingsRow(
                         title = field.label,
                         value = field.value,
-                        monospaceValue = false,
                     )
                 }
             }
@@ -393,7 +392,7 @@ private fun DiagnosisSummaryCard(
             )
         }
         reportMetadata.forEach { field ->
-            SettingsRow(title = field.label, value = field.value, monospaceValue = false)
+            SettingsRow(title = field.label, value = field.value)
         }
     }
 }
@@ -419,7 +418,7 @@ private fun CapabilityEvidenceCard(evidence: List<com.poyka.ripdpi.activities.Di
                 color = colors.mutedForeground,
             )
             item.fields.forEach { field ->
-                SettingsRow(title = field.label, value = field.value, monospaceValue = false)
+                SettingsRow(title = field.label, value = field.value)
             }
         }
     }

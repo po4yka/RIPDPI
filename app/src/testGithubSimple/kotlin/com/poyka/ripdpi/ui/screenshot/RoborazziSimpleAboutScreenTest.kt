@@ -1,0 +1,34 @@
+package com.poyka.ripdpi.ui.screenshot
+
+import com.poyka.ripdpi.ui.components.RipDpiAboutPreviewScene
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "en")
+class RoborazziSimpleAboutScreenTest {
+    @Test
+    fun simpleAboutScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+            RipDpiAboutPreviewScene()
+        }
+    }
+
+    @Test
+    fun simpleAboutScreenLargeFont() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 900, fontScale = 1.5f) {
+            RipDpiAboutPreviewScene()
+        }
+    }
+
+    @Test
+    fun simpleAboutScreenMaximumFont() {
+        captureRipDpiScreenshot(widthDp = 411, heightDp = 1000, fontScale = 2f) {
+            RipDpiAboutPreviewScene()
+        }
+    }
+}

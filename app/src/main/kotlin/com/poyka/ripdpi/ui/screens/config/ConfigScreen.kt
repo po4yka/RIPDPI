@@ -81,12 +81,23 @@ fun ConfigRoute(
             onProfileImport(navigateTo)
         }
     }
+    val onImportFromClipboard =
+        remember(clipboardImportViewModel) { clipboardImportViewModel::onImportFromClipboard }
+    val onDismissClipboardError =
+        remember(clipboardImportViewModel) { clipboardImportViewModel::dismissError }
 
     ConfigScreen(
         uiState = uiState,
         modifier = modifier,
         route = route,
-        topBarActions = { ConfigImportMenu(onProfileImport = onProfileImport) },
+        topBarActions = {
+            ConfigImportMenu(
+                unknownContentScheme = clipboardImportState.unknownContentScheme,
+                clipboardEmpty = clipboardImportState.clipboardEmpty,
+                onImportFromClipboard = onImportFromClipboard,
+                onDismissError = onDismissClipboardError,
+            )
+        },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
         onRuntimeModeToggle = remember(viewModel) { viewModel::toggleRuntimeMode },
         onPresetSelected = { preset ->

@@ -1,0 +1,967 @@
+use super::*;
+
+#[test]
+fn ui_payload_parses_hostfake_and_quic_profile() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![ProxyUiTcpChainStep {
+        kind: "hostfake".to_string(),
+        marker: "endhost+8".to_string(),
+        midhost_marker: "midsld".to_string(),
+        fake_host_template: "googlevideo.com".to_string(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+        random_fake_host: false,
+    }];
+    ui.chains.udp_steps.push(udp_step("fake_burst", 3));
+    ui.quic.fake_profile = "realistic_initial".to_string();
+    ui.quic.fake_host = "Example.COM.".to_string();
+    ui.fake_packets.tls_fingerprint_profile = "chrome_stable".to_string();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].actions.http_fake_profile, HttpFakeProfile::CompatDefault);
+    assert_eq!(config.groups[0].actions.tls_fake_profile, TlsFakeProfile::CompatDefault);
+    assert_eq!(config.groups[0].actions.udp_fake_profile, UdpFakeProfile::CompatDefault);
+    assert_eq!(config.groups[0].actions.quic_fake_profile, QuicFakeProfile::RealisticInitial);
+    assert_eq!(config.groups[0].actions.quic_fake_host.as_deref(), Some("example.com"));
+    assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset().base, OffsetBase::ExtLen);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset().proto, OffsetProto::TlsOnly);
+    assert_eq!(config.groups[0].actions.tcp_chain[1].kind(), TcpChainStepKind::HostFake);
+    assert_eq!(config.groups[0].actions.udp_chain[0].count, 3);
+}
+
+#[test]
+fn ui_payload_without_preset_still_gets_fallback_groups() {
+    let ui = minimal_ui();
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    // Primary group + 3 fallback groups + CONNECT passthrough = at least 5
+    assert!(
+        config.groups.len() >= 5,
+        "strategy_preset=None must still inject ripdpi_default fallback groups, got {} groups",
+        config.groups.len(),
+    );
+    let labels: Vec<&str> = config.groups.iter().map(|g| g.policy.label.as_str()).collect();
+    assert!(labels.contains(&"tlsrec_disorder"), "missing tlsrec_disorder fallback: {labels:?}");
+    assert!(labels.contains(&"disorder_host"), "missing disorder_host fallback: {labels:?}");
+    assert!(labels.contains(&"split_host"), "missing split_host fallback: {labels:?}");
+}
+
+#[test]
+fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![
+        tcp_step("tlsrec", "extlen"),
+        ProxyUiTcpChainStep {
+            kind: "hostfake".to_string(),
+            marker: "endhost+8".to_string(),
+            midhost_marker: "midsld".to_string(),
+            fake_host_template: "googlevideo.com".to_string(),
+            fake_order: String::new(),
+            fake_seq_mode: String::new(),
+            tcp_flags_set: String::new(),
+            tcp_flags_unset: String::new(),
+            tcp_flags_orig_set: String::new(),
+            tcp_flags_orig_unset: String::new(),
+            overlap_size: 0,
+            fake_mode: String::new(),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
+            activation_filter: None,
+            ipv6_extension_profile: "none".to_string(),
+            random_fake_host: false,
+        },
+    ];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].actions.tcp_chain[1].kind(), TcpChainStepKind::HostFake);
+}
+
+#[test]
+fn ui_payload_parses_seqovl_step_and_fields() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), seqovl_step("auto(midsld)", 14, "rand")];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let tcp_chain = &config.groups[0].actions.tcp_chain;
+
+    assert_eq!(tcp_chain.len(), 2);
+    assert_eq!(tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(tcp_chain[1].kind(), TcpChainStepKind::SeqOverlap);
+    assert_eq!(tcp_chain[1].offset(), OffsetExpr::adaptive(OffsetBase::AutoMidSld));
+    let payload = tcp_chain[1].seq_overlap_payload().expect("seqovl payload");
+    assert_eq!(payload.overlap_size, 14);
+    assert_eq!(payload.fake_mode, ripdpi_config::SeqOverlapFakeMode::Rand);
+}
+
+#[test]
+fn ui_payload_rejects_duplicate_seqovl_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![seqovl_step("host+1", 12, "profile"), seqovl_step("midsld", 16, "rand")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("duplicate seqovl");
+
+    assert!(err.to_string().contains("seqovl must appear at most once per tcp chain"));
+}
+
+#[test]
+fn ui_payload_rejects_non_leading_seqovl_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("split", "host+1"), seqovl_step("midsld", 12, "profile")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-leading seqovl");
+
+    assert!(err.to_string().contains("seqovl must be the first tcp send step"));
+}
+
+#[test]
+fn ui_payload_rejects_tcp_state_predicates_on_group_activation_filter() {
+    let mut ui = minimal_ui();
+    ui.chains.group_activation_filter = Some(activation_filter_with_tcp_state());
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("group tcp-state predicates should be rejected");
+
+    assert!(err.to_string().contains("chains.groupActivationFilter must not declare TCP-state predicates"));
+}
+
+#[test]
+fn ui_payload_rejects_tcp_state_predicates_on_udp_steps() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        activation_filter: Some(activation_filter_with_tcp_state()),
+        ..udp_step("fake_burst", 1)
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("udp tcp-state predicates should be rejected");
+
+    assert!(err.to_string().contains("chains.udpSteps.activationFilter must not declare TCP-state predicates"));
+}
+
+#[test]
+fn ui_payload_parses_multidisorder_terminal_run() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps =
+        vec![tcp_step("tlsrec", "extlen"), tcp_step("multidisorder", "sniext"), tcp_step("multidisorder", "host")];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let tcp_chain = &config.groups[0].actions.tcp_chain;
+
+    assert_eq!(tcp_chain.len(), 3);
+    assert_eq!(tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(tcp_chain[1].kind(), TcpChainStepKind::MultiDisorder);
+    assert_eq!(tcp_chain[2].kind(), TcpChainStepKind::MultiDisorder);
+}
+
+#[test]
+fn ui_payload_rejects_singleton_multidisorder_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("multidisorder", "host+1")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("singleton multidisorder");
+
+    assert!(err.to_string().contains("multidisorder must declare at least two markers"));
+}
+
+#[test]
+fn ui_payload_rejects_mixed_multidisorder_chain() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("multidisorder", "host+1"), tcp_step("split", "midsld")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("mixed multidisorder");
+
+    assert!(err.to_string().contains("multidisorder must be the only tcp send step family"));
+}
+
+#[test]
+fn ui_payload_parses_ipfrag_steps_and_udp_split_bytes() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("ipfrag2", "host+2")];
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 0,
+        split_bytes: 8,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let group = &config.groups[0];
+
+    assert_eq!(group.actions.tcp_chain.len(), 2);
+    assert_eq!(group.actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(group.actions.tcp_chain[1].kind(), TcpChainStepKind::IpFrag2);
+    assert_eq!(group.actions.tcp_chain[1].offset().base, OffsetBase::Host);
+    assert_eq!(group.actions.tcp_chain[1].offset().delta, 2);
+    assert_eq!(group.actions.udp_chain.len(), 1);
+    assert_eq!(group.actions.udp_chain[0].kind, UdpChainStepKind::IpFrag2Udp);
+    assert_eq!(group.actions.udp_chain[0].count, 0);
+    assert_eq!(group.actions.udp_chain[0].split_bytes, 8);
+}
+
+#[test]
+fn ui_payload_parses_tcp_rotation_policy_defaults() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("split", "host+2")];
+    ui.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig {
+        candidates: vec![
+            ProxyUiTcpRotationCandidate {
+                tcp_steps: vec![
+                    tcp_step("tlsrec", "extlen"),
+                    ProxyUiTcpChainStep {
+                        kind: "hostfake".to_string(),
+                        marker: "endhost+8".to_string(),
+                        midhost_marker: "midsld".to_string(),
+                        fake_host_template: "googlevideo.com".to_string(),
+                        fake_order: String::new(),
+                        fake_seq_mode: String::new(),
+                        tcp_flags_set: String::new(),
+                        tcp_flags_unset: String::new(),
+                        tcp_flags_orig_set: String::new(),
+                        tcp_flags_orig_unset: String::new(),
+                        overlap_size: 0,
+                        fake_mode: String::new(),
+                        fragment_count: 0,
+                        min_fragment_size: 0,
+                        max_fragment_size: 0,
+                        inter_segment_delay_ms: 0,
+                        activation_filter: None,
+                        ipv6_extension_profile: "none".to_string(),
+                        random_fake_host: false,
+                    },
+                    tcp_step("split", "midsld"),
+                ],
+            },
+            ProxyUiTcpRotationCandidate { tcp_steps: vec![tcp_step("split", "host+2")] },
+        ],
+        ..ProxyUiTcpRotationConfig::default()
+    });
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let rotation = config.groups[0].actions.rotation_policy.as_ref().expect("rotation policy");
+
+    assert_eq!(rotation.fails, 3);
+    assert_eq!(rotation.retrans, 3);
+    assert_eq!(rotation.seq, 65_536);
+    assert_eq!(rotation.rst, 1);
+    assert_eq!(rotation.time_secs, 60);
+    assert_eq!(rotation.candidates.len(), 2);
+    assert_eq!(rotation.candidates[0].tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(rotation.candidates[0].tcp_chain[1].kind(), TcpChainStepKind::HostFake);
+    assert_eq!(rotation.candidates[0].tcp_chain[2].kind(), TcpChainStepKind::Split);
+    assert_eq!(rotation.candidates[1].tcp_chain[0].kind(), TcpChainStepKind::Split);
+}
+
+#[test]
+fn ui_payload_rejects_empty_tcp_rotation_candidates() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_rotation =
+        Some(ProxyUiTcpRotationConfig { candidates: Vec::new(), ..ProxyUiTcpRotationConfig::default() });
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("empty rotation");
+
+    assert!(err.to_string().contains("chains.tcpRotation must declare at least one candidate"));
+}
+
+#[test]
+fn ui_payload_rejects_malformed_tcp_rotation_candidate_chain() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig {
+        candidates: vec![ProxyUiTcpRotationCandidate {
+            tcp_steps: vec![seqovl_step("host+1", 12, "profile"), seqovl_step("midsld", 16, "rand")],
+        }],
+        ..ProxyUiTcpRotationConfig::default()
+    });
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid rotation candidate");
+
+    assert!(err.to_string().contains("seqovl must appear at most once per tcp chain"));
+}
+
+#[test]
+fn ui_payload_treats_fake_approx_steps_as_fake_payload_consumers() {
+    for kind in ["fakedsplit", "fakeddisorder"] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = vec![tcp_step(kind, "host+1")];
+        ui.fake_packets.fake_tls_use_original = true;
+        ui.fake_packets.fake_tls_dup_session_id = true;
+        ui.fake_packets.fake_offset_marker = "host+1".to_string();
+
+        let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+        let group = &config.groups[0];
+
+        let expected_mode = if kind == "fakedsplit" { DesyncMode::Fake } else { DesyncMode::Disorder };
+
+        assert_eq!(group.actions.tcp_chain[0].kind().as_mode(), Some(expected_mode));
+        assert_eq!(group.actions.fake_offset.map(|offset| offset.delta), Some(1));
+        assert_ne!(group.actions.fake_mod & FM_ORIG, 0);
+        assert_ne!(group.actions.fake_mod & FM_DUPSID, 0);
+    }
+}
+
+#[test]
+fn ui_payload_rejects_non_terminal_fake_approx_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps.push(tcp_step("fakedsplit", "host+1"));
+    ui.chains.tcp_steps.push(tcp_step("split", "endhost"));
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-terminal fakedsplit");
+
+    assert!(err.to_string().contains("fakedsplit"));
+}
+
+#[test]
+fn ui_payload_parses_fake_payload_profiles() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.http_fake_profile = "cloudflare_get".to_string();
+    ui.fake_packets.tls_fake_profile = "google_chrome".to_string();
+    ui.fake_packets.udp_fake_profile = "dns_query".to_string();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].actions.http_fake_profile, HttpFakeProfile::CloudflareGet);
+    assert_eq!(config.groups[0].actions.tls_fake_profile, TlsFakeProfile::GoogleChrome);
+    assert_eq!(config.groups[0].actions.udp_fake_profile, UdpFakeProfile::DnsQuery);
+}
+
+#[test]
+fn ui_payload_maps_fake_tls_source_and_secondary_profile() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.fake_tls_source = "captured_client_hello".to_string();
+    ui.fake_packets.fake_tls_secondary_profile = "google_chrome".to_string();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].actions.fake_tls_source, FakePacketSource::CapturedClientHello);
+    assert_eq!(config.groups[0].actions.fake_tls_secondary_profile, Some(TlsFakeProfile::GoogleChrome));
+}
+
+#[test]
+fn ui_payload_maps_fake_tcp_timestamp_settings() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.fake_tcp_timestamp_enabled = true;
+    ui.fake_packets.fake_tcp_timestamp_delta_ticks = -77;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert!(config.groups[0].actions.fake_tcp_timestamp_enabled);
+    assert_eq!(config.groups[0].actions.fake_tcp_timestamp_delta_ticks, -77);
+}
+
+#[test]
+fn ui_payload_maps_ip_id_mode_seqgroup() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.ip_id_mode = "seqgroup".to_string();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].actions.ip_id_mode, Some(ripdpi_config::IpIdMode::SeqGroup));
+}
+
+#[test]
+fn ui_payload_rejects_invalid_ip_id_mode() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.ip_id_mode = "bogus".to_string();
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid ip id mode");
+
+    assert!(err.to_string().contains("fakePackets.ipIdMode"));
+}
+
+#[test]
+fn ui_payload_parses_fake_order_and_seq_mode() {
+    let mut ui = minimal_ui();
+    let mut step = tcp_step("fakedsplit", "host+1");
+    step.fake_order = "2".to_string();
+    step.fake_seq_mode = "sequential".to_string();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), step];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let parsed = &config.groups[0].actions.tcp_chain[1];
+
+    assert_eq!(parsed.kind(), TcpChainStepKind::FakeSplit);
+    assert_eq!(parsed.fake_ordering().order, FakeOrder::RealFakeRealFake);
+    assert_eq!(parsed.fake_ordering().seq_mode, FakeSeqMode::Sequential);
+}
+
+#[test]
+fn ui_payload_rejects_fake_order_on_unsupported_step_kind() {
+    let mut ui = minimal_ui();
+    let mut step = tcp_step("split", "host+1");
+    step.fake_order = "1".to_string();
+    ui.chains.tcp_steps = vec![step];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("unsupported fake ordering");
+
+    assert!(err.to_string().contains("must not declare fake ordering fields"));
+}
+
+#[test]
+fn ui_payload_rejects_hostfake_non_default_order_without_midhost() {
+    let mut ui = minimal_ui();
+    let mut step = tcp_step("hostfake", "endhost+8");
+    step.fake_order = "1".to_string();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), step];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("hostfake altorder without midhost");
+
+    assert!(err.to_string().contains("hostfake fakeOrder requires midhostMarker"));
+}
+
+#[test]
+fn ui_payload_maps_extended_http_parser_evasions_into_mod_http() {
+    let mut ui = minimal_ui();
+    ui.parser_evasions.host_mixed_case = true;
+    ui.parser_evasions.domain_mixed_case = true;
+    ui.parser_evasions.host_remove_spaces = true;
+    ui.parser_evasions.http_method_eol = true;
+    ui.parser_evasions.http_unix_eol = true;
+    ui.parser_evasions.http_host_extra_space = true;
+    ui.parser_evasions.http_host_tab = true;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(
+        config.groups[0].actions.mod_http,
+        MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL | MH_HOSTEXTRASPACE | MH_HOSTTAB
+    );
+}
+
+#[test]
+fn ui_payload_rejects_unknown_ipv6_extension_profile() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![ProxyUiTcpChainStep {
+        kind: "ipfrag2".to_string(),
+        marker: "host+2".to_string(),
+        midhost_marker: String::new(),
+        fake_host_template: String::new(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "bogus".to_string(),
+        random_fake_host: false,
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid ipv6 extension profile");
+
+    assert!(err.to_string().contains("Unsupported ipv6ExtensionProfile"));
+}
+
+#[test]
+fn legacy_flat_ui_json_is_rejected() {
+    let err = parse_proxy_config_json(
+        &serde_json::json!({
+            "kind": "ui",
+            "ip": "127.0.0.1",
+            "port": 1080,
+            "desyncMethod": "disorder",
+        })
+        .to_string(),
+    )
+    .expect_err("legacy flat ui config should be rejected");
+
+    assert!(err.to_string().contains("Legacy flat UI config JSON is not supported"));
+}
+
+#[test]
+fn grouped_ui_json_requires_at_least_one_nested_section() {
+    let err = parse_proxy_config_json(&serde_json::json!({ "kind": "ui" }).to_string())
+        .expect_err("ui payload without grouped sections should be rejected");
+
+    assert!(err.to_string().contains("at least one nested section"));
+}
+
+// --- schemaVersion envelope tests ---
+
+/// Serializes `ui_payload(minimal_ui())` to a current-version JSON object.
+fn ui_payload_json_object() -> serde_json::Map<String, serde_json::Value> {
+    let mut payload = serde_json::to_value(ui_payload(minimal_ui())).expect("serialize ui payload");
+    let object = payload.as_object_mut().expect("ui payload object");
+    object.clone()
+}
+
+#[test]
+fn payload_without_schema_version_is_rejected() {
+    let mut object = ui_payload_json_object();
+    object.remove("schemaVersion");
+
+    let err = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect_err("payload without schemaVersion should be rejected");
+
+    assert!(err.to_string().contains("schemaVersion"), "error should name schemaVersion: {err}");
+}
+
+#[test]
+fn payload_with_explicit_schema_version_two_parses() {
+    let mut object = ui_payload_json_object();
+    object.insert("schemaVersion".to_string(), serde_json::json!(2));
+
+    let parsed = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect("payload with schemaVersion 2 should parse");
+
+    assert_eq!(parsed.schema_version(), 2);
+}
+
+#[test]
+fn payload_with_old_schema_version_is_rejected() {
+    let mut object = ui_payload_json_object();
+    object.insert("schemaVersion".to_string(), serde_json::json!(1));
+
+    let err = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect_err("payload with schemaVersion 1 should be rejected");
+
+    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 1 });
+    assert!(
+        err.to_string().contains("unsupported native config schemaVersion 1"),
+        "error should name the found version, got: {err}"
+    );
+}
+
+#[test]
+fn payload_with_future_schema_version_is_rejected() {
+    let mut object = ui_payload_json_object();
+    object.insert("schemaVersion".to_string(), serde_json::json!(3));
+
+    let err = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect_err("payload with schemaVersion 3 should be rejected");
+
+    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 3 });
+}
+
+#[test]
+fn runtime_config_envelope_rejects_unsupported_schema_version() {
+    // A payload constructed outside `parse_proxy_config_json` is still validated
+    // at the conversion entry point.
+    let payload = ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--split".to_string(), "host+1".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: None,
+        schema_version: 3,
+    };
+
+    let err = runtime_config_envelope_from_payload(payload).expect_err("schemaVersion 3 should be rejected");
+
+    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 3 });
+}
+
+#[test]
+fn command_line_payload_requires_runnable_config() {
+    let err = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--help".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: None,
+        schema_version: 2,
+    })
+    .expect_err("help should not produce runnable config");
+
+    assert!(err.to_string().contains("runnable"));
+}
+
+#[test]
+fn command_line_session_overrides_apply_ephemeral_port_and_auth_token() {
+    let envelope = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: Some(ProxySessionOverrides {
+            listen_port_override: Some(0),
+            auth_token: Some("alpha-123".to_string()),
+        }),
+        schema_version: 2,
+    })
+    .expect("runtime config envelope");
+
+    assert_eq!(envelope.config.network.listen.listen_port, 0);
+    assert_eq!(envelope.config.network.listen.auth_token.as_deref(), Some("alpha-123"));
+}
+
+#[test]
+fn kotlin_ui_json_session_overrides_apply_ephemeral_port_and_auth_token() {
+    let mut payload = serde_json::to_value(minimal_ui()).expect("serialize minimal ui");
+    let object = payload.as_object_mut().expect("minimal ui object");
+    object.insert("kind".to_string(), serde_json::json!("ui"));
+    object.insert("schemaVersion".to_string(), serde_json::json!(2));
+    object.insert("strategyPreset".to_string(), serde_json::json!("ripdpi_default"));
+    object.insert(
+        "runtimeContext".to_string(),
+        serde_json::json!({
+            "protectPath": "/tmp/protect.sock",
+        }),
+    );
+    object.insert(
+        "logContext".to_string(),
+        serde_json::json!({
+            "runtimeId": "runtime-1",
+            "mode": "VPN",
+        }),
+    );
+    object.insert(
+        "sessionOverrides".to_string(),
+        serde_json::json!({
+            "listenPortOverride": 0,
+            "authToken": "alpha-123",
+        }),
+    );
+
+    let parsed = parse_proxy_config_json(&payload.to_string()).expect("parse kotlin ui json");
+    let envelope = runtime_config_envelope_from_payload(parsed).expect("runtime config envelope");
+
+    assert_eq!(envelope.config.network.listen.listen_port, 0);
+    assert_eq!(envelope.config.network.listen.auth_token.as_deref(), Some("alpha-123"));
+    assert_eq!(envelope.runtime_context.and_then(|context| context.protect_path).as_deref(), Some("/tmp/protect.sock"),);
+    assert_eq!(envelope.log_context.and_then(|context| context.runtime_id).as_deref(), Some("runtime-1"),);
+}
+
+#[test]
+fn invalid_session_override_listen_port_is_rejected() {
+    let err = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: Some(ProxySessionOverrides {
+            listen_port_override: Some(-1),
+            auth_token: Some("alpha-123".to_string()),
+        }),
+        schema_version: 2,
+    })
+    .expect_err("invalid listen port override");
+
+    assert!(err.to_string().contains("listenPortOverride"));
+}
+
+#[test]
+fn runtime_context_sanitizes_direct_path_capabilities() {
+    let envelope = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--split".to_string(), "host+1".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: Some(ProxyRuntimeContext {
+            encrypted_dns: None,
+            protect_path: None,
+            preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: vec![
+                ProxyDirectPathCapability {
+                    authority: " Example.org:443. ".to_string(),
+                    quic_usable: Some(false),
+                    udp_usable: Some(false),
+                    fallback_required: Some(true),
+                    repeated_handshake_failure_class: Some(" tcp_reset ".to_string()),
+                    transport_policy_version: -1,
+                    ip_set_digest: " 203.0.113.10,203.0.113.11 ".to_string(),
+                    dns_classification: Some(" ech_capable ".to_string()),
+                    quic_mode: " soft_disable ".to_string(),
+                    preferred_stack: " h2 ".to_string(),
+                    dns_mode: " doh_primary ".to_string(),
+                    tcp_family: " rec_pre_sni ".to_string(),
+                    outcome: " no_direct_solution ".to_string(),
+                    transport_class: Some(" sni_tls_suspect ".to_string()),
+                    reason_code: Some(" tcp_post_client_hello_failure ".to_string()),
+                    cooldown_until: Some(-1),
+                    updated_at: -10,
+                },
+                ProxyDirectPathCapability {
+                    authority: "   ".to_string(),
+                    quic_usable: None,
+                    udp_usable: None,
+                    fallback_required: None,
+                    repeated_handshake_failure_class: None,
+                    transport_policy_version: 0,
+                    ip_set_digest: String::new(),
+                    dns_classification: None,
+                    quic_mode: "ALLOW".to_string(),
+                    preferred_stack: "H3".to_string(),
+                    dns_mode: "SYSTEM".to_string(),
+                    tcp_family: "NONE".to_string(),
+                    outcome: "TRANSPARENT_OK".to_string(),
+                    transport_class: None,
+                    reason_code: None,
+                    cooldown_until: None,
+                    updated_at: 0,
+                },
+            ],
+            morph_policy: Some(ProxyMorphPolicy {
+                id: " balanced ".to_string(),
+                first_flight_size_min: -10,
+                first_flight_size_max: 700,
+                padding_envelope_min: -1,
+                padding_envelope_max: 80,
+                entropy_target_permil: -50,
+                tcp_burst_cadence_ms: vec![0, -5, 12],
+                tls_burst_cadence_ms: vec![8, -2],
+                quic_burst_profile: " Compat_Burst ".to_string(),
+                fake_packet_shape_profile: " Compat_Default ".to_string(),
+            }),
+            connection_concurrency: None,
+        }),
+        log_context: None,
+        session_overrides: None,
+        schema_version: 2,
+    })
+    .expect("runtime config envelope");
+
+    let mut runtime_context = envelope.runtime_context.expect("runtime context");
+    let capability = runtime_context.direct_path_capabilities.pop().expect("capability");
+    let morph_policy = runtime_context.morph_policy.expect("morph policy");
+
+    assert_eq!(capability.authority, "example.org:443");
+    assert_eq!(capability.quic_usable, Some(false));
+    assert_eq!(capability.udp_usable, Some(false));
+    assert_eq!(capability.fallback_required, Some(true));
+    assert_eq!(capability.repeated_handshake_failure_class.as_deref(), Some("tcp_reset"));
+    assert_eq!(capability.transport_policy_version, 0);
+    assert_eq!(capability.ip_set_digest, "203.0.113.10,203.0.113.11");
+    assert_eq!(capability.dns_classification.as_deref(), Some("ECH_CAPABLE"));
+    assert_eq!(capability.quic_mode, "SOFT_DISABLE");
+    assert_eq!(capability.preferred_stack, "H2");
+    assert_eq!(capability.dns_mode, "DOH_PRIMARY");
+    assert_eq!(capability.tcp_family, "REC_PRE_SNI");
+    assert_eq!(capability.outcome, "NO_DIRECT_SOLUTION");
+    assert_eq!(capability.transport_class.as_deref(), Some("SNI_TLS_SUSPECT"));
+    assert_eq!(capability.reason_code.as_deref(), Some("TCP_POST_CLIENT_HELLO_FAILURE"));
+    assert_eq!(capability.cooldown_until, None);
+    assert_eq!(capability.updated_at, 0);
+    assert_eq!(morph_policy.id, "balanced");
+    assert_eq!(morph_policy.first_flight_size_min, 0);
+    assert_eq!(morph_policy.first_flight_size_max, 700);
+    assert_eq!(morph_policy.padding_envelope_min, 0);
+    assert_eq!(morph_policy.padding_envelope_max, 80);
+    assert_eq!(morph_policy.entropy_target_permil, 0);
+    assert_eq!(morph_policy.tcp_burst_cadence_ms, vec![0, 0, 12]);
+    assert_eq!(morph_policy.tls_burst_cadence_ms, vec![8, 0]);
+    assert_eq!(morph_policy.quic_burst_profile, "compat_burst");
+    assert_eq!(morph_policy.fake_packet_shape_profile, "compat_default");
+}
+
+#[test]
+fn invalid_quic_fake_profile_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.quic.fake_profile = "bogus".to_string();
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid quic profile");
+
+    assert!(err.to_string().contains("quicFakeProfile"));
+}
+
+#[test]
+fn invalid_http_fake_profile_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.http_fake_profile = "bogus".to_string();
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid http profile");
+
+    assert!(err.to_string().contains("httpFakeProfile"));
+}
+
+#[test]
+fn adaptive_hostfake_marker_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps.push(tcp_step("hostfake", "auto(host)"));
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("adaptive hostfake marker");
+
+    assert!(err.to_string().contains("hostfake"));
+}
+
+#[test]
+fn adaptive_hostfake_midhost_marker_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps.push(ProxyUiTcpChainStep {
+        kind: "hostfake".to_string(),
+        marker: "endhost+8".to_string(),
+        midhost_marker: "auto(midsld)".to_string(),
+        fake_host_template: String::new(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+        random_fake_host: false,
+    });
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("adaptive hostfake midhost");
+
+    assert!(err.to_string().contains("midhostMarker"));
+}
+
+#[test]
+fn adaptive_fake_offset_marker_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("fake", "host+1")];
+    ui.fake_packets.fake_offset_marker = "auto(host)".to_string();
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("adaptive fake offset");
+
+    assert!(err.to_string().contains("fakeOffsetMarker"));
+}
+
+#[test]
+fn empty_fake_offset_marker_uses_compat_default_offset() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("fake", "host+1")];
+    ui.fake_packets.fake_offset_marker.clear();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("fake offset fallback");
+
+    assert_eq!(config.groups[0].actions.fake_offset, Some(OffsetExpr::absolute(0)));
+}
+
+#[test]
+fn ui_payload_rejects_non_terminal_ipfrag2_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps =
+        vec![tcp_step("tlsrec", "extlen"), tcp_step("ipfrag2", "host+2"), tcp_step("split", "endhost")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-terminal ipfrag2");
+
+    assert!(err.to_string().contains("ipfrag2 must be the only tcp send step"));
+}
+
+#[test]
+fn ui_payload_rejects_ipfrag2_udp_with_count() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 1,
+        split_bytes: 8,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ipfrag2_udp count");
+
+    assert!(err.to_string().contains("must not declare count"));
+}
+
+#[test]
+fn ui_payload_rejects_ipfrag2_udp_without_positive_split_bytes() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 0,
+        split_bytes: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ipfrag2_udp splitBytes");
+
+    assert!(err.to_string().contains("must declare positive splitBytes"));
+}
+
+#[test]
+fn ui_payload_rejects_split_bytes_for_non_ipfrag_udp_steps() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "fake_burst".to_string(),
+        count: 2,
+        split_bytes: 8,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("fake_burst splitBytes");
+
+    assert!(err.to_string().contains("splitBytes is only supported"));
+}
+
+#[test]
+fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![
+        ProxyUiUdpChainStep {
+            kind: "ipfrag2_udp".to_string(),
+            count: 0,
+            split_bytes: 8,
+            activation_filter: None,
+            ipv6_extension_profile: "none".to_string(),
+        },
+        udp_step("fake_burst", 1),
+    ];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("mixed ipfrag2_udp chain");
+
+    assert!(err.to_string().contains("ipfrag2_udp must be the only udp chain step"));
+}
+
+#[test]
+fn ech_fake_offset_marker_is_rejected() {
+    for marker in ["echext", "echext+4"] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = vec![tcp_step("fake", "host+1")];
+        ui.fake_packets.fake_offset_marker = marker.to_string();
+
+        let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ech fake offset");
+
+        assert!(err.to_string().contains("fakeOffsetMarker"), "{marker} should reference fakeOffsetMarker");
+    }
+}
+
+#[test]
+fn ui_payload_maps_adaptive_fake_ttl_and_fallback() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.fake_ttl = 11;
+    ui.fake_packets.adaptive_fake_ttl_enabled = true;
+    ui.fake_packets.adaptive_fake_ttl_delta = -1;
+    ui.fake_packets.adaptive_fake_ttl_min = 3;
+    ui.fake_packets.adaptive_fake_ttl_max = 12;
+    ui.fake_packets.adaptive_fake_ttl_fallback = 9;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("adaptive fake ttl config");
+    let group = &config.groups[0];
+
+    assert_eq!(group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),);
+    assert_eq!(group.actions.ttl, Some(9));
+}
+
+#[test]
+fn ui_payload_rejects_invalid_adaptive_fake_ttl_window() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.adaptive_fake_ttl_enabled = true;
+    ui.fake_packets.adaptive_fake_ttl_min = 12;
+    ui.fake_packets.adaptive_fake_ttl_max = 3;
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid adaptive ttl window");
+
+    assert!(err.to_string().contains("adaptive fake TTL window"));
+}

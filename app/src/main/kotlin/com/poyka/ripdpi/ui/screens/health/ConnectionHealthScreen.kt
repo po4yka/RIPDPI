@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.health
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -29,6 +31,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
+
+private const val AccessibilityMetricFontScale = 1.5f
+private const val AccessibilityMetricColumns = 2
 
 @Composable
 fun ConnectionHealthRoute(
@@ -141,25 +146,50 @@ private fun ConnectionHealthRow(row: ConnectionHealthRowUiState) {
             )
         }
         RipDpiProgressBar(progress = (rate ?: 0) / 100f)
+        ConnectionHealthMetrics(
+            metrics =
+                listOf(
+                    stringResource(R.string.connection_health_successes) to row.successCount.toString(),
+                    stringResource(R.string.connection_health_failures) to row.failureCount.toString(),
+                    stringResource(R.string.connection_health_samples) to row.totalCount.toString(),
+                ),
+        )
+    }
+}
+
+@Composable
+private fun ConnectionHealthMetrics(
+    metrics: List<Pair<String, String>>,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    if (LocalDensity.current.fontScale >= AccessibilityMetricFontScale) {
+        FlowRow(
+            modifier = modifier.fillMaxWidth(),
+            maxItemsInEachRow = AccessibilityMetricColumns,
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            metrics.forEach { (label, value) ->
+                ConnectionHealthMetric(
+                    label = label,
+                    value = value,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    } else {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
-            ConnectionHealthMetric(
-                label = stringResource(R.string.connection_health_successes),
-                value = row.successCount.toString(),
-                modifier = Modifier.weight(1f),
-            )
-            ConnectionHealthMetric(
-                label = stringResource(R.string.connection_health_failures),
-                value = row.failureCount.toString(),
-                modifier = Modifier.weight(1f),
-            )
-            ConnectionHealthMetric(
-                label = stringResource(R.string.connection_health_samples),
-                value = row.totalCount.toString(),
-                modifier = Modifier.weight(1f),
-            )
+            metrics.forEach { (label, value) ->
+                ConnectionHealthMetric(
+                    label = label,
+                    value = value,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -297,31 +327,16 @@ private fun DnsCountersCard(counters: DnsCountersUiState) {
                 color = colors.mutedForeground,
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = spacing.xs),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            ConnectionHealthMetric(
-                label = stringResource(R.string.connection_health_dns_queries),
-                value = counters.queriesTotal.toString(),
-                modifier = Modifier.weight(1f),
-            )
-            ConnectionHealthMetric(
-                label = stringResource(R.string.connection_health_dns_cache_hits),
-                value = counters.cacheHits.toString(),
-                modifier = Modifier.weight(1f),
-            )
-            ConnectionHealthMetric(
-                label = stringResource(R.string.connection_health_dns_cache_misses),
-                value = counters.cacheMisses.toString(),
-                modifier = Modifier.weight(1f),
-            )
-            ConnectionHealthMetric(
-                label = stringResource(R.string.connection_health_dns_failures),
-                value = counters.failuresTotal.toString(),
-                modifier = Modifier.weight(1f),
-            )
-        }
+        ConnectionHealthMetrics(
+            metrics =
+                listOf(
+                    stringResource(R.string.connection_health_dns_queries) to counters.queriesTotal.toString(),
+                    stringResource(R.string.connection_health_dns_cache_hits) to counters.cacheHits.toString(),
+                    stringResource(R.string.connection_health_dns_cache_misses) to counters.cacheMisses.toString(),
+                    stringResource(R.string.connection_health_dns_failures) to counters.failuresTotal.toString(),
+                ),
+            modifier = Modifier.padding(top = spacing.xs),
+        )
     }
 }
 

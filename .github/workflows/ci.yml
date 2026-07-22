@@ -230,6 +230,9 @@ jobs:
           python3 -m unittest \
             scripts.tests.test_dns_ipv6_killswitch_gates \
             scripts.tests.test_network_evidence_manifest \
+            scripts.tests.test_network_evidence_pcap_oracle \
+            scripts.tests.test_android_ordinary_gate_results \
+            scripts.tests.test_local_android_release_acceptance \
             scripts.tests.test_so_bindtodevice_evidence \
             scripts.tests.test_so_bindtodevice_lane
 
@@ -621,7 +624,9 @@ jobs:
 
       - name: Verify screenshot baselines
         run: >-
-          ./gradlew :app:verifyRoborazziGithubFullDebug
+          ./gradlew
+          :app:verifyRoborazziGithubFullDebug
+          :app:verifyRoborazziGithubSimpleDebug
           -Pripdpi.skipNativeBuild=true
           -Pripdpi.includeRoborazziUnitTests=true
           --tests 'com.poyka.ripdpi.ui.screenshot.*'
@@ -797,7 +802,7 @@ jobs:
           setup-gradle: "false"
 
       - name: Install cargo-bloat
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-bloat
 
@@ -866,7 +871,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-deny@0.19.8
 
@@ -890,7 +895,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-deny@0.19.8
 
@@ -1012,7 +1017,7 @@ jobs:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-nextest
 
@@ -1052,7 +1057,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-fuzz
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-fuzz
 
@@ -1081,7 +1086,7 @@ jobs:
       - name: Install rustdoc JSON toolchain for cargo-public-api
         run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-public-api@0.52.0
       - name: Check Rust public API snapshots
@@ -1158,7 +1163,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-nextest
 
@@ -1186,7 +1191,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-nextest
 
@@ -1247,7 +1252,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-nextest
 
@@ -1283,7 +1288,7 @@ jobs:
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-llvm-cov
 
@@ -1636,6 +1641,20 @@ jobs:
             -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
+      - name: Run Simple experience integration on ${{ matrix.device }}
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          ./gradlew :app:connectedGithubSimpleDebugAndroidTest \
+            -Pripdpi.nativeAbisOverride=x86_64 \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
+            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
       - name: Capture Android instrumented-test emulator diagnostics
         if: always()
         run: |
@@ -1791,7 +1810,7 @@ jobs:
           setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-llvm-cov
 

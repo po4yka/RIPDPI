@@ -143,7 +143,7 @@ pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopSta
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet, VecDeque};
-    use std::net::{Ipv4Addr, SocketAddr};
+    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::sync::atomic::Ordering;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -189,6 +189,72 @@ mod tests {
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+    }
+
+    #[test]
+    fn armed_uid_policy_blocks_icmp_before_egress_interceptor_and_smoltcp() {
+        for packet in [
+            ipv4_icmp_packet(),
+            ipv6_icmp_packet(),
+            ipv4_icmp_fragment(true),
+            ipv4_icmp_fragment(false),
+            ipv6_icmp_fragment(true),
+            ipv6_icmp_fragment(false),
+        ] {
+            let seen_packets = Arc::new(Mutex::new(Vec::new()));
+            let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+            state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+
+            route_tun_packet(&packet, &mut state);
+
+            assert!(seen_packets.lock().expect("seen packets").is_empty());
+            assert!(state.device.rx_queue.is_empty());
+        }
+    }
+
+    #[test]
+    fn armed_uid_policy_opt_in_preserves_icmp_path() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        state.runtime.uid_policy_allow_icmp = true;
+        let packet = ipv4_icmp_packet();
+
+        route_tun_packet(&packet, &mut state);
+
+        assert_eq!(seen_packets.lock().expect("seen packets").as_slice(), [packet.as_slice()]);
+        assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+    }
+
+    #[test]
+    fn disarmed_uid_policy_preserves_icmp_path_regardless_of_flag() {
+        for allow_icmp in [false, true] {
+            let seen_packets = Arc::new(Mutex::new(Vec::new()));
+            let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+            state.runtime.uid_policy_allow_icmp = allow_icmp;
+            let packet = ipv6_icmp_packet();
+
+            route_tun_packet(&packet, &mut state);
+
+            assert_eq!(seen_packets.lock().expect("seen packets").as_slice(), [packet.as_slice()]);
+            assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+        }
+    }
+
+    #[test]
+    fn armed_uid_policy_icmp_default_does_not_change_tcp_or_udp_routing() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        let tcp_packet = ipv4_tcp_packet(55_000, 443);
+        let udp_packet = ipv4_udp_packet(55_001, 443, b"uid-gated");
+
+        route_tun_packet(&tcp_packet, &mut state);
+        route_tun_packet(&udp_packet, &mut state);
+
+        assert_eq!(seen_packets.lock().expect("seen packets").len(), 2);
+        assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &tcp_packet);
+        assert_eq!(state.pending_uid_udp_packets.len(), 1);
     }
 
     #[test]
@@ -376,6 +442,7 @@ mod tests {
                 filter_injected_resets: false,
                 webrtc_protection_enabled: false,
                 uid_policy: crate::uid_policy::UidFlowPolicy::disarmed(),
+                uid_policy_allow_icmp: false,
                 tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
                 tun_egress_interceptor,
                 udp_idle_timeout: Duration::from_secs(1),
@@ -431,6 +498,49 @@ mod tests {
         packet[32] = 0x50;
         packet[33] = 0x18;
         packet[34..36].copy_from_slice(&65535u16.to_be_bytes());
+        packet
+    }
+
+    fn ipv4_icmp_packet() -> Vec<u8> {
+        let mut packet = vec![0u8; 28];
+        packet[0] = 0x45;
+        packet[2..4].copy_from_slice(&28u16.to_be_bytes());
+        packet[8] = 64;
+        packet[9] = 1;
+        packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
+        packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
+        packet[20] = 8;
+        packet
+    }
+
+    fn ipv6_icmp_packet() -> Vec<u8> {
+        let mut packet = vec![0u8; 48];
+        packet[0] = 0x60;
+        packet[4..6].copy_from_slice(&8u16.to_be_bytes());
+        packet[6] = 58;
+        packet[7] = 64;
+        packet[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        packet[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        packet[40] = 128;
+        packet
+    }
+
+    fn ipv4_icmp_fragment(first_fragment: bool) -> Vec<u8> {
+        let mut packet = ipv4_icmp_packet();
+        packet[6..8].copy_from_slice(&(if first_fragment { 0x2000_u16 } else { 0x0001_u16 }).to_be_bytes());
+        packet
+    }
+
+    fn ipv6_icmp_fragment(first_fragment: bool) -> Vec<u8> {
+        let mut packet = vec![0u8; 56];
+        packet[0] = 0x60;
+        packet[4..6].copy_from_slice(&16u16.to_be_bytes());
+        packet[6] = 44;
+        packet[7] = 64;
+        packet[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        packet[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        packet[40] = 58;
+        packet[42..44].copy_from_slice(&(if first_fragment { 0x0001_u16 } else { 0x0008_u16 }).to_be_bytes());
         packet
     }
 }

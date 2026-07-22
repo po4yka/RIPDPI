@@ -2,15 +2,14 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +28,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,76 +42,224 @@ fun StrategyConfigRoute(
     applySavedConfig: () -> StrategyConfigApplyResult = { StrategyConfigApplyResult.NextSession },
 ) {
     val context = LocalContext.current
+    val editorViewModel: StrategyConfigEditorViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val runtime = remember(runtimeFactory) { runCatching { runtimeFactory() }.getOrNull() }
     val coroutineScope = rememberCoroutineScope()
-    var source by rememberSaveable { mutableStateOf(StrategyConfigSource.BuiltIn) }
-    var configText by remember { mutableStateOf(uiState.desync.chainDsl.boundedUtf8(StrategyConfigMaxImportBytes)) }
-    var luaPath by rememberSaveable { mutableStateOf("") }
-    var luaFunction by rememberSaveable { mutableStateOf("") }
-    var banner by rememberSaveable { mutableStateOf<StrategyConfigBanner?>(null) }
+    val editorSession = editorViewModel.sessionOrInitial(uiState.desync.chainDsl)
+    var banner by remember { mutableStateOf<StrategyConfigBanner?>(null) }
+    var showUnsavedChangesDialog by remember { mutableStateOf(false) }
+    val requestBack = editorViewModel::requestExit
 
     SecureWindowEffect()
-    LaunchedEffect(uiState.desync.chainDsl, source) {
-        if (source == StrategyConfigSource.BuiltIn) {
-            configText = uiState.desync.chainDsl
-        }
-    }
+    BackHandler(onBack = requestBack)
+    StrategyConfigHydrationEffect(editorViewModel, uiState.desync.chainDsl)
+    StrategyConfigExitEffect(
+        decision = editorViewModel.exitDecision,
+        onConsumed = editorViewModel::consumeExitDecision,
+        onDirty = { showUnsavedChangesDialog = true },
+        onBack = onBack,
+    )
 
     val importLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             handleStrategyConfigImport(
                 context = context,
                 uri = uri,
-                onImported = { imported ->
-                    configText = imported
-                    source = StrategyConfigSource.CustomYaml
-                },
+                onImported = editorViewModel::importConfig,
                 onBanner = { banner = it },
             )
         }
 
+    StrategyConfigExitDialog(
+        visible = showUnsavedChangesDialog,
+        onKeepEditing = { showUnsavedChangesDialog = false },
+        onDiscard = {
+            showUnsavedChangesDialog = false
+            coroutineScope.discardStrategyConfigDraft(
+                editorViewModel = editorViewModel,
+                onBack = onBack,
+                onFailure = { showUnsavedChangesDialog = true },
+            )
+        },
+    )
+
+    StrategyConfigRouteScreen(
+        context = context,
+        editorViewModel = editorViewModel,
+        editorSession = editorSession,
+        settingsViewModel = viewModel,
+        uiState = uiState,
+        runtime = runtime,
+        coroutineScope = coroutineScope,
+        banner = banner,
+        onBanner = { banner = it },
+        onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
+        onBack = onBack,
+        modifier = modifier,
+        applySavedConfig = applySavedConfig,
+    )
+}
+
+@Composable
+private fun StrategyConfigRouteScreen(
+    context: Context,
+    editorViewModel: StrategyConfigEditorViewModel,
+    editorSession: StrategyConfigEditorSession,
+    settingsViewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    runtime: StrategyConfigRuntime?,
+    coroutineScope: CoroutineScope,
+    banner: StrategyConfigBanner?,
+    onBanner: (StrategyConfigBanner?) -> Unit,
+    onImport: () -> Unit,
+    onBack: () -> Unit,
+    applySavedConfig: () -> StrategyConfigApplyResult,
+    modifier: Modifier,
+) {
     StrategyConfigScreen(
         state =
-            StrategyConfigScreenState(
-                source = source,
-                configText = configText,
-                luaPath = luaPath,
-                luaFunction = luaFunction,
-                activePath = activePathLabel(context, source, luaPath),
+            editorSession.toRouteScreenState(
+                context = context,
                 banner = banner,
+                isHydrating = editorViewModel.isHydrating,
+                hasHydrationError = editorViewModel.hasHydrationError,
+                hasPersistenceError = editorViewModel.hasPersistenceError,
+                isFinalizingSave = editorViewModel.isFinalizingSave,
             ),
-        onBack = onBack,
-        onSourceChanged = {
-            source = it
-            banner = null
+        onBack = editorViewModel::requestExit,
+        onSourceChanged = { source ->
+            editorViewModel.selectSource(source, uiState.desync.chainDsl)
+            onBanner(null)
         },
-        onConfigTextChanged = { configText = it.boundedUtf8(StrategyConfigMaxImportBytes) },
-        onLuaPathChanged = { luaPath = it },
-        onLuaFunctionChanged = { luaFunction = it },
-        onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
-        onExport = { shareStrategyConfig(context, configText) },
-        onSave = {
+        onConfigTextChanged = { value ->
+            editorViewModel.update { copy(configText = value.boundedUtf8(StrategyConfigMaxImportBytes)) }
+        },
+        onLuaPathChanged = { value -> editorViewModel.update { copy(luaPath = value) } },
+        onLuaFunctionChanged = { value -> editorViewModel.update { copy(luaFunction = value) } },
+        onImport = onImport,
+        onExport = { editorViewModel.exportCurrentConfig(context, editorSession) },
+        onSave = save@{
+            val request = editorViewModel.beginSave() ?: return@save
             coroutineScope.launch {
-                banner =
-                    saveStrategyConfigFromRoute(
-                        context = context,
-                        source = source,
-                        configText = configText,
-                        luaPath = luaPath,
-                        luaFunction = luaFunction,
-                        runtime = runtime,
-                        viewModel = viewModel,
-                        applySavedConfig = applySavedConfig,
-                        uiState = uiState,
-                    )
+                onBanner(
+                    runStrategyConfigRouteSave(context, editorViewModel, request) {
+                        saveStrategyConfigFromRoute(
+                            context = context,
+                            source = request.draft.source,
+                            configText = request.draft.configText,
+                            luaPath = request.draft.luaPath,
+                            luaFunction = request.draft.luaFunction,
+                            runtime = runtime,
+                            viewModel = settingsViewModel,
+                            applySavedConfig = applySavedConfig,
+                            uiState = uiState,
+                        )
+                    },
+                )
             }
         },
-        onReload = { banner = reloadLuaConfig(context, runtime) },
-        onValidateLua = { banner = validateLuaScript(context, runtime, luaPath) },
+        onReload = { onBanner(reloadLuaConfig(context, runtime)) },
+        onValidateLua = { onBanner(editorViewModel.validateCurrentLua(context, runtime, editorSession)) },
+        onRetryRecovery = editorViewModel::retryHydration,
+        onDiscardRecovery = {
+            coroutineScope.discardStrategyConfigDraft(
+                editorViewModel = editorViewModel,
+                onBack = onBack,
+                onFailure = {
+                    onBanner(
+                        StrategyConfigBanner(
+                            title = context.getString(R.string.strategy_config_reload_failed_title),
+                            message = strategyConfigInternalErrorMessage(context),
+                            tone = WarningBannerTone.Error,
+                        ),
+                    )
+                },
+            )
+        },
         modifier = modifier,
     )
 }
+
+private fun CoroutineScope.discardStrategyConfigDraft(
+    editorViewModel: StrategyConfigEditorViewModel,
+    onBack: () -> Unit,
+    onFailure: () -> Unit,
+) {
+    launch {
+        when (val failure = runCatching { editorViewModel.discard() }.exceptionOrNull()) {
+            null -> onBack()
+            is CancellationException -> throw failure
+            else -> onFailure()
+        }
+    }
+}
+
+internal suspend fun runStrategyConfigRouteSave(
+    context: Context,
+    editorViewModel: StrategyConfigEditorViewModel,
+    request: StrategyConfigSaveRequest,
+    save: suspend () -> StrategyConfigBanner,
+): StrategyConfigBanner =
+    runCatching { editorViewModel.runSave(request, save) }
+        .getOrElse { error ->
+            if (error is CancellationException) throw error
+            StrategyConfigBanner(
+                title = context.getString(R.string.strategy_config_reload_failed_title),
+                message = strategyConfigInternalErrorMessage(context),
+                tone = WarningBannerTone.Error,
+            )
+        }
+
+private fun StrategyConfigEditorSession.toRouteScreenState(
+    context: Context,
+    banner: StrategyConfigBanner?,
+    isHydrating: Boolean,
+    hasHydrationError: Boolean,
+    hasPersistenceError: Boolean,
+    isFinalizingSave: Boolean,
+): StrategyConfigScreenState =
+    toScreenState(
+        activePath = activePathLabel(context, draft.source, draft.luaPath),
+        banner = resolveStrategyConfigRouteBanner(context, banner, hasPersistenceError),
+        isHydrating = isHydrating,
+        hasHydrationError = hasHydrationError,
+        isFinalizingSave = isFinalizingSave,
+    )
+
+internal fun resolveStrategyConfigRouteBanner(
+    context: Context,
+    banner: StrategyConfigBanner?,
+    hasPersistenceError: Boolean,
+): StrategyConfigBanner? =
+    if (hasPersistenceError) {
+        StrategyConfigBanner(
+            title = context.getString(R.string.strategy_config_draft_save_failed_title),
+            message = context.getString(R.string.strategy_config_draft_save_failed_body),
+            tone = WarningBannerTone.Error,
+        )
+    } else {
+        banner
+    }
+
+private fun StrategyConfigEditorViewModel.sessionOrInitial(configText: String): StrategyConfigEditorSession =
+    session ?: StrategyConfigEditorSession.initial(configText.boundedUtf8(StrategyConfigMaxImportBytes))
+
+private fun StrategyConfigEditorViewModel.currentDraft(fallback: StrategyConfigEditorSession): StrategyConfigDraft =
+    (session ?: fallback).draft
+
+private fun StrategyConfigEditorViewModel.exportCurrentConfig(
+    context: Context,
+    fallback: StrategyConfigEditorSession,
+) {
+    shareStrategyConfig(context, currentDraft(fallback).configText)
+}
+
+private fun StrategyConfigEditorViewModel.validateCurrentLua(
+    context: Context,
+    runtime: StrategyConfigRuntime?,
+    fallback: StrategyConfigEditorSession,
+): StrategyConfigBanner = validateLuaScript(context, runtime, currentDraft(fallback).luaPath)
 
 private val StrategyConfigDocumentMimeTypes =
     arrayOf(
@@ -127,20 +275,21 @@ private const val BytesPerKib = 1024
 private fun handleStrategyConfigImport(
     context: Context,
     uri: android.net.Uri?,
-    onImported: (String) -> Unit,
+    onImported: (String) -> Boolean,
     onBanner: (StrategyConfigBanner) -> Unit,
 ) {
     uri?.let { selectedUri ->
         readStrategyConfigText(context, selectedUri)
             .onSuccess { imported ->
-                onImported(imported)
-                onBanner(
-                    StrategyConfigBanner(
-                        title = context.getString(R.string.strategy_config_imported_title),
-                        message = context.getString(R.string.strategy_config_imported_body),
-                        tone = WarningBannerTone.Info,
-                    ),
-                )
+                if (onImported(imported)) {
+                    onBanner(
+                        StrategyConfigBanner(
+                            title = context.getString(R.string.strategy_config_imported_title),
+                            message = context.getString(R.string.strategy_config_imported_body),
+                            tone = WarningBannerTone.Info,
+                        ),
+                    )
+                }
             }.onFailure { error ->
                 onBanner(
                     StrategyConfigBanner(
@@ -234,8 +383,7 @@ private suspend fun saveStrategyConfig(
                 StrategyConfigBanner(
                     title = context.getString(R.string.strategy_config_invalid_title),
                     message =
-                        validation.exceptionOrNull()?.localizedMessage
-                            ?: context.getString(R.string.config_error_invalid_chain),
+                        context.getString(R.string.config_error_invalid_chain),
                     tone = WarningBannerTone.Error,
                 )
             }
@@ -287,7 +435,7 @@ private suspend fun saveAndApplyStrategyConfig(
             }
             StrategyConfigBanner(
                 title = context.getString(R.string.strategy_config_reload_failed_title),
-                message = error.localizedMessage ?: error.toString(),
+                message = strategyConfigInternalErrorMessage(context),
                 tone = WarningBannerTone.Error,
             )
         },
@@ -314,6 +462,7 @@ private fun savedStrategyConfigBanner(
                 }
             },
         tone = WarningBannerTone.Info,
+        saved = true,
     )
 
 private fun validateStrategyConfigText(
@@ -405,7 +554,7 @@ private fun luaRuntimeValidationBanner(
         } else {
             baseDir.fold(
                 onSuccess = { dir -> runtime.loadLuaScript(dir, path) },
-                onFailure = { failure -> failure.localizedMessage ?: failure.toString() },
+                onFailure = { strategyConfigInternalErrorMessage(context) },
             )
         }
     return when {
@@ -525,6 +674,9 @@ private fun importErrorMessage(
         }
 
         else -> {
-            error.localizedMessage ?: context.getString(R.string.strategy_config_import_unreadable)
+            context.getString(R.string.strategy_config_import_unreadable)
         }
     }
+
+private fun strategyConfigInternalErrorMessage(context: Context): String =
+    context.getString(R.string.update_error_unknown)

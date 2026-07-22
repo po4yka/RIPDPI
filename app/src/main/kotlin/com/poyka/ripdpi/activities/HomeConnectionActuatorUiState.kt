@@ -72,7 +72,7 @@ data class HomeConnectionActuatorUiState(
     val leadingLabel: String = "Open",
     val trailingLabel: String = "Secure",
     val routeLabel: String = "Local VPN",
-    val statusDescription: String = "Secure line open",
+    val statusDescription: String = "Secure line disengaged",
     val actionLabel: String = "Engage secure line",
     val carriageFraction: Float = 0f,
     val stages: ImmutableList<HomeConnectionActuatorStageUiState> = DefaultHomeConnectionActuatorStages,

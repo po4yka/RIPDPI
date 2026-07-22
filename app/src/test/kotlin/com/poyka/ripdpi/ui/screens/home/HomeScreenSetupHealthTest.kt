@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.HardKillSwitchUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
@@ -66,6 +67,8 @@ class HomeScreenSetupHealthTest {
             .performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
+            .performScrollTo()
+            .assertIsDisplayed()
             .assertHasClickAction()
             .performClick()
 
@@ -175,7 +178,7 @@ class HomeScreenSetupHealthTest {
     }
 
     @Test
-    fun `setup health remains above primary actuator`() {
+    fun `primary actuator remains above setup health`() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -189,19 +192,19 @@ class HomeScreenSetupHealthTest {
             }
         }
 
-        val warningBottom =
+        val warningTop =
             composeRule
                 .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
                 .fetchSemanticsNode()
                 .boundsInRoot
-                .bottom
-        val actuatorTop =
+                .top
+        val actuatorBottom =
             composeRule
                 .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
                 .fetchSemanticsNode()
                 .boundsInRoot
-                .top
-        assertTrue(actuatorTop > warningBottom)
+                .bottom
+        assertTrue(actuatorBottom <= warningTop)
     }
 
     private fun hardKillSwitchWarning(): HardKillSwitchUiState =

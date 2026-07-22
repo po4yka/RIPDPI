@@ -57,7 +57,7 @@ fun RipDpiTooltipRich(
                                     Modifier
                                         .padding(RipDpiThemeTokens.spacing.sm)
                                         .clickable(onClick = onAction),
-                                style = RipDpiThemeTokens.type.button.copy(color = colors.accent),
+                                style = RipDpiThemeTokens.type.button.copy(color = colors.info),
                             )
                         }
                     },

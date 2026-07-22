@@ -97,6 +97,10 @@ class NativeConfigSchemaVersionTest {
         val encoded = tunnelJson.encodeToString(Tun2SocksConfig.serializer(), Tun2SocksConfig(socks5Port = 1080))
 
         assertTrue("tunnel payload must carry schemaVersion", encoded.contains("\"schemaVersion\":2"))
+        assertTrue(
+            "tunnel payload must default ICMP UID policy to false",
+            encoded.contains("\"uidPolicyAllowIcmp\":false"),
+        )
     }
 
     @Test

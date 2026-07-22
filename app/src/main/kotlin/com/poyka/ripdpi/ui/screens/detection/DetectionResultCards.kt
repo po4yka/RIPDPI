@@ -89,7 +89,7 @@ internal fun StageProgressCard(progress: DetectionProgress) {
                         .size(RipDpiIconSizes.Medium)
                         .semantics { contentDescription = loadingDescription },
                 strokeWidth = RipDpiStroke.Thick,
-                color = colors.accent,
+                color = colors.info,
             )
             Column {
                 Text(text = progress.label, style = type.bodyEmphasis, color = colors.foreground)
@@ -99,7 +99,7 @@ internal fun StageProgressCard(progress: DetectionProgress) {
         LinearProgressIndicator(
             progress = { progress.completedStages.size.toFloat() / DetectionStage.entries.size },
             modifier = Modifier.fillMaxWidth(),
-            color = colors.accent,
+            color = colors.info,
             trackColor = colors.muted,
         )
     }
@@ -809,6 +809,6 @@ private fun ExposureStatus.contentColor() =
         ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> RipDpiThemeTokens.colors.destructive
         ExposureStatus.PUBLIC_IP_ONLY -> RipDpiThemeTokens.colors.warning
         ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> RipDpiThemeTokens.colors.warning
-        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> RipDpiThemeTokens.colors.accent
+        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> RipDpiThemeTokens.colors.info
         ExposureStatus.INSUFFICIENT_DATA -> RipDpiThemeTokens.colors.success
     }

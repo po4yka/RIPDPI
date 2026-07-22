@@ -3,20 +3,24 @@ package com.poyka.ripdpi.ui.components.indicators
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -39,12 +43,10 @@ fun LogRow(
     tone: LogRowTone = LogRowTone.Connection,
     metadataChips: ImmutableList<String> = persistentListOf(),
 ) {
-    val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val spacing = RipDpiThemeTokens.spacing
-    val typeScale = RipDpiThemeTokens.type
     val palette = logRowPalette(tone)
-    val locale = LocalConfiguration.current.locales[0]
+    val stacksMessage = LocalDensity.current.fontScale >= StackedMessageFontScale
 
     Column(
         modifier =
@@ -56,61 +58,113 @@ fun LogRow(
                 },
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        Row(
-            modifier =
-                Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalAlignment = Alignment.Top,
-        ) {
-            androidx.compose.material3.Text(
-                text = timestamp,
-                style = typeScale.monoLog,
-                color = colors.mutedForeground,
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .background(palette.badgeContainer, RipDpiThemeTokens.shapes.xxl)
-                        .padding(
-                            horizontal = components.rows.compactPillHorizontalPadding,
-                            vertical = components.rows.compactPillVerticalPadding,
-                        ),
-            ) {
-                androidx.compose.material3.Text(
-                    text = type.uppercase(locale),
-                    style = typeScale.smallLabel,
-                    color = palette.badgeContent,
-                )
+        if (stacksMessage) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                LogRowHeader(timestamp = timestamp, type = type, palette = palette)
+                LogRowMessage(message = message, palette = palette, modifier = Modifier.fillMaxWidth())
             }
-            androidx.compose.material3.Text(
-                text = message,
-                modifier = Modifier.weight(1f),
-                style = typeScale.monoInline,
-                color = palette.message,
-            )
-        }
-        if (metadataChips.isNotEmpty()) {
+        } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.Top,
             ) {
-                metadataChips.forEach { chip ->
-                    Box(
-                        modifier =
-                            Modifier
-                                .wrapContentWidth()
-                                .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl)
-                                .padding(
-                                    horizontal = components.rows.compactPillHorizontalPadding,
-                                    vertical = components.rows.compactPillVerticalPadding,
-                                ),
-                    ) {
-                        androidx.compose.material3.Text(
-                            text = chip,
-                            style = typeScale.smallLabel,
-                            color = colors.mutedForeground,
-                        )
-                    }
+                LogRowHeader(timestamp = timestamp, type = type, palette = palette)
+                LogRowMessage(message = message, palette = palette, modifier = Modifier.weight(1f))
+            }
+        }
+        if (metadataChips.isNotEmpty()) {
+            LogMetadataChips(metadataChips)
+        }
+    }
+}
+
+@Composable
+private fun LogRowHeader(
+    timestamp: String,
+    type: String,
+    palette: LogRowPalette,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
+    val spacing = RipDpiThemeTokens.spacing
+    val typeScale = RipDpiThemeTokens.type
+    val locale = LocalConfiguration.current.locales[0]
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.Top,
+    ) {
+        androidx.compose.material3.Text(
+            text = timestamp,
+            style = typeScale.monoLog,
+            color = colors.mutedForeground,
+        )
+        Box(
+            modifier =
+                Modifier
+                    .background(palette.badgeContainer, RipDpiThemeTokens.shapes.xxl)
+                    .padding(
+                        horizontal = components.rows.compactPillHorizontalPadding,
+                        vertical = components.rows.compactPillVerticalPadding,
+                    ),
+        ) {
+            androidx.compose.material3.Text(
+                text = type.uppercase(locale),
+                style = typeScale.smallLabel,
+                color = palette.badgeContent,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LogRowMessage(
+    message: String,
+    palette: LogRowPalette,
+    modifier: Modifier,
+) {
+    androidx.compose.material3.Text(
+        text = message,
+        modifier = modifier,
+        style = RipDpiThemeTokens.type.monoInline,
+        color = palette.message,
+    )
+}
+
+@Composable
+private fun LogMetadataChips(metadataChips: ImmutableList<String>) {
+    val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
+    val spacing = RipDpiThemeTokens.spacing
+    val typeScale = RipDpiThemeTokens.type
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val chipMaxWidth = maxWidth
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            metadataChips.forEach { chip ->
+                Box(
+                    modifier =
+                        Modifier
+                            .widthIn(max = chipMaxWidth)
+                            .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl)
+                            .padding(
+                                horizontal = components.rows.compactPillHorizontalPadding,
+                                vertical = components.rows.compactPillVerticalPadding,
+                            ),
+                ) {
+                    androidx.compose.material3.Text(
+                        text = chip,
+                        style = typeScale.smallLabel,
+                        color = colors.mutedForeground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false,
+                    )
                 }
             }
         }
@@ -162,6 +216,8 @@ private fun logRowPalette(tone: LogRowTone): LogRowPalette {
         }
     }
 }
+
+private const val StackedMessageFontScale = 1.5f
 
 @Preview(showBackground = true)
 @Composable

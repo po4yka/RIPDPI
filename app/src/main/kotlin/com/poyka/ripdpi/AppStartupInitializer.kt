@@ -19,15 +19,41 @@ import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
+
+enum class AppStartupReadinessState {
+    Pending,
+    Ready,
+    Failed,
+}
+
+interface AppStartupReadiness {
+    val readiness: StateFlow<AppStartupReadinessState>
+
+    fun retryRecovery()
+}
+
+internal object ReadyAppStartupReadiness : AppStartupReadiness {
+    override val readiness = MutableStateFlow(AppStartupReadinessState.Ready).asStateFlow()
+
+    override fun retryRecovery() = Unit
+}
 
 @Singleton
 class AppStartupInitializer
@@ -47,40 +73,82 @@ class AppStartupInitializer
         private val startupDiagnosticsProbes: StartupDiagnosticsProbes,
         private val simpleFlavorStartupHooks: SimpleFlavorStartupHooks,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
-    ) {
+    ) : AppStartupReadiness {
+        private val readinessState = MutableStateFlow(AppStartupReadinessState.Pending)
+        private val startupRunning = AtomicBoolean(false)
+        override val readiness: StateFlow<AppStartupReadinessState> = readinessState.asStateFlow()
+
         fun initialize() {
-            val profileMutationRecovery =
-                runBlocking(Dispatchers.IO) {
-                    recoverProfileMutations()
+            if (readinessState.value != AppStartupReadinessState.Pending) return
+            launchStartup()
+        }
+
+        override fun retryRecovery() {
+            if (!readinessState.compareAndSet(AppStartupReadinessState.Failed, AppStartupReadinessState.Pending)) {
+                return
+            }
+            launchStartup()
+        }
+
+        private fun launchStartup() {
+            if (!startupRunning.compareAndSet(false, true)) return
+            applicationScope.launch {
+                val profileMutationRecovery =
+                    try {
+                        recoverBeforeReadiness()
+                    } catch (cancellation: CancellationException) {
+                        startupRunning.set(false)
+                        throw cancellation
+                    } catch (error: IllegalStateException) {
+                        // Release the single-flight guard before publishing Failed so
+                        // an immediate UI retry cannot lose the retry launch.
+                        startupRunning.set(false)
+                        readinessState.value = AppStartupReadinessState.Failed
+                        Logger.e(error) { "Profile mutation recovery failed; startup remains gated" }
+                        return@launch
+                    }
+                readinessState.value = AppStartupReadinessState.Ready
+                try {
+                    initializeAfterReadiness(profileMutationRecovery)
+                } finally {
+                    startupRunning.set(false)
                 }
+            }
+        }
+
+        private suspend fun recoverBeforeReadiness(): AppStartupSubsystemResult =
+            withContext(Dispatchers.IO) {
+                recoverProfileMutations()
+            }
+
+        private suspend fun initializeAfterReadiness(profileMutationRecovery: AppStartupSubsystemResult) {
             runCatching { DiagnosticsRetentionWorker.enqueuePeriodic(context) }
                 .onFailure { error -> Logger.w(error) { "Diagnostics retention worker failed to enqueue" } }
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
-            simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope)
-            applicationScope.launch {
-                val report = initializeSubsystemsAfterRecovery(profileMutationRecovery)
-                Logger.i { report.toLogMessage() }
-                // Record whether the previous process was capped by Android 17's
-                // memory limiter. A pure diagnostics read, isolated from the
-                // subsystem report so a failure here never affects startup.
-                runCatching {
-                    startupDiagnosticsProbes.lastExitInspector.recordRecentMemoryLimiterExits()
-                }.onFailure { error ->
-                    Logger.w(error) { "Memory-limiter exit scan failed" }
-                }
-                // Register Android 17 OOM/anomaly profiling triggers (no-op below
-                // API 37). A captured heap dump is delivered to our result callback.
-                runCatching {
-                    startupDiagnosticsProbes.memoryProfilingRegistrar.register()
-                }.onFailure { error ->
-                    Logger.w(error) { "Memory profiling registration failed" }
-                }
-                runCatching {
-                    detectionObservationStarter.startObserving(context, this)
-                }.onFailure { error ->
-                    Logger.w(error) { "App startup detection observation failed" }
-                }
+            runCatching { simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope) }
+                .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
+            val report = initializeSubsystemsAfterRecovery(profileMutationRecovery)
+            Logger.i { report.toLogMessage() }
+            // Record whether the previous process was capped by Android 17's
+            // memory limiter. A pure diagnostics read, isolated from the
+            // subsystem report so a failure here never affects startup.
+            runCatching {
+                startupDiagnosticsProbes.lastExitInspector.recordRecentMemoryLimiterExits()
+            }.onFailure { error ->
+                Logger.w(error) { "Memory-limiter exit scan failed" }
+            }
+            // Register Android 17 OOM/anomaly profiling triggers (no-op below
+            // API 37). A captured heap dump is delivered to our result callback.
+            runCatching {
+                startupDiagnosticsProbes.memoryProfilingRegistrar.register()
+            }.onFailure { error ->
+                Logger.w(error) { "Memory profiling registration failed" }
+            }
+            runCatching {
+                detectionObservationStarter.startObserving(context, applicationScope)
+            }.onFailure { error ->
+                Logger.w(error) { "App startup detection observation failed" }
             }
         }
 
@@ -193,6 +261,13 @@ class AppStartupInitializer
             }
         }
     }
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal abstract class AppStartupReadinessModule {
+    @Binds
+    abstract fun bindAppStartupReadiness(initializer: AppStartupInitializer): AppStartupReadiness
+}
 
 internal data class AppStartupReport(
     val profileMutationRecovery: AppStartupSubsystemResult,

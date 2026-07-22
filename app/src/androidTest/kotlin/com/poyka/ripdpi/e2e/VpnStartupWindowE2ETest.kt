@@ -9,6 +9,7 @@ import android.os.Parcel
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.core.NativeTun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBindings
@@ -26,8 +27,10 @@ import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.SplitTunnelMode
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -65,10 +68,12 @@ private const val GateClosedObservationMs = 250L
 private const val ProbeServiceBindTimeoutMs = 1_500L
 private const val ProbeDatagramSentTimeoutMs = 500L
 private const val ProbeResponseTimeoutMs = 12_000L
+private const val VpnRouteActivationTimeoutMs = 10_000L
 private const val GateReleaseTimeoutMs = 10_000L
 private const val StartupWindowAssertionBudgetMs = 4_000L
 private const val ControlReadTimeoutMs = 750L
 private const val ControlRequestPaddingBytes = 4_096
+private val HttpOkStatusLine = Regex("HTTP/1\\.[01] 200(?: .*)?")
 
 @HiltAndroidTest
 @UninstallModules(Tun2SocksBridgeFactoryModule::class)
@@ -101,9 +106,11 @@ class VpnStartupWindowE2ETest {
         get() = ApplicationProvider.getApplicationContext()
 
     private var hiltInjected = false
+    private lateinit var settingsBeforeTest: AppSettings
     private val startedServices = mutableSetOf<Class<*>>()
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
+    private var evidenceContext: NetworkEvidenceActionContext? = null
 
     @Before
     fun setUp() {
@@ -111,11 +118,25 @@ class VpnStartupWindowE2ETest {
         VpnStartupWindowGate.reset()
         hiltRule.inject()
         hiltInjected = true
+        settingsBeforeTest = runBlocking { appSettingsRepository.snapshot() }
         stopService(RipDpiProxyService::class.java)
         stopService(RipDpiVpnService::class.java)
+        awaitUntil(timeoutMs = 10_000L) {
+            serviceStateStore.status.value.first == AppStatus.Halted &&
+                serviceStateStore.telemetry.value.status == AppStatus.Halted
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
+        evidenceContext =
+            networkEvidenceActionContextOrNull(InstrumentationRegistry.getArguments())?.also { evidence ->
+                assertEquals(
+                    "Network evidence fixture identity does not match the fetched fixture",
+                    evidence.fixtureIdentitySha256,
+                    fixtureIdentitySha256(fixture),
+                )
+                clearNetworkEvidenceActionReceipt(appContext)
+            }
         assumeTrue(
             "VPN startup-window UDP fixture requires emulator host routing or a direct host address; " +
                 "adb reverse loopback cannot carry UDP.",
@@ -128,6 +149,9 @@ class VpnStartupWindowE2ETest {
                 proxyPort = reserveLoopbackPort()
                 dnsIp = "1.1.1.1"
                 ipv6Enable = false
+                fullTunnelMode = true
+                setSplitTunnelMode(SplitTunnelMode.Off)
+                clearSplitTunnelPackages()
                 enableCmdSettings = false
                 desyncHttp = false
                 desyncHttps = false
@@ -140,15 +164,38 @@ class VpnStartupWindowE2ETest {
     @After
     fun tearDown() {
         VpnStartupWindowGate.release()
-        if (hiltInjected) {
-            stopService(RipDpiVpnService::class.java)
-            stopService(RipDpiProxyService::class.java)
+        try {
+            if (hiltInjected) {
+                try {
+                    stopService(RipDpiVpnService::class.java)
+                    stopService(RipDpiProxyService::class.java)
+                    awaitUntil(timeoutMs = 15_000L) {
+                        serviceStateStore.status.value.first == AppStatus.Halted &&
+                            serviceStateStore.telemetry.value.status == AppStatus.Halted
+                    }
+                } finally {
+                    if (this::settingsBeforeTest.isInitialized) {
+                        runBlocking { appSettingsRepository.replace(settingsBeforeTest) }
+                    }
+                }
+            }
+        } finally {
+            try {
+                if (this::fixtureClient.isInitialized) {
+                    try {
+                        fixtureClient.resetEvents()
+                    } finally {
+                        fixtureClient.resetFaults()
+                    }
+                }
+            } finally {
+                try {
+                    clearTestProbeNetworkEligibility()
+                } finally {
+                    VpnStartupWindowGate.reset()
+                }
+            }
         }
-        if (this::fixtureClient.isInitialized) {
-            fixtureClient.resetEvents()
-            fixtureClient.resetFaults()
-        }
-        VpnStartupWindowGate.reset()
     }
 
     @Test
@@ -173,10 +220,25 @@ class VpnStartupWindowE2ETest {
             var dnsProbe: Deferred<AppProcessDnsProbeResult>? = null
 
             try {
-                startService(RipDpiVpnService::class.java)
-                gateCycle.awaitStartEntered()
-                val startupWindowAssertionStartedAt = SystemClock.elapsedRealtime()
+                val (appUid, testUid) = distinctAppAndTestUids()
                 testProcessDnsProbeService = bindTestProcessDnsProbeService(ProbeServiceBindTimeoutMs)
+                assertFalse(
+                    "Test-process default network was already a VPN before RIPDPI startup",
+                    requireNotNull(testProcessDnsProbeService).isVpnDefaultNetwork(),
+                )
+                val evidenceStartedAt = SystemClock.elapsedRealtime()
+                val actionMarkerResult =
+                    evidenceContext?.let { evidence ->
+                        emitEvidenceWireMarker(evidence.actionWireMarker)
+                    }
+                val actionMarkerAt = SystemClock.elapsedRealtime()
+                startService(RipDpiVpnService::class.java)
+                val tunFd = gateCycle.awaitStartEntered()
+                assertTrue(
+                    "Test-process default network did not converge to the blocking VPN route",
+                    requireNotNull(testProcessDnsProbeService).awaitVpnDefaultNetwork(VpnRouteActivationTimeoutMs),
+                )
+                val startupWindowAssertionStartedAt = SystemClock.elapsedRealtime()
                 val queryHost = "startup-${SystemClock.elapsedRealtime()}.${fixture.fixtureDomain}"
                 dnsProbe =
                     async(Dispatchers.IO) {
@@ -202,13 +264,18 @@ class VpnStartupWindowE2ETest {
                 )
 
                 val closedWindowStatuses = statusHistory.toList()
+                val closedWindowRunningCount =
+                    closedWindowStatuses.count { (status, mode) -> status == AppStatus.Running && mode == Mode.VPN }
                 assertFalse(
                     "VPN reported Running before native tunnel start was released: $closedWindowStatuses",
                     closedWindowStatuses.any { (status, mode) -> status == AppStatus.Running && mode == Mode.VPN },
                 )
-                val closedWindowEvents = fixtureEventsViaExcludedAppProcess()
+                val preReadyCorrelatedEvents =
+                    fixtureEventsViaExcludedAppProcess().filter { event ->
+                        event.service == "dns_udp" && event.protocol == "udp" && event.detail == queryHost
+                    }
                 assertNoCorrelatedDnsUdpEvent(
-                    events = closedWindowEvents,
+                    events = preReadyCorrelatedEvents,
                     queryHost = queryHost,
                     message = "Fixture observed DNS UDP before native tunnel start was released",
                 )
@@ -250,6 +317,12 @@ class VpnStartupWindowE2ETest {
                         snapshot.tunnelStats.txPackets > 0 &&
                         snapshot.tunnelStats.rxPackets > 0
                 }
+                val runningTelemetry = serviceStateStore.telemetry.value
+                val outcomeMarkerResult =
+                    evidenceContext?.let { evidence ->
+                        emitEvidenceWireMarker(evidence.outcomeWireMarker)
+                    }
+                val outcomeMarkerAt = SystemClock.elapsedRealtime()
 
                 val correlatedEvents =
                     fixtureEventsViaExcludedAppProcess().filter { event ->
@@ -269,6 +342,39 @@ class VpnStartupWindowE2ETest {
                     timeoutMs = 15_000L,
                 )
                 gateCycle.assertClean()
+                evidenceContext?.let { evidence ->
+                    val actionMarker = requireNotNull(actionMarkerResult)
+                    val outcomeMarker = requireNotNull(outcomeMarkerResult)
+                    writeNetworkEvidenceStartupPassReceipt(
+                        context = appContext,
+                        evidence = evidence,
+                        facts =
+                            NetworkEvidenceStartupFacts(
+                                startedAtElapsedRealtimeMs = evidenceStartedAt,
+                                finishedAtElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                                actionMarkerAtElapsedRealtimeMs = actionMarkerAt,
+                                outcomeMarkerAtElapsedRealtimeMs = outcomeMarkerAt,
+                                appUid = appUid,
+                                testUid = testUid,
+                                actionMarkerPid = requireNotNull(actionMarker.probePid),
+                                actionMarkerUid = requireNotNull(actionMarker.probeUid),
+                                outcomeMarkerPid = requireNotNull(outcomeMarker.probePid),
+                                outcomeMarkerUid = requireNotNull(outcomeMarker.probeUid),
+                                dnsProbePid = requireNotNull(dnsResult.probePid),
+                                dnsProbeUid = requireNotNull(dnsResult.probeUid),
+                                tunFd = tunFd,
+                                closedWindowRunningCount = closedWindowRunningCount,
+                                preReadyDnsEventCount = preReadyCorrelatedEvents.size,
+                                startupWindowAssertionElapsedMs = startupWindowAssertionElapsedMs,
+                                dnsRcode = requireNotNull(dnsResult.rcode),
+                                dnsQuerySha256 = networkEvidenceDnsQuerySha256(queryHost),
+                                dnsAnswersExact = dnsResult.answers == listOf(fixture.dnsAnswerIpv4),
+                                postReadyDnsEventCount = correlatedEvents.size,
+                                txPackets = runningTelemetry.tunnelStats.txPackets,
+                                rxPackets = runningTelemetry.tunnelStats.rxPackets,
+                            ),
+                    )
+                }
             } finally {
                 gateCycle.release()
                 dnsProbe?.takeIf { it.isActive }?.cancelAndJoin()
@@ -283,6 +389,41 @@ class VpnStartupWindowE2ETest {
             appContext,
             Intent(appContext, serviceClass).setAction(startAction),
         )
+    }
+
+    private fun distinctAppAndTestUids(): Pair<Int, Int> {
+        val testPackage = InstrumentationRegistry.getInstrumentation().context.packageName
+        val packageManager = appContext.packageManager
+        val appUid = packageManager.getApplicationInfo(appContext.packageName, 0).uid
+        val testUid = packageManager.getApplicationInfo(testPackage, 0).uid
+        assertTrue("Startup-window probe must run under a distinct test UID", appUid != testUid)
+        return appUid to testUid
+    }
+
+    private fun emitEvidenceWireMarker(marker: String): AppProcessTcpProbeResult {
+        val response =
+            appProcessTcpRoundTrip(
+                context = appContext,
+                host = fixture.androidHost,
+                port = fixture.controlPort,
+                payload = httpGetFixtureControlPayload("/manifest", marker),
+                connectTimeoutMs = ControlReadTimeoutMs,
+                readTimeoutMs = ControlReadTimeoutMs,
+            )
+        assertTrue("Network evidence wire marker failed via excluded app process: $response", response.ok)
+        val statusLine =
+            response
+                .response
+                .orEmpty()
+                .lineSequence()
+                .firstOrNull()
+                .orEmpty()
+                .trimEnd('\r')
+        assertTrue(
+            "Network evidence marker endpoint returned an invalid status: $statusLine",
+            HttpOkStatusLine.matches(statusLine),
+        )
+        return response
     }
 
     private fun stopService(serviceClass: Class<*>) {
@@ -307,11 +448,28 @@ class VpnStartupWindowE2ETest {
         return parseFixtureEventsHttpResponse(response.response.orEmpty())
     }
 
-    private fun httpGetFixtureControlPayload(path: String): String =
+    private fun httpGetFixtureControlPayload(
+        path: String,
+        evidenceMarker: String? = null,
+    ): String =
         "GET $path HTTP/1.1\r\n" +
             "Host: fixture.test\r\n" +
             "Connection: close\r\n" +
+            evidenceMarker?.let { "X-Ripdpi-Evidence: $it\r\n" }.orEmpty() +
             "X-Pad: ${"a".repeat(ControlRequestPaddingBytes)}\r\n\r\n"
+
+    private fun assertNoCorrelatedDnsUdpEvent(
+        events: List<FixtureEventDto>,
+        queryHost: String,
+        message: String,
+    ) {
+        assertFalse(
+            "$message: $events",
+            events.any { event ->
+                event.service == "dns_udp" && event.protocol == "udp" && event.detail == queryHost
+            },
+        )
+    }
 
     private fun parseFixtureEventsHttpResponse(response: String): List<FixtureEventDto> {
         val body =
@@ -337,19 +495,6 @@ class VpnStartupWindowE2ETest {
                 )
             }
         }
-    }
-
-    private fun assertNoCorrelatedDnsUdpEvent(
-        events: List<FixtureEventDto>,
-        queryHost: String,
-        message: String,
-    ) {
-        assertFalse(
-            "$message: $events",
-            events.any { event ->
-                event.service == "dns_udp" && event.protocol == "udp" && event.detail == queryHost
-            },
-        )
     }
 }
 

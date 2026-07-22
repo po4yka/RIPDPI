@@ -2,9 +2,7 @@ package com.poyka.ripdpi.ui.screens.logs
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,9 +45,11 @@ import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.LogsViewModel
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -69,6 +69,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
@@ -187,7 +188,6 @@ internal fun LogsScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LogsStreamSection(
     uiState: LogsUiState,
@@ -445,9 +445,8 @@ private fun LogsOverviewCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LogsStreamCard(
+internal fun LogsStreamCard(
     entries: List<LogEntry>,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onCopyEntry: (LogEntry) -> Unit,
@@ -456,7 +455,6 @@ private fun LogsStreamCard(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
-
     RipDpiCard(
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.LogsStream),
         paddingValues =
@@ -492,28 +490,61 @@ private fun LogsStreamCard(
                 key = { _, entry -> entry.id },
                 contentType = { _, _ -> "log_entry" },
             ) { index, entry ->
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(
-                                onClick = {},
-                                onLongClick = { onCopyEntry(entry) },
-                            ),
-                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
-                ) {
-                    LogRow(
-                        timestamp = entry.timestamp,
-                        type = subsystemLabel(entry.subsystem),
-                        message = entry.message,
-                        tone = logRowTone(entry),
-                        metadataChips = metadataChips(entry),
-                    )
-                    if (index < entries.lastIndex) {
-                        HorizontalDivider(color = colors.divider)
-                    }
-                }
+                LogsStreamEntry(
+                    entry = entry,
+                    copyContentDescription =
+                        stringResource(
+                            R.string.logs_copy_entry,
+                            subsystemLabel(entry.subsystem),
+                            entry.timestamp,
+                        ),
+                    showDivider = index < entries.lastIndex,
+                    onCopy = { onCopyEntry(entry) },
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun LogsStreamEntry(
+    entry: LogEntry,
+    copyContentDescription: String,
+    showDivider: Boolean,
+    onCopy: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id)),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+        ) {
+            LogRow(
+                timestamp = entry.timestamp,
+                type = subsystemLabel(entry.subsystem),
+                message = entry.message,
+                modifier = Modifier.weight(1f),
+                tone = logRowTone(entry),
+                metadataChips = metadataChips(entry),
+            )
+            RipDpiIconButton(
+                icon = RipDpiIcons.Copy,
+                contentDescription = copyContentDescription,
+                onClick = onCopy,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.logsEntryCopy(entry.id)),
+                density = RipDpiControlDensity.Compact,
+            )
+        }
+        if (showDivider) {
+            HorizontalDivider(color = colors.divider)
         }
     }
 }

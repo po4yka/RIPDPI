@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.components.navigation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,6 +24,8 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val TopAppBarStackFontScale = 1.5f
+
 @Composable
 fun RipDpiTopAppBar(
     title: String,
@@ -29,6 +33,7 @@ fun RipDpiTopAppBar(
     navigationIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
+    navigationEnabled: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -44,37 +49,54 @@ fun RipDpiTopAppBar(
                 .padding(horizontal = layout.horizontalPadding),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
+        val stackActions = LocalDensity.current.fontScale >= TopAppBarStackFontScale
+        Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .widthIn(max = containerMaxWidth)
-                    .heightIn(min = layout.appBarMinHeight),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
+                    .widthIn(max = containerMaxWidth),
         ) {
-            if (navigationIcon != null && onNavigationClick != null) {
-                RipDpiIconButton(
-                    icon = navigationIcon,
-                    contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),
-                    onClick = onNavigationClick,
-                    style = RipDpiIconButtonStyle.Ghost,
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = layout.appBarMinHeight),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (navigationIcon != null && onNavigationClick != null) {
+                    RipDpiIconButton(
+                        icon = navigationIcon,
+                        contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),
+                        onClick = onNavigationClick,
+                        style = RipDpiIconButtonStyle.Ghost,
+                        enabled = navigationEnabled,
+                    )
+                }
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f),
+                    style = type.appBarTitle,
+                    color = colors.foreground,
+                    maxLines = if (stackActions) 2 else 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (!stackActions) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                        content = actions,
+                    )
+                }
+            }
+            if (stackActions) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = actions,
                 )
             }
-            Text(
-                text = title,
-                modifier = Modifier.weight(1f),
-                style = type.appBarTitle,
-                color = colors.foreground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-                content = actions,
-            )
         }
     }
 }

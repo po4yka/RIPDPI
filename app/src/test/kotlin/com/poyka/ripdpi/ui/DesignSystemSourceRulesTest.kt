@@ -82,6 +82,48 @@ class DesignSystemSourceRulesTest {
         }
     }
 
+    @Test
+    fun `accent container token is not used as foreground content`() {
+        val foregroundOnlyFiles =
+            setOf(
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiJsonTree.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiLogStream.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltipRich.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/blockcheck/BlockcheckRoute.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionHistoryCommunityCards.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionResultCards.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/HandshakeTimelineScreen.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PortMatrixScreen.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/QualityGraphsScreen.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/history/HistoryFilters.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncSection.kt",
+            )
+        val directAccentContent =
+            Regex("""\b(?:contentColor|tint)\s*=\s*colors\.accent\b""")
+        val governedPaths =
+            foregroundOnlyFiles +
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PcapViewerScreen.kt"
+
+        assertNoOffendingFiles(
+            files = governedPaths.map(::uiSource),
+            message = "The accent token is a container role; use accentForeground, foreground, or info for content",
+        ) { source ->
+            (source.path in foregroundOnlyFiles && source.text.contains("colors.accent")) ||
+                directAccentContent.containsMatchIn(source.text)
+        }
+    }
+
+    private fun uiSource(path: String): UiSource {
+        val file =
+            sequenceOf(
+                File(repoRoot, path),
+                File(repoRoot, path.removePrefix("app/")),
+            ).firstOrNull(File::isFile)
+
+        checkNotNull(file) { "Unable to resolve UI source: $path" }
+        return UiSource(path = path, text = file.readText())
+    }
+
     private fun uiSourceFiles(root: File = mainUiRoot): List<UiSource> =
         root
             .walkTopDown()

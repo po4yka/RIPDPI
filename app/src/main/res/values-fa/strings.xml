@@ -1,6 +1,11 @@
 <resources>
     <string name="navigation_back">بازگشت</string>
     <string name="action_dismiss">بستن</string>
+    <string name="startup_recovery_preparing_title">در حال آماده‌سازی RIPDPI</string>
+    <string name="startup_recovery_preparing_body">پیش از آنلاین شدن برنامه، تنظیمات محلی بررسی می‌شوند.</string>
+    <string name="startup_recovery_failed_title">بازیابی هنگام راه‌اندازی ناموفق بود</string>
+    <string name="startup_recovery_failed_body">RIPDPI نتوانست بازیابی امن تنظیمات محلی را کامل کند. برنامه تا موفقیت بازیابی آفلاین می‌ماند.</string>
+    <string name="startup_recovery_retry">تلاش دوباره</string>
     <string name="vpn_connect">اتصال</string>
     <string name="vpn_disconnect">قطع اتصال</string>
     <string name="vpn_connected">متصل</string>
@@ -11,6 +16,14 @@
     <string name="config">اتصال</string>
     <string name="settings">تنظیمات</string>
     <string name="diagnostics">تشخیص</string>
+    <string name="bottom_nav_home_compact">وضعیت</string>
+    <string name="bottom_nav_config_compact">اتصال</string>
+    <string name="bottom_nav_diagnostics_compact">بررسی</string>
+    <string name="bottom_nav_settings_compact">تنظیم</string>
+    <string name="bottom_nav_home_maximum">وضعیت</string>
+    <string name="bottom_nav_config_maximum">اتصال</string>
+    <string name="bottom_nav_diagnostics_maximum">بررسی</string>
+    <string name="bottom_nav_settings_maximum">تنظیم</string>
     <string name="logs">گزارش‌ها</string>
     <string name="persona_simple">راهنمایی‌شده</string>
     <string name="persona_advanced">پیشرفته</string>
@@ -392,13 +405,14 @@
     <string name="home_permission_issue_with_retry">%1$s از دکمهٔ اتصال برای ادامهٔ جریان مجوز استفاده کنید.</string>
     <string name="home_permission_issue_with_settings">%1$s برای بازیابی دسترسی، تنظیمات را باز کنید یا از دکمهٔ زیر استفاده کنید.</string>
     <string name="home_setup_health_title">سلامت راه‌اندازی</string>
+    <string name="home_modes_diagnostics_title">حالت‌ها و عیب‌یابی</string>
     <string name="home_setup_health_collapsed_format">موارد نیازمند توجه: %1$d</string>
     <string name="home_setup_health_expanded">موارد راه‌اندازی و اقدام‌های بازیابی را بررسی کنید.</string>
     <string name="home_connection_button_connecting">در حال اتصال…</string>
     <string name="home_connection_actuator_open">باز</string>
     <string name="home_connection_actuator_secure">امن</string>
     <string name="home_connection_actuator_direct">مستقیم</string>
-    <string name="home_connection_actuator_state_open">خط امن باز است</string>
+    <string name="home_connection_actuator_state_open">خط امن غیرفعال است</string>
     <string name="home_connection_actuator_state_engaging">خط امن در حال درگیر شدن است</string>
     <string name="home_connection_actuator_state_locked">خط امن قفل است</string>
     <string name="home_connection_actuator_state_direct">خط مستقیم قفل است</string>
@@ -631,6 +645,10 @@
     <string name="config_edit_current">ویرایش نمایه</string>
     <string name="config_save">ذخیره</string>
     <string name="config_cancel">لغو</string>
+    <string name="unsaved_changes_title">تغییرات ذخیره‌نشده کنار گذاشته شود؟</string>
+    <string name="unsaved_changes_body">ویرایش‌های شما ذخیره نشده‌اند. آن‌ها را کنار بگذارید و از این صفحه خارج شوید؟</string>
+    <string name="unsaved_changes_discard">کنار گذاشتن</string>
+    <string name="unsaved_changes_keep_editing">ادامه ویرایش</string>
     <string name="config_preset_recommended_title">نمایه پیشنهادی</string>
     <string name="config_preset_recommended_body">نمایه پیشنهادی برای بیشتر شبکه‌ها. مسیر VPN محلی و تنظیم امن RIPDPI را نگه می‌دارد.</string>
     <string name="config_preset_proxy_title">نمایه Local bypass</string>
@@ -1221,6 +1239,7 @@
     <string name="config_cli_banner_title">جایگزینی‌های خط فرمان فعال</string>
     <string name="config_cli_banner_body">آرگومان‌های زیر بر کنترل‌های بصری در این صفحه اولویت دارند.</string>
     <string name="config_validation_fix">قبل از ذخیره، فیلدهای برجسته‌شده را بررسی کنید.</string>
+    <string name="config_editor_hydration_failed">این پیکربندی باز نشد. اعتبارنامه‌های ذخیره‌شده تغییری نکردند.</string>
     <string name="config_validation_banner_title">برخی مقادیر هنوز نیاز به توجه دارند</string>
     <string name="config_validation_banner_body">ویرایشگر در زمان واقعی اعتبارسنجی می‌کند. فیلدهای علامت‌گذاری‌شده را برطرف کنید، سپس دوباره ذخیره کنید.</string>
     <string name="config_error_invalid_dns">یک آدرس DNS غیر محلی معتبر وارد کنید.</string>
@@ -2499,6 +2518,7 @@ fakeddisorder endhost</string>
     <string name="logs_auto_scroll_title">پیمایش خودکار به جدیدترین</string>
     <string name="logs_clear">پاک‌سازی</string>
     <string name="logs_entries_count">%1$d ورودی</string>
+    <string name="logs_copy_entry">کپی گزارش %1$s در %2$s</string>
     <string name="logs_filtered_empty_title">هیچ ورودی با فیلترهای فعلی مطابقت ندارد</string>
     <string name="logs_filters_summary_compact">%1$d زیرسیستم • %2$d شدت</string>
     <string name="logs_latest_title">آخرین رویداد</string>
@@ -3283,7 +3303,18 @@ fakeddisorder endhost</string>
     <string name="asset_provider_uptodate_body">پایگاه‌های داده محلی با آخرین نسخه مطابقت دارند.</string>
     <string name="asset_provider_imported_title">داده‌ها وارد شد</string>
     <string name="asset_provider_imported_body">برای اعمال پایگاه داده واردشده، سرویس را دوباره راه‌اندازی کنید.</string>
-    <string name="asset_provider_failed_title">به‌روزرسانی ناموفق بود</string>
+    <string name="asset_provider_failed_title">عملیات داده ناموفق بود</string>
+    <string name="asset_provider_failure_unable_to_open">RIPDPI نتوانست فایل انتخاب‌شده را باز کند. دوباره آن را انتخاب کنید.</string>
+    <string name="asset_provider_failure_invalid_payload">فایل انتخاب‌شده یک پایگاه داده جغرافیایی معتبر نیست.</string>
+    <string name="asset_provider_failure_too_large">فایل انتخاب‌شده بیش از حد بزرگ است. فایلی کوچک‌تر از ۶۴ مگابایت انتخاب کنید.</string>
+    <string name="asset_provider_failure_network">ارتباط با ارائه‌دهنده داده ممکن نشد. اتصال خود را بررسی و دوباره تلاش کنید.</string>
+    <string name="asset_provider_failure_storage">پایگاه داده در دستگاه ذخیره نشد. مقداری فضا خالی کنید و دوباره تلاش کنید.</string>
+    <string name="asset_provider_failure_missing_configuration">پیش از بررسی به‌روزرسانی‌ها، یک نشانی پایهٔ سفارشی وارد کنید.</string>
+    <string name="asset_provider_failure_unexpected">عملیات داده ناموفق بود. دوباره تلاش کنید.</string>
+    <string name="asset_provider_persistence_failed_title">تنظیمات ارائه‌دهنده ذخیره نشد</string>
+    <string name="asset_provider_persistence_failed_body">RIPDPI نتوانست این تنظیمات را ذخیره کند. پیش از خروج برای تلاش دوباره ضربه بزنید.</string>
+    <string name="asset_provider_exit_pending_title">خروج از ارائه‌دهنده دارایی</string>
+    <string name="asset_provider_exit_pending_body">RIPDPI هر عملیات فعال دارایی را لغو می‌کند، تنظیمات ارائه‌دهنده را ذخیره می‌کند و سپس بازمی‌گردد.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسیه)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعه قوانین عبور پیش‌فرض برای روسیه؛ به‌روزتر از antizapret برای تگ‌های geoip/geosite در v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">%1$d روز پیش به‌روزرسانی شد</string>
@@ -4138,4 +4169,10 @@ fakeddisorder endhost</string>
     <string name="backup_encryption_confirm_passphrase">تأیید عبارت عبور</string>
     <string name="backup_encryption_passphrase_mismatch">عبارت‌های عبور یکسان نیستند</string>
     <string name="backup_import_legacy_full_warning">این پشتیبان کامل قدیمی رمزگذاری نشده است. آن را فقط از منبع مورد اعتماد بازیابی کنید و سپس یک پشتیبان رمزگذاری‌شده جدید بگیرید.</string>
+    <string name="strategy_config_restore_failed_title">بازیابی پیش‌نویس ناموفق بود</string>
+    <string name="strategy_config_restore_failed_body">پیش‌نویس ذخیره‌شده هنوز روی این دستگاه است. بازیابی را دوباره امتحان کنید یا برای خروج آن را کنار بگذارید.</string>
+    <string name="strategy_config_restore_retry">تلاش دوباره</string>
+    <string name="strategy_config_restoring_draft">در حال بازیابی پیش‌نویس ذخیره‌شده…</string>
+    <string name="strategy_config_draft_save_failed_title">پیش‌نویس ذخیره نشد</string>
+    <string name="strategy_config_draft_save_failed_body">RIPDPI در حال تلاش دوباره برای ذخیره محلی پیش‌نویس است. تا ناپدید شدن هشدار این صفحه را باز نگه دارید.</string>
 </resources>

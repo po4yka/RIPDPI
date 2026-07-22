@@ -9,6 +9,36 @@ import kotlin.math.pow
 
 class RipDpiColorContrastTest {
     @Test
+    fun `accent content remains readable in both palettes`() {
+        assertAaContrast(
+            label = "light accent content",
+            foreground = LightRipDpiExtendedColors.accentForeground,
+            background = LightRipDpiExtendedColors.accent,
+        )
+        assertAaContrast(
+            label = "dark accent content",
+            foreground = DarkRipDpiExtendedColors.accentForeground,
+            background = DarkRipDpiExtendedColors.accent,
+        )
+    }
+
+    @Test
+    fun `info content remains readable on app surfaces`() {
+        listOf(
+            "light background" to
+                (LightRipDpiExtendedColors.info to LightRipDpiExtendedColors.background),
+            "light card" to
+                (LightRipDpiExtendedColors.info to LightRipDpiExtendedColors.card),
+            "dark background" to
+                (DarkRipDpiExtendedColors.info to DarkRipDpiExtendedColors.background),
+            "dark card" to
+                (DarkRipDpiExtendedColors.info to DarkRipDpiExtendedColors.card),
+        ).forEach { (label, colors) ->
+            assertAaContrast(label, colors.first, colors.second)
+        }
+    }
+
+    @Test
     fun `light secondary text remains readable`() {
         val contrast = contrastRatio(LightRipDpiExtendedColors.mutedForeground, LightRipDpiExtendedColors.background)
 
@@ -20,6 +50,16 @@ class RipDpiColorContrastTest {
         val contrast = contrastRatio(DarkRipDpiExtendedColors.mutedForeground, DarkRipDpiExtendedColors.background)
 
         assertTrue("Expected AA contrast for dark secondary text, was $contrast", contrast >= 4.5f)
+    }
+
+    private fun assertAaContrast(
+        label: String,
+        foreground: Color,
+        background: Color,
+    ) {
+        val contrast = contrastRatio(foreground, background)
+
+        assertTrue("Expected AA contrast for $label, was $contrast", contrast >= 4.5f)
     }
 
     private fun contrastRatio(

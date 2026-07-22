@@ -25,63 +25,99 @@
       "category": "dns-leak",
       "noShip": true,
       "requirement": "Virtual VPN DNS is served by the tunnelled resolver and never falls through to the underlying network resolver.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "dns-proxied-through-tunnelled-resolver",
       "category": "dns-leak",
       "noShip": true,
       "requirement": "Proxied domains resolve through the tunnelled resolver only.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "dns-direct-ru-only-for-direct-domains",
       "category": "dns-leak",
       "noShip": true,
       "requirement": "Direct RU DNS is used only for explicitly direct-routed domains, never for proxied domains.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "dns-allowlisted-bootstrap-resolution",
       "category": "dns-leak",
       "noShip": true,
       "requirement": "Bootstrap resolution is restricted to the allowlisted bootstrap resolvers.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "dns-no-isp-fallback-on-encrypted-resolver-outage",
       "category": "dns-leak",
       "noShip": true,
       "requirement": "When the encrypted resolver is unreachable the client fails closed and does not fall back to the ISP resolver.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "dns-network-switch-behavior",
       "category": "dns-leak",
       "noShip": true,
       "requirement": "DNS stays tunnelled across a Wi-Fi/LTE network switch with no transient ISP-resolver leak.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "dns-core-crash-behavior",
       "category": "dns-leak",
       "noShip": true,
       "requirement": "If the core crashes, DNS fails closed instead of leaking to the underlying network resolver.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "dns-android-private-dns-conflict",
       "category": "dns-leak",
       "noShip": true,
       "requirement": "Android Private DNS configured by the user does not bypass the tunnel; the conflict is detected and handled fail-closed.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "synthetic-authoritative-dns-query-sources",
       "category": "synthetic-authoritative-dns",
       "noShip": true,
       "requirement": "A synthetic authoritative DNS server verifies proxy, direct, and IPv6 query sources using unique random domains per run.",
-      "failureClassification": "dns-leak"
+      "failureClassification": "dns-leak",
+      "evidenceSources": {
+        "android-client-release": "dual-vantage-network-manifest",
+        "fleet-profile-rollout": "ordinary-results"
+      }
     },
     {
       "id": "ipv4only-no-ipv6-dns-address-route",

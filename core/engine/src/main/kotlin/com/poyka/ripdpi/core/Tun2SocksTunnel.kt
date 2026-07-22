@@ -380,6 +380,7 @@ data class Tun2SocksConfig(
     val webrtcProtectionEnabled: Boolean = false,
     val uidPolicyMode: String = "disarmed",
     val uidPolicyUids: List<Int> = emptyList(),
+    val uidPolicyAllowIcmp: Boolean = false,
     val logContext: RipDpiLogContext? = null,
     @Required
     val schemaVersion: Int = Tun2SocksConfigSchemaVersion,

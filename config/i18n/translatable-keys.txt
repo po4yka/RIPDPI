@@ -251,6 +251,13 @@ app:asset_provider_custom_url_label
 app:asset_provider_entry_body
 app:asset_provider_entry_title
 app:asset_provider_failed_title
+app:asset_provider_failure_invalid_payload
+app:asset_provider_failure_missing_configuration
+app:asset_provider_failure_network
+app:asset_provider_failure_storage
+app:asset_provider_failure_too_large
+app:asset_provider_failure_unable_to_open
+app:asset_provider_failure_unexpected
 app:asset_provider_geoip_version
 app:asset_provider_geosite_version
 app:asset_provider_import_geoip
@@ -262,6 +269,8 @@ app:asset_provider_intro_title
 app:asset_provider_l11r_desc
 app:asset_provider_l11r_label
 app:asset_provider_label
+app:asset_provider_persistence_failed_body
+app:asset_provider_persistence_failed_title
 app:asset_provider_runetfreedom_desc
 app:asset_provider_runetfreedom_label
 app:asset_provider_sagernet_desc
@@ -455,6 +464,14 @@ app:blockcheck_section_title
 app:blockcheck_status_format
 app:blockcheck_try_recommended_strategy
 app:blockcheck_try_recommended_strategy_format
+app:bottom_nav_config_compact
+app:bottom_nav_config_maximum
+app:bottom_nav_diagnostics_compact
+app:bottom_nav_diagnostics_maximum
+app:bottom_nav_home_compact
+app:bottom_nav_home_maximum
+app:bottom_nav_settings_compact
+app:bottom_nav_settings_maximum
 app:brand_badge_content_description
 app:bye_dpi_proxy_ip_setting
 app:cd_coach_mark
@@ -598,6 +615,7 @@ app:config_dns_summary_disabled
 app:config_dns_summary_enabled
 app:config_edit_current
 app:config_editor_body
+app:config_editor_hydration_failed
 app:config_editor_title
 app:config_engine_section
 app:config_error_invalid_chain
@@ -2176,6 +2194,7 @@ app:home_mode_local_dpi_bypass
 app:home_mode_proxy
 app:home_mode_remote_vpn
 app:home_mode_vpn
+app:home_modes_diagnostics_title
 app:home_network_condition_captive_action
 app:home_network_condition_captive_body
 app:home_network_condition_captive_title
@@ -3444,6 +3463,8 @@ app:strategy_ab_badge_candidate
 app:strategy_ab_badge_current
 app:strategy_ab_title
 app:strategy_config_active_path_label
+app:strategy_config_draft_save_failed_body
+app:strategy_config_draft_save_failed_title
 app:strategy_config_editor_label
 app:strategy_config_entry_body
 app:strategy_config_entry_title
@@ -3478,6 +3499,10 @@ app:strategy_config_reload_action
 app:strategy_config_reload_failed_title
 app:strategy_config_reloaded_body
 app:strategy_config_reloaded_title
+app:strategy_config_restore_failed_body
+app:strategy_config_restore_failed_title
+app:strategy_config_restore_retry
+app:strategy_config_restoring_draft
 app:strategy_config_saved_body
 app:strategy_config_saved_restart_pending_body
 app:strategy_config_saved_restarting_body
@@ -3702,6 +3727,10 @@ app:udp_fake_profile_scope_live
 app:udp_fake_profile_scope_off
 app:udp_fake_profile_scope_ready
 app:udp_fake_profile_title
+app:unsaved_changes_body
+app:unsaved_changes_discard
+app:unsaved_changes_keep_editing
+app:unsaved_changes_title
 app:update_available_title_format
 app:update_changelog_title
 app:update_channel_fdroid

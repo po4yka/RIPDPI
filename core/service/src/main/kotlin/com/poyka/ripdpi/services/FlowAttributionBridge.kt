@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.annotation.Keep
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -18,17 +17,27 @@ internal data class NativeUidPolicy(
 
 internal fun nativeUidPolicyFor(
     plan: VpnAppRoutingPlan,
-    sdkInt: Int,
+    eligible: Boolean,
+    ownPackage: String,
     uidForPackage: (String) -> Int?,
 ): NativeUidPolicy {
-    if (sdkInt < Build.VERSION_CODES.S) return NativeUidPolicy.Disarmed
-    val (mode, packages) =
-        when (plan) {
-            is VpnAppRoutingPlan.AllowOnly -> "allowlist" to plan.packages
-            is VpnAppRoutingPlan.Disallow -> "denylist" to plan.packages
-        }
-    val uids = packages.mapNotNull(uidForPackage).distinct().sorted()
-    return NativeUidPolicy(mode, uids)
+    if (!eligible) return NativeUidPolicy.Disarmed
+    return if (plan is VpnAppRoutingPlan.Disallow && plan.packages == setOf(ownPackage)) {
+        // An own-package-only plan excludes just the VPN process to prevent a self-loop.
+        // Every third-party UID is already routed into the TUN by Android, so the
+        // native SO_BIND guard cannot add security here. Disarming also avoids
+        // treating getConnectionOwnerUid(INVALID_UID) for an explicitly tun-bound
+        // socket as a false denial.
+        NativeUidPolicy.Disarmed
+    } else {
+        val (mode, packages) =
+            when (plan) {
+                is VpnAppRoutingPlan.AllowOnly -> "allowlist" to plan.packages
+                is VpnAppRoutingPlan.Disallow -> "denylist" to plan.packages
+            }
+        val uids = packages.mapNotNull(uidForPackage).distinct().sorted()
+        NativeUidPolicy(mode, uids)
+    }
 }
 
 /**
@@ -48,10 +57,11 @@ class FlowAttributionBridge
     constructor(
         private val store: FlowAppAttributionStore,
         @param:ApplicationContext private val context: Context?,
+        private val eligibility: SoBindToDeviceUidPolicyEligibility,
     ) {
         internal fun nativeUidPolicy(plan: VpnAppRoutingPlan): NativeUidPolicy {
             val packageManager = context?.packageManager ?: return NativeUidPolicy.Disarmed
-            return nativeUidPolicyFor(plan, Build.VERSION.SDK_INT) { packageName ->
+            return nativeUidPolicyFor(plan, eligibility.isEligible(), context.packageName) { packageName ->
                 try {
                     packageManager.getApplicationInfo(packageName, 0).uid
                 } catch (_: PackageManager.NameNotFoundException) {

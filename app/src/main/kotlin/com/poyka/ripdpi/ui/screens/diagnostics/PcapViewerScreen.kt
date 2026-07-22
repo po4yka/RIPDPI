@@ -288,12 +288,12 @@ private fun PcapDesyncAnnotationBadge(annotation: PcapDesyncAnnotation) {
     Surface(
         shape = shapes.sm,
         color = colors.accent.copy(alpha = AnnotationBadgeAlpha),
-        contentColor = colors.accent,
+        contentColor = colors.accentForeground,
     ) {
         Text(
             text = annotation.summaryLabel(),
             style = RipDpiThemeTokens.type.monoSmall,
-            color = colors.accent,
+            color = colors.accentForeground,
             modifier = Modifier.padding(horizontal = spacing.xs),
         )
     }

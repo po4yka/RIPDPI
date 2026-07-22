@@ -1,17 +1,20 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsHealth
@@ -35,6 +38,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val DiagnosticsSwitcherStackFontScale = 1.5f
+
 internal enum class DiagnosticsSimpleFunnelAction {
     Apply,
     Review,
@@ -57,23 +62,67 @@ internal fun DiagnosticsSectionSwitcher(
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(top = spacing.sm, bottom = spacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        DiagnosticsSection.entries.forEach { section ->
-            RipDpiChip(
-                text = section.label(),
-                selected = selectedSection == section,
-                onClick = { onSelectSection(section) },
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSection(section)),
-            )
+    val stackSections = LocalDensity.current.fontScale >= DiagnosticsSwitcherStackFontScale
+    if (stackSections) {
+        Column(
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .selectableGroup()
+                    .padding(top = spacing.sm, bottom = spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            DiagnosticsSection.entries.forEach { section ->
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = spacing.xs),
+                ) {
+                    DiagnosticsSectionChip(
+                        section = section,
+                        selected = selectedSection == section,
+                        onSelect = onSelectSection,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    } else {
+        FlowRow(
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .selectableGroup()
+                    .padding(top = spacing.sm, bottom = spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            DiagnosticsSection.entries.forEach { section ->
+                DiagnosticsSectionChip(
+                    section = section,
+                    selected = selectedSection == section,
+                    onSelect = onSelectSection,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun DiagnosticsSectionChip(
+    section: DiagnosticsSection,
+    selected: Boolean,
+    onSelect: (DiagnosticsSection) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RipDpiChip(
+        text = section.label(),
+        selected = selected,
+        role = Role.Tab,
+        onClick = { onSelect(section) },
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSection(section)),
+    )
 }
 
 @Composable
