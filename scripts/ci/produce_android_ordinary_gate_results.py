@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -84,6 +85,33 @@ def write_canonical_json(path: Path, value: Any) -> None:
             os.unlink(temporary)
         except FileNotFoundError:
             pass
+
+
+def reject_output_input_aliases(output: Path, inputs: tuple[Path, ...]) -> None:
+    if not output.is_absolute():
+        raise EvidenceError("OUTPUT_PATH_INVALID", "results output must be absolute")
+    destination = Path(os.path.realpath(output))
+    if output.exists() or output.is_symlink():
+        metadata = output.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise EvidenceError(
+                "OUTPUT_PATH_INVALID",
+                "existing results output must be a single-link regular file",
+            )
+    for source in inputs:
+        source_path = Path(os.path.realpath(source))
+        if destination == source_path:
+            raise EvidenceError(
+                "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
+            )
+        try:
+            aliases = output.exists() and source.exists() and output.samefile(source)
+        except OSError:
+            aliases = False
+        if aliases:
+            raise EvidenceError(
+                "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
+            )
 
 
 def current_source_sha(root: Path = ROOT) -> str:
@@ -183,6 +211,27 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(
             "--raw-manifest, --app-apk, and --test-apk must be supplied together"
         )
+
+    try:
+        reject_output_input_aliases(
+            args.output, tuple(value for value in raw_arguments if value is not None)
+        )
+        if args.raw_manifest is not None:
+            try:
+                android_ordinary_raw_evidence.reject_output_inside_artifact_root(
+                    args.output, args.raw_manifest
+                )
+            except android_ordinary_raw_evidence.RawEvidenceError as error:
+                if error.code == "OUTPUT_INSIDE_ARTIFACT_ROOT":
+                    raise EvidenceError(error.code, error.message) from error
+                # Full validation below emits a canonical structured failure for
+                # malformed manifests once the output is known not to alias a
+                # direct input.
+    except (OSError, EvidenceError) as error:
+        print(
+            f"Android ordinary producer refused unsafe output: {error}", file=sys.stderr
+        )
+        return 2
 
     try:
         source_sha = current_head_sha()

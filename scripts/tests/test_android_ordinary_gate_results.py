@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -59,7 +60,10 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         app_apk.write_bytes(b"app-apk")
         test_apk.write_bytes(b"test-apk")
         actions = []
-        for spec in raw_evidence.ACTION_SPECS:
+        now_epoch_ms = int(time.time() * 1000)
+        for action_index, spec in enumerate(raw_evidence.ACTION_SPECS):
+            window_started = now_epoch_ms - 20_000 + action_index * 2_000
+            window_finished = window_started + 1_000
             artifacts = []
             for kind in raw_evidence.ARTIFACT_KINDS:
                 name = f"{spec.action_id}.{kind}.raw"
@@ -73,19 +77,29 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                         "path": name,
                         "sha256": hashlib.sha256(payload).hexdigest(),
                         "sizeBytes": len(payload),
+                        "vantage": raw_evidence.ARTIFACT_VANTAGES[kind],
+                        "windowFinishedAtEpochMs": window_finished,
+                        "windowStartedAtEpochMs": window_started,
                     }
                 )
             actions.append(
                 {
                     "actionId": spec.action_id,
                     "artifacts": artifacts,
+                    "correlationId": hashlib.sha256(
+                        f"correlation:{spec.action_id}".encode()
+                    ).hexdigest(),
                     "gateIds": list(spec.gate_ids),
+                    "windowFinishedAtEpochMs": window_finished,
+                    "windowStartedAtEpochMs": window_started,
                 }
             )
         manifest = {
             "actions": actions,
             "appApkSha256": hashlib.sha256(app_apk.read_bytes()).hexdigest(),
             "artifactRoot": str(artifact_root),
+            "createdAtEpochMs": now_epoch_ms,
+            "runId": hashlib.sha256(b"ordinary-raw-run").hexdigest(),
             "sourceSha": self.source_sha,
             "testApkSha256": hashlib.sha256(test_apk.read_bytes()).hexdigest(),
             "version": raw_evidence.BUNDLE_VERSION,
@@ -209,6 +223,115 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                 output.read_bytes(), producer.canonical_json_bytes(results)
             )
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+
+    def test_cli_refuses_output_aliasing_direct_inputs_without_overwrite(self) -> None:
+        aliases = ("manifest", "app", "test")
+        for alias in aliases:
+            with self.subTest(alias=alias):
+                with tempfile.TemporaryDirectory() as directory_name:
+                    directory = Path(directory_name)
+                    manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(
+                        directory
+                    )
+                    output = {
+                        "manifest": manifest_path,
+                        "app": app_apk,
+                        "test": test_apk,
+                    }[alias]
+                    before = output.read_bytes()
+                    status = producer.main(
+                        [
+                            "--output",
+                            str(output),
+                            "--raw-manifest",
+                            str(manifest_path),
+                            "--app-apk",
+                            str(app_apk),
+                            "--test-apk",
+                            str(test_apk),
+                        ]
+                    )
+                    self.assertEqual(status, 2)
+                    self.assertEqual(output.read_bytes(), before)
+
+    def test_cli_refuses_output_inside_artifact_root_without_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            output = Path(manifest["artifactRoot"]) / "caller-summary.json"
+            output.write_bytes(b"raw-evidence")
+            output.chmod(0o600)
+            status = producer.main(
+                [
+                    "--output",
+                    str(output),
+                    "--raw-manifest",
+                    str(manifest_path),
+                    "--app-apk",
+                    str(app_apk),
+                    "--test-apk",
+                    str(test_apk),
+                ]
+            )
+            self.assertEqual(status, 2)
+            self.assertEqual(output.read_bytes(), b"raw-evidence")
+
+            root_alias = directory / "artifact-root-alias"
+            root_alias.symlink_to(
+                Path(manifest["artifactRoot"]), target_is_directory=True
+            )
+            aliased_output = root_alias / "new-results.json"
+            status = producer.main(
+                [
+                    "--output",
+                    str(aliased_output),
+                    "--raw-manifest",
+                    str(manifest_path),
+                    "--app-apk",
+                    str(app_apk),
+                    "--test-apk",
+                    str(test_apk),
+                ]
+            )
+            self.assertEqual(status, 2)
+            self.assertFalse(aliased_output.exists())
+
+    def test_cli_refuses_hardlinked_output_without_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(directory)
+            output = directory / "results.json"
+            os.link(app_apk, output)
+            before = app_apk.read_bytes()
+            status = producer.main(
+                [
+                    "--output",
+                    str(output),
+                    "--raw-manifest",
+                    str(manifest_path),
+                    "--app-apk",
+                    str(app_apk),
+                    "--test-apk",
+                    str(test_apk),
+                ]
+            )
+            self.assertEqual(status, 2)
+            self.assertEqual(app_apk.read_bytes(), before)
+
+    def test_apk_hashing_streams_without_whole_file_helper(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            apk = Path(directory_name) / "large.apk"
+            payload = b"apk-chunk" * (1024 * 1024)
+            apk.write_bytes(payload)
+            with mock.patch.object(
+                raw_evidence,
+                "read_regular_file",
+                side_effect=AssertionError("whole-file helper must not hash APKs"),
+            ):
+                digest = raw_evidence.sha256_file(apk, "app APK")
+            self.assertEqual(digest, hashlib.sha256(payload).hexdigest())
 
     def test_raw_manifest_must_be_private_canonical_and_unaliased(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
@@ -403,6 +526,49 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                     else:
                         manifest["testApkSha256"] = manifest["appApkSha256"]
                         expected = "APK_BINDING_INVALID"
+                    self.rewrite_manifest(manifest_path, manifest)
+                    with self.assertRaisesRegex(ValueError, expected):
+                        raw_evidence.validate_raw_bundle(
+                            manifest_path,
+                            expected_source_sha=self.source_sha,
+                            app_apk=app_apk,
+                            test_apk=test_apk,
+                        )
+
+    def test_raw_bundle_rejects_stale_or_mixed_run_metadata(self) -> None:
+        mutations = ("stale", "correlation", "window", "vantage")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory_name:
+                    directory = Path(directory_name)
+                    manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                        directory
+                    )
+                    if mutation == "stale":
+                        delta = raw_evidence.MAX_EVIDENCE_AGE_MS + 1
+                        manifest["createdAtEpochMs"] -= delta
+                        for action in manifest["actions"]:
+                            action["windowStartedAtEpochMs"] -= delta
+                            action["windowFinishedAtEpochMs"] -= delta
+                            for artifact in action["artifacts"]:
+                                artifact["windowStartedAtEpochMs"] -= delta
+                                artifact["windowFinishedAtEpochMs"] -= delta
+                        expected = "EVIDENCE_STALE"
+                    elif mutation == "correlation":
+                        manifest["actions"][1]["correlationId"] = manifest["actions"][
+                            0
+                        ]["correlationId"]
+                        expected = "CORRELATION_MISMATCH"
+                    elif mutation == "window":
+                        manifest["actions"][0]["artifacts"][0][
+                            "windowFinishedAtEpochMs"
+                        ] += 1
+                        expected = "WINDOW_MISMATCH"
+                    else:
+                        manifest["actions"][0]["artifacts"][0]["vantage"] = (
+                            "caller-summary"
+                        )
+                        expected = "VANTAGE_MISMATCH"
                     self.rewrite_manifest(manifest_path, manifest)
                     with self.assertRaisesRegex(ValueError, expected):
                         raw_evidence.validate_raw_bundle(

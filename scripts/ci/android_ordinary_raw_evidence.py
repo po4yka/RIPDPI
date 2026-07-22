@@ -13,6 +13,7 @@ import json
 import os
 import re
 import stat
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,13 @@ MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 MAX_APK_BYTES = 1024 * 1024 * 1024
 MAX_BUNDLE_BYTES = 256 * 1024 * 1024
 ARTIFACT_KINDS = ("action-receipt", "packet-capture", "route-snapshot")
+ARTIFACT_VANTAGES = {
+    "action-receipt": "android-client",
+    "packet-capture": "client-underlay",
+    "route-snapshot": "android-client",
+}
+MAX_EVIDENCE_AGE_MS = 24 * 60 * 60 * 1000
+MAX_CLOCK_SKEW_MS = 5 * 60 * 1000
 
 
 @dataclass(frozen=True)
@@ -121,6 +129,14 @@ def require_digest(value: Any, pattern: re.Pattern[str], label: str) -> str:
     return value
 
 
+def require_epoch_ms(value: Any, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise RawEvidenceError(
+            "MANIFEST_INVALID", f"{label} must be a positive integer"
+        )
+    return value
+
+
 def _open_absolute_regular(
     path: Path,
     *,
@@ -155,8 +171,15 @@ def _open_absolute_regular(
 def _read_descriptor(descriptor: int, metadata: os.stat_result, *, label: str) -> bytes:
     with os.fdopen(descriptor, "rb", closefd=False) as source:
         raw = source.read(metadata.st_size + 1)
-    after = os.fstat(descriptor)
-    stable_before = (
+    if len(raw) != metadata.st_size or _stable_metadata(
+        os.fstat(descriptor)
+    ) != _stable_metadata(metadata):
+        raise RawEvidenceError("ARTIFACT_CHANGED", f"{label} changed while read")
+    return raw
+
+
+def _stable_metadata(metadata: os.stat_result) -> tuple[int, ...]:
+    return (
         metadata.st_dev,
         metadata.st_ino,
         metadata.st_mode,
@@ -167,20 +190,6 @@ def _read_descriptor(descriptor: int, metadata: os.stat_result, *, label: str) -
         metadata.st_mtime_ns,
         metadata.st_ctime_ns,
     )
-    stable_after = (
-        after.st_dev,
-        after.st_ino,
-        after.st_mode,
-        after.st_nlink,
-        after.st_uid,
-        after.st_gid,
-        after.st_size,
-        after.st_mtime_ns,
-        after.st_ctime_ns,
-    )
-    if len(raw) != metadata.st_size or stable_after != stable_before:
-        raise RawEvidenceError("ARTIFACT_CHANGED", f"{label} changed while read")
-    return raw
 
 
 def read_regular_file(path: Path, *, label: str, maximum: int, private: bool) -> bytes:
@@ -213,8 +222,41 @@ def load_private_manifest(path: Path) -> tuple[dict[str, Any], bytes]:
 
 
 def sha256_file(path: Path, label: str) -> str:
-    raw = read_regular_file(path, label=label, maximum=MAX_APK_BYTES, private=False)
-    return hashlib.sha256(raw).hexdigest()
+    descriptor, metadata = _open_absolute_regular(
+        path, label=label, maximum=MAX_APK_BYTES, private=False
+    )
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        with os.fdopen(descriptor, "rb", closefd=False) as source:
+            while chunk := source.read(1024 * 1024):
+                total += len(chunk)
+                if total > metadata.st_size:
+                    raise RawEvidenceError(
+                        "ARTIFACT_CHANGED", f"{label} grew while read"
+                    )
+                digest.update(chunk)
+        if total != metadata.st_size or _stable_metadata(
+            os.fstat(descriptor)
+        ) != _stable_metadata(metadata):
+            raise RawEvidenceError("ARTIFACT_CHANGED", f"{label} changed while read")
+    finally:
+        os.close(descriptor)
+    return digest.hexdigest()
+
+
+def reject_output_inside_artifact_root(output: Path, manifest_path: Path) -> None:
+    manifest, _ = load_private_manifest(manifest_path)
+    root_value = manifest.get("artifactRoot")
+    if not isinstance(root_value, str):
+        return
+    root = Path(os.path.realpath(root_value))
+    destination = Path(os.path.realpath(output))
+    if destination == root or root in destination.parents:
+        raise RawEvidenceError(
+            "OUTPUT_INSIDE_ARTIFACT_ROOT",
+            "results output must be outside the private raw artifact root",
+        )
 
 
 def _open_artifact_root(path: Path) -> int:
@@ -245,7 +287,19 @@ def _open_artifact_root(path: Path) -> int:
 def _read_private_artifact(
     root_descriptor: int, entry: dict[str, Any], *, label: str
 ) -> bytes:
-    require_exact_keys(entry, {"kind", "path", "sha256", "sizeBytes"}, label)
+    require_exact_keys(
+        entry,
+        {
+            "kind",
+            "path",
+            "sha256",
+            "sizeBytes",
+            "vantage",
+            "windowStartedAtEpochMs",
+            "windowFinishedAtEpochMs",
+        },
+        label,
+    )
     relative = entry["path"]
     if (
         not isinstance(relative, str)
@@ -304,6 +358,7 @@ def validate_raw_bundle(
     expected_source_sha: str,
     app_apk: Path,
     test_apk: Path,
+    now_epoch_ms: int | None = None,
 ) -> dict[str, Any]:
     require_digest(expected_source_sha, SHA1_RE, "expected sourceSha")
     manifest, manifest_raw = load_private_manifest(manifest_path)
@@ -316,6 +371,8 @@ def validate_raw_bundle(
             "testApkSha256",
             "artifactRoot",
             "actions",
+            "runId",
+            "createdAtEpochMs",
         },
         "manifest",
     )
@@ -324,6 +381,15 @@ def validate_raw_bundle(
     source_sha = require_digest(manifest["sourceSha"], SHA1_RE, "sourceSha")
     if source_sha != expected_source_sha:
         raise RawEvidenceError("SOURCE_MISMATCH", "manifest sourceSha is stale")
+    run_id = require_digest(manifest["runId"], SHA256_RE, "runId")
+    created_at = require_epoch_ms(manifest["createdAtEpochMs"], "createdAtEpochMs")
+    current_time = int(time.time() * 1000) if now_epoch_ms is None else now_epoch_ms
+    if created_at > current_time + MAX_CLOCK_SKEW_MS:
+        raise RawEvidenceError(
+            "CLOCK_INVALID", "manifest creation time is in the future"
+        )
+    if current_time - created_at > MAX_EVIDENCE_AGE_MS:
+        raise RawEvidenceError("EVIDENCE_STALE", "raw artifact bundle is stale")
     app_digest = require_digest(manifest["appApkSha256"], SHA256_RE, "appApkSha256")
     test_digest = require_digest(manifest["testApkSha256"], SHA256_RE, "testApkSha256")
     if app_digest == test_digest:
@@ -344,18 +410,49 @@ def validate_raw_bundle(
                 "INVENTORY_MISMATCH", "actions must exactly cover seven actions"
             )
         expected_filenames: set[str] = set()
+        correlations: set[str] = set()
         total_bytes = 0
         for index, (action, spec) in enumerate(zip(actions, ACTION_SPECS, strict=True)):
             label = f"actions[{index}]"
             if not isinstance(action, dict):
                 raise RawEvidenceError("MANIFEST_INVALID", f"{label} must be an object")
-            require_exact_keys(action, {"actionId", "gateIds", "artifacts"}, label)
+            require_exact_keys(
+                action,
+                {
+                    "actionId",
+                    "gateIds",
+                    "artifacts",
+                    "correlationId",
+                    "windowStartedAtEpochMs",
+                    "windowFinishedAtEpochMs",
+                },
+                label,
+            )
             if action["actionId"] != spec.action_id or action["gateIds"] != list(
                 spec.gate_ids
             ):
                 raise RawEvidenceError(
                     "INVENTORY_MISMATCH",
                     f"{label} does not match source-owned action/gate inventory",
+                )
+            correlation = require_digest(
+                action["correlationId"], SHA256_RE, f"{label}.correlationId"
+            )
+            if correlation == run_id or correlation in correlations:
+                raise RawEvidenceError(
+                    "CORRELATION_MISMATCH",
+                    "each action correlationId must be unique and distinct from runId",
+                )
+            correlations.add(correlation)
+            window_started = require_epoch_ms(
+                action["windowStartedAtEpochMs"], f"{label}.windowStartedAtEpochMs"
+            )
+            window_finished = require_epoch_ms(
+                action["windowFinishedAtEpochMs"], f"{label}.windowFinishedAtEpochMs"
+            )
+            if not window_started < window_finished <= created_at:
+                raise RawEvidenceError(
+                    "WINDOW_MISMATCH", f"{label} has an invalid observation window"
                 )
             artifacts = action["artifacts"]
             if not isinstance(artifacts, list) or len(artifacts) != len(ARTIFACT_KINDS):
@@ -374,6 +471,19 @@ def validate_raw_bundle(
                     raise RawEvidenceError(
                         "INVENTORY_MISMATCH",
                         f"{artifact_label} must be {expected_kind!r}",
+                    )
+                if artifact.get("vantage") != ARTIFACT_VANTAGES[expected_kind]:
+                    raise RawEvidenceError(
+                        "VANTAGE_MISMATCH",
+                        f"{artifact_label} has an unexpected vantage",
+                    )
+                if (
+                    artifact.get("windowStartedAtEpochMs") != window_started
+                    or artifact.get("windowFinishedAtEpochMs") != window_finished
+                ):
+                    raise RawEvidenceError(
+                        "WINDOW_MISMATCH",
+                        f"{artifact_label} does not bind the action observation window",
                     )
                 relative = artifact.get("path")
                 if isinstance(relative, str) and relative in expected_filenames:
