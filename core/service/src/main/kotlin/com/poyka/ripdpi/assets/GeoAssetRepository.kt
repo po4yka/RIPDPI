@@ -22,7 +22,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -125,15 +128,14 @@ class DefaultGeoAssetRepository
             kind: GeoAssetKind,
             uri: Uri,
         ) {
-            withContext(Dispatchers.IO) {
-                streamGeoAssetUriToTarget(
-                    uri = uri,
-                    target = targetFile(kind),
-                    openInput = context.contentResolver::openInputStream,
-                )
-                persistAssetMetadata {
-                    geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
-                }
+            streamGeoAssetUriToTargetInterruptibly(
+                uri = uri,
+                target = targetFile(kind),
+                openInput = context.contentResolver::openInputStream,
+            )
+            currentCoroutineContext().ensureActive()
+            persistAssetMetadata {
+                geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
             }
         }
 
@@ -242,9 +244,31 @@ internal fun streamGeoAssetUriToTarget(
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
     openInput: (Uri) -> InputStream?,
     replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
+    cancellationCheck: () -> Unit = {},
 ) {
+    cancellationCheck()
     val input = openGeoAssetInput(uri, openInput)
-    streamOpenedGeoAssetToTarget(input, target, maxBytes, replaceTemp)
+    streamOpenedGeoAssetToTarget(input, target, maxBytes, replaceTemp, cancellationCheck)
+}
+
+internal suspend fun streamGeoAssetUriToTargetInterruptibly(
+    uri: Uri,
+    target: File,
+    maxBytes: Long = GeoAssetMaxLocalImportBytes,
+    openInput: (Uri) -> InputStream?,
+    replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
+) {
+    val operationContext = currentCoroutineContext()
+    runInterruptible(Dispatchers.IO) {
+        streamGeoAssetUriToTarget(
+            uri = uri,
+            target = target,
+            maxBytes = maxBytes,
+            openInput = openInput,
+            replaceTemp = replaceTemp,
+            cancellationCheck = { operationContext.ensureActive() },
+        )
+    }
 }
 
 private fun openGeoAssetInput(
@@ -267,10 +291,12 @@ private fun streamOpenedGeoAssetToTarget(
     target: File,
     maxBytes: Long,
     replaceTemp: (File, File) -> Unit,
+    cancellationCheck: () -> Unit,
 ) {
     var temp: File? = null
     try {
-        input.use { temp = writeGeoAssetInputToTemp(it, target, maxBytes) }
+        input.use { temp = writeGeoAssetInputToTemp(it, target, maxBytes, cancellationCheck) }
+        cancellationCheck()
         installGeoAssetTemp(checkNotNull(temp), target, replaceTemp)
     } catch (error: GeoAssetIntegrityException) {
         throw error
@@ -314,6 +340,7 @@ private fun writeGeoAssetInputToTemp(
     input: InputStream,
     target: File,
     maxBytes: Long,
+    cancellationCheck: () -> Unit = {},
 ): File {
     require(maxBytes >= MinGeoAssetBytes) { "Local geo asset limit must allow the validation prefix." }
     val temp = createGeoAssetTempFile(target)
@@ -322,9 +349,10 @@ private fun writeGeoAssetInputToTemp(
         val copyState = GeoAssetCopyState(maxBytes)
 
         writeGeoAssetTemp(temp) { output ->
-            copyGeoAssetInput(input, output, copyState)
+            copyGeoAssetInput(input, output, copyState, cancellationCheck)
         }
 
+        cancellationCheck()
         // This prefix is equivalent to the complete-payload decision while the validator checks
         // only minimum length and the first 16 bytes. Update both contracts together if it deepens.
         if (!isPlausibleGeoAssetPayload(copyState.validationPrefix())) {
@@ -378,12 +406,16 @@ private fun copyGeoAssetInput(
     input: InputStream,
     output: java.io.OutputStream,
     state: GeoAssetCopyState,
+    cancellationCheck: () -> Unit,
 ) {
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var readCount = readGeoAssetInput { input.read(buffer) }
+    cancellationCheck()
+    var readCount = readGeoAssetInput(cancellationCheck) { input.read(buffer) }
     while (readCount >= 0) {
+        cancellationCheck()
         if (readCount == 0) {
-            readCount = readGeoAssetInput(input::read)
+            readCount = readGeoAssetInput(cancellationCheck, input::read)
+            cancellationCheck()
             if (readCount >= 0) {
                 buffer[0] = readCount.toByte()
                 state.write(buffer, 1, output)
@@ -391,16 +423,22 @@ private fun copyGeoAssetInput(
         } else {
             state.write(buffer, readCount, output)
         }
-        readCount = readGeoAssetInput { input.read(buffer) }
+        cancellationCheck()
+        readCount = readGeoAssetInput(cancellationCheck) { input.read(buffer) }
     }
 }
 
-private inline fun readGeoAssetInput(read: () -> Int): Int =
+private inline fun readGeoAssetInput(
+    cancellationCheck: () -> Unit,
+    read: () -> Int,
+): Int =
     try {
         read()
     } catch (error: IOException) {
+        cancellationCheck()
         throwUnableToOpen(error)
     } catch (error: SecurityException) {
+        cancellationCheck()
         throwUnableToOpen(error)
     }
 

@@ -15,8 +15,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -232,7 +235,11 @@ class AssetProviderViewModel
                     try {
                         configurationOperationMutex.withLock {
                             outcome =
-                                runCatching { block() }.fold(
+                                runCatching {
+                                    val result = block()
+                                    currentCoroutineContext().ensureActive()
+                                    result
+                                }.fold(
                                     onSuccess = { it },
                                     onFailure = { error ->
                                         when (error) {
@@ -258,8 +265,8 @@ class AssetProviderViewModel
             job.start()
         }
 
-        private fun cancelActiveOperationForExit() {
-            activeOperationJob.getAndSet(null)?.cancel()
+        private suspend fun cancelActiveOperationForExit() {
+            activeOperationJob.getAndSet(null)?.cancelAndJoin()
         }
 
         private fun claimOperation(operation: AssetProviderOperation): Boolean {

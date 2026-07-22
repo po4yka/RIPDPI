@@ -9,8 +9,11 @@ import com.poyka.ripdpi.data.assets.CustomAssetProviderId
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.data.assets.MinGeoAssetBytes
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
@@ -30,6 +33,8 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -297,6 +302,31 @@ class GeoAssetRepositoryTest {
     }
 
     @Test
+    fun `cancelled local stream preserves target and removes temporary file`() =
+        runTest {
+            val previous = validPayload(MinGeoAssetBytes).reversedArray()
+            val replacement = validPayload(MinGeoAssetBytes + DEFAULT_BUFFER_SIZE)
+            val target = temporaryFolder.newFile("cancelled-geoip.db").apply { writeBytes(previous) }
+            val stream = InterruptibleAfterFirstChunkInputStream(replacement)
+            val importJob =
+                launch(Dispatchers.Default) {
+                    streamGeoAssetUriToTargetInterruptibly(
+                        uri = Uri.parse("content://test/cancelled.db"),
+                        target = target,
+                        maxBytes = replacement.size.toLong(),
+                        openInput = { stream },
+                    )
+                }
+
+            assertTrue(stream.blockedReadStarted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
+            importJob.cancelAndJoin()
+
+            assertTrue(importJob.isCancelled)
+            assertArrayEquals(previous, target.readBytes())
+            assertNoTemporaryFiles(target.parentFile!!)
+        }
+
+    @Test
     fun `failed atomic rename preserves previous target`() {
         val previous = validPayload(MinGeoAssetBytes).reversedArray()
         val replacement = validPayload(MinGeoAssetBytes)
@@ -450,6 +480,34 @@ class GeoAssetRepositoryTest {
         }
     }
 
+    private class InterruptibleAfterFirstChunkInputStream(
+        bytes: ByteArray,
+    ) : InputStream() {
+        private val delegate = ByteArrayInputStream(bytes)
+        private var returnedChunk = false
+        val blockedReadStarted = CountDownLatch(1)
+
+        override fun read(): Int = error("Single-byte reads are not expected")
+
+        override fun read(
+            buffer: ByteArray,
+            offset: Int,
+            length: Int,
+        ): Int {
+            if (!returnedChunk) {
+                returnedChunk = true
+                return delegate.read(buffer, offset, minOf(length, MinGeoAssetBytes))
+            }
+            blockedReadStarted.countDown()
+            try {
+                CountDownLatch(1).await()
+            } catch (error: InterruptedException) {
+                throw IOException("synthetic interrupted read", error)
+            }
+            return -1
+        }
+    }
+
     private class FakeAppSettingsRepository : AppSettingsRepository {
         private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
         var updateFailure: IOException? = null
@@ -470,5 +528,9 @@ class GeoAssetRepositoryTest {
         override suspend fun replace(settings: AppSettings) {
             state.value = settings
         }
+    }
+
+    private companion object {
+        const val ReadStartTimeoutSeconds = 5L
     }
 }

@@ -416,7 +416,7 @@ class AssetProviderViewModelTest {
         }
 
     @Test
-    fun `failed exit keeps non cooperative operation owned until its finalizer`() =
+    fun `exit waits for non cooperative operation finalizer before reporting persistence failure`() =
         runTest {
             val initialSettings = configuredSettingsRepository().snapshot()
             val settingsRepository = FailingAppSettingsRepository(initialSettings, failuresRemaining = Int.MAX_VALUE)
@@ -438,9 +438,12 @@ class AssetProviderViewModelTest {
             viewModel.importLocalAsset(GeoAssetKind.Geosite, firstUri)
             operationStarted.await()
 
-            assertFalse(viewModel.persistConfigurationBeforeExit())
+            val exit = async { viewModel.persistConfigurationBeforeExit() }
+            runCurrent()
+
+            assertFalse(exit.isCompleted)
             assertEquals(AssetProviderOperation.ImportGeosite, viewModel.uiState.value.activeOperation)
-            assertTrue(viewModel.uiState.value.hasPersistenceError)
+            assertTrue(viewModel.uiState.value.isExitPersistenceInProgress)
 
             viewModel.importLocalAsset(GeoAssetKind.Geosite, secondUri)
             runCurrent()
@@ -451,8 +454,11 @@ class AssetProviderViewModelTest {
             releaseOperation.complete(Unit)
             advanceUntilIdle()
 
+            assertFalse(exit.await())
             assertNull(viewModel.uiState.value.activeOperation)
-            assertEquals(AssetProviderCheckOutcome.Imported, viewModel.uiState.value.lastResult)
+            assertNull(viewModel.uiState.value.lastResult)
+            assertTrue(viewModel.uiState.value.hasPersistenceError)
+            assertFalse(viewModel.uiState.value.isExitPersistenceInProgress)
         }
 
     @Test
