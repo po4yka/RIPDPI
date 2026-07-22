@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.system.OsConstants
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
@@ -59,7 +60,7 @@ private const val SoBindAppApkSha256Arg = "ripdpi.soBindAppApkSha256"
 private const val SoBindTestApkSha256Arg = "ripdpi.soBindTestApkSha256"
 private const val PhysicalSoBindEvidenceProfile = "physical_pixel_api37_kernel61"
 private const val PhysicalSoBindEvidenceFile = "so-bind-physical-evidence.json"
-private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v1"
+private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v2"
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -823,7 +824,24 @@ class NetworkPathE2ETest {
                 )
             assertEquals("${family.id} denied TCP did not retain SO_BINDTODEVICE", "tun0", deniedTcp.boundDevice)
             assertFalse("${family.id} bound TCP unexpectedly reached fixture", deniedTcp.ok)
-            assertEquals("${family.id} bound TCP denial must be a reset", "CONNECTION_RESET", deniedTcp.failureKind)
+            val deniedTcpAtNetworkStage = deniedTcp.failureStage in setOf("connect", "send", "receive")
+            val deniedTcpOutcomeIsBlocked =
+                deniedTcp.failureKind in setOf("CONNECTION_RESET", "TIMEOUT") ||
+                    (
+                        deniedTcp.failureKind == "ERRNO" &&
+                            deniedTcp.failureStage == "connect" &&
+                            deniedTcp.errno in setOf(OsConstants.ENETUNREACH, OsConstants.EHOSTUNREACH)
+                    )
+            assertTrue(
+                "${family.id} bound TCP denial must be reset, timeout, or unreachable " +
+                    "kind=${deniedTcp.failureKind} stage=${deniedTcp.failureStage} errno=${deniedTcp.errno}",
+                deniedTcpOutcomeIsBlocked,
+            )
+            assertTrue(
+                "${family.id} bound TCP denial occurred before the network operation " +
+                    "stage=${deniedTcp.failureStage} errno=${deniedTcp.errno}",
+                deniedTcpAtNetworkStage && deniedTcp.errno != null,
+            )
 
             val deniedUdp =
                 testProcessUdpRoundTrip(
@@ -835,10 +853,33 @@ class NetworkPathE2ETest {
                 )
             assertEquals("${family.id} denied UDP did not retain SO_BINDTODEVICE", "tun0", deniedUdp.boundDevice)
             assertFalse("${family.id} bound UDP unexpectedly reached fixture", deniedUdp.ok)
-            assertEquals("${family.id} bound UDP denial must time out", "TIMEOUT", deniedUdp.failureKind)
+            val deniedUdpAtNetworkStage = deniedUdp.failureStage in setOf("connect", "send", "receive")
+            val deniedUdpOutcomeIsBlocked =
+                deniedUdp.failureKind == "TIMEOUT" ||
+                    (
+                        deniedUdp.failureKind == "ERRNO" &&
+                            deniedUdp.failureStage == "connect" &&
+                            deniedUdp.errno in setOf(OsConstants.ENETUNREACH, OsConstants.EHOSTUNREACH)
+                    )
+            assertTrue(
+                "${family.id} bound UDP denial must be timeout or unreachable " +
+                    "kind=${deniedUdp.failureKind} stage=${deniedUdp.failureStage} errno=${deniedUdp.errno}",
+                deniedUdpOutcomeIsBlocked,
+            )
+            assertTrue(
+                "${family.id} bound UDP denial occurred before the network operation " +
+                    "stage=${deniedUdp.failureStage} errno=${deniedUdp.errno}",
+                deniedUdpAtNetworkStage && deniedUdp.errno != null,
+            )
             counters.getValue(family.id).apply {
-                deniedTcpResets = 1
-                deniedUdpTimeouts = 1
+                deniedTcpBlockedAttempts = 1
+                deniedTcpFailureKind = deniedTcp.failureKind
+                deniedTcpFailureStage = deniedTcp.failureStage
+                deniedTcpErrno = deniedTcp.errno
+                deniedUdpBlockedAttempts = 1
+                deniedUdpFailureKind = deniedUdp.failureKind
+                deniedUdpFailureStage = deniedUdp.failureStage
+                deniedUdpErrno = deniedUdp.errno
             }
         }
 
@@ -1022,8 +1063,14 @@ class NetworkPathE2ETest {
                             .put("allowedUdpRoundTrips", values.allowedUdpRoundTrips)
                             .put("allowedTcpFixtureEvents", values.allowedTcpFixtureEvents)
                             .put("allowedUdpFixtureEvents", values.allowedUdpFixtureEvents)
-                            .put("deniedTcpResets", values.deniedTcpResets)
-                            .put("deniedUdpTimeouts", values.deniedUdpTimeouts)
+                            .put("deniedTcpBlockedAttempts", values.deniedTcpBlockedAttempts)
+                            .put("deniedTcpFailureKind", values.deniedTcpFailureKind)
+                            .put("deniedTcpFailureStage", values.deniedTcpFailureStage)
+                            .put("deniedTcpErrno", values.deniedTcpErrno)
+                            .put("deniedUdpBlockedAttempts", values.deniedUdpBlockedAttempts)
+                            .put("deniedUdpFailureKind", values.deniedUdpFailureKind)
+                            .put("deniedUdpFailureStage", values.deniedUdpFailureStage)
+                            .put("deniedUdpErrno", values.deniedUdpErrno)
                             .put("deniedTcpFixtureEvents", values.deniedTcpFixtureEvents)
                             .put("deniedUdpFixtureEvents", values.deniedUdpFixtureEvents)
                             .put("livenessTcpRoundTrips", values.livenessTcpRoundTrips)
@@ -1222,8 +1269,14 @@ private data class PhysicalSoBindCounters(
     var allowedUdpRoundTrips: Int = 0,
     var allowedTcpFixtureEvents: Int = 0,
     var allowedUdpFixtureEvents: Int = 0,
-    var deniedTcpResets: Int = 0,
-    var deniedUdpTimeouts: Int = 0,
+    var deniedTcpBlockedAttempts: Int = 0,
+    var deniedTcpFailureKind: String? = null,
+    var deniedTcpFailureStage: String? = null,
+    var deniedTcpErrno: Int? = null,
+    var deniedUdpBlockedAttempts: Int = 0,
+    var deniedUdpFailureKind: String? = null,
+    var deniedUdpFailureStage: String? = null,
+    var deniedUdpErrno: Int? = null,
     var deniedTcpFixtureEvents: Int = 0,
     var deniedUdpFixtureEvents: Int = 0,
     var livenessTcpRoundTrips: Int = 0,

@@ -48,6 +48,12 @@ def valid_evidence() -> dict[str, object]:
             {
                 "family": family,
                 "sourceFamilyVerified": True,
+                "deniedTcpErrno": 110,
+                "deniedTcpFailureKind": "TIMEOUT",
+                "deniedTcpFailureStage": "connect",
+                "deniedUdpErrno": 110,
+                "deniedUdpFailureKind": "TIMEOUT",
+                "deniedUdpFailureStage": "receive",
                 **positive,
                 **{counter: 0 for counter in MODULE.ZERO_COUNTERS},
             }
@@ -82,6 +88,67 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
         evidence = valid_evidence()
         evidence["families"][1]["allowedTcpRoundTrips"] = 0
         with self.assertRaisesRegex(ValueError, "positive integer"):
+            self.validate(evidence)
+
+    def test_accepts_connection_reset_as_tcp_block_outcome(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedTcpFailureKind"] = "CONNECTION_RESET"
+        evidence["families"][0]["deniedTcpErrno"] = 104
+        self.validate(evidence)
+
+    def test_accepts_unreachable_connect_as_tcp_block_outcome(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][1]["deniedTcpFailureKind"] = "ERRNO"
+        evidence["families"][1]["deniedTcpErrno"] = 101
+        self.validate(evidence)
+
+    def test_rejects_non_blocking_tcp_failure_kind(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedTcpFailureKind"] = "IO_ERROR"
+        with self.assertRaisesRegex(ValueError, "not a blocked outcome"):
+            self.validate(evidence)
+
+    def test_rejects_generic_errno_outside_unreachable_connect(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedTcpFailureKind"] = "ERRNO"
+        evidence["families"][0]["deniedTcpErrno"] = 5
+        with self.assertRaisesRegex(ValueError, "not an unreachable connect outcome"):
+            self.validate(evidence)
+
+    def test_rejects_tcp_failure_before_network_stage(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedTcpFailureStage"] = "bind"
+        with self.assertRaisesRegex(ValueError, "not a network stage"):
+            self.validate(evidence)
+
+    def test_accepts_unreachable_connect_as_udp_block_outcome(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][1]["deniedUdpFailureKind"] = "ERRNO"
+        evidence["families"][1]["deniedUdpFailureStage"] = "connect"
+        evidence["families"][1]["deniedUdpErrno"] = 101
+        self.validate(evidence)
+
+    def test_rejects_udp_generic_errno_outside_unreachable_connect(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedUdpFailureKind"] = "ERRNO"
+        evidence["families"][0]["deniedUdpFailureStage"] = "connect"
+        evidence["families"][0]["deniedUdpErrno"] = 5
+        with self.assertRaisesRegex(ValueError, "not an unreachable connect outcome"):
+            self.validate(evidence)
+
+    def test_rejects_obsolete_reset_only_schema(self) -> None:
+        evidence = valid_evidence()
+        evidence["version"] = "android_so_bind_physical_evidence_v1"
+        for family in evidence["families"]:
+            family["deniedTcpResets"] = family.pop("deniedTcpBlockedAttempts")
+            family.pop("deniedTcpErrno")
+            family.pop("deniedTcpFailureKind")
+            family.pop("deniedTcpFailureStage")
+            family["deniedUdpTimeouts"] = family.pop("deniedUdpBlockedAttempts")
+            family.pop("deniedUdpErrno")
+            family.pop("deniedUdpFailureKind")
+            family.pop("deniedUdpFailureStage")
+        with self.assertRaisesRegex(ValueError, "unsupported evidence version"):
             self.validate(evidence)
 
     def test_rejects_wrong_family_order(self) -> None:

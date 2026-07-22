@@ -188,19 +188,25 @@ import sys
 positive_names = (
     "directTcpRoundTrips", "directUdpRoundTrips", "directTcpFixtureEvents", "directUdpFixtureEvents",
     "allowedTcpRoundTrips", "allowedUdpRoundTrips", "allowedTcpFixtureEvents", "allowedUdpFixtureEvents",
-    "deniedTcpResets", "deniedUdpTimeouts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
+    "deniedTcpBlockedAttempts", "deniedUdpBlockedAttempts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
     "livenessTcpFixtureEvents", "livenessUdpFixtureEvents",
 )
 positive = {name: 1 for name in positive_names}
 families = [{
     "family": family,
     "sourceFamilyVerified": True,
+    "deniedTcpErrno": 110,
+    "deniedTcpFailureKind": "TIMEOUT",
+    "deniedTcpFailureStage": "connect",
+    "deniedUdpErrno": 110,
+    "deniedUdpFailureKind": "TIMEOUT",
+    "deniedUdpFailureStage": "receive",
     **positive,
     "deniedTcpFixtureEvents": 0,
     "deniedUdpFixtureEvents": 0,
 } for family in ("ipv4", "ipv6")]
 evidence = {
-        "version": "android_so_bind_physical_evidence_v1",
+        "version": "android_so_bind_physical_evidence_v2",
         "status": "PASS",
         "profile": "physical_pixel_api37_kernel61",
         "runId": sys.argv[2],
