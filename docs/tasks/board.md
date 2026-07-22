@@ -14,12 +14,12 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
 | high | outbound | [Package libXray for Android ABIs](issues/package-libxray-for-android-abis.md) | unassigned | 2026-07-14 |
-| high | testing | [Add a redacted dual-vantage network evidence manifest](issues/add-dual-vantage-redacted-network-evidence-manifest.md) | Evidence contract lane | 2026-07-22 |
+| high | testing | [Add a redacted dual-vantage network evidence manifest](issues/add-dual-vantage-redacted-network-evidence-manifest.md) | Android ordinary raw verifier lane | 2026-07-22 |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | unassigned | 2026-06-05 |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | unassigned | 2026-06-10 |
 | high | transport | [Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)](issues/wire-standalone-amneziawg-profile-transport.md) | unassigned | 2026-06-21 |
-| high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | MapDNS UID admission lane | 2026-07-22 |
-| high | vpn | [Verify no leak/black-hole window between TUN establish() and native relay readiness](issues/verify-no-leak-window-between-tun-establish-and-relay-ready.md) | Lifecycle and PMTUD lane | 2026-07-17 |
+| high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | Device evidence lane | 2026-07-22 |
+| high | vpn | [Verify no leak/black-hole window between TUN establish() and native relay readiness](issues/verify-no-leak-window-between-tun-establish-and-relay-ready.md) | Codex startup-window physical lane | 2026-07-21 |
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | unassigned | 2026-06-05 |
 | medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | unassigned | 2026-07-16 |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | unassigned | 2026-06-10 |

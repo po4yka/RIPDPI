@@ -345,7 +345,9 @@ mod tests {
     }
 
     /// # Cancel safety
-    /// Cancel-safe: the test holds no lock or partially committed state across an await.
+    /// Cancel-safe: the sole suspension point is `state.shutdown().await`; before it,
+    /// the state has no TCP sessions or UDP associations, so cancellation cannot strand
+    /// a partially shut-down session or association.
     #[tokio::test]
     async fn mapdns_dns_admission_waits_on_exact_tuple_and_drops_denied_query() {
         let seen_packets = Arc::new(Mutex::new(Vec::new()));
@@ -393,7 +395,9 @@ mod tests {
     }
 
     /// # Cancel safety
-    /// Cancel-safe: the test holds no lock or partially committed state across an await.
+    /// Cancel-safe: the sole suspension point is `state.shutdown().await`; before it,
+    /// the state has no TCP sessions or UDP associations, so cancellation cannot strand
+    /// a partially shut-down session or association.
     #[tokio::test]
     async fn mapdns_dns_admission_allows_retry_and_reuses_uid_resolution() {
         let seen_packets = Arc::new(Mutex::new(Vec::new()));
@@ -424,7 +428,9 @@ mod tests {
     }
 
     /// # Cancel safety
-    /// Cancel-safe: the test holds no lock or partially committed state across an await.
+    /// Cancel-safe: the sole suspension point is `state.shutdown().await`; before it,
+    /// the state has no TCP sessions or UDP associations, so cancellation cannot strand
+    /// a partially shut-down session or association.
     #[tokio::test]
     async fn disarmed_mapdns_dns_is_immediate_and_creates_no_uid_attribution() {
         let mut state =
