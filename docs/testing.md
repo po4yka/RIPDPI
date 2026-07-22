@@ -433,6 +433,7 @@ Run the local contract checks with:
 python3 -m unittest \
   scripts.tests.test_dns_ipv6_killswitch_gates \
   scripts.tests.test_network_evidence_manifest \
+  scripts.tests.test_network_evidence_pcap_oracle \
   scripts.tests.test_local_android_release_acceptance
 bash test-lab/scripts/test-dual-vantage-network-evidence.sh
 ```

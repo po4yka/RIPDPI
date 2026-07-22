@@ -886,6 +886,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertNotIn("if: always()", evidence)
         self.assertNotIn("$RUNNER_TEMP/dns-ipv6-killswitch-release-evidence", evidence)
         self.assertIn("scripts.tests.test_network_evidence_manifest", ci)
+        self.assertIn("scripts.tests.test_network_evidence_pcap_oracle", ci)
         self.assertIn("test-dual-vantage-network-evidence.sh", ci)
         self.assertIn("jsonschema==4.26.0", ci)
 

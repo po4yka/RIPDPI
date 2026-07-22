@@ -230,6 +230,7 @@ jobs:
           python3 -m unittest \
             scripts.tests.test_dns_ipv6_killswitch_gates \
             scripts.tests.test_network_evidence_manifest \
+            scripts.tests.test_network_evidence_pcap_oracle \
             scripts.tests.test_so_bindtodevice_evidence \
             scripts.tests.test_so_bindtodevice_lane
 
