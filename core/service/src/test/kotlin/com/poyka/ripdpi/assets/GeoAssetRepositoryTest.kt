@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.assets.CustomAssetProviderId
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.data.assets.MinGeoAssetBytes
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
@@ -321,13 +322,83 @@ class GeoAssetRepositoryTest {
                     )
                 }
 
-            assertTrue(stream.blockedReadStarted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
             try {
+                assertTrue(stream.blockedReadStarted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
                 withContext(Dispatchers.Default) {
                     withTimeout(CancellationTimeoutMillis) { importJob.cancelAndJoin() }
                 }
             } finally {
                 stream.releaseBlockedRead.countDown()
+                importJob.cancel()
+                withContext(Dispatchers.Default) {
+                    withTimeout(CancellationTimeoutMillis) { importJob.join() }
+                }
+            }
+
+            assertTrue(importJob.isCancelled)
+            assertArrayEquals(previous, target.readBytes())
+            assertNoTemporaryFiles(target.parentFile!!)
+        }
+
+    @Test
+    fun `cancellation after temp preparation removes temporary file`() {
+        val previous = validPayload(MinGeoAssetBytes).reversedArray()
+        val replacement = validPayload(MinGeoAssetBytes)
+        val target = temporaryFolder.newFile("handoff-cancelled-geoip.db").apply { writeBytes(previous) }
+        val stream = CloseTrackingInputStream(replacement)
+
+        assertThrows(CancellationException::class.java) {
+            streamGeoAssetUriToTarget(
+                uri = Uri.parse("content://test/handoff-cancelled.db"),
+                target = target,
+                maxBytes = replacement.size.toLong(),
+                openInput = { stream },
+                cancellationCheck = {
+                    if (stream.closed) throw CancellationException("synthetic pre-install cancellation")
+                },
+            )
+        }
+
+        assertTrue(stream.closed)
+        assertArrayEquals(previous, target.readBytes())
+        assertNoTemporaryFiles(target.parentFile!!)
+    }
+
+    @Test
+    fun `cancellation during interruptible handoff removes prepared temporary file`() =
+        runTest {
+            val previous = validPayload(MinGeoAssetBytes).reversedArray()
+            val replacement = validPayload(MinGeoAssetBytes)
+            val target = temporaryFolder.newFile("interruptible-handoff-geoip.db").apply { writeBytes(previous) }
+            val preparationCompleted = CountDownLatch(1)
+            val releaseHandoff = CountDownLatch(1)
+            val importJob =
+                launch(Dispatchers.Default) {
+                    streamGeoAssetUriToTargetInterruptibly(
+                        uri = Uri.parse("content://test/interruptible-handoff.db"),
+                        target = target,
+                        maxBytes = replacement.size.toLong(),
+                        openInput = { ByteArrayInputStream(replacement) },
+                        afterPrepare = {
+                            preparationCompleted.countDown()
+                            awaitIgnoringInterrupts(releaseHandoff)
+                        },
+                    )
+                }
+
+            try {
+                assertTrue(preparationCompleted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
+                importJob.cancel()
+                releaseHandoff.countDown()
+                withContext(Dispatchers.Default) {
+                    withTimeout(CancellationTimeoutMillis) { importJob.join() }
+                }
+            } finally {
+                releaseHandoff.countDown()
+                importJob.cancel()
+                withContext(Dispatchers.Default) {
+                    withTimeout(CancellationTimeoutMillis) { importJob.join() }
+                }
             }
 
             assertTrue(importJob.isCancelled)
@@ -360,15 +431,19 @@ class GeoAssetRepositoryTest {
                     )
                 }
 
-            assertTrue(replaceStarted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
-            importJob.cancel()
             try {
+                assertTrue(replaceStarted.await(ReadStartTimeoutSeconds, TimeUnit.SECONDS))
+                importJob.cancel()
                 continueReplace.countDown()
                 withContext(Dispatchers.Default) {
                     withTimeout(CancellationTimeoutMillis) { importJob.join() }
                 }
             } finally {
                 continueReplace.countDown()
+                importJob.cancel()
+                withContext(Dispatchers.Default) {
+                    withTimeout(CancellationTimeoutMillis) { importJob.join() }
+                }
             }
 
             assertTrue(importJob.isCancelled)
@@ -476,6 +551,17 @@ class GeoAssetRepositoryTest {
         assertFalse(
             directory.listFiles().orEmpty().any { it.name.startsWith("geo-asset-") && it.name.endsWith(".tmp") },
         )
+    }
+
+    private fun awaitIgnoringInterrupts(latch: CountDownLatch) {
+        while (true) {
+            try {
+                latch.await()
+                return
+            } catch (_: InterruptedException) {
+                // Cancellation intentionally interrupts the worker before the prepared file is handed back.
+            }
+        }
     }
 
     private class ZeroThenDataInputStream(

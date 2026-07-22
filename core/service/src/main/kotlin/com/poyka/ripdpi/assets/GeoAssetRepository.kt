@@ -21,6 +21,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -32,6 +33,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -263,22 +265,27 @@ internal suspend fun streamGeoAssetUriToTargetInterruptibly(
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
     openInput: (Uri) -> InputStream?,
     replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
+    afterPrepare: (File) -> Unit = {},
     afterInstall: suspend () -> Unit = {},
 ) {
     val operationContext = currentCoroutineContext()
     val cancellationCheck = { operationContext.ensureActive() }
-    val temp =
+    val preparedTemp = AtomicReference<File?>()
+    try {
         runInterruptible(Dispatchers.IO) {
             prepareGeoAssetUriTemp(uri, target, maxBytes, openInput, cancellationCheck)
+                .also { temp ->
+                    preparedTemp.set(temp)
+                    afterPrepare(temp)
+                }
         }
-    try {
         cancellationCheck()
         withContext(NonCancellable + Dispatchers.IO) {
-            installGeoAssetTemp(temp, target, replaceTemp)
+            installGeoAssetTemp(checkNotNull(preparedTemp.get()), target, replaceTemp)
             afterInstall()
         }
     } finally {
-        temp.delete()
+        preparedTemp.getAndSet(null)?.delete()
     }
 }
 
@@ -312,6 +319,9 @@ private fun prepareGeoAssetUriTemp(
         cancellationCheck()
         return checkNotNull(temp)
     } catch (error: GeoAssetIntegrityException) {
+        temp?.delete()
+        throw error
+    } catch (error: CancellationException) {
         temp?.delete()
         throw error
     } catch (error: IOException) {
