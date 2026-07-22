@@ -6,11 +6,11 @@ area: vpn
 priority: high
 owner: Android device lane
 parent: epic-fail-closed-android-vpn-policy-engine
-status_detail: TCP/UDP UID enforcement and the recurring physical Linux TUN oracle are complete; Android app/kernel/adb checks and ICMP policy remain
+status_detail: TCP/UDP UID enforcement and physical Linux/Pixel TUN oracles are complete; pre-5.7 kernel, adb socket-table, and ICMP policy checks remain
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-07-17
+updated: 2026-07-22
 source_wiki_pages:
   - "android-so-bindtodevice-vpn-bypass"
 linked_task: null
@@ -40,8 +40,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - [x] PR description confirms current state of `ripdpi-tun-driver` UID validation (present or absent). **Absent** — `ripdpi-tun-driver` is TUN open/configure only; `ripdpi-flow-app-attribution` calls `getConnectionOwnerUid` for attribution/learning, not as an enforcement gate. The userspace stack is `smoltcp` in `ripdpi-tunnel-core`, not gVisor/Go.
 - [x] If absent: per-packet UID validation implemented in the tun2socks layer. `UidFlowPolicy` is consulted at the live smoltcp TCP and UDP admission seams, the JNI `getConnectionOwnerUid` attribution source is registered with the native session, and readiness remains fail-closed until the bridge is installed. Unit, lifecycle, and physical harness coverage exercise the armed policy rather than only the decision enum.
 - [~] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle. TCP `abort()`/RST delivery, UDP drop/attribution-token retention, and allowlist fail-closed construction are implemented and physically verified. The explicit ICMP policy toggle remains open.
-- [~] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, RST'd. The platform-neutral unprivileged Linux process oracle now proves the real-socket/TUN control and enforcement paths for TCP and UDP. An Android `appium`/`journeys` synthetic-app run remains device-gated.
-- [ ] Verified on kernel 5.7+ device (Android 12+) and kernel <5.7 device to confirm version gating. **DEVICE-GATED.**
+- [x] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, traffic is denied. The platform-neutral unprivileged Linux process oracle and the separate-UID Android test process now prove the real-socket/TUN control and enforcement paths for TCP and UDP. On Pixel, IPv4 denial is reset/timeout and IPv6 denial is an exact unreachable-connect result; both require zero fixture delivery and passing post-denial liveness controls.
+- [~] Verified on kernel 5.7+ device (Android 12+) and kernel <5.7 device to confirm version gating. Pixel 7/API 37/kernel 6.1 is verified; a pre-5.7 device remains unavailable.
 - [ ] Verify via `adb shell cat /proc/net/tcp` that no leaked connection appears to the remote host post-countermeasure. **DEVICE-GATED.**
 
 ## Risks / open questions
@@ -52,6 +52,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## Work log
+
+- 2026-07-22: The local physical Pixel lane passed end to end on exact source SHA `2195272b78a08493adb09a7df90b270b6fafdefe` without hosted CI. A Pixel 7 (`panther`, API 37, kernel 6.1) and one dual-stack fixture exercised IPv4/IPv6 TCP+UDP direct controls, allowed `tun0` traffic, excluded-UID denied traffic, zero denied fixture delivery, TUN packet-path telemetry, and post-denial liveness. The strict v2 evidence validator accepted the private mode-0600 manifest; manifest SHA-256 `cb4e9c48c6bce79f3f072ae8b96cb936ab6b551529cdaa2c3ed105e5cb2278d2`. The task remains open only for the pre-5.7 version-gate run, explicit `/proc/net/tcp` leak inspection, and ICMP policy toggle.
 
 - 2026-07-18: Hardened workflow finalization so a failed, cancelled, or skipped runtime step cannot preserve a stale `PASS`; missing runtime evidence is now classified as `TEST_FAILURE/RUNTIME_FAILED`, while canonical harness reasons such as `CLEANUP_FAILED` remain specific. The `so-bindtodevice-e2e` job in the manual privileged run passed on source SHA `05af20379ebb2a81b780d26efe9122ff5fb1882b`: [run 29652023020](https://github.com/po4yka/RIPDPI/actions/runs/29652023020), [job 88100347704](https://github.com/po4yka/RIPDPI/actions/runs/29652023020/job/88100347704). The downloaded canonical manifest validated all 12 IPv4/IPv6 TCP/UDP phases as `PASS`, reported unprivileged `SO_BINDTODEVICE` available, and verified cleanup; manifest SHA-256 `884c7ebeded84ea2cafe7898f066fc6a7d647307022e17466442e44f7dbf9625`. Android synthetic-app, kernel-version, `/proc/net/tcp`, and ICMP criteria remain open.
 
