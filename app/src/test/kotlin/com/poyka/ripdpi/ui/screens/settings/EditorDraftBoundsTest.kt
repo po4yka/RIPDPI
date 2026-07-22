@@ -32,7 +32,7 @@ class EditorDraftBoundsTest {
         assertFalse(strategy.contains("configText by rememberSaveable"))
         assertFalse(domains.contains("text by rememberSaveable"))
         assertFalse(domains.contains("remember(text) { DomainBypassList.compile"))
-        assertTrue(domains.contains("withContext(Dispatchers.Default) { DomainBypassList.compile(text) }"))
+        assertTrue(domains.contains("withContext(Dispatchers.Default) { DomainBypassList.compile(uiState.text) }"))
     }
 
     @Test

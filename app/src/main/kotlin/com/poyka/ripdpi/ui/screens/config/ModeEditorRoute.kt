@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.config
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,6 +52,7 @@ import com.poyka.ripdpi.activities.ConfigPreset
 import com.poyka.ripdpi.activities.ConfigPresetKind
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.ConfigViewModel
+import com.poyka.ripdpi.activities.MasqueImportAction
 import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.relayChainHopAdded
 import com.poyka.ripdpi.activities.relayChainHopMoved
@@ -100,12 +100,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentMapOf
 
-internal enum class MasqueImportAction {
-    CertificateChain,
-    PrivateKey,
-    Pkcs12,
-}
-
 @Suppress("LongMethod")
 @Composable
 fun ModeEditorRoute(
@@ -114,10 +108,9 @@ fun ModeEditorRoute(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val masqueImportState by viewModel.masqueImportState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    var pendingMasqueImportAction by remember { mutableStateOf<MasqueImportAction?>(null) }
-    var pendingPkcs12Uri by remember { mutableStateOf<Uri?>(null) }
     var pkcs12Password by remember { mutableStateOf("") }
     val handleBack = {
         viewModel.cancelEditing()
@@ -128,14 +121,7 @@ fun ModeEditorRoute(
 
     val documentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            val action = pendingMasqueImportAction
-            pendingMasqueImportAction = null
-            when {
-                uri == null || action == null -> Unit
-                action == MasqueImportAction.CertificateChain -> viewModel.importRelayMasqueCertificateChain(uri)
-                action == MasqueImportAction.PrivateKey -> viewModel.importRelayMasquePrivateKey(uri)
-                action == MasqueImportAction.Pkcs12 -> pendingPkcs12Uri = uri
-            }
+            viewModel.masqueImports.onDocumentPicked(uri)
         }
     val coarseLocationPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -151,10 +137,10 @@ fun ModeEditorRoute(
     }
     ModeEditorEffects(viewModel, snackbarHostState, onBack)
 
-    pendingPkcs12Uri?.let { uri ->
+    masqueImportState.pendingPkcs12Uri?.let {
         RipDpiDialog(
             onDismissRequest = {
-                pendingPkcs12Uri = null
+                viewModel.masqueImports.dismissPkcs12()
                 pkcs12Password = ""
             },
             title = stringResource(R.string.config_relay_masque_pkcs12_dialog_title),
@@ -162,8 +148,7 @@ fun ModeEditorRoute(
                 RipDpiDialogAction(
                     label = stringResource(R.string.config_relay_import),
                     onClick = {
-                        viewModel.importRelayMasquePkcs12(uri, pkcs12Password)
-                        pendingPkcs12Uri = null
+                        viewModel.masqueImports.importPendingPkcs12(pkcs12Password)
                         pkcs12Password = ""
                     },
                 ),
@@ -171,7 +156,7 @@ fun ModeEditorRoute(
                 RipDpiDialogAction(
                     label = stringResource(R.string.config_cancel),
                     onClick = {
-                        pendingPkcs12Uri = null
+                        viewModel.masqueImports.dismissPkcs12()
                         pkcs12Password = ""
                     },
                 ),
@@ -257,15 +242,15 @@ fun ModeEditorRoute(
                     updateMasqueGeohash(viewModel, context, coarseLocationPermissionLauncher::launch, enabled)
                 },
                 onRelayMasqueImportCertificateChainClicked = {
-                    pendingMasqueImportAction = MasqueImportAction.CertificateChain
+                    viewModel.masqueImports.begin(MasqueImportAction.CertificateChain)
                     documentLauncher.launch(arrayOf("*/*"))
                 },
                 onRelayMasqueImportPrivateKeyClicked = {
-                    pendingMasqueImportAction = MasqueImportAction.PrivateKey
+                    viewModel.masqueImports.begin(MasqueImportAction.PrivateKey)
                     documentLauncher.launch(arrayOf("*/*"))
                 },
                 onRelayMasqueImportPkcs12Clicked = {
-                    pendingMasqueImportAction = MasqueImportAction.Pkcs12
+                    viewModel.masqueImports.begin(MasqueImportAction.Pkcs12)
                     documentLauncher.launch(arrayOf("*/*"))
                 },
                 onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },

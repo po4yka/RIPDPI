@@ -66,20 +66,10 @@ fun DomainBypassListRoute(
     val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var text by remember { mutableStateOf("") }
-    var loadedFromStore by remember { mutableStateOf(false) }
-    // Hydrate the editor buffer once from the persisted rule, then leave it under user control.
-    LaunchedEffect(uiState.initialText) {
-        if (!loadedFromStore && uiState.initialText.isNotEmpty() && text.isEmpty()) {
-            text = boundedDomainBypassDraft(uiState.initialText)
-            loadedFromStore = true
-        }
-    }
-
     var compiled by remember { mutableStateOf(DomainBypassList.compile("")) }
-    LaunchedEffect(text) {
-        if (text.isNotEmpty()) delay(DomainCompileDebounceMillis)
-        compiled = withContext(Dispatchers.Default) { DomainBypassList.compile(text) }
+    LaunchedEffect(uiState.text) {
+        if (uiState.text.isNotEmpty()) delay(DomainCompileDebounceMillis)
+        compiled = withContext(Dispatchers.Default) { DomainBypassList.compile(uiState.text) }
     }
     val moveDialogName = stringResource(R.string.domain_bypass_moved_rule_name)
     val ripdpiDomainsLabel = stringResource(R.string.clipboard_label_ripdpi_domains)
@@ -87,15 +77,15 @@ fun DomainBypassListRoute(
     DomainBypassListScreen(
         state =
             DomainBypassListScreenState(
-                text = text,
+                text = uiState.text,
                 errors = compiled.errors,
                 cleanCount = compiled.cleanLines.size,
                 hasRule = uiState.hasRule,
             ),
         onBack = onBack,
-        onTextChanged = { text = boundedDomainBypassDraft(it) },
+        onTextChanged = viewModel::updateDraft,
         onSave = {
-            viewModel.save(text) { savedCount ->
+            viewModel.save { savedCount ->
                 val message =
                     if (savedCount == 0) {
                         resources.getString(R.string.domain_bypass_cleared)
@@ -116,12 +106,12 @@ fun DomainBypassListRoute(
             if (pasted.isNullOrBlank()) {
                 Toast.makeText(context, R.string.domain_bypass_clipboard_empty, Toast.LENGTH_SHORT).show()
             } else {
-                text = boundedDomainBypassDraft(if (text.isBlank()) pasted else "$text\n$pasted")
+                viewModel.updateDraft(if (uiState.text.isBlank()) pasted else "${uiState.text}\n$pasted")
             }
         },
         onCopyToClipboard = {
             clipboardManager?.setPrimaryClip(
-                ClipData.newPlainText(ripdpiDomainsLabel, text),
+                ClipData.newPlainText(ripdpiDomainsLabel, uiState.text),
             )
             Toast.makeText(context, R.string.domain_bypass_copied, Toast.LENGTH_SHORT).show()
         },
@@ -129,7 +119,7 @@ fun DomainBypassListRoute(
             viewModel.moveToRuleEditor(moveDialogName) { moved ->
                 if (moved) {
                     Toast.makeText(context, R.string.domain_bypass_moved, Toast.LENGTH_SHORT).show()
-                    text = ""
+                    viewModel.clearDraft()
                     onBack()
                 }
             }

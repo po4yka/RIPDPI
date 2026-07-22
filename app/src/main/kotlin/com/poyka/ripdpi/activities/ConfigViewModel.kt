@@ -50,6 +50,13 @@ class ConfigViewModel
         private val masqueClientCredentialImporter = importDependencies.masqueClientCredentialImporter
         private val masquePrivacyPassAvailability = importDependencies.masquePrivacyPassAvailability
         private val editorSession = MutableStateFlow(ConfigEditorSession())
+        internal val masqueImports =
+            ConfigMasqueImportController(
+                importCertificateChain = ::importRelayMasqueCertificateChain,
+                importPrivateKey = ::importRelayMasquePrivateKey,
+                importPkcs12 = ::importRelayMasquePkcs12,
+            )
+        internal val masqueImportState = masqueImports.state
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
         private val masquePrivacyPassBuildStatus = masquePrivacyPassAvailability.buildStatus()
 
@@ -251,6 +258,7 @@ class ConfigViewModel
 
         fun cancelEditing() {
             editorSession.value = ConfigEditorSession()
+            clearMasqueImportState()
         }
 
         fun importRelayMasqueCertificateChain(uri: Uri) {
@@ -319,6 +327,7 @@ class ConfigViewModel
                 relayArtifacts.persist(persistedDraft)
                 applySavedDraftToRunningService(persistedDraft)
                 editorSession.value = ConfigEditorSession()
+                clearMasqueImportState()
                 _effects.emit(ConfigEffect.SaveSuccess)
             }
         }
@@ -340,6 +349,10 @@ class ConfigViewModel
                     relayMasqueClientPrivateKeyPem = identity.privateKeyPem,
                 )
             }
+        }
+
+        private fun clearMasqueImportState() {
+            masqueImports.clear()
         }
 
         private fun observeCapabilityEvidence() {

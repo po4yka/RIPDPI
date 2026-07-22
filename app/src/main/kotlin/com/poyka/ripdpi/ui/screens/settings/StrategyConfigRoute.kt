@@ -10,7 +10,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,24 +37,20 @@ fun StrategyConfigRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    draftViewModel: StrategyConfigDraftViewModel = hiltViewModel(),
     runtimeFactory: () -> StrategyConfigRuntime = { NativeStrategyConfigRuntime() },
     applySavedConfig: () -> StrategyConfigApplyResult = { StrategyConfigApplyResult.NextSession },
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val draft by draftViewModel.state.collectAsStateWithLifecycle()
     val runtime = remember(runtimeFactory) { runCatching { runtimeFactory() }.getOrNull() }
     val coroutineScope = rememberCoroutineScope()
-    var source by rememberSaveable { mutableStateOf(StrategyConfigSource.BuiltIn) }
-    var configText by remember { mutableStateOf(uiState.desync.chainDsl.boundedUtf8(StrategyConfigMaxImportBytes)) }
-    var luaPath by rememberSaveable { mutableStateOf("") }
-    var luaFunction by rememberSaveable { mutableStateOf("") }
     var banner by remember { mutableStateOf<StrategyConfigBanner?>(null) }
 
     SecureWindowEffect()
-    LaunchedEffect(uiState.desync.chainDsl, source) {
-        if (source == StrategyConfigSource.BuiltIn) {
-            configText = uiState.desync.chainDsl
-        }
+    LaunchedEffect(uiState.desync.chainDsl) {
+        draftViewModel.synchronizeBuiltIn(uiState.desync.chainDsl)
     }
 
     val importLauncher =
@@ -64,8 +59,7 @@ fun StrategyConfigRoute(
                 context = context,
                 uri = uri,
                 onImported = { imported ->
-                    configText = imported
-                    source = StrategyConfigSource.CustomYaml
+                    draftViewModel.applyImportedConfig(imported)
                 },
                 onBanner = { banner = it },
             )
@@ -74,32 +68,32 @@ fun StrategyConfigRoute(
     StrategyConfigScreen(
         state =
             StrategyConfigScreenState(
-                source = source,
-                configText = configText,
-                luaPath = luaPath,
-                luaFunction = luaFunction,
-                activePath = activePathLabel(context, source, luaPath),
+                source = draft.source,
+                configText = draft.configText,
+                luaPath = draft.luaPath,
+                luaFunction = draft.luaFunction,
+                activePath = activePathLabel(context, draft.source, draft.luaPath),
                 banner = banner,
             ),
         onBack = onBack,
         onSourceChanged = {
-            source = it
+            draftViewModel.selectSource(it, uiState.desync.chainDsl)
             banner = null
         },
-        onConfigTextChanged = { configText = it.boundedUtf8(StrategyConfigMaxImportBytes) },
-        onLuaPathChanged = { luaPath = it },
-        onLuaFunctionChanged = { luaFunction = it },
+        onConfigTextChanged = draftViewModel::updateConfigText,
+        onLuaPathChanged = draftViewModel::updateLuaPath,
+        onLuaFunctionChanged = draftViewModel::updateLuaFunction,
         onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
-        onExport = { shareStrategyConfig(context, configText) },
+        onExport = { shareStrategyConfig(context, draft.configText) },
         onSave = {
             coroutineScope.launch {
                 banner =
                     saveStrategyConfigFromRoute(
                         context = context,
-                        source = source,
-                        configText = configText,
-                        luaPath = luaPath,
-                        luaFunction = luaFunction,
+                        source = draft.source,
+                        configText = draft.configText,
+                        luaPath = draft.luaPath,
+                        luaFunction = draft.luaFunction,
                         runtime = runtime,
                         viewModel = viewModel,
                         applySavedConfig = applySavedConfig,
@@ -108,7 +102,7 @@ fun StrategyConfigRoute(
             }
         },
         onReload = { banner = reloadLuaConfig(context, runtime) },
-        onValidateLua = { banner = validateLuaScript(context, runtime, luaPath) },
+        onValidateLua = { banner = validateLuaScript(context, runtime, draft.luaPath) },
         modifier = modifier,
     )
 }
