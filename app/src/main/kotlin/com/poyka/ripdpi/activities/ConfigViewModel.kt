@@ -8,17 +8,10 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
-import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeNetworkSnapshot
-import com.poyka.ripdpi.data.RelayPresetDefinition
-import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,34 +23,15 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
-
-private data class ConfigPersistedSnapshot(
-    val settings: AppSettings,
-    val relayPresets: List<RelayPresetDefinition>,
-    val relayProfileRecords: List<RelayProfileRecord>,
-)
-
-private data class ConfigRuntimeSnapshot(
-    val serviceStatus: Pair<AppStatus, Mode>,
-    val latestDirectModeOutcome: LatestDirectModeOutcomeSnapshot?,
-    val networkSnapshot: NativeNetworkSnapshot?,
-    val capabilityRecords: List<ServerCapabilityRecord>,
-)
 
 @HiltViewModel
 class ConfigViewModel
@@ -182,21 +156,13 @@ class ConfigViewModel
                 stringResolver = stringResolver,
             )
         private val editorState =
-            combine(
-                editorSession,
-                activeSaveRequest,
-                masqueImportSessionCoordinator.inFlightOperations,
-                editorRecoveryPending,
-                editorRecoveryPersistenceError,
-            ) { session, saveRequest, imports, recoveryPending, recoveryPersistenceError ->
-                ConfigEditorState(
-                    session = session,
-                    saveInFlight = saveRequest != null,
-                    importInFlight = imports.any { operation -> operation.sessionId == session.sessionId },
-                    recoveryPending = recoveryPending,
-                    recoveryPersistenceError = recoveryPersistenceError,
-                )
-            }
+            configEditorStateFlow(
+                editorSession = editorSession,
+                activeSaveRequest = activeSaveRequest,
+                importOperations = masqueImportSessionCoordinator.inFlightOperations,
+                recoveryPending = editorRecoveryPending,
+                recoveryPersistenceError = editorRecoveryPersistenceError,
+            )
         private val masqueCredentialImportRunner =
             ConfigMasqueCredentialImportRunner(
                 scope = viewModelScope,
@@ -218,53 +184,30 @@ class ConfigViewModel
         }
 
         private val persistedSnapshots =
-            appSettingsRepository.settings
-                .map { settings ->
-                    ConfigPersistedSnapshot(
-                        settings = settings,
-                        relayPresets = relayPresetCatalog.all(),
-                        relayProfileRecords = loadRelayProfileRecordsOrEmpty { relayArtifacts.listProfiles() },
-                    )
-                }.flowOn(dispatchers.io)
+            configPersistedSnapshots(
+                appSettingsRepository = appSettingsRepository,
+                relayPresetCatalog = relayPresetCatalog,
+                relayArtifacts = relayArtifacts,
+                ioDispatcher = dispatchers.io,
+            )
 
         private val runtimeSnapshots =
-            combine(
-                serviceStateStore.status,
-                latestDirectModeOutcomeStore.outcome,
-                serviceStateStore.telemetry
-                    .map { telemetry -> telemetry.networkHandoverState }
-                    .distinctUntilChanged(),
-            ) { serviceStatus, latestDirectModeOutcome, _ ->
-                ConfigRuntimeSnapshot(
-                    serviceStatus = serviceStatus,
-                    latestDirectModeOutcome = latestDirectModeOutcome,
-                    networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull(),
-                    capabilityRecords = capabilityObserver.relayCapabilitiesForCurrentNetwork(),
-                )
-            }.flowOn(dispatchers.io)
+            configRuntimeSnapshots(
+                serviceStateStore = serviceStateStore,
+                latestDirectModeOutcomeStore = latestDirectModeOutcomeStore,
+                networkSnapshotProvider = networkSnapshotProvider,
+                capabilityObserver = capabilityObserver,
+                ioDispatcher = dispatchers.io,
+            )
 
         val uiState: StateFlow<ConfigUiState> =
-            combine(
-                persistedSnapshots,
-                editorState,
-                serviceStateStore.telemetry,
-                runtimeSnapshots,
-            ) { persistedSnapshot, editorState, serviceTelemetry, runtimeSnapshot ->
-                uiStateFactory.create(
-                    settings = persistedSnapshot.settings,
-                    editorState = editorState,
-                    serviceStatus = runtimeSnapshot.serviceStatus,
-                    serviceTelemetry = serviceTelemetry,
-                    latestDirectModeOutcome = runtimeSnapshot.latestDirectModeOutcome,
-                    relayPresets = persistedSnapshot.relayPresets,
-                    relayProfileRecords = persistedSnapshot.relayProfileRecords,
-                    networkSnapshot = runtimeSnapshot.networkSnapshot,
-                    capabilityRecords = runtimeSnapshot.capabilityRecords,
-                )
-            }.stateIn(
+            configUiStateFlow(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = ConfigUiState(isLoading = true),
+                persistedSnapshots = persistedSnapshots,
+                editorState = editorState,
+                serviceTelemetry = serviceStateStore.telemetry,
+                runtimeSnapshots = runtimeSnapshots,
+                factory = uiStateFactory,
             )
 
         init {
