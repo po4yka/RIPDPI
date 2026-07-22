@@ -49,7 +49,7 @@ fun StrategyConfigRoute(
     var configText by remember { mutableStateOf(uiState.desync.chainDsl.boundedUtf8(StrategyConfigMaxImportBytes)) }
     var luaPath by rememberSaveable { mutableStateOf("") }
     var luaFunction by rememberSaveable { mutableStateOf("") }
-    var banner by rememberSaveable { mutableStateOf<StrategyConfigBanner?>(null) }
+    var banner by remember { mutableStateOf<StrategyConfigBanner?>(null) }
 
     SecureWindowEffect()
     LaunchedEffect(uiState.desync.chainDsl, source) {

@@ -35,6 +35,14 @@ class EditorDraftBoundsTest {
         assertTrue(domains.contains("withContext(Dispatchers.Default) { DomainBypassList.compile(text) }"))
     }
 
+    @Test
+    fun `transient strategy banner is not stored in saveable state`() {
+        val strategy = source("StrategyConfigRoute.kt").readText()
+
+        assertFalse(strategy.contains("banner by rememberSaveable"))
+        assertTrue(strategy.contains("banner by remember {"))
+    }
+
     private fun source(name: String): File =
         sequenceOf(
             File("src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/$name"),
