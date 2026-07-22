@@ -183,6 +183,10 @@ def pin_input(path: Path) -> PinnedPath:
 
 
 def pin_artifact_root(path: Path) -> PinnedDirectory:
+    if not path.is_absolute():
+        raise EvidenceError(
+            "ARTIFACT_ROOT_INVALID", "raw artifact root must be an absolute path"
+        )
     try:
         fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_DIRECTORY)
     except OSError as error:
@@ -193,8 +197,34 @@ def pin_artifact_root(path: Path) -> PinnedDirectory:
     return PinnedDirectory(path, fd, (metadata.st_dev, metadata.st_ino))
 
 
+def directory_is_within(directory_fd: int, ancestor_identity: tuple[int, int]) -> bool:
+    current_fd = os.dup(directory_fd)
+    try:
+        while True:
+            current = os.fstat(current_fd)
+            current_identity = (current.st_dev, current.st_ino)
+            if current_identity == ancestor_identity:
+                return True
+            parent_fd = os.open(
+                "..",
+                os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_DIRECTORY,
+                dir_fd=current_fd,
+            )
+            parent = os.fstat(parent_fd)
+            if (parent.st_dev, parent.st_ino) == current_identity:
+                os.close(parent_fd)
+                return False
+            os.close(current_fd)
+            current_fd = parent_fd
+    finally:
+        os.close(current_fd)
+
+
 def open_output_destination(
-    path: Path, *, forbidden_root: Path | None = None
+    path: Path,
+    *,
+    forbidden_root: Path | None = None,
+    forbidden_root_identity: tuple[int, int] | None = None,
 ) -> OutputDestination:
     if not path.is_absolute():
         raise EvidenceError("OUTPUT_PATH_INVALID", "results output must be absolute")
@@ -237,6 +267,13 @@ def open_output_destination(
             raise EvidenceError(
                 "OUTPUT_INSIDE_ARTIFACT_ROOT",
                 "results output must be outside the private raw artifact root",
+            )
+        if forbidden_root_identity is not None and directory_is_within(
+            parent_fd, forbidden_root_identity
+        ):
+            raise EvidenceError(
+                "OUTPUT_INSIDE_ARTIFACT_ROOT",
+                "results output parent is inside the private raw artifact root",
             )
         try:
             output_metadata = os.stat(
@@ -338,6 +375,7 @@ def require_safe_pinned_paths(
     destination: OutputDestination,
     inputs: tuple[PinnedPath, ...],
     artifact_root: PinnedDirectory | None,
+    raw_bundles: tuple[android_ordinary_raw_evidence.ValidatedRawBundle, ...] = (),
 ) -> None:
     for source in inputs:
         source.require_unchanged()
@@ -352,6 +390,17 @@ def require_safe_pinned_paths(
             raise EvidenceError(
                 "OUTPUT_INSIDE_ARTIFACT_ROOT",
                 "results output parent aliases the raw artifact root",
+            )
+    for raw_bundle in raw_bundles:
+        raw_bundle.revalidate()
+        if any(
+            destination.leaf_identity
+            == (artifact.metadata.st_dev, artifact.metadata.st_ino)
+            for artifact in raw_bundle.artifacts
+        ):
+            raise EvidenceError(
+                "OUTPUT_ALIASES_ARTIFACT",
+                "results output aliases a pinned raw artifact",
             )
 
 
@@ -470,15 +519,48 @@ def _produce_results(
                     manifest_input.fd, manifest_input.metadata
                 )
             )
-            artifact_root = android_ordinary_raw_evidence.artifact_root_from_manifest(
-                manifest
-            )
+            root_value = manifest.get("artifactRoot")
+            if not isinstance(root_value, str) or not Path(root_value).is_absolute():
+                raise android_ordinary_raw_evidence.RawEvidenceError(
+                    "OUTPUT_SAFETY_UNPROVEN",
+                    "artifactRoot must be absolute before results output can be written",
+                )
+            artifact_root = Path(root_value)
             for pinned_input in pinned_inputs:
                 pinned_input.require_unchanged()
             artifact_root_guard = pin_artifact_root(artifact_root)
             artifact_root_guards.append(artifact_root_guard)
-        destination = open_output_destination(args.output, forbidden_root=artifact_root)
-        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+            declared_source_sha = manifest.get("sourceSha")
+            if not isinstance(declared_source_sha, str):
+                raise android_ordinary_raw_evidence.RawEvidenceError(
+                    "MANIFEST_INVALID", "sourceSha must be a string"
+                )
+            raw_validation = android_ordinary_raw_evidence.validate_raw_bundle_pinned(
+                manifest,
+                manifest_raw,
+                expected_source_sha=declared_source_sha,
+                app_descriptor=pinned_inputs[1].fd,
+                app_metadata=pinned_inputs[1].metadata,
+                test_descriptor=pinned_inputs[2].fd,
+                test_metadata=pinned_inputs[2].metadata,
+                root_descriptor=artifact_root_guard.fd,
+            )
+            raw_bundle_guards.append(raw_validation)
+        destination = open_output_destination(
+            args.output,
+            forbidden_root=artifact_root,
+            forbidden_root_identity=(
+                artifact_root_guard.identity
+                if artifact_root_guard is not None
+                else None
+            ),
+        )
+        require_safe_pinned_paths(
+            destination,
+            pinned_inputs,
+            artifact_root_guard,
+            tuple(raw_bundle_guards),
+        )
     except (
         OSError,
         EvidenceError,
@@ -515,7 +597,12 @@ def _produce_results(
         return 2
 
     try:
-        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+        require_safe_pinned_paths(
+            destination,
+            pinned_inputs,
+            artifact_root_guard,
+            tuple(raw_bundle_guards),
+        )
     except EvidenceError as error:
         destination.close()
         print(
@@ -547,17 +634,12 @@ def _produce_results(
             )
         else:
             assert manifest is not None and manifest_raw is not None
-            raw_validation = android_ordinary_raw_evidence.validate_raw_bundle_pinned(
-                manifest,
-                manifest_raw,
-                expected_source_sha=source_sha,
-                app_descriptor=pinned_inputs[1].fd,
-                app_metadata=pinned_inputs[1].metadata,
-                test_descriptor=pinned_inputs[2].fd,
-                test_metadata=pinned_inputs[2].metadata,
-                root_descriptor=artifact_root_guard.fd,
-            )
-            raw_bundle_guards.append(raw_validation)
+            if manifest.get("sourceSha") != source_sha:
+                raise android_ordinary_raw_evidence.RawEvidenceError(
+                    "SOURCE_MISMATCH", "manifest sourceSha is stale"
+                )
+            raw_validation = raw_bundle_guards[0]
+            raw_validation.revalidate()
             if current_source_sha() != source_sha:
                 raise EvidenceError(
                     "SOURCE_CHANGED", "source changed during raw bundle verification"
@@ -579,7 +661,12 @@ def _produce_results(
                 reason=f"unexpected source validation failure ({type(error).__name__})",
             )
     try:
-        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+        require_safe_pinned_paths(
+            destination,
+            pinned_inputs,
+            artifact_root_guard,
+            tuple(raw_bundle_guards),
+        )
         for raw_bundle_guard in raw_bundle_guards:
             raw_bundle_guard.revalidate()
     except EvidenceError as error:
@@ -594,7 +681,12 @@ def _produce_results(
         destination.close()
         return 2
     try:
-        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+        require_safe_pinned_paths(
+            destination,
+            pinned_inputs,
+            artifact_root_guard,
+            tuple(raw_bundle_guards),
+        )
         for raw_bundle_guard in raw_bundle_guards:
             raw_bundle_guard.revalidate()
     except (EvidenceError, android_ordinary_raw_evidence.RawEvidenceError) as error:

@@ -90,9 +90,27 @@ class PinnedArtifact:
 class ValidatedRawBundle:
     provenance: dict[str, Any]
     root_descriptor: int
+    root_identity: tuple[int, int]
+    expected_filenames: frozenset[str]
     artifacts: list[PinnedArtifact]
 
     def revalidate(self) -> None:
+        root_metadata = os.fstat(self.root_descriptor)
+        if (
+            (root_metadata.st_dev, root_metadata.st_ino) != self.root_identity
+            or not stat.S_ISDIR(root_metadata.st_mode)
+            or stat.S_IMODE(root_metadata.st_mode) != 0o700
+            or root_metadata.st_uid != os.getuid()
+        ):
+            raise RawEvidenceError(
+                "ARTIFACT_ROOT_CHANGED",
+                "raw artifact root identity, owner, or mode changed",
+            )
+        if set(os.listdir(self.root_descriptor)) != self.expected_filenames:
+            raise RawEvidenceError(
+                "INVENTORY_MISMATCH",
+                "artifactRoot entries changed after verification",
+            )
         for artifact in self.artifacts:
             artifact.revalidate(self.root_descriptor)
 
@@ -649,6 +667,7 @@ def validate_raw_bundle_pinned(
         for pinned_artifact in pinned_artifacts:
             pinned_artifact.close()
         raise
+    root_metadata = os.fstat(root_descriptor)
     return ValidatedRawBundle(
         provenance={
             "manifestSha256": hashlib.sha256(manifest_raw).hexdigest(),
@@ -657,6 +676,8 @@ def validate_raw_bundle_pinned(
             "semanticBlockers": semantic_blockers_by_gate(),
         },
         root_descriptor=root_descriptor,
+        root_identity=(root_metadata.st_dev, root_metadata.st_ino),
+        expected_filenames=frozenset(expected_filenames),
         artifacts=pinned_artifacts,
     )
 
