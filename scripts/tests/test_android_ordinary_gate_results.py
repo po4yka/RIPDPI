@@ -314,6 +314,35 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertFalse(aliased_output.exists())
 
+    def test_non_normalized_root_cannot_create_output_parent_in_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_root = Path(manifest["artifactRoot"])
+            manifest["artifactRoot"] = str(
+                artifact_root.parent / artifact_root.name / ".." / artifact_root.name
+            )
+            self.rewrite_manifest(manifest_path, manifest)
+            entries_before = set(artifact_root.iterdir())
+            output = artifact_root / "nested-output" / "results.json"
+            status = producer.main(
+                [
+                    "--output",
+                    str(output),
+                    "--raw-manifest",
+                    str(manifest_path),
+                    "--app-apk",
+                    str(app_apk),
+                    "--test-apk",
+                    str(test_apk),
+                ]
+            )
+            self.assertEqual(status, 2)
+            self.assertFalse(output.parent.exists())
+            self.assertEqual(set(artifact_root.iterdir()), entries_before)
+
     def test_cli_refuses_hardlinked_output_without_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             directory = Path(directory_name)

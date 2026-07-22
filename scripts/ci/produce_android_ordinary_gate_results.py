@@ -235,7 +235,8 @@ def open_output_destination(
             "OUTPUT_INSIDE_ARTIFACT_ROOT",
             "results output must be outside the private raw artifact root",
         )
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if forbidden_root_identity is None:
+        path.parent.mkdir(parents=True, exist_ok=True)
     resolved_parent = Path(os.path.realpath(path.parent))
     try:
         parent_fd = os.open(
@@ -523,10 +524,14 @@ def _produce_results(
                 )
             )
             root_value = manifest.get("artifactRoot")
-            if not isinstance(root_value, str) or not Path(root_value).is_absolute():
+            if (
+                not isinstance(root_value, str)
+                or not Path(root_value).is_absolute()
+                or any(part in (".", "..") for part in Path(root_value).parts[1:])
+            ):
                 raise android_ordinary_raw_evidence.RawEvidenceError(
                     "OUTPUT_SAFETY_UNPROVEN",
-                    "artifactRoot must be absolute before results output can be written",
+                    "artifactRoot must be an absolute direct path before output",
                 )
             artifact_root = Path(root_value)
             for pinned_input in pinned_inputs:
