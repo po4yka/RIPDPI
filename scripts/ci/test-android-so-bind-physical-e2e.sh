@@ -137,16 +137,6 @@ case "$*" in
         ;;
     "shell pidof com.poyka.ripdpi") [[ "${FAKE_TARGET_PID_REMAINS:-0}" != "1" ]] || echo 123 ;;
     "shell pidof com.poyka.ripdpi.test") [[ "${FAKE_TEST_PID_REMAINS:-0}" != "1" ]] || echo 456 ;;
-    "shell pm disable-user --user 0 com.poyka.ripdpi/com.poyka.ripdpi.activities.MainActivity")
-        [[ -f "$FAKE_TARGET_STOP_MARKER" && -f "$FAKE_TEST_STOP_MARKER" ]] || exit 74
-        [[ "${FAKE_ACTIVITY_DISABLE_FAILURE:-0}" != "1" ]] || exit 1
-        : >"$FAKE_ACTIVITY_DISABLED_MARKER"
-        ;;
-    "shell pm default-state --user 0 com.poyka.ripdpi/com.poyka.ripdpi.activities.MainActivity")
-        [[ "${FAKE_ACTIVITY_RESTORE_FAILURE:-0}" != "1" ]] || exit 1
-        rm -f "$FAKE_ACTIVITY_DISABLED_MARKER"
-        : >"$FAKE_ACTIVITY_RESTORED_MARKER"
-        ;;
     "shell pm list packages -U com.poyka.ripdpi.test") echo 'package:com.poyka.ripdpi.test uid:10444' ;;
     "shell run-as com.poyka.ripdpi rm -f files/so-bind-physical-evidence.json") : ;;
     "shell run-as com.poyka.ripdpi cat files/so-bind-physical-evidence.json")
@@ -202,7 +192,7 @@ case "$*" in
         ;;
     "shell timeout "*)
         [[ -f "$FAKE_ALLOWLIST_MARKER" ]] || exit 95
-        [[ -f "$FAKE_ACTIVITY_DISABLED_MARKER" ]] || exit 73
+        [[ -f "$FAKE_TARGET_STOP_MARKER" && -f "$FAKE_TEST_STOP_MARKER" ]] || exit 73
         [[ "$3" == "180" ]] || exit 89
         [[ "$*" == *"-e ripdpi.soBindEvidenceProfile physical_pixel_api37_kernel61"* ]] || exit 91
         [[ "$*" == *"-e ripdpi.soBindIpv6Host ${FAKE_IPV6_HOST:-2606:4700:4700::1111}"* ]] || exit 96
@@ -395,8 +385,7 @@ run_runner() {
         FAKE_HOME_MARKER="$temp_dir/home.marker" \
         FAKE_TARGET_STOP_MARKER="$temp_dir/target-stop.marker" \
         FAKE_TEST_STOP_MARKER="$temp_dir/test-stop.marker" \
-        FAKE_ACTIVITY_DISABLED_MARKER="$temp_dir/activity-disabled.marker" \
-        FAKE_ACTIVITY_RESTORED_MARKER="$temp_dir/activity-restored.marker" \
+        RIPDPI_ANDROID_DEVICE_LOCK_ROOT="$temp_dir/device-locks" \
         "$@" \
         bash "$runner" >"$temp_dir/runner.stdout" 2>"$temp_dir/runner.stderr"
 }
@@ -417,11 +406,11 @@ assert_status() {
     fi
 }
 
+device_lock="$temp_dir/device-locks/ripdpi-android-device-pixel-serial.lock"
+mkdir -p "$device_lock"
+assert_status 1 "busy physical device lane rejected" run_runner FAKE_RESULT=pass
+rmdir "$device_lock"
 assert_status 0 "exact pass" run_runner FAKE_RESULT=pass
-[[ -f "$temp_dir/activity-restored.marker" ]] || {
-    echo "assertion failed: exact pass did not restore MainActivity" >&2
-    exit 1
-}
 assert_status 0 "routed ULA endpoint and source pass" run_runner \
     RIPDPI_FIXTURE_ANDROID_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
     FAKE_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
@@ -454,8 +443,6 @@ assert_status 1 "target force-stop failure rejected" run_runner FAKE_TARGET_STOP
 assert_status 1 "test force-stop failure rejected" run_runner FAKE_TEST_STOP_FAILURE=1
 assert_status 1 "remaining target process rejected" run_runner FAKE_TARGET_PID_REMAINS=1
 assert_status 1 "remaining test process rejected" run_runner FAKE_TEST_PID_REMAINS=1
-assert_status 1 "activity isolation failure rejected" run_runner FAKE_ACTIVITY_DISABLE_FAILURE=1
-assert_status 1 "activity restoration failure rejected" run_runner FAKE_ACTIVITY_RESTORE_FAILURE=1
 assert_status 1 "APK byte mismatch rejected" run_runner FAKE_APK_MISMATCH=1
 assert_status 1 "ambiguous package path rejected" run_runner FAKE_AMBIGUOUS_PATH=1
 assert_status 1 "unreachable direct fixture rejected" run_runner FAKE_FIXTURE_UNREACHABLE=1

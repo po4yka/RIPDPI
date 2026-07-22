@@ -21,7 +21,7 @@ readonly fixture_tcp_echo_port="${RIPDPI_FIXTURE_TCP_ECHO_PORT:-}"
 readonly fixture_udp_echo_port="${RIPDPI_FIXTURE_UDP_ECHO_PORT:-}"
 readonly evidence_output="${RIPDPI_SO_BIND_EVIDENCE_OUTPUT:-}"
 readonly evidence_file_name="so-bind-physical-evidence.json"
-readonly main_activity_component="com.poyka.ripdpi/com.poyka.ripdpi.activities.MainActivity"
+readonly device_lock_root="${RIPDPI_ANDROID_DEVICE_LOCK_ROOT:-${TMPDIR:-/tmp}}"
 
 fail() {
     echo "SO_BIND physical E2E: $1" >&2
@@ -102,15 +102,22 @@ adb_device() {
 }
 
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
-main_activity_disabled=0
+device_lock_acquired=0
+device_lock_serial="$(printf '%s' "$android_serial" | tr -c 'A-Za-z0-9._-' '_')"
+device_lock_dir="$device_lock_root/ripdpi-android-device-$device_lock_serial.lock"
 cleanup() {
-    if [[ "$main_activity_disabled" == "1" ]]; then
-        adb_device shell pm default-state --user 0 "$main_activity_component" >/dev/null 2>&1 || true
+    if [[ "$device_lock_acquired" == "1" ]]; then
+        rm -rf "$device_lock_dir"
     fi
     adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
+mkdir -p "$device_lock_root" || fail "could not prepare the Android device lock directory"
+mkdir "$device_lock_dir" 2>/dev/null ||
+    fail "physical Android device lane is already in use for $android_serial"
+device_lock_acquired=1
+printf '%s\n' "$$" >"$device_lock_dir/owner-pid"
 
 install_and_verify_apk() {
     local apk="$1"
@@ -233,12 +240,6 @@ PY
 )"
 readonly started_at_epoch_ms
 
-# This test never launches UI. Disable the target activity while the test
-# process uses HiltTestApplication so a concurrent adb/UI launch cannot create
-# MainActivity before HiltAndroidRule has installed the per-test component.
-adb_device shell pm disable-user --user 0 "$main_activity_component" >/dev/null 2>&1 ||
-    fail "could not isolate MainActivity during instrumentation"
-main_activity_disabled=1
 set +e
 adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r \
     -e class "$test_selector" \
@@ -255,9 +256,6 @@ adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r 
     "$instrumentation_component" >"$output_file" 2>&1
 instrumentation_status=$?
 set -e
-adb_device shell pm default-state --user 0 "$main_activity_component" >/dev/null 2>&1 ||
-    fail "could not restore MainActivity after instrumentation"
-main_activity_disabled=0
 
 [[ "$instrumentation_status" == "0" ]] || fail "instrumentation command failed"
 if ! so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_method"; then
