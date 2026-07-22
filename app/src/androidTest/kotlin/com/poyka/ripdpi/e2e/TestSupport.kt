@@ -1388,6 +1388,10 @@ fun testProcessDnsProbe(
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                        boundDevice = extras.getString(DebugNetworkProbeExtraBoundDevice),
+                        failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
+                        failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
+                        errno = extras.getInt(DebugNetworkProbeExtraErrno).takeIf { it != 0 },
                     ),
                 )
                 latch.countDown()
