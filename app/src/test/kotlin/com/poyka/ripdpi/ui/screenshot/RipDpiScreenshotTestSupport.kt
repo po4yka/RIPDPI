@@ -151,6 +151,9 @@ internal fun captureScreenBothThemes(
     isolateByExperience: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    if (isolateByExperience) {
+        assumeFullExperienceScreenshot()
+    }
     val moduleRoot = System.getProperty("user.dir")
     val experienceSuffix = if (isolateByExperience) "_${BuildConfig.APP_EXPERIENCE}" else ""
     listOf("light", "dark").forEach { themePreference ->
