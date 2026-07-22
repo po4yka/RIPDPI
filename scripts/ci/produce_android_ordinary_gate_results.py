@@ -378,21 +378,11 @@ def require_safe_pinned_paths(
     raw_bundles: tuple[android_ordinary_raw_evidence.ValidatedRawBundle, ...] = (),
 ) -> None:
     for source in inputs:
-        source.require_unchanged()
         if destination.leaf_identity == source.identity:
             raise EvidenceError(
                 "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
             )
-    if artifact_root is not None:
-        artifact_root.require_unchanged()
-        parent_metadata = os.fstat(destination.parent_fd)
-        if (parent_metadata.st_dev, parent_metadata.st_ino) == artifact_root.identity:
-            raise EvidenceError(
-                "OUTPUT_INSIDE_ARTIFACT_ROOT",
-                "results output parent aliases the raw artifact root",
-            )
     for raw_bundle in raw_bundles:
-        raw_bundle.revalidate()
         if any(
             destination.leaf_identity
             == (artifact.metadata.st_dev, artifact.metadata.st_ino)
@@ -402,6 +392,19 @@ def require_safe_pinned_paths(
                 "OUTPUT_ALIASES_ARTIFACT",
                 "results output aliases a pinned raw artifact",
             )
+    if artifact_root is not None:
+        parent_metadata = os.fstat(destination.parent_fd)
+        if (parent_metadata.st_dev, parent_metadata.st_ino) == artifact_root.identity:
+            raise EvidenceError(
+                "OUTPUT_INSIDE_ARTIFACT_ROOT",
+                "results output parent aliases the raw artifact root",
+            )
+    for source in inputs:
+        source.require_unchanged()
+    if artifact_root is not None:
+        artifact_root.require_unchanged()
+    for raw_bundle in raw_bundles:
+        raw_bundle.revalidate()
 
 
 def publish_results(
@@ -603,12 +606,19 @@ def _produce_results(
             artifact_root_guard,
             tuple(raw_bundle_guards),
         )
-    except EvidenceError as error:
+    except (EvidenceError, android_ordinary_raw_evidence.RawEvidenceError) as error:
+        results = all_failure_results(source_sha, code=error.code, reason=error.message)
+        if not publish_results(destination, args.output, results):
+            destination.close()
+            return 2
         destination.close()
-        print(
-            f"Android ordinary producer refused changed input: {error}", file=sys.stderr
-        )
-        return 2
+        print("Android ordinary release evidence is NO-SHIP:", file=sys.stderr)
+        for gate_id in ORDINARY_GATE_IDS:
+            print(
+                f"  - {gate_id}: {results['gateResults'][gate_id]['reason']}",
+                file=sys.stderr,
+            )
+        return 1
     if not publish_results(
         destination,
         args.output,

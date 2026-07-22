@@ -913,6 +913,52 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                     )
                 )
 
+    def test_raw_mutation_before_pending_write_replaces_forged_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_root = Path(manifest["artifactRoot"])
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            output.write_text('{"gateResults":{"forged":"PASS"}}')
+            output.chmod(0o600)
+
+            def mutate_after_output_reservation() -> str:
+                extra = artifact_root / "caller-summary.json"
+                extra.write_bytes(b"caller summary")
+                extra.chmod(0o600)
+                return self.source_sha
+
+            with mock.patch.object(
+                producer,
+                "current_head_sha",
+                side_effect=mutate_after_output_reservation,
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            results = json.loads(output.read_text())
+            self.assertNotIn("rawBundleProvenance", results)
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL" and "INVENTORY_MISMATCH" in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+
     def test_apk_hashing_streams_without_whole_file_helper(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             apk = Path(directory_name) / "large.apk"
