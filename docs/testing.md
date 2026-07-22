@@ -331,6 +331,29 @@ by runner-owned timeouts. The runner requires exactly one physical
 ADB device, pulls its installed base APK, and compares it byte-for-byte with the
 scratch artifact both before and after capture.
 
+`test-lab/scripts/network-evidence-ssh-capture.py` is a checked-in private
+capture utility for acquiring a PCAP from an owner-controlled SSH/tcpdump
+vantage. It requires the test-flow peer IP exactly as visible at that vantage
+and one to eight explicit endpoint IP-and-port pairs, builds the bidirectional
+BPF itself, uses a 192-byte snap length and a fixed size/packet bound, requires
+passwordless `sudo`, and verifies remote process cleanup on every exit path. It requires a
+`RIPDPI-EVIDENCE-V2:<sha256>` packet marker; a missing marker fails the capture
+and removes the PCAP, metadata, and readiness marker. This preflight is
+mandatory before treating a host as the Pixel's client-underlay vantage. Being
+reachable from the Mac, sharing an Internet exit, or observing unrelated
+traffic is not proof that a router can see the Pixel's packets.
+
+The backend deliberately emits private-capture metadata rather than a release
+observation. It is not yet listed in `network-evidence-producers.json`: the ten
+gate-specific Android actions, packet oracles, ordinary-results producer, and
+signed release APK are still missing. Copying its digest into the producer
+allowlist before those pieces exist would turn a capture plumbing check into
+false release evidence.
+On success, the utility leaves the raw PCAP at the explicitly requested private
+path for the future gate-specific analyzer. The operator must delete it after
+analysis; unlike the integrated runner scratch directory, this standalone
+utility does not apply an automatic successful-run retention policy.
+
 The fixed hooks receive only a correlation digest, source SHA, marker paths,
 artifact path and digest, and output paths. The workload emits a strict v2
 scenario plan with action and outcome marker digests derived from a

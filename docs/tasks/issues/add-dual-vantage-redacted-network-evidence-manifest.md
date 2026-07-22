@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-07-16
-updated: 2026-07-17
+updated: 2026-07-22
 status_detail: Repository contract includes independently hashed network and vantage identities; zero configured physical-Android runners and no runner config block the first real dual-vantage run
 ---
 
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-22: The dual-vantage producer lane added a source-owned SSH/tcpdump private capture utility with peer-and-endpoint-scoped BPF, bounded remote lifetime and size, explicit remote cleanup verification, marker-based path visibility preflight, canonical private metadata, and fail-closed deletion. A live scoped capture on the P2 Tailscale interface observed the injected marker. The proposed Raspberry Pi client-underlay vantage correctly failed the same preflight because the Pixel is attached to a different wireless network that the Pi cannot observe. The utility remains outside the producer allowlist because there is still no truthful ten-scenario Android action driver, packet oracle, ordinary-results producer, or signed release-candidate APK.
 - 2026-07-17: Commit `0b1eac50f276405d02f4f4cccff60f3ab54f9cad` made `networkIdSha256` independent from `vantageIdSha256`, domain-separated both hashes, rejected missing/duplicate/cross-type identities, and added executable Draft 2020-12 validation for emitted observations and manifests. The private runner config must now provide four distinct high-entropy identifiers.
 - 2026-07-17: Live infrastructure audit found zero registered repository runners and no `/etc/ripdpi/network-evidence-runner.json`. A physical Android device is locally attached, but the active workflow still requires a configured runner with labels `self-hosted, linux, ripdpi-network-evidence, physical-android` plus independent client/observer hooks. No dual-vantage run or PASS artifact is claimed.
 - 2026-07-16: Assigned to the serialized evidence/schema lane for the active network-evidence hardening goal.
