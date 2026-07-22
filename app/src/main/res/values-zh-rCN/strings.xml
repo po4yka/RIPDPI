@@ -1928,6 +1928,7 @@ fake_burst 3</string>
     <string name="logs_active_session_title">仅当前会话</string>
     <string name="logs_buffer_value">%1$d / %2$d 条</string>
     <string name="logs_entries_count">%1$d 条</string>
+    <string name="logs_copy_entry">复制 %2$s 的%1$s日志</string>
     <string name="logs_filters_helper">按子系统或严重程度筛选,以聚焦您正在调试的运行时。</string>
     <string name="logs_latest_none">空闲</string>
     <string name="logs_overview_title">设备上事件流</string>

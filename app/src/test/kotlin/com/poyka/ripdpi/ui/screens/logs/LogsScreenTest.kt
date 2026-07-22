@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -50,11 +51,21 @@ class LogsScreenTest {
                 message = "Connected to relay",
                 source = "runtime",
             )
+        val secondEntry =
+            LogEntry(
+                id = "entry-2",
+                createdAtMs = 2L,
+                timestamp = "12:35:57",
+                subsystem = LogSubsystem.Diagnostics,
+                severity = LogSeverity.Warn,
+                message = "Probe timed out",
+                source = "diagnostics",
+            )
         var copiedEntry: LogEntry? = null
         composeRule.setContent {
             RipDpiTheme {
                 LogsStreamCard(
-                    entries = persistentListOf(entry),
+                    entries = persistentListOf(entry, secondEntry),
                     listState = rememberLazyListState(),
                     onCopyEntry = { copiedEntry = it },
                 )
@@ -69,6 +80,8 @@ class LogsScreenTest {
             .assertIsDisplayed()
             .assertHasClickAction()
             .performClick()
+        composeRule.onNodeWithContentDescription("Copy PROXY log at 12:34:56").assertExists()
+        composeRule.onNodeWithContentDescription("Copy DIAGNOSTICS log at 12:35:57").assertExists()
 
         composeRule.runOnIdle { assertEquals(entry, copiedEntry) }
     }

@@ -1602,6 +1602,7 @@ fakeddisorder endhost</string>
     <string name="logs_stream_section">Log stream</string>
     <string name="logs_stream_title">Recent entries</string>
     <string name="logs_entries_count">%1$d entries</string>
+    <string name="logs_copy_entry">Copy %1$s log at %2$s</string>
     <string name="logs_empty_title">No logs yet</string>
     <string name="logs_empty_body">Start RIPDPI or trigger a diagnostic event to populate the on-device stream.</string>
     <string name="logs_filtered_empty_title">No entries match the current filters</string>

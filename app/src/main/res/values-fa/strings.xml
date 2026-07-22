@@ -2513,6 +2513,7 @@ fakeddisorder endhost</string>
     <string name="logs_auto_scroll_title">پیمایش خودکار به جدیدترین</string>
     <string name="logs_clear">پاک‌سازی</string>
     <string name="logs_entries_count">%1$d ورودی</string>
+    <string name="logs_copy_entry">کپی گزارش %1$s در %2$s</string>
     <string name="logs_filtered_empty_title">هیچ ورودی با فیلترهای فعلی مطابقت ندارد</string>
     <string name="logs_filters_summary_compact">%1$d زیرسیستم • %2$d شدت</string>
     <string name="logs_latest_title">آخرین رویداد</string>

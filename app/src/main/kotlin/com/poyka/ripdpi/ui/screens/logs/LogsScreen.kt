@@ -455,8 +455,6 @@ internal fun LogsStreamCard(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
-    val copyLabel = stringResource(R.string.detection_check_copy)
-
     RipDpiCard(
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.LogsStream),
         paddingValues =
@@ -494,7 +492,12 @@ internal fun LogsStreamCard(
             ) { index, entry ->
                 LogsStreamEntry(
                     entry = entry,
-                    copyLabel = copyLabel,
+                    copyContentDescription =
+                        stringResource(
+                            R.string.logs_copy_entry,
+                            subsystemLabel(entry.subsystem),
+                            entry.timestamp,
+                        ),
                     showDivider = index < entries.lastIndex,
                     onCopy = { onCopyEntry(entry) },
                 )
@@ -506,7 +509,7 @@ internal fun LogsStreamCard(
 @Composable
 private fun LogsStreamEntry(
     entry: LogEntry,
-    copyLabel: String,
+    copyContentDescription: String,
     showDivider: Boolean,
     onCopy: () -> Unit,
 ) {
@@ -534,7 +537,7 @@ private fun LogsStreamEntry(
             )
             RipDpiIconButton(
                 icon = RipDpiIcons.Copy,
-                contentDescription = copyLabel,
+                contentDescription = copyContentDescription,
                 onClick = onCopy,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.logsEntryCopy(entry.id)),
                 density = RipDpiControlDensity.Compact,

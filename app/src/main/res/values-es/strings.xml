@@ -1929,6 +1929,7 @@ Origen: %2$s</string>
     <string name="diagnostics_open_logs_body">Abre el flujo en vivo de registros con filtros para servicio, proxy, túnel y diagnósticos.</string>
     <string name="logs_buffer_title">Búfer</string>
     <string name="logs_entries_count">%1$d entradas</string>
+    <string name="logs_copy_entry">Copiar registro de %1$s de las %2$s</string>
     <string name="logs_filters_section">Filtros</string>
     <string name="logs_overview_body">Revisa la última actividad local de DNS, conexión, advertencias y errores capturada por RIPDPI en este dispositivo.</string>
     <string name="logs_severity_debug">DEBUG</string>

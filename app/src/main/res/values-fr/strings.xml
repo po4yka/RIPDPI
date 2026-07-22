@@ -1929,6 +1929,7 @@ Source : %2$s</string>
     <string name="diagnostics_open_logs_body">Ouvre le flux en direct des journaux avec des filtres pour le service, le proxy, le tunnel et les diagnostics.</string>
     <string name="logs_buffer_title">Tampon</string>
     <string name="logs_entries_count">%1$d entrées</string>
+    <string name="logs_copy_entry">Copier le journal %1$s de %2$s</string>
     <string name="logs_filters_section">Filtres</string>
     <string name="logs_overview_body">Examinez les dernières activités DNS locales, de connexion, d\'avertissement et d\'erreur capturées par RIPDPI sur cet appareil.</string>
     <string name="logs_severity_debug">DEBUG</string>
