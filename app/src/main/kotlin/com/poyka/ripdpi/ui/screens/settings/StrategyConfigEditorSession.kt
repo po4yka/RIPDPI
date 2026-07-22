@@ -92,6 +92,8 @@ internal data class StrategyConfigEditorSession(
         return copy(baseline = synced, draft = synced)
     }
 
+    fun discardDraft(): StrategyConfigEditorSession = copy(draft = baseline, activeSaveId = null)
+
     fun beginSave(): Pair<StrategyConfigEditorSession, StrategyConfigSaveRequest>? {
         if (isSaving) return null
         val request = StrategyConfigSaveRequest(id = nextSaveId, draft = draft)

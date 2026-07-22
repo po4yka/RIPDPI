@@ -198,6 +198,28 @@ class StrategyConfigEditorViewModelTest {
         }
 
     @Test
+    fun `cancelled discard waiter still completes deletion and clears dirty session`() =
+        runTest {
+            val store = ControllableDeleteStrategyConfigDraftStore()
+            val handle = SavedStateHandle()
+            val viewModel = StrategyConfigEditorViewModel(handle, store)
+            viewModel.syncBuiltIn("tcp: split")
+            viewModel.update { copy(configText = "tcp: discard after rotation") }
+            store.pauseNextDelete = true
+
+            val discard = async { viewModel.discard() }
+            runCurrent()
+            discard.cancel()
+            store.finishDelete()
+            discard.join()
+            runCurrent()
+
+            assertTrue(discard.isCancelled)
+            assertFalse(requireNotNull(viewModel.session).isDirty)
+            assertNull(store.sessions[handle.sessionId()])
+        }
+
+    @Test
     fun `failed and cancelled saves retain the newest dirty draft`() =
         runTest {
             val store = FakeStrategyConfigDraftStore()

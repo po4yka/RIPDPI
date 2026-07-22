@@ -11,10 +11,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 internal const val StrategyConfigSessionIdSavedStateKey = "strategy_config_session_id"
@@ -166,12 +168,16 @@ internal class StrategyConfigEditorViewModel
         suspend fun discard() {
             check(session?.isSaving != true) { "Cannot discard while a save is active" }
             discarding = true
-            var deleted = false
             try {
-                persistence.deleteAndAwait()
-                deleted = true
+                withContext(NonCancellable) {
+                    persistence.deleteAndAwait()
+                    session = session?.discardDraft()
+                    exitRequested = false
+                    exitDecision = null
+                    discarding = false
+                }
             } finally {
-                if (!deleted) discarding = false
+                if (discarding) discarding = false
             }
         }
 
