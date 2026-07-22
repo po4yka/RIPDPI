@@ -79,6 +79,30 @@ class AssetProviderScreenScreenshotTest {
     }
 
     @Test
+    fun assetProviderUpdatedMaximumFont() {
+        capture(
+            name = "assetProviderUpdatedMaximumFont",
+            fontScale = 2f,
+            heightDp = 1600,
+            state =
+                AssetProviderScreenState(
+                    providerId = "sagernet",
+                    customBaseUrl = "",
+                    geoipTag = "202607200000",
+                    geositeTag = "202607201234",
+                    staleness = GeoAssetStaleness.Today,
+                    activeOperation = null,
+                    resultBanner =
+                        AssetProviderBanner(
+                            title = "Assets updated",
+                            message = "GeoIP 202607200000 and geosite 202607201234 are ready.",
+                            tone = WarningBannerTone.Info,
+                        ),
+                ),
+        )
+    }
+
+    @Test
     fun assetProviderBusy() {
         capture(
             name = "assetProviderBusy",
@@ -99,11 +123,12 @@ class AssetProviderScreenScreenshotTest {
         name: String,
         state: AssetProviderScreenState,
         fontScale: Float = 1f,
+        heightDp: Int = 1100,
     ) {
         captureScreenBothThemes(
             name = name,
             widthDp = 420,
-            heightDp = 1100,
+            heightDp = heightDp,
             testClassFqn = FQN,
             fontScale = fontScale,
         ) {

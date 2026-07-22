@@ -1,18 +1,23 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.Density
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,7 +28,7 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35])
+@Config(sdk = [35], qualifiers = "en-w411dp-h891dp")
 class AssetProviderScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
@@ -97,6 +102,31 @@ class AssetProviderScreenTest {
         composeRule.runOnIdle { org.junit.Assert.assertEquals(1, retryClicks) }
     }
 
+    @Test
+    fun `maximum font stacks complete asset versions below their labels`() {
+        render(
+            activeOperation = null,
+            geoipTag = MaximumFontGeoipTag,
+            geositeTag = MaximumFontGeositeTag,
+            fontScale = 2f,
+        )
+
+        val context = RuntimeEnvironment.getApplication()
+        val geoipLabel = context.getString(R.string.asset_provider_geoip_version)
+        val geositeLabel = context.getString(R.string.asset_provider_geosite_version)
+        composeRule
+            .onNode(hasScrollAction().and(hasAnyDescendant(hasTestTag(RipDpiTestTags.AssetProviderDropdown))))
+            .performScrollToNode(hasText(MaximumFontGeositeTag))
+
+        val geoipLabelBounds = composeRule.onNodeWithText(geoipLabel).fetchSemanticsNode().boundsInRoot
+        val geoipValueBounds = composeRule.onNodeWithText(MaximumFontGeoipTag).fetchSemanticsNode().boundsInRoot
+        val geositeLabelBounds = composeRule.onNodeWithText(geositeLabel).fetchSemanticsNode().boundsInRoot
+        val geositeValueBounds = composeRule.onNodeWithText(MaximumFontGeositeTag).fetchSemanticsNode().boundsInRoot
+
+        assertTrue(geoipLabelBounds.bottom <= geoipValueBounds.top)
+        assertTrue(geositeLabelBounds.bottom <= geositeValueBounds.top)
+    }
+
     private fun assertActionEnabled(
         tag: String,
         enabled: Boolean,
@@ -122,30 +152,40 @@ class AssetProviderScreenTest {
         customBaseUrl: String = "https://provider.example/assets",
         hasPersistenceError: Boolean = false,
         onRetryConfigurationPersistence: () -> Unit = {},
+        geoipTag: String = "v1",
+        geositeTag: String = "v1",
+        fontScale: Float = 1f,
     ) {
         composeRule.setContent {
-            RipDpiTheme {
-                AssetProviderScreen(
-                    state =
-                        AssetProviderScreenState(
-                            providerId = "custom",
-                            customBaseUrl = customBaseUrl,
-                            geoipTag = "v1",
-                            geositeTag = "v1",
-                            staleness = GeoAssetStaleness.Today,
-                            activeOperation = activeOperation,
-                            resultBanner = resultBanner?.let { rememberOutcomeBanner(it) },
-                            hasPersistenceError = hasPersistenceError,
-                        ),
-                    onBack = {},
-                    onProviderSelected = {},
-                    onCustomUrlChanged = {},
-                    onCheckForUpdates = {},
-                    onRetryConfigurationPersistence = onRetryConfigurationPersistence,
-                    onImportGeoip = {},
-                    onImportGeosite = {},
-                )
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
+                RipDpiTheme {
+                    AssetProviderScreen(
+                        state =
+                            AssetProviderScreenState(
+                                providerId = "custom",
+                                customBaseUrl = customBaseUrl,
+                                geoipTag = geoipTag,
+                                geositeTag = geositeTag,
+                                staleness = GeoAssetStaleness.Today,
+                                activeOperation = activeOperation,
+                                resultBanner = resultBanner?.let { rememberOutcomeBanner(it) },
+                                hasPersistenceError = hasPersistenceError,
+                            ),
+                        onBack = {},
+                        onProviderSelected = {},
+                        onCustomUrlChanged = {},
+                        onCheckForUpdates = {},
+                        onRetryConfigurationPersistence = onRetryConfigurationPersistence,
+                        onImportGeoip = {},
+                        onImportGeosite = {},
+                    )
+                }
             }
         }
+    }
+
+    private companion object {
+        const val MaximumFontGeoipTag = "202607200000"
+        const val MaximumFontGeositeTag = "202607201234"
     }
 }

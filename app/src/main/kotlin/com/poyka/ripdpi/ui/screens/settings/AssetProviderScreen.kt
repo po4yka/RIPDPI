@@ -14,7 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -315,22 +317,63 @@ private fun VersionRow(
     label: String,
     tag: String,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Text(
-            text = tag.ifEmpty { stringResource(R.string.asset_provider_version_none) },
-            style = RipDpiThemeTokens.type.monoValue,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+    val version = tag.ifEmpty { stringResource(R.string.asset_provider_version_none) }
+    val useStackedLayout = LocalDensity.current.fontScale >= VersionRowStackedFontScale
+
+    if (useStackedLayout) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            VersionLabel(label)
+            VersionValue(version)
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        ) {
+            VersionLabel(label, Modifier.weight(VersionLabelWeight))
+            VersionValue(
+                version = version,
+                modifier = Modifier.weight(VersionValueWeight),
+                textAlign = TextAlign.End,
+            )
+        }
     }
 }
+
+@Composable
+private fun VersionLabel(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = label,
+        modifier = modifier,
+        style = RipDpiThemeTokens.type.body,
+        color = RipDpiThemeTokens.colors.foreground,
+    )
+}
+
+@Composable
+private fun VersionValue(
+    version: String,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Start,
+) {
+    Text(
+        text = version,
+        modifier = modifier,
+        style = RipDpiThemeTokens.type.monoValue,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        textAlign = textAlign,
+    )
+}
+
+private const val VersionRowStackedFontScale = 1.5f
+private const val VersionLabelWeight = 0.55f
+private const val VersionValueWeight = 0.45f
 
 @Composable
 private fun UpdatedRow(staleness: GeoAssetStaleness) {
