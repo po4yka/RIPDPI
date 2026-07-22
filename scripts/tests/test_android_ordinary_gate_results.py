@@ -113,6 +113,46 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         path.write_bytes(raw_evidence.canonical_json_bytes(manifest))
         path.chmod(0o600)
 
+    def assert_invalid_evidence_preserves_unproven_output(self, mutation: str) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            if mutation == "malformed":
+                manifest_path.write_bytes(b"{malformed\n")
+            elif mutation == "noncanonical":
+                manifest_path.write_text(json.dumps(manifest, indent=2))
+            elif mutation == "digest":
+                manifest["actions"][0]["artifacts"][0]["sha256"] = "0" * 64
+                self.rewrite_manifest(manifest_path, manifest)
+            elif mutation == "inventory":
+                manifest["actions"][0]["artifacts"].pop()
+                self.rewrite_manifest(manifest_path, manifest)
+            else:
+                self.fail(f"unknown mutation {mutation}")
+            manifest_path.chmod(0o600)
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            output.write_text('{"gateResults":{"forged":"PASS"}}')
+            output.chmod(0o600)
+            before = output.read_bytes()
+            status = producer.main(
+                [
+                    "--output",
+                    str(output),
+                    "--raw-manifest",
+                    str(manifest_path),
+                    "--app-apk",
+                    str(app_apk),
+                    "--test-apk",
+                    str(test_apk),
+                ]
+            )
+            self.assertEqual(status, 2)
+            self.assertEqual(output.read_bytes(), before)
+
     def test_inventory_matches_exact_android_ordinary_policy_set(self) -> None:
         policy = gates.load_json(gates.POLICY_PATH)
         ordinary = gates.applicable_gate_ids(
@@ -125,6 +165,67 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         }
         self.assertEqual(action_gates, ordinary)
         self.assertEqual(len(raw_evidence.ACTION_SPECS), 7)
+
+    def test_relative_evidence_inputs_are_rejected_before_open(self) -> None:
+        for relative in (Path("manifest.json"), Path("app.apk"), Path("test.apk")):
+            with (
+                self.subTest(path=relative),
+                self.assertRaisesRegex(ValueError, "INPUT_PATH_INVALID"),
+            ):
+                producer.pin_input(relative)
+
+    def test_malformed_evidence_preserves_unproven_stale_output(self) -> None:
+        self.assert_invalid_evidence_preserves_unproven_output("malformed")
+
+    def test_noncanonical_evidence_preserves_unproven_stale_output(self) -> None:
+        self.assert_invalid_evidence_preserves_unproven_output("noncanonical")
+
+    def test_digest_failure_preserves_unproven_stale_output(self) -> None:
+        self.assert_invalid_evidence_preserves_unproven_output("digest")
+
+    def test_inventory_failure_preserves_unproven_stale_output(self) -> None:
+        self.assert_invalid_evidence_preserves_unproven_output("inventory")
+
+    def test_results_shaped_raw_artifact_is_never_recovered_as_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_entry = manifest["actions"][0]["artifacts"][0]
+            artifact = Path(manifest["artifactRoot"]) / artifact_entry["path"]
+            mimicking_payload = raw_evidence.canonical_json_bytes(
+                {
+                    "appliesTo": producer.APPLIES_TO,
+                    "gateResults": {
+                        gate_id: {"state": "PASS"}
+                        for gate_id in producer.ORDINARY_GATE_IDS
+                    },
+                    "sourceSha": self.source_sha,
+                    "version": producer.RESULTS_VERSION,
+                }
+            )
+            artifact.write_bytes(mimicking_payload)
+            artifact.chmod(0o600)
+            artifact_entry["sizeBytes"] = len(mimicking_payload)
+            artifact_entry["sha256"] = hashlib.sha256(mimicking_payload).hexdigest()
+            self.rewrite_manifest(manifest_path, manifest)
+            manifest_path.write_bytes(b"{malformed\n")
+            manifest_path.chmod(0o600)
+            status = producer.main(
+                [
+                    "--output",
+                    str(artifact),
+                    "--raw-manifest",
+                    str(manifest_path),
+                    "--app-apk",
+                    str(app_apk),
+                    "--test-apk",
+                    str(test_apk),
+                ]
+            )
+            self.assertEqual(status, 2)
+            self.assertEqual(artifact.read_bytes(), mimicking_payload)
 
     def test_producer_has_no_pluggable_or_false_green_path(self) -> None:
         self.assertFalse(producer.SOURCE_OWNED_VERIFIER_AVAILABLE)
@@ -912,6 +1013,155 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                         producer,
                         "publish_results",
                         side_effect=mutate_before_provenance_publish,
+                    ),
+                    mock.patch.object(
+                        producer, "current_head_sha", return_value=self.source_sha
+                    ),
+                    mock.patch.object(
+                        producer, "current_source_sha", return_value=self.source_sha
+                    ),
+                ):
+                    status = producer.main(
+                        [
+                            "--output",
+                            str(output),
+                            "--raw-manifest",
+                            str(manifest_path),
+                            "--app-apk",
+                            str(app_apk),
+                            "--test-apk",
+                            str(test_apk),
+                        ]
+                    )
+                self.assertEqual(status, 1)
+                results = json.loads(output.read_text())
+                self.assertNotIn("rawBundleProvenance", results)
+                self.assertTrue(
+                    all(
+                        value["state"] == "FAIL" and expected_code in value["reason"]
+                        for value in results["gateResults"].values()
+                    )
+                )
+
+    def test_evidence_expiry_crossing_during_publication_drops_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            clock = [manifest["createdAtEpochMs"]]
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            publish_results = producer.publish_results
+
+            def cross_expiry_before_provenance_publish(
+                destination: producer.OutputDestination,
+                path: Path,
+                value: dict,
+            ) -> bool:
+                if "rawBundleProvenance" in value:
+                    clock[0] = (
+                        manifest["createdAtEpochMs"]
+                        + raw_evidence.MAX_EVIDENCE_AGE_MS
+                        + 1
+                    )
+                return publish_results(destination, path, value)
+
+            with (
+                mock.patch.object(
+                    raw_evidence, "current_epoch_ms", side_effect=lambda: clock[0]
+                ),
+                mock.patch.object(
+                    producer,
+                    "publish_results",
+                    side_effect=cross_expiry_before_provenance_publish,
+                ),
+                mock.patch.object(
+                    producer, "current_head_sha", return_value=self.source_sha
+                ),
+                mock.patch.object(
+                    producer, "current_source_sha", return_value=self.source_sha
+                ),
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            results = json.loads(output.read_text())
+            self.assertNotIn("rawBundleProvenance", results)
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL" and "EVIDENCE_STALE" in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+
+    def test_mid_revalidation_root_changes_drop_provenance(self) -> None:
+        for mutation, expected_code in (
+            ("extra", "INVENTORY_MISMATCH"),
+            ("mode", "ARTIFACT_ROOT_CHANGED"),
+        ):
+            with (
+                self.subTest(mutation=mutation),
+                tempfile.TemporaryDirectory() as directory_name,
+            ):
+                directory = Path(directory_name)
+                manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                    directory
+                )
+                artifact_root = Path(manifest["artifactRoot"])
+                output_parent = directory / "output"
+                output_parent.mkdir(mode=0o700)
+                output = output_parent / "results.json"
+                publish_results = producer.publish_results
+                revalidate_artifact = raw_evidence.PinnedArtifact.revalidate
+                publication_started = False
+                artifact_checks = 0
+
+                def start_publication(
+                    destination: producer.OutputDestination,
+                    path: Path,
+                    value: dict,
+                ) -> bool:
+                    nonlocal publication_started
+                    if "rawBundleProvenance" in value:
+                        publication_started = True
+                    return publish_results(destination, path, value)
+
+                def mutate_mid_revalidation(
+                    artifact: raw_evidence.PinnedArtifact, root_descriptor: int
+                ) -> None:
+                    nonlocal artifact_checks
+                    revalidate_artifact(artifact, root_descriptor)
+                    if publication_started:
+                        artifact_checks += 1
+                        if artifact_checks == 10:
+                            if mutation == "extra":
+                                extra = artifact_root / "mid-revalidation-extra"
+                                extra.write_bytes(b"extra")
+                                extra.chmod(0o600)
+                            else:
+                                artifact_root.chmod(0o755)
+
+                with (
+                    mock.patch.object(
+                        producer, "publish_results", side_effect=start_publication
+                    ),
+                    mock.patch.object(
+                        raw_evidence.PinnedArtifact,
+                        "revalidate",
+                        autospec=True,
+                        side_effect=mutate_mid_revalidation,
                     ),
                     mock.patch.object(
                         producer, "current_head_sha", return_value=self.source_sha

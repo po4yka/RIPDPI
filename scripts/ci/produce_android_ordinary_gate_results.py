@@ -167,6 +167,10 @@ def path_is_within(path: Path, root: Path) -> bool:
 
 
 def pin_input(path: Path) -> PinnedPath:
+    if not path.is_absolute():
+        raise EvidenceError(
+            "INPUT_PATH_INVALID", "evidence input paths must be absolute"
+        )
     try:
         fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
     except OSError as error:
@@ -682,8 +686,6 @@ def _produce_results(
             artifact_root_guard,
             tuple(raw_bundle_guards),
         )
-        for raw_bundle_guard in raw_bundle_guards:
-            raw_bundle_guard.revalidate()
     except EvidenceError as error:
         destination.close()
         print(
@@ -702,8 +704,6 @@ def _produce_results(
             artifact_root_guard,
             tuple(raw_bundle_guards),
         )
-        for raw_bundle_guard in raw_bundle_guards:
-            raw_bundle_guard.revalidate()
     except (EvidenceError, android_ordinary_raw_evidence.RawEvidenceError) as error:
         results = all_failure_results(source_sha, code=error.code, reason=error.message)
         if not publish_results(destination, args.output, results):

@@ -46,10 +46,20 @@ Every artifact entry repeats the action window and carries its exact byte size
 and SHA-256 digest. Extra, partial, reordered, stale-metadata, mixed-correlation,
 symlinked, hardlinked, noncanonical, or digest-tampered inputs fail closed. The
 results output must be absolute, use a current-user-owned private parent, stay
-outside the artifact root, and must not alias any input. Binding the packet/route
-contents themselves to those run fields is part of the seven missing semantic
-oracles; copied or relabelled bytes therefore remain an explicit FAIL blocker
-and cannot produce PASS.
+outside the artifact root, and must not alias any input. In raw mode the output
+parent must already exist; the producer never creates it. Manifest, APK, root,
+and every listed artifact must be pinned before the output is reserved.
+
+If malformed, noncanonical, incomplete, or digest-invalid evidence prevents
+the producer from proving the output is disjoint from every raw artifact, it
+exits with status 2 and does not touch an existing output. This is intentional:
+content that resembles an older results document is not output provenance and
+may itself be a raw artifact. Such a file is not accepted as release evidence
+because the command failed and caller-authored PASS remains forbidden.
+
+Binding the packet/route contents themselves to the manifest run fields is part
+of the seven missing semantic oracles; copied or relabelled bytes therefore
+remain an explicit FAIL blocker and cannot produce PASS.
 
 ## Current local command
 

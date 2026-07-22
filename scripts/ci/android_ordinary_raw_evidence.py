@@ -16,7 +16,7 @@ import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 BUNDLE_VERSION = "android_ordinary_raw_bundle_v1"
@@ -93,8 +93,10 @@ class ValidatedRawBundle:
     root_identity: tuple[int, int]
     expected_filenames: frozenset[str]
     artifacts: list[PinnedArtifact]
+    expires_at_epoch_ms: int
+    current_time_ms: Callable[[], int]
 
-    def revalidate(self) -> None:
+    def _require_root_state(self) -> None:
         root_metadata = os.fstat(self.root_descriptor)
         if (
             (root_metadata.st_dev, root_metadata.st_ino) != self.root_identity
@@ -111,8 +113,16 @@ class ValidatedRawBundle:
                 "INVENTORY_MISMATCH",
                 "artifactRoot entries changed after verification",
             )
+
+    def revalidate(self) -> None:
+        if self.current_time_ms() > self.expires_at_epoch_ms:
+            raise RawEvidenceError(
+                "EVIDENCE_STALE", "raw artifact bundle expired during verification"
+            )
+        self._require_root_state()
         for artifact in self.artifacts:
             artifact.revalidate(self.root_descriptor)
+        self._require_root_state()
 
     def close(self) -> None:
         for artifact in self.artifacts:
@@ -486,6 +496,10 @@ def semantic_blockers_by_gate() -> dict[str, str]:
     }
 
 
+def current_epoch_ms() -> int:
+    return int(time.time() * 1000)
+
+
 def validate_raw_bundle_pinned(
     manifest: dict[str, Any],
     manifest_raw: bytes,
@@ -521,7 +535,8 @@ def validate_raw_bundle_pinned(
         raise RawEvidenceError("SOURCE_MISMATCH", "manifest sourceSha is stale")
     run_id = require_digest(manifest["runId"], SHA256_RE, "runId")
     created_at = require_epoch_ms(manifest["createdAtEpochMs"], "createdAtEpochMs")
-    current_time = int(time.time() * 1000) if now_epoch_ms is None else now_epoch_ms
+    time_source = current_epoch_ms if now_epoch_ms is None else lambda: now_epoch_ms
+    current_time = time_source()
     if created_at > current_time + MAX_CLOCK_SKEW_MS:
         raise RawEvidenceError(
             "CLOCK_INVALID", "manifest creation time is in the future"
@@ -547,6 +562,7 @@ def validate_raw_bundle_pinned(
                 "INVENTORY_MISMATCH", "actions must exactly cover seven actions"
             )
         expected_filenames: set[str] = set()
+        expires_at_epoch_ms = created_at + MAX_EVIDENCE_AGE_MS
         correlations: set[str] = set()
         total_bytes = 0
         for index, (action, spec) in enumerate(zip(actions, ACTION_SPECS, strict=True)):
@@ -595,6 +611,9 @@ def validate_raw_bundle_pinned(
                 raise RawEvidenceError(
                     "EVIDENCE_STALE", f"{label} observation window is stale"
                 )
+            expires_at_epoch_ms = min(
+                expires_at_epoch_ms, window_started + MAX_EVIDENCE_AGE_MS
+            )
             artifacts = action["artifacts"]
             if not isinstance(artifacts, list) or len(artifacts) != len(ARTIFACT_KINDS):
                 raise RawEvidenceError(
@@ -679,6 +698,8 @@ def validate_raw_bundle_pinned(
         root_identity=(root_metadata.st_dev, root_metadata.st_ino),
         expected_filenames=frozenset(expected_filenames),
         artifacts=pinned_artifacts,
+        expires_at_epoch_ms=expires_at_epoch_ms,
+        current_time_ms=time_source,
     )
 
 
