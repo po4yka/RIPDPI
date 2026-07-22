@@ -4,9 +4,9 @@ type: task
 status: doing
 area: vpn
 priority: high
-owner: Device evidence lane
+owner: ICMP and MapDNS physical harness lane
 parent: epic-fail-closed-android-vpn-policy-engine
-status_detail: MapDNS and ICMP source boundaries are shipped; only pre-5.7, adb socket-table, and physical ICMP/DNS evidence remain, blocked by current no-network/no-device permission
+status_detail: MapDNS and ICMP source policy is shipped; Android ICMP and MapDNS selectors plus physical evidence are being implemented, while pre-5.7 and adb socket-table proof remain open
 blocks: []
 blocked_by: []
 created: 2026-05-22
@@ -53,6 +53,7 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 
 ## Work log
 
+- 2026-07-22: Assigned the remaining Android ICMP and MapDNS selector/evidence harness to its dedicated physical lane. Source enforcement is already shipped; this ownership record serializes the shared board while the device lane implements the exact physical actions and evidence contracts.
 - 2026-07-22: **Shipped the MapDNS source admission boundary on this branch at implementation commit `f01763c4d6ac6c74657a615dded8240d0e3c2d8e`.** `IpClass::UdpDns` now preserves the exact kernel-visible synthetic destination tuple, parks unresolved datagrams in the bounded pending queue, admits only allowed UIDs before QNAME parsing or DNS-worker dispatch, avoids synthetic destination-attribution pollution, and leaves the disarmed path unchanged. The task remains `doing` only for the pre-5.7 device run, explicit `adb shell cat /proc/net/tcp` leak inspection, and physical ICMP/MapDNS DNS evidence; those checks are blocked by the current no-network/no-device permission. No device, VPN, DNS, route, Wi-Fi, or cellular state was changed in this lane.
 
 - 2026-07-22: Reassigned the explicit ICMP policy boundary to the ICMP policy lane. This slice will add a default-deny ICMPv4/ICMPv6 decision when UID enforcement is armed, an explicit native-config opt-in for controlled callers, and Kotlin/Rust contract plus packet-routing regression tests. It will not start or stop RIPDPI VPN or alter MacBook/Pixel network state.
