@@ -153,6 +153,7 @@ raise SystemExit(int(os.environ.get('CHECKER_EXIT', '0')))
 
     def test_real_checker_rejects_incomplete_bundle_without_acceptance(self) -> None:
         for name in (
+            "android_ordinary_raw_evidence.py",
             "check_dns_ipv6_killswitch_gates.py",
             "network_evidence_manifest.py",
             "produce_android_ordinary_gate_results.py",

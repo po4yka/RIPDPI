@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -31,6 +33,7 @@ gates = load_module(
     "ordinary_results_gate_checker",
     ROOT / "scripts/ci/check_dns_ipv6_killswitch_gates.py",
 )
+raw_evidence = producer.android_ordinary_raw_evidence
 
 
 class AndroidOrdinaryGateResultsTest(unittest.TestCase):
@@ -47,6 +50,55 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             applies_to="android-client-release",
         )
 
+    def create_raw_bundle(self, directory: Path) -> tuple[Path, Path, Path, dict]:
+        artifact_root = directory / "artifacts"
+        artifact_root.mkdir(mode=0o700)
+        artifact_root.chmod(0o700)
+        app_apk = directory / "app.apk"
+        test_apk = directory / "test.apk"
+        app_apk.write_bytes(b"app-apk")
+        test_apk.write_bytes(b"test-apk")
+        actions = []
+        for spec in raw_evidence.ACTION_SPECS:
+            artifacts = []
+            for kind in raw_evidence.ARTIFACT_KINDS:
+                name = f"{spec.action_id}.{kind}.raw"
+                payload = f"{spec.action_id}:{kind}\n".encode()
+                path = artifact_root / name
+                path.write_bytes(payload)
+                path.chmod(0o600)
+                artifacts.append(
+                    {
+                        "kind": kind,
+                        "path": name,
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                        "sizeBytes": len(payload),
+                    }
+                )
+            actions.append(
+                {
+                    "actionId": spec.action_id,
+                    "artifacts": artifacts,
+                    "gateIds": list(spec.gate_ids),
+                }
+            )
+        manifest = {
+            "actions": actions,
+            "appApkSha256": hashlib.sha256(app_apk.read_bytes()).hexdigest(),
+            "artifactRoot": str(artifact_root),
+            "sourceSha": self.source_sha,
+            "testApkSha256": hashlib.sha256(test_apk.read_bytes()).hexdigest(),
+            "version": raw_evidence.BUNDLE_VERSION,
+        }
+        manifest_path = directory / "manifest.json"
+        manifest_path.write_bytes(raw_evidence.canonical_json_bytes(manifest))
+        manifest_path.chmod(0o600)
+        return manifest_path, app_apk, test_apk, manifest
+
+    def rewrite_manifest(self, path: Path, manifest: dict) -> None:
+        path.write_bytes(raw_evidence.canonical_json_bytes(manifest))
+        path.chmod(0o600)
+
     def test_inventory_matches_exact_android_ordinary_policy_set(self) -> None:
         policy = gates.load_json(gates.POLICY_PATH)
         ordinary = gates.applicable_gate_ids(
@@ -54,6 +106,11 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         ) - gates.dual_vantage_gate_ids(policy, applies_to="android-client-release")
         self.assertEqual(set(producer.ORDINARY_GATE_IDS), ordinary)
         self.assertEqual(len(ordinary), 11)
+        action_gates = {
+            gate_id for spec in raw_evidence.ACTION_SPECS for gate_id in spec.gate_ids
+        }
+        self.assertEqual(action_gates, ordinary)
+        self.assertEqual(len(raw_evidence.ACTION_SPECS), 7)
 
     def test_producer_has_no_pluggable_or_false_green_path(self) -> None:
         self.assertFalse(producer.SOURCE_OWNED_VERIFIER_AVAILABLE)
@@ -92,6 +149,268 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             producer.write_canonical_json(output, first)
             self.assertEqual(output.read_bytes(), producer.canonical_json_bytes(first))
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+
+    def test_private_raw_bundle_preflight_stops_at_semantic_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(directory)
+            provenance = raw_evidence.validate_raw_bundle(
+                manifest_path,
+                expected_source_sha=self.source_sha,
+                app_apk=app_apk,
+                test_apk=test_apk,
+            )
+            self.assertEqual(provenance["actionCount"], 7)
+            self.assertEqual(provenance["artifactCount"], 21)
+            self.assertEqual(
+                set(provenance["semanticBlockers"]), set(producer.ORDINARY_GATE_IDS)
+            )
+            results = producer.semantic_failure_results(self.source_sha, provenance)
+            self.assertEqual(self.validate(results), results)
+            self.assertFalse(results["rawBundleProvenance"]["productionReady"])
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL" and value["reason"].startswith("SEMANTIC_")
+                    for value in results["gateResults"].values()
+                )
+            )
+
+    def test_cli_emits_verifier_owned_semantic_failures_for_valid_raw_bundle(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(directory)
+            output = directory / "results.json"
+            with (
+                mock.patch.object(
+                    producer, "current_head_sha", return_value=self.source_sha
+                ),
+                mock.patch.object(
+                    producer, "current_source_sha", return_value=self.source_sha
+                ),
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            results = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(self.validate(results), results)
+            self.assertEqual(
+                output.read_bytes(), producer.canonical_json_bytes(results)
+            )
+            self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+
+    def test_raw_manifest_must_be_private_canonical_and_unaliased(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+            manifest_path.chmod(0o600)
+            with self.assertRaisesRegex(ValueError, "MANIFEST_NONCANONICAL"):
+                raw_evidence.validate_raw_bundle(
+                    manifest_path,
+                    expected_source_sha=self.source_sha,
+                    app_apk=app_apk,
+                    test_apk=test_apk,
+                )
+            self.rewrite_manifest(manifest_path, manifest)
+            manifest_path.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "PRIVACY_INVALID"):
+                raw_evidence.validate_raw_bundle(
+                    manifest_path,
+                    expected_source_sha=self.source_sha,
+                    app_apk=app_apk,
+                    test_apk=test_apk,
+                )
+            manifest_path.chmod(0o600)
+            alias = directory / "manifest-alias.json"
+            os.link(manifest_path, alias)
+            with self.assertRaisesRegex(ValueError, "one hard link"):
+                raw_evidence.validate_raw_bundle(
+                    manifest_path,
+                    expected_source_sha=self.source_sha,
+                    app_apk=app_apk,
+                    test_apk=test_apk,
+                )
+
+    def test_raw_manifest_symlink_and_artifact_symlink_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            symlink_manifest = directory / "manifest-symlink.json"
+            symlink_manifest.symlink_to(manifest_path)
+            with self.assertRaisesRegex(ValueError, "PATH_INVALID"):
+                raw_evidence.validate_raw_bundle(
+                    symlink_manifest,
+                    expected_source_sha=self.source_sha,
+                    app_apk=app_apk,
+                    test_apk=test_apk,
+                )
+            artifact = manifest["actions"][0]["artifacts"][0]
+            artifact_path = Path(manifest["artifactRoot"]) / artifact["path"]
+            target = directory / "moved.raw"
+            artifact_path.rename(target)
+            artifact_path.symlink_to(target)
+            with self.assertRaisesRegex(ValueError, "ARTIFACT_MISSING"):
+                raw_evidence.validate_raw_bundle(
+                    manifest_path,
+                    expected_source_sha=self.source_sha,
+                    app_apk=app_apk,
+                    test_apk=test_apk,
+                )
+
+    def test_artifact_root_and_files_must_remain_private_and_unaliased(self) -> None:
+        mutations = ("root-mode", "root-symlink", "artifact-mode", "artifact-link")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory_name:
+                    directory = Path(directory_name)
+                    manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                        directory
+                    )
+                    artifact = manifest["actions"][0]["artifacts"][0]
+                    artifact_path = Path(manifest["artifactRoot"]) / artifact["path"]
+                    if mutation == "root-mode":
+                        Path(manifest["artifactRoot"]).chmod(0o755)
+                        expected = "PRIVACY_INVALID"
+                    elif mutation == "root-symlink":
+                        alias = directory / "artifact-root-alias"
+                        alias.symlink_to(
+                            Path(manifest["artifactRoot"]), target_is_directory=True
+                        )
+                        manifest["artifactRoot"] = str(alias)
+                        self.rewrite_manifest(manifest_path, manifest)
+                        expected = "PATH_INVALID"
+                    elif mutation == "artifact-mode":
+                        artifact_path.chmod(0o644)
+                        expected = "PRIVACY_INVALID"
+                    else:
+                        os.link(artifact_path, directory / "artifact-hardlink.raw")
+                        expected = "PATH_INVALID"
+                    with self.assertRaisesRegex(ValueError, expected):
+                        raw_evidence.validate_raw_bundle(
+                            manifest_path,
+                            expected_source_sha=self.source_sha,
+                            app_apk=app_apk,
+                            test_apk=test_apk,
+                        )
+
+    def test_duplicate_manifest_keys_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(directory)
+            manifest_path.write_text(
+                '{"version":"first","version":"second"}\n', encoding="utf-8"
+            )
+            manifest_path.chmod(0o600)
+            with self.assertRaisesRegex(ValueError, "duplicate key"):
+                raw_evidence.validate_raw_bundle(
+                    manifest_path,
+                    expected_source_sha=self.source_sha,
+                    app_apk=app_apk,
+                    test_apk=test_apk,
+                )
+
+    def test_raw_bundle_rejects_digest_size_tamper_and_missing_artifact(self) -> None:
+        mutations = ("digest", "size", "missing")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory_name:
+                    directory = Path(directory_name)
+                    manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                        directory
+                    )
+                    artifact = manifest["actions"][0]["artifacts"][0]
+                    artifact_path = Path(manifest["artifactRoot"]) / artifact["path"]
+                    if mutation == "digest":
+                        artifact["sha256"] = "f" * 64
+                        expected = "DIGEST_MISMATCH"
+                    elif mutation == "size":
+                        artifact["sizeBytes"] += 1
+                        expected = "SIZE_MISMATCH"
+                    else:
+                        artifact_path.unlink()
+                        expected = "ARTIFACT_MISSING"
+                    self.rewrite_manifest(manifest_path, manifest)
+                    with self.assertRaisesRegex(ValueError, expected):
+                        raw_evidence.validate_raw_bundle(
+                            manifest_path,
+                            expected_source_sha=self.source_sha,
+                            app_apk=app_apk,
+                            test_apk=test_apk,
+                        )
+
+    def test_raw_bundle_rejects_partial_extra_or_reordered_inventory(self) -> None:
+        mutations = ("partial", "extra", "reordered", "extra-file")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory_name:
+                    directory = Path(directory_name)
+                    manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                        directory
+                    )
+                    if mutation == "partial":
+                        manifest["actions"].pop()
+                    elif mutation == "extra":
+                        manifest["actions"].append(dict(manifest["actions"][-1]))
+                    elif mutation == "reordered":
+                        manifest["actions"][0], manifest["actions"][1] = (
+                            manifest["actions"][1],
+                            manifest["actions"][0],
+                        )
+                    else:
+                        extra = Path(manifest["artifactRoot"]) / "caller-summary.json"
+                        extra.write_text('{"state":"PASS"}\n', encoding="utf-8")
+                        extra.chmod(0o600)
+                    self.rewrite_manifest(manifest_path, manifest)
+                    with self.assertRaisesRegex(ValueError, "INVENTORY_MISMATCH"):
+                        raw_evidence.validate_raw_bundle(
+                            manifest_path,
+                            expected_source_sha=self.source_sha,
+                            app_apk=app_apk,
+                            test_apk=test_apk,
+                        )
+
+    def test_raw_bundle_rejects_stale_source_and_wrong_apk_bindings(self) -> None:
+        mutations = ("source", "app-digest", "same-apk-digest")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with tempfile.TemporaryDirectory() as directory_name:
+                    directory = Path(directory_name)
+                    manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                        directory
+                    )
+                    if mutation == "source":
+                        manifest["sourceSha"] = "b" * 40
+                        expected = "SOURCE_MISMATCH"
+                    elif mutation == "app-digest":
+                        manifest["appApkSha256"] = "f" * 64
+                        expected = "APK_DIGEST_MISMATCH"
+                    else:
+                        manifest["testApkSha256"] = manifest["appApkSha256"]
+                        expected = "APK_BINDING_INVALID"
+                    self.rewrite_manifest(manifest_path, manifest)
+                    with self.assertRaisesRegex(ValueError, expected):
+                        raw_evidence.validate_raw_bundle(
+                            manifest_path,
+                            expected_source_sha=self.source_sha,
+                            app_apk=app_apk,
+                            test_apk=test_apk,
+                        )
 
     def test_checker_rejects_object_pass_even_with_forged_metadata(self) -> None:
         results = self.results()
@@ -179,7 +498,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(self.validate(results), results)
             self.assertTrue(
                 all(
-                    producer.UNAVAILABLE_CODE in value["reason"]
+                    "RAW_EVIDENCE_REQUIRED" in value["reason"]
                     for value in results["gateResults"].values()
                 )
             )

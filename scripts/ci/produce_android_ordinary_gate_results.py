@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Emit fail-closed local results for Android ordinary release gates.
 
-There is intentionally no pluggable collector. PASS remains impossible until a
-checked-in, source-owned verifier derives observations from raw packet/route
-artifacts. This prevents hand-authored counters or public hashes from becoming
-release evidence.
+There is intentionally no pluggable collector. The checked-in preflight binds
+private raw packet/route artifacts to source and APK provenance, but PASS
+remains impossible until source-owned semantic oracles interpret all seven
+physical actions. This prevents hand-authored counters, summaries, or JUnit
+state from becoming release evidence.
 """
 
 from __future__ import annotations
@@ -20,6 +21,13 @@ from pathlib import Path
 from typing import Any
 
 
+CI_DIR = Path(__file__).resolve().parent
+if str(CI_DIR) not in sys.path:
+    sys.path.insert(0, str(CI_DIR))
+
+import android_ordinary_raw_evidence  # noqa: E402
+
+
 ROOT = Path(__file__).resolve().parents[2]
 RESULTS_VERSION = "dns_ipv6_killswitch_results_v1"
 APPLIES_TO = "android-client-release"
@@ -29,7 +37,7 @@ UNKNOWN_SOURCE_SHA = "0" * 40
 SOURCE_OWNED_VERIFIER_AVAILABLE = False
 UNAVAILABLE_CODE = "SOURCE_OWNED_VERIFIER_UNAVAILABLE"
 UNAVAILABLE_REASON = (
-    "checked-in raw-artifact verifier is not implemented; ordinary PASS is forbidden"
+    "source-owned semantic oracles are not implemented; ordinary PASS is forbidden"
 )
 
 ORDINARY_GATE_IDS = (
@@ -124,6 +132,38 @@ def all_failure_results(
     }
 
 
+def semantic_failure_results(
+    source_sha: str, provenance: dict[str, Any]
+) -> dict[str, Any]:
+    blockers = android_ordinary_raw_evidence.semantic_blockers_by_gate()
+    if set(blockers) != set(ORDINARY_GATE_IDS):
+        raise EvidenceError(
+            "INVENTORY_MISMATCH", "semantic blocker inventory does not cover all gates"
+        )
+    return {
+        "appliesTo": APPLIES_TO,
+        "gateResults": {
+            gate_id: {
+                "reason": (
+                    f"{blockers[gate_id]}: raw artifact provenance passed, but the "
+                    "source-owned packet/route semantic oracle is not implemented"
+                ),
+                "state": "FAIL",
+            }
+            for gate_id in ORDINARY_GATE_IDS
+        },
+        "rawBundleProvenance": {
+            "actionCount": provenance["actionCount"],
+            "artifactCount": provenance["artifactCount"],
+            "manifestSha256": provenance["manifestSha256"],
+            "productionReady": False,
+            "verifier": "android_ordinary_raw_evidence_v1",
+        },
+        "sourceSha": source_sha,
+        "version": RESULTS_VERSION,
+    }
+
+
 def validate_pass_results(*_args: Any, **_kwargs: Any) -> None:
     raise EvidenceError(UNAVAILABLE_CODE, UNAVAILABLE_REASON)
 
@@ -131,7 +171,18 @@ def validate_pass_results(*_args: Any, **_kwargs: Any) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--raw-manifest", type=Path)
+    parser.add_argument("--app-apk", type=Path)
+    parser.add_argument("--test-apk", type=Path)
     args = parser.parse_args(argv)
+
+    raw_arguments = (args.raw_manifest, args.app_apk, args.test_apk)
+    if any(value is not None for value in raw_arguments) and not all(
+        value is not None for value in raw_arguments
+    ):
+        parser.error(
+            "--raw-manifest, --app-apk, and --test-apk must be supplied together"
+        )
 
     try:
         source_sha = current_head_sha()
@@ -166,9 +217,30 @@ def main(argv: list[str] | None = None) -> int:
             raise EvidenceError(
                 "SOURCE_CHANGED", "source HEAD changed during clean validation"
             )
-        results = all_failure_results(source_sha)
+        if args.raw_manifest is None:
+            results = all_failure_results(
+                source_sha,
+                code="RAW_EVIDENCE_REQUIRED",
+                reason="private raw bundle and exact app/test APKs are required",
+            )
+        else:
+            provenance = android_ordinary_raw_evidence.validate_raw_bundle(
+                args.raw_manifest,
+                expected_source_sha=source_sha,
+                app_apk=args.app_apk,
+                test_apk=args.test_apk,
+            )
+            if current_source_sha() != source_sha:
+                raise EvidenceError(
+                    "SOURCE_CHANGED", "source changed during raw bundle verification"
+                )
+            results = semantic_failure_results(source_sha, provenance)
     except Exception as error:  # noqa: BLE001 - finalize every provenance failure
         if isinstance(error, EvidenceError):
+            results = all_failure_results(
+                source_sha, code=error.code, reason=error.message
+            )
+        elif isinstance(error, android_ordinary_raw_evidence.RawEvidenceError):
             results = all_failure_results(
                 source_sha, code=error.code, reason=error.message
             )
