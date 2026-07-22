@@ -122,6 +122,8 @@ impl Drop for MasqueH3ClassicConnectFixture {
 /// The caller owns the injected UDP socket, which lets PMTUD tests place the
 /// production MASQUE client behind an observable black-hole fault without
 /// weakening the strict classic-CONNECT oracle above.
+// Drop order: cancel signals shutdown before server_task and target_task are
+// aborted; this prevents either task from outliving the fixture endpoint.
 pub struct MasqueH3ConnectUdpFixture {
     address: SocketAddr,
     target: String,
