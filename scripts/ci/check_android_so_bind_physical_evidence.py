@@ -69,6 +69,8 @@ FAMILY_FIELDS = {
 TCP_BLOCK_FAILURE_KINDS = {"CONNECTION_RESET", "ERRNO", "TIMEOUT"}
 TCP_NETWORK_STAGES = {"connect", "receive", "send"}
 TCP_UNREACHABLE_ERRNOS = {101, 113}
+TCP_RESET_ERRNOS = {104}
+SOCKET_TIMEOUT_ERRNOS = {11, 110}
 UDP_BLOCK_FAILURE_KINDS = {"ERRNO", "TIMEOUT"}
 
 
@@ -171,6 +173,10 @@ def validate(
             failure_stage != "connect" or failure_errno not in TCP_UNREACHABLE_ERRNOS
         ):
             raise ValueError(f"{family} generic errno is not an unreachable connect outcome")
+        if failure_kind == "CONNECTION_RESET" and failure_errno not in TCP_RESET_ERRNOS:
+            raise ValueError(f"{family} reset kind/errno pair is inconsistent")
+        if failure_kind == "TIMEOUT" and failure_errno not in SOCKET_TIMEOUT_ERRNOS:
+            raise ValueError(f"{family} TCP timeout kind/errno pair is inconsistent")
         udp_failure_kind = record["deniedUdpFailureKind"]
         udp_failure_stage = record["deniedUdpFailureStage"]
         udp_failure_errno = record["deniedUdpErrno"]
@@ -187,6 +193,11 @@ def validate(
             raise ValueError(
                 f"{family} UDP generic errno is not an unreachable connect outcome"
             )
+        if (
+            udp_failure_kind == "TIMEOUT"
+            and udp_failure_errno not in SOCKET_TIMEOUT_ERRNOS
+        ):
+            raise ValueError(f"{family} UDP timeout kind/errno pair is inconsistent")
         for counter in POSITIVE_COUNTERS:
             value = record[counter]
             if type(value) is not int or value < 1:

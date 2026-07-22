@@ -949,8 +949,28 @@ class NetworkPathE2ETest {
                 )
             assertTrue("${family.id} post-denial TCP was not observed", familyCounters.livenessTcpFixtureEvents > 0)
             assertTrue("${family.id} post-denial UDP was not observed", familyCounters.livenessUdpFixtureEvents > 0)
-            familyCounters.deniedTcpFixtureEvents = 0
-            familyCounters.deniedUdpFixtureEvents = 0
+            familyCounters.deniedTcpFixtureEvents =
+                livenessEvents.countPhysicalEcho(
+                    "tcp_echo",
+                    "tcp",
+                    fixture.tcpEchoPort,
+                    "denied",
+                    "tcp",
+                    family,
+                    nonce,
+                )
+            familyCounters.deniedUdpFixtureEvents =
+                livenessEvents.countPhysicalEcho(
+                    "udp_echo",
+                    "udp",
+                    fixture.udpEchoPort,
+                    "denied",
+                    "udp",
+                    family,
+                    nonce,
+                )
+            assertEquals("${family.id} delayed denied TCP reached fixture", 0, familyCounters.deniedTcpFixtureEvents)
+            assertEquals("${family.id} delayed denied UDP reached fixture", 0, familyCounters.deniedUdpFixtureEvents)
         }
         writePhysicalSoBindEvidence(families, counters)
     }

@@ -115,6 +115,19 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not an unreachable connect outcome"):
             self.validate(evidence)
 
+    def test_rejects_inconsistent_tcp_reset_errno(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedTcpFailureKind"] = "CONNECTION_RESET"
+        evidence["families"][0]["deniedTcpErrno"] = 110
+        with self.assertRaisesRegex(ValueError, "reset kind/errno pair is inconsistent"):
+            self.validate(evidence)
+
+    def test_rejects_inconsistent_tcp_timeout_errno(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedTcpErrno"] = 104
+        with self.assertRaisesRegex(ValueError, "TCP timeout kind/errno pair is inconsistent"):
+            self.validate(evidence)
+
     def test_rejects_tcp_failure_before_network_stage(self) -> None:
         evidence = valid_evidence()
         evidence["families"][0]["deniedTcpFailureStage"] = "bind"
@@ -134,6 +147,12 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
         evidence["families"][0]["deniedUdpFailureStage"] = "connect"
         evidence["families"][0]["deniedUdpErrno"] = 5
         with self.assertRaisesRegex(ValueError, "not an unreachable connect outcome"):
+            self.validate(evidence)
+
+    def test_rejects_inconsistent_udp_timeout_errno(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedUdpErrno"] = 104
+        with self.assertRaisesRegex(ValueError, "UDP timeout kind/errno pair is inconsistent"):
             self.validate(evidence)
 
     def test_rejects_obsolete_reset_only_schema(self) -> None:
