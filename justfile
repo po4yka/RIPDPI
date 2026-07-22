@@ -74,6 +74,11 @@ test-rust-load:
 test-rust-turmoil:
     bash scripts/ci/run-rust-turmoil-tests.sh
 
+# Run the local Android ordinary release-evidence contract suites
+[group('test')]
+test-android-ordinary-release-gates:
+    python3 -m unittest scripts.tests.test_android_ordinary_gate_results scripts.tests.test_dns_ipv6_killswitch_gates scripts.tests.test_local_android_release_acceptance
+
 # Verify Roborazzi screenshot baselines
 [group('test')]
 test-screenshots:
