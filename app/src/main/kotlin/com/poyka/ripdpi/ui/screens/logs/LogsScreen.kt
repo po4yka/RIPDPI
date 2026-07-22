@@ -522,7 +522,7 @@ private fun LogsStreamEntry(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             LogRow(
                 timestamp = entry.timestamp,

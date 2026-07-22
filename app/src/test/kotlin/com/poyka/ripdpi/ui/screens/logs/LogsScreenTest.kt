@@ -1,12 +1,21 @@
 package com.poyka.ripdpi.ui.screens.logs
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.LogEntry
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
@@ -14,6 +23,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,5 +71,71 @@ class LogsScreenTest {
             .performClick()
 
         composeRule.runOnIdle { assertEquals(entry, copiedEntry) }
+    }
+
+    @Test
+    fun `long session metadata wraps as bounded single line chips`() {
+        val runtimeChip = "runtime:$LongRuntimeId"
+        val scanChip = "scan:$LongScanId"
+        val entry =
+            LogEntry(
+                id = "long-metadata",
+                createdAtMs = 1L,
+                timestamp = "12:34:56",
+                subsystem = LogSubsystem.Diagnostics,
+                severity = LogSeverity.Info,
+                message = "Diagnostic scan started",
+                source = "diagnostics",
+                runtimeId = LongRuntimeId,
+                diagnosticsSessionId = LongScanId,
+                isActiveSession = true,
+            )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 1f)) {
+                RipDpiTheme {
+                    Box(Modifier.width(320.dp).height(300.dp)) {
+                        LogsStreamCard(
+                            entries = persistentListOf(entry),
+                            listState = rememberLazyListState(),
+                            onCopyEntry = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        val entryBounds =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.logsEntry(entry.id))
+                .fetchSemanticsNode()
+                .boundsInRoot
+        val copyBounds =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.logsEntryCopy(entry.id))
+                .fetchSemanticsNode()
+                .boundsInRoot
+        val runtimeBounds =
+            composeRule
+                .onNodeWithText(runtimeChip, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+        val scanBounds =
+            composeRule
+                .onNodeWithText(scanChip, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+
+        assertTrue(runtimeBounds.height <= MaximumChipHeightPx)
+        assertTrue(scanBounds.height <= MaximumChipHeightPx)
+        assertTrue(entryBounds.height <= MaximumEntryHeightPx)
+        assertTrue(copyBounds.top <= entryBounds.top + MaximumCopyTopOffsetPx)
+    }
+
+    private companion object {
+        const val LongRuntimeId = "5d8e4a11-5067-44b2-9a17-e84826709d28"
+        const val LongScanId = "f87bba7f-d81f-4376-af1e-7282c4c55f62"
+        const val MaximumChipHeightPx = 32f
+        const val MaximumEntryHeightPx = 160f
+        const val MaximumCopyTopOffsetPx = 32f
     }
 }
