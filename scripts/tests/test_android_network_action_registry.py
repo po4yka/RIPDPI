@@ -47,6 +47,12 @@ DNS_DESCRIPTORS = {
     "synthetic-authoritative-dns-query-sources": "authoritative-query-sources-v1",
 }
 
+SOURCE_OWNED_DNS_ACTIONS = {
+    "dns-virtual-vpn-resolver",
+    "dns-proxied-through-tunnelled-resolver",
+    "dns-no-isp-fallback-on-encrypted-resolver-outage",
+}
+
 
 def digest(label: str) -> str:
     return hashlib.sha256(label.encode("ascii")).hexdigest()
@@ -134,11 +140,35 @@ class AndroidNetworkActionRegistryTest(unittest.TestCase):
                     "physical dual-vantage Pixel evidence has not yet been executed against the current source",
                     reasons,
                 )
-                if action["kind"] == "dns":
+                if (
+                    action["kind"] == "dns"
+                    and action["gateId"] not in SOURCE_OWNED_DNS_ACTIONS
+                ):
                     self.assertIn(
                         "production instrumentation selector is not implemented",
                         reasons,
                     )
+
+    def test_wave_one_dns_actions_have_source_owned_selectors_and_transcript_facts(
+        self,
+    ) -> None:
+        source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (
+                KOTLIN_RECEIPT,
+                ROOT
+                / "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/DnsNetworkEvidenceE2ETest.kt",
+            )
+        )
+        registry = module.load_action_registry()
+        for gate_id in SOURCE_OWNED_DNS_ACTIONS:
+            descriptor = registry[gate_id]
+            method = descriptor.selector.split("#", 1)[1]
+            with self.subTest(gate_id=gate_id):
+                self.assertIn(f"fun {method}(", source)
+                self.assertIn(
+                    "fixtureTranscriptSha256", module.example_valid_facts(gate_id)
+                )
 
     def test_registry_selectors_are_bound_to_exact_instrumentation_methods(
         self,

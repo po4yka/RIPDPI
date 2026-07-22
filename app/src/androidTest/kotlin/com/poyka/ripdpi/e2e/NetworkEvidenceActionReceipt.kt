@@ -3,6 +3,7 @@ package com.poyka.ripdpi.e2e
 import android.content.Context
 import android.os.Bundle
 import com.poyka.ripdpi.BuildConfig
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.nio.ByteBuffer
@@ -46,6 +47,24 @@ private val EvidenceDescriptors =
     mapOf(
         NetworkEvidenceStartupGateId to
             EvidenceDescriptor(NetworkEvidenceStartupKind, NetworkEvidenceStartupSelector, NetworkEvidenceStartupRule),
+        "dns-virtual-vpn-resolver" to
+            EvidenceDescriptor(
+                "dns",
+                "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#virtualVpnResolverUsesTunnelledResolver",
+                "virtual-vpn-resolver-v1",
+            ),
+        "dns-proxied-through-tunnelled-resolver" to
+            EvidenceDescriptor(
+                "dns",
+                "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#proxiedDomainUsesTunnelledResolver",
+                "proxied-domain-resolver-path-v1",
+            ),
+        "dns-no-isp-fallback-on-encrypted-resolver-outage" to
+            EvidenceDescriptor(
+                "dns",
+                "com.poyka.ripdpi.e2e.DnsNetworkEvidenceE2ETest#encryptedResolverOutageFailsClosed",
+                "encrypted-outage-fail-closed-v1",
+            ),
     )
 
 internal data class NetworkEvidenceActionContext(
@@ -212,6 +231,239 @@ internal fun clearNetworkEvidenceActionReceipt(
     File(context.filesDir, "$receiptFile.tmp").delete()
 }
 
+internal fun clearNetworkEvidenceFixtureTranscript(
+    context: Context,
+    gateId: String,
+) {
+    val name = "network-evidence-fixture-transcript-$gateId.json"
+    require(context.deleteFile(name) || !context.getFileStreamPath(name).exists()) {
+        "Could not clear stale network evidence fixture transcript"
+    }
+    File(context.filesDir, "$name.tmp").delete()
+}
+
+internal data class NetworkEvidenceDnsFacts(
+    val gateId: String,
+    val queryHost: String,
+    val resolverEndpoint: String,
+    val transcriptSha256: String,
+    val startedAtElapsedRealtimeMs: Long,
+    val actionMarkerAtElapsedRealtimeMs: Long,
+    val outcomeMarkerAtElapsedRealtimeMs: Long,
+    val finishedAtElapsedRealtimeMs: Long,
+    val appUid: Int,
+    val testUid: Int,
+    val actionMarker: AppProcessTcpProbeResult,
+    val outcomeMarker: AppProcessTcpProbeResult,
+    val dnsProbe: AppProcessDnsProbeResult,
+    val tunnelTelemetry: com.poyka.ripdpi.data.NativeRuntimeSnapshot,
+    val faultObserved: Boolean,
+    val socksTarget: String?,
+) {
+    companion object {
+        fun fromObserved(
+            gateId: String,
+            queryHost: String,
+            fixture: FixtureManifestDto,
+            transcriptSha256: String,
+            startedAtElapsedRealtimeMs: Long,
+            actionMarkerAtElapsedRealtimeMs: Long,
+            outcomeMarkerAtElapsedRealtimeMs: Long,
+            finishedAtElapsedRealtimeMs: Long,
+            appUid: Int,
+            testUid: Int,
+            actionMarker: AppProcessTcpProbeResult,
+            outcomeMarker: AppProcessTcpProbeResult,
+            dnsProbe: AppProcessDnsProbeResult,
+            tunnelTelemetry: com.poyka.ripdpi.data.NativeRuntimeSnapshot,
+            faultObserved: Boolean,
+            socksTarget: String?,
+        ): NetworkEvidenceDnsFacts {
+            require(fixture.androidHost.isNotBlank() && fixture.dnsDotPort in 1..65535)
+            return NetworkEvidenceDnsFacts(
+                gateId,
+                queryHost,
+                "${fixture.androidHost}:${fixture.dnsDotPort}",
+                transcriptSha256,
+                startedAtElapsedRealtimeMs,
+                actionMarkerAtElapsedRealtimeMs,
+                outcomeMarkerAtElapsedRealtimeMs,
+                finishedAtElapsedRealtimeMs,
+                appUid,
+                testUid,
+                actionMarker,
+                outcomeMarker,
+                dnsProbe,
+                tunnelTelemetry,
+                faultObserved,
+                socksTarget,
+            )
+        }
+    }
+}
+
+internal fun writeNetworkEvidenceFixtureTranscript(
+    context: Context,
+    evidence: NetworkEvidenceActionContext,
+    queryHost: String,
+    events: List<FixtureEventDto>,
+): String {
+    val relevant =
+        events.filter { event ->
+            (event.service == "dns_dot" && (event.detail == queryHost || event.detail.startsWith("fault:"))) ||
+                event.service == "socks5_relay"
+        }
+    require(relevant.isNotEmpty()) { "Fixture transcript is empty" }
+    val document =
+        JSONObject()
+            .put("version", "network_evidence_fixture_transcript_v1")
+            .put("gateId", evidence.gateId)
+            .put("correlationId", evidence.correlationId)
+            .put("fixtureIdentitySha256", evidence.fixtureIdentitySha256)
+            .put("queryHost", queryHost.lowercase())
+            .put("querySha256", networkEvidenceDnsQuerySha256V1(queryHost))
+            .put(
+                "events",
+                JSONArray().apply {
+                    relevant.forEach { event ->
+                        put(
+                            JSONObject()
+                                .put("service", event.service)
+                                .put("protocol", event.protocol)
+                                .put("peer", event.peer)
+                                .put("target", event.target)
+                                .put("detail", event.detail)
+                                .put("bytes", event.bytes)
+                                .put("sni", event.sni ?: JSONObject.NULL)
+                                .put("createdAt", event.createdAt),
+                        )
+                    }
+                },
+            )
+    val bytes = (networkEvidenceCanonicalJson(document) + "\n").toByteArray(StandardCharsets.UTF_8)
+    val name = "network-evidence-fixture-transcript-${evidence.gateId}.json"
+    val temporary = File(context.filesDir, "$name.tmp")
+    val destination = File(context.filesDir, name)
+    check(!destination.exists()) { "Network evidence fixture transcript already exists" }
+    context.openFileOutput(temporary.name, Context.MODE_PRIVATE).use { output ->
+        output.write(bytes)
+        output.fd.sync()
+    }
+    check(temporary.renameTo(destination)) { "Could not atomically publish fixture transcript" }
+    return MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
+}
+
+internal fun writeNetworkEvidenceDnsPassReceipt(
+    context: Context,
+    evidence: NetworkEvidenceActionContext,
+    facts: NetworkEvidenceDnsFacts,
+) {
+    require(evidence.gateId == facts.gateId)
+    require(facts.startedAtElapsedRealtimeMs > 0)
+    require(facts.startedAtElapsedRealtimeMs <= facts.actionMarkerAtElapsedRealtimeMs)
+    require(facts.actionMarkerAtElapsedRealtimeMs < facts.outcomeMarkerAtElapsedRealtimeMs)
+    require(facts.outcomeMarkerAtElapsedRealtimeMs <= facts.finishedAtElapsedRealtimeMs)
+    require(facts.appUid > 0 && facts.testUid > 0 && facts.appUid != facts.testUid)
+    require(facts.actionMarker.probeUid == facts.appUid && facts.outcomeMarker.probeUid == facts.appUid)
+    require(facts.dnsProbe.probeUid == facts.testUid)
+    require(Sha256Regex.matches(facts.transcriptSha256))
+    val querySha = networkEvidenceDnsQuerySha256V1(facts.queryHost)
+    val providerSha = networkEvidenceEndpointSha256("dot", facts.resolverEndpoint)
+    val semanticFacts =
+        when (facts.gateId) {
+            "dns-virtual-vpn-resolver" -> {
+                JSONObject()
+                    .put("virtualQuerySha256", querySha)
+                    .put(
+                        "virtualDnsAddressSha256",
+                        networkEvidenceValueSha256("virtual-dns", VirtualDnsAddressForEvidence),
+                    ).put("tunnelResolverProviderSha256", providerSha)
+                    .put("fixtureTranscriptSha256", facts.transcriptSha256)
+                    .put("resolverPath", "tunnel")
+                    .put("responseCount", 1)
+                    .put("tunnelEstablished", true)
+            }
+
+            "dns-proxied-through-tunnelled-resolver" -> {
+                JSONObject()
+                    .put("proxiedQuerySha256", querySha)
+                    .put("resolverProviderSha256", providerSha)
+                    .put("fixtureTranscriptSha256", facts.transcriptSha256)
+                    .put(
+                        "socksTargetSha256",
+                        networkEvidenceValueSha256("socks-target", requireNotNull(facts.socksTarget)),
+                    ).put("routeClass", "proxy")
+                    .put("relayDnsRoute", requireNotNull(facts.tunnelTelemetry.relayDnsRoute))
+                    .put("relayDnsFailClosed", facts.tunnelTelemetry.relayDnsFailClosed)
+                    .put("responseCount", 1)
+                    .put("tunnelEstablished", true)
+            }
+
+            "dns-no-isp-fallback-on-encrypted-resolver-outage" -> {
+                JSONObject()
+                    .put("outageQuerySha256", querySha)
+                    .put("encryptedResolverProviderSha256", providerSha)
+                    .put("fixtureTranscriptSha256", facts.transcriptSha256)
+                    .put("faultControlSha256", networkEvidenceValueSha256("fault", "dns_dot:dns_timeout:persistent"))
+                    .put("faultObserved", facts.faultObserved)
+                    .put("encryptedAttemptCount", 1)
+                    .put("plainFallbackCount", 0)
+                    .put("successfulResponseCount", 0)
+            }
+
+            else -> {
+                error("Unsupported DNS evidence gate ${facts.gateId}")
+            }
+        }
+    val receipt =
+        JSONObject()
+            .put("version", ReceiptVersion)
+            .put("status", "PASS")
+            .put("gateId", evidence.gateId)
+            .put("kind", evidence.kind)
+            .put("selector", evidence.selector)
+            .put("semanticRule", evidence.semanticRule)
+            .put("correlationId", evidence.correlationId)
+            .put("sourceSha", evidence.sourceSha)
+            .put("clientArtifactSha256", evidence.clientArtifactSha256)
+            .put("testArtifactSha256", evidence.testArtifactSha256)
+            .put("fixtureIdentitySha256", evidence.fixtureIdentitySha256)
+            .put("actionMarkerSha256", evidence.actionMarkerSha256)
+            .put("outcomeMarkerSha256", evidence.outcomeMarkerSha256)
+            .put("querySetSha256", networkEvidenceQuerySetSha256(evidence.gateId, querySha))
+            .put("startedAtElapsedRealtimeMs", facts.startedAtElapsedRealtimeMs)
+            .put("finishedAtElapsedRealtimeMs", facts.finishedAtElapsedRealtimeMs)
+            .put("actionMarkerAtElapsedRealtimeMs", facts.actionMarkerAtElapsedRealtimeMs)
+            .put("outcomeMarkerAtElapsedRealtimeMs", facts.outcomeMarkerAtElapsedRealtimeMs)
+            .put("appUid", facts.appUid)
+            .put("testUid", facts.testUid)
+            .put("actionMarkerPid", requireNotNull(facts.actionMarker.probePid))
+            .put("actionMarkerUid", requireNotNull(facts.actionMarker.probeUid))
+            .put("outcomeMarkerPid", requireNotNull(facts.outcomeMarker.probePid))
+            .put("outcomeMarkerUid", requireNotNull(facts.outcomeMarker.probeUid))
+            .put("dnsProbePids", JSONArray().put(requireNotNull(facts.dnsProbe.probePid)))
+            .put("dnsProbeUid", requireNotNull(facts.dnsProbe.probeUid))
+            .put("facts", semanticFacts)
+    publishPrivateJson(context, evidence.receiptFile, receipt)
+}
+
+private const val VirtualDnsAddressForEvidence = "198.18.0.53"
+
+private fun publishPrivateJson(
+    context: Context,
+    name: String,
+    value: JSONObject,
+) {
+    val temporary = File(context.filesDir, "$name.tmp")
+    val destination = File(context.filesDir, name)
+    check(!destination.exists()) { "Network evidence output already exists" }
+    context.openFileOutput(temporary.name, Context.MODE_PRIVATE).use { output ->
+        output.write((value.toString() + "\n").toByteArray(StandardCharsets.UTF_8))
+        output.fd.sync()
+    }
+    check(temporary.renameTo(destination)) { "Could not atomically publish network evidence output" }
+}
+
 internal fun writeNetworkEvidenceStartupPassReceipt(
     context: Context,
     evidence: NetworkEvidenceActionContext,
@@ -293,6 +545,68 @@ internal fun networkEvidenceDnsQuerySha256(queryHost: String): String {
         .digest("ripdpi:startup-dns-query:v1:${queryHost.lowercase()}".toByteArray(StandardCharsets.US_ASCII))
         .toHex()
 }
+
+internal fun networkEvidenceDnsQuerySha256V1(queryHost: String): String {
+    require(queryHost.isNotBlank())
+    return MessageDigest
+        .getInstance("SHA-256")
+        .digest("ripdpi:dns-evidence-query:v1:${queryHost.lowercase()}".toByteArray(StandardCharsets.US_ASCII))
+        .toHex()
+}
+
+private fun networkEvidenceEndpointSha256(
+    protocol: String,
+    endpoint: String,
+): String = networkEvidenceValueSha256("resolver", "$protocol:$endpoint")
+
+private fun networkEvidenceValueSha256(
+    domain: String,
+    value: String,
+): String =
+    MessageDigest
+        .getInstance("SHA-256")
+        .digest("ripdpi:dns-evidence-$domain:v1:$value".toByteArray(StandardCharsets.UTF_8))
+        .toHex()
+
+private fun networkEvidenceCanonicalJson(value: Any?): String =
+    when (value) {
+        null, JSONObject.NULL -> {
+            "null"
+        }
+
+        is JSONObject -> {
+            value
+                .keys()
+                .asSequence()
+                .toList()
+                .sorted()
+                .joinToString(separator = ",", prefix = "{", postfix = "}") { key ->
+                    "${JSONObject.quote(key)}:${networkEvidenceCanonicalJson(value.get(key))}"
+                }
+        }
+
+        is JSONArray -> {
+            (0 until value.length()).joinToString(separator = ",", prefix = "[", postfix = "]") { index ->
+                networkEvidenceCanonicalJson(value.get(index))
+            }
+        }
+
+        is String -> {
+            JSONObject.quote(value)
+        }
+
+        is Boolean -> {
+            value.toString()
+        }
+
+        is Number -> {
+            JSONObject.numberToString(value)
+        }
+
+        else -> {
+            error("Unsupported network evidence JSON value ${value::class.java.name}")
+        }
+    }
 
 private fun networkEvidenceQuerySetSha256(
     gateId: String,

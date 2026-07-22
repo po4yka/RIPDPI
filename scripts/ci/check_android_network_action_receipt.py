@@ -267,6 +267,7 @@ def example_valid_facts(gate_id: str) -> dict[str, Any]:
             "virtualQuerySha256": d("virtualQuery"),
             "virtualDnsAddressSha256": d("virtualDnsAddress"),
             "tunnelResolverProviderSha256": d("provider"),
+            "fixtureTranscriptSha256": d("fixtureTranscript"),
             "resolverPath": "tunnel",
             "responseCount": 1,
             "tunnelEstablished": True,
@@ -274,7 +275,11 @@ def example_valid_facts(gate_id: str) -> dict[str, Any]:
         "dns-proxied-through-tunnelled-resolver": {
             "proxiedQuerySha256": d("proxiedQuery"),
             "resolverProviderSha256": d("provider"),
+            "fixtureTranscriptSha256": d("fixtureTranscript"),
+            "socksTargetSha256": d("socksTarget"),
             "routeClass": "proxy",
+            "relayDnsRoute": "socks5",
+            "relayDnsFailClosed": True,
             "responseCount": 1,
             "tunnelEstablished": True,
         },
@@ -298,6 +303,7 @@ def example_valid_facts(gate_id: str) -> dict[str, Any]:
         "dns-no-isp-fallback-on-encrypted-resolver-outage": {
             "outageQuerySha256": d("outageQuery"),
             "encryptedResolverProviderSha256": d("provider"),
+            "fixtureTranscriptSha256": d("fixtureTranscript"),
             "faultControlSha256": d("faultControl"),
             "faultObserved": True,
             "encryptedAttemptCount": 1,

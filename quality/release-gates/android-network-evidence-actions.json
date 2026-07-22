@@ -25,7 +25,7 @@
       "windowPolicy": "marker-bounded-exact-query-set",
       "productionReady": false,
       "blockingReasons": [
-        "production instrumentation selector is not implemented",
+        "production selector and transcript contract require exact physical dual-vantage verification",
         "physical dual-vantage Pixel evidence has not yet been executed against the current source"
       ]
     },
@@ -39,7 +39,7 @@
       "windowPolicy": "marker-bounded-exact-query-set",
       "productionReady": false,
       "blockingReasons": [
-        "production instrumentation selector is not implemented",
+        "production selector and fixture SOCKS transcript require exact physical dual-vantage verification",
         "physical dual-vantage Pixel evidence has not yet been executed against the current source"
       ]
     },
@@ -81,8 +81,7 @@
       "windowPolicy": "marker-bounded-exact-query-set",
       "productionReady": false,
       "blockingReasons": [
-        "production instrumentation selector is not implemented",
-        "production-observed resolver outage seam is not yet wired to this action",
+        "production selector and deterministic fixture outage transcript require exact physical dual-vantage verification",
         "physical dual-vantage Pixel evidence has not yet been executed against the current source"
       ]
     },

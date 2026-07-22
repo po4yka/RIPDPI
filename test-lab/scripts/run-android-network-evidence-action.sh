@@ -26,7 +26,8 @@ usage() {
 Usage: run-android-network-evidence-action.sh \
   --gate-id ID --correlation-id SHA256 --source-sha SHA1 \
   --client-artifact-sha256 SHA256 --test-artifact-sha256 SHA256 \
-  --fixture-identity-sha256 SHA256 --receipt-output ABSOLUTE_PATH
+  --fixture-identity-sha256 SHA256 --receipt-output ABSOLUTE_PATH \
+  [--fixture-transcript-output ABSOLUTE_PATH]
 
 This command starts and stops the RIPDPI VPN. It never changes Wi-Fi, mobile,
 routes, DNS, Private DNS, or airplane mode, but requires explicit operator
@@ -42,6 +43,7 @@ client_artifact_sha256=""
 test_artifact_sha256=""
 fixture_identity_sha256=""
 receipt_output=""
+fixture_transcript_output=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --gate-id) requested_gate="${2:-}"; shift 2 ;;
@@ -51,6 +53,7 @@ while [[ $# -gt 0 ]]; do
         --test-artifact-sha256) test_artifact_sha256="${2:-}"; shift 2 ;;
         --fixture-identity-sha256) fixture_identity_sha256="${2:-}"; shift 2 ;;
         --receipt-output) receipt_output="${2:-}"; shift 2 ;;
+        --fixture-transcript-output) fixture_transcript_output="${2:-}"; shift 2 ;;
         -h|--help) usage ;;
         *) usage ;;
     esac
@@ -66,6 +69,11 @@ done
 [[ "$receipt_output" == /* ]] || fail "receipt output path must be absolute"
 [[ ! -e "$receipt_output" && ! -L "$receipt_output" ]] ||
     fail "receipt output must not already exist"
+if [[ -n "$fixture_transcript_output" ]]; then
+    [[ "$fixture_transcript_output" == /* ]] || fail "fixture transcript output path must be absolute"
+    [[ ! -e "$fixture_transcript_output" && ! -L "$fixture_transcript_output" ]] ||
+        fail "fixture transcript output must not already exist"
+fi
 [[ -n "$android_serial" ]] || fail "ANDROID_SERIAL is required"
 if [[ ! "$fixture_port" =~ ^[0-9]+$ ]] || ((fixture_port < 1 || fixture_port > 65535)); then
     fail "RIPDPI_FIXTURE_CONTROL_PORT must be in 1..65535"
@@ -111,6 +119,14 @@ IFS=$'\t' read -r gate_kind test_selector receipt_file semantic_rule production_
 test_class="${test_selector%%#*}"
 test_method="${test_selector#*#}"
 readonly gate_id="$requested_gate" gate_kind test_selector receipt_file semantic_rule test_class test_method
+readonly fixture_transcript_file="network-evidence-fixture-transcript-$gate_id.json"
+case "$gate_id" in
+    dns-virtual-vpn-resolver|dns-proxied-through-tunnelled-resolver|dns-no-isp-fallback-on-encrypted-resolver-outage)
+        [[ -n "$fixture_transcript_output" ]] || fail "fixture transcript output is required for $gate_id"
+        readonly requires_fixture_transcript=1
+        ;;
+    *) readonly requires_fixture_transcript=0 ;;
+esac
 
 python3 - "$fixture_host" <<'PY' || fail "RIPDPI_FIXTURE_ANDROID_HOST must be a numeric routed unicast address"
 import ipaddress
@@ -218,7 +234,9 @@ unset RIPDPI_ANDROID_DEVICE_LOCK_AUTH RIPDPI_ANDROID_DEVICE_LOCK_SUPERVISOR_PID
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-android-network-action.XXXXXX")"
 chmod 0700 "$temp_dir"
 cleanup() {
-    adb_device shell run-as com.poyka.ripdpi rm -f "files/$receipt_file" "files/$receipt_file.tmp" >/dev/null 2>&1 || true
+    adb_device shell run-as com.poyka.ripdpi rm -f \
+        "files/$receipt_file" "files/$receipt_file.tmp" \
+        "files/$fixture_transcript_file" "files/$fixture_transcript_file.tmp" >/dev/null 2>&1 || true
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
@@ -252,8 +270,17 @@ components="$(
 
 adb_device shell run-as com.poyka.ripdpi rm -f "files/$receipt_file" "files/$receipt_file.tmp" >/dev/null 2>&1 ||
     fail "could not clear prior action receipt"
+if [[ "$requires_fixture_transcript" == "1" ]]; then
+    adb_device shell run-as com.poyka.ripdpi rm -f \
+        "files/$fixture_transcript_file" "files/$fixture_transcript_file.tmp" >/dev/null 2>&1 ||
+        fail "could not clear prior fixture transcript"
+fi
 if adb_device shell run-as com.poyka.ripdpi test -e "files/$receipt_file"; then
     fail "stale action receipt remained before instrumentation"
+fi
+if [[ "$requires_fixture_transcript" == "1" ]] &&
+    adb_device shell run-as com.poyka.ripdpi test -e "files/$fixture_transcript_file"; then
+    fail "stale fixture transcript remained before instrumentation"
 fi
 
 output_file="$temp_dir/instrumentation.txt"
@@ -305,34 +332,67 @@ python3 "$validator" "$private_receipt" \
     --fixture-identity-sha256 "$fixture_identity_sha256" >"$temp_dir/receipt-sha256.txt" ||
     fail "action receipt was missing, partial, or malformed"
 
-adb_device shell run-as com.poyka.ripdpi rm -f "files/$receipt_file" "files/$receipt_file.tmp" >/dev/null 2>&1 ||
-    fail "could not delete device action receipt"
+private_transcript=""
+if [[ "$requires_fixture_transcript" == "1" ]]; then
+    transcript_mode="$(adb_device shell run-as com.poyka.ripdpi stat -c %a "files/$fixture_transcript_file" 2>/dev/null | tr -d '\r')" ||
+        fail "fixture transcript mode lookup failed"
+    [[ "$transcript_mode" == "600" ]] || fail "fixture transcript mode must be 600 on device"
+    private_transcript="$temp_dir/fixture-transcript.json"
+    adb_device shell run-as com.poyka.ripdpi cat "files/$fixture_transcript_file" >"$private_transcript" 2>/dev/null ||
+        fail "fixture transcript readback failed"
+    chmod 0600 "$private_transcript"
+    python3 - "$private_receipt" "$private_transcript" <<'PY' || fail "fixture transcript digest does not match the action receipt"
+import hashlib
+import json
+import pathlib
+import sys
+
+receipt = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+transcript = pathlib.Path(sys.argv[2]).read_bytes()
+if hashlib.sha256(transcript).hexdigest() != receipt["facts"]["fixtureTranscriptSha256"]:
+    raise SystemExit(1)
+PY
+fi
+
+adb_device shell run-as com.poyka.ripdpi rm -f \
+    "files/$receipt_file" "files/$receipt_file.tmp" \
+    "files/$fixture_transcript_file" "files/$fixture_transcript_file.tmp" >/dev/null 2>&1 ||
+    fail "could not delete device action outputs"
 if adb_device shell run-as com.poyka.ripdpi test -e "files/$receipt_file"; then
     fail "device action receipt remained after deletion"
 fi
-python3 - "$private_receipt" "$receipt_output" <<'PY' || fail "could not publish private receipt output"
+if [[ "$requires_fixture_transcript" == "1" ]] &&
+    adb_device shell run-as com.poyka.ripdpi test -e "files/$fixture_transcript_file"; then
+    fail "device fixture transcript remained after deletion"
+fi
+python3 - "$private_receipt" "$receipt_output" "$private_transcript" "$fixture_transcript_output" <<'PY' || fail "could not publish private action outputs"
 import os
 import shutil
 import stat
 import sys
 from pathlib import Path
 
-source = Path(sys.argv[1])
-destination = Path(sys.argv[2])
-flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
-if hasattr(os, "O_NOFOLLOW"):
-    flags |= os.O_NOFOLLOW
-descriptor = os.open(destination, flags, 0o600)
-try:
-    with os.fdopen(descriptor, "wb", closefd=False) as output:
-        with source.open("rb") as input_file:
-            shutil.copyfileobj(input_file, output)
-        output.flush()
-        os.fsync(output.fileno())
-finally:
-    os.close(descriptor)
-metadata = destination.lstat()
-if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600:
-    raise SystemExit(1)
+def publish(source_name: str, destination_name: str) -> None:
+    source = Path(source_name)
+    destination = Path(destination_name)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(destination, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=False) as output:
+            with source.open("rb") as input_file:
+                shutil.copyfileobj(input_file, output)
+            output.flush()
+            os.fsync(output.fileno())
+    finally:
+        os.close(descriptor)
+    metadata = destination.lstat()
+    if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600:
+        raise SystemExit(1)
+
+if sys.argv[3]:
+    publish(sys.argv[3], sys.argv[4])
+publish(sys.argv[1], sys.argv[2])
 PY
 echo "Android network evidence action passed: $gate_id"

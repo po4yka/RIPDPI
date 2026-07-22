@@ -37,6 +37,13 @@ STARTUP_GATE = "killswitch-tun-establish-native-ready"
 FIXTURE_ADDRESS = "198.51.100.20"
 FIXTURE_CONTROL_PORT = 18080
 FIXTURE_DNS_PORT = 15353
+FIXTURE_DOT_PORT = 18006
+FIXTURE_SOCKS_PORT = 18009
+SOURCE_OWNED_ENCRYPTED_DNS_GATES = {
+    "dns-virtual-vpn-resolver",
+    "dns-proxied-through-tunnelled-resolver",
+    "dns-no-isp-fallback-on-encrypted-resolver-outage",
+}
 
 
 def marker_preimage(window_id: str, kind: str, phase: str) -> bytes:
@@ -442,6 +449,7 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         self.observer_metadata = self.root / "observer-metadata.json"
         self.ledger_path = self.root / "ledger.json"
         self.action_receipt = self.root / "action-receipt.json"
+        self.fixture_transcript = self.root / "fixture-transcript.json"
         self.fixture_manifest = self.root / "fixture-manifest.json"
         self.client_output = self.root / "client-observation.json"
         self.observer_output = self.root / "observer-observation.json"
@@ -648,24 +656,34 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         forged_response_address: str | None = None,
         forged_response_port: int | None = None,
     ) -> dict[str, object]:
+        self.fixture_transcript.unlink(missing_ok=True)
         descriptor = receipt_contract.load_action_registry()[gate_id]
         facts = receipt_contract.example_valid_facts(gate_id)
         query_fields = sorted(
             field for field in facts if field.lower().endswith("querysha256")
         )
         query_names = {
-            field: f"q{index}.{gate_id}.fixture.test"
+            field: f"q{index}.{gate_id[:24]}.fixture.test"
             for index, field in enumerate(query_fields, start=1)
         }
         for field, name in query_names.items():
             facts[field] = hashlib.sha256(
                 b"ripdpi:dns-evidence-query:v1:" + name.encode("ascii")
             ).hexdigest()
-        endpoint_sha256 = hashlib.sha256(
-            b"ripdpi:dns-evidence-resolver:v1:"
-            + ipaddress.ip_address(FIXTURE_ADDRESS).packed
-            + struct.pack("!H", FIXTURE_DNS_PORT)
-        ).hexdigest()
+        source_owned = gate_id in SOURCE_OWNED_ENCRYPTED_DNS_GATES
+        endpoint_sha256 = (
+            hashlib.sha256(
+                f"ripdpi:dns-evidence-resolver:v1:dot:{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}".encode(
+                    "ascii"
+                )
+            ).hexdigest()
+            if source_owned
+            else hashlib.sha256(
+                b"ripdpi:dns-evidence-resolver:v1:"
+                + ipaddress.ip_address(FIXTURE_ADDRESS).packed
+                + struct.pack("!H", FIXTURE_DNS_PORT)
+            ).hexdigest()
+        )
         address_sha256 = hashlib.sha256(
             b"ripdpi:dns-evidence-address:v1:"
             + ipaddress.ip_address(FIXTURE_ADDRESS).packed
@@ -682,7 +700,17 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             if field in facts:
                 facts[field] = endpoint_sha256
         if "virtualDnsAddressSha256" in facts:
-            facts["virtualDnsAddressSha256"] = address_sha256
+            facts["virtualDnsAddressSha256"] = (
+                hashlib.sha256(
+                    b"ripdpi:dns-evidence-virtual-dns:v1:198.18.0.53"
+                ).hexdigest()
+                if source_owned
+                else address_sha256
+            )
+        if gate_id == "dns-no-isp-fallback-on-encrypted-resolver-outage":
+            facts["faultControlSha256"] = hashlib.sha256(
+                b"ripdpi:dns-evidence-fault:v1:dns_dot:dns_timeout:persistent"
+            ).hexdigest()
         if "allowlistedResolverSetSha256" in facts:
             facts["allowlistedResolverSetSha256"] = hashlib.sha256(
                 b"ripdpi:dns-evidence-resolver-set:v1:"
@@ -693,6 +721,68 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         fixture_sha = fixture_identity(fixture)
         self.fixture_manifest.write_bytes(canonical(fixture))
         os.chmod(self.fixture_manifest, 0o600)
+        if source_owned:
+            query_host = next(iter(query_names.values()))
+            events = [
+                {
+                    "service": "dns_dot",
+                    "protocol": "dot",
+                    "peer": "192.0.2.10:24000",
+                    "target": f"{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}",
+                    "detail": query_host,
+                    "bytes": 64,
+                    "sni": "fixture.test",
+                    "createdAt": 1,
+                }
+            ]
+            if gate_id == "dns-proxied-through-tunnelled-resolver":
+                socks_target = f"{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}"
+                events.insert(
+                    0,
+                    {
+                        "service": "socks5_relay",
+                        "protocol": "tcp",
+                        "peer": "192.0.2.10:23000",
+                        "target": f"{FIXTURE_ADDRESS}:{FIXTURE_SOCKS_PORT}",
+                        "detail": socks_target,
+                        "bytes": 32,
+                        "sni": None,
+                        "createdAt": 2,
+                    },
+                )
+                facts["socksTargetSha256"] = hashlib.sha256(
+                    f"ripdpi:dns-evidence-socks-target:v1:{socks_target}".encode(
+                        "utf-8"
+                    )
+                ).hexdigest()
+            if gate_id == "dns-no-isp-fallback-on-encrypted-resolver-outage":
+                events.append(
+                    {
+                        "service": "dns_dot",
+                        "protocol": "dot",
+                        "peer": "192.0.2.10:24000",
+                        "target": f"{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}",
+                        "detail": "fault:DnsTimeout",
+                        "bytes": 0,
+                        "sni": None,
+                        "createdAt": 3,
+                    }
+                )
+            transcript = {
+                "version": "network_evidence_fixture_transcript_v1",
+                "gateId": gate_id,
+                "correlationId": CORRELATION_ID,
+                "fixtureIdentitySha256": fixture_sha,
+                "queryHost": query_host,
+                "querySha256": facts[next(iter(query_fields))],
+                "events": events,
+            }
+            transcript_raw = canonical(transcript)
+            self.fixture_transcript.write_bytes(transcript_raw)
+            os.chmod(self.fixture_transcript, 0o600)
+            facts["fixtureTranscriptSha256"] = hashlib.sha256(
+                transcript_raw
+            ).hexdigest()
         action_sha = hashlib.sha256(
             marker_preimage(gate_id, "dns", "action")
         ).hexdigest()
@@ -753,7 +843,40 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                     ),
                 )
             ]
-            for index, name in enumerate(query_names.values(), start=1):
+            if source_owned:
+                endpoint_port = (
+                    FIXTURE_SOCKS_PORT
+                    if gate_id == "dns-proxied-through-tunnelled-resolver"
+                    else FIXTURE_DOT_PORT
+                )
+                result.extend(
+                    [
+                        (
+                            100,
+                            140_000,
+                            ethernet_ipv4_tcp(
+                                b"\x16\x03\x03\x00\x04test",
+                                source_port=source_port + 1,
+                                destination_port=endpoint_port,
+                                source_address=source_address,
+                            ),
+                        ),
+                        (
+                            100,
+                            160_000,
+                            ethernet_ipv4_tcp(
+                                b"\x16\x03\x03\x00\x02ok",
+                                source_port=endpoint_port,
+                                destination_port=source_port + 1,
+                                source_address=FIXTURE_ADDRESS,
+                                destination_address=source_address,
+                            ),
+                        ),
+                    ]
+                )
+            for index, name in (
+                enumerate(query_names.values(), start=1) if not source_owned else ()
+            ):
                 transaction_id = 0x1200 + index
                 query_field = query_fields[index - 1]
                 is_ipv6_query = query_field == "ipv6QuerySha256"
@@ -913,6 +1036,8 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                         str(TEST_READY_OVERRIDE),
                     ]
                 )
+            if self.fixture_transcript.exists():
+                command.extend(["--fixture-transcript", str(self.fixture_transcript)])
         command.extend(
             [
                 "--client-output",
@@ -948,6 +1073,22 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         ).hexdigest()
         self.ledger_path.write_bytes(canonical(ledger))
         self.write_metadata()
+
+    def rewrite_transcript_and_bind_receipt(
+        self, ledger: dict[str, object], transcript: dict[str, object]
+    ) -> None:
+        transcript_raw = canonical(transcript)
+        self.fixture_transcript.write_bytes(transcript_raw)
+        receipt = json.loads(self.action_receipt.read_text(encoding="utf-8"))
+        receipt["facts"]["fixtureTranscriptSha256"] = hashlib.sha256(
+            transcript_raw
+        ).hexdigest()
+        receipt_raw = canonical(receipt)
+        self.action_receipt.write_bytes(receipt_raw)
+        ledger["semanticRules"][0]["actionReceiptSha256"] = hashlib.sha256(
+            receipt_raw
+        ).hexdigest()
+        self.ledger_path.write_bytes(canonical(ledger))
 
     def add_window_b(self, ledger: dict[str, object]) -> None:
         plan = ledger["scenarioPlan"]
@@ -1055,7 +1196,8 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
 
     def test_dns_rule_rejects_forged_response_source_address(self) -> None:
         self.write_dns_action_inputs(
-            "dns-virtual-vpn-resolver", forged_response_address="203.0.113.200"
+            "dns-allowlisted-bootstrap-resolution",
+            forged_response_address="203.0.113.200",
         )
 
         result = self.run_oracle()
@@ -1065,7 +1207,7 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
 
     def test_dns_rule_rejects_forged_response_source_port(self) -> None:
         self.write_dns_action_inputs(
-            "dns-virtual-vpn-resolver", forged_response_port=5353
+            "dns-allowlisted-bootstrap-resolution", forged_response_port=5353
         )
 
         result = self.run_oracle()
@@ -1103,7 +1245,7 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                 result = self.run_oracle()
 
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("unexpected or leak packet", result.stderr)
+                self.assertIn("contains plaintext DNS", result.stderr)
 
     def test_dns_rule_rejects_wrong_packet_observed_provider(self) -> None:
         gate_id = "dns-proxied-through-tunnelled-resolver"
@@ -1120,7 +1262,61 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         result = self.run_oracle()
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("wrong packet-observed resolver/provider path", result.stderr)
+        self.assertIn("resolver provider digest mismatch", result.stderr)
+
+    def test_encrypted_dns_rule_rejects_unbound_transcript_bytes(self) -> None:
+        self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"][0]["createdAt"] = 99
+        self.fixture_transcript.write_bytes(canonical(transcript))
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fixture transcript digest mismatch", result.stderr)
+
+    def test_encrypted_dns_rule_rejects_duplicate_identity_bound_query(self) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"].append(dict(transcript["events"][0]))
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("exactly one DoT query transcript", result.stderr)
+
+    def test_proxied_dns_rule_rejects_missing_socks_target_event(self) -> None:
+        ledger = self.write_dns_action_inputs("dns-proxied-through-tunnelled-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"] = [
+            event
+            for event in transcript["events"]
+            if event["service"] != "socks5_relay"
+        ]
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("exact fixture SOCKS target transcript is missing", result.stderr)
+
+    def test_outage_dns_rule_rejects_missing_deterministic_fault(self) -> None:
+        ledger = self.write_dns_action_inputs(
+            "dns-no-isp-fallback-on-encrypted-resolver-outage"
+        )
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"] = [
+            event
+            for event in transcript["events"]
+            if not str(event["detail"]).startswith("fault:")
+        ]
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("deterministic DoT timeout transcript is missing", result.stderr)
 
     def test_startup_rule_counts_direct_dns_inside_blocking_window(self) -> None:
         self.write_startup_inputs()

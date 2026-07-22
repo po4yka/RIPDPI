@@ -44,6 +44,7 @@ MAX_MARKER_BYTES = 512
 MAX_PACKETS = 1_000_000
 MAX_LEDGER_BYTES = 1024 * 1024
 MAX_METADATA_BYTES = 64 * 1024
+MAX_TRANSCRIPT_BYTES = 1024 * 1024
 MAX_WINDOWS = 64
 STARTUP_GATE_ID = "killswitch-tun-establish-native-ready"
 STARTUP_RULE = "tun-establish-native-ready-v1"
@@ -57,6 +58,11 @@ DNS_RULES = {
     "dns-core-crash-behavior": "core-crash-dns-fail-closed-v1",
     "dns-android-private-dns-conflict": "android-private-dns-conflict-v1",
     "synthetic-authoritative-dns-query-sources": "authoritative-query-sources-v1",
+}
+SOURCE_OWNED_ENCRYPTED_DNS_RULES = {
+    "virtual-vpn-resolver-v1",
+    "proxied-domain-resolver-path-v1",
+    "encrypted-outage-fail-closed-v1",
 }
 SOURCE_OWNED_AUTHORITATIVE_IPV6 = ipaddress.ip_address("2001:db8::20").packed
 FIXTURE_IDENTITY_DOMAIN = "ripdpi:fixture-identity:v1"
@@ -157,6 +163,8 @@ class FixtureContext:
     address: bytes
     control_port: int
     dns_udp_port: int
+    dns_dot_port: int
+    socks5_port: int
     fixture_domain_labels: tuple[bytes, ...]
     dns_answer_address: bytes
 
@@ -348,6 +356,8 @@ def load_fixture_context(path: Path, expected_identity: str) -> FixtureContext:
         address=address.packed,
         control_port=value["controlPort"],
         dns_udp_port=value["dnsUdpPort"],
+        dns_dot_port=value["dnsDotPort"],
+        socks5_port=value["socks5Port"],
         fixture_domain_labels=fixture_domain_labels,
         dns_answer_address=dns_answer.packed,
     )
@@ -1269,6 +1279,220 @@ def _dns_evidence_query_sha256(labels: tuple[bytes, ...]) -> str:
     ).hexdigest()
 
 
+def _load_fixture_transcript(
+    path: Path,
+    *,
+    gate_id: str,
+    plan: dict[str, Any],
+    fixture: FixtureContext,
+    facts: dict[str, Any],
+) -> bytes:
+    value, raw = load_strict_json(
+        path, "fixture transcript", maximum_bytes=MAX_TRANSCRIPT_BYTES
+    )
+    if hashlib.sha256(raw).hexdigest() != facts["fixtureTranscriptSha256"]:
+        raise ValueError(f"{gate_id} fixture transcript digest mismatch")
+    required = {
+        "version",
+        "gateId",
+        "correlationId",
+        "fixtureIdentitySha256",
+        "queryHost",
+        "querySha256",
+        "events",
+    }
+    if (
+        set(value) != required
+        or value["version"] != "network_evidence_fixture_transcript_v1"
+    ):
+        raise ValueError(f"{gate_id} fixture transcript fields or version mismatch")
+    if (
+        value["gateId"] != gate_id
+        or value["correlationId"] != plan["correlationId"]
+        or value["fixtureIdentitySha256"] != fixture.identity_sha256
+    ):
+        raise ValueError(f"{gate_id} fixture transcript identity mismatch")
+    query_field = {
+        "dns-virtual-vpn-resolver": "virtualQuerySha256",
+        "dns-proxied-through-tunnelled-resolver": "proxiedQuerySha256",
+        "dns-no-isp-fallback-on-encrypted-resolver-outage": "outageQuerySha256",
+    }[gate_id]
+    query_host = value["queryHost"]
+    if not isinstance(query_host, str):
+        raise ValueError(f"{gate_id} fixture transcript queryHost is malformed")
+    expected_query = hashlib.sha256(
+        b"ripdpi:dns-evidence-query:v1:" + query_host.lower().encode("ascii")
+    ).hexdigest()
+    if value["querySha256"] != expected_query or expected_query != facts[query_field]:
+        raise ValueError(f"{gate_id} fixture transcript query binding mismatch")
+    provider_field = {
+        "dns-virtual-vpn-resolver": "tunnelResolverProviderSha256",
+        "dns-proxied-through-tunnelled-resolver": "resolverProviderSha256",
+        "dns-no-isp-fallback-on-encrypted-resolver-outage": "encryptedResolverProviderSha256",
+    }[gate_id]
+    expected_provider = hashlib.sha256(
+        (
+            "ripdpi:dns-evidence-resolver:v1:dot:"
+            f"{ipaddress.ip_address(fixture.address)}:{fixture.dns_dot_port}"
+        ).encode("ascii")
+    ).hexdigest()
+    if facts[provider_field] != expected_provider:
+        raise ValueError(f"{gate_id} resolver provider digest mismatch")
+    if gate_id == "dns-virtual-vpn-resolver":
+        expected_virtual_address = hashlib.sha256(
+            b"ripdpi:dns-evidence-virtual-dns:v1:198.18.0.53"
+        ).hexdigest()
+        if facts["virtualDnsAddressSha256"] != expected_virtual_address:
+            raise ValueError(f"{gate_id} virtual resolver address digest mismatch")
+    if gate_id == "dns-no-isp-fallback-on-encrypted-resolver-outage":
+        expected_fault_control = hashlib.sha256(
+            b"ripdpi:dns-evidence-fault:v1:dns_dot:dns_timeout:persistent"
+        ).hexdigest()
+        if facts["faultControlSha256"] != expected_fault_control:
+            raise ValueError(f"{gate_id} fault control digest mismatch")
+    events = value["events"]
+    if not isinstance(events, list) or not events:
+        raise ValueError(f"{gate_id} fixture transcript events are missing")
+    allowed_fields = {
+        "service",
+        "protocol",
+        "peer",
+        "target",
+        "detail",
+        "bytes",
+        "sni",
+        "createdAt",
+    }
+    for event in events:
+        if not isinstance(event, dict) or set(event) != allowed_fields:
+            raise ValueError(f"{gate_id} fixture transcript event fields mismatch")
+        if any(
+            not isinstance(event[field], str)
+            for field in ("service", "protocol", "peer", "target", "detail")
+        ) or not isinstance(event["createdAt"], int):
+            raise ValueError(f"{gate_id} fixture transcript event value mismatch")
+        if (
+            not isinstance(event["bytes"], int)
+            or isinstance(event["bytes"], bool)
+            or event["bytes"] < 0
+            or (event["sni"] is not None and not isinstance(event["sni"], str))
+        ):
+            raise ValueError(f"{gate_id} fixture transcript event value mismatch")
+    query_events = [
+        event
+        for event in events
+        if event["service"] == "dns_dot"
+        and event["protocol"] == "dot"
+        and event["detail"] == query_host
+    ]
+    if len(query_events) != 1:
+        raise ValueError(f"{gate_id} must bind exactly one DoT query transcript")
+    forbidden_resolver_events = {"dns_udp", "dns_http", "dns_dnscrypt", "dns_doq"}
+    if any(event["service"] in forbidden_resolver_events for event in events):
+        raise ValueError(
+            f"{gate_id} transcript contains plaintext or alternate resolver use"
+        )
+    fault_events = [
+        event
+        for event in events
+        if event["service"] == "dns_dot" and str(event["detail"]).startswith("fault:")
+    ]
+    if gate_id == "dns-no-isp-fallback-on-encrypted-resolver-outage":
+        if len(fault_events) != 1 or fault_events[0]["detail"] != "fault:DnsTimeout":
+            raise ValueError(
+                f"{gate_id} deterministic DoT timeout transcript is missing"
+            )
+    elif fault_events:
+        raise ValueError(f"{gate_id} transcript contains an unexpected resolver fault")
+    socks_events = [
+        event
+        for event in events
+        if event["service"] == "socks5_relay" and event["protocol"] == "tcp"
+    ]
+    if gate_id == "dns-proxied-through-tunnelled-resolver":
+        expected_target_value = (
+            f"{ipaddress.ip_address(fixture.address)}:{fixture.dns_dot_port}"
+        )
+        if len(socks_events) != 1 or socks_events[0]["detail"] != expected_target_value:
+            raise ValueError(
+                f"{gate_id} exact fixture SOCKS target transcript is missing"
+            )
+        expected_target = hashlib.sha256(
+            ("ripdpi:dns-evidence-socks-target:v1:" + expected_target_value).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        if expected_target != facts["socksTargetSha256"]:
+            raise ValueError(f"{gate_id} fixture SOCKS target digest mismatch")
+        if (
+            facts["relayDnsRoute"] != "socks5"
+            or facts["relayDnsFailClosed"] is not True
+        ):
+            raise ValueError(
+                f"{gate_id} receipt does not prove fail-closed SOCKS DNS routing"
+            )
+    elif socks_events:
+        raise ValueError(
+            f"{gate_id} transcript unexpectedly contains fixture SOCKS routing"
+        )
+    return hashlib.sha256(
+        b"ripdpi:dns-evidence-fixture-transcript-proof:v1:" + raw
+    ).digest()
+
+
+def _require_encrypted_dns_role_packets(
+    *,
+    role: str,
+    packets: list[Packet],
+    interval: tuple[int, int],
+    gate_id: str,
+    fixture: FixtureContext,
+    transcript_proof: bytes,
+) -> tuple[bytes, set[int]]:
+    start, finish = interval
+    expected_port = (
+        fixture.socks5_port
+        if gate_id == "dns-proxied-through-tunnelled-resolver"
+        else fixture.dns_dot_port
+    )
+    allowed: set[int] = set()
+    outbound = 0
+    inbound = 0
+    for index in range(start, finish + 1):
+        packet = packets[index]
+        if packet.transport in {"tcp", "udp"} and (
+            packet.source_port == 53 or packet.destination_port == 53
+        ):
+            raise ValueError(f"{role} {gate_id} contains plaintext DNS")
+        if packet.transport != "tcp":
+            continue
+        if (
+            packet.destination_address == fixture.address
+            and packet.destination_port == expected_port
+        ):
+            outbound += 1
+            allowed.add(index)
+        elif (
+            packet.source_address == fixture.address
+            and packet.source_port == expected_port
+        ):
+            inbound += 1
+            allowed.add(index)
+    if outbound == 0 or inbound == 0:
+        raise ValueError(
+            f"{role} {gate_id} is missing the encrypted/fixture-SOCKS endpoint exchange"
+        )
+    proof = hashlib.sha256(
+        b"ripdpi:dns-evidence-encrypted-role-proof:v1:"
+        + gate_id.encode("ascii")
+        + b":"
+        + transcript_proof
+        + b":"
+        + str(expected_port).encode("ascii")
+    ).digest()
+    return proof, allowed
+
+
 def _resolver_endpoint_sha256(packet: Packet) -> str:
     assert (
         packet.destination_address is not None and packet.destination_port is not None
@@ -1457,6 +1681,7 @@ def derive_observation(
     fixture: FixtureContext | None,
     startup_query_sha256: str | None,
     dns_action_facts: dict[str, dict[str, Any]],
+    fixture_transcript_proofs: dict[str, bytes],
 ) -> tuple[dict[str, Any], dict[str, bytes]]:
     counters = {
         window.identifier: {
@@ -1521,15 +1746,29 @@ def derive_observation(
         facts = dns_action_facts.get(window.identifier)
         if facts is None:
             raise ValueError(f"{window.identifier} requires its exact action receipt")
-        proof, records = _require_dns_rule_packets(
-            role=role,
-            packets=packets,
-            interval=intervals[index],
-            gate_id=window.identifier,
-            rule_name=rule.name,
-            facts=facts,
-            fixture=fixture,
-        )
+        if rule.name in SOURCE_OWNED_ENCRYPTED_DNS_RULES:
+            if fixture is None or window.identifier not in fixture_transcript_proofs:
+                raise ValueError(
+                    f"{window.identifier} requires a bound fixture transcript"
+                )
+            proof, records = _require_encrypted_dns_role_packets(
+                role=role,
+                packets=packets,
+                interval=intervals[index],
+                gate_id=window.identifier,
+                fixture=fixture,
+                transcript_proof=fixture_transcript_proofs[window.identifier],
+            )
+        else:
+            proof, records = _require_dns_rule_packets(
+                role=role,
+                packets=packets,
+                interval=intervals[index],
+                gate_id=window.identifier,
+                rule_name=rule.name,
+                facts=facts,
+                fixture=fixture,
+            )
         semantic_proofs[window.identifier] = proof
         allowed_dns_records[window.identifier] = records
     interval_starts = [start for start, _finish in intervals]
@@ -1725,6 +1964,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--observer-metadata", required=True, type=Path)
     parser.add_argument("--ledger", required=True, type=Path)
     parser.add_argument("--action-receipt", type=Path, action="append", default=[])
+    parser.add_argument("--fixture-transcript", type=Path, action="append", default=[])
     parser.add_argument("--test-only-action-registry-override", type=Path)
     parser.add_argument("--fixture-manifest", type=Path)
     parser.add_argument("--client-output", required=True, type=Path)
@@ -1742,6 +1982,7 @@ def main() -> int:
             args.observer_metadata,
             args.ledger,
             *args.action_receipt,
+            *args.fixture_transcript,
             *(path for path in (args.test_only_action_registry_override,) if path),
             *(path for path in (args.fixture_manifest,) if path),
             args.client_output,
@@ -1769,6 +2010,7 @@ def main() -> int:
         fixture: FixtureContext | None = None
         startup_query_sha256: str | None = None
         dns_action_facts: dict[str, dict[str, Any]] = {}
+        fixture_transcript_proofs: dict[str, bytes] = {}
         if action_rules:
             if (
                 len(args.action_receipt) != len(action_rules)
@@ -1805,6 +2047,27 @@ def main() -> int:
                     )
                 else:
                     dns_action_facts[action_rule.window_id] = action_facts
+            transcript_rules = [
+                rule
+                for rule in action_rules
+                if rule.name in SOURCE_OWNED_ENCRYPTED_DNS_RULES
+            ]
+            if len(args.fixture_transcript) != len(transcript_rules):
+                raise ValueError(
+                    "every source-owned encrypted DNS action requires one ordered --fixture-transcript"
+                )
+            for action_rule, transcript_path in zip(
+                transcript_rules, args.fixture_transcript, strict=True
+            ):
+                fixture_transcript_proofs[action_rule.window_id] = (
+                    _load_fixture_transcript(
+                        transcript_path,
+                        gate_id=action_rule.window_id,
+                        plan=plan,
+                        fixture=fixture,
+                        facts=dns_action_facts[action_rule.window_id],
+                    )
+                )
         elif (
             args.action_receipt
             or args.fixture_manifest is not None
@@ -1856,6 +2119,7 @@ def main() -> int:
             fixture=fixture,
             startup_query_sha256=startup_query_sha256,
             dns_action_facts=dns_action_facts,
+            fixture_transcript_proofs=fixture_transcript_proofs,
         )
         observer, observer_proofs = derive_observation(
             role="external-observer",
@@ -1868,6 +2132,7 @@ def main() -> int:
             fixture=fixture,
             startup_query_sha256=startup_query_sha256,
             dns_action_facts=dns_action_facts,
+            fixture_transcript_proofs=fixture_transcript_proofs,
         )
         if client_proofs != observer_proofs:
             raise ValueError("dual-vantage DNS semantic proofs do not match")
