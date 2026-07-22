@@ -4,13 +4,13 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: Android ordinary raw verifier lane
+owner: DNS source actions wave 1
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-07-16
 updated: 2026-07-22
-status_detail: The startup-window action and gate-specific PCAP semantics are source-owned; nine gate actions, the ordinary raw verifier, producer approval, and authorized physical evidence still block a real PASS
+status_detail: Three DNS actions are assigned for production source ownership; six gate actions, producer approval, and authorized physical evidence still block a real PASS
 ---
 
 ## Goal
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-22: Assigned the first DNS source-action wave for `dns-virtual-vpn-resolver`, `dns-proxied-through-tunnelled-resolver`, and `dns-no-isp-fallback-on-encrypted-resolver-outage`. This lane owns correlation-bound Android receipts plus fixture-transcript and gate-role-aware oracle contracts, but may not set `productionReady: true` or claim physical PASS until the exact selectors and producer provenance have been exercised on an authorized device/capture topology. The remaining six reserved DNS actions stay out of scope.
 - 2026-07-22: Added the fail-closed ordinary raw-bundle preflight for the exact seven physical actions and eleven gates. The public producer now requires one canonical mode-0600 manifest, a current-source binding, distinct exact app/test APK digests, fresh redacted run/correlation identities, action-bound observation windows and vantages, a private mode-0700 artifact root, and the exact single-link mode-0600 action-receipt/packet-capture/route-snapshot inventory. It rejects output/input inode or artifact-root aliases before writing and derives only redacted provenance plus explicit per-action semantic-blocker failures; caller-authored state, summaries, and JUnit output cannot produce PASS. `SOURCE_OWNED_VERIFIER_AVAILABLE` remains false until the seven packet/route semantic oracles exist.
 - 2026-07-22: Assigned the serialized writer lane for the ordinary Android raw-artifact verifier foundation. The lane owns private artifact provenance, exact action/gate inventory, source and APK binding, and fail-closed parsing mechanics; it may not authorize release PASS until source-owned semantic oracles cover all eleven ordinary gates.
 - 2026-07-22: Implemented `tun-establish-native-ready-v1`. The source-owned markers conservatively bracket the complete no-ship interval from before VPN start through confirmed native readiness. The private v2 ledger binds the validated Android receipt and fixture identity; the receipt additionally binds the randomized post-ready DNS question by digest. The oracle retains private L3/L4 facts, reassembles segmented/retransmitted TCP marker streams, validates the exact NOERROR fixture answer at both NAT-independent vantages, permits only that receipt-bound DNS exchange inside the window, flags every other non-control packet, and publishes only redacted counters and digests. The action remains `productionReady: false` because no authorized physical capture or producer-provenance approval exists.
