@@ -781,12 +781,16 @@ class NetworkPathE2ETest {
                 serverPort = PacketSmokeMapDnsPort,
                 bindDevice = "tun0",
             )
-        assertEquals("allowed DNS did not retain SO_BINDTODEVICE", "tun0", allowedDns.boundDevice)
         assertSuccessfulPhysicalProbe(
-            "allowed bound MapDNS",
+            "allowed bound MapDNS ${allowedDns.debugSummary()}",
             allowedDns.ok,
             allowedDns.failureKind,
             allowedDns.errno,
+        )
+        assertEquals(
+            "allowed DNS did not retain SO_BINDTODEVICE: ${allowedDns.debugSummary()}",
+            "tun0",
+            allowedDns.boundDevice,
         )
         assertEquals("allowed MapDNS query did not receive a NOERROR response", 0, allowedDns.rcode)
         assertTrue("allowed MapDNS query returned no answers", allowedDns.answers.isNotEmpty())
@@ -920,7 +924,11 @@ class NetworkPathE2ETest {
                 timeoutMs = 1_000L,
                 bindDevice = "tun0",
             )
-        assertEquals("denied DNS did not retain SO_BINDTODEVICE", "tun0", deniedDns.boundDevice)
+        assertEquals(
+            "denied DNS did not retain SO_BINDTODEVICE: ${deniedDns.debugSummary()}",
+            "tun0",
+            deniedDns.boundDevice,
+        )
         assertFalse("excluded UID unexpectedly completed a bound MapDNS query", deniedDns.ok)
         val deniedDnsAtNetworkStage = deniedDns.failureStage in setOf("connect", "send", "receive")
         val deniedDnsOutcomeIsBlocked =
@@ -1356,6 +1364,11 @@ class NetworkPathE2ETest {
         return "mode=${telemetry.mode} status=${telemetry.status} " +
             "txPackets=${telemetry.tunnelStats.txPackets} rxPackets=${telemetry.tunnelStats.rxPackets}"
     }
+
+    private fun AppProcessDnsProbeResult.debugSummary(): String =
+        "ok=$ok rcode=$rcode answers=${answers.size} boundDevice=$boundDevice " +
+            "failureKind=$failureKind failureStage=$failureStage errno=$errno " +
+            "errorClass=$errorClass errorMessage=$errorMessage"
 }
 
 private data class PhysicalSoBindFamily(
