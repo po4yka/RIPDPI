@@ -104,17 +104,20 @@ internal class StrategyConfigEditorViewModel
                 ?.let(::setAndPersist)
         }
 
-        fun importConfig(configText: String): Boolean {
-            if (discarding) return false
-            val bounded = configText.boundedUtf8(StrategyConfigMaxImportBytes)
-            if (!hydrationComplete) {
-                pendingImportedConfigText = bounded
-                return false
+        fun importConfig(configText: String): Boolean =
+            if (discarding) {
+                false
+            } else {
+                val bounded = configText.boundedUtf8(StrategyConfigMaxImportBytes)
+                if (!hydrationComplete) {
+                    pendingImportedConfigText = bounded
+                    false
+                } else {
+                    session
+                        ?.importConfig(bounded)
+                        ?.also(::setAndPersist) != null
+                }
             }
-            val imported = session?.importConfig(bounded) ?: return false
-            setAndPersist(imported)
-            return true
-        }
 
         fun beginSave(): StrategyConfigSaveRequest? =
             if (discarding) {
