@@ -527,6 +527,37 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
+    fun logsStreamCopyActionsMaximumFont() {
+        captureBothThemes(
+            name = "logsStreamCopyActionsMaximumFont",
+            widthDp = 411,
+            heightDp = 640,
+            fontScale = 2f,
+        ) {
+            LogsStreamCard(
+                entries =
+                    listOf(
+                        LogEntry(
+                            id = "diagnostics-maximum-font",
+                            createdAtMs = 1_711_452_282_000,
+                            timestamp = "12:31:22",
+                            subsystem = LogSubsystem.Diagnostics,
+                            severity = LogSeverity.Warn,
+                            message = "Connectivity probe timed out while waiting for a response",
+                            source = "diagnostics",
+                            runtimeId = "5d8e4a11-5067-44b2-9a17-e84826709d28",
+                            diagnosticsSessionId = "f87bba7f-d81f-4376-af1e-7282c4c55f62",
+                            isActiveSession = true,
+                        ),
+                    ),
+                listState = rememberLazyListState(),
+                onCopyEntry = {},
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+
+    @Test
     fun metricPill() {
         captureBothThemes("metricPill", widthDp = 360, heightDp = 120) {
             RipDpiMetricPill(text = "RTT 12 ms", tone = RipDpiMetricTone.Positive)

@@ -148,11 +148,63 @@ class LogsScreenTest {
         assertTrue(copyBounds.top <= entryBounds.top + MaximumCopyTopOffsetPx)
     }
 
+    @Test
+    fun `diagnostics log stays readable with copy action at maximum font scale`() {
+        val entry =
+            LogEntry(
+                id = "maximum-font",
+                createdAtMs = 1L,
+                timestamp = "12:34:56",
+                subsystem = LogSubsystem.Diagnostics,
+                severity = LogSeverity.Warn,
+                message = "Connectivity probe timed out while waiting for a response",
+                source = "diagnostics",
+            )
+        var copiedEntry: LogEntry? = null
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(Modifier.width(320.dp).height(360.dp)) {
+                        LogsStreamCard(
+                            entries = persistentListOf(entry),
+                            listState = rememberLazyListState(),
+                            onCopyEntry = { copiedEntry = it },
+                        )
+                    }
+                }
+            }
+        }
+
+        val entryBounds =
+            composeRule.onNodeWithTag(RipDpiTestTags.logsEntry(entry.id)).fetchSemanticsNode().boundsInRoot
+        val timestampBounds =
+            composeRule.onNodeWithText(entry.timestamp, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val typeBounds =
+            composeRule.onNodeWithText("DIAGNOSTICS", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val messageBounds =
+            composeRule.onNodeWithText(entry.message, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val copyNode = composeRule.onNodeWithTag(RipDpiTestTags.logsEntryCopy(entry.id))
+        val copyBounds = copyNode.fetchSemanticsNode().boundsInRoot
+
+        assertTrue(messageBounds.width >= MinimumReadableMessageWidthPx)
+        assertTrue(messageBounds.top >= maxOf(timestampBounds.bottom, typeBounds.bottom))
+        assertTrue(messageBounds.left >= entryBounds.left)
+        assertTrue(messageBounds.right <= copyBounds.left)
+        assertTrue(copyBounds.right <= entryBounds.right)
+        assertTrue(copyBounds.width >= MinimumTouchTargetPx)
+        assertTrue(copyBounds.height >= MinimumTouchTargetPx)
+
+        copyNode.assertHasClickAction().performClick()
+        composeRule.runOnIdle { assertEquals(entry, copiedEntry) }
+    }
+
     private companion object {
         const val LongRuntimeId = "5d8e4a11-5067-44b2-9a17-e84826709d28"
         const val LongScanId = "f87bba7f-d81f-4376-af1e-7282c4c55f62"
         const val MaximumChipHeightPx = 32f
         const val MaximumEntryHeightPx = 160f
         const val MaximumCopyTopOffsetPx = 32f
+        const val MinimumReadableMessageWidthPx = 160f
+        const val MinimumTouchTargetPx = 48f
     }
 }
