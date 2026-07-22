@@ -105,7 +105,7 @@ class CrossLanguageRuntimeContractsTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "missing required gate ids"):
                 contracts.validate_policy(broken)
 
-    def test_native_config_distinguishes_jni_json_v4_from_standalone_yaml_v2(self) -> None:
+    def test_native_config_distinguishes_jni_json_v3_from_standalone_yaml_v2(self) -> None:
         broken = copy.deepcopy(self.policy)
         surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
         surface["invariants"] = ["Generic config invariants remain stable.", "Unknown fields remain compatible."]
