@@ -21,6 +21,7 @@ readonly fixture_tcp_echo_port="${RIPDPI_FIXTURE_TCP_ECHO_PORT:-}"
 readonly fixture_udp_echo_port="${RIPDPI_FIXTURE_UDP_ECHO_PORT:-}"
 readonly evidence_output="${RIPDPI_SO_BIND_EVIDENCE_OUTPUT:-}"
 readonly evidence_file_name="so-bind-physical-evidence.json"
+readonly main_activity_component="com.poyka.ripdpi/com.poyka.ripdpi.activities.MainActivity"
 
 fail() {
     echo "SO_BIND physical E2E: $1" >&2
@@ -101,7 +102,11 @@ adb_device() {
 }
 
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
+main_activity_disabled=0
 cleanup() {
+    if [[ "$main_activity_disabled" == "1" ]]; then
+        adb_device shell pm default-state --user 0 "$main_activity_component" >/dev/null 2>&1 || true
+    fi
     adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
     rm -rf "$temp_dir"
 }
@@ -162,6 +167,19 @@ so_bind_physical_normalize_routed_ipv6 "$ipv6_source" >/dev/null ||
 
 install_and_verify_apk "$app_apk" "com.poyka.ripdpi" "app"
 install_and_verify_apk "$test_apk" "com.poyka.ripdpi.test" "test"
+# A foreground task may be recreated when install -r replaces its process. If
+# that happens under HiltTestApplication, MainActivity can start before JUnit
+# creates the per-test Hilt component. Quiesce both packages deterministically.
+adb_device shell input keyevent HOME >/dev/null 2>&1 ||
+    fail "could not background foreground tasks before instrumentation"
+adb_device shell am force-stop com.poyka.ripdpi >/dev/null 2>&1 ||
+    fail "could not stop the target package before instrumentation"
+adb_device shell am force-stop com.poyka.ripdpi.test >/dev/null 2>&1 ||
+    fail "could not stop the instrumentation package before instrumentation"
+target_pids="$(adb_device shell pidof com.poyka.ripdpi 2>/dev/null | tr -d '\r' || true)"
+test_pids="$(adb_device shell pidof com.poyka.ripdpi.test 2>/dev/null | tr -d '\r' || true)"
+[[ -z "$target_pids" && -z "$test_pids" ]] ||
+    fail "target or instrumentation process remained alive after force-stop"
 adb_device shell run-as com.poyka.ripdpi rm -f "files/$evidence_file_name" >/dev/null 2>&1 ||
     fail "could not clear prior physical evidence"
 
@@ -215,6 +233,12 @@ PY
 )"
 readonly started_at_epoch_ms
 
+# This test never launches UI. Disable the target activity while the test
+# process uses HiltTestApplication so a concurrent adb/UI launch cannot create
+# MainActivity before HiltAndroidRule has installed the per-test component.
+adb_device shell pm disable-user --user 0 "$main_activity_component" >/dev/null 2>&1 ||
+    fail "could not isolate MainActivity during instrumentation"
+main_activity_disabled=1
 set +e
 adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r \
     -e class "$test_selector" \
@@ -231,6 +255,9 @@ adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r 
     "$instrumentation_component" >"$output_file" 2>&1
 instrumentation_status=$?
 set -e
+adb_device shell pm default-state --user 0 "$main_activity_component" >/dev/null 2>&1 ||
+    fail "could not restore MainActivity after instrumentation"
+main_activity_disabled=0
 
 [[ "$instrumentation_status" == "0" ]] || fail "instrumentation command failed"
 if ! so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_method"; then
