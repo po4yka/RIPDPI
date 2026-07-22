@@ -24,7 +24,7 @@ class RecreationStateOwnershipTest {
         assertTrue(configViewModel.contains("masqueImportState"))
 
         assertFalse(strategyRoute.contains("configText by remember"))
-        assertTrue(strategyRoute.contains("StrategyConfigDraftViewModel"))
+        assertTrue(strategyRoute.contains("StrategyConfigEditorViewModel"))
 
         assertFalse(domainRoute.contains("var text by remember"))
         assertTrue(domainRoute.contains("viewModel::updateDraft"))

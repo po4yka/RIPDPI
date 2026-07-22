@@ -3,10 +3,10 @@ package com.poyka.ripdpi.ui.screens.config
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.Uri
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.activities.ConfigEditorExitDecision
 import com.poyka.ripdpi.activities.ConfigViewModel
+import com.poyka.ripdpi.activities.MasqueImportAction
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
@@ -59,28 +59,6 @@ internal fun updateMasqueGeohash(
         viewModel.updateDraft { copy(relayMasqueCloudflareGeohashEnabled = true) }
     } else {
         requestCoarseLocationPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-    }
-}
-
-internal fun handleMasqueDocumentResult(
-    viewModel: ConfigViewModel,
-    request: MasqueImportRequest?,
-    uri: Uri?,
-    onPkcs12Selected: (PendingMasquePkcs12Import) -> Unit,
-) {
-    if (uri == null || request == null) return
-    when (request.action) {
-        MasqueImportAction.CertificateChain -> {
-            viewModel.importRelayMasqueCertificateChain(uri, request.sessionId)
-        }
-
-        MasqueImportAction.PrivateKey -> {
-            viewModel.importRelayMasquePrivateKey(uri, request.sessionId)
-        }
-
-        MasqueImportAction.Pkcs12 -> {
-            onPkcs12Selected(PendingMasquePkcs12Import(uri, request.sessionId))
-        }
     }
 }
 

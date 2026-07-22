@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.config
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,12 +23,10 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -102,17 +99,6 @@ import kotlinx.coroutines.launch
 
 internal data class MasqueImportRequest(
     val action: MasqueImportAction,
-    val sessionId: Long,
-)
-
-internal data class PendingMasquePkcs12Import(
-    val uri: Uri,
-    val sessionId: Long,
-)
-
-internal data class PendingMasqueDocumentResult(
-    val action: MasqueImportAction,
-    val uri: Uri,
     val sessionId: Long,
 )
 
@@ -241,169 +227,6 @@ private fun rememberModeEditorCoarseLocationPermissionAction(viewModel: ConfigVi
             permissionRequestSessionId = sessionId
             launcher.launch(permission)
         }
-    }
-}
-
-@Composable
-private fun rememberModeEditorMasqueImportAction(viewModel: ConfigViewModel): (MasqueImportRequest) -> Unit {
-    var pendingRequest by rememberMasqueImportRequestState()
-    var pendingResult by rememberPendingMasqueDocumentResultState()
-    var pendingPkcs12 by rememberPendingMasquePkcs12ImportState()
-    var pkcs12Password by remember { mutableStateOf("") }
-    val editorSessionId = viewModel.currentEditorSessionId
-    LaunchedEffect(pendingRequest, editorSessionId) {
-        val request = pendingRequest ?: return@LaunchedEffect
-        if (request.sessionId != editorSessionId) pendingRequest = null
-    }
-    val documentLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            val request = pendingRequest
-            pendingRequest = null
-            pendingResult =
-                if (request == null || uri == null) {
-                    null
-                } else {
-                    PendingMasqueDocumentResult(request.action, uri, request.sessionId)
-                }
-        }
-
-    val clearPkcs12 = {
-        pendingPkcs12 = null
-        pkcs12Password = ""
-    }
-    ModeEditorPendingDocumentResultEffect(
-        pendingResult = pendingResult,
-        editorSessionId = editorSessionId,
-        onReady = { result ->
-            pendingResult = null
-            handleMasqueDocumentResult(
-                viewModel = viewModel,
-                request = MasqueImportRequest(result.action, result.sessionId),
-                uri = result.uri,
-                onPkcs12Selected = { pendingPkcs12 = it },
-            )
-        },
-        onDiscard = { pendingResult = null },
-    )
-    LaunchedEffect(pendingPkcs12, editorSessionId) {
-        val pending = pendingPkcs12 ?: return@LaunchedEffect
-        if (pending.sessionId != editorSessionId) clearPkcs12()
-    }
-    val activePkcs12 = pendingPkcs12?.takeIf { it.sessionId == editorSessionId }
-    ModeEditorPkcs12Dialog(
-        uri = activePkcs12?.uri,
-        password = pkcs12Password,
-        onPasswordChanged = { pkcs12Password = it },
-        onImport = { selectedUri, password ->
-            activePkcs12?.let { pending ->
-                viewModel.importRelayMasquePkcs12(selectedUri, password, pending.sessionId)
-                clearPkcs12()
-            }
-        },
-        onDismiss = clearPkcs12,
-    )
-    return { request ->
-        pendingRequest = request
-        documentLauncher.launch(arrayOf("*/*"))
-    }
-}
-
-@Composable
-internal fun rememberMasqueImportRequestState(): MutableState<MasqueImportRequest?> =
-    rememberSaveable(
-        stateSaver =
-            mapSaver(
-                save = { request ->
-                    if (request == null) {
-                        emptyMap()
-                    } else {
-                        mapOf(
-                            "action" to request.action.name,
-                            "sessionId" to request.sessionId,
-                        )
-                    }
-                },
-                restore = { values ->
-                    if (values.isEmpty()) {
-                        null
-                    } else {
-                        MasqueImportRequest(
-                            action = MasqueImportAction.valueOf(values.getValue("action") as String),
-                            sessionId = values.getValue("sessionId") as Long,
-                        )
-                    }
-                },
-            ),
-    ) { mutableStateOf(null) }
-
-@Composable
-internal fun rememberPendingMasquePkcs12ImportState(): MutableState<PendingMasquePkcs12Import?> =
-    rememberSaveable(
-        stateSaver =
-            mapSaver(
-                save = { pending ->
-                    if (pending == null) {
-                        emptyMap()
-                    } else {
-                        mapOf(
-                            "uri" to pending.uri.toString(),
-                            "sessionId" to pending.sessionId,
-                        )
-                    }
-                },
-                restore = { values ->
-                    if (values.isEmpty()) {
-                        null
-                    } else {
-                        PendingMasquePkcs12Import(
-                            uri = Uri.parse(values.getValue("uri") as String),
-                            sessionId = values.getValue("sessionId") as Long,
-                        )
-                    }
-                },
-            ),
-    ) { mutableStateOf(null) }
-
-@Composable
-internal fun rememberPendingMasqueDocumentResultState(): MutableState<PendingMasqueDocumentResult?> =
-    rememberSaveable(
-        stateSaver =
-            mapSaver(
-                save = { result ->
-                    if (result == null) {
-                        emptyMap()
-                    } else {
-                        mapOf(
-                            "action" to result.action.name,
-                            "uri" to result.uri.toString(),
-                            "sessionId" to result.sessionId,
-                        )
-                    }
-                },
-                restore = { values ->
-                    if (values.isEmpty()) {
-                        null
-                    } else {
-                        PendingMasqueDocumentResult(
-                            action = MasqueImportAction.valueOf(values.getValue("action") as String),
-                            uri = Uri.parse(values.getValue("uri") as String),
-                            sessionId = values.getValue("sessionId") as Long,
-                        )
-                    }
-                },
-            ),
-    ) { mutableStateOf(null) }
-
-@Composable
-internal fun ModeEditorPendingDocumentResultEffect(
-    pendingResult: PendingMasqueDocumentResult?,
-    editorSessionId: Long?,
-    onReady: (PendingMasqueDocumentResult) -> Unit,
-    onDiscard: () -> Unit,
-) {
-    LaunchedEffect(pendingResult, editorSessionId) {
-        val result = pendingResult ?: return@LaunchedEffect
-        if (result.sessionId == editorSessionId) onReady(result) else onDiscard()
     }
 }
 

@@ -146,8 +146,8 @@ class ConfigViewModel
                     recoveryPersistenceError = recoveryPersistenceError,
                 )
             }
-        private val masqueImportController =
-            ConfigMasqueImportController(
+        private val masqueCredentialImportRunner =
+            ConfigMasqueCredentialImportRunner(
                 scope = viewModelScope,
                 importer = masqueClientCredentialImporter,
                 beginOperation = masqueImportSessionCoordinator::begin,
@@ -451,18 +451,18 @@ class ConfigViewModel
         fun importRelayMasqueCertificateChain(
             uri: Uri,
             expectedSessionId: Long,
-        ) = masqueImportController.importCertificateChain(uri, expectedSessionId)
+        ) = masqueCredentialImportRunner.importCertificateChain(uri, expectedSessionId)
 
         fun importRelayMasquePrivateKey(
             uri: Uri,
             expectedSessionId: Long,
-        ) = masqueImportController.importPrivateKey(uri, expectedSessionId)
+        ) = masqueCredentialImportRunner.importPrivateKey(uri, expectedSessionId)
 
         fun importRelayMasquePkcs12(
             uri: Uri,
             password: String?,
             expectedSessionId: Long,
-        ) = masqueImportController.importPkcs12(uri, password, expectedSessionId)
+        ) = masqueCredentialImportRunner.importPkcs12(uri, password, expectedSessionId)
 
         fun saveDraft() {
             val pendingSave =

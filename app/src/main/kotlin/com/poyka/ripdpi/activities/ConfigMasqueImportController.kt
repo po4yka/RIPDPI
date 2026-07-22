@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-internal class ConfigMasqueImportController(
+internal class ConfigMasqueCredentialImportRunner(
     private val scope: CoroutineScope,
     private val importer: MasqueClientCredentialImporter,
     private val beginOperation: (Long, Boolean, Boolean) -> MasqueImportOperation?,
