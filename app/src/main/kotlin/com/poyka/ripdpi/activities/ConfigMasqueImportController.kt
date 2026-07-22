@@ -64,8 +64,8 @@ internal class ConfigMasqueCredentialImportRunner(
         errorResource: Int,
         load: suspend () -> T,
         transform: ConfigDraft.(T) -> ConfigDraft,
-    ) {
-        val operation = beginOperation(sessionId, certificate, privateKey) ?: return
+    ): Boolean {
+        val operation = beginOperation(sessionId, certificate, privateKey) ?: return false
         scope.launch {
             try {
                 val result = runCatching { load() }
@@ -87,6 +87,7 @@ internal class ConfigMasqueCredentialImportRunner(
                 finishOperation(operation)
             }
         }
+        return true
     }
 }
 

@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
@@ -63,6 +64,8 @@ class ConfigViewModel
                 importCertificateChain = ::importRelayMasqueCertificateChain,
                 importPrivateKey = ::importRelayMasquePrivateKey,
                 importPkcs12 = ::importRelayMasquePkcs12,
+                initialState = restoreConfigMasqueImportState(savedStateHandle),
+                onStateChanged = { state -> persistConfigMasqueImportState(savedStateHandle, state) },
             )
         internal val masqueImportState = masqueImports.state
         internal val editorHydrationFailures = ConfigEditorHydrationFailureHandler(editorSession)
@@ -121,6 +124,31 @@ class ConfigViewModel
                 extraBufferCapacity = 1,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
+        private val rotateEditorRecoverySession =
+            configEditorRecoveryRotator(
+                previousSessionId = { editorRecoverySessionId.value },
+                recoveryPending = editorRecoveryPending,
+                recoveryReady = editorRecoveryReady,
+                persistenceError = editorRecoveryPersistenceError,
+                storeLock = editorRecoveryStoreLock,
+                store = editorDraftStore,
+                onInvalidationFailure = { failure ->
+                    log.e(failure) { "Failed to invalidate mode editor recovery" }
+                    _effects.emit(ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
+                },
+                onInvalidated = rememberInvalidatedEditorRecoverySessionId,
+                onRotationSucceeded = {
+                    editorRecoveryRestoreFailed = false
+                    pendingEditorStartPresetId = null
+                },
+                newSessionId = ::newConfigEditorRecoverySessionId,
+                updateSessionId = { next ->
+                    updateEditorRecoverySessionId(next)
+                    editorRecoverySessionId.value = next
+                },
+            )
+        private val rotateEditorRecoverySessionAndClearMasqueState =
+            clearingConfigEditorRecoveryRotator(rotateEditorRecoverySession, masqueImports::clear)
         private val masqueImportSessionCoordinator =
             ConfigMasqueImportSessionCoordinator(
                 editorSession = editorSession,
@@ -189,6 +217,13 @@ class ConfigViewModel
             )
 
         init {
+            viewModelScope.launch {
+                editorSession.collect { session ->
+                    if (session.presetId != null && !session.hydrationPending && !session.savePending) {
+                        masqueImports.rebindPendingSession(session.sessionId, editorRecoverySessionId.value)
+                    }
+                }
+            }
             observeConfigEditorDraftRecovery(
                 scope = viewModelScope,
                 editorSession = editorSession,
@@ -312,10 +347,15 @@ class ConfigViewModel
                         val hydration = runCatching { relayArtifacts.hydrate(draft) }
                         val error = hydration.exceptionOrNull()
                         if (error == null) {
-                            editorSession.compareAndSet(
-                                expect = session,
-                                update = session.completeHydration(sessionId, hydration.getOrThrow()),
-                            )
+                            val hydrated =
+                                session.completeHydration(sessionId, hydration.getOrThrow())
+                            if (editorSession.compareAndSet(
+                                    expect = session,
+                                    update = hydrated,
+                                )
+                            ) {
+                                masqueImports.rebindPendingSession(sessionId, editorRecoverySessionId.value)
+                            }
                         } else if (error is CancellationException) {
                             editorSession.compareAndSet(session, ConfigEditorSession())
                             throw error
@@ -448,6 +488,9 @@ class ConfigViewModel
                     .takeIf { current -> current.presetId != null && !current.hydrationPending }
                     ?.sessionId
 
+        internal val currentEditorRecoveryOwnerId: String
+            get() = editorRecoverySessionId.value
+
         fun importRelayMasqueCertificateChain(
             uri: Uri,
             expectedSessionId: Long,
@@ -555,7 +598,7 @@ class ConfigViewModel
                         finishSuccessfulConfigSave(
                             editorSession = editorSession,
                             request = request,
-                            rotateRecoverySession = ::rotateEditorRecoverySessionAndClearMasqueState,
+                            rotateRecoverySession = rotateEditorRecoverySessionAndClearMasqueState,
                             notifySuccess = { _effects.emit(ConfigEffect.SaveSuccess) },
                         )
                     }
@@ -589,102 +632,42 @@ class ConfigViewModel
             }
         }
 
-        private fun clearMasqueImportState() {
-            masqueImports.clear()
-        }
-
-        private suspend fun rotateEditorRecoverySessionAndClearMasqueState(
-            transitionAfterInvalidation: () -> Boolean,
-        ): Boolean =
-            rotateEditorRecoverySession {
-                transitionAfterInvalidation().also { transitioned ->
-                    if (transitioned) clearMasqueImportState()
-                }
-            }
-
-        private fun restoreEditorDraft() {
-            if (editorRecoveryPending.value) return
-            editorRecoveryPending.value = true
-            editorRecoveryReady.value = false
-            viewModelScope.launch {
-                val recoverySessionId = editorRecoverySessionId.value
-                val result =
-                    restoreConfigEditorDraftRecovery(
-                        storeLock = editorRecoveryStoreLock,
-                        store = editorDraftStore,
-                        invalidatedSessionIds = invalidatedEditorRecoverySessionIds,
-                        recoverySessionId = recoverySessionId,
-                    )
-                if (editorRecoverySessionId.value != recoverySessionId) return@launch
-                when (result) {
-                    is ConfigEditorDraftRestoreResult.Restored -> {
-                        editorSession.value =
-                            result.session.copy(
-                                sessionId = editorSessionIds.incrementAndGet(),
-                                hydrationPending = false,
-                                savePending = false,
-                                suppressSaveSuccess = false,
-                            )
-                        editorRecoveryRestoreFailed = false
-                        pendingEditorStartPresetId = null
-                        editorRecoveryPending.value = false
-                        editorRecoveryReady.value = true
-                    }
-
-                    ConfigEditorDraftRestoreResult.MissingOrInvalid -> {
-                        val next = newConfigEditorRecoverySessionId()
-                        updateEditorRecoverySessionId(next)
-                        editorRecoverySessionId.value = next
-                        editorRecoveryRestoreFailed = false
-                        editorRecoveryPending.value = false
-                        editorRecoveryReady.value = true
-                        val pendingPresetId = pendingEditorStartPresetId
-                        pendingEditorStartPresetId = null
-                        pendingPresetId?.let(::startEditingPreset)
-                    }
-
-                    is ConfigEditorDraftRestoreResult.RestoreFailed -> {
-                        editorRecoveryRestoreFailed = true
-                        editorRecoveryPending.value = false
-                        val sessionId = editorSessionIds.incrementAndGet()
-                        editorSession.value =
-                            ConfigEditorSession(
-                                sessionId = sessionId,
-                                presetId = pendingEditorStartPresetId ?: "custom",
-                                hydrationPending = true,
-                            )
-                        pendingEditorStartPresetId = null
-                        log.e(result.cause) { "Failed to restore mode editor recovery" }
-                        _effects.emit(ConfigEffect.EditorHydrationFailed(sessionId))
-                    }
-                }
-            }
-        }
-
-        private suspend fun rotateEditorRecoverySession(
-            transitionAfterInvalidation: () -> Boolean = { true },
-        ): Boolean =
-            rotateConfigEditorRecoverySession(
-                previousSessionId = editorRecoverySessionId.value,
+        private fun restoreEditorDraft() =
+            restoreConfigEditorDraftSession(
+                scope = viewModelScope,
                 recoveryPending = editorRecoveryPending,
                 recoveryReady = editorRecoveryReady,
-                persistenceError = editorRecoveryPersistenceError,
+                recoverySessionId = editorRecoverySessionId,
                 storeLock = editorRecoveryStoreLock,
                 store = editorDraftStore,
-                transitionAfterInvalidation = transitionAfterInvalidation,
-                onInvalidationFailure = { failure ->
-                    log.e(failure) { "Failed to invalidate mode editor recovery" }
-                    _effects.emit(ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
-                },
-                onInvalidated = rememberInvalidatedEditorRecoverySessionId,
-                onRotationSucceeded = {
+                invalidatedSessionIds = invalidatedEditorRecoverySessionIds,
+                nextEditorSessionId = editorSessionIds::incrementAndGet,
+                onRestored = { session ->
+                    editorSession.value = session
+                    masqueImports.rebindPendingSession(session.sessionId, editorRecoverySessionId.value)
                     editorRecoveryRestoreFailed = false
                     pendingEditorStartPresetId = null
                 },
-                newSessionId = ::newConfigEditorRecoverySessionId,
-                updateSessionId = { next ->
+                onMissing = {
+                    val next = newConfigEditorRecoverySessionId()
                     updateEditorRecoverySessionId(next)
                     editorRecoverySessionId.value = next
+                    editorRecoveryRestoreFailed = false
+                    val pendingPresetId = pendingEditorStartPresetId
+                    pendingEditorStartPresetId = null
+                    pendingPresetId?.let(::startEditingPreset)
+                },
+                onFailure = { cause, sessionId ->
+                    editorRecoveryRestoreFailed = true
+                    editorSession.value =
+                        ConfigEditorSession(
+                            sessionId = sessionId,
+                            presetId = pendingEditorStartPresetId ?: "custom",
+                            hydrationPending = true,
+                        )
+                    pendingEditorStartPresetId = null
+                    log.e(cause) { "Failed to restore mode editor recovery" }
+                    _effects.emit(ConfigEffect.EditorHydrationFailed(sessionId))
                 },
             )
     }

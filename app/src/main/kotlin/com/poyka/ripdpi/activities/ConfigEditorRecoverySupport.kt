@@ -84,6 +84,60 @@ internal suspend fun restoreConfigEditorDraftRecovery(
         ConfigEditorDraftRestoreResult.RestoreFailed(failure)
     }
 
+internal fun restoreConfigEditorDraftSession(
+    scope: CoroutineScope,
+    recoveryPending: MutableStateFlow<Boolean>,
+    recoveryReady: MutableStateFlow<Boolean>,
+    recoverySessionId: MutableStateFlow<String>,
+    storeLock: Mutex,
+    store: ConfigEditorDraftStore,
+    invalidatedSessionIds: Collection<String>,
+    nextEditorSessionId: () -> Long,
+    onRestored: (ConfigEditorSession) -> Unit,
+    onMissing: () -> Unit,
+    onFailure: suspend (Throwable, Long) -> Unit,
+) {
+    if (recoveryPending.value) return
+    recoveryPending.value = true
+    recoveryReady.value = false
+    scope.launch {
+        val sessionId = recoverySessionId.value
+        val result =
+            restoreConfigEditorDraftRecovery(
+                storeLock = storeLock,
+                store = store,
+                invalidatedSessionIds = invalidatedSessionIds,
+                recoverySessionId = sessionId,
+            )
+        if (recoverySessionId.value != sessionId) return@launch
+        when (result) {
+            is ConfigEditorDraftRestoreResult.Restored -> {
+                recoveryPending.value = false
+                recoveryReady.value = true
+                onRestored(
+                    result.session.copy(
+                        sessionId = nextEditorSessionId(),
+                        hydrationPending = false,
+                        savePending = false,
+                        suppressSaveSuccess = false,
+                    ),
+                )
+            }
+
+            ConfigEditorDraftRestoreResult.MissingOrInvalid -> {
+                recoveryPending.value = false
+                recoveryReady.value = true
+                onMissing()
+            }
+
+            is ConfigEditorDraftRestoreResult.RestoreFailed -> {
+                recoveryPending.value = false
+                onFailure(result.cause, nextEditorSessionId())
+            }
+        }
+    }
+}
+
 internal suspend fun rotateConfigEditorRecoverySession(
     previousSessionId: String,
     recoveryPending: MutableStateFlow<Boolean>,
@@ -125,3 +179,45 @@ internal suspend fun rotateConfigEditorRecoverySession(
     recoveryPending.value = false
     return transitioned
 }
+
+internal fun configEditorRecoveryRotator(
+    previousSessionId: () -> String,
+    recoveryPending: MutableStateFlow<Boolean>,
+    recoveryReady: MutableStateFlow<Boolean>,
+    persistenceError: MutableStateFlow<Boolean>,
+    storeLock: Mutex,
+    store: ConfigEditorDraftStore,
+    onInvalidationFailure: suspend (Throwable) -> Unit,
+    onInvalidated: (String) -> Unit,
+    onRotationSucceeded: () -> Unit,
+    newSessionId: () -> String,
+    updateSessionId: (String) -> Unit,
+): suspend (() -> Boolean) -> Boolean =
+    { transitionAfterInvalidation ->
+        rotateConfigEditorRecoverySession(
+            previousSessionId = previousSessionId(),
+            recoveryPending = recoveryPending,
+            recoveryReady = recoveryReady,
+            persistenceError = persistenceError,
+            storeLock = storeLock,
+            store = store,
+            transitionAfterInvalidation = transitionAfterInvalidation,
+            onInvalidationFailure = onInvalidationFailure,
+            onInvalidated = onInvalidated,
+            onRotationSucceeded = onRotationSucceeded,
+            newSessionId = newSessionId,
+            updateSessionId = updateSessionId,
+        )
+    }
+
+internal fun clearingConfigEditorRecoveryRotator(
+    rotateRecoverySession: suspend (() -> Boolean) -> Boolean,
+    clearRetainedUiState: () -> Unit,
+): suspend (() -> Boolean) -> Boolean =
+    { transitionAfterInvalidation ->
+        rotateRecoverySession {
+            transitionAfterInvalidation().also { transitioned ->
+                if (transitioned) clearRetainedUiState()
+            }
+        }
+    }

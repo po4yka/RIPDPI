@@ -4,6 +4,10 @@ import android.net.Uri
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -67,6 +71,25 @@ internal fun ModeEditorHydrationFailureDialog(
 }
 
 @Composable
+internal fun ModeEditorExitDialogs(
+    hydrationFailureVisible: Boolean,
+    onHydrationFailureDismiss: () -> Unit,
+    unsavedChangesVisible: Boolean,
+    onKeepEditing: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    ModeEditorHydrationFailureDialog(
+        visible = hydrationFailureVisible,
+        onDismiss = onHydrationFailureDismiss,
+    )
+    ModeEditorUnsavedChangesDialog(
+        visible = unsavedChangesVisible,
+        onKeepEditing = onKeepEditing,
+        onDiscard = onDiscard,
+    )
+}
+
+@Composable
 internal fun ModeEditorPkcs12Dialog(
     uri: Uri?,
     password: String,
@@ -104,4 +127,26 @@ internal fun ModeEditorPkcs12Dialog(
                 ),
         )
     }
+}
+
+@Composable
+internal fun ModeEditorRetainedPkcs12Dialog(
+    viewModel: ConfigViewModel,
+    uri: Uri?,
+) {
+    var pkcs12Password by remember { mutableStateOf("") }
+    val clear = {
+        viewModel.masqueImports.dismissPkcs12()
+        pkcs12Password = ""
+    }
+    ModeEditorPkcs12Dialog(
+        uri = uri,
+        password = pkcs12Password,
+        onPasswordChanged = { pkcs12Password = it },
+        onImport = { _, password ->
+            viewModel.masqueImports.importPendingPkcs12(password)
+            pkcs12Password = ""
+        },
+        onDismiss = clear,
+    )
 }

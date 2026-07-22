@@ -112,7 +112,6 @@ fun ModeEditorRoute(
     val masqueImportState by viewModel.masqueImportState.collectAsStateWithLifecycle()
     SecureWindowEffect()
     val snackbarHostState = remember { SnackbarHostState() }
-    var pkcs12Password by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
     var hydrationFailurePending by rememberSaveable { mutableStateOf(false) }
@@ -144,34 +143,21 @@ fun ModeEditorRoute(
         onHydrationFailure = { hydrationFailurePending = true },
         onBack = onBack,
     )
-    ModeEditorHydrationFailureDialog(
-        visible = hydrationFailurePending,
-        onDismiss = onBack,
-    )
     val requestCoarseLocationPermission = rememberModeEditorCoarseLocationPermissionAction(viewModel)
 
-    ModeEditorUnsavedChangesDialog(
-        visible = showUnsavedChangesDialog,
+    ModeEditorExitDialogs(
+        hydrationFailureVisible = hydrationFailurePending,
+        onHydrationFailureDismiss = onBack,
+        unsavedChangesVisible = showUnsavedChangesDialog,
         onKeepEditing = { showUnsavedChangesDialog = false },
         onDiscard = {
             showUnsavedChangesDialog = false
             discardAndNavigate()
         },
     )
-
-    val clearPkcs12 = {
-        viewModel.masqueImports.dismissPkcs12()
-        pkcs12Password = ""
-    }
-    ModeEditorPkcs12Dialog(
-        uri = masqueImportState.pendingPkcs12Uri,
-        password = pkcs12Password,
-        onPasswordChanged = { pkcs12Password = it },
-        onImport = { _, password ->
-            viewModel.masqueImports.importPendingPkcs12(password)
-            pkcs12Password = ""
-        },
-        onDismiss = clearPkcs12,
+    ModeEditorRetainedPkcs12Dialog(
+        viewModel = viewModel,
+        uri = masqueImportState.pendingPkcs12Uri.takeIf { masqueImportState.sessionReady },
     )
     ModeEditorScreen(
         uiState = uiState,
@@ -187,7 +173,11 @@ fun ModeEditorRoute(
                         context = LocalContext.current,
                         requestCoarseLocationPermission = requestCoarseLocationPermission,
                         requestDocument = { request ->
-                            viewModel.masqueImports.begin(request.action, request.sessionId)
+                            viewModel.masqueImports.begin(
+                                request.action,
+                                request.sessionId,
+                                viewModel.currentEditorRecoveryOwnerId,
+                            )
                             documentLauncher.launch(arrayOf("*/*"))
                         },
                     ),
