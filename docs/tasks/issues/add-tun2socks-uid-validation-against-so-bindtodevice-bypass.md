@@ -4,7 +4,7 @@ type: task
 status: doing
 area: vpn
 priority: high
-owner: Android device lane
+owner: Android eligibility lane
 parent: epic-fail-closed-android-vpn-policy-engine
 status_detail: TCP/UDP UID enforcement and physical Linux/Pixel TUN oracles are complete; pre-5.7 kernel, adb socket-table, and ICMP policy checks remain
 blocks: []
@@ -52,6 +52,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## Work log
+
+- 2026-07-22: Reassigned the remaining production eligibility gate to the Android eligibility lane. This slice replaces the API-level proxy with a cached, fail-closed capability decision: API 29+ plus either a successful unprivileged loopback `SO_BINDTODEVICE` probe, a parsed Linux kernel version at least 5.7, or the existing API 31+ fallback when the kernel release is unreadable. The physical network, Pixel, VPN state, DNS, routes, Wi-Fi, and cellular configuration are outside this lane.
 
 - 2026-07-22: The local physical Pixel lane passed end to end on exact source SHA `2195272b78a08493adb09a7df90b270b6fafdefe` without hosted CI. A Pixel 7 (`panther`, API 37, kernel 6.1) and one dual-stack fixture exercised IPv4/IPv6 TCP+UDP direct controls, allowed `tun0` traffic, excluded-UID denied traffic, zero denied fixture delivery, TUN packet-path telemetry, and post-denial liveness. The strict v2 evidence validator accepted the private mode-0600 manifest; manifest SHA-256 `cb4e9c48c6bce79f3f072ae8b96cb936ab6b551529cdaa2c3ed105e5cb2278d2`. The task remains open only for the pre-5.7 version-gate run, explicit `/proc/net/tcp` leak inspection, and ICMP policy toggle.
 
