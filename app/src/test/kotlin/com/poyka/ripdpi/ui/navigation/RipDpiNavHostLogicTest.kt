@@ -164,8 +164,19 @@ class RipDpiNavHostLogicTest {
     @Test
     fun `outer scaffold insets are consumed before nested screen scaffolds`() {
         val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
+        val responsiveContentSource =
+            navHostSource
+                .substringAfter("private fun ResponsiveNavContent(")
+                .substringBefore("private fun HandleLaunchRequests(")
         val navGraphSource = navHostSource.substringAfter("private fun RipDpiNavGraph(")
 
+        assertTrue(
+            "Wide navigation must consume outer padding before nested Scaffolds apply insets",
+            Regex(
+                """Row\(\s*modifier\s*=\s*Modifier\s*\.padding\(innerPadding\)\s*""" +
+                    """\.consumeWindowInsets\(innerPadding\)""",
+            ).containsMatchIn(responsiveContentSource),
+        )
         assertTrue(
             "NavHost must consume the outer Scaffold padding so nested Scaffolds do not apply system insets twice",
             Regex(

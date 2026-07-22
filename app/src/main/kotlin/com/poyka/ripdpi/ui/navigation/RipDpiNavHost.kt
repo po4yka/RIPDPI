@@ -236,7 +236,12 @@ private fun ResponsiveNavContent(
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
     if (isWideScreen && selectedTopLevel != null) {
-        Row(modifier = Modifier.padding(innerPadding)) {
+        Row(
+            modifier =
+                Modifier
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding),
+        ) {
             RipDpiNavRail(
                 selectedRoute = selectedTopLevel,
                 onNavigate = { destination -> navController.navigateTopLevel(destination) },
