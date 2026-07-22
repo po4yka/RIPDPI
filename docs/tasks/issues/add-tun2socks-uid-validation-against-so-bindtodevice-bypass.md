@@ -4,9 +4,9 @@ type: task
 status: doing
 area: vpn
 priority: high
-owner: ICMP policy lane
+owner: MapDNS UID admission lane
 parent: epic-fail-closed-android-vpn-policy-engine
-status_detail: ICMP fail-closed policy is assigned; pre-5.7 kernel and adb socket-table checks remain device-gated
+status_detail: ICMP fail-closed policy is shipped; MapDNS UDP admission is assigned while pre-5.7 and adb socket-table checks remain device-gated
 blocks: []
 blocked_by: []
 created: 2026-05-22
@@ -39,7 +39,7 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 
 - [x] PR description confirms current state of `ripdpi-tun-driver` UID validation (present or absent). **Absent** — `ripdpi-tun-driver` is TUN open/configure only; `ripdpi-flow-app-attribution` calls `getConnectionOwnerUid` for attribution/learning, not as an enforcement gate. The userspace stack is `smoltcp` in `ripdpi-tunnel-core`, not gVisor/Go.
 - [x] If absent: per-packet UID validation implemented in the tun2socks layer. `UidFlowPolicy` is consulted at the live smoltcp TCP and UDP admission seams, the JNI `getConnectionOwnerUid` attribution source is registered with the native session, and readiness remains fail-closed until the bridge is installed. Unit, lifecycle, and physical harness coverage exercise the armed policy rather than only the decision enum.
-- [~] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle. TCP `abort()`/RST delivery, UDP drop/attribution-token retention, and allowlist fail-closed construction are implemented and physically verified. The explicit ICMP policy toggle remains open.
+- [~] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle. TCP `abort()`/RST delivery, ordinary UDP drop/attribution-token retention, allowlist fail-closed construction, and the default-deny ICMP policy toggle are implemented. The MapDNS UDP branch still needs the same UID admission boundary.
 - [x] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, traffic is denied. The platform-neutral unprivileged Linux process oracle and the separate-UID Android test process now prove the real-socket/TUN control and enforcement paths for TCP and UDP. On Pixel, IPv4 denial is reset/timeout and IPv6 denial is an exact unreachable-connect result; both require zero fixture delivery and passing post-denial liveness controls.
 - [~] Verified on kernel 5.7+ device (Android 12+) and kernel <5.7 device to confirm version gating. Pixel 7/API 37/kernel 6.1 is verified; a pre-5.7 device remains unavailable.
 - [ ] Verify via `adb shell cat /proc/net/tcp` that no leaked connection appears to the remote host post-countermeasure. **DEVICE-GATED.**
@@ -52,6 +52,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## Work log
+
+- 2026-07-22: Reassigned the remaining MapDNS UDP bypass to the MapDNS UID admission lane. `IpClass::UdpDns` currently reaches the encrypted DNS worker without `UidFlowPolicy`, so an excluded UID can still generate upstream DNS traffic through the TUN. This slice will preserve the exact synthetic destination tuple, park unresolved datagrams in the bounded pending queue, admit only allowed UIDs, avoid synthetic destination-attribution pollution, and keep the disarmed path unchanged. No device, VPN, DNS, route, Wi-Fi, or cellular state will be changed in this lane.
 
 - 2026-07-22: Reassigned the explicit ICMP policy boundary to the ICMP policy lane. This slice will add a default-deny ICMPv4/ICMPv6 decision when UID enforcement is armed, an explicit native-config opt-in for controlled callers, and Kotlin/Rust contract plus packet-routing regression tests. It will not start or stop RIPDPI VPN or alter MacBook/Pixel network state.
 

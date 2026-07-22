@@ -18,7 +18,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | unassigned | 2026-06-05 |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | unassigned | 2026-06-10 |
 | high | transport | [Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)](issues/wire-standalone-amneziawg-profile-transport.md) | unassigned | 2026-06-21 |
-| high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | ICMP policy lane | 2026-07-22 |
+| high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | MapDNS UID admission lane | 2026-07-22 |
 | high | vpn | [Verify no leak/black-hole window between TUN establish() and native relay readiness](issues/verify-no-leak-window-between-tun-establish-and-relay-ready.md) | Lifecycle and PMTUD lane | 2026-07-17 |
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | unassigned | 2026-06-05 |
 | medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | unassigned | 2026-07-16 |
