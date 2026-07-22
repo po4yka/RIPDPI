@@ -199,7 +199,7 @@ class VpnStartupWindowE2ETest {
     }
 
     @Test
-    fun vpnStartupWindowHoldsDnsPacketUntilNativeReady() =
+    fun vpnStartupWindowHoldsDnsPacketUntilNativeReady() {
         runBlocking {
             val listenPort = reserveLoopbackPort()
             appSettingsRepository.update {
@@ -382,6 +382,7 @@ class VpnStartupWindowE2ETest {
                 statusCollector.cancelAndJoin()
             }
         }
+    }
 
     private fun startService(serviceClass: Class<*>) {
         startedServices += serviceClass
