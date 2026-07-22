@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Process
 import android.os.SystemClock
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -31,6 +32,8 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
 
         thread(name = "debug-network-probe", isDaemon = true) {
             val extras = Bundle()
+            extras.putInt(ExtraProbePid, Process.myPid())
+            extras.putInt(ExtraProbeUid, Process.myUid())
             val (probeResult, activityResultCode) =
                 runCatching {
                     if (intent.action == ActionDebugProbe) {
@@ -83,6 +86,8 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
         const val ExtraDnsRcode = "rcode"
         const val ExtraDnsAnswers = "answers"
         const val ExtraDnsLatencyMs = "latency_ms"
+        const val ExtraProbePid = "probe_pid"
+        const val ExtraProbeUid = "probe_uid"
         const val ExtraErrorClass = "error_class"
         const val ExtraErrorMessage = "error_message"
 

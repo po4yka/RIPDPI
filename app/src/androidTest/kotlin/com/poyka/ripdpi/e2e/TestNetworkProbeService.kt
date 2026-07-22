@@ -10,6 +10,7 @@ import android.os.Binder
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
+import android.os.Process
 import android.os.SystemClock
 
 internal const val TestNetworkProbeServiceClassName = "com.poyka.ripdpi.e2e.TestNetworkProbeService"
@@ -70,6 +71,8 @@ class TestNetworkProbeService : Service() {
                         )
                     }
                 val extras = Bundle()
+                extras.putInt(ExtraProbePid, Process.myPid())
+                extras.putInt(ExtraProbeUid, Process.myUid())
                 val callingIdentity = clearCallingIdentity()
                 val resultCode =
                     try {

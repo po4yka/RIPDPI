@@ -199,6 +199,8 @@ data class AppProcessDnsProbeResult(
     val latencyMs: Long? = null,
     val localAddress: String? = null,
     val localPort: Int? = null,
+    val probePid: Int? = null,
+    val probeUid: Int? = null,
     val errorClass: String? = null,
     val errorMessage: String? = null,
 )
@@ -1522,6 +1524,8 @@ class TestProcessDnsProbeServiceHandle internal constructor(
                         ?.getLong(DebugNetworkProbeExtraDnsLatencyMs),
                 localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                 localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                 errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                 errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
             )
@@ -1622,6 +1626,8 @@ fun appProcessTcpRoundTrip(
                         localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
                         response = extras.getString(DebugNetworkProbeExtraResponse),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),

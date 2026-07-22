@@ -362,6 +362,21 @@ Android action/semantic seams, ordinary-results raw verifier, and signed release
 APK are still missing. Copying its digest into the producer
 allowlist before those pieces exist would turn a capture plumbing check into
 false release evidence.
+
+The first source-owned Android action contract is registered in
+`quality/release-gates/android-network-evidence-actions.json` for
+`killswitch-tun-establish-native-ready`. Its fixed host runner,
+`test-lab/scripts/run-android-network-evidence-action.sh`, invokes exactly
+`VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady` and
+accepts only a private test-produced receipt bound to the clean source SHA,
+client/androidTest artifact digests, fixture identity, and source-derived wire
+markers. Skipped, zero-test, ambiguous, stale, non-private, or semantically
+incomplete receipts fail closed. The action is explicitly `productionReady:
+false`: its gate-specific dual-vantage PCAP analyzer and an authorized physical
+capture are still missing, so it cannot open a producer allowlist or establish a
+release PASS. The runner starts and stops RIPDPI VPN; it must not be executed
+without operator authorization for the current device and network state.
+
 On success, the utility leaves the raw PCAP at the explicitly requested private
 path for the future gate-specific analyzer. The operator must delete it after
 analysis; unlike the integrated runner scratch directory, this standalone
