@@ -4,13 +4,13 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: DNS source actions wave 1
+owner: DNS source actions wave 2
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-07-16
 updated: 2026-07-22
-status_detail: Three DNS actions are assigned for production source ownership; six gate actions, producer approval, and authorized physical evidence still block a real PASS
+status_detail: The remaining six DNS actions are assigned to one serialized source-owned wave two lane; production readiness, producer approval, and authorized physical evidence still block a real PASS
 ---
 
 ## Goal
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-22: Assigned one serialized wave-two lane as the sole owner of the remaining source actions: `dns-direct-ru-only-for-direct-domains`, `dns-allowlisted-bootstrap-resolution`, `dns-network-switch-behavior`, `dns-core-crash-behavior`, `dns-android-private-dns-conflict`, and `synthetic-authoritative-dns-query-sources`. No parallel writer may modify these action, receipt, or oracle contracts; the lane may not set `productionReady: true` or claim a physical PASS without producer approval and authorized dual-vantage evidence.
 - 2026-07-22: Assigned the first DNS source-action wave for `dns-virtual-vpn-resolver`, `dns-proxied-through-tunnelled-resolver`, and `dns-no-isp-fallback-on-encrypted-resolver-outage`. This lane owns correlation-bound Android receipts plus fixture-transcript and gate-role-aware oracle contracts, but may not set `productionReady: true` or claim physical PASS until the exact selectors and producer provenance have been exercised on an authorized device/capture topology. The remaining six reserved DNS actions stay out of scope.
 - 2026-07-22: Added the fail-closed ordinary raw-bundle preflight for the exact seven physical actions and eleven gates. The public producer now requires one canonical mode-0600 manifest, a current-source binding, distinct exact app/test APK digests, fresh redacted run/correlation identities, action-bound observation windows and vantages, a private mode-0700 artifact root, and the exact single-link mode-0600 action-receipt/packet-capture/route-snapshot inventory. It rejects output/input inode or artifact-root aliases before writing and derives only redacted provenance plus explicit per-action semantic-blocker failures; caller-authored state, summaries, and JUnit output cannot produce PASS. `SOURCE_OWNED_VERIFIER_AVAILABLE` remains false until the seven packet/route semantic oracles exist.
 - 2026-07-22: Assigned the serialized writer lane for the ordinary Android raw-artifact verifier foundation. The lane owns private artifact provenance, exact action/gate inventory, source and APK binding, and fail-closed parsing mechanics; it may not authorize release PASS until source-owned semantic oracles cover all eleven ordinary gates.
