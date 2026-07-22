@@ -70,26 +70,12 @@ class OutputDestination:
         parent_identity: tuple[int, ...],
         leaf_fd: int,
         leaf_identity: tuple[int, int],
-        created: bool,
     ) -> None:
         self.path = path
         self.parent_fd = parent_fd
         self.parent_identity = parent_identity
         self.leaf_fd = leaf_fd
         self.leaf_identity = leaf_identity
-        self.created = created
-
-    def discard_if_created(self) -> None:
-        if not self.created:
-            return
-        try:
-            metadata = os.stat(
-                self.path.name, dir_fd=self.parent_fd, follow_symlinks=False
-            )
-        except FileNotFoundError:
-            return
-        if (metadata.st_dev, metadata.st_ino) == self.leaf_identity:
-            os.unlink(self.path.name, dir_fd=self.parent_fd)
 
     def close(self) -> None:
         os.close(self.leaf_fd)
@@ -106,9 +92,22 @@ def directory_identity(metadata: os.stat_result) -> tuple[int, ...]:
     )
 
 
-def open_output_destination(path: Path) -> OutputDestination:
+def path_is_within(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def open_output_destination(
+    path: Path, *, forbidden_root: Path | None = None
+) -> OutputDestination:
     if not path.is_absolute():
         raise EvidenceError("OUTPUT_PATH_INVALID", "results output must be absolute")
+    if forbidden_root is not None and path_is_within(
+        Path(os.path.realpath(path)), forbidden_root
+    ):
+        raise EvidenceError(
+            "OUTPUT_INSIDE_ARTIFACT_ROOT",
+            "results output must be outside the private raw artifact root",
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     resolved_parent = Path(os.path.realpath(path.parent))
     try:
@@ -133,6 +132,14 @@ def open_output_destination(path: Path) -> OutputDestination:
             raise EvidenceError(
                 "OUTPUT_PRIVACY_INVALID",
                 "results output parent must be current-user-owned and private",
+            )
+        resolved_output = resolved_parent / path.name
+        if forbidden_root is not None and path_is_within(
+            resolved_output, forbidden_root
+        ):
+            raise EvidenceError(
+                "OUTPUT_INSIDE_ARTIFACT_ROOT",
+                "results output must be outside the private raw artifact root",
             )
         try:
             output_metadata = os.stat(
@@ -170,12 +177,11 @@ def open_output_destination(path: Path) -> OutputDestination:
                 "OUTPUT_LEAF_CHANGED", "results output changed while opened"
             )
         return OutputDestination(
-            path=resolved_parent / path.name,
+            path=resolved_output,
             parent_fd=parent_fd,
             parent_identity=directory_identity(parent_metadata),
             leaf_fd=leaf_fd,
             leaf_identity=(leaf_metadata.st_dev, leaf_metadata.st_ino),
-            created=output_metadata is None,
         )
     except Exception:
         os.close(parent_fd)
@@ -249,6 +255,34 @@ def reject_output_input_aliases(
         except OSError:
             aliases = False
         if aliases:
+            raise EvidenceError(
+                "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
+            )
+
+
+def reject_output_aliases_before_reservation(
+    output: Path, inputs: tuple[Path, ...]
+) -> None:
+    output_path = Path(os.path.realpath(output))
+    try:
+        output_metadata = output.stat()
+    except OSError:
+        output_metadata = None
+    for source in inputs:
+        if output_path == Path(os.path.realpath(source)):
+            raise EvidenceError(
+                "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
+            )
+        if output_metadata is None:
+            continue
+        try:
+            source_metadata = source.stat()
+        except OSError:
+            continue
+        if (output_metadata.st_dev, output_metadata.st_ino) == (
+            source_metadata.st_dev,
+            source_metadata.st_ino,
+        ):
             raise EvidenceError(
                 "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
             )
@@ -366,29 +400,24 @@ def main(argv: list[str] | None = None) -> int:
             "--raw-manifest, --app-apk, and --test-apk must be supplied together"
         )
 
+    destination: OutputDestination | None = None
     try:
-        destination = open_output_destination(args.output)
-    except (OSError, EvidenceError) as error:
-        print(
-            f"Android ordinary producer refused unsafe output: {error}", file=sys.stderr
-        )
-        return 2
-
-    try:
-        reject_output_input_aliases(
-            destination, tuple(value for value in raw_arguments if value is not None)
-        )
+        inputs = tuple(value for value in raw_arguments if value is not None)
+        reject_output_aliases_before_reservation(args.output, inputs)
+        artifact_root = None
         if args.raw_manifest is not None:
-            android_ordinary_raw_evidence.reject_output_inside_artifact_root(
-                destination.path, args.raw_manifest
+            artifact_root = android_ordinary_raw_evidence.load_artifact_root_for_output(
+                args.raw_manifest
             )
+        destination = open_output_destination(args.output, forbidden_root=artifact_root)
+        reject_output_input_aliases(destination, inputs)
     except (
         OSError,
         EvidenceError,
         android_ordinary_raw_evidence.RawEvidenceError,
     ) as error:
-        destination.discard_if_created()
-        destination.close()
+        if destination is not None:
+            destination.close()
         print(
             f"Android ordinary producer refused unsafe output: {error}", file=sys.stderr
         )

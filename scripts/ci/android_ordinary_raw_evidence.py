@@ -245,7 +245,7 @@ def sha256_file(path: Path, label: str) -> str:
     return digest.hexdigest()
 
 
-def reject_output_inside_artifact_root(output: Path, manifest_path: Path) -> None:
+def load_artifact_root_for_output(manifest_path: Path) -> Path:
     manifest, _ = load_private_manifest(manifest_path)
     root_value = manifest.get("artifactRoot")
     if not isinstance(root_value, str) or not Path(root_value).is_absolute():
@@ -253,13 +253,7 @@ def reject_output_inside_artifact_root(output: Path, manifest_path: Path) -> Non
             "OUTPUT_SAFETY_UNPROVEN",
             "artifactRoot must be absolute before results output can be written",
         )
-    root = Path(os.path.realpath(root_value))
-    destination = Path(os.path.realpath(output))
-    if destination == root or root in destination.parents:
-        raise RawEvidenceError(
-            "OUTPUT_INSIDE_ARTIFACT_ROOT",
-            "results output must be outside the private raw artifact root",
-        )
+    return Path(os.path.realpath(root_value))
 
 
 def _open_artifact_root(path: Path) -> int:
