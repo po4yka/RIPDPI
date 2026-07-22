@@ -4,7 +4,7 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: Android action workload lane
+owner: Startup-window PCAP analyzer lane
 parent: null
 blocks: []
 blocked_by: []
@@ -32,6 +32,7 @@ Make DNS, kill-switch, and direct-window release evidence deterministic, machine
 
 ## Work log
 
+- 2026-07-22: Assigned the serialized evidence lane to the gate-specific startup-window PCAP analyzer. It must evaluate the declared conservative marker superset without treating the expected post-ready fixture DNS flow as a direct-window leak, derive all packet facts from both raw captures, and remain outside the producer allowlist until local fixtures and independent review are green.
 - 2026-07-22: Implemented the first fail-closed Android action receipt for `killswitch-tun-establish-native-ready`. The exact startup-window selector now binds source/client/test/fixture digests, emits source-derived wire markers from before VPN start until after native readiness, verifies distinct target/test UIDs and probe processes inside the test, and writes a redacted private atomic PASS receipt only after native readiness, exact fixture DNS, positive tunnel telemetry, `Halted`, and gate cleanup. A source-owned single-selector host runner rejects skipped, ambiguous, stale, non-private, symlinked, pre-existing, duplicate-key, or semantically tampered receipts and verifies the installed app/test APK digests before and after instrumentation. The action remains `productionReady: false`; the gate-specific dual-vantage PCAP analyzer is not implemented and the current Pixel/Mac network state may not be changed or exercised without fresh operator authorization.
 - 2026-07-22: Assigned the serialized evidence lane to the source-owned Android action workload and test-produced receipt contract. This lane must reject skipped or zero-body instrumentation, bind the exact selector and correlation markers, and must not autonomously change Wi-Fi, cellular, routes, DNS, Private DNS, VPN, or airplane mode.
 - 2026-07-22: Added a source-owned dual-vantage PCAP oracle. It binds distinct raw captures to canonical producer metadata and a strict private ledger, parses Ethernet/raw-IP/SLL/SLL2 plus bounded VLAN stacks and all classic-PCAP byte-order/timestamp encodings, aligns windows by packet marker order without mixing local and remote clocks, derives counters itself, and emits redacted mode-0600 unstamped observations. Malformed, truncated, aliased, copied-single-vantage, and caller-verdict inputs fail closed; current-time freshness remains enforced by the downstream exact-source manifest validator. The generic marker seam is forbidden for every real Android dual-vantage gate, so no producer allowlist or release PASS was opened. Gate-specific Android action semantics, a test-APK provenance chain, and the ordinary raw verifier remain blocking.
