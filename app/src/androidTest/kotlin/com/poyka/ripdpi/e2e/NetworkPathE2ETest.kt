@@ -608,6 +608,27 @@ class NetworkPathE2ETest {
     }
 
     @Test
+    fun dualStackFixtureEventsClassifyUdpByPeerFamily() {
+        val mappedIpv4 =
+            FixtureEventDto(
+                service = "udp_echo",
+                protocol = "udp",
+                peer = "[::ffff:192.0.2.10]:52123",
+                target = "[::]:46002",
+                detail = "echo",
+                bytes = 8,
+                createdAt = 1L,
+            )
+        val ulaIpv6 = mappedIpv4.copy(peer = "[fd00::10]:52124")
+
+        assertFalse(mappedIpv4.peerAddressIsIpv6() ?: true)
+        assertTrue(ulaIpv6.peerAddressIsIpv6() ?: false)
+        assertTrue(mappedIpv4.matchesEcho("udp_echo", "udp", 46002, 8))
+        assertFalse(mappedIpv4.matchesEcho("udp_echo", "udp", 46003, 8))
+        assertFalse(mappedIpv4.matchesEcho("udp_echo", "udp", 46002, 9))
+    }
+
+    @Test
     fun vpnServiceDeniesExcludedTestUidBoundToTun0() {
         assumePhysicalSoBindEvidencePrerequisites()
         ensureVpnConsentGranted(appContext)
@@ -967,7 +988,7 @@ class NetworkPathE2ETest {
                 protocol = protocol,
                 targetPort = targetPort,
                 payloadBytes = physicalSoBindPayload(stage, payloadProtocol, family, nonce).toByteArray().size,
-            ) && it.targetAddressIsIpv6() == family.ipv6
+            ) && it.peerAddressIsIpv6() == family.ipv6
         }
 
     private fun writePhysicalSoBindEvidence(
@@ -1225,13 +1246,16 @@ private fun FixtureEventDto.matchesEcho(
         bytes == payloadBytes &&
         target.substringAfterLast(':').toIntOrNull() == targetPort
 
-private fun FixtureEventDto.targetAddressIsIpv6(): Boolean? {
+private fun FixtureEventDto.peerAddressIsIpv6(): Boolean? {
     val host =
-        if (target.startsWith("[")) {
-            target.substringAfter('[').substringBefore(']')
+        if (peer.startsWith("[")) {
+            peer.substringAfter('[').substringBefore(']')
         } else {
-            target.substringBeforeLast(':')
+            peer.substringBeforeLast(':')
         }
+    if (host.startsWith("::ffff:", ignoreCase = true)) {
+        return false
+    }
     val isIpv6Literal = host.contains(':') && host.matches(Regex("[0-9A-Fa-f:.%]+"))
     val isIpv4Literal = !host.contains(':') && host.matches(Regex("[0-9.]+"))
     if (!isIpv6Literal && !isIpv4Literal) return null
