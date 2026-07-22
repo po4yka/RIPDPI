@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import android.os.Build
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -66,11 +65,11 @@ class FlowAppAttributionStoreTest {
     }
 
     @Test
-    fun `native uid policy is disarmed before android 12`() {
+    fun `native uid policy is disarmed when SO_BINDTODEVICE is ineligible`() {
         val policy =
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.allowed")),
-                sdkInt = Build.VERSION_CODES.R,
+                eligible = false,
                 ownPackage = "com.example.vpn",
                 uidForPackage = { 10123 },
             )
@@ -84,7 +83,7 @@ class FlowAppAttributionStoreTest {
         val policy =
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.AllowOnly(uids.keys + "com.example.missing"),
-                sdkInt = Build.VERSION_CODES.S,
+                eligible = true,
                 ownPackage = "com.example.vpn",
                 uidForPackage = uids::get,
             )
@@ -97,7 +96,7 @@ class FlowAppAttributionStoreTest {
         val policy =
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.missing")),
-                sdkInt = Build.VERSION_CODES.S,
+                eligible = true,
                 ownPackage = "com.example.vpn",
                 uidForPackage = { null },
             )
@@ -110,7 +109,7 @@ class FlowAppAttributionStoreTest {
         val policy =
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.Disallow(setOf("com.example.denied")),
-                sdkInt = Build.VERSION_CODES.S,
+                eligible = true,
                 ownPackage = "com.example.vpn",
                 uidForPackage = { packageName -> if (packageName == "com.example.denied") 10420 else null },
             )
@@ -123,7 +122,7 @@ class FlowAppAttributionStoreTest {
         val policy =
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.Disallow(setOf("com.example.vpn")),
-                sdkInt = Build.VERSION_CODES.S,
+                eligible = true,
                 ownPackage = "com.example.vpn",
                 uidForPackage = { 10420 },
             )
@@ -137,7 +136,7 @@ class FlowAppAttributionStoreTest {
         val policy =
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.Disallow(uids.keys),
-                sdkInt = Build.VERSION_CODES.S,
+                eligible = true,
                 ownPackage = "com.example.vpn",
                 uidForPackage = uids::get,
             )

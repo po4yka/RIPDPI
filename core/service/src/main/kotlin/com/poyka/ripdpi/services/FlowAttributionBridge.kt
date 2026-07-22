@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.annotation.Keep
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -18,11 +17,11 @@ internal data class NativeUidPolicy(
 
 internal fun nativeUidPolicyFor(
     plan: VpnAppRoutingPlan,
-    sdkInt: Int,
+    eligible: Boolean,
     ownPackage: String,
     uidForPackage: (String) -> Int?,
 ): NativeUidPolicy {
-    if (sdkInt < Build.VERSION_CODES.S) return NativeUidPolicy.Disarmed
+    if (!eligible) return NativeUidPolicy.Disarmed
     return if (plan is VpnAppRoutingPlan.Disallow && plan.packages == setOf(ownPackage)) {
         // An own-package-only plan excludes just the VPN process to prevent a self-loop.
         // Every third-party UID is already routed into the TUN by Android, so the
@@ -58,10 +57,11 @@ class FlowAttributionBridge
     constructor(
         private val store: FlowAppAttributionStore,
         @param:ApplicationContext private val context: Context?,
+        private val eligibility: SoBindToDeviceUidPolicyEligibility,
     ) {
         internal fun nativeUidPolicy(plan: VpnAppRoutingPlan): NativeUidPolicy {
             val packageManager = context?.packageManager ?: return NativeUidPolicy.Disarmed
-            return nativeUidPolicyFor(plan, Build.VERSION.SDK_INT, context.packageName) { packageName ->
+            return nativeUidPolicyFor(plan, eligibility.isEligible(), context.packageName) { packageName ->
                 try {
                     packageManager.getApplicationInfo(packageName, 0).uid
                 } catch (_: PackageManager.NameNotFoundException) {
