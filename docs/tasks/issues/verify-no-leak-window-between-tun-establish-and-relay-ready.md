@@ -4,13 +4,13 @@ type: task
 status: doing
 area: vpn
 priority: high
-owner: Lifecycle and PMTUD lane
+owner: Codex startup-window physical lane
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-07-17
-status_detail: Deterministic and focused physical-device startup-window regressions are complete; release-grade dual-vantage evidence remains blocked on a configured runner, runner config, and independent observer hook
+updated: 2026-07-21
+status_detail: Hardened physical Pixel startup-window regression passes twice; release-grade dual-vantage evidence remains open for a local routed collector and independent VPS observer
 source_wiki_pages: []
 linked_task: null
 ---
@@ -54,6 +54,8 @@ The one residual is **not verifiable by code reading** — it needs instrumentat
 
 ## Work log
 
+- 2026-07-21: Hardened the physical startup-window oracle after tracing the apparent regression to Android route convergence: the probe had been emitted after `Builder.establish()` but before netd assigned the separate test UID to the VPN. The test now normalizes full-tunnel state, proves the probe UID is distinct and initially non-VPN, waits for a stable VPN default route while native forwarding remains gated, checks the independent fixture control plane for zero correlated DNS events before release, and restores settings and fixture state through nested cleanup. The final AndroidTest APK passed the exact Pixel 7 API 37 test twice (`3.790s` and `3.285s`; raw instrumentation SHA-256 `3c35608df4a5b9ea091048ad2d9f65de8a12752e6a7737cc013ce5218f1740b8` and `56248c53b77c8e080c2107b1eff8406079ff398bf9597a723abcad58b51e0429`). The separate test-process Binder bytecode was also checked to contain no `kotlin.*` runtime references. Dual-vantage packet evidence remains open and is not represented as complete by this device-only regression.
+- 2026-07-21: Reproduced a physical regression on Pixel 7 API 37 at exact source SHA `39b6ad80c537002c69b65ff76899dd0e91ed59e8`: the correlated DNS UDP event reached the LAN fixture before `VpnStartupWindowE2ETest` released the native-start barrier. Host readiness and PMTUD tests remained green, so the physical gate is authoritative and this task is not complete. Ownership moved to the startup-window physical lane for root-cause remediation and an exact physical rerun.
 - 2026-07-17: On a physical Pixel 7 API 37 user build, exact source SHA `6b2e2959826685414744792db48b48f9d81b7aac` passed `VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady` exactly once (`1` test, `0` failures/errors/skips, testcase `2.899s`; JUnit XML SHA-256 `52fea4f1c20ce8c6b68afc2a2c8196a11e98d5f823434b02de1ebcb84b07cfab`). The test held a real app-process DNS datagram while readiness was gated, observed no correlated fixture egress and no false `Running`, then required the exact DNS response and one correlated external-fixture event after release. This is local physical-device evidence, not the still-missing release-grade dual-vantage packet-capture artifact.
 - 2026-07-17: The remaining dual-vantage capture cannot run: the repository has zero self-hosted runners matching `self-hosted, linux, ripdpi-network-evidence, physical-android`, and the local host has no runner config. Deterministic and focused physical-device acceptance are complete; release-grade packet evidence remains open without being green-skipped.
 - 2026-07-16: Independent review found and closed two startup gaps before commit: readiness now fires after all fallible `setup_io_loop` work (with a valid-config/non-IP SOCKS fault test), and the five-second JNI deadline no longer performs an unbounded worker join. Timeout cancellation transfers join/fd ownership to a runtime reaper; a native injected-stall test proves the startup thread returns while cleanup ownership remains tracked.

@@ -17,9 +17,10 @@ policy against actual probe results::
 
     python3 scripts/ci/check_dns_ipv6_killswitch_gates.py --results run.json
 
-Release evidence must use a validated dual-vantage capture bundle::
+Release evidence combines ordinary results with a validated dual-vantage bundle::
 
     python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
+      --results ordinary-results.json \
       --evidence-manifest evidence/manifest.json \
       --applies-to android-client-release \
       --expected-source-sha "$GITHUB_SHA"
@@ -48,6 +49,7 @@ from release_gate_results import (  # noqa: E402
     normalize_gate_result,
 )
 import network_evidence_manifest  # noqa: E402
+import produce_android_ordinary_gate_results as android_ordinary_results  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +58,7 @@ POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 EXPECTED_VERSION = "dns_ipv6_killswitch_release_gates_v1"
 EXPECTED_RESULTS_VERSION = "dns_ipv6_killswitch_results_v1"
 DUAL_VANTAGE_EVIDENCE_SOURCE = "dual-vantage-network-manifest"
+ORDINARY_EVIDENCE_SOURCE = "ordinary-results"
 STARTUP_BARRIER_GATE_ID = "killswitch-tun-establish-native-ready"
 STARTUP_BARRIER_APPLIES_TO = ["android-client-release"]
 
@@ -88,6 +91,15 @@ REQUIRED_GATE_IDS = {
     "killswitch-core-crash",
     "killswitch-wifi-lte-switch",
     "killswitch-sleep-wake",
+    "killswitch-android-always-on-block",
+    STARTUP_BARRIER_GATE_ID,
+}
+MANDATORY_ANDROID_DUAL_VANTAGE_GATE_IDS = {
+    gate_id
+    for gate_id in REQUIRED_GATE_IDS
+    if gate_id.startswith(("dns-", "synthetic-"))
+} | {STARTUP_BARRIER_GATE_ID}
+MANDATORY_FLEET_ORDINARY_GATE_IDS = REQUIRED_GATE_IDS - {
     "killswitch-android-always-on-block",
     STARTUP_BARRIER_GATE_ID,
 }
@@ -172,12 +184,47 @@ def validate_policy(policy: dict) -> dict:
             raise ValueError(
                 f"gate {gate_id} has unknown evidenceSource {evidence_source!r}"
             )
+        evidence_sources = gate.get("evidenceSources", {})
+        if not isinstance(evidence_sources, dict) or any(
+            scope not in policy.get("appliesTo", [])
+            or source not in (DUAL_VANTAGE_EVIDENCE_SOURCE, "ordinary-results")
+            for scope, source in evidence_sources.items()
+        ):
+            raise ValueError(f"gate {gate_id} has invalid evidenceSources mapping")
 
     missing_gates = REQUIRED_GATE_IDS - seen_ids
     if missing_gates:
         raise ValueError(
             "policy is missing required gates: " + ", ".join(sorted(missing_gates))
         )
+
+    gate_index = {gate["id"]: gate for gate in gates}
+    android_dual_vantage = dual_vantage_gate_ids(
+        policy, applies_to="android-client-release"
+    )
+    if android_dual_vantage != MANDATORY_ANDROID_DUAL_VANTAGE_GATE_IDS:
+        raise ValueError(
+            "android dual-vantage gate mapping must match the mandatory set; "
+            f"missing={sorted(MANDATORY_ANDROID_DUAL_VANTAGE_GATE_IDS - android_dual_vantage)}, "
+            f"extra={sorted(android_dual_vantage - MANDATORY_ANDROID_DUAL_VANTAGE_GATE_IDS)}"
+        )
+    fleet_applicable = {
+        gate_id
+        for gate_id, gate in gate_index.items()
+        if "fleet-profile-rollout" in gate.get("appliesTo", policy.get("appliesTo", []))
+    }
+    if fleet_applicable != MANDATORY_FLEET_ORDINARY_GATE_IDS:
+        raise ValueError(
+            "fleet applicable gate set must match the mandatory ordinary set"
+        )
+    for gate_id in MANDATORY_FLEET_ORDINARY_GATE_IDS:
+        gate = gate_index[gate_id]
+        effective_source = gate.get("evidenceSources", {}).get(
+            "fleet-profile-rollout",
+            gate.get("evidenceSource", ORDINARY_EVIDENCE_SOURCE),
+        )
+        if effective_source != ORDINARY_EVIDENCE_SOURCE:
+            raise ValueError(f"fleet gate {gate_id} must use ordinary-results")
 
     missing_categories = REQUIRED_CATEGORIES - seen_categories
     if missing_categories:
@@ -239,9 +286,10 @@ def evaluate_results(
             violations.append(na_violation)
             continue
         if result.state in ("FAIL", "WARN") and gate.get("noShip") is True:
+            reason_suffix = f"; reason={result.reason}" if result.reason else ""
             violations.append(
                 f"{gate_id}: {result.state} on no-ship gate "
-                f"({gate.get('failureClassification')})"
+                f"({gate.get('failureClassification')}){reason_suffix}"
             )
 
     unknown = sorted(set(result_map) - set(gate_index))
@@ -287,6 +335,42 @@ def validate_results_document(
         )
     if not isinstance(results.get("gateResults"), dict):
         raise ValueError("results document must contain a gateResults object")
+    applicable_ids = applicable_gate_ids(policy, applies_to=applies_to)
+    ordinary_gate_ids = applicable_ids - dual_vantage_gate_ids(
+        policy, applies_to=applies_to
+    )
+    actual_gate_ids = set(results["gateResults"])
+    if applies_to == "android-client-release" and actual_gate_ids not in (
+        ordinary_gate_ids,
+        applicable_ids,
+    ):
+        raise ValueError(
+            "Android results must exactly cover all ordinary gates or all "
+            "applicable gates; "
+            f"missingOrdinary={sorted(ordinary_gate_ids - actual_gate_ids)}, "
+            f"missingApplicable={sorted(applicable_ids - actual_gate_ids)}, "
+            f"extra={sorted(actual_gate_ids - applicable_ids)}"
+        )
+    ordinary_values = {
+        gate_id: normalize_gate_result(gate_id, results["gateResults"][gate_id])
+        for gate_id in actual_gate_ids & ordinary_gate_ids
+    }
+    if applies_to == "android-client-release" and any(
+        value.state == "PASS" for value in ordinary_values.values()
+    ):
+        android_ordinary_results.validate_pass_results(results)
+    if applies_to == "android-client-release" and actual_gate_ids == ordinary_gate_ids:
+        if not all(
+            isinstance(value, dict)
+            and value.get("state") == "FAIL"
+            and isinstance(value.get("reason"), str)
+            and value["reason"].strip()
+            for value in results["gateResults"].values()
+        ):
+            raise ValueError(
+                "Android ordinary results must be structured all-FAIL until the "
+                "checked-in raw-artifact verifier is implemented"
+            )
     return results
 
 
@@ -296,8 +380,19 @@ def dual_vantage_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
     return {
         gate["id"]
         for gate in policy["gates"]
-        if gate.get("evidenceSource") == DUAL_VANTAGE_EVIDENCE_SOURCE
+        if gate.get("evidenceSources", {}).get(applies_to, gate.get("evidenceSource"))
+        == DUAL_VANTAGE_EVIDENCE_SOURCE
         and applies_to in gate.get("appliesTo", policy_scopes)
+    }
+
+
+def applicable_gate_ids(policy: dict, *, applies_to: str) -> set[str]:
+    """Return policy gates that apply to the selected release target."""
+    policy_scopes = policy.get("appliesTo", [])
+    return {
+        gate["id"]
+        for gate in policy["gates"]
+        if applies_to in gate.get("appliesTo", policy_scopes)
     }
 
 
@@ -328,18 +423,17 @@ def main(argv: list[str] | None = None) -> int:
         default=str(POLICY_PATH),
         help="Path to the DNS/IPv6/kill-switch gate policy JSON.",
     )
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument(
+    parser.add_argument(
         "--results",
         default=None,
         help="Gate-results JSON to enforce the no-ship policy against.",
     )
-    mode.add_argument(
+    parser.add_argument(
         "--evidence-manifest",
         default=None,
         help="Validated dual-vantage network evidence manifest to enforce.",
     )
-    mode.add_argument(
+    parser.add_argument(
         "--policy-only",
         action="store_true",
         help="Validate only the policy schema; never treat this as release evidence.",
@@ -365,13 +459,30 @@ def main(argv: list[str] | None = None) -> int:
         "--expected-evidence-run-id",
         type=int,
         default=None,
-        help="GitHub Actions run id that the evidence manifest must attest.",
+        help="Deprecated GitHub Actions alias for --expected-execution-id.",
     )
     parser.add_argument(
         "--expected-evidence-run-attempt",
         type=int,
         default=None,
-        help="GitHub Actions run attempt that the evidence manifest must attest.",
+        help="Deprecated GitHub Actions alias for --expected-execution-attempt.",
+    )
+    parser.add_argument(
+        "--expected-execution-kind",
+        choices=("github-actions", "local"),
+        default=None,
+        help="Executor kind that the evidence manifest must attest.",
+    )
+    parser.add_argument(
+        "--expected-execution-id",
+        default=None,
+        help="Executor-neutral run id that the evidence manifest must attest.",
+    )
+    parser.add_argument(
+        "--expected-execution-attempt",
+        type=int,
+        default=None,
+        help="Executor-neutral run attempt that the evidence manifest must attest.",
     )
     parser.add_argument(
         "--report",
@@ -379,6 +490,25 @@ def main(argv: list[str] | None = None) -> int:
         help="Print a markdown summary of the policy instead of a plain log.",
     )
     args = parser.parse_args(argv)
+
+    expected_execution_kind = args.expected_execution_kind
+    expected_execution_id = args.expected_execution_id
+    expected_execution_attempt = args.expected_execution_attempt
+    if args.expected_evidence_run_id is not None:
+        legacy_id = str(args.expected_evidence_run_id)
+        if expected_execution_id not in (None, legacy_id):
+            parser.error("conflicting expected execution ids")
+        if expected_execution_kind not in (None, "github-actions"):
+            parser.error("legacy evidence run id requires github-actions")
+        expected_execution_kind = "github-actions"
+        expected_execution_id = legacy_id
+    if args.expected_evidence_run_attempt is not None:
+        if expected_execution_attempt not in (
+            None,
+            args.expected_evidence_run_attempt,
+        ):
+            parser.error("conflicting expected execution attempts")
+        expected_execution_attempt = args.expected_evidence_run_attempt
 
     evidence_supplied = args.evidence_manifest is not None
     results_supplied = args.results is not None
@@ -388,6 +518,9 @@ def main(argv: list[str] | None = None) -> int:
             "or explicitly use --policy-only",
             file=sys.stderr,
         )
+        return 1
+    if args.policy_only and (evidence_supplied or results_supplied):
+        print("--policy-only cannot be combined with release evidence", file=sys.stderr)
         return 1
     if (evidence_supplied or results_supplied) and args.applies_to is None:
         print(
@@ -429,6 +562,26 @@ def main(argv: list[str] | None = None) -> int:
         print("Categories: " + ", ".join(summary["categories"]))
         print("All gates are no-ship blockers.")
 
+    evidence_gate_ids = (
+        dual_vantage_gate_ids(policy, applies_to=args.applies_to)
+        if args.applies_to is not None
+        else set()
+    )
+    if evidence_gate_ids and not evidence_supplied:
+        print(
+            "dual-vantage gates require --evidence-manifest: "
+            + ", ".join(sorted(evidence_gate_ids)),
+            file=sys.stderr,
+        )
+        return 1
+    if evidence_supplied and not results_supplied:
+        print(
+            "--results is required with --evidence-manifest to cover remaining gates",
+            file=sys.stderr,
+        )
+        return 1
+
+    merged_gate_results: dict[str, object] = {}
     if evidence_supplied:
         manifest_path = Path(args.evidence_manifest)
         if not manifest_path.is_file():
@@ -448,48 +601,66 @@ def main(argv: list[str] | None = None) -> int:
             applies_to=args.applies_to,
             current_epoch=int(time.time()),
             max_age_seconds=args.max_evidence_age_seconds,
-            expected_workflow_run_id=args.expected_evidence_run_id,
-            expected_workflow_run_attempt=args.expected_evidence_run_attempt,
+            expected_execution_kind=expected_execution_kind,
+            expected_execution_id=expected_execution_id,
+            expected_execution_attempt=expected_execution_attempt,
         )
-        results = {
-            "version": EXPECTED_RESULTS_VERSION,
-            "sourceSha": args.expected_source_sha,
-            "appliesTo": args.applies_to,
-            "gateResults": evidence_summary["gateResults"],
-        }
-    elif results_supplied:
+        if set(evidence_summary["gateResults"]) != evidence_gate_ids:
+            raise ValueError(
+                "network evidence gateResults do not match policy evidence gates"
+            )
+        merged_gate_results.update(evidence_summary["gateResults"])
+    if results_supplied:
         results_path = Path(args.results)
         if not results_path.is_file():
             print(f"gate results file not found: {results_path}", file=sys.stderr)
             return 1
-        results = validate_results_document(
+        ordinary_results = validate_results_document(
             policy,
             load_json(results_path),
             expected_source_sha=args.expected_source_sha,
             applies_to=args.applies_to,
         )
-        evidence_only_gates = dual_vantage_gate_ids(
-            policy, applies_to=args.applies_to
-        )
-        if evidence_only_gates:
-            print(
-                "dual-vantage gates require --evidence-manifest and cannot be "
-                "satisfied by --results: " + ", ".join(sorted(evidence_only_gates)),
-                file=sys.stderr,
+        ordinary_gate_results = ordinary_results["gateResults"]
+        overlap = set(ordinary_gate_results) & evidence_gate_ids
+        if overlap:
+            raise ValueError(
+                "self-attested results must not contain dual-vantage gates: "
+                + ", ".join(sorted(overlap))
             )
-            return 1
+        merged_gate_results.update(ordinary_gate_results)
     else:
-        results = None
+        ordinary_results = None
 
-    if results is not None:
+    if merged_gate_results:
+        merged_results = {
+            "version": EXPECTED_RESULTS_VERSION,
+            "sourceSha": args.expected_source_sha,
+            "appliesTo": args.applies_to,
+            "gateResults": merged_gate_results,
+        }
         validated_results = validate_results_document(
             policy,
-            results,
+            merged_results,
             expected_source_sha=args.expected_source_sha,
             applies_to=args.applies_to,
         )
+        expected_gate_ids = applicable_gate_ids(policy, applies_to=args.applies_to)
+        actual_gate_ids = set(validated_results["gateResults"])
+        if actual_gate_ids != expected_gate_ids:
+            raise ValueError(
+                "combined gate results do not exactly cover applicable policy gates; "
+                f"missing={sorted(expected_gate_ids - actual_gate_ids)}, "
+                f"extra={sorted(actual_gate_ids - expected_gate_ids)}"
+            )
+        evaluation_policy = {
+            **policy,
+            "gates": [
+                gate for gate in policy["gates"] if gate["id"] in expected_gate_ids
+            ],
+        }
         evaluation = evaluate_results(
-            policy, validated_results, applies_to=args.applies_to
+            evaluation_policy, validated_results, applies_to=args.applies_to
         )
         if evaluation["violations"]:
             print("NO-SHIP: release gate violations detected:", file=sys.stderr)

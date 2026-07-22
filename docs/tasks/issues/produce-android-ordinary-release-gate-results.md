@@ -1,0 +1,52 @@
+---
+title: Produce Android ordinary release-gate results locally
+type: task
+status: review
+area: testing
+priority: high
+owner: Android ordinary gate producer lane
+parent: null
+blocks: []
+blocked_by: []
+created: 2026-07-22
+updated: 2026-07-22
+---
+
+## Goal
+
+Replace hand-authored or missing Android ordinary DNS, IPv6, and kill-switch
+results with a deterministic local producer that fails closed until results can
+be derived by checked-in code from source-, APK-, device-, and raw-artifact
+evidence.
+
+## Scope
+
+- Own only the 11 `ordinary-results` gates for `android-client-release`.
+- Reject missing, stale, partial, skipped, unapproved, or self-declared PASS
+  evidence and report the exact missing oracle without inventing a green result.
+- Emit canonical `dns_ipv6_killswitch_results_v1` JSON accepted by the existing
+  release-gate checker.
+- Keep physical packet-path claims separate from local unit-contract support.
+
+## Ship definition
+
+- Unit tests cover the exact gate inventory, deterministic output, dirty source,
+  incomplete results, legacy and structured forged PASS, stale-output
+  replacement, and checker-compatible no-ship reasons.
+- The local command binds the exact clean source commit and cannot emit PASS
+  until a checked-in raw-artifact verifier exists.
+- Gates without a real approved oracle emit a structured FAIL and make the
+  command fail closed.
+
+## Work log
+
+- Added a deterministic producer for the exact 11 Android ordinary gates. It
+  emits canonical structured no-ship results from an exact clean commit.
+- Removed the arbitrary collector/plugin and self-attested hash design after
+  adversarial review showed that manifest counters and copied artifacts were
+  forgeable. The checker rejects every ordinary PASS, including legacy string
+  PASS and objects with recomputed public hashes.
+- Structured all-FAIL results remain checker-compatible, and checker violations
+  retain the exact producer reason.
+- Remaining release blocker: a checked-in, audited verifier must derive each
+  observation from raw packet and route artifacts before PASS can be enabled.
