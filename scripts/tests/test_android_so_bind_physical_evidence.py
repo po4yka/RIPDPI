@@ -28,6 +28,7 @@ SPEC.loader.exec_module(MODULE)
 
 def valid_evidence() -> dict[str, object]:
     positive = {counter: 1 for counter in MODULE.POSITIVE_COUNTERS}
+    exact_one = {counter: 1 for counter in MODULE.EXACT_ONE_COUNTERS}
     return {
         "version": MODULE.VERSION,
         "status": "PASS",
@@ -44,9 +45,28 @@ def valid_evidence() -> dict[str, object]:
         "kernelFamily": "6.1",
         "realTun": True,
         "tunPacketPathObserved": True,
+        "mapDns": {
+            "addressFamily": "ipv4",
+            "syntheticEndpoint": "198.18.0.53:53",
+            "armedAllowlistVerified": True,
+            "armedControlFailureKind": "TIMEOUT",
+            "armedControlFailureStage": "receive",
+            "armedControlErrno": 110,
+            "allowedRoundTrips": 1,
+            "allowedExactAnswerVerified": True,
+            "allowedResolverEvents": 1,
+            "allowedDnsQueriesDelta": 1,
+            "deniedBlockedAttempts": 1,
+            "deniedFailureKind": "TIMEOUT",
+            "deniedFailureStage": "receive",
+            "deniedErrno": 110,
+            "deniedResolverEvents": 0,
+            "deniedDnsQueriesDelta": 0,
+        },
         "families": [
             {
                 "family": family,
+                "icmpProtocol": "icmpv6" if family == "ipv6" else "icmpv4",
                 "sourceFamilyVerified": True,
                 "deniedTcpErrno": 110,
                 "deniedTcpFailureKind": "TIMEOUT",
@@ -54,10 +74,14 @@ def valid_evidence() -> dict[str, object]:
                 "deniedUdpErrno": 110,
                 "deniedUdpFailureKind": "TIMEOUT",
                 "deniedUdpFailureStage": "receive",
-                "deniedMapDnsErrno": 110,
-                "deniedMapDnsFailureKind": "TIMEOUT",
-                "deniedMapDnsFailureStage": "receive",
+                "allowedUidIcmpErrno": 110,
+                "allowedUidIcmpFailureKind": "TIMEOUT",
+                "allowedUidIcmpFailureStage": "receive",
+                "deniedUidIcmpErrno": 110,
+                "deniedUidIcmpFailureKind": "TIMEOUT",
+                "deniedUidIcmpFailureStage": "receive",
                 **positive,
+                **exact_one,
                 **{counter: 0 for counter in MODULE.ZERO_COUNTERS},
             }
             for family in MODULE.FAMILIES
@@ -160,15 +184,136 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
 
     def test_accepts_unreachable_connect_as_mapdns_block_outcome(self) -> None:
         evidence = valid_evidence()
-        evidence["families"][1]["deniedMapDnsFailureKind"] = "ERRNO"
-        evidence["families"][1]["deniedMapDnsFailureStage"] = "connect"
-        evidence["families"][1]["deniedMapDnsErrno"] = 101
+        evidence["mapDns"]["deniedFailureKind"] = "ERRNO"
+        evidence["mapDns"]["deniedFailureStage"] = "connect"
+        evidence["mapDns"]["deniedErrno"] = 101
         self.validate(evidence)
 
     def test_rejects_inconsistent_mapdns_timeout_errno(self) -> None:
         evidence = valid_evidence()
-        evidence["families"][0]["deniedMapDnsErrno"] = 104
-        with self.assertRaisesRegex(ValueError, "MapDNS timeout kind/errno pair is inconsistent"):
+        evidence["mapDns"]["deniedErrno"] = 104
+        with self.assertRaisesRegex(ValueError, "mapDns timeout kind/errno pair is inconsistent"):
+            self.validate(evidence)
+
+    def test_rejects_mapdns_duplicated_into_family_evidence(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["allowedMapDnsRoundTrips"] = 1
+        with self.assertRaisesRegex(ValueError, "fields mismatch"):
+            self.validate(evidence)
+
+    def test_rejects_unarmed_mapdns_allowlist(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"]["armedAllowlistVerified"] = False
+        with self.assertRaisesRegex(ValueError, "allowlist was not proven armed"):
+            self.validate(evidence)
+
+    def test_rejects_einval_as_armed_allowlist_proof(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"].update(
+            armedControlFailureKind="ERRNO",
+            armedControlFailureStage="connect",
+            armedControlErrno=22,
+        )
+        with self.assertRaisesRegex(ValueError, "not an unreachable connect outcome"):
+            self.validate(evidence)
+
+    def test_rejects_eio_send_as_armed_allowlist_proof(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"].update(
+            armedControlFailureKind="ERRNO",
+            armedControlFailureStage="send",
+            armedControlErrno=5,
+        )
+        with self.assertRaisesRegex(ValueError, "not an unreachable connect outcome"):
+            self.validate(evidence)
+
+    def test_rejects_pre_network_armed_allowlist_failure(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"]["armedControlFailureStage"] = "bind"
+        with self.assertRaisesRegex(ValueError, "did not fail at a network stage"):
+            self.validate(evidence)
+
+    def test_rejects_inexact_mapdns_answer(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"]["allowedExactAnswerVerified"] = False
+        with self.assertRaisesRegex(ValueError, "exact fixture answer"):
+            self.validate(evidence)
+
+    def test_rejects_duplicate_mapdns_resolver_event(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"]["allowedResolverEvents"] = 2
+        with self.assertRaisesRegex(ValueError, "must equal one"):
+            self.validate(evidence)
+
+    def test_rejects_boolean_mapdns_counter(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"]["allowedDnsQueriesDelta"] = True
+        with self.assertRaisesRegex(ValueError, "must equal one"):
+            self.validate(evidence)
+
+    def test_rejects_icmp_einval_as_block_proof(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0].update(
+            allowedUidIcmpFailureKind="ERRNO",
+            allowedUidIcmpFailureStage="connect",
+            allowedUidIcmpErrno=22,
+        )
+        with self.assertRaisesRegex(ValueError, "not an unreachable connect outcome"):
+            self.validate(evidence)
+
+    def test_rejects_icmp_timeout_before_receive(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedUidIcmpFailureStage"] = "send"
+        with self.assertRaisesRegex(ValueError, "timeout kind/stage/errno is inconsistent"):
+            self.validate(evidence)
+
+    def test_rejects_icmp_timeout_with_reset_errno(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][1]["allowedUidIcmpErrno"] = 104
+        with self.assertRaisesRegex(ValueError, "timeout kind/stage/errno is inconsistent"):
+            self.validate(evidence)
+
+    def test_rejects_positive_icmp_fixture_receipt_for_denied_uid(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][1]["deniedUidIcmpFixtureEvents"] = 1
+        with self.assertRaisesRegex(ValueError, "must be zero"):
+            self.validate(evidence)
+
+    def test_rejects_duplicate_direct_icmp_fixture_receipt(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["directIcmpFixtureEvents"] = 2
+        with self.assertRaisesRegex(ValueError, "must equal one"):
+            self.validate(evidence)
+
+    def test_rejects_zero_direct_icmp_fixture_receipt(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["directIcmpFixtureEvents"] = 0
+        with self.assertRaisesRegex(ValueError, "must equal one"):
+            self.validate(evidence)
+
+    def test_rejects_missing_icmp_fact(self) -> None:
+        evidence = valid_evidence()
+        del evidence["families"][0]["livenessIcmpEchoReplies"]
+        with self.assertRaisesRegex(ValueError, "fields mismatch"):
+            self.validate(evidence)
+
+    def test_rejects_wrong_family_icmp_protocol(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["icmpProtocol"] = "icmpv6"
+        with self.assertRaisesRegex(ValueError, "does not match the address family"):
+            self.validate(evidence)
+
+    def test_rejects_aggregate_tun_traffic_as_icmp_ingress_proof(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["allowedUidIcmpAttemptWindowTxPacketDelta"] = 1
+        del evidence["families"][0]["allowedUidIcmpIngressPackets"]
+        with self.assertRaisesRegex(ValueError, "fields mismatch"):
+            self.validate(evidence)
+
+    def test_rejects_denied_mapdns_resolver_delta(self) -> None:
+        evidence = valid_evidence()
+        evidence["mapDns"]["deniedDnsQueriesDelta"] = 1
+        with self.assertRaisesRegex(ValueError, "must equal zero"):
             self.validate(evidence)
 
     def test_rejects_obsolete_reset_only_schema(self) -> None:
@@ -183,13 +328,6 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
             family.pop("deniedUdpErrno")
             family.pop("deniedUdpFailureKind")
             family.pop("deniedUdpFailureStage")
-            family.pop("allowedMapDnsRoundTrips")
-            family.pop("allowedMapDnsResolverEvents")
-            family.pop("deniedMapDnsBlockedAttempts")
-            family.pop("deniedMapDnsErrno")
-            family.pop("deniedMapDnsFailureKind")
-            family.pop("deniedMapDnsFailureStage")
-            family.pop("deniedMapDnsResolverEvents")
         with self.assertRaisesRegex(ValueError, "unsupported evidence version"):
             self.validate(evidence)
 

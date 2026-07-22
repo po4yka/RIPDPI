@@ -209,6 +209,7 @@ mod tests {
 
             route_tun_packet(&packet, &mut state);
 
+            assert_eq!(state.stats.icmp_ingress_packets(), 1);
             assert!(seen_packets.lock().expect("seen packets").is_empty());
             assert!(state.device.rx_queue.is_empty());
         }
@@ -244,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn armed_uid_policy_icmp_default_does_not_change_tcp_or_udp_routing() {
+    fn background_tcp_udp_cannot_satisfy_icmp_ingress_counter() {
         let seen_packets = Arc::new(Mutex::new(Vec::new()));
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
         state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
@@ -254,6 +255,7 @@ mod tests {
         route_tun_packet(&tcp_packet, &mut state);
         route_tun_packet(&udp_packet, &mut state);
 
+        assert_eq!(state.stats.icmp_ingress_packets(), 0);
         assert_eq!(seen_packets.lock().expect("seen packets").len(), 2);
         assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &tcp_packet);
         assert_eq!(state.pending_uid_udp_packets.len(), 1);

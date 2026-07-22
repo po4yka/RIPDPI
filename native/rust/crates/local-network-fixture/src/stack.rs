@@ -9,6 +9,7 @@ use crate::dns;
 use crate::echo;
 use crate::event::EventLog;
 use crate::fault::FaultController;
+use crate::icmp;
 use crate::socks;
 use crate::tls::TlsMaterial;
 use crate::types::{FixtureConfig, FixtureManifest};
@@ -76,7 +77,9 @@ impl FixtureStack {
         let echo = start_echo_services(&config, &context, &tls)?;
         let dns = start_dns_services(&config, &context, &tls)?;
         let socks = start_socks_service(&config, &context)?;
-        let mut manifest = build_manifest(&config, &tls, &echo, &dns, &socks);
+        let icmp_ipv4 = icmp::start_icmp_observer(false, context.stop.clone(), context.events.clone()).ok();
+        let icmp_ipv6 = icmp::start_icmp_observer(true, context.stop.clone(), context.events.clone()).ok();
+        let mut manifest = build_manifest(&config, &tls, &echo, &dns, &socks, icmp_ipv4.is_some(), icmp_ipv6.is_some());
         let shared_manifest = Arc::new(Mutex::new(manifest.clone()));
         let control = start_control_service(config.bind_host.clone(), config.control_port, &context, &shared_manifest)?;
         manifest.control_port = control.port;
@@ -84,7 +87,7 @@ impl FixtureStack {
             *current = manifest.clone();
         }
 
-        let handles = vec![
+        let mut handles = vec![
             echo.tcp_handle,
             echo.udp_handle,
             echo.tls_handle,
@@ -98,6 +101,8 @@ impl FixtureStack {
             socks.handle,
             control.handle,
         ];
+        handles.extend(icmp_ipv4);
+        handles.extend(icmp_ipv6);
 
         Ok(Self { manifest, events: context.events, faults: context.faults, stop: context.stop, handles })
     }
@@ -283,6 +288,8 @@ fn build_manifest(
     echo: &EchoServices,
     dns: &DnsServices,
     socks: &SocksService,
+    icmp_ipv4_observer: bool,
+    icmp_ipv6_observer: bool,
 ) -> FixtureManifest {
     FixtureManifest {
         bind_host: config.bind_host.clone(),
@@ -305,5 +312,7 @@ fn build_manifest(
         tls_certificate_pem: tls.certificate_pem.clone(),
         dnscrypt_provider_name: config.dnscrypt_provider_name.clone(),
         dnscrypt_public_key: config.dnscrypt_public_key.clone(),
+        icmp_ipv4_observer,
+        icmp_ipv6_observer,
     }
 }

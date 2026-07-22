@@ -89,6 +89,8 @@ interface Tun2SocksBindings {
 
     fun getStats(handle: Long): LongArray
 
+    fun getIcmpIngressPackets(handle: Long): Long
+
     fun getTelemetry(handle: Long): String?
 
     /** Retires [handle]; a failed-start reaper may still own the cancelled worker and duplicated fd. */
@@ -136,6 +138,8 @@ class Tun2SocksNativeBindings
         // array as all-zero stats.
         override fun getStats(handle: Long): LongArray = jniGetStats(handle) ?: LongArray(0)
 
+        override fun getIcmpIngressPackets(handle: Long): Long = jniGetIcmpIngressPackets(handle)
+
         override fun getTelemetry(handle: Long): String? = jniGetTelemetry(handle)
 
         override fun destroy(handle: Long) {
@@ -158,6 +162,8 @@ class Tun2SocksNativeBindings
         private external fun jniStop(handle: Long)
 
         private external fun jniGetStats(handle: Long): LongArray?
+
+        private external fun jniGetIcmpIngressPackets(handle: Long): Long
 
         private external fun jniGetTelemetry(handle: Long): String?
 
@@ -304,10 +310,18 @@ class Tun2SocksTunnel(
         reservations
             .withReservationOrNull({ handle }) { currentHandle ->
                 withContext(Dispatchers.IO) {
-                    nativeBindings.getTelemetry(currentHandle)
+                    nativeBindings.getTelemetry(currentHandle) to nativeBindings.getIcmpIngressPackets(currentHandle)
                 }
-            }?.takeIf { it.isNotBlank() }
-            ?.let(telemetryJson::decodeNativeRuntimeSnapshot)
+            }?.let { (json, icmpIngressPackets) ->
+                json
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(telemetryJson::decodeNativeRuntimeSnapshot)
+                    ?.let { snapshot ->
+                        snapshot.copy(
+                            tunnelStats = snapshot.tunnelStats.copy(icmpIngressPackets = icmpIngressPackets),
+                        )
+                    }
+            }
             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
 }
 

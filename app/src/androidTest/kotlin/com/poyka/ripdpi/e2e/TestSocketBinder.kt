@@ -71,6 +71,22 @@ internal object TestSocketBinder {
         nativeDnsRoundTrip(host, port, query, timeoutMs, device.utf8Bytes()),
     )
 
+    fun icmpEcho(
+        host: String,
+        payload: String,
+        timeoutMs: Int,
+        device: String?,
+        extras: Bundle,
+    ) {
+        require(payload.isNotEmpty() && payload.length <= 512 && payload.all { it.code in 0x21..0x7e }) {
+            "ICMP probe payload must be 1..512 printable ASCII characters"
+        }
+        writeResult(
+            extras,
+            nativeIcmpEcho(host, payload.utf8Bytes(), timeoutMs, device?.utf8Bytes()),
+        )
+    }
+
     private fun String.utf8Bytes(): ByteArray {
         val encoded = StandardCharsets.UTF_8.encode(this)
         val bytes = ByteArray(encoded.remaining())
@@ -137,5 +153,13 @@ internal object TestSocketBinder {
         query: ByteArray,
         timeoutMs: Int,
         deviceUtf8: ByteArray,
+    ): Array<String>?
+
+    @JvmStatic
+    private external fun nativeIcmpEcho(
+        host: String,
+        payload: ByteArray,
+        timeoutMs: Int,
+        deviceUtf8: ByteArray?,
     ): Array<String>?
 }

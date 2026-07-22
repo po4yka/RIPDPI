@@ -8,6 +8,7 @@
 // documentation contract immediately.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 mod anytls;
 mod config_env;
@@ -19,6 +20,7 @@ mod fault;
 mod http;
 mod http_types;
 mod hysteria2;
+mod icmp;
 mod masque;
 mod masque_h3;
 mod naive;
@@ -141,6 +143,8 @@ mod tests {
             tls_certificate_pem: "pem".to_string(),
             dnscrypt_provider_name: "2.dnscrypt-cert.fixture.test".to_string(),
             dnscrypt_public_key: "pub".to_string(),
+            icmp_ipv4_observer: true,
+            icmp_ipv6_observer: true,
         };
 
         assert_eq!(manifest.control_url_for_host("10.0.2.2"), "http://10.0.2.2:10");

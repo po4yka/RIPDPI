@@ -19,6 +19,7 @@ readonly evidence_profile="physical_pixel_api37_kernel61"
 readonly instrumentation_timeout_seconds="${RIPDPI_SO_BIND_INSTRUMENTATION_TIMEOUT_SECONDS:-180}"
 readonly test_probe_allowlist_duration_ms="300000"
 readonly adb_bin="${ADB_BIN:-adb}"
+readonly curl_bin="${CURL_BIN:-curl}"
 readonly git_bin="${GIT_BIN:-git}"
 readonly android_serial="${ANDROID_SERIAL:-}"
 readonly fixture_host="${RIPDPI_FIXTURE_ANDROID_HOST:-}"
@@ -28,6 +29,7 @@ readonly fixture_tcp_echo_port="${RIPDPI_FIXTURE_TCP_ECHO_PORT:-}"
 readonly fixture_udp_echo_port="${RIPDPI_FIXTURE_UDP_ECHO_PORT:-}"
 readonly evidence_output="${RIPDPI_SO_BIND_EVIDENCE_OUTPUT:-}"
 readonly evidence_file_name="so-bind-physical-evidence.json"
+readonly infra_gap_file_name="so-bind-physical-infra-gap.txt"
 readonly device_lock_root="${RIPDPI_ANDROID_DEVICE_LOCK_ROOT:-${TMPDIR:-/tmp}}"
 
 fail() {
@@ -51,7 +53,20 @@ so_bind_physical_valid_port "$fixture_tcp_echo_port" || fail "RIPDPI_FIXTURE_TCP
 so_bind_physical_valid_port "$fixture_udp_echo_port" || fail "RIPDPI_FIXTURE_UDP_ECHO_PORT must be in 1..65535"
 so_bind_physical_valid_port "$instrumentation_timeout_seconds" || fail "instrumentation timeout must be in 1..65535 seconds"
 command -v "$adb_bin" >/dev/null 2>&1 || fail "adb is unavailable"
+command -v "$curl_bin" >/dev/null 2>&1 || fail "curl is unavailable"
 command -v "$git_bin" >/dev/null 2>&1 || fail "git is unavailable"
+
+fixture_manifest="$($curl_bin -fsS --max-time 5 "http://$fixture_host:$fixture_port/manifest")" ||
+    fail_infra FIXTURE_MANIFEST_UNAVAILABLE "fixture manifest could not be fetched"
+python3 - "$fixture_manifest" <<'PY' ||
+import json
+import sys
+
+manifest = json.loads(sys.argv[1])
+if manifest.get("icmpIpv4Observer") is not True or manifest.get("icmpIpv6Observer") is not True:
+    raise SystemExit(1)
+PY
+    fail_infra ICMP_OBSERVER_UNAVAILABLE "fixture requires CAP_NET_RAW observers for both IPv4 and IPv6"
 
 source_root="$($git_bin -C "$script_dir/../.." rev-parse --show-toplevel 2>/dev/null)" ||
     fail "could not resolve source checkout"
@@ -128,6 +143,8 @@ adb_device() {
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
 cleanup() {
     adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
+    adb_device shell am force-stop com.poyka.ripdpi >/dev/null 2>&1 || true
+    adb_device shell am force-stop com.poyka.ripdpi.test >/dev/null 2>&1 || true
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT
@@ -200,8 +217,9 @@ target_pids="$(adb_device shell pidof com.poyka.ripdpi 2>/dev/null | tr -d '\r' 
 test_pids="$(adb_device shell pidof com.poyka.ripdpi.test 2>/dev/null | tr -d '\r' || true)"
 [[ -z "$target_pids" && -z "$test_pids" ]] ||
     fail "target or instrumentation process remained alive after force-stop"
-adb_device shell run-as com.poyka.ripdpi rm -f "files/$evidence_file_name" >/dev/null 2>&1 ||
-    fail "could not clear prior physical evidence"
+adb_device shell run-as com.poyka.ripdpi rm -f \
+    "files/$evidence_file_name" "files/$infra_gap_file_name" >/dev/null 2>&1 ||
+    fail "could not clear prior physical evidence and infrastructure status"
 
 test_uid_line="$(adb_device shell pm list packages -U com.poyka.ripdpi.test 2>/dev/null | tr -d '\r')" ||
     fail "test package UID lookup failed"
@@ -270,6 +288,14 @@ adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r 
 instrumentation_status=$?
 set -e
 
+infra_gap_reason="$(
+    adb_device shell run-as com.poyka.ripdpi cat "files/$infra_gap_file_name" 2>/dev/null | tr -d '\r\n' || true
+)"
+if [[ -n "$infra_gap_reason" ]]; then
+    [[ "$infra_gap_reason" == "ICMP_PING_SOCKET_UNAVAILABLE" ]] ||
+        fail "physical test returned an unknown infrastructure status"
+    fail_infra ICMP_PING_SOCKET_UNAVAILABLE "device denied the unprivileged ICMP ping socket with EPERM/EACCES"
+fi
 [[ "$instrumentation_status" == "0" ]] || fail "instrumentation command failed"
 if ! so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_method"; then
     sed 's/^/SO_BIND instrumentation: /' "$output_file" >&2

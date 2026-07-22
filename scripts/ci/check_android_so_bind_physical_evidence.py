@@ -25,18 +25,26 @@ POSITIVE_COUNTERS = (
     "allowedUdpFixtureEvents",
     "deniedTcpBlockedAttempts",
     "deniedUdpBlockedAttempts",
-    "allowedMapDnsRoundTrips",
-    "allowedMapDnsResolverEvents",
-    "deniedMapDnsBlockedAttempts",
     "livenessTcpRoundTrips",
     "livenessUdpRoundTrips",
     "livenessTcpFixtureEvents",
     "livenessUdpFixtureEvents",
 )
+EXACT_ONE_COUNTERS = (
+    "directIcmpEchoReplies",
+    "directIcmpFixtureEvents",
+    "allowedUidIcmpBlockedAttempts",
+    "deniedUidIcmpBlockedAttempts",
+    "livenessIcmpEchoReplies",
+    "livenessIcmpFixtureEvents",
+    "allowedUidIcmpIngressPackets",
+    "deniedUidIcmpIngressPackets",
+)
 ZERO_COUNTERS = (
     "deniedTcpFixtureEvents",
     "deniedUdpFixtureEvents",
-    "deniedMapDnsResolverEvents",
+    "allowedUidIcmpFixtureEvents",
+    "deniedUidIcmpFixtureEvents",
 )
 TOP_LEVEL_FIELDS = {
     "version",
@@ -54,6 +62,7 @@ TOP_LEVEL_FIELDS = {
     "kernelFamily",
     "realTun",
     "tunPacketPathObserved",
+    "mapDns",
     "families",
 }
 HEX_32 = re.compile(r"[0-9a-f]{32}")
@@ -63,6 +72,7 @@ MAX_RUN_DURATION_MS = 5 * 60 * 1000
 MAX_EVIDENCE_AGE_MS = 10 * 60 * 1000
 FAMILY_FIELDS = {
     "family",
+    "icmpProtocol",
     "sourceFamilyVerified",
     "deniedTcpErrno",
     "deniedTcpFailureKind",
@@ -70,11 +80,33 @@ FAMILY_FIELDS = {
     "deniedUdpErrno",
     "deniedUdpFailureKind",
     "deniedUdpFailureStage",
-    "deniedMapDnsErrno",
-    "deniedMapDnsFailureKind",
-    "deniedMapDnsFailureStage",
+    "allowedUidIcmpErrno",
+    "allowedUidIcmpFailureKind",
+    "allowedUidIcmpFailureStage",
+    "deniedUidIcmpErrno",
+    "deniedUidIcmpFailureKind",
+    "deniedUidIcmpFailureStage",
     *POSITIVE_COUNTERS,
+    *EXACT_ONE_COUNTERS,
     *ZERO_COUNTERS,
+}
+MAPDNS_FIELDS = {
+    "addressFamily",
+    "syntheticEndpoint",
+    "armedAllowlistVerified",
+    "armedControlFailureKind",
+    "armedControlFailureStage",
+    "armedControlErrno",
+    "allowedRoundTrips",
+    "allowedExactAnswerVerified",
+    "allowedResolverEvents",
+    "allowedDnsQueriesDelta",
+    "deniedBlockedAttempts",
+    "deniedFailureKind",
+    "deniedFailureStage",
+    "deniedErrno",
+    "deniedResolverEvents",
+    "deniedDnsQueriesDelta",
 }
 TCP_BLOCK_FAILURE_KINDS = {"CONNECTION_RESET", "ERRNO", "TIMEOUT"}
 TCP_NETWORK_STAGES = {"connect", "receive", "send"}
@@ -82,6 +114,27 @@ TCP_UNREACHABLE_ERRNOS = {101, 113}
 TCP_RESET_ERRNOS = {104}
 SOCKET_TIMEOUT_ERRNOS = {11, 110}
 UDP_BLOCK_FAILURE_KINDS = {"ERRNO", "TIMEOUT"}
+ICMP_BLOCK_FAILURE_KINDS = {"ERRNO", "TIMEOUT"}
+
+
+def validate_icmp_block(record: dict[str, Any], family: str, prefix: str) -> None:
+    failure_kind = record[f"{prefix}FailureKind"]
+    failure_stage = record[f"{prefix}FailureStage"]
+    failure_errno = record[f"{prefix}Errno"]
+    if failure_kind not in ICMP_BLOCK_FAILURE_KINDS:
+        raise ValueError(f"{family}.{prefix}FailureKind is not a blocked ICMP outcome")
+    if type(failure_errno) is not int or failure_errno <= 0:
+        raise ValueError(f"{family}.{prefix}Errno must be a positive integer")
+    if failure_kind == "ERRNO" and (
+        failure_stage != "connect" or failure_errno not in TCP_UNREACHABLE_ERRNOS
+    ):
+        raise ValueError(
+            f"{family}.{prefix} generic errno is not an unreachable connect outcome"
+        )
+    if failure_kind == "TIMEOUT" and (
+        failure_stage != "receive" or failure_errno not in SOCKET_TIMEOUT_ERRNOS
+    ):
+        raise ValueError(f"{family}.{prefix} timeout kind/stage/errno is inconsistent")
 
 
 def require_exact_fields(value: dict[str, Any], expected: set[str], label: str) -> None:
@@ -157,6 +210,61 @@ def validate(
     if document["realTun"] is not True or document["tunPacketPathObserved"] is not True:
         raise ValueError("physical TUN packet-path observation is missing")
 
+    mapdns = document["mapDns"]
+    if not isinstance(mapdns, dict):
+        raise ValueError("mapDns must be an object")
+    require_exact_fields(mapdns, MAPDNS_FIELDS, "mapDns")
+    if mapdns["addressFamily"] != "ipv4" or mapdns["syntheticEndpoint"] != "198.18.0.53:53":
+        raise ValueError("mapDns must describe the single IPv4 synthetic endpoint")
+    if mapdns["armedAllowlistVerified"] is not True:
+        raise ValueError("mapDns native allowlist was not proven armed")
+    armed_kind = mapdns["armedControlFailureKind"]
+    armed_stage = mapdns["armedControlFailureStage"]
+    armed_errno = mapdns["armedControlErrno"]
+    if armed_stage not in TCP_NETWORK_STAGES:
+        raise ValueError("mapDns armed control did not fail at a network stage")
+    if type(armed_errno) is not int or armed_errno <= 0:
+        raise ValueError("mapDns.armedControlErrno must be a positive integer")
+    if armed_kind == "ERRNO":
+        if armed_stage != "connect" or armed_errno not in TCP_UNREACHABLE_ERRNOS:
+            raise ValueError("mapDns armed control generic errno is not an unreachable connect outcome")
+    elif armed_kind == "TIMEOUT":
+        if armed_errno not in SOCKET_TIMEOUT_ERRNOS:
+            raise ValueError("mapDns armed control timeout kind/errno pair is inconsistent")
+    elif armed_kind == "CONNECTION_RESET":
+        if armed_errno not in TCP_RESET_ERRNOS:
+            raise ValueError("mapDns armed control reset kind/errno pair is inconsistent")
+    else:
+        raise ValueError("mapDns armed control failure kind is not a blocked outcome")
+    if mapdns["allowedExactAnswerVerified"] is not True:
+        raise ValueError("mapDns exact fixture answer was not verified")
+    for field in (
+        "allowedRoundTrips",
+        "allowedResolverEvents",
+        "allowedDnsQueriesDelta",
+        "deniedBlockedAttempts",
+    ):
+        if type(mapdns[field]) is not int or mapdns[field] != 1:
+            raise ValueError(f"mapDns.{field} must equal one")
+    for field in ("deniedResolverEvents", "deniedDnsQueriesDelta"):
+        if type(mapdns[field]) is not int or mapdns[field] != 0:
+            raise ValueError(f"mapDns.{field} must equal zero")
+    mapdns_failure_kind = mapdns["deniedFailureKind"]
+    mapdns_failure_stage = mapdns["deniedFailureStage"]
+    mapdns_failure_errno = mapdns["deniedErrno"]
+    if mapdns_failure_kind not in UDP_BLOCK_FAILURE_KINDS:
+        raise ValueError("mapDns.deniedFailureKind is not a blocked outcome")
+    if mapdns_failure_stage not in TCP_NETWORK_STAGES:
+        raise ValueError("mapDns.deniedFailureStage is not a network stage")
+    if type(mapdns_failure_errno) is not int or mapdns_failure_errno <= 0:
+        raise ValueError("mapDns.deniedErrno must be a positive integer")
+    if mapdns_failure_kind == "ERRNO" and (
+        mapdns_failure_stage != "connect" or mapdns_failure_errno not in TCP_UNREACHABLE_ERRNOS
+    ):
+        raise ValueError("mapDns generic errno is not an unreachable connect outcome")
+    if mapdns_failure_kind == "TIMEOUT" and mapdns_failure_errno not in SOCKET_TIMEOUT_ERRNOS:
+        raise ValueError("mapDns timeout kind/errno pair is inconsistent")
+
     families = document["families"]
     if not isinstance(families, list) or len(families) != len(FAMILIES):
         raise ValueError("evidence must contain exactly IPv4 and IPv6 family records")
@@ -170,6 +278,9 @@ def validate(
             raise ValueError(f"unexpected or duplicate family: {family!r}")
         if record["sourceFamilyVerified"] is not True:
             raise ValueError(f"{family} source family was not verified")
+        expected_icmp_protocol = "icmpv6" if family == "ipv6" else "icmpv4"
+        if record["icmpProtocol"] != expected_icmp_protocol:
+            raise ValueError(f"{family}.icmpProtocol does not match the address family")
         failure_kind = record["deniedTcpFailureKind"]
         failure_stage = record["deniedTcpFailureStage"]
         failure_errno = record["deniedTcpErrno"]
@@ -208,31 +319,16 @@ def validate(
             and udp_failure_errno not in SOCKET_TIMEOUT_ERRNOS
         ):
             raise ValueError(f"{family} UDP timeout kind/errno pair is inconsistent")
-        mapdns_failure_kind = record["deniedMapDnsFailureKind"]
-        mapdns_failure_stage = record["deniedMapDnsFailureStage"]
-        mapdns_failure_errno = record["deniedMapDnsErrno"]
-        if mapdns_failure_kind not in UDP_BLOCK_FAILURE_KINDS:
-            raise ValueError(f"{family}.deniedMapDnsFailureKind is not a blocked outcome")
-        if mapdns_failure_stage not in TCP_NETWORK_STAGES:
-            raise ValueError(f"{family}.deniedMapDnsFailureStage is not a network stage")
-        if type(mapdns_failure_errno) is not int or mapdns_failure_errno <= 0:
-            raise ValueError(f"{family}.deniedMapDnsErrno must be a positive integer")
-        if mapdns_failure_kind == "ERRNO" and (
-            mapdns_failure_stage != "connect"
-            or mapdns_failure_errno not in TCP_UNREACHABLE_ERRNOS
-        ):
-            raise ValueError(
-                f"{family} MapDNS generic errno is not an unreachable connect outcome"
-            )
-        if (
-            mapdns_failure_kind == "TIMEOUT"
-            and mapdns_failure_errno not in SOCKET_TIMEOUT_ERRNOS
-        ):
-            raise ValueError(f"{family} MapDNS timeout kind/errno pair is inconsistent")
+        validate_icmp_block(record, family, "allowedUidIcmp")
+        validate_icmp_block(record, family, "deniedUidIcmp")
         for counter in POSITIVE_COUNTERS:
             value = record[counter]
             if type(value) is not int or value < 1:
                 raise ValueError(f"{family}.{counter} must be a positive integer")
+        for counter in EXACT_ONE_COUNTERS:
+            value = record[counter]
+            if type(value) is not int or value != 1:
+                raise ValueError(f"{family}.{counter} must equal one")
         for counter in ZERO_COUNTERS:
             value = record[counter]
             if type(value) is not int or value != 0:

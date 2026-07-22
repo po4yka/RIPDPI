@@ -297,6 +297,8 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     @Volatile var nativeStats: LongArray = longArrayOf()
 
+    @Volatile var icmpIngressPackets: Long = 0
+
     @Volatile var telemetryJson: String? = null
     val faults = FaultQueue<TunnelBindingFaultTarget>()
     val createdPayloads = mutableListOf<String>()
@@ -340,6 +342,8 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
         statsFailure?.let { throw it }
         return nativeStats
     }
+
+    override fun getIcmpIngressPackets(handle: Long): Long = icmpIngressPackets
 
     override fun getTelemetry(handle: Long): String? {
         telemetryHandles += handle

@@ -21,6 +21,7 @@
                 <action android:name="com.poyka.ripdpi.debug.PROBE_TCP" />
                 <action android:name="com.poyka.ripdpi.debug.PROBE_UDP" />
                 <action android:name="com.poyka.ripdpi.debug.PROBE_DNS" />
+                <action android:name="com.poyka.ripdpi.debug.PROBE_ICMP" />
             </intent-filter>
         </receiver>
     </application>

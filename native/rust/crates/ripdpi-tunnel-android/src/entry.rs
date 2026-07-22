@@ -41,9 +41,9 @@ use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
 
 use crate::session::{
-    tunnel_create_entry, tunnel_destroy_entry, tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry,
-    tunnel_pcap_start_entry, tunnel_pcap_stop_entry, tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry,
-    tunnel_telemetry_entry,
+    tunnel_create_entry, tunnel_destroy_entry, tunnel_icmp_ingress_packets_entry, tunnel_pcap_list_captures_entry,
+    tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry, tunnel_start_entry, tunnel_stats_entry,
+    tunnel_stop_entry, tunnel_telemetry_entry,
 };
 
 #[unsafe(no_mangle)]
@@ -81,6 +81,15 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGet
     handle: jlong,
 ) -> jlongArray {
     ffi_boundary(core::ptr::null_mut(), move || tunnel_stats_entry(env, handle))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetIcmpIngressPackets(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    handle: jlong,
+) -> jlong {
+    ffi_boundary(0, move || tunnel_icmp_ingress_packets_entry(env, handle))
 }
 
 #[unsafe(no_mangle)]

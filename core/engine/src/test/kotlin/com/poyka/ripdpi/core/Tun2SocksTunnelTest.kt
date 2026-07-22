@@ -14,6 +14,26 @@ import java.io.IOException
 
 class Tun2SocksTunnelTest {
     @Test
+    fun telemetryAddsDedicatedIcmpIngressCounterWithoutChangingJsonSchema() =
+        runTest {
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    telemetryJson =
+                        Json.encodeToString(
+                            NativeRuntimeSnapshot(source = "tunnel", state = "running"),
+                        )
+                    icmpIngressPackets = 3
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7)
+
+            assertTrue(bindings.telemetryJson?.contains("icmpIngressPackets") == false)
+            assertEquals(3, tunnel.telemetry().tunnelStats.icmpIngressPackets)
+
+            tunnel.stop()
+        }
+
+    @Test
     fun tunnelStatsMapNativeArrayIntoTypedModel() {
         val stats = TunnelStats.fromNative(longArrayOf(10L, 20L, 30L, 40L))
 

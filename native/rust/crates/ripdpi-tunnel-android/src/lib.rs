@@ -25,6 +25,7 @@ mod telemetry;
 pub use entry::{
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCreate,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDestroy,
+    Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetIcmpIngressPackets,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniRegisterFlowAttribution,

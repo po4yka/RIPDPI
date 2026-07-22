@@ -101,6 +101,8 @@ pub struct FixtureManifest {
     pub tls_certificate_pem: String,
     pub dnscrypt_provider_name: String,
     pub dnscrypt_public_key: String,
+    pub icmp_ipv4_observer: bool,
+    pub icmp_ipv6_observer: bool,
 }
 
 impl FixtureManifest {

@@ -92,6 +92,7 @@ private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_
 private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val DebugUdpProbeAction = "com.poyka.ripdpi.debug.PROBE_UDP"
 private const val DebugDnsProbeAction = "com.poyka.ripdpi.debug.PROBE_DNS"
+private const val DebugIcmpProbeAction = "com.poyka.ripdpi.debug.PROBE_ICMP"
 private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.DebugNetworkProbeReceiver"
 private const val TestNetworkProbeReceiverClass = "com.poyka.ripdpi.e2e.TestNetworkProbeReceiver"
 private const val DebugNetworkProbeExtraHost = "host"
@@ -142,6 +143,8 @@ data class FixtureManifestDto(
     val tlsCertificatePem: String,
     val dnscryptProviderName: String,
     val dnscryptPublicKey: String,
+    val icmpIpv4Observer: Boolean,
+    val icmpIpv6Observer: Boolean,
 )
 
 data class FixtureEventDto(
@@ -199,6 +202,21 @@ data class AppProcessDnsProbeResult(
     val latencyMs: Long? = null,
     val localAddress: String? = null,
     val localPort: Int? = null,
+    val boundDevice: String? = null,
+    val failureKind: String? = null,
+    val failureStage: String? = null,
+    val errno: Int? = null,
+    val probePid: Int? = null,
+    val probeUid: Int? = null,
+    val errorClass: String? = null,
+    val errorMessage: String? = null,
+)
+
+data class AppProcessIcmpProbeResult(
+    val host: String,
+    val ok: Boolean,
+    val response: String? = null,
+    val localAddress: String? = null,
     val boundDevice: String? = null,
     val failureKind: String? = null,
     val failureStage: String? = null,
@@ -1271,6 +1289,65 @@ fun testProcessUdpRoundTrip(
     }
 }
 
+fun testProcessIcmpEcho(
+    host: String,
+    payload: String,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+    bindDevice: String? = null,
+): AppProcessIcmpProbeResult {
+    ensureTestProbeNetworkEligibility()
+    val context = InstrumentationRegistry.getInstrumentation().context
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessIcmpProbeResult?>()
+    val intent =
+        Intent(DebugIcmpProbeAction).apply {
+            setClassName(context.packageName, TestNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, host)
+            putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraPayload, payload)
+            bindDevice?.let { putExtra(DebugNetworkProbeExtraBindDevice, it) }
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessIcmpProbeResult(
+                        host = host,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        response = extras.getString(DebugNetworkProbeExtraResponse),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        boundDevice = extras.getString(DebugNetworkProbeExtraBoundDevice),
+                        failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
+                        failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
+                        errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out waiting for test-process ICMP echo for $host"
+    }
+    return requireNotNull(probeResult.get()) {
+        "Test-process ICMP echo did not deliver a result for $host"
+    }
+}
+
 fun probeAppProcessDns(
     context: Context,
     queryHost: String,
@@ -2026,6 +2103,8 @@ private fun parseManifest(body: String): FixtureManifestDto {
         tlsCertificatePem = json.getString("tlsCertificatePem"),
         dnscryptProviderName = json.getString("dnscryptProviderName"),
         dnscryptPublicKey = json.getString("dnscryptPublicKey"),
+        icmpIpv4Observer = json.optBoolean("icmpIpv4Observer", false),
+        icmpIpv6Observer = json.optBoolean("icmpIpv6Observer", false),
     )
 }
 

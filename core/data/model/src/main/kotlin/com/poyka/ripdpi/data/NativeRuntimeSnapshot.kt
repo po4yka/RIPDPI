@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 const val NativeRuntimeTelemetrySchemaVersion: Int = 3
 
@@ -241,6 +242,9 @@ data class TunnelStats(
     val txBytes: Long = 0,
     val rxPackets: Long = 0,
     val rxBytes: Long = 0,
+    /** Process-local ICMPv4/ICMPv6 ingress counter, supplied by a dedicated JNI getter. */
+    @Transient
+    val icmpIngressPackets: Long = 0,
 ) {
     companion object {
         private const val RxBytesIndex = 3

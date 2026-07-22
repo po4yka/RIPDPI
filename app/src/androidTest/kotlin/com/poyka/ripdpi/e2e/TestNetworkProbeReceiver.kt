@@ -30,6 +30,7 @@ import java.util.Random
 private const val ActionProbeTcp = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val ActionProbeUdp = "com.poyka.ripdpi.debug.PROBE_UDP"
 internal const val ActionProbeDns = "com.poyka.ripdpi.debug.PROBE_DNS"
+private const val ActionProbeIcmp = "com.poyka.ripdpi.debug.PROBE_ICMP"
 internal const val ExtraHost = "host"
 internal const val ExtraPort = "port"
 private const val ExtraConnectTimeoutMs = "connect_timeout_ms"
@@ -86,7 +87,12 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         }
 
         val action = intent.action
-        if (!ActionProbeTcp.equals(action) && !ActionProbeUdp.equals(action) && !ActionProbeDns.equals(action)) {
+        if (
+            !ActionProbeTcp.equals(action) &&
+            !ActionProbeUdp.equals(action) &&
+            !ActionProbeDns.equals(action) &&
+            !ActionProbeIcmp.equals(action)
+        ) {
             return
         }
 
@@ -119,12 +125,11 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         extras.putInt(ExtraProbeUid, Process.myUid())
         val resultCode =
             try {
-                if (ActionProbeDns.equals(action)) {
-                    runDnsProbe(intent, extras)
-                } else if (ActionProbeUdp.equals(action)) {
-                    runUdpProbe(intent, extras)
-                } else {
-                    runTcpProbe(intent, extras)
+                when {
+                    ActionProbeDns.equals(action) -> runDnsProbe(intent, extras)
+                    ActionProbeUdp.equals(action) -> runUdpProbe(intent, extras)
+                    ActionProbeIcmp.equals(action) -> runIcmpProbe(intent, extras)
+                    else -> runTcpProbe(intent, extras)
                 }
                 Activity.RESULT_OK
             } catch (error: Throwable) {
@@ -139,6 +144,23 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         pendingResult.resultCode = resultCode
         pendingResult.setResultExtras(extras)
         pendingResult.finish()
+    }
+
+    private fun runIcmpProbe(
+        intent: Intent,
+        extras: Bundle,
+    ) {
+        val host = intent.getStringExtra(ExtraHost)
+        val timeoutMs = intent.getIntExtra(ExtraReadTimeoutMs, DefaultReadTimeoutMs)
+        val payload = intent.getStringExtra(ExtraPayload).orEmpty()
+        requireProbeHost(host, "Missing host extra")
+        TestSocketBinder.icmpEcho(
+            host = requireNotNull(host),
+            payload = payload,
+            timeoutMs = timeoutMs,
+            device = intent.getStringExtra(ExtraBindDevice)?.takeIf(String::isNotEmpty),
+            extras = extras,
+        )
     }
 
     private fun runTcpProbe(

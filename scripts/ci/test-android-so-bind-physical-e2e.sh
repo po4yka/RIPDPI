@@ -21,6 +21,11 @@ grep -Fq 'run-with-android-device-lock.py' \
     "$source_repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh"
 grep -Fq "ripdpi-android-device-\$device_lock_serial.lock" \
     "$source_repo_root/scripts/ci/run-android-so-bind-physical-e2e.sh"
+grep -Fq 'allowedDns.answers.single().startsWith("198.18.")' \
+    "$source_repo_root/app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/NetworkPathE2ETest.kt" || {
+    echo "assertion failed: physical MapDNS evidence does not require one synthetic-range answer" >&2
+    exit 1
+}
 
 mkdir -p "$repo_root/scripts/ci" "$repo_root/test-lab/scripts"
 cp \
@@ -94,6 +99,24 @@ cp "$FAKE_TEST_APK_SEED" "$test_output"
 EOF
 chmod +x "$fake_gradle"
 
+fake_curl="$temp_dir/curl"
+cat >"$fake_curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == *"http://192.0.2.10:46090/manifest"* ]] || exit 95
+[[ "${FAKE_FIXTURE_MANIFEST_UNAVAILABLE:-0}" != "1" ]] || exit 1
+python3 - <<'PY'
+import json
+import os
+
+print(json.dumps({
+    "icmpIpv4Observer": os.environ.get("FAKE_ICMPV4_OBSERVER", "1") == "1",
+    "icmpIpv6Observer": os.environ.get("FAKE_ICMPV6_OBSERVER", "1") == "1",
+}))
+PY
+EOF
+chmod +x "$fake_curl"
+
 fake_adb="$temp_dir/adb"
 cat >"$fake_adb" <<'EOF'
 #!/usr/bin/env bash
@@ -154,10 +177,16 @@ case "$*" in
     "shell pidof com.poyka.ripdpi") [[ "${FAKE_TARGET_PID_REMAINS:-0}" != "1" ]] || echo 123 ;;
     "shell pidof com.poyka.ripdpi.test") [[ "${FAKE_TEST_PID_REMAINS:-0}" != "1" ]] || echo 456 ;;
     "shell pm list packages -U com.poyka.ripdpi.test") echo 'package:com.poyka.ripdpi.test uid:10444' ;;
-    "shell run-as com.poyka.ripdpi rm -f files/so-bind-physical-evidence.json") : ;;
+    "shell run-as com.poyka.ripdpi rm -f files/so-bind-physical-evidence.json files/so-bind-physical-infra-gap.txt")
+        rm -f "$FAKE_INFRA_GAP"
+        ;;
     "shell run-as com.poyka.ripdpi cat files/so-bind-physical-evidence.json")
         [[ "${FAKE_EVIDENCE_MISSING:-0}" != "1" ]] || exit 1
         cat "$FAKE_EVIDENCE"
+        ;;
+    "shell run-as com.poyka.ripdpi cat files/so-bind-physical-infra-gap.txt")
+        [[ -f "$FAKE_INFRA_GAP" ]] || exit 1
+        cat "$FAKE_INFRA_GAP"
         ;;
     "shell cmd deviceidle tempwhitelist -d 300000 com.poyka.ripdpi.test")
         : >"$FAKE_ALLOWLIST_MARKER"
@@ -220,6 +249,17 @@ case "$*" in
         [[ "$*" == *"-e ripdpi.soBindUdpEchoPort 46092"* ]] || exit 85
         [[ "$*" == *"-e class com.poyka.ripdpi.e2e.NetworkPathE2ETest#vpnServiceDeniesExcludedTestUidBoundToTun0"* ]] || exit 92
         case "${FAKE_RESULT:-pass}" in
+            icmp_ping_socket_unavailable)
+                printf 'ICMP_PING_SOCKET_UNAVAILABLE\n' >"$FAKE_INFRA_GAP"
+                cat <<'OUTPUT'
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: class=com.poyka.ripdpi.e2e.NetworkPathE2ETest
+INSTRUMENTATION_STATUS: test=vpnServiceDeniesExcludedTestUidBoundToTun0
+INSTRUMENTATION_STATUS: stack=org.junit.AssumptionViolatedException: ICMP_PING_SOCKET_UNAVAILABLE
+INSTRUMENTATION_STATUS_CODE: -3
+INSTRUMENTATION_CODE: -1
+OUTPUT
+                ;;
             pass)
                 run_id="$(extract_arg ripdpi.soBindRunId "$@")"
                 source_sha="$(extract_arg ripdpi.soBindSourceSha "$@")"
@@ -233,13 +273,19 @@ import sys
 positive_names = (
     "directTcpRoundTrips", "directUdpRoundTrips", "directTcpFixtureEvents", "directUdpFixtureEvents",
     "allowedTcpRoundTrips", "allowedUdpRoundTrips", "allowedTcpFixtureEvents", "allowedUdpFixtureEvents",
-    "deniedTcpBlockedAttempts", "deniedUdpBlockedAttempts", "allowedMapDnsRoundTrips",
-    "allowedMapDnsResolverEvents", "deniedMapDnsBlockedAttempts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
+    "deniedTcpBlockedAttempts", "deniedUdpBlockedAttempts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
     "livenessTcpFixtureEvents", "livenessUdpFixtureEvents",
 )
 positive = {name: 1 for name in positive_names}
+exact_one_names = (
+    "directIcmpEchoReplies", "directIcmpFixtureEvents", "allowedUidIcmpBlockedAttempts",
+    "deniedUidIcmpBlockedAttempts", "livenessIcmpEchoReplies", "livenessIcmpFixtureEvents",
+    "allowedUidIcmpIngressPackets", "deniedUidIcmpIngressPackets",
+)
+exact_one = {name: 1 for name in exact_one_names}
 families = [{
     "family": family,
+    "icmpProtocol": "icmpv6" if family == "ipv6" else "icmpv4",
     "sourceFamilyVerified": True,
     "deniedTcpErrno": 110,
     "deniedTcpFailureKind": "TIMEOUT",
@@ -247,13 +293,18 @@ families = [{
     "deniedUdpErrno": 110,
     "deniedUdpFailureKind": "TIMEOUT",
     "deniedUdpFailureStage": "receive",
-    "deniedMapDnsErrno": 110,
-    "deniedMapDnsFailureKind": "TIMEOUT",
-    "deniedMapDnsFailureStage": "receive",
+    "allowedUidIcmpErrno": 110,
+    "allowedUidIcmpFailureKind": "TIMEOUT",
+    "allowedUidIcmpFailureStage": "receive",
+    "deniedUidIcmpErrno": 110,
+    "deniedUidIcmpFailureKind": "TIMEOUT",
+    "deniedUidIcmpFailureStage": "receive",
     **positive,
+    **exact_one,
     "deniedTcpFixtureEvents": 0,
     "deniedUdpFixtureEvents": 0,
-    "deniedMapDnsResolverEvents": 0,
+    "allowedUidIcmpFixtureEvents": 0,
+    "deniedUidIcmpFixtureEvents": 0,
 } for family in ("ipv4", "ipv6")]
 evidence = {
         "version": "android_so_bind_physical_evidence_v3",
@@ -269,6 +320,24 @@ evidence = {
         "kernelFamily": "6.1",
         "realTun": True,
         "tunPacketPathObserved": True,
+        "mapDns": {
+            "addressFamily": "ipv4",
+            "syntheticEndpoint": "198.18.0.53:53",
+            "armedAllowlistVerified": True,
+            "armedControlFailureKind": "TIMEOUT",
+            "armedControlFailureStage": "receive",
+            "armedControlErrno": 110,
+            "allowedRoundTrips": 1,
+            "allowedExactAnswerVerified": True,
+            "allowedResolverEvents": 1,
+            "allowedDnsQueriesDelta": 1,
+            "deniedBlockedAttempts": 1,
+            "deniedFailureKind": "TIMEOUT",
+            "deniedFailureStage": "receive",
+            "deniedErrno": 110,
+            "deniedResolverEvents": 0,
+            "deniedDnsQueriesDelta": 0,
+        },
         "families": families,
 }
 if sys.argv[6] == "1":
@@ -390,6 +459,7 @@ run_runner() {
     rm -f "$temp_dir"/*.marker
     env \
         ADB_BIN="$fake_adb" \
+        CURL_BIN="$fake_curl" \
         GIT_BIN="$fake_git" \
         GRADLE_BIN="$fake_gradle" \
         FAKE_REPO_ROOT="$repo_root" \
@@ -405,6 +475,7 @@ run_runner() {
         FAKE_APP_APK="$source_bound_app_apk" \
         FAKE_TEST_APK="$source_bound_test_apk" \
         FAKE_EVIDENCE="$evidence" \
+        FAKE_INFRA_GAP="$temp_dir/infra-gap.marker" \
         FAKE_ALLOWLIST_MARKER="$temp_dir/allowlist.marker" \
         FAKE_ALLOWLIST_REMOVE_MARKER="$temp_dir/allowlist-remove.marker" \
         FAKE_INSTALL_MARKER="$temp_dir/install.marker" \
@@ -492,6 +563,10 @@ assert_status 1 "remaining test process rejected" run_runner FAKE_TEST_PID_REMAI
 assert_status 1 "APK byte mismatch rejected" run_runner FAKE_APK_MISMATCH=1
 assert_status 1 "ambiguous package path rejected" run_runner FAKE_AMBIGUOUS_PATH=1
 assert_status 1 "unreachable direct fixture rejected" run_runner FAKE_FIXTURE_UNREACHABLE=1
+assert_status 2 "missing fixture ICMPv4 observer is an infra gap" run_runner FAKE_ICMPV4_OBSERVER=0
+assert_status 2 "missing fixture ICMPv6 observer is an infra gap" run_runner FAKE_ICMPV6_OBSERVER=0
+assert_status 2 "unavailable fixture manifest is an infra gap" run_runner FAKE_FIXTURE_MANIFEST_UNAVAILABLE=1
+assert_status 2 "device ICMP ping socket denial is an infra gap" run_runner FAKE_RESULT=icmp_ping_socket_unavailable
 assert_status 2 "missing IPv6 route is an infra gap" run_runner FAKE_IPV6_ROUTE_UNAVAILABLE=1
 assert_status 2 "unreachable IPv6 fixture is an infra gap" run_runner FAKE_IPV6_FIXTURE_UNREACHABLE=1
 assert_status 2 "unreachable IPv6 TCP echo is an infra gap" run_runner FAKE_IPV6_TCP_ECHO_UNREACHABLE=1

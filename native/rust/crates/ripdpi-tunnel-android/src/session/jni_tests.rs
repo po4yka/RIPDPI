@@ -103,6 +103,14 @@ fn jni_get_stats(env: &mut Env<'_>, handle: jlong) -> jlongArray {
     crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats(env_to_unowned(env), JObject::null(), handle)
 }
 
+fn jni_get_icmp_ingress_packets(env: &mut Env<'_>, handle: jlong) -> jlong {
+    crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetIcmpIngressPackets(
+        env_to_unowned(env),
+        JObject::null(),
+        handle,
+    )
+}
+
 fn jni_get_telemetry(env: &mut Env<'_>, handle: jlong) -> jni::sys::jstring {
     crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry(
         env_to_unowned(env),
@@ -223,6 +231,9 @@ fn exported_jni_reports_ready_stats_and_telemetry() {
         assert_no_exception(env);
         assert_eq!(stats, vec![0, 0, 0, 0]);
 
+        assert_eq!(jni_get_icmp_ingress_packets(env, handle.raw()), 0);
+        assert_no_exception(env);
+
         let raw_telemetry = jni_get_telemetry(env, handle.raw());
         let telemetry_json = decode_jstring(env, raw_telemetry).expect("telemetry json");
         assert_no_exception(env);
@@ -264,6 +275,11 @@ fn exported_jni_invalid_handles_throw_and_return_null_for_reference_results() {
         with_env(|env| {
             let stats = jni_get_stats(env, handle);
             assert!(decode_long_array(env, stats).is_none());
+            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid tunnel handle");
+        });
+
+        with_env(|env| {
+            assert_eq!(jni_get_icmp_ingress_packets(env, handle), 0);
             assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid tunnel handle");
         });
 

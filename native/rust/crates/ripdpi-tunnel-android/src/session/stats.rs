@@ -40,6 +40,18 @@ pub(crate) fn stats_session(env: &mut Env<'_>, handle: jlong) -> jlongArray {
     }
 }
 
+pub(crate) fn icmp_ingress_packets_session(env: &mut Env<'_>, handle: jlong) -> jlong {
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument_env(env, message);
+            return 0;
+        }
+    };
+    let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    saturate_u64_to_i64(icmp_ingress_packets_for_state(&state))
+}
+
 pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
     match state {
         TunnelSessionState::Ready
@@ -47,6 +59,13 @@ pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u6
         | TunnelSessionState::CleanupPending { .. }
         | TunnelSessionState::Destroyed => ((0, 0, 0, 0), DnsStatsSnapshot::default()),
         TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
+    }
+}
+
+pub(crate) fn icmp_ingress_packets_for_state(state: &TunnelSessionState) -> u64 {
+    match state {
+        TunnelSessionState::Running { stats, .. } => stats.icmp_ingress_packets(),
+        _ => 0,
     }
 }
 

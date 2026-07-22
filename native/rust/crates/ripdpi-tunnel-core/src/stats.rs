@@ -55,6 +55,9 @@ pub struct Stats {
     pub tx_bytes: AtomicU64,
     pub rx_packets: AtomicU64,
     pub rx_bytes: AtomicU64,
+    /// ICMPv4/ICMPv6 packets classified at the TUN ingress boundary before
+    /// UID-policy admission or drop.
+    pub icmp_ingress_packets: AtomicU64,
     pub dns_queries_total: AtomicU64,
     pub dns_cache_hits: AtomicU64,
     pub dns_cache_misses: AtomicU64,
@@ -128,6 +131,7 @@ impl Stats {
             tx_bytes: AtomicU64::new(0),
             rx_packets: AtomicU64::new(0),
             rx_bytes: AtomicU64::new(0),
+            icmp_ingress_packets: AtomicU64::new(0),
             dns_queries_total: AtomicU64::new(0),
             dns_cache_hits: AtomicU64::new(0),
             dns_cache_misses: AtomicU64::new(0),
@@ -221,6 +225,10 @@ impl Stats {
 
     pub fn snapshot(&self) -> (u64, u64, u64, u64) {
         counters::snapshot(self)
+    }
+
+    pub fn icmp_ingress_packets(&self) -> u64 {
+        self.icmp_ingress_packets.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn dns_snapshot(&self) -> DnsStatsSnapshot {

@@ -62,8 +62,9 @@ private const val SoBindAppApkSha256Arg = "ripdpi.soBindAppApkSha256"
 private const val SoBindTestApkSha256Arg = "ripdpi.soBindTestApkSha256"
 private const val PhysicalSoBindEvidenceProfile = "physical_pixel_api37_kernel61"
 private const val PhysicalSoBindEvidenceFile = "so-bind-physical-evidence.json"
+private const val PhysicalSoBindInfraGapFile = "so-bind-physical-infra-gap.txt"
 private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v3"
-private const val PhysicalSoBindDnsQueryHost = "so-bind-mapdns.fixture.test"
+private const val PhysicalSoBindDnsQuerySuffix = "so-bind-mapdns.fixture.test"
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -658,8 +659,31 @@ class NetworkPathE2ETest {
                 PhysicalSoBindFamily("ipv6", ipv6Host, true, 41),
             )
         val counters = families.associate { it.id to PhysicalSoBindCounters() }
+        val mapDnsCounters = PhysicalSoBindMapDnsCounters()
 
         families.forEach { family ->
+            val icmpPayload = physicalSoBindIcmpPayload("direct", family, nonce)
+            val directIcmp = testProcessIcmpEcho(family.host, icmpPayload)
+            if (
+                !directIcmp.ok &&
+                directIcmp.failureStage == "socket" &&
+                directIcmp.errno in setOf(OsConstants.EPERM, OsConstants.EACCES)
+            ) {
+                appContext.openFileOutput(PhysicalSoBindInfraGapFile, Context.MODE_PRIVATE).bufferedWriter().use {
+                    it.write("ICMP_PING_SOCKET_UNAVAILABLE\n")
+                }
+                assumeTrue("ICMP_PING_SOCKET_UNAVAILABLE", false)
+            }
+            assertSuccessfulPhysicalProbe(
+                "${family.id} unbound ICMP",
+                directIcmp.ok,
+                directIcmp.failureKind,
+                directIcmp.errno,
+            )
+            assertEquals(icmpPayload, directIcmp.response)
+            assertEquals(testUid, directIcmp.probeUid)
+            assertPhysicalSourceFamily(family, directIcmp.localAddress)
+
             val tcpPayload = physicalSoBindPayload("direct", "tcp", family, nonce)
             val directTcp =
                 testProcessTcpRoundTrip(
@@ -696,6 +720,7 @@ class NetworkPathE2ETest {
             assertEquals(directTcp.probePid, directUdp.probePid)
             assertPhysicalSourceFamily(family, directUdp.localAddress)
             counters.getValue(family.id).apply {
+                directIcmpEchoReplies = 1
                 directTcpRoundTrips = 1
                 directUdpRoundTrips = 1
             }
@@ -703,12 +728,19 @@ class NetworkPathE2ETest {
         val directEvents = fixtureClient.events()
         families.forEach { family ->
             val familyCounters = counters.getValue(family.id)
+            familyCounters.directIcmpFixtureEvents =
+                directEvents.countPhysicalIcmp(physicalSoBindIcmpPayload("direct", family, nonce), family)
             familyCounters.directTcpFixtureEvents =
                 directEvents.countPhysicalEcho("tcp_echo", "tcp", fixture.tcpEchoPort, "direct", "tcp", family, nonce)
             familyCounters.directUdpFixtureEvents =
                 directEvents.countPhysicalEcho("udp_echo", "udp", fixture.udpEchoPort, "direct", "udp", family, nonce)
             assertTrue("${family.id} direct TCP was not observed by fixture", familyCounters.directTcpFixtureEvents > 0)
             assertTrue("${family.id} direct UDP was not observed by fixture", familyCounters.directUdpFixtureEvents > 0)
+            assertEquals(
+                "${family.id} direct ICMP must have one fixture receipt",
+                1,
+                familyCounters.directIcmpFixtureEvents,
+            )
         }
         fixtureClient.resetEvents()
 
@@ -722,15 +754,64 @@ class NetworkPathE2ETest {
                 proxyPort = listenPort
                 proxyIp = "127.0.0.1"
                 ipv6Enable = true
-                fullTunnelMode = true
-                setSplitTunnelMode(SplitTunnelMode.Off)
+                fullTunnelMode = false
+                setSplitTunnelMode(SplitTunnelMode.Include)
                 clearSplitTunnelPackages()
+                addSplitTunnelPackages(testPackage)
             }
         }
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
         val allowedBaselineTelemetry = serviceStateStore.telemetry.value
+        val armedAllowlistPayload = physicalSoBindPayload("armed-allowlist", "tcp", families.first(), nonce)
+        val armedAllowlistControl =
+            instrumentationProcessTcpRoundTrip(
+                host = families.first().host,
+                port = fixture.tcpEchoPort,
+                payload = armedAllowlistPayload,
+                bindDevice = "tun0",
+            )
+        assertEquals(
+            "native allowlist control did not retain SO_BINDTODEVICE",
+            "tun0",
+            armedAllowlistControl.boundDevice,
+        )
+        assertEquals(Process.myUid(), armedAllowlistControl.probeUid)
+        assertEquals(Process.myPid(), armedAllowlistControl.probePid)
+        assertFalse("non-included app UID unexpectedly passed the native allowlist", armedAllowlistControl.ok)
+        val armedAllowlistBlocked =
+            when (armedAllowlistControl.failureKind) {
+                "ERRNO" -> {
+                    armedAllowlistControl.failureStage == "connect" &&
+                        armedAllowlistControl.errno in setOf(OsConstants.ENETUNREACH, OsConstants.EHOSTUNREACH)
+                }
+
+                "TIMEOUT" -> {
+                    armedAllowlistControl.errno in setOf(OsConstants.EAGAIN, OsConstants.ETIMEDOUT)
+                }
+
+                "CONNECTION_RESET" -> {
+                    armedAllowlistControl.errno == OsConstants.ECONNRESET
+                }
+
+                else -> {
+                    false
+                }
+            }
+        assertTrue(
+            "native allowlist control did not fail on a network operation " +
+                "kind=${armedAllowlistControl.failureKind} stage=${armedAllowlistControl.failureStage} " +
+                "errno=${armedAllowlistControl.errno}",
+            armedAllowlistControl.failureStage in setOf("connect", "send", "receive") &&
+                armedAllowlistBlocked,
+        )
+        mapDnsCounters.apply {
+            armedAllowlistVerified = true
+            armedControlFailureKind = armedAllowlistControl.failureKind
+            armedControlFailureStage = armedAllowlistControl.failureStage
+            armedControlErrno = armedAllowlistControl.errno
+        }
         families.forEach { family ->
             val tcpPayload = physicalSoBindPayload("allowed", "tcp", family, nonce)
             val allowedTcp =
@@ -774,9 +855,45 @@ class NetworkPathE2ETest {
                 allowedUdpRoundTrips = 1
             }
         }
+        families.forEach { family ->
+            val baseline = serviceStateStore.telemetry.value
+            val allowedIcmp =
+                testProcessIcmpEcho(
+                    host = family.host,
+                    payload = physicalSoBindIcmpPayload("allowed", family, nonce),
+                    timeoutMs = 1_000L,
+                    bindDevice = "tun0",
+                )
+            assertEquals(
+                "${family.id} allowed-UID ICMP did not retain SO_BINDTODEVICE",
+                "tun0",
+                allowedIcmp.boundDevice,
+            )
+            assertEquals(testUid, allowedIcmp.probeUid)
+            assertBlockedPhysicalIcmp("${family.id} allowed-UID ICMP", allowedIcmp)
+            awaitUntil(
+                timeoutMs = 5_000L,
+                failureMessage = { redactedTunnelSummary() },
+            ) {
+                serviceStateStore.telemetry.value.tunnelStats.icmpIngressPackets -
+                    baseline.tunnelStats.icmpIngressPackets == 1L
+            }
+            val icmpIngressDelta =
+                serviceStateStore.telemetry.value.tunnelStats.icmpIngressPackets -
+                    baseline.tunnelStats.icmpIngressPackets
+            assertEquals("${family.id} allowed-UID ICMP ingress count must be exact", 1L, icmpIngressDelta)
+            counters.getValue(family.id).apply {
+                allowedUidIcmpBlockedAttempts = 1
+                allowedUidIcmpIngressPackets = icmpIngressDelta.toInt()
+                allowedUidIcmpFailureKind = allowedIcmp.failureKind
+                allowedUidIcmpFailureStage = allowedIcmp.failureStage
+                allowedUidIcmpErrno = allowedIcmp.errno
+            }
+        }
+        val allowedDnsQueryHost = "allowed-$nonce.$PhysicalSoBindDnsQuerySuffix"
         val allowedDns =
             testProcessDnsProbe(
-                queryHost = PhysicalSoBindDnsQueryHost,
+                queryHost = allowedDnsQueryHost,
                 serverHost = PacketSmokeMapDnsAddress,
                 serverPort = PacketSmokeMapDnsPort,
                 bindDevice = "tun0",
@@ -793,7 +910,11 @@ class NetworkPathE2ETest {
             allowedDns.boundDevice,
         )
         assertEquals("allowed MapDNS query did not receive a NOERROR response", 0, allowedDns.rcode)
-        assertTrue("allowed MapDNS query returned no answers", allowedDns.answers.isNotEmpty())
+        assertEquals("allowed MapDNS must return exactly one answer", 1, allowedDns.answers.size)
+        assertTrue(
+            "allowed MapDNS answer must use the synthetic range, got ${allowedDns.answers}",
+            allowedDns.answers.single().startsWith("198.18."),
+        )
         assertEquals(testUid, allowedDns.probeUid)
         assertTrue("allowed MapDNS source port is missing", allowedDns.localPort != null)
         awaitUntil(
@@ -801,9 +922,22 @@ class NetworkPathE2ETest {
             failureMessage = { redactedTunnelSummary() },
         ) {
             val delta = serviceStateStore.telemetry.value.packetSmokeDeltaFrom(allowedBaselineTelemetry)
-            delta.txPackets > 0 && delta.rxPackets > 0
+            delta.txPackets > 0 && delta.rxPackets > 0 && delta.dnsQueriesTotal == 1L
         }
         val allowedEvents = fixtureClient.events()
+        assertEquals(
+            "native allowlist control unexpectedly reached the fixture",
+            0,
+            allowedEvents.countPhysicalEcho(
+                "tcp_echo",
+                "tcp",
+                fixture.tcpEchoPort,
+                "armed-allowlist",
+                "tcp",
+                families.first(),
+                nonce,
+            ),
+        )
         families.forEach { family ->
             val familyCounters = counters.getValue(family.id)
             familyCounters.allowedTcpFixtureEvents =
@@ -818,12 +952,27 @@ class NetworkPathE2ETest {
                 "${family.id} allowed UDP was not observed by fixture",
                 familyCounters.allowedUdpFixtureEvents > 0,
             )
+            familyCounters.allowedUidIcmpFixtureEvents =
+                allowedEvents.countPhysicalIcmp(physicalSoBindIcmpPayload("allowed", family, nonce), family)
+            assertEquals(
+                "${family.id} default-blocked allowed-UID ICMP reached fixture",
+                0,
+                familyCounters.allowedUidIcmpFixtureEvents,
+            )
         }
-        val allowedDnsEvents = allowedEvents.countPhysicalDns(PhysicalSoBindDnsQueryHost)
-        assertTrue("allowed MapDNS was not resolved through the fixture encrypted resolver", allowedDnsEvents > 0)
-        counters.values.forEach { values ->
-            values.allowedMapDnsRoundTrips = 1
-            values.allowedMapDnsResolverEvents = allowedDnsEvents
+        val allowedDnsEvents = allowedEvents.countPhysicalDns(allowedDnsQueryHost)
+        assertEquals("allowed MapDNS must produce exactly one fixture resolver event", 1, allowedDnsEvents)
+        val allowedDnsDelta = serviceStateStore.telemetry.value.packetSmokeDeltaFrom(allowedBaselineTelemetry)
+        assertEquals(
+            "allowed MapDNS must increment the native DNS query counter exactly once",
+            1L,
+            allowedDnsDelta.dnsQueriesTotal,
+        )
+        mapDnsCounters.apply {
+            allowedRoundTrips = 1
+            allowedExactAnswerVerified = true
+            allowedResolverEvents = allowedDnsEvents
+            allowedDnsQueriesDelta = allowedDnsDelta.dnsQueriesTotal.toInt()
         }
 
         stopService(RipDpiVpnService::class.java)
@@ -915,10 +1064,41 @@ class NetworkPathE2ETest {
                 deniedUdpFailureStage = deniedUdp.failureStage
                 deniedUdpErrno = deniedUdp.errno
             }
+
+            val icmpBaseline = serviceStateStore.telemetry.value
+            val deniedIcmp =
+                testProcessIcmpEcho(
+                    host = family.host,
+                    payload = physicalSoBindIcmpPayload("denied", family, nonce),
+                    timeoutMs = 1_000L,
+                    bindDevice = "tun0",
+                )
+            assertEquals("${family.id} denied-UID ICMP did not retain SO_BINDTODEVICE", "tun0", deniedIcmp.boundDevice)
+            assertEquals(testUid, deniedIcmp.probeUid)
+            assertBlockedPhysicalIcmp("${family.id} denied-UID ICMP", deniedIcmp)
+            awaitUntil(
+                timeoutMs = 5_000L,
+                failureMessage = { redactedTunnelSummary() },
+            ) {
+                serviceStateStore.telemetry.value.tunnelStats.icmpIngressPackets -
+                    icmpBaseline.tunnelStats.icmpIngressPackets == 1L
+            }
+            val icmpIngressDelta =
+                serviceStateStore.telemetry.value.tunnelStats.icmpIngressPackets -
+                    icmpBaseline.tunnelStats.icmpIngressPackets
+            assertEquals("${family.id} denied-UID ICMP ingress count must be exact", 1L, icmpIngressDelta)
+            counters.getValue(family.id).apply {
+                deniedUidIcmpBlockedAttempts = 1
+                deniedUidIcmpIngressPackets = icmpIngressDelta.toInt()
+                deniedUidIcmpFailureKind = deniedIcmp.failureKind
+                deniedUidIcmpFailureStage = deniedIcmp.failureStage
+                deniedUidIcmpErrno = deniedIcmp.errno
+            }
         }
+        val deniedDnsQueryHost = "denied-$nonce.$PhysicalSoBindDnsQuerySuffix"
         val deniedDns =
             testProcessDnsProbe(
-                queryHost = PhysicalSoBindDnsQueryHost,
+                queryHost = deniedDnsQueryHost,
                 serverHost = PacketSmokeMapDnsAddress,
                 serverPort = PacketSmokeMapDnsPort,
                 timeoutMs = 1_000L,
@@ -948,11 +1128,11 @@ class NetworkPathE2ETest {
                 "stage=${deniedDns.failureStage} errno=${deniedDns.errno}",
             deniedDnsAtNetworkStage && deniedDns.errno != null,
         )
-        counters.values.forEach { values ->
-            values.deniedMapDnsBlockedAttempts = 1
-            values.deniedMapDnsFailureKind = deniedDns.failureKind
-            values.deniedMapDnsFailureStage = deniedDns.failureStage
-            values.deniedMapDnsErrno = deniedDns.errno
+        mapDnsCounters.apply {
+            deniedBlockedAttempts = 1
+            deniedFailureKind = deniedDns.failureKind
+            deniedFailureStage = deniedDns.failureStage
+            deniedErrno = deniedDns.errno
         }
 
         awaitUntil(
@@ -965,18 +1145,41 @@ class NetworkPathE2ETest {
         val deniedEvents = fixtureClient.events()
         val deniedTcpEvents = deniedEvents.count { it.service == "tcp_echo" }
         val deniedUdpEvents = deniedEvents.count { it.service == "udp_echo" }
-        val deniedDnsEvents = deniedEvents.countPhysicalDns(PhysicalSoBindDnsQueryHost)
+        val deniedDnsEvents = deniedEvents.countPhysicalDns(deniedDnsQueryHost)
+        families.forEach { family ->
+            val familyCounters = counters.getValue(family.id)
+            familyCounters.deniedUidIcmpFixtureEvents =
+                deniedEvents.countPhysicalIcmp(physicalSoBindIcmpPayload("denied", family, nonce), family)
+            assertEquals(
+                "${family.id} default-blocked denied-UID ICMP reached fixture",
+                0,
+                familyCounters.deniedUidIcmpFixtureEvents,
+            )
+        }
         assertTrue(
             "Denied SO_BINDTODEVICE traffic reached fixture tcpEvents=$deniedTcpEvents " +
                 "udpEvents=$deniedUdpEvents dnsEvents=$deniedDnsEvents",
             deniedTcpEvents == 0 && deniedUdpEvents == 0 && deniedDnsEvents == 0,
         )
+        val deniedDnsDelta = serviceStateStore.telemetry.value.packetSmokeDeltaFrom(baselineTelemetry)
+        assertEquals("denied MapDNS must not reach the native resolver", 0L, deniedDnsDelta.dnsQueriesTotal)
+        mapDnsCounters.deniedDnsQueriesDelta = deniedDnsDelta.dnsQueriesTotal.toInt()
 
         families.forEach { family ->
+            val livenessIcmpPayload = physicalSoBindIcmpPayload("liveness", family, nonce)
             val livenessTcpPayload = physicalSoBindPayload("liveness", "tcp", family, nonce)
             val livenessUdpPayload = physicalSoBindPayload("liveness", "udp", family, nonce)
             val livenessTcp = testProcessTcpRoundTrip(family.host, fixture.tcpEchoPort, livenessTcpPayload)
             val livenessUdp = testProcessUdpRoundTrip(family.host, fixture.udpEchoPort, livenessUdpPayload)
+            val livenessIcmp = testProcessIcmpEcho(family.host, livenessIcmpPayload)
+            assertSuccessfulPhysicalProbe(
+                "${family.id} post-denial ICMP",
+                livenessIcmp.ok,
+                livenessIcmp.failureKind,
+                livenessIcmp.errno,
+            )
+            assertEquals(livenessIcmpPayload, livenessIcmp.response)
+            assertPhysicalSourceFamily(family, livenessIcmp.localAddress)
             assertSuccessfulPhysicalProbe(
                 "${family.id} post-denial TCP",
                 livenessTcp.ok,
@@ -994,6 +1197,7 @@ class NetworkPathE2ETest {
             assertEquals(livenessUdpPayload, livenessUdp.response)
             assertPhysicalSourceFamily(family, livenessUdp.localAddress)
             counters.getValue(family.id).apply {
+                livenessIcmpEchoReplies = 1
                 livenessTcpRoundTrips = 1
                 livenessUdpRoundTrips = 1
             }
@@ -1001,6 +1205,8 @@ class NetworkPathE2ETest {
         val livenessEvents = fixtureClient.events()
         families.forEach { family ->
             val familyCounters = counters.getValue(family.id)
+            familyCounters.livenessIcmpFixtureEvents =
+                livenessEvents.countPhysicalIcmp(physicalSoBindIcmpPayload("liveness", family, nonce), family)
             familyCounters.livenessTcpFixtureEvents =
                 livenessEvents.countPhysicalEcho(
                     "tcp_echo",
@@ -1023,6 +1229,11 @@ class NetworkPathE2ETest {
                 )
             assertTrue("${family.id} post-denial TCP was not observed", familyCounters.livenessTcpFixtureEvents > 0)
             assertTrue("${family.id} post-denial UDP was not observed", familyCounters.livenessUdpFixtureEvents > 0)
+            assertEquals(
+                "${family.id} post-denial ICMP must have one fixture receipt",
+                1,
+                familyCounters.livenessIcmpFixtureEvents,
+            )
             familyCounters.deniedTcpFixtureEvents =
                 livenessEvents.countPhysicalEcho(
                     "tcp_echo",
@@ -1045,14 +1256,15 @@ class NetworkPathE2ETest {
                 )
             assertEquals("${family.id} delayed denied TCP reached fixture", 0, familyCounters.deniedTcpFixtureEvents)
             assertEquals("${family.id} delayed denied UDP reached fixture", 0, familyCounters.deniedUdpFixtureEvents)
-            familyCounters.deniedMapDnsResolverEvents = livenessEvents.countPhysicalDns(PhysicalSoBindDnsQueryHost)
             assertEquals(
-                "${family.id} delayed denied MapDNS reached fixture",
+                "${family.id} delayed denied ICMP reached fixture",
                 0,
-                familyCounters.deniedMapDnsResolverEvents,
+                livenessEvents.countPhysicalIcmp(physicalSoBindIcmpPayload("denied", family, nonce), family),
             )
         }
-        writePhysicalSoBindEvidence(families, counters)
+        mapDnsCounters.deniedResolverEvents = livenessEvents.countPhysicalDns(deniedDnsQueryHost)
+        assertEquals("delayed denied MapDNS reached fixture", 0, mapDnsCounters.deniedResolverEvents)
+        writePhysicalSoBindEvidence(families, counters, mapDnsCounters)
     }
 
     private fun requirePhysicalIpv6FixtureHost(): String {
@@ -1104,6 +1316,34 @@ class NetworkPathE2ETest {
         assertEquals("${family.id} probe used the wrong source family", family.ipv6, parsed is Inet6Address)
     }
 
+    private fun assertBlockedPhysicalIcmp(
+        label: String,
+        result: AppProcessIcmpProbeResult,
+    ) {
+        assertFalse("$label unexpectedly received an echo reply", result.ok)
+        val blocked =
+            when (result.failureKind) {
+                "ERRNO" -> {
+                    result.failureStage == "connect" &&
+                        result.errno in setOf(OsConstants.ENETUNREACH, OsConstants.EHOSTUNREACH)
+                }
+
+                "TIMEOUT" -> {
+                    result.failureStage == "receive" &&
+                        result.errno in setOf(OsConstants.EAGAIN, OsConstants.ETIMEDOUT)
+                }
+
+                else -> {
+                    false
+                }
+            }
+        assertTrue(
+            "$label must fail as unreachable connect or receive timeout " +
+                "kind=${result.failureKind} stage=${result.failureStage} errno=${result.errno}",
+            blocked,
+        )
+    }
+
     private fun physicalSoBindPayload(
         stage: String,
         protocol: String,
@@ -1113,6 +1353,12 @@ class NetworkPathE2ETest {
         val marker = "so-bind-$stage-$protocol-${family.id}-$nonce${"x".repeat(family.payloadPadding)}"
         return if (protocol == "tcp") httpEchoPayloadText(marker) else marker
     }
+
+    private fun physicalSoBindIcmpPayload(
+        stage: String,
+        family: PhysicalSoBindFamily,
+        nonce: String,
+    ): String = "ripdpi-so-bind-icmp-$stage-${family.id}-$nonce"
 
     private fun List<FixtureEventDto>.countPhysicalEcho(
         service: String,
@@ -1136,12 +1382,25 @@ class NetworkPathE2ETest {
         count {
             it.service == "dns_http" &&
                 it.protocol == "http" &&
-                it.detail.contains(queryHost)
+                it.detail == "/dns-query?name=$queryHost"
         }
+
+    private fun List<FixtureEventDto>.countPhysicalIcmp(
+        marker: String,
+        family: PhysicalSoBindFamily,
+    ): Int {
+        val expectedProtocol = if (family.ipv6) "icmpv6" else "icmpv4"
+        return count {
+            it.service == "icmp_observer" &&
+                it.protocol == expectedProtocol &&
+                it.detail == marker
+        }
+    }
 
     private fun writePhysicalSoBindEvidence(
         families: List<PhysicalSoBindFamily>,
         counters: Map<String, PhysicalSoBindCounters>,
+        mapDns: PhysicalSoBindMapDnsCounters,
     ) {
         val arguments =
             androidx.test.platform.app.InstrumentationRegistry
@@ -1161,7 +1420,10 @@ class NetworkPathE2ETest {
                     put(
                         JSONObject()
                             .put("family", family.id)
+                            .put("icmpProtocol", if (family.ipv6) "icmpv6" else "icmpv4")
                             .put("sourceFamilyVerified", true)
+                            .put("directIcmpEchoReplies", values.directIcmpEchoReplies)
+                            .put("directIcmpFixtureEvents", values.directIcmpFixtureEvents)
                             .put("directTcpRoundTrips", values.directTcpRoundTrips)
                             .put("directUdpRoundTrips", values.directUdpRoundTrips)
                             .put("directTcpFixtureEvents", values.directTcpFixtureEvents)
@@ -1170,6 +1432,14 @@ class NetworkPathE2ETest {
                             .put("allowedUdpRoundTrips", values.allowedUdpRoundTrips)
                             .put("allowedTcpFixtureEvents", values.allowedTcpFixtureEvents)
                             .put("allowedUdpFixtureEvents", values.allowedUdpFixtureEvents)
+                            .put("allowedUidIcmpBlockedAttempts", values.allowedUidIcmpBlockedAttempts)
+                            .put(
+                                "allowedUidIcmpIngressPackets",
+                                values.allowedUidIcmpIngressPackets,
+                            ).put("allowedUidIcmpFailureKind", values.allowedUidIcmpFailureKind)
+                            .put("allowedUidIcmpFailureStage", values.allowedUidIcmpFailureStage)
+                            .put("allowedUidIcmpErrno", values.allowedUidIcmpErrno)
+                            .put("allowedUidIcmpFixtureEvents", values.allowedUidIcmpFixtureEvents)
                             .put("deniedTcpBlockedAttempts", values.deniedTcpBlockedAttempts)
                             .put("deniedTcpFailureKind", values.deniedTcpFailureKind)
                             .put("deniedTcpFailureStage", values.deniedTcpFailureStage)
@@ -1178,15 +1448,18 @@ class NetworkPathE2ETest {
                             .put("deniedUdpFailureKind", values.deniedUdpFailureKind)
                             .put("deniedUdpFailureStage", values.deniedUdpFailureStage)
                             .put("deniedUdpErrno", values.deniedUdpErrno)
-                            .put("allowedMapDnsRoundTrips", values.allowedMapDnsRoundTrips)
-                            .put("allowedMapDnsResolverEvents", values.allowedMapDnsResolverEvents)
-                            .put("deniedMapDnsBlockedAttempts", values.deniedMapDnsBlockedAttempts)
-                            .put("deniedMapDnsFailureKind", values.deniedMapDnsFailureKind)
-                            .put("deniedMapDnsFailureStage", values.deniedMapDnsFailureStage)
-                            .put("deniedMapDnsErrno", values.deniedMapDnsErrno)
                             .put("deniedTcpFixtureEvents", values.deniedTcpFixtureEvents)
                             .put("deniedUdpFixtureEvents", values.deniedUdpFixtureEvents)
-                            .put("deniedMapDnsResolverEvents", values.deniedMapDnsResolverEvents)
+                            .put("deniedUidIcmpBlockedAttempts", values.deniedUidIcmpBlockedAttempts)
+                            .put(
+                                "deniedUidIcmpIngressPackets",
+                                values.deniedUidIcmpIngressPackets,
+                            ).put("deniedUidIcmpFailureKind", values.deniedUidIcmpFailureKind)
+                            .put("deniedUidIcmpFailureStage", values.deniedUidIcmpFailureStage)
+                            .put("deniedUidIcmpErrno", values.deniedUidIcmpErrno)
+                            .put("deniedUidIcmpFixtureEvents", values.deniedUidIcmpFixtureEvents)
+                            .put("livenessIcmpEchoReplies", values.livenessIcmpEchoReplies)
+                            .put("livenessIcmpFixtureEvents", values.livenessIcmpFixtureEvents)
                             .put("livenessTcpRoundTrips", values.livenessTcpRoundTrips)
                             .put("livenessUdpRoundTrips", values.livenessUdpRoundTrips)
                             .put("livenessTcpFixtureEvents", values.livenessTcpFixtureEvents)
@@ -1209,7 +1482,26 @@ class NetworkPathE2ETest {
                 .put("kernelFamily", "6.1")
                 .put("realTun", true)
                 .put("tunPacketPathObserved", true)
-                .put("families", familyEvidence)
+                .put(
+                    "mapDns",
+                    JSONObject()
+                        .put("addressFamily", "ipv4")
+                        .put("syntheticEndpoint", "$PacketSmokeMapDnsAddress:$PacketSmokeMapDnsPort")
+                        .put("armedAllowlistVerified", mapDns.armedAllowlistVerified)
+                        .put("armedControlFailureKind", mapDns.armedControlFailureKind)
+                        .put("armedControlFailureStage", mapDns.armedControlFailureStage)
+                        .put("armedControlErrno", mapDns.armedControlErrno)
+                        .put("allowedRoundTrips", mapDns.allowedRoundTrips)
+                        .put("allowedExactAnswerVerified", mapDns.allowedExactAnswerVerified)
+                        .put("allowedResolverEvents", mapDns.allowedResolverEvents)
+                        .put("allowedDnsQueriesDelta", mapDns.allowedDnsQueriesDelta)
+                        .put("deniedBlockedAttempts", mapDns.deniedBlockedAttempts)
+                        .put("deniedFailureKind", mapDns.deniedFailureKind)
+                        .put("deniedFailureStage", mapDns.deniedFailureStage)
+                        .put("deniedErrno", mapDns.deniedErrno)
+                        .put("deniedResolverEvents", mapDns.deniedResolverEvents)
+                        .put("deniedDnsQueriesDelta", mapDns.deniedDnsQueriesDelta),
+                ).put("families", familyEvidence)
         appContext
             .openFileOutput(PhysicalSoBindEvidenceFile, Context.MODE_PRIVATE)
             .bufferedWriter()
@@ -1379,6 +1671,8 @@ private data class PhysicalSoBindFamily(
 )
 
 private data class PhysicalSoBindCounters(
+    var directIcmpEchoReplies: Int = 0,
+    var directIcmpFixtureEvents: Int = 0,
     var directTcpRoundTrips: Int = 0,
     var directUdpRoundTrips: Int = 0,
     var directTcpFixtureEvents: Int = 0,
@@ -1387,6 +1681,12 @@ private data class PhysicalSoBindCounters(
     var allowedUdpRoundTrips: Int = 0,
     var allowedTcpFixtureEvents: Int = 0,
     var allowedUdpFixtureEvents: Int = 0,
+    var allowedUidIcmpBlockedAttempts: Int = 0,
+    var allowedUidIcmpIngressPackets: Int = 0,
+    var allowedUidIcmpFailureKind: String? = null,
+    var allowedUidIcmpFailureStage: String? = null,
+    var allowedUidIcmpErrno: Int? = null,
+    var allowedUidIcmpFixtureEvents: Int = 0,
     var deniedTcpBlockedAttempts: Int = 0,
     var deniedTcpFailureKind: String? = null,
     var deniedTcpFailureStage: String? = null,
@@ -1395,19 +1695,37 @@ private data class PhysicalSoBindCounters(
     var deniedUdpFailureKind: String? = null,
     var deniedUdpFailureStage: String? = null,
     var deniedUdpErrno: Int? = null,
-    var allowedMapDnsRoundTrips: Int = 0,
-    var allowedMapDnsResolverEvents: Int = 0,
-    var deniedMapDnsBlockedAttempts: Int = 0,
-    var deniedMapDnsFailureKind: String? = null,
-    var deniedMapDnsFailureStage: String? = null,
-    var deniedMapDnsErrno: Int? = null,
     var deniedTcpFixtureEvents: Int = 0,
     var deniedUdpFixtureEvents: Int = 0,
-    var deniedMapDnsResolverEvents: Int = 0,
+    var deniedUidIcmpBlockedAttempts: Int = 0,
+    var deniedUidIcmpIngressPackets: Int = 0,
+    var deniedUidIcmpFailureKind: String? = null,
+    var deniedUidIcmpFailureStage: String? = null,
+    var deniedUidIcmpErrno: Int? = null,
+    var deniedUidIcmpFixtureEvents: Int = 0,
+    var livenessIcmpEchoReplies: Int = 0,
+    var livenessIcmpFixtureEvents: Int = 0,
     var livenessTcpRoundTrips: Int = 0,
     var livenessUdpRoundTrips: Int = 0,
     var livenessTcpFixtureEvents: Int = 0,
     var livenessUdpFixtureEvents: Int = 0,
+)
+
+private data class PhysicalSoBindMapDnsCounters(
+    var armedAllowlistVerified: Boolean = false,
+    var armedControlFailureKind: String? = null,
+    var armedControlFailureStage: String? = null,
+    var armedControlErrno: Int? = null,
+    var allowedRoundTrips: Int = 0,
+    var allowedExactAnswerVerified: Boolean = false,
+    var allowedResolverEvents: Int = 0,
+    var allowedDnsQueriesDelta: Int = 0,
+    var deniedBlockedAttempts: Int = 0,
+    var deniedFailureKind: String? = null,
+    var deniedFailureStage: String? = null,
+    var deniedErrno: Int? = null,
+    var deniedResolverEvents: Int = 0,
+    var deniedDnsQueriesDelta: Int = 0,
 )
 
 private fun Bundle.optionalProbeInt(key: String): Int? = getInt(key).takeIf { containsKey(key) }

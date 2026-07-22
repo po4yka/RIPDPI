@@ -21,7 +21,7 @@ use lifecycle::{create_session, destroy_session, start_session, stop_session};
 pub(crate) use pcap_entries::{
     tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry,
 };
-use stats::stats_session;
+use stats::{icmp_ingress_packets_session, stats_session};
 use telemetry::telemetry_session;
 
 #[cfg(test)]
@@ -116,6 +116,29 @@ pub(crate) fn tunnel_stats_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jlon
             log::error!("Tunnel stats retrieval panicked");
             throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel stats retrieval failed"));
             std::ptr::null_mut()
+        }
+    }
+}
+
+pub(crate) fn tunnel_icmp_ingress_packets_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jlong {
+    android_support::init_android_logging("ripdpi-tunnel-native");
+    match env
+        .with_env(move |env| -> jni::errors::Result<jlong> { Ok(icmp_ingress_packets_session(env, handle)) })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        Outcome::Err(err) => {
+            log::error!("Tunnel ICMP ingress retrieval failed: {err}");
+            throw_runtime_exception(
+                &mut env,
+                sanitize_error_message(&err.to_string(), "Tunnel ICMP ingress retrieval failed"),
+            );
+            0
+        }
+        Outcome::Panic(_) => {
+            log::error!("Tunnel ICMP ingress retrieval panicked");
+            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel ICMP ingress retrieval failed"));
+            0
         }
     }
 }

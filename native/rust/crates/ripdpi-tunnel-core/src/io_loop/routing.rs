@@ -17,10 +17,11 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
 
 fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_interceptor: bool) {
     let ip_class = classify_ip_packet(packet, state.runtime.mapdns_classify);
-    if matches!(ip_class, IpClass::Icmp)
-        && state.runtime.uid_policy.is_enforcing()
-        && !state.runtime.uid_policy_allow_icmp
-    {
+    let is_icmp = matches!(ip_class, IpClass::Icmp);
+    if is_icmp {
+        state.stats.icmp_ingress_packets.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    if is_icmp && state.runtime.uid_policy.is_enforcing() && !state.runtime.uid_policy_allow_icmp {
         return;
     }
 

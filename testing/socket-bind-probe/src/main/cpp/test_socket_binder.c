@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -291,6 +292,130 @@ static int open_bound_socket(
         return -1;
     }
     return socket_fd;
+}
+
+static int open_icmp_socket(
+    JNIEnv *env,
+    jstring host,
+    jint timeout_ms,
+    jbyteArray device_utf8,
+    char device[IFNAMSIZ],
+    int *address_family,
+    const char **failure_stage) {
+    memset(device, 0, IFNAMSIZ);
+    if (device_utf8 != NULL && !copy_device(env, device_utf8, device)) {
+        *failure_stage = "bind";
+        return -1;
+    }
+    if (host == NULL) {
+        errno = EINVAL;
+        *failure_stage = "resolve";
+        return -1;
+    }
+    const char *host_chars = (*env)->GetStringUTFChars(env, host, NULL);
+    if (host_chars == NULL || (*env)->ExceptionCheck(env)) {
+        errno = EFAULT;
+        *failure_stage = "resolve";
+        return -1;
+    }
+    struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM, .ai_flags = AI_NUMERICHOST};
+    struct addrinfo *addresses = NULL;
+    const int resolve_result = getaddrinfo(host_chars, NULL, &hints, &addresses);
+    (*env)->ReleaseStringUTFChars(env, host, host_chars);
+    if (resolve_result != 0 || addresses == NULL ||
+        (addresses->ai_family != AF_INET && addresses->ai_family != AF_INET6)) {
+        errno = EADDRNOTAVAIL;
+        *failure_stage = "resolve";
+        return -1;
+    }
+
+    const int protocol = addresses->ai_family == AF_INET ? IPPROTO_ICMP : IPPROTO_ICMPV6;
+    int socket_fd = socket(addresses->ai_family, SOCK_DGRAM, protocol);
+    if (socket_fd < 0) {
+        *failure_stage = "socket";
+        freeaddrinfo(addresses);
+        return -1;
+    }
+    if (device[0] != '\0') {
+        const size_t device_length = strnlen(device, IFNAMSIZ - 1) + 1;
+        if (setsockopt(socket_fd, SOL_SOCKET, SO_BINDTODEVICE, device, (socklen_t)device_length) != 0) {
+            const int saved_errno = errno;
+            close(socket_fd);
+            freeaddrinfo(addresses);
+            errno = saved_errno;
+            *failure_stage = "bind";
+            return -1;
+        }
+    }
+    *failure_stage = "connect";
+    struct deadline connect_deadline;
+    if (make_deadline(timeout_ms, &connect_deadline) != 0) {
+        const int saved_errno = errno;
+        close(socket_fd);
+        freeaddrinfo(addresses);
+        errno = saved_errno;
+        return -1;
+    }
+    int connect_result;
+    do {
+        connect_result = connect(socket_fd, addresses->ai_addr, addresses->ai_addrlen);
+        if (connect_result != 0 && errno == EINTR && remaining_milliseconds(&connect_deadline) < 0) {
+            break;
+        }
+    } while (connect_result != 0 && errno == EINTR);
+    if (connect_result != 0) {
+        const int saved_errno = errno;
+        close(socket_fd);
+        freeaddrinfo(addresses);
+        errno = saved_errno;
+        return -1;
+    }
+    if (device[0] != '\0') {
+        char retained_device[IFNAMSIZ] = {0};
+        socklen_t retained_length = sizeof(retained_device);
+        const int readback_result =
+            getsockopt(socket_fd, SOL_SOCKET, SO_BINDTODEVICE, retained_device, &retained_length);
+        retained_device[IFNAMSIZ - 1] = '\0';
+        if (readback_result != 0 || retained_length == 0 || strcmp(device, retained_device) != 0) {
+            const int saved_errno = readback_result == 0 ? EIO : errno;
+            close(socket_fd);
+            freeaddrinfo(addresses);
+            errno = saved_errno;
+            *failure_stage = "bind";
+            return -1;
+        }
+        memcpy(device, retained_device, IFNAMSIZ);
+    }
+    *address_family = addresses->ai_family;
+    freeaddrinfo(addresses);
+    struct timeval timeout = {
+        .tv_sec = timeout_ms / 1000,
+        .tv_usec = (timeout_ms % 1000) * 1000,
+    };
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0) {
+        const int saved_errno = errno;
+        close(socket_fd);
+        errno = saved_errno;
+        *failure_stage = "socket";
+        return -1;
+    }
+    return socket_fd;
+}
+
+static uint16_t internet_checksum(const uint8_t *bytes, size_t length) {
+    uint32_t sum = 0;
+    while (length >= 2) {
+        sum += ((uint32_t)bytes[0] << 8) | bytes[1];
+        bytes += 2;
+        length -= 2;
+    }
+    if (length == 1) {
+        sum += (uint32_t)bytes[0] << 8;
+    }
+    while ((sum >> 16) != 0) {
+        sum = (sum & 0xffffU) + (sum >> 16);
+    }
+    return (uint16_t)~sum;
 }
 
 static bool set_local_endpoint(JNIEnv *env, jobjectArray result, int fd) {
@@ -638,6 +763,128 @@ Java_com_poyka_ripdpi_e2e_TestSocketBinder_nativeDnsRoundTrip(
     close(socket_fd);
     free(query_bytes);
     return result;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_poyka_ripdpi_e2e_TestSocketBinder_nativeIcmpEcho(
+    JNIEnv *env,
+    jobject receiver,
+    jstring host,
+    jbyteArray payload,
+    jint timeout_ms,
+    jbyteArray device_utf8) {
+    (void)receiver;
+    jobjectArray result = new_result(env);
+    if (result == NULL) {
+        return NULL;
+    }
+    uint8_t *payload_bytes = NULL;
+    jsize payload_length = 0;
+    if (!copy_payload(env, payload, &payload_bytes, &payload_length)) {
+        if ((*env)->ExceptionCheck(env)) {
+            return NULL;
+        }
+        return set_result_error(env, result, "payload", errno, NULL) ? result : NULL;
+    }
+    if (payload_length <= 0 || payload_length > 512) {
+        free(payload_bytes);
+        errno = EMSGSIZE;
+        return set_result_error(env, result, "payload", errno, NULL) ? result : NULL;
+    }
+    for (jsize index = 0; index < payload_length; ++index) {
+        if (payload_bytes[index] < 0x21U || payload_bytes[index] > 0x7eU) {
+            free(payload_bytes);
+            return set_result_error(env, result, "payload", EINVAL, NULL) ? result : NULL;
+        }
+    }
+
+    char device[IFNAMSIZ];
+    int address_family = AF_UNSPEC;
+    const char *failure_stage = "socket";
+    int socket_fd = open_icmp_socket(
+        env,
+        host,
+        timeout_ms,
+        device_utf8,
+        device,
+        &address_family,
+        &failure_stage);
+    if (socket_fd < 0) {
+        const int saved_errno = errno;
+        free(payload_bytes);
+        if ((*env)->ExceptionCheck(env)) {
+            return NULL;
+        }
+        return set_result_error(env, result, failure_stage, saved_errno, device[0] == '\0' ? NULL : device)
+                   ? result
+                   : NULL;
+    }
+    if (!set_local_endpoint(env, result, socket_fd)) {
+        close(socket_fd);
+        free(payload_bytes);
+        return NULL;
+    }
+
+    const size_t request_length = 8U + (size_t)payload_length;
+    uint8_t *request = calloc(request_length, 1);
+    if (request == NULL) {
+        close(socket_fd);
+        free(payload_bytes);
+        return set_result_error(env, result, "payload", ENOMEM, device[0] == '\0' ? NULL : device)
+                   ? result
+                   : NULL;
+    }
+    request[0] = address_family == AF_INET ? 8 : 128;
+    request[6] = 0;
+    request[7] = 1;
+    memcpy(request + 8, payload_bytes, (size_t)payload_length);
+    if (address_family == AF_INET) {
+        const uint16_t checksum = internet_checksum(request, request_length);
+        request[2] = (uint8_t)(checksum >> 8);
+        request[3] = (uint8_t)(checksum & 0xff);
+    }
+
+    struct deadline deadline;
+    if (make_deadline(timeout_ms, &deadline) != 0 ||
+        send_datagram(socket_fd, request, request_length, &deadline) != 0) {
+        const int saved_errno = errno;
+        const bool wrote = set_result_error(env, result, "send", saved_errno, device[0] == '\0' ? NULL : device);
+        close(socket_fd);
+        free(request);
+        free(payload_bytes);
+        return wrote ? result : NULL;
+    }
+
+    uint8_t response[1024];
+    const ssize_t received = receive_datagram(socket_fd, response, sizeof(response), &deadline);
+    if (received < 0) {
+        const int saved_errno = errno;
+        const bool wrote = set_result_error(env, result, "receive", saved_errno, device[0] == '\0' ? NULL : device);
+        close(socket_fd);
+        free(request);
+        free(payload_bytes);
+        return wrote ? result : NULL;
+    }
+    const uint8_t expected_type = address_family == AF_INET ? 0 : 129;
+    if (received < 8 || response[0] != expected_type || response[1] != 0 ||
+        (size_t)received != request_length ||
+        memcmp(response + 8, payload_bytes, (size_t)payload_length) != 0) {
+        const bool wrote = set_result_error(env, result, "decode", EBADMSG, device[0] == '\0' ? NULL : device);
+        close(socket_fd);
+        free(request);
+        free(payload_bytes);
+        return wrote ? result : NULL;
+    }
+    const bool wrote = set_success(
+        env,
+        result,
+        device[0] == '\0' ? NULL : device,
+        response + 8,
+        (size_t)payload_length);
+    close(socket_fd);
+    free(request);
+    free(payload_bytes);
+    return wrote ? result : NULL;
 }
 
 JNIEXPORT jobjectArray JNICALL
