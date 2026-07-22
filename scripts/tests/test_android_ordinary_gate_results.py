@@ -408,6 +408,38 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                 )
             )
 
+    def test_reserved_output_does_not_delete_input_renamed_onto_leaf(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(directory)
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            app_before = app_apk.read_bytes()
+
+            def move_app_onto_output() -> str:
+                app_apk.rename(output)
+                return self.source_sha
+
+            with mock.patch.object(
+                producer, "current_head_sha", side_effect=move_app_onto_output
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 2)
+            self.assertFalse(app_apk.exists())
+            self.assertEqual(output.read_bytes(), app_before)
+
     def test_apk_hashing_streams_without_whole_file_helper(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             apk = Path(directory_name) / "large.apk"

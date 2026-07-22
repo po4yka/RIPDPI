@@ -14,7 +14,6 @@ import argparse
 import json
 import os
 import re
-import secrets
 import stat
 import subprocess
 import sys
@@ -65,13 +64,21 @@ class EvidenceError(ValueError):
 
 class OutputDestination:
     def __init__(
-        self, path: Path, parent_fd: int, parent_identity: tuple[int, ...]
+        self,
+        path: Path,
+        parent_fd: int,
+        parent_identity: tuple[int, ...],
+        leaf_fd: int,
+        leaf_identity: tuple[int, int],
     ) -> None:
         self.path = path
         self.parent_fd = parent_fd
         self.parent_identity = parent_identity
+        self.leaf_fd = leaf_fd
+        self.leaf_identity = leaf_identity
 
     def close(self) -> None:
+        os.close(self.leaf_fd)
         os.close(self.parent_fd)
 
 
@@ -126,10 +133,34 @@ def open_output_destination(path: Path) -> OutputDestination:
                 "OUTPUT_PATH_INVALID",
                 "existing results output must be a single-link regular file",
             )
+        if output_metadata is None:
+            leaf_fd = os.open(
+                path.name,
+                os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=parent_fd,
+            )
+        else:
+            leaf_fd = os.open(
+                path.name,
+                os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW,
+                dir_fd=parent_fd,
+            )
+        leaf_metadata = os.fstat(leaf_fd)
+        if output_metadata is not None and (
+            leaf_metadata.st_dev,
+            leaf_metadata.st_ino,
+        ) != (output_metadata.st_dev, output_metadata.st_ino):
+            os.close(leaf_fd)
+            raise EvidenceError(
+                "OUTPUT_LEAF_CHANGED", "results output changed while opened"
+            )
         return OutputDestination(
             path=resolved_parent / path.name,
             parent_fd=parent_fd,
             parent_identity=directory_identity(parent_metadata),
+            leaf_fd=leaf_fd,
+            leaf_identity=(leaf_metadata.st_dev, leaf_metadata.st_ino),
         )
     except Exception:
         os.close(parent_fd)
@@ -148,37 +179,39 @@ def write_canonical_json(
 ) -> None:
     owned_destination = destination is None
     target = open_output_destination(path) if destination is None else destination
-    temporary = f".{path.name}.{secrets.token_hex(16)}"
     try:
         if directory_identity(os.fstat(target.parent_fd)) != target.parent_identity:
             raise EvidenceError(
                 "OUTPUT_PATH_INVALID", "results output parent metadata changed"
             )
-        descriptor = os.open(
-            temporary,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
-            0o600,
-            dir_fd=target.parent_fd,
-        )
-        with os.fdopen(descriptor, "wb") as output:
-            output.write(canonical_json_bytes(value))
-            output.flush()
-            os.fsync(output.fileno())
-        if directory_identity(os.fstat(target.parent_fd)) != target.parent_identity:
-            raise EvidenceError(
-                "OUTPUT_PATH_INVALID", "results output parent metadata changed"
-            )
-        os.replace(
-            temporary,
-            path.name,
-            src_dir_fd=target.parent_fd,
-            dst_dir_fd=target.parent_fd,
-        )
-    finally:
         try:
-            os.unlink(temporary, dir_fd=target.parent_fd)
-        except FileNotFoundError:
-            pass
+            leaf_metadata = os.stat(
+                path.name, dir_fd=target.parent_fd, follow_symlinks=False
+            )
+        except FileNotFoundError as error:
+            raise EvidenceError(
+                "OUTPUT_LEAF_CHANGED", "results output was removed while held"
+            ) from error
+        if (leaf_metadata.st_dev, leaf_metadata.st_ino) != target.leaf_identity:
+            raise EvidenceError(
+                "OUTPUT_LEAF_CHANGED", "results output was replaced while held"
+            )
+        payload = canonical_json_bytes(value)
+        os.ftruncate(target.leaf_fd, 0)
+        os.lseek(target.leaf_fd, 0, os.SEEK_SET)
+        offset = 0
+        while offset < len(payload):
+            offset += os.write(target.leaf_fd, payload[offset:])
+        os.fchmod(target.leaf_fd, 0o600)
+        os.fsync(target.leaf_fd)
+        final_metadata = os.stat(
+            path.name, dir_fd=target.parent_fd, follow_symlinks=False
+        )
+        if (final_metadata.st_dev, final_metadata.st_ino) != target.leaf_identity:
+            raise EvidenceError(
+                "OUTPUT_LEAF_CHANGED", "results output changed during publication"
+            )
+    finally:
         if owned_destination:
             target.close()
 
@@ -193,13 +226,8 @@ def reject_output_input_aliases(
                 "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
             )
         try:
-            output_metadata = os.stat(
-                destination.path.name,
-                dir_fd=destination.parent_fd,
-                follow_symlinks=False,
-            )
             source_metadata = source.stat()
-            aliases = (output_metadata.st_dev, output_metadata.st_ino) == (
+            aliases = destination.leaf_identity == (
                 source_metadata.st_dev,
                 source_metadata.st_ino,
             )
@@ -209,6 +237,20 @@ def reject_output_input_aliases(
             raise EvidenceError(
                 "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
             )
+
+
+def publish_results(
+    destination: OutputDestination, path: Path, value: dict[str, Any]
+) -> bool:
+    try:
+        write_canonical_json(path, value, destination=destination)
+        return True
+    except (OSError, EvidenceError) as error:
+        print(
+            f"Android ordinary producer refused changed output: {error}",
+            file=sys.stderr,
+        )
+        return False
 
 
 def current_source_sha(root: Path = ROOT) -> str:
@@ -345,11 +387,13 @@ def main(argv: list[str] | None = None) -> int:
         else:
             code = "SOURCE_BINDING_FAILED"
             reason = f"unexpected source binding failure ({type(error).__name__})"
-        write_canonical_json(
+        if not publish_results(
+            destination,
             args.output,
             all_failure_results(UNKNOWN_SOURCE_SHA, code=code, reason=reason),
-            destination=destination,
-        )
+        ):
+            destination.close()
+            return 2
         print(
             f"Android ordinary producer failed before source binding: {error}",
             file=sys.stderr,
@@ -357,15 +401,17 @@ def main(argv: list[str] | None = None) -> int:
         destination.close()
         return 2
 
-    write_canonical_json(
+    if not publish_results(
+        destination,
         args.output,
         all_failure_results(
             source_sha,
             code="SOURCE_VALIDATION_PENDING",
             reason="clean source validation has not completed",
         ),
-        destination=destination,
-    )
+    ):
+        destination.close()
+        return 2
     try:
         validated_source_sha = current_source_sha()
         if validated_source_sha != source_sha:
@@ -405,7 +451,9 @@ def main(argv: list[str] | None = None) -> int:
                 code="SOURCE_VALIDATION_FAILED",
                 reason=f"unexpected source validation failure ({type(error).__name__})",
             )
-    write_canonical_json(args.output, results, destination=destination)
+    if not publish_results(destination, args.output, results):
+        destination.close()
+        return 2
     destination.close()
     print("Android ordinary release evidence is NO-SHIP:", file=sys.stderr)
     for gate_id in ORDINARY_GATE_IDS:
