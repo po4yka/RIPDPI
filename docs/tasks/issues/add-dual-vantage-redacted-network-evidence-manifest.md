@@ -4,7 +4,7 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: Evidence contract lane
+owner: PCAP oracle lane
 parent: null
 blocks: []
 blocked_by: []
