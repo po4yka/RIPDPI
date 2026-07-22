@@ -3,6 +3,7 @@ package com.poyka.ripdpi.e2e
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.net.InetAddresses
 import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
@@ -234,7 +235,7 @@ class DnsNetworkEvidenceE2ETest {
                 assertEquals(1, result.answers.size)
                 assertTrue(
                     "Expected a synthetic MapDNS answer, got ${result.answers}",
-                    result.answers.single().startsWith("198.18."),
+                    isSyntheticMapDnsIpv4Answer(result.answers.single()),
                 )
             } else {
                 assertFalse("Resolver outage unexpectedly returned a DNS answer: $result", result.ok)
@@ -270,10 +271,6 @@ class DnsNetworkEvidenceE2ETest {
             } else {
                 assertTrue("Unexpected resolver fault: $events", faultEvents.isEmpty())
             }
-            assertTrue(
-                "Plain or alternate fixture resolver was contacted: $events",
-                events.none { it.service in setOf("dns_udp", "dns_http", "dns_dnscrypt", "dns_doq") },
-            )
             val socksEvents = events.filter { it.service == "socks5_relay" && it.protocol == "tcp" }
             if (mode == EvidenceDnsMode.PROXIED) {
                 assertEquals("Expected one fixture SOCKS event for proxied DNS: $events", 1, socksEvents.size)
@@ -316,6 +313,17 @@ class DnsNetworkEvidenceE2ETest {
         }
     }
 
+    @Test
+    fun syntheticMapDnsAnswerRangeUsesTheFullRfc2544Prefix() {
+        assertTrue(isSyntheticMapDnsIpv4Answer("198.18.0.0"))
+        assertTrue(isSyntheticMapDnsIpv4Answer("198.19.255.255"))
+        assertFalse(isSyntheticMapDnsIpv4Answer("198.17.255.255"))
+        assertFalse(isSyntheticMapDnsIpv4Answer("198.20.0.0"))
+        assertFalse(isSyntheticMapDnsIpv4Answer("198.18.0"))
+        assertFalse(isSyntheticMapDnsIpv4Answer("198.18.0.256"))
+        assertFalse(isSyntheticMapDnsIpv4Answer("2001:db8::1"))
+    }
+
     private fun distinctEvidenceUids(): Pair<Int, Int> {
         val appUid = appContext.applicationInfo.uid
         val testUid =
@@ -351,6 +359,13 @@ class DnsNetworkEvidenceE2ETest {
     private fun stopService(serviceClass: Class<*>) {
         appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
     }
+}
+
+private fun isSyntheticMapDnsIpv4Answer(value: String): Boolean {
+    val bytes = runCatching { InetAddresses.parseNumericAddress(value).address }.getOrNull() ?: return false
+    return bytes.size == 4 &&
+        (bytes[0].toInt() and 0xFF) == 198 &&
+        (bytes[1].toInt() and 0xFE) == 18
 }
 
 private enum class EvidenceDnsMode { VIRTUAL, PROXIED, OUTAGE }

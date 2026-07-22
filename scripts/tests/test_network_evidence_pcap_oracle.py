@@ -237,6 +237,88 @@ def pcap_records(raw: bytes) -> list[bytes]:
     return records
 
 
+def pcap_record(seconds: int, micros: int, packet: bytes) -> bytes:
+    return struct.pack("<IIII", seconds, micros, len(packet), len(packet)) + packet
+
+
+def tls_record(content_type: int, payload: bytes) -> bytes:
+    return bytes((content_type, 3, 3)) + len(payload).to_bytes(2, "big") + payload
+
+
+def dns_query_wire_size(query_host: str) -> int:
+    return 12 + sum(1 + len(label) for label in query_host.split(".")) + 1 + 4
+
+
+def redacted_event(event: dict[str, object]) -> dict[str, object]:
+    def field_digest(field: str, value: str) -> str:
+        return hashlib.sha256(
+            f"ripdpi:network-evidence-fixture-event-field:v1:{field}:{value}".encode()
+        ).hexdigest()
+
+    return {
+        "service": event["service"],
+        "protocol": event["protocol"],
+        "peerSha256": field_digest("peer", str(event["peer"])),
+        "targetSha256": field_digest("target", str(event["target"])),
+        "detailSha256": field_digest("detail", str(event["detail"])),
+        "bytes": event["bytes"],
+        "sniSha256": (
+            None
+            if event["sni"] is None
+            else field_digest("sni", str(event["sni"]))
+        ),
+        "createdAt": event["createdAt"],
+    }
+
+
+def retime_pcap(raw: bytes, delta_micros: int) -> bytes:
+    rewritten = bytearray(raw)
+    offset = 24
+    while offset < len(rewritten):
+        seconds, micros, captured_length, _original_length = struct.unpack_from(
+            "<IIII", rewritten, offset
+        )
+        micros += delta_micros
+        seconds += micros // 1_000_000
+        micros %= 1_000_000
+        struct.pack_into("<II", rewritten, offset, seconds, micros)
+        offset += 16 + captured_length
+    return bytes(rewritten)
+
+
+def rewrite_ethernet_ipv4_tcp_flow_source(
+    raw: bytes,
+    *,
+    old_address: str,
+    old_port: int,
+    new_address: str,
+    new_port: int,
+) -> bytes:
+    rewritten = bytearray(raw)
+    old_ip = ipaddress.ip_address(old_address).packed
+    new_ip = ipaddress.ip_address(new_address).packed
+    offset = 24
+    while offset < len(rewritten):
+        _seconds, _micros, captured_length, _original_length = struct.unpack_from(
+            "<IIII", rewritten, offset
+        )
+        frame = offset + 16
+        if captured_length >= 54 and rewritten[frame + 12 : frame + 14] == b"\x08\x00":
+            ip = frame + 14
+            tcp = ip + (rewritten[ip] & 0x0F) * 4
+            source = bytes(rewritten[ip + 12 : ip + 16])
+            destination = bytes(rewritten[ip + 16 : ip + 20])
+            source_port, destination_port = struct.unpack_from("!HH", rewritten, tcp)
+            if source == old_ip and source_port == old_port:
+                rewritten[ip + 12 : ip + 16] = new_ip
+                struct.pack_into("!H", rewritten, tcp, new_port)
+            elif destination == old_ip and destination_port == old_port:
+                rewritten[ip + 16 : ip + 20] = new_ip
+                struct.pack_into("!H", rewritten, tcp + 2, new_port)
+        offset += 16 + captured_length
+    return bytes(rewritten)
+
+
 def add_observer_control(raw: bytes) -> bytes:
     endian = {
         b"\xd4\xc3\xb2\xa1": "<",
@@ -655,6 +737,7 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         *,
         forged_response_address: str | None = None,
         forged_response_port: int | None = None,
+        observer_outbound_tls: bytes | None = None,
     ) -> dict[str, object]:
         self.fixture_transcript.unlink(missing_ok=True)
         descriptor = receipt_contract.load_action_registry()[gate_id]
@@ -662,15 +745,24 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         query_fields = sorted(
             field for field in facts if field.lower().endswith("querysha256")
         )
+        source_owned = gate_id in SOURCE_OWNED_ENCRYPTED_DNS_GATES
         query_names = {
-            field: f"q{index}.{gate_id[:24]}.fixture.test"
+            field: (
+                f"{gate_id.removeprefix('dns-')[:24]}-{CORRELATION_ID[:16]}.fixture.test"
+                if source_owned
+                else f"q{index}.{gate_id[:24]}.fixture.test"
+            )
             for index, field in enumerate(query_fields, start=1)
         }
         for field, name in query_names.items():
             facts[field] = hashlib.sha256(
                 b"ripdpi:dns-evidence-query:v1:" + name.encode("ascii")
             ).hexdigest()
-        source_owned = gate_id in SOURCE_OWNED_ENCRYPTED_DNS_GATES
+        query_wire_bytes = dns_query_wire_size(next(iter(query_names.values())))
+        valid_outbound_tls = tls_record(22, b"test") + tls_record(
+            23, b"q" * (query_wire_bytes + 2)
+        )
+        valid_inbound_tls = tls_record(22, b"ok")
         endpoint_sha256 = (
             hashlib.sha256(
                 f"ripdpi:dns-evidence-resolver:v1:dot:{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}".encode(
@@ -723,16 +815,22 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         os.chmod(self.fixture_manifest, 0o600)
         if source_owned:
             query_host = next(iter(query_names.values()))
+            observer_flow_peer = "203.0.113.77:30001"
+            query_peer = (
+                f"{FIXTURE_ADDRESS}:24000"
+                if gate_id == "dns-proxied-through-tunnelled-resolver"
+                else observer_flow_peer
+            )
             events = [
                 {
                     "service": "dns_dot",
                     "protocol": "dot",
-                    "peer": "192.0.2.10:24000",
+                    "peer": query_peer,
                     "target": f"{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}",
                     "detail": query_host,
-                    "bytes": 64,
+                    "bytes": query_wire_bytes,
                     "sni": "fixture.test",
-                    "createdAt": 1,
+                    "createdAt": 100_150,
                 }
             ]
             if gate_id == "dns-proxied-through-tunnelled-resolver":
@@ -742,12 +840,12 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                     {
                         "service": "socks5_relay",
                         "protocol": "tcp",
-                        "peer": "192.0.2.10:23000",
+                        "peer": observer_flow_peer,
                         "target": f"{FIXTURE_ADDRESS}:{FIXTURE_SOCKS_PORT}",
                         "detail": socks_target,
                         "bytes": 32,
                         "sni": None,
-                        "createdAt": 2,
+                        "createdAt": 100_130,
                     },
                 )
                 facts["socksTargetSha256"] = hashlib.sha256(
@@ -760,22 +858,42 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                     {
                         "service": "dns_dot",
                         "protocol": "dot",
-                        "peer": "192.0.2.10:24000",
+                        "peer": query_peer,
                         "target": f"{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}",
                         "detail": "fault:DnsTimeout",
-                        "bytes": 0,
-                        "sni": None,
-                        "createdAt": 3,
+                        "bytes": query_wire_bytes,
+                        "sni": "fixture.test",
+                        "createdAt": 100_160,
                     }
                 )
+            accept_event = {
+                "service": "dns_dot",
+                "protocol": "dot",
+                "peer": query_peer,
+                "target": f"{FIXTURE_ADDRESS}:{FIXTURE_DOT_PORT}",
+                "detail": "accept",
+                "bytes": 0,
+                "sni": None,
+                "createdAt": 100_140,
+            }
+            inventory_events = list(events)
+            query_index = next(
+                index
+                for index, event in enumerate(inventory_events)
+                if event["detail"] == query_host
+            )
+            inventory_events.insert(query_index, accept_event)
             transcript = {
-                "version": "network_evidence_fixture_transcript_v1",
+                "version": "network_evidence_fixture_transcript_v2",
                 "gateId": gate_id,
                 "correlationId": CORRELATION_ID,
                 "fixtureIdentitySha256": fixture_sha,
                 "queryHost": query_host,
                 "querySha256": facts[next(iter(query_fields))],
                 "events": events,
+                "eventInventory": [
+                    redacted_event(event) for event in inventory_events
+                ],
             }
             transcript_raw = canonical(transcript)
             self.fixture_transcript.write_bytes(transcript_raw)
@@ -829,7 +947,10 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         }
 
         def packets(
-            source_address: str, source_port: int
+            source_address: str,
+            source_port: int,
+            timestamp_offset_us: int,
+            outbound_tls: bytes,
         ) -> list[tuple[int, int, bytes]]:
             result = [
                 (
@@ -849,13 +970,27 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                     if gate_id == "dns-proxied-through-tunnelled-resolver"
                     else FIXTURE_DOT_PORT
                 )
+                inbound_tls = valid_inbound_tls
+                if gate_id == "dns-proxied-through-tunnelled-resolver":
+                    outbound_tls = (
+                        b"\x05\x01\x00"
+                        + b"\x05\x01\x00\x01"
+                        + ipaddress.ip_address(FIXTURE_ADDRESS).packed
+                        + struct.pack("!H", FIXTURE_DOT_PORT)
+                        + outbound_tls
+                    )
+                    inbound_tls = (
+                        b"\x05\x00"
+                        + b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+                        + inbound_tls
+                    )
                 result.extend(
                     [
                         (
                             100,
-                            140_000,
+                            140_000 + timestamp_offset_us,
                             ethernet_ipv4_tcp(
-                                b"\x16\x03\x03\x00\x04test",
+                                outbound_tls,
                                 source_port=source_port + 1,
                                 destination_port=endpoint_port,
                                 source_address=source_address,
@@ -863,9 +998,11 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                         ),
                         (
                             100,
-                            160_000,
+                            160_000
+                            + timestamp_offset_us
+                            + (50 if source_address == "203.0.113.77" else 0),
                             ethernet_ipv4_tcp(
-                                b"\x16\x03\x03\x00\x02ok",
+                                inbound_tls,
                                 source_port=endpoint_port,
                                 destination_port=source_port + 1,
                                 source_address=FIXTURE_ADDRESS,
@@ -944,8 +1081,26 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             )
             return result
 
-        self.client_pcap.write_bytes(pcap_bytes(packets("192.0.2.10", 20000)))
-        self.observer_pcap.write_bytes(pcap_bytes(packets("203.0.113.77", 30000)))
+        self.client_pcap.write_bytes(
+            pcap_bytes(
+                packets(
+                    "192.0.2.10",
+                    20000,
+                    0,
+                    valid_outbound_tls,
+                )
+            )
+        )
+        self.observer_pcap.write_bytes(
+            pcap_bytes(
+                packets(
+                    "203.0.113.77",
+                    30000,
+                    100,
+                    observer_outbound_tls or valid_outbound_tls,
+                )
+            )
+        )
         plan = {
             "version": "network_evidence_scenario_plan_v3",
             "sourceSha": SOURCE_SHA,
@@ -1004,7 +1159,10 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         )
 
     def run_oracle(
-        self, *, test_ready_override: bool = True
+        self,
+        *,
+        test_ready_override: bool = True,
+        force_fixture_transcript: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
@@ -1038,6 +1196,8 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                 )
             if self.fixture_transcript.exists():
                 command.extend(["--fixture-transcript", str(self.fixture_transcript)])
+        elif force_fixture_transcript:
+            command.extend(["--fixture-transcript", str(self.fixture_transcript)])
         command.extend(
             [
                 "--client-output",
@@ -1075,8 +1235,42 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         self.write_metadata()
 
     def rewrite_transcript_and_bind_receipt(
-        self, ledger: dict[str, object], transcript: dict[str, object]
+        self,
+        ledger: dict[str, object],
+        transcript: dict[str, object],
+        *,
+        refresh_inventory: bool = True,
     ) -> None:
+        if refresh_inventory:
+            accept_detail = hashlib.sha256(
+                b"ripdpi:network-evidence-fixture-event-field:v1:detail:accept"
+            ).hexdigest()
+            prior_accept = next(
+                item
+                for item in transcript["eventInventory"]
+                if item["detailSha256"] == accept_detail
+            )
+            query_event = next(
+                event
+                for event in transcript["events"]
+                if event["detail"] == transcript["queryHost"]
+            )
+            accept_event = {
+                "service": "dns_dot",
+                "protocol": "dot",
+                "peer": query_event["peer"],
+                "target": query_event["target"],
+                "detail": "accept",
+                "bytes": 0,
+                "sni": None,
+                "createdAt": prior_accept["createdAt"],
+            }
+            inventory_events = list(transcript["events"])
+            query_index = inventory_events.index(query_event)
+            inventory_events.insert(query_index, accept_event)
+            transcript["eventInventory"] = [
+                redacted_event(event) for event in inventory_events
+            ]
         transcript_raw = canonical(transcript)
         self.fixture_transcript.write_bytes(transcript_raw)
         receipt = json.loads(self.action_receipt.read_text(encoding="utf-8"))
@@ -1142,6 +1336,15 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             self.assertEqual(observation["windows"][0]["outcomeObservedCount"], 1)
             self.assertEqual(output.read_bytes(), canonical(observation))
             self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
+
+    def test_fixture_transcript_is_forbidden_without_action_semantics(self) -> None:
+        self.write_inputs()
+        self.fixture_transcript.write_text("{}", encoding="utf-8")
+
+        result = self.run_oracle(force_fixture_transcript=True)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fixture transcript", result.stderr)
 
     def test_startup_rule_accepts_segmented_markers_nat_and_post_ready_dns(
         self,
@@ -1317,6 +1520,374 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("deterministic DoT timeout transcript is missing", result.stderr)
+
+    def test_encrypted_dns_transcript_binds_query_target_sni_bytes_and_peer(
+        self,
+    ) -> None:
+        mutations = {
+            "target": ("203.0.113.9:18006", "target, SNI, or byte count mismatch"),
+            "sni": ("wrong.fixture.test", "target, SNI, or byte count mismatch"),
+            "bytes": (0, "target, SNI, or byte count mismatch"),
+            "peer": ("not-an-endpoint", "query peer is malformed"),
+        }
+        for field, (replacement, expected_error) in mutations.items():
+            with self.subTest(field=field):
+                ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+                transcript = json.loads(
+                    self.fixture_transcript.read_text(encoding="utf-8")
+                )
+                transcript["events"][0][field] = replacement
+                self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+                result = self.run_oracle()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected_error, result.stderr)
+
+        for replacement in (1, 2, 65_535):
+            with self.subTest(bytes=replacement):
+                ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+                transcript = json.loads(
+                    self.fixture_transcript.read_text(encoding="utf-8")
+                )
+                transcript["events"][0]["bytes"] = replacement
+                self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+                result = self.run_oracle()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("target, SNI, or byte count mismatch", result.stderr)
+
+    def test_encrypted_dns_transcript_rejects_self_consistent_wrong_query_host(
+        self,
+    ) -> None:
+        for query_host in ("", "unrelated.fixture.test"):
+            with self.subTest(query_host=query_host):
+                gate_id = "dns-virtual-vpn-resolver"
+                ledger = self.write_dns_action_inputs(gate_id)
+                transcript = json.loads(
+                    self.fixture_transcript.read_text(encoding="utf-8")
+                )
+                query_sha256 = hashlib.sha256(
+                    b"ripdpi:dns-evidence-query:v1:" + query_host.encode("ascii")
+                ).hexdigest()
+                transcript["queryHost"] = query_host
+                transcript["querySha256"] = query_sha256
+                transcript["events"][0]["detail"] = query_host
+                self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+                action_receipt = json.loads(
+                    self.action_receipt.read_text(encoding="utf-8")
+                )
+                action_receipt["facts"]["virtualQuerySha256"] = query_sha256
+                action_receipt["querySetSha256"] = receipt_contract.query_set_sha256(
+                    gate_id, action_receipt["facts"]
+                )
+                receipt_raw = canonical(action_receipt)
+                self.action_receipt.write_bytes(receipt_raw)
+                ledger["semanticRules"][0]["actionReceiptSha256"] = hashlib.sha256(
+                    receipt_raw
+                ).hexdigest()
+                self.save_ledger(ledger)
+
+                result = self.run_oracle()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("queryHost is not the expected target", result.stderr)
+
+    def test_encrypted_dns_transcript_rejects_malformed_event_value_types(
+        self,
+    ) -> None:
+        for field, replacement in (("sni", 1), ("bytes", True)):
+            with self.subTest(field=field):
+                ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+                transcript = json.loads(
+                    self.fixture_transcript.read_text(encoding="utf-8")
+                )
+                transcript["events"][0][field] = replacement
+                self.rewrite_transcript_and_bind_receipt(
+                    ledger, transcript, refresh_inventory=False
+                )
+
+                result = self.run_oracle()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("fixture transcript event value mismatch", result.stderr)
+
+    def test_encrypted_dns_transcript_binds_epoch_window_and_event_order(self) -> None:
+        ledger = self.write_dns_action_inputs(
+            "dns-no-isp-fallback-on-encrypted-resolver-outage"
+        )
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"][0]["createdAt"] = 99_999
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("timestamp is outside its window", result.stderr)
+
+        ledger = self.write_dns_action_inputs(
+            "dns-no-isp-fallback-on-encrypted-resolver-outage"
+        )
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"].reverse()
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("event order mismatch", result.stderr)
+
+    def test_encrypted_dns_observer_flow_binds_exact_transcript_peer(self) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"][0]["peer"] = "203.0.113.77:39999"
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("one transcript-bound bidirectional TCP flow", result.stderr)
+
+    def test_encrypted_dns_role_mapping_rejects_tls_payload_drift(self) -> None:
+        query_host = (
+            f"virtual-vpn-resolver-{CORRELATION_ID[:16]}.fixture.test"
+        )
+        self.write_dns_action_inputs(
+            "dns-virtual-vpn-resolver",
+            observer_outbound_tls=(
+                tls_record(22, b"test")
+                + tls_record(23, b"x" * (dns_query_wire_size(query_host) + 2))
+            ),
+        )
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("TLS flow mapping mismatch", result.stderr)
+
+    def test_encrypted_dns_role_mapping_rejects_retimed_copy_with_padding(
+        self,
+    ) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"][0]["peer"] = "192.0.2.10:20001"
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+        copied = retime_pcap(self.client_pcap.read_bytes(), 1)
+        self.observer_pcap.write_bytes(add_observer_control(copied))
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("reuse one copied transcript-bound", result.stderr)
+
+    def test_encrypted_dns_rejects_retimed_padded_copy_after_tuple_rewrite(
+        self,
+    ) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        transcript["events"][0]["peer"] = "203.0.113.88:40001"
+        self.rewrite_transcript_and_bind_receipt(ledger, transcript)
+        copied = rewrite_ethernet_ipv4_tcp_flow_source(
+            retime_pcap(self.client_pcap.read_bytes(), 1),
+            old_address="192.0.2.10",
+            old_port=20001,
+            new_address="203.0.113.88",
+            new_port=40001,
+        )
+        self.observer_pcap.write_bytes(add_observer_control(copied))
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("tuple-independent normalized flow", result.stderr)
+
+    def test_encrypted_dns_rejects_extra_bytes_around_tls_records(self) -> None:
+        query_host = f"virtual-vpn-resolver-{CORRELATION_ID[:16]}.fixture.test"
+        handshake = tls_record(22, b"test")
+        application = tls_record(23, b"q" * (dns_query_wire_size(query_host) + 2))
+        mutations = {
+            "before": b"x" + handshake + application,
+            "between": handshake + b"x" + application,
+            "after": handshake + application + b"x",
+            "partial": handshake + application[:-1],
+        }
+        for position, payload in mutations.items():
+            with self.subTest(position=position):
+                ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+                raw = self.client_pcap.read_bytes()
+                records = pcap_records(raw)
+                frame = ethernet_ipv4_tcp(
+                    payload,
+                    source_port=20001,
+                    destination_port=FIXTURE_DOT_PORT,
+                    source_address="192.0.2.10",
+                )
+                records[1] = pcap_record(100, 140_000, frame)
+                self.client_pcap.write_bytes(raw[:24] + b"".join(records))
+                self.save_ledger(ledger)
+
+                result = self.run_oracle()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertRegex(result.stderr, r"TLS stream (contains|has)")
+
+    def test_proxied_dns_rejects_unoffered_socks_auth_selection(self) -> None:
+        ledger = self.write_dns_action_inputs(
+            "dns-proxied-through-tunnelled-resolver"
+        )
+        raw = self.client_pcap.read_bytes()
+        malformed = raw.replace(
+            b"\x05\x01\x00\x05\x01\x00",
+            b"\x05\x01\x02\x05\x01\x00",
+            1,
+        )
+        self.assertNotEqual(raw, malformed)
+        self.client_pcap.write_bytes(malformed)
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SOCKS greeting does not offer no-auth", result.stderr)
+
+    def test_encrypted_dns_rejects_forbidden_service_in_redacted_inventory(
+        self,
+    ) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = json.loads(self.fixture_transcript.read_text(encoding="utf-8"))
+        forbidden = {
+            "service": "dns_udp",
+            "protocol": "udp",
+            "peer": "192.0.2.10:53000",
+            "target": f"{FIXTURE_ADDRESS}:{FIXTURE_DNS_PORT}",
+            "detail": transcript["queryHost"],
+            "bytes": dns_query_wire_size(transcript["queryHost"]),
+            "sni": None,
+            "createdAt": 100_155,
+        }
+        transcript["eventInventory"].append(redacted_event(forbidden))
+        self.rewrite_transcript_and_bind_receipt(
+            ledger, transcript, refresh_inventory=False
+        )
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("plaintext or alternate resolver use", result.stderr)
+
+    def test_encrypted_dns_observer_flow_rejects_endpoint_rewrite(self) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        observer = self.observer_pcap.read_bytes().replace(
+            ipaddress.ip_address("203.0.113.77").packed,
+            ipaddress.ip_address("203.0.113.88").packed,
+        )
+        self.observer_pcap.write_bytes(observer)
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("one transcript-bound bidirectional TCP flow", result.stderr)
+
+    def test_encrypted_dns_accepts_compatible_repacketization_and_overlap(
+        self,
+    ) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        outbound = b"\x16\x03\x03\x00\x04test"
+        for capture, source_address, source_port, offset in (
+            (self.client_pcap, "192.0.2.10", 20001, 0),
+            (self.observer_pcap, "203.0.113.77", 30001, 100),
+        ):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            same_sequence_prefix = ethernet_ipv4_tcp(
+                outbound[:7],
+                source_port=source_port,
+                destination_port=FIXTURE_DOT_PORT,
+                sequence=0,
+                source_address=source_address,
+            )
+            compatible_overlap = ethernet_ipv4_tcp(
+                outbound[4:],
+                source_port=source_port,
+                destination_port=FIXTURE_DOT_PORT,
+                sequence=4,
+                source_address=source_address,
+            )
+            records[2:2] = [
+                pcap_record(100, 145_000 + offset, same_sequence_prefix),
+                pcap_record(100, 150_000 + offset, compatible_overlap),
+            ]
+            capture.write_bytes(raw[:24] + b"".join(records))
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_encrypted_dns_reassembles_tls_across_tcp_sequence_wrap(self) -> None:
+        ledger = self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        query_host = (
+            f"virtual-vpn-resolver-{CORRELATION_ID[:16]}.fixture.test"
+        )
+        outbound = tls_record(22, b"test") + tls_record(
+            23, b"q" * (dns_query_wire_size(query_host) + 2)
+        )
+        for capture, source_address, source_port, offset in (
+            (self.client_pcap, "192.0.2.10", 20001, 0),
+            (self.observer_pcap, "203.0.113.77", 30001, 100),
+        ):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            before_wrap = ethernet_ipv4_tcp(
+                outbound[:4],
+                source_port=source_port,
+                destination_port=FIXTURE_DOT_PORT,
+                sequence=0xFFFFFFFC,
+                source_address=source_address,
+            )
+            after_wrap = ethernet_ipv4_tcp(
+                outbound[4:],
+                source_port=source_port,
+                destination_port=FIXTURE_DOT_PORT,
+                sequence=0,
+                source_address=source_address,
+            )
+            records[1:2] = [
+                pcap_record(100, 140_000 + offset, before_wrap),
+                pcap_record(100, 145_000 + offset, after_wrap),
+            ]
+            capture.write_bytes(raw[:24] + b"".join(records))
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_encrypted_dns_outputs_redact_transcript_and_flow_identifiers(self) -> None:
+        self.write_dns_action_inputs("dns-virtual-vpn-resolver")
+        transcript = self.fixture_transcript.read_bytes()
+        query_host = json.loads(transcript)["queryHost"]
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for output in (self.client_output, self.observer_output):
+            published = output.read_bytes()
+            for private_value in (
+                transcript,
+                query_host.encode("ascii"),
+                b"fixture.test",
+                b"198.51.100.20",
+                b"203.0.113.77",
+                b"192.0.2.10",
+                b"client-hello",
+                b"server-hello",
+            ):
+                self.assertNotIn(private_value, published)
 
     def test_startup_rule_counts_direct_dns_inside_blocking_window(self) -> None:
         self.write_startup_inputs()

@@ -110,9 +110,14 @@ elif len(args) >= 6 and args[:4] == ["shell", "run-as", "com.poyka.ripdpi", "tes
 elif len(args) >= 5 and args[:4] == ["shell", "run-as", "com.poyka.ripdpi", "stat"]:
     print("644" if mode == "mode" else "600")
 elif len(args) >= 5 and args[:4] == ["shell", "run-as", "com.poyka.ripdpi", "cat"]:
-    if mode == "missing_receipt":
+    source = args[-1]
+    is_transcript = "network-evidence-fixture-transcript-" in source
+    if mode == "missing_receipt" and not is_transcript:
         raise SystemExit(1)
-    sys.stdout.write(pathlib.Path(os.environ["FAKE_RECEIPT"]).read_text(encoding="utf-8"))
+    if mode == "missing_transcript" and is_transcript:
+        raise SystemExit(1)
+    artifact = os.environ["FAKE_TRANSCRIPT"] if is_transcript else os.environ["FAKE_RECEIPT"]
+    sys.stdout.write(pathlib.Path(artifact).read_text(encoding="utf-8"))
 elif len(args) >= 4 and args[:2] == ["shell", "timeout"] and "instrument" in args:
     selector = args[args.index("class") + 1]
     test_class, test_method = selector.split("#", 1)
@@ -444,6 +449,7 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
         *,
         tamper_receipt: bool = False,
         receipt_output: Path | None = None,
+        fixture_transcript_output: Path | None = None,
         gate_id: str = module.GATE_ID,
         test_only_ready_override: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
@@ -460,6 +466,21 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
             client_sha = hashlib.sha256(client_apk).hexdigest()
             test_sha = hashlib.sha256(test_apk).hexdigest()
             value = receipt(gate_id)
+            transcript = json.dumps(
+                {
+                    "version": "network_evidence_fixture_transcript_v2",
+                    "gateId": gate_id,
+                    "events": [],
+                },
+                separators=(",", ":"),
+            ).encode("utf-8")
+            if "fixtureTranscriptSha256" in value["facts"]:
+                value["facts"]["fixtureTranscriptSha256"] = hashlib.sha256(
+                    transcript
+                ).hexdigest()
+                value["querySetSha256"] = module.query_set_sha256(
+                    gate_id, value["facts"]
+                )
             value["clientArtifactSha256"] = client_sha
             value["testArtifactSha256"] = test_sha
             if tamper_receipt:
@@ -467,7 +488,13 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
             private_receipt = root / "device-receipt.json"
             private_receipt.write_text(json.dumps(value), encoding="utf-8")
             private_receipt.chmod(0o600)
+            private_transcript = root / "device-transcript.json"
+            private_transcript.write_bytes(transcript)
+            private_transcript.chmod(0o600)
             output = receipt_output or root / "validated-receipt.json"
+            transcript_output = fixture_transcript_output
+            if "fixtureTranscriptSha256" in value["facts"] and transcript_output is None:
+                transcript_output = root / "validated-transcript.json"
             environment = os.environ.copy()
             environment.update(
                 {
@@ -478,6 +505,7 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
                     "RIPDPI_FIXTURE_CONTROL_PORT": "8080",
                     "FAKE_ADB_MODE": mode,
                     "FAKE_RECEIPT": str(private_receipt),
+                    "FAKE_TRANSCRIPT": str(private_transcript),
                     "FAKE_SOURCE_ROOT": str(ROOT),
                     "FAKE_SOURCE_SHA": SOURCE_SHA,
                     "FAKE_CLIENT_APK_HEX": client_apk.hex(),
@@ -503,6 +531,10 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
                 "--receipt-output",
                 str(output),
             ]
+            if transcript_output is not None:
+                command.extend(
+                    ["--fixture-transcript-output", str(transcript_output)]
+                )
             if test_only_ready_override is not None:
                 command.extend(
                     [
@@ -521,6 +553,9 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
             if result.returncode == 0:
                 self.assertEqual(json.loads(output.read_text(encoding="utf-8")), value)
                 self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+                if transcript_output is not None:
+                    self.assertEqual(transcript_output.read_bytes(), transcript)
+                    self.assertEqual(transcript_output.stat().st_mode & 0o777, 0o600)
             return result
 
     def test_non_production_ready_descriptor_fails_before_adb(self) -> None:
@@ -532,6 +567,60 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
         result = self.run_runner(test_only_ready_override=READY_OVERRIDE)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Android network evidence action passed", result.stdout)
+
+    def test_source_owned_action_pulls_and_publishes_private_transcript(self) -> None:
+        gate_id = "dns-virtual-vpn-resolver"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            receipt_output = root / "receipt.json"
+            transcript_output = root / "transcript.json"
+            result = self.run_runner(
+                gate_id=gate_id,
+                test_only_ready_override=READY_OVERRIDE,
+                receipt_output=receipt_output,
+                fixture_transcript_output=transcript_output,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(receipt_output.is_file())
+            self.assertTrue(transcript_output.is_file())
+
+    def test_source_owned_action_rejects_missing_transcript(self) -> None:
+        result = self.run_runner(
+            mode="missing_transcript",
+            gate_id="dns-virtual-vpn-resolver",
+            test_only_ready_override=READY_OVERRIDE,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fixture transcript readback failed", result.stderr)
+
+    def test_source_owned_action_rejects_output_alias_before_adb(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "shared.json"
+            result = self.run_runner(
+                gate_id="dns-virtual-vpn-resolver",
+                test_only_ready_override=READY_OVERRIDE,
+                receipt_output=output,
+                fixture_transcript_output=output,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("outputs must be distinct", result.stderr)
+            self.assertFalse(output.exists())
+
+    def test_source_owned_action_cleans_partial_pair_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            transcript_output = root / "transcript.json"
+            receipt_output = root / "missing" / "receipt.json"
+            result = self.run_runner(
+                gate_id="dns-virtual-vpn-resolver",
+                test_only_ready_override=READY_OVERRIDE,
+                receipt_output=receipt_output,
+                fixture_transcript_output=transcript_output,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("could not publish private action outputs", result.stderr)
+            self.assertFalse(receipt_output.exists())
+            self.assertFalse(transcript_output.exists())
 
     def test_every_registry_descriptor_runs_only_its_bound_selector(self) -> None:
         for gate_id in module.load_action_registry():

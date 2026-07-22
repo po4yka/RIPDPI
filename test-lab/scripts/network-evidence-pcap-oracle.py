@@ -170,6 +170,33 @@ class FixtureContext:
 
 
 @dataclass(frozen=True)
+class EncryptedDnsTranscriptProof:
+    digest: bytes
+    flow_peer: tuple[bytes, int]
+    flow_target: tuple[bytes, int]
+    query_created_at_ms: int
+    query_wire_bytes: int
+    tls_target: tuple[bytes, int]
+
+
+@dataclass(frozen=True)
+class EncryptedDnsRoleProof:
+    transcript_digest: bytes
+    source: tuple[bytes, int]
+    target: tuple[bytes, int]
+    outbound_tls_digest: bytes
+    inbound_tls_digest: bytes
+    packet_timestamps_ns: tuple[int, ...]
+    normalized_flow_digest: bytes
+
+
+@dataclass(frozen=True)
+class TlsStreamProof:
+    digest: bytes
+    application_data_lengths: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class PacketFacts:
     payload: bytes
     ip_version: int
@@ -1279,6 +1306,61 @@ def _dns_evidence_query_sha256(labels: tuple[bytes, ...]) -> str:
     ).hexdigest()
 
 
+def _parse_fixture_endpoint(value: str, context: str) -> tuple[bytes, int]:
+    if value.startswith("["):
+        closing = value.find("]")
+        if closing <= 1 or closing + 1 >= len(value) or value[closing + 1] != ":":
+            raise ValueError(f"{context} is malformed")
+        host, port_text = value[1:closing], value[closing + 2 :]
+    else:
+        host, separator, port_text = value.rpartition(":")
+        if not separator or not host or ":" in host:
+            raise ValueError(f"{context} is malformed")
+    try:
+        address = ipaddress.ip_address(host)
+        port = int(port_text)
+    except ValueError as error:
+        raise ValueError(f"{context} is malformed") from error
+    if (
+        port not in range(1, 65536)
+        or address.is_unspecified
+        or address.is_multicast
+    ):
+        raise ValueError(f"{context} is malformed")
+    return address.packed, port
+
+
+def _fixture_event_field_sha256(field: str, value: str) -> str:
+    return hashlib.sha256(
+        f"ripdpi:network-evidence-fixture-event-field:v1:{field}:".encode("ascii")
+        + value.encode("utf-8")
+    ).hexdigest()
+
+
+def _redacted_fixture_event(event: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "service": event["service"],
+        "protocol": event["protocol"],
+        "peerSha256": _fixture_event_field_sha256("peer", event["peer"]),
+        "targetSha256": _fixture_event_field_sha256("target", event["target"]),
+        "detailSha256": _fixture_event_field_sha256("detail", event["detail"]),
+        "bytes": event["bytes"],
+        "sniSha256": (
+            None
+            if event["sni"] is None
+            else _fixture_event_field_sha256("sni", event["sni"])
+        ),
+        "createdAt": event["createdAt"],
+    }
+
+
+def _dns_query_wire_size(query_host: str) -> int:
+    labels = query_host.encode("ascii").split(b".")
+    if any(not label or len(label) > 63 for label in labels):
+        raise ValueError("DNS query host labels are malformed")
+    return 12 + sum(1 + len(label) for label in labels) + 1 + 4
+
+
 def _load_fixture_transcript(
     path: Path,
     *,
@@ -1286,7 +1368,7 @@ def _load_fixture_transcript(
     plan: dict[str, Any],
     fixture: FixtureContext,
     facts: dict[str, Any],
-) -> bytes:
+) -> EncryptedDnsTranscriptProof:
     value, raw = load_strict_json(
         path, "fixture transcript", maximum_bytes=MAX_TRANSCRIPT_BYTES
     )
@@ -1300,10 +1382,11 @@ def _load_fixture_transcript(
         "queryHost",
         "querySha256",
         "events",
+        "eventInventory",
     }
     if (
         set(value) != required
-        or value["version"] != "network_evidence_fixture_transcript_v1"
+        or value["version"] != "network_evidence_fixture_transcript_v2"
     ):
         raise ValueError(f"{gate_id} fixture transcript fields or version mismatch")
     if (
@@ -1320,11 +1403,23 @@ def _load_fixture_transcript(
     query_host = value["queryHost"]
     if not isinstance(query_host, str):
         raise ValueError(f"{gate_id} fixture transcript queryHost is malformed")
+    try:
+        normalized_query_host = query_host.lower().encode("ascii")
+    except UnicodeEncodeError as error:
+        raise ValueError(
+            f"{gate_id} fixture transcript queryHost is malformed"
+        ) from error
     expected_query = hashlib.sha256(
-        b"ripdpi:dns-evidence-query:v1:" + query_host.lower().encode("ascii")
+        b"ripdpi:dns-evidence-query:v1:" + normalized_query_host
     ).hexdigest()
     if value["querySha256"] != expected_query or expected_query != facts[query_field]:
         raise ValueError(f"{gate_id} fixture transcript query binding mismatch")
+    expected_query_host = (
+        f"{gate_id.removeprefix('dns-')[:24]}-{plan['correlationId'][:16]}."
+        + b".".join(fixture.fixture_domain_labels).decode("ascii")
+    )
+    if query_host != expected_query_host:
+        raise ValueError(f"{gate_id} fixture transcript queryHost is not the expected target")
     provider_field = {
         "dns-virtual-vpn-resolver": "tunnelResolverProviderSha256",
         "dns-proxied-through-tunnelled-resolver": "resolverProviderSha256",
@@ -1369,7 +1464,9 @@ def _load_fixture_transcript(
         if any(
             not isinstance(event[field], str)
             for field in ("service", "protocol", "peer", "target", "detail")
-        ) or not isinstance(event["createdAt"], int):
+        ) or not isinstance(event["createdAt"], int) or isinstance(
+            event["createdAt"], bool
+        ):
             raise ValueError(f"{gate_id} fixture transcript event value mismatch")
         if (
             not isinstance(event["bytes"], int)
@@ -1378,20 +1475,112 @@ def _load_fixture_transcript(
             or (event["sni"] is not None and not isinstance(event["sni"], str))
         ):
             raise ValueError(f"{gate_id} fixture transcript event value mismatch")
-    query_events = [
-        event
-        for event in events
-        if event["service"] == "dns_dot"
-        and event["protocol"] == "dot"
-        and event["detail"] == query_host
-    ]
-    if len(query_events) != 1:
-        raise ValueError(f"{gate_id} must bind exactly one DoT query transcript")
+    inventory = value["eventInventory"]
+    inventory_fields = {
+        "service",
+        "protocol",
+        "peerSha256",
+        "targetSha256",
+        "detailSha256",
+        "bytes",
+        "sniSha256",
+        "createdAt",
+    }
+    if not isinstance(inventory, list) or not inventory:
+        raise ValueError(f"{gate_id} fixture transcript event inventory is missing")
+    for item in inventory:
+        if not isinstance(item, dict) or set(item) != inventory_fields:
+            raise ValueError(f"{gate_id} fixture transcript event inventory mismatch")
+        if (
+            not isinstance(item["service"], str)
+            or not isinstance(item["protocol"], str)
+            or any(
+                not isinstance(item[field], str)
+                or not re.fullmatch(SHA256_RE, item[field])
+                for field in ("peerSha256", "targetSha256", "detailSha256")
+            )
+            or (
+                item["sniSha256"] is not None
+                and (
+                    not isinstance(item["sniSha256"], str)
+                    or not re.fullmatch(SHA256_RE, item["sniSha256"])
+                )
+            )
+            or not isinstance(item["bytes"], int)
+            or isinstance(item["bytes"], bool)
+            or item["bytes"] < 0
+            or not isinstance(item["createdAt"], int)
+            or isinstance(item["createdAt"], bool)
+        ):
+            raise ValueError(f"{gate_id} fixture transcript event inventory mismatch")
     forbidden_resolver_events = {"dns_udp", "dns_http", "dns_dnscrypt", "dns_doq"}
-    if any(event["service"] in forbidden_resolver_events for event in events):
+    if any(item["service"] in forbidden_resolver_events for item in inventory):
         raise ValueError(
             f"{gate_id} transcript contains plaintext or alternate resolver use"
         )
+    expected_inventory = [_redacted_fixture_event(event) for event in events]
+    detailed_index = 0
+    auxiliary_inventory: list[dict[str, Any]] = []
+    for item in inventory:
+        if (
+            detailed_index < len(expected_inventory)
+            and item == expected_inventory[detailed_index]
+        ):
+            detailed_index += 1
+        else:
+            auxiliary_inventory.append(item)
+    if detailed_index != len(expected_inventory):
+        raise ValueError(
+            f"{gate_id} detailed events are not an ordered subset of the redacted inventory"
+        )
+    expected_dot_target = (fixture.address, fixture.dns_dot_port)
+    expected_sni = b".".join(fixture.fixture_domain_labels).decode("ascii")
+    query_events = [event for event in events if event["detail"] == query_host]
+    if len(query_events) != 1:
+        raise ValueError(f"{gate_id} must bind exactly one DoT query transcript")
+    query_event = query_events[0]
+    query_wire_bytes = _dns_query_wire_size(query_host)
+    query_peer = _parse_fixture_endpoint(
+        query_event["peer"], f"{gate_id} fixture transcript query peer"
+    )
+    query_target = _parse_fixture_endpoint(
+        query_event["target"], f"{gate_id} fixture transcript query target"
+    )
+    if (
+        query_event["service"] != "dns_dot"
+        or query_event["protocol"] != "dot"
+        or query_target != expected_dot_target
+        or query_event["sni"] != expected_sni
+        or query_event["bytes"] != query_wire_bytes
+    ):
+        raise ValueError(
+            f"{gate_id} DoT query transcript target, SNI, or byte count mismatch"
+        )
+    window = next(
+        (item for item in plan["windows"] if item["id"] == gate_id), None
+    )
+    if window is None:
+        raise ValueError(f"{gate_id} fixture transcript has no scenario window")
+    started_ms = window["startedAtEpoch"] * 1_000
+    finished_ms = (window["finishedAtEpoch"] + 1) * 1_000 - 1
+    if not started_ms <= query_event["createdAt"] <= finished_ms:
+        raise ValueError(f"{gate_id} DoT query transcript timestamp is outside its window")
+    query_inventory = _redacted_fixture_event(query_event)
+    accept_detail_sha256 = _fixture_event_field_sha256("detail", "accept")
+    if len(auxiliary_inventory) != 1:
+        raise ValueError(f"{gate_id} must contain one redacted DoT accept event")
+    accept = auxiliary_inventory[0]
+    if (
+        accept["service"] != "dns_dot"
+        or accept["protocol"] != "dot"
+        or accept["peerSha256"] != query_inventory["peerSha256"]
+        or accept["targetSha256"] != query_inventory["targetSha256"]
+        or accept["detailSha256"] != accept_detail_sha256
+        or accept["bytes"] != 0
+        or accept["sniSha256"] is not None
+        or not started_ms <= accept["createdAt"] <= query_event["createdAt"]
+    ):
+        raise ValueError(f"{gate_id} redacted DoT accept event binding mismatch")
     fault_events = [
         event
         for event in events
@@ -1402,6 +1591,23 @@ def _load_fixture_transcript(
             raise ValueError(
                 f"{gate_id} deterministic DoT timeout transcript is missing"
             )
+        fault_event = fault_events[0]
+        if (
+            _parse_fixture_endpoint(
+                fault_event["peer"], f"{gate_id} fixture transcript fault peer"
+            )
+            != query_peer
+            or _parse_fixture_endpoint(
+                fault_event["target"], f"{gate_id} fixture transcript fault target"
+            )
+            != query_target
+            or fault_event["protocol"] != "dot"
+            or fault_event["sni"] != expected_sni
+            or fault_event["bytes"] != query_wire_bytes
+            or fault_event["createdAt"] < query_event["createdAt"]
+            or fault_event["createdAt"] > finished_ms
+        ):
+            raise ValueError(f"{gate_id} deterministic DoT fault binding mismatch")
     elif fault_events:
         raise ValueError(f"{gate_id} transcript contains an unexpected resolver fault")
     socks_events = [
@@ -1431,13 +1637,50 @@ def _load_fixture_transcript(
             raise ValueError(
                 f"{gate_id} receipt does not prove fail-closed SOCKS DNS routing"
             )
+        socks_event = socks_events[0]
+        socks_peer = _parse_fixture_endpoint(
+            socks_event["peer"], f"{gate_id} fixture transcript SOCKS peer"
+        )
+        socks_target = _parse_fixture_endpoint(
+            socks_event["target"], f"{gate_id} fixture transcript SOCKS target"
+        )
+        if (
+            socks_target != (fixture.address, fixture.socks5_port)
+            or socks_event["sni"] is not None
+            or socks_event["createdAt"] > query_event["createdAt"]
+            or socks_event["createdAt"] < started_ms
+        ):
+            raise ValueError(f"{gate_id} fixture SOCKS event binding mismatch")
+        flow_peer = socks_peer
+        flow_target = socks_target
     elif socks_events:
         raise ValueError(
             f"{gate_id} transcript unexpectedly contains fixture SOCKS routing"
         )
-    return hashlib.sha256(
-        b"ripdpi:dns-evidence-fixture-transcript-proof:v1:" + raw
-    ).digest()
+    else:
+        flow_peer = query_peer
+        flow_target = query_target
+    if gate_id == "dns-proxied-through-tunnelled-resolver":
+        expected_event_sequence = [socks_events[0], query_event]
+    elif gate_id == "dns-no-isp-fallback-on-encrypted-resolver-outage":
+        expected_event_sequence = [query_event, fault_events[0]]
+    else:
+        expected_event_sequence = [query_event]
+    if events != expected_event_sequence or any(
+        previous["createdAt"] > current["createdAt"]
+        for previous, current in zip(events, events[1:])
+    ):
+        raise ValueError(f"{gate_id} fixture transcript event order mismatch")
+    return EncryptedDnsTranscriptProof(
+        digest=hashlib.sha256(
+            b"ripdpi:dns-evidence-fixture-transcript-proof:v1:" + raw
+        ).digest(),
+        flow_peer=flow_peer,
+        flow_target=flow_target,
+        query_created_at_ms=query_event["createdAt"],
+        query_wire_bytes=query_wire_bytes,
+        tls_target=query_target,
+    )
 
 
 def _require_encrypted_dns_role_packets(
@@ -1447,17 +1690,11 @@ def _require_encrypted_dns_role_packets(
     interval: tuple[int, int],
     gate_id: str,
     fixture: FixtureContext,
-    transcript_proof: bytes,
-) -> tuple[bytes, set[int]]:
+    transcript_proof: EncryptedDnsTranscriptProof,
+) -> tuple[EncryptedDnsRoleProof, set[int]]:
     start, finish = interval
-    expected_port = (
-        fixture.socks5_port
-        if gate_id == "dns-proxied-through-tunnelled-resolver"
-        else fixture.dns_dot_port
-    )
-    allowed: set[int] = set()
-    outbound = 0
-    inbound = 0
+    del fixture
+    candidates: dict[tuple[bytes, int], dict[str, list[int]]] = {}
     for index in range(start, finish + 1):
         packet = packets[index]
         if packet.transport in {"tcp", "udp"} and (
@@ -1467,30 +1704,283 @@ def _require_encrypted_dns_role_packets(
         if packet.transport != "tcp":
             continue
         if (
-            packet.destination_address == fixture.address
-            and packet.destination_port == expected_port
+            packet.destination_address == transcript_proof.flow_target[0]
+            and packet.destination_port == transcript_proof.flow_target[1]
         ):
-            outbound += 1
-            allowed.add(index)
+            assert packet.source_address is not None and packet.source_port is not None
+            source = (packet.source_address, packet.source_port)
+            candidates.setdefault(source, {"outbound": [], "inbound": []})[
+                "outbound"
+            ].append(index)
         elif (
-            packet.source_address == fixture.address
-            and packet.source_port == expected_port
+            packet.source_address == transcript_proof.flow_target[0]
+            and packet.source_port == transcript_proof.flow_target[1]
         ):
-            inbound += 1
-            allowed.add(index)
-    if outbound == 0 or inbound == 0:
+            assert (
+                packet.destination_address is not None
+                and packet.destination_port is not None
+            )
+            source = (packet.destination_address, packet.destination_port)
+            candidates.setdefault(source, {"outbound": [], "inbound": []})[
+                "inbound"
+            ].append(index)
+    complete = [
+        (source, directions)
+        for source, directions in candidates.items()
+        if directions["outbound"] and directions["inbound"]
+    ]
+    if role == "external-observer":
+        complete = [
+            item for item in complete if item[0] == transcript_proof.flow_peer
+        ]
+    if len(complete) != 1:
         raise ValueError(
-            f"{role} {gate_id} is missing the encrypted/fixture-SOCKS endpoint exchange"
+            f"{role} {gate_id} must contain one transcript-bound bidirectional TCP flow"
         )
-    proof = hashlib.sha256(
-        b"ripdpi:dns-evidence-encrypted-role-proof:v1:"
-        + gate_id.encode("ascii")
-        + b":"
-        + transcript_proof
-        + b":"
-        + str(expected_port).encode("ascii")
-    ).digest()
+    source, directions = complete[0]
+    outbound_stream = _reassemble_tcp_direction(
+        role=role,
+        gate_id=gate_id,
+        packets=packets,
+        record_indexes=directions["outbound"],
+        direction="outbound",
+    )
+    inbound_stream = _reassemble_tcp_direction(
+        role=role,
+        gate_id=gate_id,
+        packets=packets,
+        record_indexes=directions["inbound"],
+        direction="inbound",
+    )
+    through_socks = gate_id == "dns-proxied-through-tunnelled-resolver"
+    outbound_tls = _tls_record_digest(
+        outbound_stream,
+        role,
+        gate_id,
+        "outbound",
+        socks_direction="outbound" if through_socks else None,
+        socks_target=transcript_proof.tls_target,
+    )
+    inbound_tls = _tls_record_digest(
+        inbound_stream,
+        role,
+        gate_id,
+        "inbound",
+        socks_direction="inbound" if through_socks else None,
+        socks_target=None,
+    )
+    if not any(
+        length >= transcript_proof.query_wire_bytes + 2
+        for length in outbound_tls.application_data_lengths
+    ):
+        raise ValueError(
+            f"{role} {gate_id} TLS flow does not carry the transcript-bound DNS query bytes"
+        )
+    allowed = set(directions["outbound"] + directions["inbound"])
+    timestamps = tuple(sorted(packets[index].timestamp_ns for index in allowed))
+    event_ns = transcript_proof.query_created_at_ms * 1_000_000
+    if all(abs(timestamp - event_ns) > 2_000_000_000 for timestamp in timestamps):
+        raise ValueError(
+            f"{role} {gate_id} TLS flow is not time-bound to the fixture query event"
+        )
+    proof = EncryptedDnsRoleProof(
+        transcript_digest=transcript_proof.digest,
+        source=source,
+        target=transcript_proof.flow_target,
+        outbound_tls_digest=outbound_tls.digest,
+        inbound_tls_digest=inbound_tls.digest,
+        packet_timestamps_ns=timestamps,
+        normalized_flow_digest=_normalized_flow_digest(
+            packets, directions["outbound"], directions["inbound"]
+        ),
+    )
     return proof, allowed
+
+
+def _reassemble_tcp_direction(
+    *,
+    role: str,
+    gate_id: str,
+    packets: list[Packet],
+    record_indexes: list[int],
+    direction: str,
+) -> bytes:
+    segments: dict[int, bytes] = {}
+    anchor_raw: int | None = None
+    for index in record_indexes:
+        packet = packets[index]
+        if not packet.payload:
+            continue
+        assert packet.tcp_sequence is not None
+        if anchor_raw is None:
+            anchor_raw = packet.tcp_sequence
+        delta = (packet.tcp_sequence - anchor_raw + (1 << 31)) % (1 << 32) - (
+            1 << 31
+        )
+        sequence = anchor_raw + delta
+        existing = segments.get(sequence)
+        if existing is not None:
+            shared = min(len(existing), len(packet.payload))
+            if existing[:shared] != packet.payload[:shared]:
+                raise ValueError(
+                    f"{role} {gate_id} {direction} TCP retransmission conflicts"
+                )
+            if len(packet.payload) <= len(existing):
+                continue
+        segments[sequence] = packet.payload
+    if not segments:
+        raise ValueError(f"{role} {gate_id} {direction} TCP flow has no payload")
+    stream = bytearray()
+    stream_start: int | None = None
+    for sequence, payload in sorted(segments.items()):
+        if stream_start is None:
+            stream_start = sequence
+            stream.extend(payload)
+            continue
+        offset = sequence - stream_start
+        if offset < 0:
+            raise ValueError(f"{role} {gate_id} {direction} TCP sequence wrapped")
+        if offset > len(stream):
+            raise ValueError(f"{role} {gate_id} {direction} TCP payload has a gap")
+        overlap = min(len(payload), len(stream) - offset)
+        if bytes(stream[offset : offset + overlap]) != payload[:overlap]:
+            raise ValueError(f"{role} {gate_id} {direction} TCP overlap conflicts")
+        stream.extend(payload[overlap:])
+    return bytes(stream)
+
+
+def _socks_address_end(stream: bytes, offset: int, context: str) -> tuple[int, bytes, int]:
+    if offset >= len(stream):
+        raise ValueError(f"{context} SOCKS address is truncated")
+    address_type = stream[offset]
+    offset += 1
+    if address_type == 1:
+        end = offset + 4
+    elif address_type == 4:
+        end = offset + 16
+    elif address_type == 3:
+        if offset >= len(stream):
+            raise ValueError(f"{context} SOCKS domain is truncated")
+        end = offset + 1 + stream[offset]
+        offset += 1
+    else:
+        raise ValueError(f"{context} SOCKS address type is invalid")
+    if end + 2 > len(stream):
+        raise ValueError(f"{context} SOCKS address is truncated")
+    address = stream[offset:end]
+    port = int.from_bytes(stream[end : end + 2], "big")
+    return end + 2, address, port
+
+
+def _strip_socks_prefix(
+    stream: bytes,
+    *,
+    role: str,
+    gate_id: str,
+    direction: str,
+    target: tuple[bytes, int] | None,
+) -> bytes:
+    context = f"{role} {gate_id} {direction}"
+    if direction == "outbound":
+        if len(stream) < 3 or stream[0] != 5 or stream[1] < 1:
+            raise ValueError(f"{context} SOCKS greeting is malformed")
+        offset = 2 + stream[1]
+        if offset > len(stream) or 0 not in stream[2:offset]:
+            raise ValueError(f"{context} SOCKS greeting does not offer no-auth")
+        if offset + 4 > len(stream) or stream[offset : offset + 3] != b"\x05\x01\x00":
+            raise ValueError(f"{context} SOCKS CONNECT request is malformed")
+        address_type = stream[offset + 3]
+        end, address, port = _socks_address_end(stream, offset + 3, context)
+        assert target is not None
+        if address_type not in (1, 4) or address != target[0] or port != target[1]:
+            raise ValueError(f"{context} SOCKS CONNECT target mismatch")
+    else:
+        if len(stream) < 6 or stream[:2] != b"\x05\x00" or stream[2:5] != b"\x05\x00\x00":
+            raise ValueError(f"{context} SOCKS responses are malformed")
+        end, _address, _port = _socks_address_end(stream, 5, context)
+    if end >= len(stream):
+        raise ValueError(f"{context} SOCKS stream has no TLS payload")
+    return stream[end:]
+
+
+def _tls_record_digest(
+    stream: bytes,
+    role: str,
+    gate_id: str,
+    direction: str,
+    *,
+    socks_direction: str | None,
+    socks_target: tuple[bytes, int] | None,
+) -> TlsStreamProof:
+    if socks_direction is not None:
+        stream = _strip_socks_prefix(
+            stream,
+            role=role,
+            gate_id=gate_id,
+            direction=socks_direction,
+            target=socks_target,
+        )
+    records: list[bytes] = []
+    application_lengths: list[int] = []
+    offset = 0
+    while offset < len(stream):
+        if offset + 5 > len(stream):
+            raise ValueError(
+                f"{role} {gate_id} {direction} TLS stream has trailing bytes"
+            )
+        content_type = stream[offset]
+        major, minor = stream[offset + 1], stream[offset + 2]
+        length = int.from_bytes(stream[offset + 3 : offset + 5], "big")
+        end = offset + 5 + length
+        if (
+            content_type in range(20, 24)
+            and major == 3
+            and minor in range(0, 5)
+            and length in range(1, 18_433)
+            and end <= len(stream)
+        ):
+            record = stream[offset:end]
+            records.append(record)
+            if content_type == 23:
+                application_lengths.append(length)
+            offset = end
+            continue
+        raise ValueError(
+            f"{role} {gate_id} {direction} TLS stream contains invalid or partial framing"
+        )
+    if not records:
+        raise ValueError(f"{role} {gate_id} {direction} flow has no complete TLS record")
+    return TlsStreamProof(
+        digest=hashlib.sha256(
+            b"ripdpi:dns-evidence-tls-stream:v2:" + stream
+        ).digest(),
+        application_data_lengths=tuple(application_lengths),
+    )
+
+
+def _normalized_flow_digest(
+    packets: list[Packet], outbound: list[int], inbound: list[int]
+) -> bytes:
+    entries = sorted(
+        [(index, 0) for index in outbound] + [(index, 1) for index in inbound],
+        key=lambda item: (packets[item[0]].timestamp_ns, item[0]),
+    )
+    base_timestamp = packets[entries[0][0]].timestamp_ns
+    anchors: dict[int, int] = {}
+    digest = hashlib.sha256(b"ripdpi:dns-evidence-normalized-flow:v1")
+    for index, direction in entries:
+        packet = packets[index]
+        assert packet.tcp_sequence is not None
+        anchor = anchors.setdefault(direction, packet.tcp_sequence)
+        relative_sequence = (
+            packet.tcp_sequence - anchor + (1 << 31)
+        ) % (1 << 32) - (1 << 31)
+        payload = packet.payload or b""
+        digest.update(bytes((direction,)))
+        digest.update(struct.pack("!q", packet.timestamp_ns - base_timestamp))
+        digest.update(struct.pack("!qI", relative_sequence, len(payload)))
+        digest.update(hashlib.sha256(payload).digest())
+    return digest.digest()
 
 
 def _resolver_endpoint_sha256(packet: Packet) -> str:
@@ -1681,8 +2171,8 @@ def derive_observation(
     fixture: FixtureContext | None,
     startup_query_sha256: str | None,
     dns_action_facts: dict[str, dict[str, Any]],
-    fixture_transcript_proofs: dict[str, bytes],
-) -> tuple[dict[str, Any], dict[str, bytes]]:
+    fixture_transcript_proofs: dict[str, EncryptedDnsTranscriptProof],
+) -> tuple[dict[str, Any], dict[str, bytes | EncryptedDnsRoleProof]]:
     counters = {
         window.identifier: {
             "expected": 0,
@@ -1717,7 +2207,7 @@ def derive_observation(
         if semantic_rules[window.identifier].name == STARTUP_RULE:
             counters[window.identifier]["action"] = 1
             counters[window.identifier]["outcome"] = 1
-    semantic_proofs: dict[str, bytes] = {}
+    semantic_proofs: dict[str, bytes | EncryptedDnsRoleProof] = {}
     allowed_dns_records: dict[str, set[int]] = {}
     for index, window in enumerate(windows):
         if semantic_rules[window.identifier].name != STARTUP_RULE:
@@ -1956,6 +2446,55 @@ def reject_existing_aliases(paths: tuple[Path, ...]) -> None:
                 )
 
 
+def _validate_dual_vantage_semantic_proofs(
+    client: dict[str, bytes | EncryptedDnsRoleProof],
+    observer: dict[str, bytes | EncryptedDnsRoleProof],
+) -> None:
+    if set(client) != set(observer):
+        raise ValueError("dual-vantage DNS semantic proof inventory mismatch")
+    for gate_id in client:
+        client_proof = client[gate_id]
+        observer_proof = observer[gate_id]
+        if isinstance(client_proof, EncryptedDnsRoleProof) or isinstance(
+            observer_proof, EncryptedDnsRoleProof
+        ):
+            if not isinstance(
+                client_proof, EncryptedDnsRoleProof
+            ) or not isinstance(observer_proof, EncryptedDnsRoleProof):
+                raise ValueError(f"{gate_id} dual-vantage proof type mismatch")
+            if (
+                client_proof.transcript_digest != observer_proof.transcript_digest
+                or client_proof.target != observer_proof.target
+                or client_proof.outbound_tls_digest
+                != observer_proof.outbound_tls_digest
+                or client_proof.inbound_tls_digest
+                != observer_proof.inbound_tls_digest
+            ):
+                raise ValueError(
+                    f"{gate_id} client-underlay and observer TLS flow mapping mismatch"
+                )
+            if client_proof.source == observer_proof.source:
+                raise ValueError(
+                    f"{gate_id} role captures reuse one copied transcript-bound 5-tuple"
+                )
+            if (
+                client_proof.normalized_flow_digest
+                == observer_proof.normalized_flow_digest
+            ):
+                raise ValueError(
+                    f"{gate_id} role captures reuse one tuple-independent normalized flow"
+                )
+            if (
+                client_proof.packet_timestamps_ns
+                == observer_proof.packet_timestamps_ns
+            ):
+                raise ValueError(
+                    f"{gate_id} role captures reuse one copied transcript-bound flow"
+                )
+        elif client_proof != observer_proof:
+            raise ValueError("dual-vantage DNS semantic proofs do not match")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--client-pcap", required=True, type=Path)
@@ -2010,7 +2549,7 @@ def main() -> int:
         fixture: FixtureContext | None = None
         startup_query_sha256: str | None = None
         dns_action_facts: dict[str, dict[str, Any]] = {}
-        fixture_transcript_proofs: dict[str, bytes] = {}
+        fixture_transcript_proofs: dict[str, EncryptedDnsTranscriptProof] = {}
         if action_rules:
             if (
                 len(args.action_receipt) != len(action_rules)
@@ -2070,11 +2609,12 @@ def main() -> int:
                 )
         elif (
             args.action_receipt
+            or args.fixture_transcript
             or args.fixture_manifest is not None
             or args.test_only_action_registry_override is not None
         ):
             raise ValueError(
-                "action receipt and fixture manifest are forbidden without an action semantic rule"
+                "action receipt, fixture transcript, and fixture manifest are forbidden without an action semantic rule"
             )
         client_metadata_value, _raw = load_strict_json(
             args.client_metadata,
@@ -2134,8 +2674,7 @@ def main() -> int:
             dns_action_facts=dns_action_facts,
             fixture_transcript_proofs=fixture_transcript_proofs,
         )
-        if client_proofs != observer_proofs:
-            raise ValueError("dual-vantage DNS semantic proofs do not match")
+        _validate_dual_vantage_semantic_proofs(client_proofs, observer_proofs)
         write_private_json(args.client_output, client)
         write_private_json(args.observer_output, observer)
         validate_final_output(args.client_output)

@@ -77,6 +77,19 @@ if [[ -n "$fixture_transcript_output" ]]; then
     [[ ! -e "$fixture_transcript_output" && ! -L "$fixture_transcript_output" ]] ||
         fail "fixture transcript output must not already exist"
 fi
+if [[ -n "$fixture_transcript_output" ]]; then
+    if ! python3 - "$receipt_output" "$fixture_transcript_output" <<'PY'
+from pathlib import Path
+import sys
+
+receipt, transcript = (Path(value) for value in sys.argv[1:])
+if receipt.resolve(strict=False) == transcript.resolve(strict=False):
+    raise SystemExit(1)
+PY
+    then
+        fail "receipt and fixture transcript outputs must be distinct"
+    fi
+fi
 if [[ -n "$test_only_action_registry_override" ]]; then
     [[ "$test_only_action_registry_override" == /* ]] ||
         fail "test-only action registry override path must be absolute"
@@ -390,6 +403,8 @@ import stat
 import sys
 from pathlib import Path
 
+created: list[tuple[Path, int, int]] = []
+
 def publish(source_name: str, destination_name: str) -> None:
     source = Path(source_name)
     destination = Path(destination_name)
@@ -397,6 +412,8 @@ def publish(source_name: str, destination_name: str) -> None:
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     descriptor = os.open(destination, flags, 0o600)
+    metadata = os.fstat(descriptor)
+    created.append((destination, metadata.st_dev, metadata.st_ino))
     try:
         with os.fdopen(descriptor, "wb", closefd=False) as output:
             with source.open("rb") as input_file:
@@ -407,10 +424,25 @@ def publish(source_name: str, destination_name: str) -> None:
         os.close(descriptor)
     metadata = destination.lstat()
     if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600:
-        raise SystemExit(1)
+        raise OSError("published output is not a private regular file")
 
-if sys.argv[3]:
-    publish(sys.argv[3], sys.argv[4])
-publish(sys.argv[1], sys.argv[2])
+receipt_destination = Path(sys.argv[2]).resolve(strict=False)
+transcript_destination = Path(sys.argv[4]).resolve(strict=False) if sys.argv[3] else None
+if transcript_destination is not None and receipt_destination == transcript_destination:
+    raise SystemExit(1)
+
+try:
+    if sys.argv[3]:
+        publish(sys.argv[3], sys.argv[4])
+    publish(sys.argv[1], sys.argv[2])
+except BaseException:
+    for destination, device, inode in reversed(created):
+        try:
+            metadata = destination.lstat()
+            if metadata.st_dev == device and metadata.st_ino == inode:
+                destination.unlink()
+        except FileNotFoundError:
+            pass
+    raise
 PY
 echo "Android network evidence action passed: $gate_id"

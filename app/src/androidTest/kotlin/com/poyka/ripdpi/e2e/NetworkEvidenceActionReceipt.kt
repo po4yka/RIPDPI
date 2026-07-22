@@ -316,13 +316,20 @@ internal fun writeNetworkEvidenceFixtureTranscript(
     require(relevant.isNotEmpty()) { "Fixture transcript is empty" }
     val document =
         JSONObject()
-            .put("version", "network_evidence_fixture_transcript_v1")
+            .put("version", "network_evidence_fixture_transcript_v2")
             .put("gateId", evidence.gateId)
             .put("correlationId", evidence.correlationId)
             .put("fixtureIdentitySha256", evidence.fixtureIdentitySha256)
             .put("queryHost", queryHost.lowercase())
             .put("querySha256", networkEvidenceDnsQuerySha256V1(queryHost))
             .put(
+                "eventInventory",
+                JSONArray().apply {
+                    events.forEach { event ->
+                        put(redactedFixtureEventInventoryEntry(event))
+                    }
+                },
+            ).put(
                 "events",
                 JSONArray().apply {
                     relevant.forEach { event ->
@@ -352,6 +359,29 @@ internal fun writeNetworkEvidenceFixtureTranscript(
     check(temporary.renameTo(destination)) { "Could not atomically publish fixture transcript" }
     return MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 }
+
+private fun redactedFixtureEventInventoryEntry(event: FixtureEventDto): JSONObject {
+    val knownServices = setOf("dns_dot", "dns_udp", "dns_http", "dns_dnscrypt", "dns_doq", "socks5_relay")
+    val knownProtocols = setOf("dot", "udp", "http", "dnscrypt", "doq", "tcp")
+    return JSONObject()
+        .put("service", event.service.takeIf(knownServices::contains) ?: "other")
+        .put("protocol", event.protocol.takeIf(knownProtocols::contains) ?: "other")
+        .put("peerSha256", fixtureEventFieldSha256("peer", event.peer))
+        .put("targetSha256", fixtureEventFieldSha256("target", event.target))
+        .put("detailSha256", fixtureEventFieldSha256("detail", event.detail))
+        .put("bytes", event.bytes)
+        .put("sniSha256", event.sni?.let { fixtureEventFieldSha256("sni", it) } ?: JSONObject.NULL)
+        .put("createdAt", event.createdAt)
+}
+
+private fun fixtureEventFieldSha256(
+    field: String,
+    value: String,
+): String =
+    MessageDigest
+        .getInstance("SHA-256")
+        .digest("ripdpi:network-evidence-fixture-event-field:v1:$field:$value".toByteArray(StandardCharsets.UTF_8))
+        .toHex()
 
 internal fun writeNetworkEvidenceDnsPassReceipt(
     context: Context,
