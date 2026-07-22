@@ -3303,6 +3303,8 @@ Origen: %2$s</string>
     <string name="asset_provider_failure_unexpected">La operación de datos falló. Inténtalo de nuevo.</string>
     <string name="asset_provider_persistence_failed_title">La configuración del proveedor no se guardó</string>
     <string name="asset_provider_persistence_failed_body">RIPDPI no pudo guardar esta configuración. Toca para volver a intentarlo antes de salir.</string>
+    <string name="asset_provider_exit_pending_title">Finalizando la operación de recursos</string>
+    <string name="asset_provider_exit_pending_body">RIPDPI volverá cuando termine la operación activa y se guarden los ajustes del proveedor.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Rusia)</string>
     <string name="asset_provider_runetfreedom_desc">Conjunto de reglas de evasión de facto para RU; más actual que antizapret para etiquetas geoip/geosite de v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">Actualizado hace %1$d días</string>

@@ -208,7 +208,17 @@ internal fun AssetProviderScreen(
         title = stringResource(R.string.title_asset_provider),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
+        navigationEnabled = !state.isExitPersistenceInProgress,
     ) {
+        if (state.isExitPersistenceInProgress) {
+            item(key = "asset_provider_exit_pending") {
+                WarningBanner(
+                    title = stringResource(R.string.asset_provider_exit_pending_title),
+                    message = stringResource(R.string.asset_provider_exit_pending_body),
+                    tone = WarningBannerTone.Info,
+                )
+            }
+        }
         item(key = "asset_provider_intro") {
             WarningBanner(
                 title = stringResource(R.string.asset_provider_intro_title),

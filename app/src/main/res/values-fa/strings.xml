@@ -3308,6 +3308,8 @@ fakeddisorder endhost</string>
     <string name="asset_provider_failure_unexpected">عملیات داده ناموفق بود. دوباره تلاش کنید.</string>
     <string name="asset_provider_persistence_failed_title">تنظیمات ارائه‌دهنده ذخیره نشد</string>
     <string name="asset_provider_persistence_failed_body">RIPDPI نتوانست این تنظیمات را ذخیره کند. پیش از خروج برای تلاش دوباره ضربه بزنید.</string>
+    <string name="asset_provider_exit_pending_title">در حال پایان دادن به عملیات دارایی</string>
+    <string name="asset_provider_exit_pending_body">پس از پایان عملیات فعال و ذخیره تنظیمات ارائه‌دهنده، RIPDPI بازمی‌گردد.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسیه)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعه قوانین عبور پیش‌فرض برای روسیه؛ به‌روزتر از antizapret برای تگ‌های geoip/geosite در v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">%1$d روز پیش به‌روزرسانی شد</string>

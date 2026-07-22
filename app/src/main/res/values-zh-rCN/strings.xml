@@ -3294,6 +3294,8 @@ fake_burst 3</string>
     <string name="asset_provider_failure_unexpected">数据操作失败。请重试。</string>
     <string name="asset_provider_persistence_failed_title">提供方设置未保存</string>
     <string name="asset_provider_persistence_failed_body">RIPDPI 无法保存这些设置。请在离开前点按以重试。</string>
+    <string name="asset_provider_exit_pending_title">正在完成资源操作</string>
+    <string name="asset_provider_exit_pending_body">活动操作完成并保存提供方设置后，RIPDPI 将返回上一页。</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom(俄罗斯)</string>
     <string name="asset_provider_runetfreedom_desc">事实上的俄罗斯绕过规则集;对 v2ray/xray 的 geoip/geosite 标签比 antizapret 更新更及时。</string>
     <string name="asset_provider_updated_days_ago">%1$d 天前更新</string>

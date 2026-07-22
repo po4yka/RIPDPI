@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -103,6 +104,22 @@ class AssetProviderScreenTest {
     }
 
     @Test
+    fun `pending exit disables back and explains the wait`() {
+        render(
+            activeOperation = AssetProviderOperation.ImportGeoip,
+            isExitPersistenceInProgress = true,
+        )
+
+        val context = RuntimeEnvironment.getApplication()
+        composeRule
+            .onNodeWithContentDescription(context.getString(R.string.navigation_back))
+            .assertIsNotEnabled()
+        composeRule
+            .onNodeWithText(context.getString(R.string.asset_provider_exit_pending_body))
+            .assertExists()
+    }
+
+    @Test
     fun `maximum font stacks complete asset versions below their labels`() {
         render(
             activeOperation = null,
@@ -151,6 +168,7 @@ class AssetProviderScreenTest {
         resultBanner: AssetProviderCheckOutcome? = null,
         customBaseUrl: String = "https://provider.example/assets",
         hasPersistenceError: Boolean = false,
+        isExitPersistenceInProgress: Boolean = false,
         onRetryConfigurationPersistence: () -> Unit = {},
         geoipTag: String = "v1",
         geositeTag: String = "v1",
@@ -170,6 +188,7 @@ class AssetProviderScreenTest {
                                 activeOperation = activeOperation,
                                 resultBanner = resultBanner?.let { rememberOutcomeBanner(it) },
                                 hasPersistenceError = hasPersistenceError,
+                                isExitPersistenceInProgress = isExitPersistenceInProgress,
                             ),
                         onBack = {},
                         onProviderSelected = {},

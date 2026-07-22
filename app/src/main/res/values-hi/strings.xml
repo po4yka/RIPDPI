@@ -1916,6 +1916,8 @@ fakeddisorder endhost</string>
     <string name="asset_provider_failure_unexpected">डेटा कार्रवाई विफल रही। फिर कोशिश करें।</string>
     <string name="asset_provider_persistence_failed_title">प्रदाता सेटिंग सहेजी नहीं गईं</string>
     <string name="asset_provider_persistence_failed_body">RIPDPI इन सेटिंग को सहेज नहीं सका। बाहर जाने से पहले दोबारा कोशिश करने के लिए टैप करें।</string>
+    <string name="asset_provider_exit_pending_title">एसेट कार्रवाई पूरी की जा रही है</string>
+    <string name="asset_provider_exit_pending_body">सक्रिय कार्रवाई पूरी होने और प्रदाता सेटिंग्स सहेजे जाने के बाद RIPDPI वापस जाएगा।</string>
     <string name="strategy_config_restore_failed_title">ड्राफ़्ट पुनर्प्राप्ति विफल रही</string>
     <string name="strategy_config_restore_failed_body">सहेजा गया ड्राफ़्ट अभी भी इस डिवाइस पर है। पुनर्प्राप्ति फिर से आज़माएँ या बाहर जाने के लिए इसे त्यागें।</string>
     <string name="strategy_config_restore_retry">फिर कोशिश करें</string>

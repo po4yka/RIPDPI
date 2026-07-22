@@ -3303,6 +3303,8 @@ Source : %2$s</string>
     <string name="asset_provider_failure_unexpected">L’opération sur les données a échoué. Réessayez.</string>
     <string name="asset_provider_persistence_failed_title">Paramètres du fournisseur non enregistrés</string>
     <string name="asset_provider_persistence_failed_body">RIPDPI n’a pas pu enregistrer ces paramètres. Touchez pour réessayer avant de quitter.</string>
+    <string name="asset_provider_exit_pending_title">Finalisation de l’opération sur les ressources</string>
+    <string name="asset_provider_exit_pending_body">RIPDPI reviendra une fois l’opération active terminée et les réglages du fournisseur enregistrés.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russie)</string>
     <string name="asset_provider_runetfreedom_desc">Jeu de règles de contournement de facto pour la RU ; plus à jour qu\'antizapret pour les tags geoip/geosite v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">Mis à jour il y a %1$d jours</string>
