@@ -125,6 +125,7 @@ private fun StrategyConfigRouteScreen(
                 isHydrating = editorViewModel.isHydrating,
                 hasHydrationError = editorViewModel.hasHydrationError,
                 hasPersistenceError = editorViewModel.hasPersistenceError,
+                isFinalizingSave = editorViewModel.isFinalizingSave,
             ),
         onBack = editorViewModel::requestExit,
         onSourceChanged = { source ->
@@ -216,12 +217,14 @@ private fun StrategyConfigEditorSession.toRouteScreenState(
     isHydrating: Boolean,
     hasHydrationError: Boolean,
     hasPersistenceError: Boolean,
+    isFinalizingSave: Boolean,
 ): StrategyConfigScreenState =
     toScreenState(
         activePath = activePathLabel(context, draft.source, draft.luaPath),
         banner = resolveStrategyConfigRouteBanner(context, banner, hasPersistenceError),
         isHydrating = isHydrating,
         hasHydrationError = hasHydrationError,
+        isFinalizingSave = isFinalizingSave,
     )
 
 internal fun resolveStrategyConfigRouteBanner(

@@ -71,6 +71,7 @@ internal data class StrategyConfigEditorSession(
         banner: StrategyConfigBanner?,
         isHydrating: Boolean = false,
         hasHydrationError: Boolean = false,
+        isFinalizingSave: Boolean = false,
     ): StrategyConfigScreenState =
         StrategyConfigScreenState(
             source = draft.source,
@@ -82,6 +83,7 @@ internal data class StrategyConfigEditorSession(
             isSaving = isSaving,
             isHydrating = isHydrating,
             hasHydrationError = hasHydrationError,
+            isFinalizingSave = isFinalizingSave,
         )
 
     fun syncCleanBuiltIn(configText: String): StrategyConfigEditorSession {

@@ -433,7 +433,7 @@ class StrategyConfigEditorViewModelTest {
         }
 
     @Test
-    fun `failed clean-draft deletion keeps latest edit dirty and restores it after recreation`() =
+    fun `failed clean-draft deletion keeps submitted draft dirty and rejects finalization edits`() =
         runTest {
             val store = ControllableDeleteStrategyConfigDraftStore()
             val handle = SavedStateHandle()
@@ -465,7 +465,7 @@ class StrategyConfigEditorViewModelTest {
             val current = requireNotNull(viewModel.session)
             assertFalse(current.isSaving)
             assertTrue(current.isDirty)
-            assertEquals("tcp: latest while deleting", current.draft.configText)
+            assertEquals("tcp: submitted", current.draft.configText)
             assertEquals("tcp: split", current.baseline.configText)
 
             val recreated =
@@ -475,12 +475,12 @@ class StrategyConfigEditorViewModelTest {
                 )
             recreated.syncBuiltIn("tcp: split")
 
-            assertEquals("tcp: latest while deleting", requireNotNull(recreated.session).draft.configText)
+            assertEquals("tcp: submitted", requireNotNull(recreated.session).draft.configText)
             assertTrue(requireNotNull(recreated.session).isDirty)
         }
 
     @Test
-    fun `edit made while successful deletion waits is persisted before save completes`() =
+    fun `editing is rejected while successful save finalization waits`() =
         runTest {
             val store = ControllableDeleteStrategyConfigDraftStore()
             val handle = SavedStateHandle()
@@ -498,6 +498,9 @@ class StrategyConfigEditorViewModelTest {
             runCurrent()
 
             viewModel.update { copy(configText = "tcp: latest while deleting") }
+            viewModel.selectSource(StrategyConfigSource.LuaScript, "tcp: built in")
+            assertFalse(viewModel.importConfig("tcp: imported while deleting"))
+            assertEquals("tcp: submitted", requireNotNull(viewModel.session).draft.configText)
             store.finishDelete()
             assertTrue(result.await().saved)
             runCurrent()
@@ -508,8 +511,8 @@ class StrategyConfigEditorViewModelTest {
                     store,
                 )
             recreated.syncBuiltIn("tcp: submitted")
-            assertEquals("tcp: latest while deleting", requireNotNull(recreated.session).draft.configText)
-            assertTrue(requireNotNull(recreated.session).isDirty)
+            assertEquals("tcp: submitted", requireNotNull(recreated.session).draft.configText)
+            assertFalse(requireNotNull(recreated.session).isDirty)
         }
 
     @Test

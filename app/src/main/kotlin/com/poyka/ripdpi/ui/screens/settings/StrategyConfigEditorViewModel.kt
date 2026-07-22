@@ -44,6 +44,8 @@ internal class StrategyConfigEditorViewModel
 
         var session by mutableStateOf<StrategyConfigEditorSession?>(null)
             private set
+        var isFinalizingSave by mutableStateOf(false)
+            private set
         var isHydrating by mutableStateOf(true)
             private set
         var hasHydrationError by mutableStateOf(false)
@@ -90,7 +92,7 @@ internal class StrategyConfigEditorViewModel
         }
 
         fun update(transform: StrategyConfigDraft.() -> StrategyConfigDraft) {
-            if (discarding) return
+            if (discarding || isFinalizingSave) return
             session?.update(transform)?.let(::setAndPersist)
         }
 
@@ -98,14 +100,14 @@ internal class StrategyConfigEditorViewModel
             source: StrategyConfigSource,
             builtInConfigText: String,
         ) {
-            if (discarding) return
+            if (discarding || isFinalizingSave) return
             session
                 ?.selectSource(source, builtInConfigText.boundedUtf8(StrategyConfigMaxImportBytes))
                 ?.let(::setAndPersist)
         }
 
         fun importConfig(configText: String): Boolean =
-            if (discarding) {
+            if (discarding || isFinalizingSave) {
                 false
             } else {
                 val bounded = configText.boundedUtf8(StrategyConfigMaxImportBytes)
@@ -153,15 +155,12 @@ internal class StrategyConfigEditorViewModel
                 finishSave(request, succeeded = false)
                 return
             }
-            var recoveryDeleted = false
+            isFinalizingSave = true
             try {
-                // Keep the submitted baseline dirty until removal of its recovery record is durable.
-                persistence.deleteAndAwait()
-                recoveryDeleted = true
+                finishSuccessfulSave(request)
             } finally {
-                if (!recoveryDeleted) finishSave(request, succeeded = false)
+                isFinalizingSave = false
             }
-            finishSuccessfulSave(request)
         }
 
         suspend fun discard() {
@@ -206,38 +205,21 @@ internal class StrategyConfigEditorViewModel
         }
 
         private suspend fun finishSuccessfulSave(request: StrategyConfigSaveRequest) {
-            var finished = false
-            while (!finished) {
-                val current = session
-                if (current == null) {
-                    finished = true
-                } else {
-                    val completed = current.completeSave(request, succeeded = true)
-                    if (!completed.isDirty) {
-                        session = completed
-                        reevaluateExitRequest()
-                        finished = true
-                    } else if (persistSuccessfulDirtySave(request, completed) && session == current) {
-                        session = completed
-                        reevaluateExitRequest()
-                        finished = true
-                    }
-                }
-            }
-        }
-
-        private suspend fun persistSuccessfulDirtySave(
-            request: StrategyConfigSaveRequest,
-            completed: StrategyConfigEditorSession,
-        ): Boolean {
-            var persisted = false
+            val current = session ?: return
+            val completed = current.completeSave(request, succeeded = true)
+            var persistenceAcknowledged = false
             try {
-                persistence.persistAndAwait(completed)
-                persisted = true
+                if (completed.isDirty) {
+                    persistence.persistAndAwait(completed)
+                } else {
+                    persistence.deleteAndAwait()
+                }
+                persistenceAcknowledged = true
             } finally {
-                if (!persisted) finishSave(request, succeeded = false)
+                if (!persistenceAcknowledged) finishSave(request, succeeded = false)
             }
-            return persisted
+            session = completed
+            reevaluateExitRequest()
         }
 
         private fun reevaluateExitRequest() {

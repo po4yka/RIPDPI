@@ -67,6 +67,7 @@ internal data class StrategyConfigScreenState(
     val isSaving: Boolean = false,
     val isHydrating: Boolean = false,
     val hasHydrationError: Boolean = false,
+    val isFinalizingSave: Boolean = false,
 )
 
 @Composable
@@ -242,6 +243,7 @@ private fun StrategyConfigSourceCard(
     state: StrategyConfigScreenState,
     onSourceChanged: (StrategyConfigSource) -> Unit,
 ) {
+    val editingEnabled = !state.isHydrating && !state.isFinalizingSave
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             SettingsRow(
@@ -254,7 +256,7 @@ private fun StrategyConfigSourceCard(
                 options = rememberStrategyConfigSourceOptions(),
                 selectedValue = state.source,
                 onValueSelected = onSourceChanged,
-                enabled = !state.isHydrating,
+                enabled = editingEnabled,
                 testTag = RipDpiTestTags.StrategyConfigSource,
             )
         }
@@ -270,6 +272,7 @@ private fun TextStrategyConfigCard(
     onSave: () -> Unit,
     onReload: () -> Unit,
 ) {
+    val editingEnabled = !state.isHydrating && !state.isFinalizingSave
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             Text(
@@ -287,7 +290,7 @@ private fun TextStrategyConfigCard(
                     ),
                 behavior =
                     RipDpiTextFieldBehavior(
-                        enabled = !state.isHydrating,
+                        enabled = editingEnabled,
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType = KeyboardType.Ascii,
@@ -304,7 +307,7 @@ private fun TextStrategyConfigCard(
                 secondaryLabel = stringResource(R.string.strategy_config_reload_action),
                 secondaryIcon = RipDpiIcons.NetworkCheck,
                 onSecondary = onReload,
-                enabled = !state.isHydrating,
+                enabled = editingEnabled,
             )
             StrategyConfigActionRows(
                 primaryLabel = stringResource(R.string.config_relay_import),
@@ -313,7 +316,7 @@ private fun TextStrategyConfigCard(
                 secondaryLabel = stringResource(R.string.strategy_config_export_action),
                 secondaryIcon = RipDpiIcons.Share,
                 onSecondary = onExport,
-                enabled = !state.isHydrating,
+                enabled = editingEnabled,
             )
         }
     }
@@ -328,6 +331,7 @@ private fun LuaStrategyConfigCard(
     onReload: () -> Unit,
     onSave: () -> Unit,
 ) {
+    val editingEnabled = !state.isHydrating && !state.isFinalizingSave
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiConfigTextField(
@@ -341,7 +345,7 @@ private fun LuaStrategyConfigCard(
                     ),
                 behavior =
                     RipDpiTextFieldBehavior(
-                        enabled = !state.isHydrating,
+                        enabled = editingEnabled,
                         textStyle =
                             RipDpiThemeTokens.type.monoConfig.copy(
                                 textAlign = TextAlign.Start,
@@ -361,7 +365,7 @@ private fun LuaStrategyConfigCard(
                     ),
                 behavior =
                     RipDpiTextFieldBehavior(
-                        enabled = !state.isHydrating,
+                        enabled = editingEnabled,
                         textStyle =
                             RipDpiThemeTokens.type.monoConfig.copy(
                                 textAlign = TextAlign.Start,
@@ -382,7 +386,7 @@ private fun LuaStrategyConfigCard(
                 secondaryIcon = RipDpiIcons.NetworkCheck,
                 onSecondary = onSave,
                 secondaryLoading = state.isSaving,
-                enabled = !state.isHydrating,
+                enabled = editingEnabled,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -394,7 +398,7 @@ private fun LuaStrategyConfigCard(
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.NetworkCheck,
-                    enabled = !state.isHydrating,
+                    enabled = editingEnabled,
                 )
             }
         }

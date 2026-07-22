@@ -54,10 +54,14 @@ class StrategyConfigScreenTest {
     }
 
     @Test
-    fun savingDisablesTheSubmittedAction() {
-        setScreen(isSaving = true)
+    fun saveFinalizationDisablesEditorAndAllMutableActions() {
+        setScreen(isSaving = true, isFinalizingSave = true)
 
+        composeRule.onNodeWithTag(RipDpiTestTags.StrategyConfigSource).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.StrategyConfigEditor).assertIsNotEnabled()
         composeRule.onNodeWithText("Save").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithText("Reload").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithText("Import").performScrollTo().assertIsNotEnabled()
     }
 
     @Test
@@ -129,6 +133,7 @@ class StrategyConfigScreenTest {
         onImport: () -> Unit = {},
         onExport: () -> Unit = {},
         isSaving: Boolean = false,
+        isFinalizingSave: Boolean = false,
         isHydrating: Boolean = false,
         hasHydrationError: Boolean = false,
         onRetryRecovery: () -> Unit = {},
@@ -154,6 +159,7 @@ class StrategyConfigScreenTest {
                                     activePath = "imported.yaml",
                                     banner = null,
                                     isSaving = isSaving,
+                                    isFinalizingSave = isFinalizingSave,
                                     isHydrating = isHydrating,
                                     hasHydrationError = hasHydrationError,
                                 ),
