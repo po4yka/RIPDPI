@@ -92,30 +92,67 @@ def vlan_stack(
 
 
 def pcap_bytes(
-    packets: list[tuple[int, int, bytes]], *, snaplen: int = 65535, linktype: int = 1
+    packets: list[tuple[int, int, bytes]],
+    *,
+    snaplen: int = 65535,
+    linktype: int = 1,
+    endian: str = "<",
+    nanosecond: bool = False,
 ) -> bytes:
+    magic = 0xA1B23C4D if nanosecond else 0xA1B2C3D4
     result = bytearray(
-        struct.pack("<IHHIIII", 0xA1B2C3D4, 2, 4, 0, 0, snaplen, linktype)
+        struct.pack(f"{endian}IHHIIII", magic, 2, 4, 0, 0, snaplen, linktype)
     )
     for seconds, micros, packet in packets:
         captured = packet[:snaplen]
-        result.extend(struct.pack("<IIII", seconds, micros, len(captured), len(packet)))
+        result.extend(
+            struct.pack(f"{endian}IIII", seconds, micros, len(captured), len(packet))
+        )
         result.extend(captured)
     return bytes(result)
 
 
 def pcap_packet_count(raw: bytes) -> int:
+    endian = {
+        b"\xd4\xc3\xb2\xa1": "<",
+        b"\xa1\xb2\xc3\xd4": ">",
+        b"\x4d\x3c\xb2\xa1": "<",
+        b"\xa1\xb2\x3c\x4d": ">",
+    }[raw[:4]]
     offset = 24
     count = 0
     while offset < len(raw):
         _seconds, _micros, captured_length, _original_length = struct.unpack_from(
-            "<IIII", raw, offset
+            f"{endian}IIII", raw, offset
         )
         offset += 16 + captured_length
         count += 1
     if offset != len(raw):
         raise ValueError("test PCAP is malformed")
     return count
+
+
+def add_observer_control(raw: bytes) -> bytes:
+    endian = {
+        b"\xd4\xc3\xb2\xa1": "<",
+        b"\xa1\xb2\xc3\xd4": ">",
+        b"\x4d\x3c\xb2\xa1": "<",
+        b"\xa1\xb2\x3c\x4d": ">",
+    }[raw[:4]]
+    linktype = struct.unpack_from(f"{endian}I", raw, 20)[0]
+    if linktype not in (1, 101, 113, 276):
+        distinguished = bytearray(raw)
+        struct.pack_into(f"{endian}I", distinguished, 12, 1)
+        return bytes(distinguished)
+    network_packet = raw_ipv4_tcp(b"observer-vantage-control")
+    frame = {
+        1: b"\x00" * 12 + struct.pack("!H", 0x0800) + network_packet,
+        101: network_packet,
+        113: linux_sll(0x0800, network_packet),
+        276: linux_sll2(0x0800, network_packet),
+    }[linktype]
+    record = struct.pack(f"{endian}IIII", 102, 0, len(frame), len(frame)) + frame
+    return raw + record
 
 
 def capture_metadata(
@@ -164,8 +201,9 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
                 ethernet_ipv6_udp(marker("window-a", "direct_window", "outcome")),
             ),
         ]
-        self.client_pcap.write_bytes(pcap_bytes(packets))
-        self.observer_pcap.write_bytes(pcap_bytes(packets))
+        raw = pcap_bytes(packets)
+        self.client_pcap.write_bytes(raw)
+        self.observer_pcap.write_bytes(add_observer_control(raw))
         plan = {
             "version": "network_evidence_scenario_plan_v2",
             "sourceSha": SOURCE_SHA,
@@ -250,6 +288,10 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         return json.loads(self.ledger_path.read_text(encoding="utf-8"))
 
     def save_ledger(self, ledger: dict[str, object]) -> None:
+        if self.client_pcap.read_bytes() == self.observer_pcap.read_bytes():
+            self.observer_pcap.write_bytes(
+                add_observer_control(self.observer_pcap.read_bytes())
+            )
         captures = ledger["captures"]
         assert isinstance(captures, dict)
         captures["client-underlay"]["rawCaptureSha256"] = hashlib.sha256(
@@ -464,6 +506,22 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         self.assertIn("digest mismatch", result.stderr)
         self.assertFalse(self.client_output.exists())
 
+    def test_copied_single_vantage_capture_is_rejected(self) -> None:
+        ledger = self.write_inputs()
+        copied = self.client_pcap.read_bytes()
+        self.observer_pcap.write_bytes(copied)
+        digest = hashlib.sha256(copied).hexdigest()
+        ledger["captures"]["external-observer"]["rawCaptureSha256"] = digest
+        self.ledger_path.write_bytes(canonical(ledger))
+        self.observer_metadata.write_bytes(
+            canonical(capture_metadata("external-observer", copied))
+        )
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("distinct raw digests", result.stderr)
+
     def test_unexpected_packet_is_counted_without_accepting_caller_counters(
         self,
     ) -> None:
@@ -664,6 +722,36 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         result = self.run_oracle()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unsupported PCAP linktype", result.stderr)
+
+    def test_classic_pcap_byte_orders_and_timestamp_resolutions(self) -> None:
+        packets = [
+            (
+                100,
+                100_000,
+                ethernet_ipv4_tcp(marker("window-a", "direct_window", "action")),
+            ),
+            (
+                100,
+                200_000,
+                ethernet_ipv4_tcp(marker("window-a", "direct_window", "outcome")),
+            ),
+        ]
+        for endian in ("<", ">"):
+            for nanosecond in (False, True):
+                with self.subTest(endian=endian, nanosecond=nanosecond):
+                    ledger = self.write_inputs()
+                    raw = pcap_bytes(
+                        packets,
+                        endian=endian,
+                        nanosecond=nanosecond,
+                    )
+                    self.client_pcap.write_bytes(raw)
+                    self.observer_pcap.write_bytes(add_observer_control(raw))
+                    self.save_ledger(ledger)
+
+                    result = self.run_oracle()
+
+                    self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_vlan_tagged_ethernet_sll_and_sll2(self) -> None:
         for tags in ((0x8100,), (0x88A8, 0x8100)):

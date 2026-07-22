@@ -402,6 +402,8 @@ def validate_ledger(
         digests[role] = require_pattern(
             capture["rawCaptureSha256"], SHA256_RE, f"captures.{role}.rawCaptureSha256"
         )
+    if len(set(digests.values())) != len(ROLES):
+        raise ValueError("dual-vantage captures must have distinct raw digests")
     return plan, windows, digests
 
 
