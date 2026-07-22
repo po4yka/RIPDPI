@@ -206,7 +206,7 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         self.client_pcap.write_bytes(raw)
         self.observer_pcap.write_bytes(add_observer_control(raw))
         plan = {
-            "version": "network_evidence_scenario_plan_v2",
+            "version": "network_evidence_scenario_plan_v3",
             "sourceSha": SOURCE_SHA,
             "correlationId": CORRELATION_ID,
             "clientArtifactSha256": CLIENT_ARTIFACT_SHA256,

@@ -47,7 +47,7 @@ windows = [
     for window in plan["windows"]
 ]
 observation = {
-    "version": "network_evidence_observation_v2",
+    "version": "network_evidence_observation_v3",
     "sourceSha": source_sha,
     "correlationId": correlation_id,
     "role": role,

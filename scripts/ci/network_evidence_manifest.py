@@ -25,9 +25,9 @@ POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 PRODUCER_POLICY_PATH = ROOT / "quality/release-gates/network-evidence-producers.json"
 RUNNER_PATH = ROOT / "test-lab/scripts/run-dual-vantage-network-evidence.sh"
 
-MANIFEST_VERSION = "network_evidence_manifest_v2"
-OBSERVATION_VERSION = "network_evidence_observation_v2"
-PLAN_VERSION = "network_evidence_scenario_plan_v2"
+MANIFEST_VERSION = "network_evidence_manifest_v3"
+OBSERVATION_VERSION = "network_evidence_observation_v3"
+PLAN_VERSION = "network_evidence_scenario_plan_v3"
 ALLOWED_APPLIES_TO = {"android-client-release", "fleet-profile-rollout"}
 REQUIRED_ROLES = ("client-underlay", "external-observer")
 ROLE_PATHS = {

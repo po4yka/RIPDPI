@@ -93,7 +93,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         correlation = correlation_id or self.correlation_id
         plan = self.plan(correlation_id=correlation)
         return {
-            "version": "network_evidence_observation_v2",
+            "version": "network_evidence_observation_v3",
             "sourceSha": self.source_sha,
             "correlationId": correlation,
             "role": role,
@@ -687,7 +687,7 @@ fi
     def test_repo_schema_pins_manifest_and_observation_versions(self) -> None:
         schema = json.loads(
             (
-                ROOT / "quality/release-gates/network-evidence-manifest-v2.schema.json"
+                ROOT / "quality/release-gates/network-evidence-manifest-v3.schema.json"
             ).read_text(encoding="utf-8")
         )
         self.assertEqual(
@@ -747,11 +747,24 @@ fi
                 "clientArtifactSha256",
             },
         )
+        v2_schema = json.loads(
+            (
+                ROOT / "quality/release-gates/network-evidence-manifest-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            v2_schema["properties"]["version"]["const"],
+            "network_evidence_manifest_v2",
+        )
+        for definition in ("provenance", "observation", "scenarioPlan"):
+            self.assertNotIn(
+                "testArtifactSha256", v2_schema["$defs"][definition]["required"]
+            )
 
     def test_repo_schema_validates_emitted_manifest_and_observations(self) -> None:
         schema = json.loads(
             (
-                ROOT / "quality/release-gates/network-evidence-manifest-v2.schema.json"
+                ROOT / "quality/release-gates/network-evidence-manifest-v3.schema.json"
             ).read_text(encoding="utf-8")
         )
         Draft202012Validator.check_schema(schema)

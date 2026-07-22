@@ -81,7 +81,7 @@ for gate in policy["gates"]:
 Path(plan_path).write_text(
     json.dumps(
         {
-            "version": "network_evidence_scenario_plan_v2",
+            "version": "network_evidence_scenario_plan_v3",
             "correlationId": correlation_id,
             "sourceSha": source_sha,
             "clientArtifactSha256": client_artifact_sha256,

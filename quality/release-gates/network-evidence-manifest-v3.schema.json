@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://po4yka.github.io/RIPDPI/schemas/network-evidence-manifest-v2.schema.json",
-  "title": "RIPDPI redacted dual-vantage network evidence manifest v2",
+  "$id": "https://po4yka.github.io/RIPDPI/schemas/network-evidence-manifest-v3.schema.json",
+  "title": "RIPDPI redacted dual-vantage network evidence manifest v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,7 +17,7 @@
   ],
   "properties": {
     "version": {
-      "const": "network_evidence_manifest_v2"
+      "const": "network_evidence_manifest_v3"
     },
     "sourceSha": {
       "$ref": "#/$defs/sha1"
@@ -95,7 +95,8 @@
         "producerPolicySha256",
         "scenarioPlanSha256",
         "workloadSha256",
-        "clientArtifactSha256"
+        "clientArtifactSha256",
+        "testArtifactSha256"
       ],
       "properties": {
         "executionKind": {
@@ -137,6 +138,9 @@
           "$ref": "#/$defs/sha256"
         },
         "clientArtifactSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "testArtifactSha256": {
           "$ref": "#/$defs/sha256"
         }
       },
@@ -257,6 +261,7 @@
         "networkIdSha256",
         "collectorSha256",
         "clientArtifactSha256",
+        "testArtifactSha256",
         "scenarioPlanSha256",
         "captureStartedAtEpoch",
         "captureFinishedAtEpoch",
@@ -265,7 +270,7 @@
       ],
       "properties": {
         "version": {
-          "const": "network_evidence_observation_v2"
+          "const": "network_evidence_observation_v3"
         },
         "sourceSha": {
           "$ref": "#/$defs/sha1"
@@ -289,6 +294,9 @@
           "$ref": "#/$defs/sha256"
         },
         "clientArtifactSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "testArtifactSha256": {
           "$ref": "#/$defs/sha256"
         },
         "scenarioPlanSha256": {
@@ -377,11 +385,12 @@
         "sourceSha",
         "correlationId",
         "clientArtifactSha256",
+        "testArtifactSha256",
         "windows"
       ],
       "properties": {
         "version": {
-          "const": "network_evidence_scenario_plan_v2"
+          "const": "network_evidence_scenario_plan_v3"
         },
         "sourceSha": {
           "$ref": "#/$defs/sha1"
@@ -390,6 +399,9 @@
           "$ref": "#/$defs/sha256"
         },
         "clientArtifactSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "testArtifactSha256": {
           "$ref": "#/$defs/sha256"
         },
         "windows": {

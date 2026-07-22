@@ -23,8 +23,8 @@ from typing import Any, Iterator
 
 
 LEDGER_VERSION = "network_evidence_action_ledger_v1"
-PLAN_VERSION = "network_evidence_scenario_plan_v2"
-OBSERVATION_VERSION = "network_evidence_observation_v2"
+PLAN_VERSION = "network_evidence_scenario_plan_v3"
+OBSERVATION_VERSION = "network_evidence_observation_v3"
 ROLES = ("client-underlay", "external-observer")
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"

@@ -43,7 +43,7 @@ raw_digest = hashlib.sha256((role + correlation_id).encode("ascii")).hexdigest()
 Path(output_path).write_text(
     json.dumps(
         {
-            "version": "network_evidence_observation_v2",
+            "version": "network_evidence_observation_v3",
             "sourceSha": source_sha,
             "correlationId": correlation_id,
             "role": role,

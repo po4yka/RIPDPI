@@ -140,7 +140,7 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
 
         def observation(role: str) -> dict:
             return {
-                "version": "network_evidence_observation_v2",
+                "version": "network_evidence_observation_v3",
                 "sourceSha": "a" * 40,
                 "correlationId": correlation_id,
                 "role": role,

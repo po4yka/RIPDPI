@@ -309,9 +309,9 @@ in provenance. The observer hook owns the
 authenticated remote capture transport; its credentials and endpoint stay in the
 runner-owned installation.
 
-The runtime accepts manifest, observation, and scenario-plan v2 only. The v1
-schema remains archived for interpreting historical artifacts; it is not an
-accepted release-evidence input. The runner first extracts its own script, the
+The runtime accepts manifest, observation, and scenario-plan v3 only. The v1 and
+v2 schemas remain archived for interpreting historical artifacts; they are not
+accepted release-evidence inputs. The runner first extracts its own script, the
 validator, gate policy, and producer policy directly from the selected Git
 commit, re-executes that immutable snapshot, and records the four blob digests.
 Before capture, the mode-0600 config is opened once with no-follow semantics,
@@ -373,7 +373,7 @@ cellular, routes, DNS, Private DNS, VPN state, or airplane mode on its own; an
 absent receipt remains release-blocking.
 
 The fixed hooks receive only a correlation digest, source SHA, marker paths,
-artifact paths and digests, and output paths. The workload emits a strict v2
+artifact paths and digests, and output paths. The workload emits a strict v3
 scenario plan with action and outcome marker digests derived from a
 domain-separated hash of correlation ID, gate ID, gate kind, and purpose. All
 markers must be unique across both purposes. The plan, both observations, and
