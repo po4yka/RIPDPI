@@ -6,6 +6,7 @@ use crate::mapdns::MapDnsConfig;
 use crate::misc::MiscConfig;
 use crate::raw::RawConfig;
 use crate::socks5::Socks5Config;
+use crate::split_dns::SplitDnsPolicyConfig;
 use crate::tunnel::TunnelConfig;
 use crate::validation;
 
@@ -15,6 +16,8 @@ pub struct Config {
     pub tunnel: TunnelConfig,
     pub socks5: Socks5Config,
     pub mapdns: Option<MapDnsConfig>,
+    /// Android JNI-only split DNS runtime policy; standalone YAML always leaves this `None`.
+    pub split_dns_policy: Option<SplitDnsPolicyConfig>,
     pub misc: MiscConfig,
 }
 
@@ -28,7 +31,8 @@ impl Config {
     fn from_raw(raw: RawConfig) -> Result<Self, ConfigError> {
         validation::validate_envelope(&raw)?;
 
-        let config = Self { tunnel: raw.tunnel, socks5: raw.socks5, mapdns: raw.mapdns, misc: raw.misc };
+        let config =
+            Self { tunnel: raw.tunnel, socks5: raw.socks5, mapdns: raw.mapdns, split_dns_policy: None, misc: raw.misc };
         config.validate()?;
         Ok(config)
     }

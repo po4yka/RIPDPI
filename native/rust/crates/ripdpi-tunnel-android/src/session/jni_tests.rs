@@ -260,6 +260,14 @@ fn exported_jni_requires_current_tunnel_schema_version() {
         });
     }
 
+    with_env(|env| {
+        let handle = jni_create(env, &sample_payload_with_schema_version(Some(3)));
+        assert_ne!(handle, 0, "current v3 JNI payload must allocate a handle");
+        assert_no_exception(env);
+        jni_destroy(env, handle);
+        assert_no_exception(env);
+    });
+
     let mut handle = TunnelHandle::new();
     with_env(|env| {
         jni_destroy(env, handle.raw());

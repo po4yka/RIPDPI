@@ -8,6 +8,34 @@ use crate::config::log_context::TunnelLogContext;
 
 pub(crate) const TUNNEL_JNI_CONFIG_SCHEMA_VERSION: u32 = 3;
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SplitDnsPolicyPayload {
+    pub(crate) canonical_digest: String,
+    pub(crate) destination_routing_digest: String,
+    pub(crate) default_action: String,
+    pub(crate) rules: Vec<SplitDnsRulePayload>,
+    pub(crate) direct_resolver_candidates: Vec<String>,
+    pub(crate) bootstrap_pins: Vec<String>,
+    pub(crate) coverage_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SplitDnsRulePayload {
+    pub(crate) action: String,
+    pub(crate) network: String,
+    pub(crate) domains: Vec<SplitDnsDomainMatcherPayload>,
+    pub(crate) has_ip_ranges: bool,
+    pub(crate) has_ports: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct SplitDnsDomainMatcherPayload {
+    pub(crate) kind: String,
+    pub(crate) value: String,
+}
+
 #[cfg(test)]
 mod sample;
 
@@ -64,6 +92,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) resolver_fallback_active: Option<bool>,
     pub(crate) resolver_fallback_reason: Option<String>,
     pub(crate) route_dns_through_socks5: Option<bool>,
+    pub(crate) split_dns_policy: Option<SplitDnsPolicyPayload>,
     pub(crate) strategy_chain_yaml: Option<String>,
     pub(crate) protect_path: Option<String>,
     pub(crate) root_helper_socket_path: Option<String>,

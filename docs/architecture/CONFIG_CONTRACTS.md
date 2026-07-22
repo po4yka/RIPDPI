@@ -387,7 +387,15 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   `schemaVersion: 3` on `Tun2SocksConfig`. Kotlin validates the version before
   calling `Tun2SocksBindings.create`; the live `ripdpi-tunnel-android`
   `TunnelConfigPayload` validates it again before registering a native handle.
-  Missing, retired version `2`, and future versions fail closed. This is
+  Missing, retired version `2`, and future versions fail closed. The optional,
+  additive `splitDnsPolicy` section is used by the native DNS interceptor;
+  its ordered rules, digests, numeric resolver candidates, and bounded
+  coverage-reason token are checked before native handle allocation. When the
+  section is present, MapDNS and a complete encrypted resolver endpoint are
+  mandatory, and `bootstrapPins` must exactly match the ordered top-level
+  `encryptedDnsBootstrapIps`. Digests are immutable policy identity carried for
+  diagnostics and the future direct-plane work; `directResolverCandidates` are
+  validated but intentionally not executed until that later stage. This is
   intentionally distinct from the standalone `ripdpi-tunnel-config` YAML file
   format, which remains schema `2`; changing the JNI envelope does not change
   the YAML schema.
@@ -395,8 +403,8 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
 For proxy and tunnel payloads, `schemaVersion` is normally bumped **only** on a
 genuinely breaking shape change — a field whose meaning changed, or a removed
 section — never for an additive field. Tunnel JNI flat-JSON schema `3` is the
-explicit fail-closed envelope introduced for the live Android adapter; it does
-not supersede the standalone YAML schema. Additive changes stay covered by §7.
+current fail-closed live Android adapter envelope; it does not supersede the
+standalone YAML schema `2`. Additive changes stay covered by §7.
 
 ---
 

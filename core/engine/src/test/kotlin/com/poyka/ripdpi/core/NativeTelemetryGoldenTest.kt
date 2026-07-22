@@ -109,6 +109,10 @@ class NativeTelemetryGoldenTest {
                 resolverFallbackReason = "UDP DNS showed udp_blocked",
                 networkHandoverClass = "transport_switch",
                 dnsFailuresTotal = 3,
+                splitDnsProxyDecisions = 11,
+                splitDnsDirectFallbackDecisions = 2,
+                splitDnsBlockDecisions = 4,
+                lastSplitDnsCoverageReason = "route_policy_unavailable",
                 lastDnsHost = "example.org",
                 lastDnsError = "timeout",
                 capturedAt = 99L,
@@ -129,6 +133,10 @@ class NativeTelemetryGoldenTest {
         assertEquals("UDP DNS showed udp_blocked", parsed.resolverFallbackReason)
         assertEquals("transport_switch", parsed.networkHandoverClass)
         assertEquals(3L, parsed.dnsFailuresTotal)
+        assertEquals(11L, parsed.splitDnsProxyDecisions)
+        assertEquals(2L, parsed.splitDnsDirectFallbackDecisions)
+        assertEquals(4L, parsed.splitDnsBlockDecisions)
+        assertEquals("route_policy_unavailable", parsed.lastSplitDnsCoverageReason)
     }
 
     @Test

@@ -1,6 +1,7 @@
 mod dns_cache;
 #[allow(dead_code)]
 pub(crate) mod session;
+mod split_dns;
 
 // Expose the SOCKS5 UDP codec for integration tests in sibling crates.
 // #[doc(hidden)] prevents advertising a stable public API while still

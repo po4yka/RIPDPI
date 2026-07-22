@@ -382,6 +382,7 @@ data class Tun2SocksConfig(
     val resolverFallbackActive: Boolean? = null,
     val resolverFallbackReason: String? = null,
     val routeDnsThroughSocks5: Boolean? = null,
+    val splitDnsPolicy: Tun2SocksSplitDnsPolicy? = null,
     val strategyChainYaml: String? = null,
     val protectPath: String? = null,
     val rootHelperSocketPath: String? = null,
@@ -403,4 +404,30 @@ data class Tun2SocksConfig(
     val logContext: RipDpiLogContext? = null,
     @Required
     val schemaVersion: Int = Tun2SocksConfigSchemaVersion,
+)
+
+@Serializable
+data class Tun2SocksSplitDnsPolicy(
+    val canonicalDigest: String,
+    val destinationRoutingDigest: String,
+    val defaultAction: String,
+    val rules: List<Tun2SocksSplitDnsRule>,
+    val directResolverCandidates: List<String>,
+    val bootstrapPins: List<String>,
+    val coverageReason: String? = null,
+)
+
+@Serializable
+data class Tun2SocksSplitDnsRule(
+    val action: String,
+    val network: String,
+    val domains: List<Tun2SocksSplitDnsDomainMatcher>,
+    val hasIpRanges: Boolean,
+    val hasPorts: Boolean,
+)
+
+@Serializable
+data class Tun2SocksSplitDnsDomainMatcher(
+    val kind: String,
+    val value: String,
 )

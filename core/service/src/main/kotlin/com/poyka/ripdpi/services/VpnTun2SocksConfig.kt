@@ -2,7 +2,14 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksConfig
+import com.poyka.ripdpi.core.Tun2SocksSplitDnsDomainMatcher
+import com.poyka.ripdpi.core.Tun2SocksSplitDnsPolicy
+import com.poyka.ripdpi.core.Tun2SocksSplitDnsRule
 import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
+import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
+import com.poyka.ripdpi.core.routing.DestinationRoutingAction
+import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
+import java.util.Locale
 
 private const val TunnelIpv4Cidr = "10.10.10.10/32"
 private const val TunnelIpv6Cidr = "fd00::1/128"
@@ -70,6 +77,7 @@ internal fun buildVpnTun2SocksConfig(
         resolverFallbackActive = overrideReason != null,
         resolverFallbackReason = overrideReason,
         routeDnsThroughSocks5 = dnsPlan.routeDnsThroughSocks5,
+        splitDnsPolicy = dnsPlan.splitStrictPolicy?.toNativeSplitDnsPolicy(),
         strategyChainYaml = strategyChainYaml,
         protectPath = protectPath,
         rootHelperSocketPath = rootHelperSocketPath,
@@ -83,6 +91,38 @@ internal fun buildVpnTun2SocksConfig(
         password = localProxyEndpoint.password,
     )
 }
+
+private fun ValidatedSplitStrictDnsPolicy.toNativeSplitDnsPolicy(): Tun2SocksSplitDnsPolicy =
+    Tun2SocksSplitDnsPolicy(
+        canonicalDigest = canonicalDigest,
+        destinationRoutingDigest = destinationRouting.canonicalDigest,
+        defaultAction = destinationRouting.defaultAction.wireName(),
+        rules =
+            destinationRouting.rules.map { rule ->
+                Tun2SocksSplitDnsRule(
+                    action = rule.action.wireName(),
+                    network = rule.network.wireName(),
+                    domains =
+                        rule.domains.map { matcher ->
+                            Tun2SocksSplitDnsDomainMatcher(
+                                kind = matcher.kind.wireName(),
+                                value = matcher.value,
+                            )
+                        },
+                    hasIpRanges = rule.ipRanges.isNotEmpty(),
+                    hasPorts = rule.destinationPorts.isNotEmpty(),
+                )
+            },
+        directResolverCandidates = directResolverCandidates,
+        bootstrapPins = bootstrapPins,
+        coverageReason = policyCoverageReason,
+    )
+
+private fun DestinationRoutingAction.wireName(): String = name.lowercase(Locale.ROOT)
+
+private fun DestinationRoutingNetwork.wireName(): String = name.lowercase(Locale.ROOT)
+
+private fun DestinationDomainMatcherKind.wireName(): String = name.lowercase(Locale.ROOT)
 
 private fun <T> mapDnsValue(
     mapDnsEnabled: Boolean,

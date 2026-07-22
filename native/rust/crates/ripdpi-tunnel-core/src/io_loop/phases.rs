@@ -149,6 +149,9 @@ mod tests {
     use std::time::Duration;
 
     use ripdpi_collections::bounded_heap::BoundedHeap;
+    use ripdpi_tunnel_config::{
+        SplitDnsAction, SplitDnsDomainMatcher, SplitDnsMatcherKind, SplitDnsNetwork, SplitDnsPolicyConfig, SplitDnsRule,
+    };
     use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
     use smoltcp::time::Instant;
     use smoltcp::wire::HardwareAddress;
@@ -355,6 +358,27 @@ mod tests {
         let seen_packets = Arc::new(Mutex::new(Vec::new()));
         let mut state = mapdns_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
         state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        state.runtime.split_dns_policy = Some(
+            crate::split_dns::SplitDnsPolicy::compile(&SplitDnsPolicyConfig {
+                canonical_digest: "a".repeat(64),
+                destination_routing_digest: "b".repeat(64),
+                default_action: SplitDnsAction::Tunneled,
+                rules: vec![SplitDnsRule {
+                    action: SplitDnsAction::Block,
+                    network: SplitDnsNetwork::Both,
+                    domains: vec![SplitDnsDomainMatcher {
+                        kind: SplitDnsMatcherKind::Exact,
+                        value: "example.test".to_string(),
+                    }],
+                    has_ip_ranges: false,
+                    has_ports: false,
+                }],
+                direct_resolver_candidates: Vec::new(),
+                bootstrap_pins: Vec::new(),
+                coverage_reason: None,
+            })
+            .expect("split DNS policy"),
+        );
         let (tx, mut rx) = mpsc::channel(8);
         state.dns_req_tx = Some(tx);
         let packet = mapdns_dns_packet(53_101);
@@ -555,6 +579,7 @@ mod tests {
                 auth: Auth::NoAuth,
                 mapdns_runtime: None,
                 mapdns_classify: None,
+                split_dns_policy: None,
                 filter_injected_resets: false,
                 webrtc_protection_enabled: false,
                 uid_policy: crate::uid_policy::UidFlowPolicy::disarmed(),

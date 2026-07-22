@@ -4,7 +4,7 @@ use ripdpi_dns_resolver::{EncryptedDnsProtocol, EncryptedDnsSocks5Credentials, E
 
 use super::super::protect_hooks::encrypted_dns_connect_hooks;
 use super::super::{build_encrypted_dns_resolver, mapdns_resolver_transport, parse_dns_cache, parse_mapdns_runtime};
-use super::support::{mapdns_config, tunnel_config_with_mapdns};
+use super::support::{empty_split_dns_policy, mapdns_config, tunnel_config_with_mapdns};
 
 #[test]
 fn parse_mapdns_runtime_uses_address_defaults_for_network_and_mask() {
@@ -90,6 +90,34 @@ fn mapdns_resolver_transport_uses_local_socks5_when_relay_dns_is_active() {
             }),
         },
     );
+}
+
+#[test]
+fn active_split_dns_forces_encrypted_resolver_through_socks5() {
+    let mapdns = mapdns_config(16);
+    let mut config = tunnel_config_with_mapdns(Some(mapdns.clone()));
+    config.split_dns_policy = Some(empty_split_dns_policy());
+
+    assert_eq!(
+        mapdns_resolver_transport(&config, &mapdns),
+        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: 1080, credentials: None },
+    );
+}
+
+#[test]
+fn active_split_dns_rejects_doq_over_socks_at_startup() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.encrypted_dns_protocol = Some("doq".to_string());
+    mapdns.encrypted_dns_host = Some("dns.example.test".to_string());
+    mapdns.encrypted_dns_port = Some(853);
+    mapdns.encrypted_dns_bootstrap_ips = vec!["192.0.2.53".to_string()];
+    let mut config = tunnel_config_with_mapdns(Some(mapdns));
+    config.split_dns_policy = Some(empty_split_dns_policy());
+
+    let error = build_encrypted_dns_resolver(&config).expect_err("DoQ over SOCKS must fail during setup");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    assert_eq!(error.to_string(), "DoQ over SOCKS5 is not supported");
 }
 
 #[test]

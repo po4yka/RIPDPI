@@ -446,6 +446,25 @@ class NativeBinaryContractTest {
                 dnsQueryTimeoutMs = 4000,
                 resolverFallbackActive = true,
                 resolverFallbackReason = "timeout",
+                splitDnsPolicy =
+                    Tun2SocksSplitDnsPolicy(
+                        canonicalDigest = "a".repeat(64),
+                        destinationRoutingDigest = "b".repeat(64),
+                        defaultAction = "tunneled",
+                        rules =
+                            listOf(
+                                Tun2SocksSplitDnsRule(
+                                    action = "direct",
+                                    network = "both",
+                                    domains = listOf(Tun2SocksSplitDnsDomainMatcher("suffix", "example.test")),
+                                    hasIpRanges = false,
+                                    hasPorts = false,
+                                ),
+                            ),
+                        directResolverCandidates = listOf("192.0.2.53"),
+                        bootstrapPins = listOf("94.140.14.14"),
+                        coverageReason = "route_policy_unavailable",
+                    ),
                 tcpBufferSize = 32768,
                 udpRecvBufferSize = 16384,
                 udpCopyBufferNums = 8,

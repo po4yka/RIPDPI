@@ -49,6 +49,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                 &state.stats,
                 state.runtime.mapdns_runtime,
                 state.dns_cache.as_ref(),
+                state.runtime.split_dns_policy.as_ref(),
                 &mut state.dns_req_tx,
                 &mut state.dns_resp_rx,
                 src,

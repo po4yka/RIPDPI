@@ -12,6 +12,7 @@ use ripdpi_tunnel_config::Config;
 
 use crate::dns_cache::DnsCache;
 use crate::session::udp::UdpMemoryBudget;
+use crate::split_dns::SplitDnsPolicy;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{parse_dns_cache, parse_mapdns_runtime};
@@ -44,9 +45,15 @@ pub(in crate::io_loop) fn setup_io_loop(
     dns_cache =
         parse_dns_cache(&config, dns_cache).map_err(|e| io::Error::other(format!("initialize DNS cache: {e}")))?;
     configure_resolver_fallback(&config, &stats);
+    let split_dns_policy = config
+        .split_dns_policy
+        .as_ref()
+        .map(SplitDnsPolicy::compile)
+        .transpose()
+        .map_err(|error| io::Error::other(format!("compile split DNS policy: {error}")))?;
 
     let max_sessions = config.misc.max_session_count as usize;
-    let runtime = build_loop_runtime(&config, proxy_sockaddr, auth, mapdns_runtime);
+    let runtime = build_loop_runtime(&config, proxy_sockaddr, auth, mapdns_runtime, split_dns_policy);
 
     let (udp_tx, udp_rx) = mpsc::channel(256);
     let (dns_req_tx, dns_resp_rx) = build_dns_worker(&config, &cancel)?;

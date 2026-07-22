@@ -15,6 +15,44 @@ fn ipv4_address() -> impl Strategy<Value = String> {
     (1u8..=223, any::<u8>(), any::<u8>(), 1u8..=254).prop_map(|(a, b, c, d)| format!("{a}.{b}.{c}.{d}"))
 }
 
+fn split_dns_policy_payload(bootstrap_pins: Vec<&str>) -> super::payload::SplitDnsPolicyPayload {
+    super::payload::SplitDnsPolicyPayload {
+        canonical_digest: "a".repeat(64),
+        destination_routing_digest: "b".repeat(64),
+        default_action: "tunneled".to_string(),
+        rules: vec![super::payload::SplitDnsRulePayload {
+            action: "block".to_string(),
+            network: "both".to_string(),
+            domains: vec![super::payload::SplitDnsDomainMatcherPayload {
+                kind: "exact".to_string(),
+                value: "blocked.example".to_string(),
+            }],
+            has_ip_ranges: false,
+            has_ports: false,
+        }],
+        direct_resolver_candidates: vec!["192.0.2.53".to_string()],
+        bootstrap_pins: bootstrap_pins.into_iter().map(str::to_string).collect(),
+        coverage_reason: None,
+    }
+}
+
+fn odoh_split_dns_payload() -> TunnelConfigPayload {
+    let mut payload = sample_payload();
+    payload.mapdns_address = Some("198.18.0.53".to_string());
+    payload.encrypted_dns_protocol = Some("odoh".to_string());
+    payload.encrypted_dns_odoh_proxy_url = Some("https://proxy.example/proxy".to_string());
+    payload.encrypted_dns_odoh_proxy_operator_id = Some("proxy".to_string());
+    payload.encrypted_dns_odoh_target_host = Some("target.example".to_string());
+    payload.encrypted_dns_odoh_target_path = Some("/dns-query".to_string());
+    payload.encrypted_dns_odoh_target_operator_id = Some("target".to_string());
+    payload.encrypted_dns_odoh_config_source = Some("custom_bytes".to_string());
+    payload.encrypted_dns_odoh_configs_hex = Some("0102".to_string());
+    payload.encrypted_dns_odoh_configs_retrieved_at_secs = Some(1);
+    payload.encrypted_dns_odoh_configs_ttl_secs = Some(60);
+    payload.split_dns_policy = Some(split_dns_policy_payload(Vec::new()));
+    payload
+}
+
 fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
     (
         (
@@ -128,6 +166,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 resolver_fallback_active: None,
                 resolver_fallback_reason: None,
                 route_dns_through_socks5: None,
+                split_dns_policy: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
                 root_helper_socket_path: None,
@@ -265,6 +304,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 resolver_fallback_active: None,
                 resolver_fallback_reason: None,
                 route_dns_through_socks5: None,
+                split_dns_policy: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
                 root_helper_socket_path: None,
@@ -464,6 +504,139 @@ fn tunnel_payload_validation_rejects_non_current_schema_version() {
 }
 
 #[test]
+fn split_dns_policy_maps_ordered_v3_wire_payload_into_runtime_config() {
+    let payload = parse_tunnel_config_json(
+        r#"{
+            "schemaVersion":3,
+            "socks5Port":1080,
+            "mapdnsAddress":"198.18.0.53",
+            "encryptedDnsProtocol":"dot",
+            "encryptedDnsHost":"dns.example",
+            "encryptedDnsPort":853,
+            "encryptedDnsBootstrapIps":["94.140.14.14"],
+            "splitDnsPolicy":{
+                "canonicalDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "destinationRoutingDigest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "defaultAction":"tunneled",
+                "rules":[
+                    {"action":"direct","network":"both","domains":[
+                        {"kind":"exact","value":"api.example"},
+                        {"kind":"suffix","value":"example"}
+                    ],"hasIpRanges":false,"hasPorts":false},
+                    {"action":"block","network":"udp","domains":[
+                        {"kind":"geosite","value":"private"}
+                    ],"hasIpRanges":true,"hasPorts":true}
+                ],
+                "directResolverCandidates":["192.0.2.53","2001:db8::53"],
+                "bootstrapPins":["94.140.14.14"],
+                "coverageReason":"fixture_reason"
+            }
+        }"#,
+    )
+    .expect("v3 split DNS payload");
+
+    let config = config_from_payload(payload).expect("validated split DNS config");
+    let policy = config.split_dns_policy.expect("split DNS policy");
+    assert_eq!(policy.canonical_digest, "a".repeat(64));
+    assert_eq!(policy.destination_routing_digest, "b".repeat(64));
+    assert_eq!(policy.direct_resolver_candidates.len(), 2);
+    assert_eq!(policy.bootstrap_pins.len(), 1);
+    assert_eq!(policy.coverage_reason.as_deref(), Some("fixture_reason"));
+    assert_eq!(policy.rules.len(), 2);
+    assert_eq!(policy.rules[0].domains[0].value, "api.example");
+    assert_eq!(policy.rules[0].domains[1].value, "example");
+    assert!(!policy.rules[0].has_ip_ranges);
+    assert!(!policy.rules[0].has_ports);
+    assert!(policy.rules[1].has_ip_ranges);
+    assert!(policy.rules[1].has_ports);
+}
+
+#[test]
+fn split_dns_policy_requires_active_encrypted_mapdns() {
+    let mut no_mapdns = sample_payload();
+    no_mapdns.split_dns_policy = Some(split_dns_policy_payload(Vec::new()));
+    assert_eq!(config_from_payload(no_mapdns).expect_err("MapDNS required"), "splitDnsPolicy requires MapDNS");
+
+    let mut no_encrypted_resolver = sample_payload();
+    no_encrypted_resolver.mapdns_address = Some("198.18.0.53".to_string());
+    no_encrypted_resolver.split_dns_policy = Some(split_dns_policy_payload(Vec::new()));
+    assert_eq!(
+        config_from_payload(no_encrypted_resolver).expect_err("encrypted resolver required"),
+        "splitDnsPolicy requires an encrypted DNS resolver",
+    );
+
+    let mut no_encrypted_endpoint = sample_payload();
+    no_encrypted_endpoint.mapdns_address = Some("198.18.0.53".to_string());
+    no_encrypted_endpoint.encrypted_dns_protocol = Some("dot".to_string());
+    no_encrypted_endpoint.split_dns_policy = Some(split_dns_policy_payload(Vec::new()));
+    assert_eq!(
+        config_from_payload(no_encrypted_endpoint).expect_err("encrypted endpoint required"),
+        "splitDnsPolicy requires a complete encrypted DNS endpoint",
+    );
+}
+
+#[test]
+fn split_dns_policy_bootstrap_pins_are_bound_to_encrypted_resolver() {
+    for (configured, pins) in [
+        (vec!["94.140.14.14"], Vec::new()),
+        (vec!["94.140.14.14"], vec!["1.1.1.1"]),
+        (vec!["94.140.14.14", "1.1.1.1"], vec!["1.1.1.1", "94.140.14.14"]),
+    ] {
+        let mut payload = sample_payload();
+        payload.mapdns_address = Some("198.18.0.53".to_string());
+        payload.encrypted_dns_protocol = Some("dot".to_string());
+        payload.encrypted_dns_host = Some("dns.example".to_string());
+        payload.encrypted_dns_port = Some(853);
+        payload.encrypted_dns_bootstrap_ips = configured.into_iter().map(str::to_string).collect();
+        payload.split_dns_policy = Some(split_dns_policy_payload(pins));
+
+        assert_eq!(
+            config_from_payload(payload).expect_err("bootstrap pins must match"),
+            "splitDnsPolicy bootstrapPins must exactly match encryptedDnsBootstrapIps",
+        );
+    }
+}
+
+#[test]
+fn split_dns_policy_rejects_incomplete_odoh_endpoint_before_handle_allocation() {
+    let mut missing_proxy_operator = odoh_split_dns_payload();
+    missing_proxy_operator.encrypted_dns_odoh_proxy_operator_id = None;
+    assert_eq!(
+        config_from_payload(missing_proxy_operator).expect_err("proxy operator required"),
+        "splitDnsPolicy requires a complete encrypted DNS endpoint",
+    );
+
+    let mut missing_target_operator = odoh_split_dns_payload();
+    missing_target_operator.encrypted_dns_odoh_target_operator_id = None;
+    assert_eq!(
+        config_from_payload(missing_target_operator).expect_err("target operator required"),
+        "splitDnsPolicy requires a complete encrypted DNS endpoint",
+    );
+
+    let mut invalid_config = odoh_split_dns_payload();
+    invalid_config.encrypted_dns_odoh_config_source = Some("remote".to_string());
+    assert_eq!(
+        config_from_payload(invalid_config).expect_err("config source must be executable"),
+        "splitDnsPolicy requires a complete encrypted DNS endpoint",
+    );
+
+    let mut invalid_times = odoh_split_dns_payload();
+    invalid_times.encrypted_dns_odoh_configs_retrieved_at_secs = Some(0);
+    invalid_times.encrypted_dns_odoh_configs_ttl_secs = Some(0);
+    assert_eq!(
+        config_from_payload(invalid_times).expect_err("positive config lifetime required"),
+        "splitDnsPolicy requires a complete encrypted DNS endpoint",
+    );
+
+    let mut invalid_hex = odoh_split_dns_payload();
+    invalid_hex.encrypted_dns_odoh_configs_hex = Some("not-hex".to_string());
+    assert_eq!(
+        config_from_payload(invalid_hex).expect_err("wire config hex required"),
+        "splitDnsPolicy requires a complete encrypted DNS endpoint",
+    );
+}
+
+#[test]
 fn rejects_zero_socks5_port() {
     let mut payload = sample_payload();
     payload.socks5_port = 0;
@@ -657,6 +830,21 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "resolverFallbackActive": true,
         "resolverFallbackReason": "timeout",
         "routeDnsThroughSocks5": true,
+        "splitDnsPolicy": {
+            "canonicalDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "destinationRoutingDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "defaultAction": "tunneled",
+            "rules": [{
+                "action": "direct",
+                "network": "both",
+                "domains": [{"kind": "suffix", "value": "example.test"}],
+                "hasIpRanges": false,
+                "hasPorts": false
+            }],
+            "directResolverCandidates": ["192.0.2.53"],
+            "bootstrapPins": ["94.140.14.14"],
+            "coverageReason": "route_policy_unavailable"
+        },
         "strategyChainYaml": "version: 1\nchains:\n  - id: vpn-synack",
         "protectPath": "/data/user/0/com.poyka.ripdpi/files/protect_path",
         "rootHelperSocketPath": "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",

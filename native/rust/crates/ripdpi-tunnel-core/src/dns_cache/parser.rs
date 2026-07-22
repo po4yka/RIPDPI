@@ -1,13 +1,10 @@
-use hickory_proto::op::Message;
 use hickory_proto::rr::Name;
 use hickory_proto::serialize::binary::{BinDecodable, BinDecoder};
 
 use super::DnsCacheError;
 
 pub(super) fn primary_question_name(packet: &[u8]) -> Result<String, DnsCacheError> {
-    let message = Message::from_vec(packet).map_err(|err| DnsCacheError::DnsParse(err.to_string()))?;
-    let query = message.queries.first().ok_or(DnsCacheError::Truncated)?;
-    Ok(query.name().to_utf8().trim_end_matches('.').to_string())
+    crate::io_loop::dns_intercept::parse_dns_query(packet).map(|query| query.host).ok_or(DnsCacheError::Truncated)
 }
 
 pub(super) fn dns_question_end(packet: &[u8]) -> Result<usize, DnsCacheError> {

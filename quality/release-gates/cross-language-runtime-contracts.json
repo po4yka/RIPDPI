@@ -133,6 +133,8 @@
         "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyUIPreferences.kt",
         "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt",
         "core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt",
+        "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnTun2SocksConfig.kt",
+        "core/service/src/test/kotlin/com/poyka/ripdpi/services/RipDpiVpnServiceConfigTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigSchemaVersionTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigContractSnapshotTest.kt",
@@ -140,6 +142,9 @@
         "native/rust/crates/ripdpi-tunnel-config/src/raw.rs",
         "native/rust/crates/ripdpi-tunnel-android/src/config/payload.rs",
         "native/rust/crates/ripdpi-tunnel-android/src/config/validation.rs",
+        "native/rust/crates/ripdpi-tunnel-android/src/config/split_dns.rs",
+        "native/rust/crates/ripdpi-tunnel-config/src/split_dns.rs",
+        "native/rust/crates/ripdpi-tunnel-core/src/split_dns.rs",
         "native/rust/crates/ripdpi-tunnel-android/src/config/tests.rs",
         "native/rust/crates/ripdpi-tunnel-android/src/session/jni_tests.rs",
         "native/rust/crates/ripdpi-relay-core/src/config/flat.rs",
@@ -148,7 +153,8 @@
       "fixturePaths": [
         "core/engine/src/test/resources/fixtures/round-trip-tcp-heavy.json",
         "core/engine/src/test/resources/fixtures/round-trip-udp-quic.json",
-        "core/engine/src/test/resources/fixtures/round-trip-relay-heavy.json"
+        "core/engine/src/test/resources/fixtures/round-trip-relay-heavy.json",
+        "contract-fixtures/tunnel_config_fields.json"
       ],
       "gateTests": [
         {
@@ -196,6 +202,7 @@
         "Kotlin-generated native config fixtures decode and re-encode through Rust without losing fields.",
         "Proxy JSON schema 2, tunnel JNI flat-JSON schema 3, and relay schema 10 are required; missing, older, and future versions fail closed.",
         "The ripdpi-tunnel-config standalone YAML schema 2 remains a separate file-format contract and is not the tunnel JNI flat-JSON schema.",
+        "Tunnel JNI schema 3 accepts the additive validated splitDnsPolicy wire section, which compiles once before runtime routing; ordered first-match rules and redacted fallback telemetry remain source- and test-backed.",
         "Native config defaults and explicit nulls remain stable across command_line and ui payloads.",
         "Fixture scenarios cover TCP-heavy, UDP/QUIC, and relay-heavy config branches."
       ]

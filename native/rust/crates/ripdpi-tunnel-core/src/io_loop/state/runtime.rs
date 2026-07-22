@@ -5,6 +5,7 @@ use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
 use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
 
 use crate::session::Auth;
+use crate::split_dns::SplitDnsPolicy;
 use crate::uid_policy::UidFlowPolicy;
 
 use super::super::dns_intercept::MapDnsRuntime;
@@ -14,6 +15,7 @@ pub(in crate::io_loop) struct LoopRuntime {
     pub(in crate::io_loop) auth: Auth,
     pub(in crate::io_loop) mapdns_runtime: Option<MapDnsRuntime>,
     pub(in crate::io_loop) mapdns_classify: Option<(u32, u32, u16)>,
+    pub(in crate::io_loop) split_dns_policy: Option<SplitDnsPolicy>,
     pub(in crate::io_loop) filter_injected_resets: bool,
     pub(in crate::io_loop) webrtc_protection_enabled: bool,
     pub(in crate::io_loop) uid_policy: UidFlowPolicy,

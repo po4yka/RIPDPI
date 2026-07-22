@@ -15,6 +15,7 @@ pub(super) use self::mapping::resolve_mapped_target;
 pub(super) use self::responses::handle_dns_result;
 pub(super) use self::types::{DnsRequest, DnsResponse};
 pub(super) use self::wire::dns_query_name;
+pub(crate) use self::wire::parse_dns_query;
 pub(super) use self::worker::{drain_dns_responses, route_dns_packet, spawn_dns_worker};
 
 #[derive(Debug, Clone, Copy)]

@@ -47,6 +47,7 @@ pub fn test_tunnel_config_with_misc(
             mark: None,
         },
         mapdns: None,
+        split_dns_policy: None,
         misc,
     })
 }

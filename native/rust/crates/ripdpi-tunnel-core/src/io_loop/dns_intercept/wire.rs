@@ -1,25 +1,39 @@
-pub(in crate::io_loop) fn dns_query_name(packet: &[u8]) -> Option<String> {
-    if packet.len() < 12 {
-        return None;
-    }
-    if u16::from_be_bytes([packet[4], packet[5]]) == 0 {
-        return None;
-    }
+use hickory_proto::op::{Message, MessageType, ResponseCode};
+use hickory_proto::rr::DNSClass;
 
-    let mut offset = 12usize;
-    let mut labels = Vec::new();
-    loop {
-        let length = *packet.get(offset)? as usize;
-        offset += 1;
-        if length == 0 {
-            break;
-        }
-        if length & 0b1100_0000 != 0 {
-            return None;
-        }
-        let label = packet.get(offset..offset + length)?;
-        labels.push(std::str::from_utf8(label).ok()?.to_string());
-        offset += length;
+pub(crate) struct ParsedDnsQuery {
+    pub(crate) host: String,
+    message: Message,
+}
+
+impl ParsedDnsQuery {
+    pub(crate) fn refused_response(&self) -> Result<Vec<u8>, hickory_proto::ProtoError> {
+        let mut response =
+            Message::error_msg(self.message.metadata.id, self.message.metadata.op_code, ResponseCode::Refused);
+        response.metadata.recursion_desired = self.message.metadata.recursion_desired;
+        response.add_query(self.message.queries[0].clone());
+        response.to_vec()
     }
-    if labels.is_empty() { None } else { Some(labels.join(".")) }
+}
+
+/// Parses the one supported DNS request shape. All split-DNS decisions and
+/// DNS-cache question extraction share this parser.
+pub(crate) fn parse_dns_query(packet: &[u8]) -> Option<ParsedDnsQuery> {
+    let message = Message::from_vec(packet).ok()?;
+    if message.metadata.message_type != MessageType::Query || message.queries.len() != 1 {
+        return None;
+    }
+    let query = &message.queries[0];
+    if query.query_class() != DNSClass::IN {
+        return None;
+    }
+    let host = query.name().to_utf8().trim_end_matches('.').to_string();
+    if host.is_empty() {
+        return None;
+    }
+    Some(ParsedDnsQuery { host, message })
+}
+
+pub(in crate::io_loop) fn dns_query_name(packet: &[u8]) -> Option<String> {
+    parse_dns_query(packet).map(|query| query.host)
 }

@@ -6,6 +6,7 @@ mod misc;
 mod raw;
 mod root;
 mod socks5;
+mod split_dns;
 mod tunnel;
 mod validation;
 
@@ -17,4 +18,7 @@ pub use mapdns::MapDnsConfig;
 pub use misc::MiscConfig;
 pub use root::Config;
 pub use socks5::Socks5Config;
+pub use split_dns::{
+    SplitDnsAction, SplitDnsDomainMatcher, SplitDnsMatcherKind, SplitDnsNetwork, SplitDnsPolicyConfig, SplitDnsRule,
+};
 pub use tunnel::TunnelConfig;

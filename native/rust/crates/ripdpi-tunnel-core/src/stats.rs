@@ -11,6 +11,13 @@ use std::sync::{Arc, Mutex};
 
 pub use snapshot::DnsStatsSnapshot;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SplitDnsDecisionKind {
+    ProxyEncrypted,
+    DirectProxyFallback,
+    Block,
+}
+
 /// Observation emitted on every SOCKS5-connect attempt.
 ///
 /// `rtt_ms` is wall-clock time from the start of `socks5::connect` to either
@@ -62,6 +69,10 @@ pub struct Stats {
     pub dns_cache_hits: AtomicU64,
     pub dns_cache_misses: AtomicU64,
     pub dns_failures_total: AtomicU64,
+    pub split_dns_proxy_decisions: AtomicU64,
+    pub split_dns_direct_fallback_decisions: AtomicU64,
+    pub split_dns_block_decisions: AtomicU64,
+    pub last_split_dns_coverage_reason: Mutex<Option<String>>,
     pub last_dns_host: Mutex<Option<String>>,
     pub last_dns_error: Mutex<Option<String>>,
     pub last_host: Mutex<Option<String>>,
@@ -136,6 +147,10 @@ impl Stats {
             dns_cache_hits: AtomicU64::new(0),
             dns_cache_misses: AtomicU64::new(0),
             dns_failures_total: AtomicU64::new(0),
+            split_dns_proxy_decisions: AtomicU64::new(0),
+            split_dns_direct_fallback_decisions: AtomicU64::new(0),
+            split_dns_block_decisions: AtomicU64::new(0),
+            last_split_dns_coverage_reason: Mutex::new(None),
             last_dns_host: Mutex::new(None),
             last_dns_error: Mutex::new(None),
             last_host: Mutex::new(None),
@@ -254,6 +269,28 @@ impl Stats {
         dns::record_failure(self, host, error, resolver_endpoint);
     }
 
+    pub(crate) fn record_split_dns_decision(&self, kind: SplitDnsDecisionKind, reason: Option<&str>) {
+        let counter = match kind {
+            SplitDnsDecisionKind::ProxyEncrypted => &self.split_dns_proxy_decisions,
+            SplitDnsDecisionKind::DirectProxyFallback => &self.split_dns_direct_fallback_decisions,
+            SplitDnsDecisionKind::Block => {
+                self.dns_queries_total.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                &self.split_dns_block_decisions
+            }
+        };
+        counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if let (Some(reason), Ok(mut target)) = (reason, self.last_split_dns_coverage_reason.lock()) {
+            *target = Some(reason.to_string());
+        }
+    }
+
+    pub(crate) fn record_dns_response_failure(&self, error: &str) {
+        self.dns_failures_total.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if let Ok(mut target) = self.last_dns_error.lock() {
+            *target = Some(error.to_string());
+        }
+    }
+
     pub fn record_last_host(&self, host: Option<&str>) {
         dns::record_last_host(self, host);
     }
@@ -317,6 +354,21 @@ mod tests {
         assert_eq!(snapshot.resolver_latency_avg_ms, Some(42));
         assert!(snapshot.resolver_fallback_active);
         assert_eq!(snapshot.resolver_fallback_reason.as_deref(), Some("temporary override"));
+    }
+
+    #[test]
+    fn split_dns_decisions_have_redacted_bounded_counters() {
+        let stats = Stats::new();
+        stats.record_split_dns_decision(super::SplitDnsDecisionKind::ProxyEncrypted, None);
+        stats.record_split_dns_decision(super::SplitDnsDecisionKind::DirectProxyFallback, Some("direct_plane_unbound"));
+        stats.record_split_dns_decision(super::SplitDnsDecisionKind::Block, None);
+
+        let snapshot = stats.dns_snapshot();
+        assert_eq!(snapshot.split_dns_proxy_decisions, 1);
+        assert_eq!(snapshot.split_dns_direct_fallback_decisions, 1);
+        assert_eq!(snapshot.split_dns_block_decisions, 1);
+        assert_eq!(snapshot.dns_queries_total, 1, "only local BLOCK counts immediately");
+        assert_eq!(snapshot.last_split_dns_coverage_reason.as_deref(), Some("direct_plane_unbound"));
     }
 
     #[test]

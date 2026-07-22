@@ -22,6 +22,7 @@ pub(super) fn tunnel_config_with_mapdns(
             mark: None,
         },
         mapdns,
+        split_dns_policy: None,
         misc: ripdpi_tunnel_config::MiscConfig::default(),
     }
 }
@@ -65,6 +66,18 @@ pub(super) fn test_mapdns() -> MapDnsRuntime {
         synthetic_net: u32::from(Ipv4Addr::new(198, 18, 0, 0)),
         synthetic_mask: u32::from(Ipv4Addr::new(255, 254, 0, 0)),
         intercept_port: 53,
+    }
+}
+
+pub(super) fn empty_split_dns_policy() -> ripdpi_tunnel_config::SplitDnsPolicyConfig {
+    ripdpi_tunnel_config::SplitDnsPolicyConfig {
+        canonical_digest: String::new(),
+        destination_routing_digest: String::new(),
+        default_action: ripdpi_tunnel_config::SplitDnsAction::Tunneled,
+        rules: Vec::new(),
+        direct_resolver_candidates: Vec::new(),
+        bootstrap_pins: Vec::new(),
+        coverage_reason: None,
     }
 }
 

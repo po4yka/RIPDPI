@@ -83,7 +83,15 @@ class CrossLanguageRuntimeContractsTest(unittest.TestCase):
             contracts.validate_policy(broken)
 
     def test_native_config_requires_live_tunnel_jni_sources_and_gates(self) -> None:
-        for source_hint in ("config/payload.rs", "config/validation.rs", "session/jni_tests.rs"):
+        for source_hint in (
+            "config/payload.rs",
+            "config/validation.rs",
+            "session/jni_tests.rs",
+            "VpnTun2SocksConfig.kt",
+            "config/split_dns.rs",
+            "tunnel-core/src/split_dns.rs",
+            "RipDpiVpnServiceConfigTest.kt",
+        ):
             broken = copy.deepcopy(self.policy)
             surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
             surface["sourcePaths"] = [path for path in surface["sourcePaths"] if source_hint not in path]
@@ -97,7 +105,7 @@ class CrossLanguageRuntimeContractsTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "missing required gate ids"):
                 contracts.validate_policy(broken)
 
-    def test_native_config_distinguishes_jni_json_v3_from_standalone_yaml_v2(self) -> None:
+    def test_native_config_distinguishes_jni_json_v4_from_standalone_yaml_v2(self) -> None:
         broken = copy.deepcopy(self.policy)
         surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
         surface["invariants"] = ["Generic config invariants remain stable.", "Unknown fields remain compatible."]

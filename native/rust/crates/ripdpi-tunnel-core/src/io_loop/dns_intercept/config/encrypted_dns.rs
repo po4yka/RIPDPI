@@ -26,6 +26,10 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
     let Some(protocol) = protocol else {
         return Ok(None);
     };
+    let transport = mapdns_resolver_transport(config, mapdns);
+    if protocol == EncryptedDnsProtocol::Doq && matches!(transport, EncryptedDnsTransport::Socks5 { .. }) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "DoQ over SOCKS5 is not supported"));
+    }
 
     let bootstrap_ips = mapdns
         .encrypted_dns_bootstrap_ips
@@ -60,7 +64,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
             dnscrypt_public_key: mapdns.encrypted_dns_dnscrypt_public_key.clone(),
             odoh,
         },
-        mapdns_resolver_transport(config, mapdns),
+        transport,
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
         tls_roots,
         encrypted_dns_connect_hooks(config.misc.protect_path.clone()),
@@ -73,7 +77,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
 }
 
 pub(in crate::io_loop) fn mapdns_resolver_transport(config: &Config, mapdns: &MapDnsConfig) -> EncryptedDnsTransport {
-    if mapdns.route_dns_through_socks5 {
+    if mapdns.route_dns_through_socks5 || config.split_dns_policy.is_some() {
         let credentials =
             config.socks5.username.as_ref().zip(config.socks5.password.as_ref()).map(|(username, password)| {
                 EncryptedDnsSocks5Credentials { username: username.clone(), password: password.clone() }

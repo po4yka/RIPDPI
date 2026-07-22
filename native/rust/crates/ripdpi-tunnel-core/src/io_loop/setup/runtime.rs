@@ -6,6 +6,7 @@ use ripdpi_tunnel_intercept::egress::{RawTunPacketInjector, TunEgressInterceptor
 use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, SynAckStrategy, TunIngressInterceptor};
 
 use crate::session::Auth;
+use crate::split_dns::SplitDnsPolicy;
 use crate::uid_policy::UidFlowPolicy;
 
 use super::super::dns_intercept::MapDnsRuntime;
@@ -16,6 +17,7 @@ pub(super) fn build_loop_runtime(
     proxy_sockaddr: SocketAddr,
     auth: Auth,
     mapdns_runtime: Option<MapDnsRuntime>,
+    split_dns_policy: Option<SplitDnsPolicy>,
 ) -> LoopRuntime {
     let mapdns_classify = mapdns_runtime.map(|value| {
         (
@@ -38,6 +40,7 @@ pub(super) fn build_loop_runtime(
         auth,
         mapdns_runtime,
         mapdns_classify,
+        split_dns_policy,
         filter_injected_resets: config.misc.filter_injected_resets,
         webrtc_protection_enabled: config.misc.webrtc_protection_enabled,
         uid_policy,

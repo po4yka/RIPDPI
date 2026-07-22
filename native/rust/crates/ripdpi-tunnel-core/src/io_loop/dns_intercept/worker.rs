@@ -6,12 +6,14 @@ use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use crate::dns_cache::DnsCache;
+use crate::split_dns::{DnsPolicyPlane, SplitDnsPolicy};
+use crate::stats::SplitDnsDecisionKind;
 use crate::{Stats, TunDevice};
 
 use super::super::IO_PHASE_WORK_BUDGET;
 
 use super::super::send_dns_servfail;
-use super::{DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_result};
+use super::{DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_result, parse_dns_query};
 
 pub(in crate::io_loop) fn spawn_dns_worker(
     resolver: EncryptedDnsResolver,
@@ -71,12 +73,53 @@ pub(in crate::io_loop) fn route_dns_packet(
     stats: &Arc<Stats>,
     mapdns_runtime: Option<MapDnsRuntime>,
     dns_cache: Option<&DnsCache>,
+    split_dns_policy: Option<&SplitDnsPolicy>,
     dns_req_tx: &mut Option<tokio::sync::mpsc::Sender<DnsRequest>>,
     dns_resp_rx: &mut Option<tokio::sync::mpsc::Receiver<DnsResponse>>,
     src: SocketAddr,
     payload: &[u8],
     host: Option<String>,
 ) {
+    if let Some(policy) = split_dns_policy {
+        let parsed = parse_dns_query(payload);
+        let decision = policy.evaluate(parsed.as_ref().map_or("", |query| query.host.as_str()));
+        if let Some(reason) = decision.reason {
+            debug!(reason, "split DNS request kept on encrypted proxy plane");
+        }
+        if decision.plane == DnsPolicyPlane::Block {
+            stats.record_split_dns_decision(SplitDnsDecisionKind::Block, decision.reason);
+            if let (Some(mapdns), Some(parsed)) = (mapdns_runtime, parsed) {
+                match parsed.refused_response() {
+                    Ok(refused) => {
+                        let raw = super::super::packet::build_udp_response(mapdns.intercept_addr, src, &refused);
+                        super::super::bridge::enqueue_tun_packet(device, raw);
+                    }
+                    Err(error) => {
+                        stats.record_dns_response_failure("failed to encode split DNS REFUSED response");
+                        if let Some(cache) = dns_cache {
+                            match cache.servfail_response(payload) {
+                                Ok(servfail) => {
+                                    let raw =
+                                        super::super::packet::build_udp_response(mapdns.intercept_addr, src, &servfail);
+                                    super::super::bridge::enqueue_tun_packet(device, raw);
+                                }
+                                Err(servfail_error) => debug!(%servfail_error, "dropping split DNS block response"),
+                            }
+                        } else {
+                            debug!(%error, "dropping split DNS block response without DNS cache");
+                        }
+                    }
+                }
+            }
+            return;
+        }
+        let kind = if decision.reason == Some("direct_plane_unbound") {
+            SplitDnsDecisionKind::DirectProxyFallback
+        } else {
+            SplitDnsDecisionKind::ProxyEncrypted
+        };
+        stats.record_split_dns_decision(kind, decision.reason);
+    }
     match (&mapdns_runtime, dns_cache, dns_req_tx.as_ref()) {
         (Some(_), Some(_), Some(request_tx)) => {
             let request = DnsRequest { src, query: payload.to_vec(), host };

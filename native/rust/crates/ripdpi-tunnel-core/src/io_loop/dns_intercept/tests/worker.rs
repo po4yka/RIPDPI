@@ -2,7 +2,11 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
 use ripdpi_dns_resolver::EncryptedDnsExchangeSuccess;
+use ripdpi_tunnel_config::{
+    SplitDnsAction, SplitDnsDomainMatcher, SplitDnsMatcherKind, SplitDnsNetwork, SplitDnsPolicyConfig, SplitDnsRule,
+};
 
+use crate::split_dns::SplitDnsPolicy;
 use crate::{Stats, TunDevice};
 
 use super::super::{DnsRequest, DnsResponse, drain_dns_responses, route_dns_packet};
@@ -25,6 +29,7 @@ fn route_dns_sends_to_resolver() {
         &stats,
         Some(test_mapdns()),
         Some(&cache),
+        None,
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
@@ -56,6 +61,7 @@ fn route_dns_full_queue_sends_servfail() {
         &stats,
         Some(test_mapdns()),
         Some(&cache),
+        None,
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
@@ -70,6 +76,7 @@ fn route_dns_full_queue_sends_servfail() {
         &stats,
         Some(test_mapdns()),
         Some(&cache),
+        None,
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
@@ -100,6 +107,7 @@ fn route_dns_closed_channel_nulls_tx_rx() {
         &stats,
         Some(test_mapdns()),
         Some(&cache),
+        None,
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
@@ -127,6 +135,7 @@ fn route_dns_no_resolver_sends_servfail() {
         &stats,
         Some(test_mapdns()),
         Some(&cache),
+        None,
         &mut dns_req_tx,
         &mut dns_resp_rx,
         src,
@@ -135,6 +144,109 @@ fn route_dns_no_resolver_sends_servfail() {
     );
 
     assert!(!device.tx_queue.is_empty(), "SERVFAIL should be sent when no resolver");
+}
+
+#[test]
+fn route_dns_block_returns_refused_without_upstream() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<DnsRequest>(8);
+    let (_resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(8);
+    let mut dns_req_tx = Some(tx);
+    let mut dns_resp_rx = Some(resp_rx);
+    let cache = test_dns_cache();
+    let mut device = TunDevice::new(1500);
+    let stats = Arc::new(Stats::default());
+    let policy = SplitDnsPolicy::compile(&SplitDnsPolicyConfig {
+        canonical_digest: "a".repeat(64),
+        destination_routing_digest: "b".repeat(64),
+        default_action: SplitDnsAction::Tunneled,
+        rules: vec![SplitDnsRule {
+            action: SplitDnsAction::Block,
+            network: SplitDnsNetwork::Both,
+            domains: vec![SplitDnsDomainMatcher {
+                kind: SplitDnsMatcherKind::Suffix,
+                value: "blocked.example".to_string(),
+            }],
+            has_ip_ranges: false,
+            has_ports: false,
+        }],
+        direct_resolver_candidates: Vec::new(),
+        bootstrap_pins: Vec::new(),
+        coverage_reason: None,
+    })
+    .expect("policy");
+    let query = build_query("api.blocked.example");
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+
+    route_dns_packet(
+        &mut device,
+        &stats,
+        Some(test_mapdns()),
+        Some(&cache),
+        Some(&policy),
+        &mut dns_req_tx,
+        &mut dns_resp_rx,
+        src,
+        &query,
+        Some("api.blocked.example".to_string()),
+    );
+
+    assert!(rx.try_recv().is_err(), "blocked DNS must never reach upstream");
+    assert_eq!(device.tx_queue.len(), 1, "REFUSED response should be enqueued");
+    let snapshot = stats.dns_snapshot();
+    assert_eq!(snapshot.dns_queries_total, 1);
+    assert_eq!(snapshot.split_dns_block_decisions, 1);
+}
+
+#[test]
+fn route_dns_direct_falls_back_to_encrypted_proxy_queue() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<DnsRequest>(8);
+    let (_resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(8);
+    let mut dns_req_tx = Some(tx);
+    let mut dns_resp_rx = Some(resp_rx);
+    let cache = test_dns_cache();
+    let mut device = TunDevice::new(1500);
+    let stats = Arc::new(Stats::default());
+    let policy = SplitDnsPolicy::compile(&SplitDnsPolicyConfig {
+        canonical_digest: "a".repeat(64),
+        destination_routing_digest: "b".repeat(64),
+        default_action: SplitDnsAction::Tunneled,
+        rules: vec![SplitDnsRule {
+            action: SplitDnsAction::Direct,
+            network: SplitDnsNetwork::Both,
+            domains: vec![SplitDnsDomainMatcher {
+                kind: SplitDnsMatcherKind::Exact,
+                value: "direct.example".to_string(),
+            }],
+            has_ip_ranges: false,
+            has_ports: false,
+        }],
+        direct_resolver_candidates: vec![IpAddr::V4(Ipv4Addr::new(192, 0, 2, 53))],
+        bootstrap_pins: Vec::new(),
+        coverage_reason: None,
+    })
+    .expect("policy");
+    let query = build_query("direct.example");
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+
+    route_dns_packet(
+        &mut device,
+        &stats,
+        Some(test_mapdns()),
+        Some(&cache),
+        Some(&policy),
+        &mut dns_req_tx,
+        &mut dns_resp_rx,
+        src,
+        &query,
+        Some("direct.example".to_string()),
+    );
+
+    assert!(rx.try_recv().is_ok(), "direct policy must use the encrypted proxy worker fallback");
+    assert!(device.tx_queue.is_empty(), "direct fallback must not synthesize a local response");
+    let snapshot = stats.dns_snapshot();
+    assert_eq!(snapshot.split_dns_direct_fallback_decisions, 1);
+    assert_eq!(snapshot.split_dns_proxy_decisions, 0);
+    assert_eq!(snapshot.last_split_dns_coverage_reason.as_deref(), Some("direct_plane_unbound"));
 }
 
 #[test]

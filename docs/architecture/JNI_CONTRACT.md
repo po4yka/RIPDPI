@@ -106,6 +106,12 @@ never a raw pointer.
   `ripdpi-tunnel-android` independently rejects missing, retired, or future
   versions before registry insertion. This JNI envelope is separate from the
   standalone `ripdpi-tunnel-config` YAML schema `2`.
+  The additive immutable, validated `splitDnsPolicy` section carries
+  ordered exact/suffix/geosite rules, numeric resolver candidates and bootstrap
+  pins, canonical policy digests, and a bounded redaction-safe coverage token.
+  Rust validates the complete section and its MapDNS/encrypted-resolver binding
+  before registry insertion, then compiles it once during tunnel setup; no JNI
+  environment or Java reference crosses an async suspension point.
 - **Lifecycle ordering:** `create` → `start` → `stop` → `destroy`. `destroy`
   retires the handle from the registry; a handle must **never** be used after
   `destroy`. `stop` is idempotent on the Rust side.

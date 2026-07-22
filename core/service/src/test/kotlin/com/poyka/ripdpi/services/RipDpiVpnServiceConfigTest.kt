@@ -4,6 +4,15 @@ import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.os.Build
 import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
+import com.poyka.ripdpi.core.routing.DestinationDomainMatcher
+import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
+import com.poyka.ripdpi.core.routing.DestinationIpMatcher
+import com.poyka.ripdpi.core.routing.DestinationIpMatcherKind
+import com.poyka.ripdpi.core.routing.DestinationPortRange
+import com.poyka.ripdpi.core.routing.DestinationRoutingAction
+import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
+import com.poyka.ripdpi.core.routing.DestinationRoutingRule
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -12,6 +21,9 @@ import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -232,6 +244,99 @@ class RipDpiVpnServiceConfigTest {
         assertEquals(1_700_000_000L, config.encryptedDnsOdohConfigsRetrievedAtSecs)
         assertEquals(86_400L, config.encryptedDnsOdohConfigsTtlSecs)
         assertTrue(config.routeDnsThroughSocks5 == true)
+    }
+
+    @Test
+    fun buildTun2SocksConfigSerializesValidatedSplitDnsPolicyInCanonicalOrder() {
+        val destinationRouting =
+            DestinationRoutingPolicy(
+                rules =
+                    listOf(
+                        DestinationRoutingRule(
+                            action = DestinationRoutingAction.DIRECT,
+                            network = DestinationRoutingNetwork.BOTH,
+                            domains =
+                                listOf(
+                                    DestinationDomainMatcher(DestinationDomainMatcherKind.EXACT, "api.example"),
+                                    DestinationDomainMatcher(DestinationDomainMatcherKind.SUFFIX, "example"),
+                                ),
+                        ),
+                        DestinationRoutingRule(
+                            action = DestinationRoutingAction.BLOCK,
+                            network = DestinationRoutingNetwork.UDP,
+                            domains = listOf(DestinationDomainMatcher(DestinationDomainMatcherKind.GEOSITE, "private")),
+                            ipRanges = listOf(DestinationIpMatcher(DestinationIpMatcherKind.CIDR, "192.0.2.0/24")),
+                            destinationPorts = listOf(DestinationPortRange(53, 53)),
+                        ),
+                    ),
+                canonicalDigest = "b".repeat(64),
+            )
+        val activeDns = encryptedDns().copy(encryptedDnsBootstrapIps = listOf("94.140.14.14", "2001:db8::53"))
+        val splitPolicy =
+            ValidatedSplitStrictDnsPolicy.build(
+                activeDns = activeDns,
+                routingSnapshot = DestinationRoutingPolicySnapshot.Available(destinationRouting),
+                underlayDnsServers = listOf("192.0.2.53", "2001:db8::54"),
+            )
+
+        val config =
+            buildVpnTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns = false, splitStrictPolicy = splitPolicy),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint,
+                ipv6Enabled = false,
+            )
+
+        val native = requireNotNull(config.splitDnsPolicy)
+        assertEquals(splitPolicy.canonicalDigest, native.canonicalDigest)
+        assertEquals("b".repeat(64), native.destinationRoutingDigest)
+        assertEquals("tunneled", native.defaultAction)
+        assertEquals(listOf("192.0.2.53", "2001:db8:0:0:0:0:0:54"), native.directResolverCandidates)
+        assertEquals(listOf("94.140.14.14", "2001:db8:0:0:0:0:0:53"), native.bootstrapPins)
+        assertNull(native.coverageReason)
+        assertEquals(listOf("exact", "suffix"), native.rules[0].domains.map { it.kind })
+        assertEquals(listOf("api.example", "example"), native.rules[0].domains.map { it.value })
+        assertEquals("direct", native.rules[0].action)
+        assertEquals("both", native.rules[0].network)
+        assertFalse(native.rules[0].hasIpRanges)
+        assertFalse(native.rules[0].hasPorts)
+        assertEquals("block", native.rules[1].action)
+        assertEquals("udp", native.rules[1].network)
+        assertTrue(native.rules[1].hasIpRanges)
+        assertTrue(native.rules[1].hasPorts)
+    }
+
+    @Test
+    fun buildTun2SocksConfigSerializesSplitDnsCoverageReasonAndPlainNull() {
+        val unavailable =
+            ValidatedSplitStrictDnsPolicy.build(
+                activeDns = encryptedDns(),
+                routingSnapshot = DestinationRoutingPolicySnapshot.Unavailable("source_unavailable"),
+                underlayDnsServers = listOf("192.0.2.53"),
+            )
+        val encryptedConfig =
+            buildVpnTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(encryptedDns(), forceTunnelDns = false, splitStrictPolicy = unavailable),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint,
+                ipv6Enabled = false,
+            )
+        assertEquals("route_policy_unavailable:source_unavailable", encryptedConfig.splitDnsPolicy?.coverageReason)
+
+        val plainConfig =
+            buildVpnTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(plainDns("1.1.1.1"), forceTunnelDns = false),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint,
+                ipv6Enabled = false,
+            )
+        assertNull(plainConfig.splitDnsPolicy)
+        val encoded =
+            Json {
+                encodeDefaults = true
+                explicitNulls = true
+            }.encodeToString(plainConfig)
+        assertTrue(encoded.contains("\"splitDnsPolicy\":null"))
     }
 
     @Test
