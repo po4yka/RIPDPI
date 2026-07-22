@@ -6,19 +6,31 @@ import java.io.File
 
 class FullExperienceScreenshotBaselineTest {
     @Test
-    fun `full experience previews do not create Simple baselines`() {
+    fun `experience-isolated setup health previews keep both variants`() {
         val screenshotDirectory = File(System.getProperty("user.dir"), "src/test/screenshots")
-        val unreachableSimpleBaselines =
-            screenshotDirectory
-                .walkTopDown()
-                .filter { it.isFile && "_simple_" in it.name && it.extension == "png" }
-                .map(File::getName)
-                .sorted()
-                .toList()
+        val expectedBaselines =
+            ExperienceIsolatedSetupHealthPreviews.flatMap { preview ->
+                listOf("full", "simple").flatMap { experience ->
+                    listOf("light", "dark").map { theme ->
+                        "$ConfigSetupHealthScreenshotTestFqn.${preview}_${experience}_$theme.png"
+                    }
+                }
+            }
+        val missingBaselines = expectedBaselines.filterNot { File(screenshotDirectory, it).isFile }
 
         assertTrue(
-            "Full-only preview baselines cannot represent the Simple experience: $unreachableSimpleBaselines",
-            unreachableSimpleBaselines.isEmpty(),
+            "Experience-isolated previews require Full and Simple baselines: $missingBaselines",
+            missingBaselines.isEmpty(),
         )
     }
 }
+
+private const val ConfigSetupHealthScreenshotTestFqn =
+    "com.poyka.ripdpi.ui.screenshot.ConfigSetupHealthScreenshotTest"
+private val ExperienceIsolatedSetupHealthPreviews =
+    listOf(
+        "setupHealthPermissionRecovery",
+        "setupHealthBatteryRecommendation",
+        "homeSetupAtPixel7LargeFont",
+        "homeTransitionAtPixel7MaximumFont",
+    )
