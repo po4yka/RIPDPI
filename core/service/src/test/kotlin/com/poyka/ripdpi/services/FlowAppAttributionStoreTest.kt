@@ -4,6 +4,17 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FlowAppAttributionStoreTest {
+    @Test
+    fun `admission-only request resolves uid without destination attribution`() {
+        val store = RecordingResolutionStore()
+
+        val uid = resolveFlowRequest(store, 17, "10.0.0.2", 53000, "198.18.0.10", 53, AdmissionOnlyFlowRequest)
+
+        assertEquals(10123, uid)
+        assertEquals(0, store.attributionCalls)
+        assertEquals(1, store.uidOnlyCalls)
+    }
+
     // ── Digest parity ─────────────────────────────────────────────────────────
     // These vectors are the lowercase hex of the first 8 bytes of SHA-256(ipString),
     // identical to the Rust `direct_path_ip_set_digest` for a single destination IP.
@@ -143,4 +154,48 @@ class FlowAppAttributionStoreTest {
 
         assertEquals(NativeUidPolicy("denylist", listOf(10420, 10421)), policy)
     }
+}
+
+private class RecordingResolutionStore : FlowAppAttributionStore {
+    var attributionCalls = 0
+    var uidOnlyCalls = 0
+
+    override fun noteFlow(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ) = Unit
+
+    override fun resolveFlowUid(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ): Int {
+        attributionCalls += 1
+        return 10123
+    }
+
+    override fun resolveFlowUidOnly(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ): Int {
+        uidOnlyCalls += 1
+        return 10123
+    }
+
+    override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = null
+
+    override fun invalidateOnAppUpdate(
+        packageName: String,
+        newVersionCode: Long,
+    ) = Unit
+
+    override fun clear() = Unit
 }

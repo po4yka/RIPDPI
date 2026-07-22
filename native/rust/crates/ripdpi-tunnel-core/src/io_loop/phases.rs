@@ -142,7 +142,7 @@ pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopSta
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet, VecDeque};
+    use std::collections::{HashMap, HashSet};
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::sync::atomic::Ordering;
     use std::sync::{Arc, Mutex};
@@ -162,7 +162,9 @@ mod tests {
     use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
 
     use super::super::retransmit::RetransmitTracker;
-    use super::super::state::{LoopRuntime, LoopState};
+    use super::super::state::{
+        LoopRuntime, LoopState, PENDING_UID_UDP_CAPACITY, PENDING_UID_UDP_POOL_CAPACITY, PendingUidUdpPackets,
+    };
     use super::super::udp_assoc::{UDP_EVICTION_HEAP_CAPACITY, UdpEvictionEntry};
     use super::*;
 
@@ -342,6 +344,112 @@ mod tests {
         state.shutdown().await;
     }
 
+    /// # Cancel safety
+    /// Cancel-safe: the test holds no lock or partially committed state across an await.
+    #[tokio::test]
+    async fn mapdns_dns_admission_waits_on_exact_tuple_and_drops_denied_query() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = mapdns_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        let (tx, mut rx) = mpsc::channel(8);
+        state.dns_req_tx = Some(tx);
+        let packet = mapdns_dns_packet(53_101);
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:53101".parse().expect("local endpoint"),
+            remote: "198.18.0.10:53".parse().expect("remote endpoint"),
+        };
+
+        route_tun_packet(&packet, &mut state);
+
+        assert_eq!(state.pending_uid_udp_packets.len(), 1);
+        assert!(rx.try_recv().is_err(), "pending admission must not reach the DNS worker");
+        assert!(state.device.tx_queue.is_empty(), "pending admission must not synthesize a response");
+        let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("exact DNS tuple request");
+        assert_eq!(job.kind(), ripdpi_flow_app_attribution::FlowResolutionKind::AdmissionOnly);
+        ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(20_000));
+
+        retry_pending_uid_udp(&mut state);
+
+        assert!(state.pending_uid_udp_packets.is_empty());
+        assert!(rx.try_recv().is_err(), "denied DNS must not reach the worker");
+        assert!(state.device.tx_queue.is_empty(), "denied DNS must be silently dropped");
+        assert_eq!(seen_packets.lock().expect("seen packets").len(), 1, "retry must not replay interception");
+
+        let unresolved_packet = mapdns_dns_packet(53_104);
+        let unresolved_request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:53104".parse().expect("local endpoint"),
+            remote: request.remote,
+        };
+        route_tun_packet(&unresolved_packet, &mut state);
+        let unresolved_job = ripdpi_flow_app_attribution::take_pending_request(unresolved_request)
+            .expect("unresolved DNS tuple request");
+        ripdpi_flow_app_attribution::store_uid_resolution(&unresolved_job, None);
+        retry_pending_uid_udp(&mut state);
+        assert!(rx.try_recv().is_err(), "unresolved DNS must not reach the worker");
+        assert!(state.device.tx_queue.is_empty(), "unresolved DNS must be silently dropped");
+        state.shutdown().await;
+    }
+
+    /// # Cancel safety
+    /// Cancel-safe: the test holds no lock or partially committed state across an await.
+    #[tokio::test]
+    async fn mapdns_dns_admission_allows_retry_and_reuses_uid_resolution() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = mapdns_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+        let (tx, mut rx) = mpsc::channel(8);
+        state.dns_req_tx = Some(tx);
+        let packet = mapdns_dns_packet(53_102);
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:53102".parse().expect("local endpoint"),
+            remote: "198.18.0.10:53".parse().expect("remote endpoint"),
+        };
+
+        route_tun_packet(&packet, &mut state);
+        let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("exact DNS tuple request");
+        ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
+        retry_pending_uid_udp(&mut state);
+        let first = rx.try_recv().expect("allowed DNS reaches worker");
+        assert_eq!(first.src, request.local);
+        assert_eq!(first.host.as_deref(), Some("example.test"));
+
+        route_tun_packet(&packet, &mut state);
+        assert!(rx.try_recv().is_ok(), "cached UID allows a repeated query immediately");
+        assert!(ripdpi_flow_app_attribution::take_pending_request(request).is_none());
+        assert_eq!(seen_packets.lock().expect("seen packets").len(), 2, "retry must not replay interception");
+        state.shutdown().await;
+    }
+
+    /// # Cancel safety
+    /// Cancel-safe: the test holds no lock or partially committed state across an await.
+    #[tokio::test]
+    async fn disarmed_mapdns_dns_is_immediate_and_creates_no_uid_attribution() {
+        let mut state =
+            mapdns_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        let (tx, mut rx) = mpsc::channel(8);
+        state.dns_req_tx = Some(tx);
+        let packet = mapdns_dns_packet(53_103);
+        let request = ripdpi_flow_app_attribution::FlowResolveRequest {
+            protocol: crate::uid_policy::PROTO_UDP,
+            local: "10.0.0.2:53103".parse().expect("local endpoint"),
+            remote: "198.18.0.10:53".parse().expect("remote endpoint"),
+        };
+
+        route_tun_packet(&packet, &mut state);
+
+        assert!(rx.try_recv().is_ok());
+        assert!(state.pending_uid_udp_packets.is_empty());
+        assert_eq!(
+            ripdpi_flow_app_attribution::lookup_flow_uid(request.protocol, request.local, request.remote),
+            ripdpi_flow_app_attribution::FlowUidLookup::Missing
+        );
+        assert!(ripdpi_flow_app_attribution::lookup_flow(request.remote.ip()).is_none());
+        state.shutdown().await;
+    }
+
     #[tokio::test]
     async fn mapdns_udp_admission_uses_kernel_visible_synthetic_tuple() {
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
@@ -459,13 +567,58 @@ mod tests {
             udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(UDP_EVICTION_HEAP_CAPACITY),
             udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,
-            pending_uid_udp_packets: VecDeque::new(),
+            pending_uid_udp_packets: PendingUidUdpPackets::new(1564),
             dns_req_tx: None,
             dns_resp_rx: None,
             tun_read_buf: vec![0u8; 1500],
             retransmit_tracker: RetransmitTracker::new(),
             last_loss_emit_iteration: 0,
         }
+    }
+
+    #[test]
+    fn pending_uid_udp_storage_is_bounded_and_reuses_preallocated_buffers() {
+        let mut packets = PendingUidUdpPackets::new(64);
+        assert_eq!(packets.free_len(), PENDING_UID_UDP_POOL_CAPACITY);
+
+        for byte in 0..=PENDING_UID_UDP_CAPACITY {
+            assert!(packets.retain(&[byte as u8; 32]));
+        }
+        assert_eq!(packets.len(), PENDING_UID_UDP_CAPACITY);
+        assert_eq!(packets.free_len(), 1);
+
+        let packet = packets.pop_front().expect("queued packet");
+        let allocation = packet.as_ptr();
+        packets.recycle(packet);
+        assert_eq!(packets.free_len(), 2);
+        assert!(packets.retain(&[7; 32]));
+        assert_eq!(packets.back_ptr(), Some(allocation), "retention must reuse a preallocated buffer");
+        assert_eq!(packets.free_len() + packets.len(), PENDING_UID_UDP_POOL_CAPACITY);
+    }
+
+    fn mapdns_loop_state(tun_egress_interceptor: Box<dyn TunEgressPacketHandler>) -> LoopState {
+        let mut state = test_loop_state(tun_egress_interceptor);
+        let synthetic_net = u32::from(Ipv4Addr::new(198, 18, 0, 0));
+        let synthetic_mask = u32::from(Ipv4Addr::new(255, 254, 0, 0));
+        state.runtime.mapdns_classify = Some((synthetic_net, synthetic_mask, 53));
+        state.runtime.mapdns_runtime = Some(super::super::dns_intercept::MapDnsRuntime {
+            intercept_addr: "198.18.0.10:53".parse().expect("intercept endpoint"),
+            synthetic_net,
+            synthetic_mask,
+            intercept_port: 53,
+        });
+        state.dns_cache = Some(crate::dns_cache::DnsCache::new(synthetic_net, synthetic_mask, 8).expect("DNS cache"));
+        state
+    }
+
+    fn mapdns_dns_packet(src_port: u16) -> Vec<u8> {
+        let query = [
+            0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, b'e', b'x', b'a', b'm', b'p',
+            b'l', b'e', 0x04, b't', b'e', b's', b't', 0x00, 0x00, 0x01, 0x00, 0x01,
+        ];
+        let mut packet = ipv4_udp_packet(src_port, 53, &query);
+        packet[16..20].copy_from_slice(&[198, 18, 0, 10]);
+        packet
     }
 
     fn ipv4_udp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {

@@ -110,6 +110,15 @@ interface FlowAppAttributionStore {
         return InvalidUid
     }
 
+    /** Resolve only the owning UID without recording destination attribution. */
+    fun resolveFlowUidOnly(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ): Int
+
     /** Look up the attribution for a learning signal's `ipSetDigest`. */
     fun lookup(ipSetDigest: String): FlowAttribution.Attributed?
 
@@ -158,6 +167,14 @@ class DefaultFlowAppAttributionStore
             return uid
         }
 
+        override fun resolveFlowUidOnly(
+            protocol: Int,
+            localIp: String,
+            localPort: Int,
+            remoteIp: String,
+            remotePort: Int,
+        ): Int = resolveOwnerUid(protocol, localIp, localPort, remoteIp, remotePort)
+
         override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? =
             attributions[ipSetDigest] as? FlowAttribution.Attributed
 
@@ -183,27 +200,39 @@ class DefaultFlowAppAttributionStore
             remoteIp: String,
             remotePort: Int,
         ): Pair<Int, FlowAttribution> {
-            // getConnectionOwnerUid is API 29+. Below that, attribution is unavailable.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return InvalidUid to FlowAttribution.Unattributed
-            return runCatching {
-                val connectivity =
-                    context.getSystemService(ConnectivityManager::class.java)
-                        ?: return@runCatching InvalidUid to FlowAttribution.Unattributed
-                val uid =
-                    connectivity.getConnectionOwnerUid(
-                        protocol,
-                        InetSocketAddress(InetAddress.getByName(localIp), localPort),
-                        InetSocketAddress(InetAddress.getByName(remoteIp), remotePort),
-                    )
+            val uid = resolveOwnerUid(protocol, localIp, localPort, remoteIp, remotePort)
+            return if (uid == InvalidUid) {
+                InvalidUid to FlowAttribution.Unattributed
+            } else {
                 uid to
                     decideAttribution(uid, context.packageManager.getPackagesForUid(uid)) { pkg ->
                         runCatching {
                             PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(pkg, 0))
                         }.getOrNull()
                     }
+            }
+        }
+
+        private fun resolveOwnerUid(
+            protocol: Int,
+            localIp: String,
+            localPort: Int,
+            remoteIp: String,
+            remotePort: Int,
+        ): Int {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return InvalidUid
+            return runCatching {
+                val connectivity =
+                    context.getSystemService(ConnectivityManager::class.java)
+                        ?: return@runCatching InvalidUid
+                connectivity.getConnectionOwnerUid(
+                    protocol,
+                    InetSocketAddress(InetAddress.getByName(localIp), localPort),
+                    InetSocketAddress(InetAddress.getByName(remoteIp), remotePort),
+                )
             }.getOrElse { error ->
                 log.w(error) { "flow owner resolution failed" }
-                InvalidUid to FlowAttribution.Unattributed
+                InvalidUid
             }
         }
 

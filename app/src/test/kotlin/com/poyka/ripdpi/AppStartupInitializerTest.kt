@@ -849,6 +849,14 @@ private object NoOpFlowAppAttributionStore : FlowAppAttributionStore {
         remotePort: Int,
     ) = Unit
 
+    override fun resolveFlowUidOnly(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ): Int = -1
+
     override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = null
 
     override fun invalidateOnAppUpdate(

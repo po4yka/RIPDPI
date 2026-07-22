@@ -6,7 +6,7 @@ use etherparse::{IpNumber, NetSlice, SlicedPacket, TransportSlice};
 pub enum IpClass<'a> {
     TcpOrOther,
     Icmp,
-    UdpDns { src: SocketAddr, payload: &'a [u8] },
+    UdpDns { src: SocketAddr, dst: SocketAddr, payload: &'a [u8] },
     Udp { src: SocketAddr, dst: SocketAddr, payload: &'a [u8] },
 }
 
@@ -54,7 +54,7 @@ pub fn classify_ip_packet<'a>(pkt: &'a [u8], mapdns: Option<(u32, u32, u16)>) ->
             if let Some((mapdns_net, mapdns_mask, mapdns_port)) = mapdns {
                 let dst_ip_u32 = u32::from(dst_ip);
                 if dst_ip_u32 & mapdns_mask == mapdns_net && dst_port == mapdns_port {
-                    return IpClass::UdpDns { src, payload };
+                    return IpClass::UdpDns { src, dst, payload };
                 }
             }
 
@@ -362,15 +362,17 @@ mod tests {
     }
 
     #[test]
-    fn dns_intercept_src_address_is_correct() {
+    fn dns_intercept_preserves_kernel_visible_tuple() {
         let pkt = ipv4_udp([10, 0, 0, 99], [198, 18, 0, 0], 54321, 53, b"q");
 
         let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
 
         match class {
-            IpClass::UdpDns { src, .. } => {
+            IpClass::UdpDns { src, dst, .. } => {
                 assert_eq!(src.ip(), IpAddr::V4(std::net::Ipv4Addr::new(10, 0, 0, 99)));
                 assert_eq!(src.port(), 54321);
+                assert_eq!(dst.ip(), IpAddr::V4(std::net::Ipv4Addr::new(198, 18, 0, 0)));
+                assert_eq!(dst.port(), 53);
             }
             other => panic!("expected IpClass::UdpDns, got {other:?}"),
         }

@@ -41,6 +41,14 @@ private class FakeFlowAppAttributionStore : FlowAppAttributionStore {
         remotePort: Int,
     ) = Unit
 
+    override fun resolveFlowUidOnly(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ): Int = InvalidUid
+
     override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = map[ipSetDigest]
 
     override fun invalidateOnAppUpdate(

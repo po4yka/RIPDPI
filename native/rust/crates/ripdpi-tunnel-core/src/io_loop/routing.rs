@@ -1,5 +1,6 @@
 use crate::IpClass;
 use crate::classify::classify_ip_packet;
+use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, Verdict};
 
 use super::dns_intercept::{dns_query_name, resolve_mapped_target, route_dns_packet};
 use super::packet::is_injected_rst;
@@ -7,7 +8,6 @@ use super::state::LoopState;
 use super::tcp_accept::ensure_pending_listen_for_syn;
 use super::udp_assoc::{UdpForwardOutcome, forward_udp_payload};
 
-const PENDING_UID_UDP_CAPACITY: usize = 256;
 const STUN_HEADER_LEN: usize = 20;
 const STUN_MAGIC_COOKIE: [u8; 4] = 0x2112_A442_u32.to_be_bytes();
 
@@ -30,7 +30,18 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
 
     match ip_class {
         IpClass::TcpOrOther | IpClass::Icmp => route_tcp_or_other_packet(packet, state),
-        IpClass::UdpDns { src, payload } => {
+        IpClass::UdpDns { src, dst, payload } => {
+            if state.runtime.uid_policy.is_enforcing() {
+                ripdpi_flow_app_attribution::request_uid_admission(PROTO_UDP, src, dst);
+            }
+            match state.runtime.uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, dst) {
+                Verdict::Pending => {
+                    retain_pending_uid_udp(packet, state);
+                    return;
+                }
+                Verdict::DropUdp | Verdict::ResetTcp => return,
+                Verdict::Allow => {}
+            }
             let host = dns_query_name(payload);
             route_dns_packet(
                 &mut state.device,
@@ -79,14 +90,15 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                     &state.runtime.uid_policy,
                 );
                 if matches!(outcome, UdpForwardOutcome::PendingUid) {
-                    if state.pending_uid_udp_packets.len() >= PENDING_UID_UDP_CAPACITY {
-                        state.pending_uid_udp_packets.pop_front();
-                    }
-                    state.pending_uid_udp_packets.push_back(packet.to_vec());
+                    retain_pending_uid_udp(packet, state);
                 }
             }
         }
     }
+}
+
+fn retain_pending_uid_udp(packet: &[u8], state: &mut LoopState) {
+    state.pending_uid_udp_packets.retain(packet);
 }
 
 fn is_stun_datagram(payload: &[u8]) -> bool {
@@ -105,6 +117,7 @@ pub(in crate::io_loop) fn retry_pending_uid_udp(state: &mut LoopState) {
             break;
         };
         route_tun_packet_inner(&packet, state, false);
+        state.pending_uid_udp_packets.recycle(packet);
     }
 }
 

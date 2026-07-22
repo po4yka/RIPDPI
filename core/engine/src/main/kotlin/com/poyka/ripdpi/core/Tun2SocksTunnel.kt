@@ -98,7 +98,7 @@ interface Tun2SocksBindings {
      * Register a per-flow app-attribution bridge and start the native worker that
      * pushes `noteFlow` notifications up to it (see `ripdpi-tunnel-android`
      * `flow_attribution`). [bridge] must expose
-     * `noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort)`.
+     * `noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort, int requestKind)`.
      * Returns a generation token (`0` on failure) threaded back to
      * [unregisterFlowAttribution]. Process-global on the native side, so register
      * once per tunnel session after [start] and release on [stop].

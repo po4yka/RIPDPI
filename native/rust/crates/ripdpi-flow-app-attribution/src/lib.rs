@@ -46,7 +46,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use lru::LruCache;
 
@@ -59,6 +59,11 @@ const CACHE_CAPACITY: usize = 4096;
 /// the oldest requests are dropped (the corresponding flows stay unattributed —
 /// conservative) rather than growing without bound.
 const PENDING_CAPACITY: usize = 1024;
+
+/// Absolute lifetime for an admission-only DNS UID verdict. Five seconds spans
+/// a DNS transaction burst without allowing traffic to renew a stale socket
+/// owner indefinitely after the kernel reuses the exact UDP tuple.
+const ADMISSION_ABSOLUTE_TTL: Duration = Duration::from_secs(5);
 
 /// Resolved owning-app identity for a flow's destination IP.
 ///
@@ -108,6 +113,8 @@ enum UidResolutionState {
 struct UidResolution {
     generation: u64,
     state: UidResolutionState,
+    kind: FlowResolutionKind,
+    created_at: Instant,
 }
 
 /// Cached UID lookup state for one complete flow tuple.
@@ -128,6 +135,15 @@ pub struct FlowResolveRequest {
     pub local: SocketAddr,
     /// The flow's destination endpoint.
     pub remote: SocketAddr,
+}
+
+/// Resolution purpose carried to the Android worker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowResolutionKind {
+    /// Resolve UID and update destination-level app attribution.
+    Attribution,
+    /// Resolve only the exact tuple's UID for admission.
+    AdmissionOnly,
 }
 
 impl FlowResolveRequest {
@@ -170,12 +186,19 @@ pub struct FlowObservation {
 pub struct FlowResolutionJob {
     request: FlowResolveRequest,
     generation: u64,
+    kind: FlowResolutionKind,
 }
 
 impl FlowResolutionJob {
     #[must_use]
     pub const fn request(&self) -> FlowResolveRequest {
         self.request
+    }
+
+    /// Whether this job may update destination-level app attribution.
+    #[must_use]
+    pub const fn kind(&self) -> FlowResolutionKind {
+        self.kind
     }
 }
 
@@ -271,41 +294,112 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
     }
     let generation = NEXT_FLOW_GENERATION.fetch_add(1, Ordering::Relaxed);
     let token = FlowAttributionToken { request, generation };
-    guard.uid_cache.put(request, UidResolution { generation, state: UidResolutionState::Pending });
+    guard.uid_cache.put(
+        request,
+        UidResolution {
+            generation,
+            state: UidResolutionState::Pending,
+            kind: FlowResolutionKind::Attribution,
+            created_at: Instant::now(),
+        },
+    );
     if guard.pending.len() >= PENDING_CAPACITY
         && let Some(dropped) = guard.pending.pop_front()
         && guard.uid_cache.peek(&dropped.request).is_some_and(|entry| entry.generation == dropped.generation)
     {
         guard.uid_cache.pop(&dropped.request);
     }
-    guard.pending.push_back(FlowResolutionJob { request, generation });
+    guard.pending.push_back(FlowResolutionJob { request, generation, kind: FlowResolutionKind::Attribution });
     drop(guard);
     pending_signal().notify_one();
     FlowObservation { context, token }
+}
+
+/// Ensure an exact tuple has an asynchronous UID resolution request without
+/// creating or updating destination-level app attribution.
+///
+/// Repeated calls reuse the bounded full-5-tuple UID cache and therefore do not
+/// enqueue a second Android lookup within [`ADMISSION_ABSOLUTE_TTL`]. Cache hits
+/// never renew that security bound: the exact tuple is forcibly re-resolved
+/// after five seconds in case the kernel assigned it to a different socket
+/// owner. The cache is also bounded by LRU and cleared at session shutdown.
+pub fn request_uid_admission(protocol: u8, local: SocketAddr, remote: SocketAddr) {
+    let request = FlowResolveRequest { protocol, local, remote };
+    request_uid_admission_at(request, Instant::now());
+}
+
+fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) {
+    let mut guard = lock();
+    remove_expired_admission(&mut guard, request, now);
+    if guard.uid_cache.get(&request).is_some() {
+        return;
+    }
+    let generation = NEXT_FLOW_GENERATION.fetch_add(1, Ordering::Relaxed);
+    guard.uid_cache.put(
+        request,
+        UidResolution {
+            generation,
+            state: UidResolutionState::Pending,
+            kind: FlowResolutionKind::AdmissionOnly,
+            created_at: now,
+        },
+    );
+    if guard.pending.len() >= PENDING_CAPACITY
+        && let Some(dropped) = guard.pending.pop_front()
+        && guard.uid_cache.peek(&dropped.request).is_some_and(|entry| entry.generation == dropped.generation)
+    {
+        guard.uid_cache.pop(&dropped.request);
+    }
+    guard.pending.push_back(FlowResolutionJob { request, generation, kind: FlowResolutionKind::AdmissionOnly });
+    drop(guard);
+    pending_signal().notify_one();
 }
 
 /// Read the asynchronous UID-resolution state for one complete flow tuple.
 #[must_use]
 pub fn lookup_flow_uid(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowUidLookup {
     let request = FlowResolveRequest { protocol, local, remote };
-    match lock().uid_cache.get(&request) {
+    lookup_flow_uid_at(request, Instant::now())
+}
+
+fn lookup_flow_uid_at(request: FlowResolveRequest, now: Instant) -> FlowUidLookup {
+    let mut guard = lock();
+    remove_expired_admission(&mut guard, request, now);
+    match guard.uid_cache.get(&request) {
         Some(UidResolution { state: UidResolutionState::Pending, .. }) => FlowUidLookup::Pending,
         Some(UidResolution { state: UidResolutionState::Resolved(uid), .. }) => FlowUidLookup::Resolved(*uid),
         None => FlowUidLookup::Missing,
     }
 }
 
+fn remove_expired_admission(guard: &mut State, request: FlowResolveRequest, now: Instant) {
+    let expired = guard.uid_cache.peek(&request).is_some_and(|entry| {
+        entry.kind == FlowResolutionKind::AdmissionOnly
+            && now.saturating_duration_since(entry.created_at) >= ADMISSION_ABSOLUTE_TTL
+    });
+    if expired {
+        guard.uid_cache.pop(&request);
+        guard.pending.retain(|job| job.request != request);
+    }
+}
+
 /// Store the UID result produced by the background JNI worker.
 pub fn store_uid_resolution(job: &FlowResolutionJob, uid: Option<u32>) {
     let mut guard = lock();
-    if guard
-        .uid_cache
-        .peek(&job.request)
-        .is_some_and(|entry| entry.generation == job.generation && entry.state == UidResolutionState::Pending)
+    let current = guard.uid_cache.peek(&job.request).copied();
+    if let Some(current) = current
+        && current.generation == job.generation
+        && current.state == UidResolutionState::Pending
     {
-        guard
-            .uid_cache
-            .put(job.request, UidResolution { generation: job.generation, state: UidResolutionState::Resolved(uid) });
+        guard.uid_cache.put(
+            job.request,
+            UidResolution {
+                generation: job.generation,
+                state: UidResolutionState::Resolved(uid),
+                kind: job.kind,
+                created_at: current.created_at,
+            },
+        );
     }
 }
 
@@ -489,6 +583,56 @@ mod tests {
         store_uid_resolution(&first, Some(10_123));
         assert_eq!(lookup_flow_uid(6, first_local, remote), FlowUidLookup::Resolved(Some(10_123)));
         assert_eq!(lookup_flow_uid(6, second_local, remote), FlowUidLookup::Pending);
+    }
+
+    #[test]
+    fn admission_only_reuses_exact_tuple_without_destination_attribution() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let local = sock(10, 0, 0, 2, 53_000);
+        let remote = sock(198, 18, 0, 10, 53);
+
+        request_uid_admission(17, local, remote);
+        request_uid_admission(17, local, remote);
+        assert_eq!(pending_len(), 1, "the exact tuple must resolve only once");
+
+        let job = pop_pending_request(Duration::from_millis(10)).expect("admission request");
+        assert_eq!(job.kind(), FlowResolutionKind::AdmissionOnly);
+        store_uid_resolution(&job, Some(10_123));
+        assert_eq!(lookup_flow_uid(17, local, remote), FlowUidLookup::Resolved(Some(10_123)));
+        assert!(lookup_flow(remote.ip()).is_none(), "admission-only work must not create destination attribution");
+
+        request_uid_admission(17, local, remote);
+        assert_eq!(pending_len(), 0, "a resolved exact tuple must not trigger a second lookup");
+    }
+
+    #[test]
+    fn absolute_ttl_forces_re_resolution_when_another_uid_reuses_exact_tuple() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let local = sock(10, 0, 0, 2, 53_001);
+        let remote = sock(198, 18, 0, 10, 53);
+        let request = FlowResolveRequest { protocol: 17, local, remote };
+        let started = Instant::now();
+        request_uid_admission_at(request, started);
+        let allowed = pop_pending_request(Duration::ZERO).expect("allowed owner lookup");
+        store_uid_resolution(&allowed, Some(10_123));
+
+        let last_cache_hit = started + ADMISSION_ABSOLUTE_TTL - Duration::from_millis(1);
+        assert_eq!(lookup_flow_uid_at(request, last_cache_hit), FlowUidLookup::Resolved(Some(10_123)));
+        assert_eq!(
+            lookup_flow_uid_at(request, started + ADMISSION_ABSOLUTE_TTL),
+            FlowUidLookup::Missing,
+            "cache hits must not renew the absolute tuple-owner security bound"
+        );
+
+        let rebound_at = started + ADMISSION_ABSOLUTE_TTL;
+        request_uid_admission_at(request, rebound_at);
+        let denied = pop_pending_request(Duration::ZERO).expect("rebound owner lookup");
+        assert_ne!(denied.generation, allowed.generation);
+        store_uid_resolution(&denied, Some(20_000));
+        assert_eq!(lookup_flow_uid_at(request, rebound_at), FlowUidLookup::Resolved(Some(20_000)));
+        assert_eq!(pending_len(), 0);
     }
 
     #[test]

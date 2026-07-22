@@ -40,6 +40,23 @@ internal fun nativeUidPolicyFor(
     }
 }
 
+internal const val AdmissionOnlyFlowRequest = 1
+
+internal fun resolveFlowRequest(
+    store: FlowAppAttributionStore,
+    protocol: Int,
+    localIp: String,
+    localPort: Int,
+    remoteIp: String,
+    remotePort: Int,
+    requestKind: Int,
+): Int =
+    if (requestKind == AdmissionOnlyFlowRequest) {
+        store.resolveFlowUidOnly(protocol, localIp, localPort, remoteIp, remotePort)
+    } else {
+        store.resolveFlowUid(protocol, localIp, localPort, remoteIp, remotePort)
+    }
+
 /**
  * The Kotlin object the tun2socks native worker calls over JNI (`noteFlow`) to
  * report a freshly seen flow's 5-tuple. It delegates straight to
@@ -49,7 +66,7 @@ internal fun nativeUidPolicyFor(
  * `@Keep` (on the class and the method) is load-bearing: `noteFlow` is invoked
  * only via JNI, so without it R8 would rename or strip the method in release
  * builds and the native `call_method` lookup would fail. The JNI signature the
- * native side resolves is `(ILjava/lang/String;ILjava/lang/String;I)I`.
+ * native side resolves is `(ILjava/lang/String;ILjava/lang/String;II)I`.
  */
 @Keep
 class FlowAttributionBridge
@@ -77,5 +94,6 @@ class FlowAttributionBridge
             localPort: Int,
             remoteIp: String,
             remotePort: Int,
-        ): Int = store.resolveFlowUid(protocol, localIp, localPort, remoteIp, remotePort)
+            requestKind: Int,
+        ): Int = resolveFlowRequest(store, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
     }
