@@ -20,6 +20,10 @@ CLIENT_ARTIFACT_SHA256 = "e" * 64
 TEST_ARTIFACT_SHA256 = "f" * 64
 WINDOW_A = "oracle-fixture-window-a"
 WINDOW_B = "oracle-fixture-window-b"
+STARTUP_GATE = "killswitch-tun-establish-native-ready"
+FIXTURE_ADDRESS = "198.51.100.20"
+FIXTURE_CONTROL_PORT = 18080
+FIXTURE_DNS_PORT = 15353
 
 
 def marker_preimage(window_id: str, kind: str, phase: str) -> bytes:
@@ -36,10 +40,31 @@ def marker(window_id: str, kind: str, phase: str) -> bytes:
     ).encode("ascii")
 
 
-def ethernet_ipv4_tcp(payload: bytes) -> bytes:
-    tcp = struct.pack("!HHIIHHHH", 12345, 443, 0, 0, 5 << 12, 0, 0, 0) + payload
-    source = ipaddress.ip_address("192.0.2.10").packed
-    destination = ipaddress.ip_address("198.51.100.20").packed
+def ethernet_ipv4_tcp(
+    payload: bytes,
+    *,
+    source_port: int = 12345,
+    destination_port: int = 443,
+    sequence: int = 0,
+    source_address: str = "192.0.2.10",
+    destination_address: str = FIXTURE_ADDRESS,
+) -> bytes:
+    tcp = (
+        struct.pack(
+            "!HHIIHHHH",
+            source_port,
+            destination_port,
+            sequence,
+            0,
+            5 << 12,
+            0,
+            0,
+            0,
+        )
+        + payload
+    )
+    source = ipaddress.ip_address(source_address).packed
+    destination = ipaddress.ip_address(destination_address).packed
     ipv4 = struct.pack(
         "!BBHHHBBH4s4s",
         0x45,
@@ -54,6 +79,36 @@ def ethernet_ipv4_tcp(payload: bytes) -> bytes:
         destination,
     )
     return b"\x00" * 12 + struct.pack("!H", 0x0800) + ipv4 + tcp
+
+
+def ethernet_ipv4_udp(
+    payload: bytes,
+    *,
+    source_port: int,
+    destination_port: int,
+    source_address: str = "192.0.2.10",
+    destination_address: str = FIXTURE_ADDRESS,
+) -> bytes:
+    udp = (
+        struct.pack("!HHHH", source_port, destination_port, 8 + len(payload), 0)
+        + payload
+    )
+    source = ipaddress.ip_address(source_address).packed
+    destination = ipaddress.ip_address(destination_address).packed
+    ipv4 = struct.pack(
+        "!BBHHHBBH4s4s",
+        0x45,
+        0,
+        20 + len(udp),
+        1,
+        0,
+        64,
+        17,
+        0,
+        source,
+        destination,
+    )
+    return b"\x00" * 12 + struct.pack("!H", 0x0800) + ipv4 + udp
 
 
 def ethernet_ipv6_udp(payload: bytes) -> bytes:
@@ -133,6 +188,25 @@ def pcap_packet_count(raw: bytes) -> int:
     return count
 
 
+def pcap_records(raw: bytes) -> list[bytes]:
+    endian = {
+        b"\xd4\xc3\xb2\xa1": "<",
+        b"\xa1\xb2\xc3\xd4": ">",
+        b"\x4d\x3c\xb2\xa1": "<",
+        b"\xa1\xb2\x3c\x4d": ">",
+    }[raw[:4]]
+    offset = 24
+    records: list[bytes] = []
+    while offset < len(raw):
+        start = offset
+        _seconds, _fraction, captured_length, _original_length = struct.unpack_from(
+            f"{endian}IIII", raw, offset
+        )
+        offset += 16 + captured_length
+        records.append(raw[start:offset])
+    return records
+
+
 def add_observer_control(raw: bytes) -> bytes:
     endian = {
         b"\xd4\xc3\xb2\xa1": "<",
@@ -174,6 +248,131 @@ def canonical(value: object) -> bytes:
     return (json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n").encode()
 
 
+def fixture_manifest() -> dict[str, object]:
+    return {
+        "bindHost": "0.0.0.0",
+        "androidHost": FIXTURE_ADDRESS,
+        "tcpEchoPort": 18001,
+        "udpEchoPort": 18002,
+        "tlsEchoPort": 18003,
+        "dnsUdpPort": FIXTURE_DNS_PORT,
+        "dnsHttpPort": 18005,
+        "dnsDotPort": 18006,
+        "dnsDnscryptPort": 18007,
+        "dnsDoqPort": 18008,
+        "dnsOdohProxyPort": 18010,
+        "dnsOdohTargetPort": 18011,
+        "socks5Port": 18009,
+        "controlPort": FIXTURE_CONTROL_PORT,
+        "fixtureDomain": "fixture.test",
+        "fixtureIpv4": FIXTURE_ADDRESS,
+        "dnsAnswerIpv4": "203.0.113.9",
+        "tlsCertificatePem": "fixture-certificate",
+        "dnscryptProviderName": "2.dnscrypt-cert.fixture.test",
+        "dnscryptPublicKey": "00" * 32,
+    }
+
+
+def fixture_identity(value: dict[str, object]) -> str:
+    fields = (
+        "bindHost",
+        "androidHost",
+        "tcpEchoPort",
+        "udpEchoPort",
+        "tlsEchoPort",
+        "dnsUdpPort",
+        "dnsHttpPort",
+        "dnsDotPort",
+        "dnsDnscryptPort",
+        "dnsDoqPort",
+        "socks5Port",
+        "controlPort",
+        "fixtureDomain",
+        "fixtureIpv4",
+        "dnsAnswerIpv4",
+        "tlsCertificatePem",
+        "dnscryptProviderName",
+        "dnscryptPublicKey",
+    )
+    digest = hashlib.sha256()
+    for item in (
+        "ripdpi:fixture-identity:v1",
+        *(part for field in fields for part in (field, str(value[field]))),
+    ):
+        encoded = item.encode()
+        digest.update(struct.pack("!I", len(encoded)))
+        digest.update(encoded)
+    return digest.hexdigest()
+
+
+def dns_packet(
+    *,
+    response: bool = False,
+    transaction_id: int = 0x1234,
+    rcode: int = 0,
+    include_answer: bool = True,
+) -> bytes:
+    name = b"\x0bstartup-123\x07fixture\x04test\x00"
+    flags = (0x8180 | rcode) if response else 0x0100
+    answer_count = int(response and include_answer)
+    header = struct.pack("!HHHHHH", transaction_id, flags, 1, answer_count, 0, 0)
+    question = name + struct.pack("!HH", 1, 1)
+    answer = b""
+    if response and include_answer:
+        answer = (
+            b"\xc0\x0c"
+            + struct.pack("!HHIH", 1, 1, 60, 4)
+            + ipaddress.ip_address("203.0.113.9").packed
+        )
+    return header + question + answer
+
+
+def startup_receipt(fixture_sha: str) -> dict[str, object]:
+    return {
+        "version": "android_network_evidence_action_receipt_v2",
+        "status": "PASS",
+        "gateId": STARTUP_GATE,
+        "kind": "direct_window",
+        "selector": "com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady",
+        "correlationId": CORRELATION_ID,
+        "sourceSha": SOURCE_SHA,
+        "clientArtifactSha256": CLIENT_ARTIFACT_SHA256,
+        "testArtifactSha256": TEST_ARTIFACT_SHA256,
+        "fixtureIdentitySha256": fixture_sha,
+        "actionMarkerSha256": hashlib.sha256(
+            marker_preimage(STARTUP_GATE, "direct_window", "action")
+        ).hexdigest(),
+        "outcomeMarkerSha256": hashlib.sha256(
+            marker_preimage(STARTUP_GATE, "direct_window", "outcome")
+        ).hexdigest(),
+        "startedAtElapsedRealtimeMs": 100,
+        "actionMarkerAtElapsedRealtimeMs": 120,
+        "outcomeMarkerAtElapsedRealtimeMs": 300,
+        "finishedAtElapsedRealtimeMs": 500,
+        "appAndTestUidsDistinct": True,
+        "actionMarkerRanAsTargetApp": True,
+        "outcomeMarkerRanAsTargetApp": True,
+        "dnsProbeRanAsAndroidTest": True,
+        "actionMarkerPidObserved": True,
+        "outcomeMarkerPidObserved": True,
+        "dnsProbePidObserved": True,
+        "tunFdObserved": True,
+        "closedWindowRunningCount": 0,
+        "preReadyDnsEventCount": 0,
+        "startupWindowAssertionElapsedMs": 300,
+        "dnsRcode": 0,
+        "dnsQuerySha256": hashlib.sha256(
+            b"ripdpi:startup-dns-query:v1:startup-123.fixture.test"
+        ).hexdigest(),
+        "dnsAnswersExact": True,
+        "postReadyDnsEventCount": 1,
+        "txPackets": 2,
+        "rxPackets": 1,
+        "finalStatus": "Halted",
+        "gateClean": True,
+    }
+
+
 class NetworkEvidencePcapOracleTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -183,6 +382,8 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         self.client_metadata = self.root / "client-metadata.json"
         self.observer_metadata = self.root / "observer-metadata.json"
         self.ledger_path = self.root / "ledger.json"
+        self.action_receipt = self.root / "action-receipt.json"
+        self.fixture_manifest = self.root / "fixture-manifest.json"
         self.client_output = self.root / "client-observation.json"
         self.observer_output = self.root / "observer-observation.json"
 
@@ -227,9 +428,143 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             ],
         }
         ledger = {
-            "version": "network_evidence_action_ledger_v1",
+            "version": "network_evidence_action_ledger_v2",
             "scenarioPlan": plan,
             "semanticRules": [{"windowId": WINDOW_A, "rule": "generic-marker-pair"}],
+            "captures": {
+                "client-underlay": {
+                    "rawCaptureSha256": hashlib.sha256(
+                        self.client_pcap.read_bytes()
+                    ).hexdigest()
+                },
+                "external-observer": {
+                    "rawCaptureSha256": hashlib.sha256(
+                        self.observer_pcap.read_bytes()
+                    ).hexdigest()
+                },
+            },
+        }
+        self.ledger_path.write_bytes(canonical(ledger))
+        self.write_metadata()
+        return ledger
+
+    def write_startup_inputs(self) -> dict[str, object]:
+        action = marker(STARTUP_GATE, "direct_window", "action")
+        outcome = marker(STARTUP_GATE, "direct_window", "outcome")
+        split = len(action) // 2
+
+        def packets(
+            source_address: str, source_port: int
+        ) -> list[tuple[int, int, bytes]]:
+            return [
+                (
+                    100,
+                    100_000,
+                    ethernet_ipv4_tcp(
+                        action[:split],
+                        source_port=source_port,
+                        destination_port=FIXTURE_CONTROL_PORT,
+                        sequence=100,
+                        source_address=source_address,
+                    ),
+                ),
+                (
+                    100,
+                    110_000,
+                    ethernet_ipv4_tcp(
+                        action[split:],
+                        source_port=source_port,
+                        destination_port=FIXTURE_CONTROL_PORT,
+                        sequence=100 + split,
+                        source_address=source_address,
+                    ),
+                ),
+                (
+                    100,
+                    150_000,
+                    ethernet_ipv4_tcp(
+                        b"fixture-control-event-check",
+                        source_port=source_port + 1,
+                        destination_port=FIXTURE_CONTROL_PORT,
+                        sequence=400,
+                        source_address=source_address,
+                    ),
+                ),
+                (
+                    100,
+                    200_000,
+                    ethernet_ipv4_udp(
+                        dns_packet(),
+                        source_port=source_port + 3,
+                        destination_port=FIXTURE_DNS_PORT,
+                        source_address=source_address,
+                    ),
+                ),
+                (
+                    100,
+                    210_000,
+                    ethernet_ipv4_udp(
+                        dns_packet(response=True),
+                        source_port=FIXTURE_DNS_PORT,
+                        destination_port=source_port + 3,
+                        source_address=FIXTURE_ADDRESS,
+                        destination_address=source_address,
+                    ),
+                ),
+                (
+                    100,
+                    300_000,
+                    ethernet_ipv4_tcp(
+                        outcome,
+                        source_port=source_port + 2,
+                        destination_port=FIXTURE_CONTROL_PORT,
+                        sequence=700,
+                        source_address=source_address,
+                    ),
+                ),
+            ]
+
+        self.client_pcap.write_bytes(pcap_bytes(packets("192.0.2.10", 20000)))
+        self.observer_pcap.write_bytes(pcap_bytes(packets("203.0.113.77", 30000)))
+        fixture = fixture_manifest()
+        fixture_sha = fixture_identity(fixture)
+        self.fixture_manifest.write_bytes(canonical(fixture))
+        os.chmod(self.fixture_manifest, 0o600)
+        receipt_raw = canonical(startup_receipt(fixture_sha))
+        self.action_receipt.write_bytes(receipt_raw)
+        os.chmod(self.action_receipt, 0o600)
+        plan = {
+            "version": "network_evidence_scenario_plan_v3",
+            "sourceSha": SOURCE_SHA,
+            "correlationId": CORRELATION_ID,
+            "clientArtifactSha256": CLIENT_ARTIFACT_SHA256,
+            "testArtifactSha256": TEST_ARTIFACT_SHA256,
+            "windows": [
+                {
+                    "id": STARTUP_GATE,
+                    "kind": "direct_window",
+                    "startedAtEpoch": 100,
+                    "finishedAtEpoch": 101,
+                    "actionMarkerSha256": hashlib.sha256(
+                        marker_preimage(STARTUP_GATE, "direct_window", "action")
+                    ).hexdigest(),
+                    "outcomeMarkerSha256": hashlib.sha256(
+                        marker_preimage(STARTUP_GATE, "direct_window", "outcome")
+                    ).hexdigest(),
+                }
+            ],
+        }
+        ledger = {
+            "version": "network_evidence_action_ledger_v2",
+            "scenarioPlan": plan,
+            "semanticRules": [
+                {
+                    "windowId": STARTUP_GATE,
+                    "rule": "tun-establish-native-ready-v1",
+                    "actionReceiptSha256": hashlib.sha256(receipt_raw).hexdigest(),
+                    "fixtureIdentitySha256": fixture_sha,
+                }
+            ],
             "captures": {
                 "client-underlay": {
                     "rawCaptureSha256": hashlib.sha256(
@@ -260,25 +595,39 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
         )
 
     def run_oracle(self) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
+        command = [
+            sys.executable,
+            str(ORACLE),
+            "--client-pcap",
+            str(self.client_pcap),
+            "--observer-pcap",
+            str(self.observer_pcap),
+            "--client-metadata",
+            str(self.client_metadata),
+            "--observer-metadata",
+            str(self.observer_metadata),
+            "--ledger",
+            str(self.ledger_path),
+        ]
+        if self.action_receipt.exists() or self.fixture_manifest.exists():
+            command.extend(
+                [
+                    "--action-receipt",
+                    str(self.action_receipt),
+                    "--fixture-manifest",
+                    str(self.fixture_manifest),
+                ]
+            )
+        command.extend(
             [
-                sys.executable,
-                str(ORACLE),
-                "--client-pcap",
-                str(self.client_pcap),
-                "--observer-pcap",
-                str(self.observer_pcap),
-                "--client-metadata",
-                str(self.client_metadata),
-                "--observer-metadata",
-                str(self.observer_metadata),
-                "--ledger",
-                str(self.ledger_path),
                 "--client-output",
                 str(self.client_output),
                 "--observer-output",
                 str(self.observer_output),
-            ],
+            ]
+        )
+        return subprocess.run(
+            command,
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,
@@ -357,6 +706,251 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             self.assertEqual(observation["windows"][0]["outcomeObservedCount"], 1)
             self.assertEqual(output.read_bytes(), canonical(observation))
             self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
+
+    def test_startup_rule_accepts_segmented_markers_nat_and_post_ready_dns(
+        self,
+    ) -> None:
+        self.write_startup_inputs()
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for output in (self.client_output, self.observer_output):
+            observation = json.loads(output.read_text(encoding="utf-8"))
+            window = observation["windows"][0]
+            self.assertEqual(window["id"], STARTUP_GATE)
+            self.assertEqual(window["unexpectedPacketCount"], 0)
+            self.assertEqual(window["captureErrorCount"], 0)
+            published = output.read_bytes()
+            for private_value in (
+                b"192.0.2.10",
+                b"203.0.113.77",
+                b"startup.fixture.test",
+                dns_packet(),
+            ):
+                self.assertNotIn(private_value, published)
+
+    def test_startup_rule_counts_direct_dns_inside_blocking_window(self) -> None:
+        self.write_startup_inputs()
+        leak = ethernet_ipv4_udp(
+            dns_packet(transaction_id=0x9999),
+            source_port=24000,
+            destination_port=FIXTURE_DNS_PORT,
+        )
+        for capture in (self.client_pcap, self.observer_pcap):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            record = struct.pack("<IIII", 100, 175_000, len(leak), len(leak)) + leak
+            capture.write_bytes(
+                raw[:24] + b"".join(records[:3] + [record] + records[3:])
+            )
+        ledger = self.load_ledger()
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for output in (self.client_output, self.observer_output):
+            window = json.loads(output.read_text(encoding="utf-8"))["windows"][0]
+            self.assertEqual(window["unexpectedPacketCount"], 1)
+
+    def test_startup_rule_normalizes_exact_tcp_marker_retransmission(self) -> None:
+        self.write_startup_inputs()
+        for capture in (self.client_pcap, self.observer_pcap):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            capture.write_bytes(
+                raw[:24] + b"".join(records[:1] + records[:1] + records[1:])
+            )
+        ledger = self.load_ledger()
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for output in (self.client_output, self.observer_output):
+            window = json.loads(output.read_text(encoding="utf-8"))["windows"][0]
+            self.assertEqual(window["unexpectedPacketCount"], 0)
+            self.assertEqual(window["captureErrorCount"], 0)
+
+    def test_startup_rule_counts_packet_between_split_outcome_segments(self) -> None:
+        self.write_startup_inputs()
+        outcome = marker(STARTUP_GATE, "direct_window", "outcome")
+        split = len(outcome) // 2
+        for index, capture in enumerate((self.client_pcap, self.observer_pcap)):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            source_address = "192.0.2.10" if index == 0 else "203.0.113.77"
+            source_port = 40000 + index * 1000
+            first = ethernet_ipv4_tcp(
+                outcome[:split],
+                source_port=source_port,
+                destination_port=FIXTURE_CONTROL_PORT,
+                sequence=700,
+                source_address=source_address,
+            )
+            leak = ethernet_ipv4_udp(
+                b"forbidden-between-outcome-segments",
+                source_port=source_port + 1,
+                destination_port=19999,
+                source_address=source_address,
+            )
+            second = ethernet_ipv4_tcp(
+                outcome[split:],
+                source_port=source_port,
+                destination_port=FIXTURE_CONTROL_PORT,
+                sequence=700 + split,
+                source_address=source_address,
+            )
+            replacements = [
+                struct.pack("<IIII", 100, 300_000, len(first), len(first)) + first,
+                struct.pack("<IIII", 100, 310_000, len(leak), len(leak)) + leak,
+                struct.pack("<IIII", 100, 320_000, len(second), len(second)) + second,
+            ]
+            capture.write_bytes(raw[:24] + b"".join(records[:-1] + replacements))
+        ledger = self.load_ledger()
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for output in (self.client_output, self.observer_output):
+            window = json.loads(output.read_text(encoding="utf-8"))["windows"][0]
+            self.assertEqual(window["unexpectedPacketCount"], 1)
+
+    def test_startup_rule_requires_matching_post_ready_dns_on_both_vantages(
+        self,
+    ) -> None:
+        self.write_startup_inputs()
+        raw = self.observer_pcap.read_bytes()
+        records = pcap_records(raw)
+        self.observer_pcap.write_bytes(raw[:24] + b"".join(records[:4] + records[5:]))
+        ledger = self.load_ledger()
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("post-ready fixture DNS query/response", result.stderr)
+        self.assertFalse(self.client_output.exists())
+        self.assertFalse(self.observer_output.exists())
+
+    def test_startup_rule_rejects_nxdomain_without_fixture_answer(self) -> None:
+        self.write_startup_inputs()
+        for index, capture in enumerate((self.client_pcap, self.observer_pcap)):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            destination_address = "192.0.2.10" if index == 0 else "203.0.113.77"
+            destination_port = 20003 if index == 0 else 30003
+            response = ethernet_ipv4_udp(
+                dns_packet(response=True, rcode=3, include_answer=False),
+                source_port=FIXTURE_DNS_PORT,
+                destination_port=destination_port,
+                source_address=FIXTURE_ADDRESS,
+                destination_address=destination_address,
+            )
+            record = (
+                struct.pack("<IIII", 100, 210_000, len(response), len(response))
+                + response
+            )
+            capture.write_bytes(
+                raw[:24] + b"".join(records[:4] + [record] + records[5:])
+            )
+        ledger = self.load_ledger()
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("matching NOERROR", result.stderr)
+        self.assertFalse(self.client_output.exists())
+        self.assertFalse(self.observer_output.exists())
+
+    def test_startup_rule_rejects_non_reversed_dns_response_tuple(self) -> None:
+        self.write_startup_inputs()
+        for index, capture in enumerate((self.client_pcap, self.observer_pcap)):
+            raw = capture.read_bytes()
+            records = pcap_records(raw)
+            destination_address = "192.0.2.10" if index == 0 else "203.0.113.77"
+            response = ethernet_ipv4_udp(
+                dns_packet(response=True),
+                source_port=FIXTURE_DNS_PORT,
+                destination_port=65000,
+                source_address=FIXTURE_ADDRESS,
+                destination_address=destination_address,
+            )
+            record = (
+                struct.pack("<IIII", 100, 210_000, len(response), len(response))
+                + response
+            )
+            capture.write_bytes(
+                raw[:24] + b"".join(records[:4] + [record] + records[5:])
+            )
+        ledger = self.load_ledger()
+        self.save_ledger(ledger)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("matching NOERROR", result.stderr)
+
+    def test_startup_rule_binds_private_receipt_and_fixture_identity(self) -> None:
+        ledger = self.write_startup_inputs()
+        for mutation, message in (
+            ("receipt", "receipt digest mismatch"),
+            ("fixture", "fixture manifest identity digest mismatch"),
+        ):
+            with self.subTest(mutation=mutation):
+                self.write_startup_inputs()
+                if mutation == "receipt":
+                    self.action_receipt.write_bytes(
+                        self.action_receipt.read_bytes() + b" "
+                    )
+                else:
+                    fixture = json.loads(
+                        self.fixture_manifest.read_text(encoding="utf-8")
+                    )
+                    fixture["controlPort"] += 1
+                    self.fixture_manifest.write_bytes(canonical(fixture))
+                result = self.run_oracle()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
+        self.assertIsInstance(ledger, dict)
+
+    def test_startup_rule_accepts_real_producer_shaped_fixture_manifest(self) -> None:
+        self.write_startup_inputs()
+        fixture = json.loads(self.fixture_manifest.read_text(encoding="utf-8"))
+        self.fixture_manifest.write_text(
+            json.dumps(fixture, indent=2, sort_keys=False) + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(self.fixture_manifest, 0o600)
+
+        result = self.run_oracle()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_startup_rule_rejects_non_private_fixture_manifest(self) -> None:
+        self.write_startup_inputs()
+        os.chmod(self.fixture_manifest, 0o644)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mode-0600", result.stderr)
+
+    def test_startup_rule_rejects_symlinked_fixture_manifest(self) -> None:
+        self.write_startup_inputs()
+        real_manifest = self.root / "real-fixture-manifest.json"
+        self.fixture_manifest.rename(real_manifest)
+        self.fixture_manifest.symlink_to(real_manifest)
+
+        result = self.run_oracle()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.client_output.exists())
+        self.assertFalse(self.observer_output.exists())
 
     def test_private_marker_preimage_is_not_accepted_as_wire_evidence(self) -> None:
         ledger = self.write_inputs()

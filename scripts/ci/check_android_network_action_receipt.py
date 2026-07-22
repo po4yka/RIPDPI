@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-VERSION = "android_network_evidence_action_receipt_v1"
+VERSION = "android_network_evidence_action_receipt_v2"
 GATE_ID = "killswitch-tun-establish-native-ready"
 KIND = "direct_window"
 SELECTOR = (
@@ -52,6 +52,7 @@ FIELDS = {
     "preReadyDnsEventCount",
     "startupWindowAssertionElapsedMs",
     "dnsRcode",
+    "dnsQuerySha256",
     "dnsAnswersExact",
     "postReadyDnsEventCount",
     "txPackets",
@@ -187,6 +188,7 @@ def validate_receipt(
         )
     for field in ("txPackets", "rxPackets"):
         require_int(value[field], field, minimum=1)
+    require_digest(value["dnsQuerySha256"], SHA256_RE, "dnsQuerySha256")
     return value
 
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Derive redacted observations from two source-owned classic PCAP captures.
 
-The action ledger and raw captures are private inputs.  This oracle recognizes
-only the generic marker-pair seam; it deliberately does not infer gate-specific
-DNS, routing, leak, or kill-switch semantics from packet presence.
+The action ledger, action receipt, fixture manifest, and raw captures are
+private inputs. Generic marker pairs are accepted only for non-policy fixture
+windows. Android policy windows require an explicit gate-specific rule.
 """
 
 from __future__ import annotations
@@ -11,18 +11,20 @@ from __future__ import annotations
 import argparse
 import bisect
 import hashlib
+import ipaddress
 import json
 import os
 import re
 import stat
 import struct
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
 
-LEDGER_VERSION = "network_evidence_action_ledger_v1"
+LEDGER_VERSION = "network_evidence_action_ledger_v2"
 PLAN_VERSION = "network_evidence_scenario_plan_v3"
 OBSERVATION_VERSION = "network_evidence_observation_v3"
 ROLES = ("client-underlay", "external-observer")
@@ -43,6 +45,29 @@ MAX_PACKETS = 1_000_000
 MAX_LEDGER_BYTES = 1024 * 1024
 MAX_METADATA_BYTES = 64 * 1024
 MAX_WINDOWS = 64
+STARTUP_GATE_ID = "killswitch-tun-establish-native-ready"
+STARTUP_RULE = "tun-establish-native-ready-v1"
+FIXTURE_IDENTITY_DOMAIN = "ripdpi:fixture-identity:v1"
+FIXTURE_IDENTITY_FIELDS = (
+    "bindHost",
+    "androidHost",
+    "tcpEchoPort",
+    "udpEchoPort",
+    "tlsEchoPort",
+    "dnsUdpPort",
+    "dnsHttpPort",
+    "dnsDotPort",
+    "dnsDnscryptPort",
+    "dnsDoqPort",
+    "socks5Port",
+    "controlPort",
+    "fixtureDomain",
+    "fixtureIpv4",
+    "dnsAnswerIpv4",
+    "tlsCertificatePem",
+    "dnscryptProviderName",
+    "dnscryptPublicKey",
+)
 
 LEDGER_FIELDS = {"version", "scenarioPlan", "semanticRules", "captures"}
 PLAN_FIELDS = {
@@ -61,7 +86,13 @@ WINDOW_FIELDS = {
     "actionMarkerSha256",
     "outcomeMarkerSha256",
 }
-SEMANTIC_RULE_FIELDS = {"windowId", "rule"}
+GENERIC_RULE_FIELDS = {"windowId", "rule"}
+STARTUP_RULE_FIELDS = {
+    "windowId",
+    "rule",
+    "actionReceiptSha256",
+    "fixtureIdentitySha256",
+}
 CAPTURE_FIELDS = {"rawCaptureSha256"}
 METADATA_FIELDS = {
     "version",
@@ -90,6 +121,52 @@ class Window:
 class Packet:
     timestamp_ns: int
     payload: bytes | None
+    ip_version: int | None = None
+    transport: str | None = None
+    source_address: bytes | None = None
+    destination_address: bytes | None = None
+    source_port: int | None = None
+    destination_port: int | None = None
+    tcp_sequence: int | None = None
+
+
+@dataclass(frozen=True)
+class SemanticRule:
+    window_id: str
+    name: str
+    action_receipt_sha256: str | None = None
+    fixture_identity_sha256: str | None = None
+
+
+@dataclass(frozen=True)
+class FixtureContext:
+    identity_sha256: str
+    address: bytes
+    control_port: int
+    dns_udp_port: int
+    fixture_domain_labels: tuple[bytes, ...]
+    dns_answer_address: bytes
+
+
+@dataclass(frozen=True)
+class PacketFacts:
+    payload: bytes
+    ip_version: int
+    transport: str
+    source_address: bytes
+    destination_address: bytes
+    source_port: int
+    destination_port: int
+    tcp_sequence: int | None
+
+
+@dataclass(frozen=True)
+class DnsPacketFacts:
+    identity: bytes
+    question_labels: tuple[bytes, ...]
+    is_response: bool
+    rcode: int
+    answer_records: tuple[tuple[tuple[bytes, ...], bytes], ...]
 
 
 @dataclass(frozen=True)
@@ -104,8 +181,10 @@ class CaptureMetadata:
 
 @dataclass(frozen=True)
 class MarkerPosition:
-    record_index: int
-    timestamp_ns: int
+    first_record_index: int
+    last_record_index: int
+    first_timestamp_ns: int
+    last_timestamp_ns: int
 
 
 def canonical_json_bytes(value: object) -> bytes:
@@ -142,6 +221,157 @@ def load_strict_json(
     if raw != canonical_json_bytes(value):
         raise ValueError(f"{context} must use canonical JSON encoding")
     return value, raw
+
+
+def _fixture_identity_sha256(value: dict[str, Any]) -> str:
+    missing = sorted(set(FIXTURE_IDENTITY_FIELDS) - set(value))
+    if missing:
+        raise ValueError(f"fixture manifest is missing fields: {', '.join(missing)}")
+    digest = hashlib.sha256()
+    for item in (
+        FIXTURE_IDENTITY_DOMAIN,
+        *(
+            part
+            for field in FIXTURE_IDENTITY_FIELDS
+            for part in (field, str(value[field]))
+        ),
+    ):
+        encoded = item.encode("utf-8")
+        digest.update(struct.pack("!I", len(encoded)))
+        digest.update(encoded)
+    return digest.hexdigest()
+
+
+def load_fixture_context(path: Path, expected_identity: str) -> FixtureContext:
+    if not path.is_absolute():
+        raise ValueError("fixture manifest path must be absolute")
+    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_uid != os.geteuid()
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+        ):
+            raise ValueError(
+                "fixture manifest must be a private caller-owned mode-0600 file"
+            )
+        if metadata.st_size <= 0 or metadata.st_size > MAX_METADATA_BYTES:
+            raise ValueError("fixture manifest exceeds the size bound")
+        with os.fdopen(descriptor, "rb", closefd=False) as source:
+            raw = source.read(MAX_METADATA_BYTES + 1)
+    finally:
+        os.close(descriptor)
+    if len(raw) != metadata.st_size:
+        raise ValueError("fixture manifest changed while it was read")
+    try:
+        value = json.loads(raw, object_pairs_hook=_reject_duplicate_keys)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("fixture manifest is not valid UTF-8 JSON") from error
+    if not isinstance(value, dict):
+        raise ValueError("fixture manifest must be a JSON object")
+    identity = _fixture_identity_sha256(value)
+    if identity != expected_identity:
+        raise ValueError("fixture manifest identity digest mismatch")
+    for field in (
+        "tcpEchoPort",
+        "udpEchoPort",
+        "tlsEchoPort",
+        "dnsUdpPort",
+        "dnsHttpPort",
+        "dnsDotPort",
+        "dnsDnscryptPort",
+        "dnsDoqPort",
+        "socks5Port",
+        "controlPort",
+    ):
+        port = value[field]
+        if (
+            isinstance(port, bool)
+            or not isinstance(port, int)
+            or not 1 <= port <= 65535
+        ):
+            raise ValueError(f"fixture manifest {field} must be a port")
+    try:
+        address = ipaddress.ip_address(value["androidHost"])
+    except ValueError as error:
+        raise ValueError(
+            "fixture manifest androidHost must be a numeric address"
+        ) from error
+    if (
+        address.is_unspecified
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+    ):
+        raise ValueError(
+            "fixture manifest androidHost must be a routed unicast address"
+        )
+    fixture_domain = value["fixtureDomain"]
+    if not isinstance(fixture_domain, str):
+        raise ValueError("fixture manifest fixtureDomain must be a string")
+    try:
+        fixture_domain_labels = tuple(
+            label.encode("ascii").lower()
+            for label in fixture_domain.rstrip(".").split(".")
+        )
+    except UnicodeEncodeError as error:
+        raise ValueError("fixture manifest fixtureDomain must be ASCII") from error
+    if not fixture_domain_labels or any(
+        not label or len(label) > 63 for label in fixture_domain_labels
+    ):
+        raise ValueError("fixture manifest fixtureDomain is malformed")
+    try:
+        dns_answer = ipaddress.ip_address(value["dnsAnswerIpv4"])
+    except ValueError as error:
+        raise ValueError(
+            "fixture manifest dnsAnswerIpv4 must be an IPv4 address"
+        ) from error
+    if dns_answer.version != 4:
+        raise ValueError("fixture manifest dnsAnswerIpv4 must be an IPv4 address")
+    return FixtureContext(
+        identity_sha256=identity,
+        address=address.packed,
+        control_port=value["controlPort"],
+        dns_udp_port=value["dnsUdpPort"],
+        fixture_domain_labels=fixture_domain_labels,
+        dns_answer_address=dns_answer.packed,
+    )
+
+
+def validate_action_receipt(
+    path: Path,
+    *,
+    expected_digest: str,
+    fixture_identity_sha256: str,
+    plan: dict[str, Any],
+) -> str:
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from scripts.ci.check_android_network_action_receipt import (  # noqa: PLC0415
+        ReceiptError,
+        load_private_receipt,
+        validate_receipt,
+    )
+
+    try:
+        value, raw = load_private_receipt(path)
+        if hashlib.sha256(raw).hexdigest() != expected_digest:
+            raise ValueError("Android action receipt digest mismatch")
+        validated = validate_receipt(
+            value,
+            source_sha=plan["sourceSha"],
+            correlation_id=plan["correlationId"],
+            client_artifact_sha256=plan["clientArtifactSha256"],
+            test_artifact_sha256=plan["testArtifactSha256"],
+            fixture_identity_sha256=fixture_identity_sha256,
+        )
+        return require_pattern(
+            validated["dnsQuerySha256"], SHA256_RE, "receipt.dnsQuerySha256"
+        )
+    except ReceiptError as error:
+        raise ValueError(f"Android action receipt is invalid: {error}") from error
 
 
 def require_exact_fields(value: dict[str, Any], fields: set[str], context: str) -> None:
@@ -280,7 +510,7 @@ def load_android_dual_vantage_gate_ids() -> set[str]:
 
 def validate_ledger(
     value: dict[str, Any], *, forbidden_generic_ids: set[str]
-) -> tuple[dict[str, Any], list[Window], dict[str, str]]:
+) -> tuple[dict[str, Any], list[Window], dict[str, str], dict[str, SemanticRule]]:
     require_exact_fields(value, LEDGER_FIELDS, "action ledger")
     if value["version"] != LEDGER_VERSION:
         raise ValueError("unexpected action ledger version")
@@ -367,18 +597,45 @@ def validate_ledger(
     rules = value["semanticRules"]
     if not isinstance(rules, list):
         raise ValueError("semanticRules must be an array")
-    rule_ids: set[str] = set()
+    semantic_rules: dict[str, SemanticRule] = {}
     for index, rule in enumerate(rules):
         context = f"semanticRules[{index}]"
         if not isinstance(rule, dict):
             raise ValueError(f"{context} must be an object")
-        require_exact_fields(rule, SEMANTIC_RULE_FIELDS, context)
+        rule_name = rule.get("rule")
+        fields = (
+            STARTUP_RULE_FIELDS if rule_name == STARTUP_RULE else GENERIC_RULE_FIELDS
+        )
+        require_exact_fields(rule, fields, context)
         window_id = require_pattern(
             rule["windowId"], IDENTIFIER_RE, f"{context}.windowId"
         )
-        if window_id in rule_ids:
+        if window_id in semantic_rules:
             raise ValueError(f"semanticRules has duplicate window id: {window_id}")
-        if rule["rule"] != "generic-marker-pair":
+        window = next((item for item in windows if item.identifier == window_id), None)
+        if window is None:
+            raise ValueError(f"semanticRules references unknown window id: {window_id}")
+        if rule_name == STARTUP_RULE:
+            if window_id != STARTUP_GATE_ID or window.kind != "direct_window":
+                raise ValueError(
+                    f"{STARTUP_RULE} is restricted to the startup direct-window gate"
+                )
+            semantic_rules[window_id] = SemanticRule(
+                window_id=window_id,
+                name=rule_name,
+                action_receipt_sha256=require_pattern(
+                    rule["actionReceiptSha256"],
+                    SHA256_RE,
+                    f"{context}.actionReceiptSha256",
+                ),
+                fixture_identity_sha256=require_pattern(
+                    rule["fixtureIdentitySha256"],
+                    SHA256_RE,
+                    f"{context}.fixtureIdentitySha256",
+                ),
+            )
+            continue
+        if rule_name != "generic-marker-pair":
             raise ValueError(
                 f"unsupported semantic rule for {window_id}; "
                 "the ledger does not prove a source-owned gate semantic seam"
@@ -388,9 +645,9 @@ def validate_ledger(
                 f"generic-marker-pair is forbidden for Android dual-vantage gate {window_id}; "
                 "a source-owned semantic action seam is required"
             )
-        rule_ids.add(window_id)
-    if rule_ids != seen_ids:
-        raise ValueError("semanticRules must prove generic semantics for every window")
+        semantic_rules[window_id] = SemanticRule(window_id, rule_name)
+    if set(semantic_rules) != seen_ids:
+        raise ValueError("semanticRules must prove semantics for every window")
 
     captures = value["captures"]
     if not isinstance(captures, dict) or set(captures) != set(ROLES):
@@ -406,17 +663,17 @@ def validate_ledger(
         )
     if len(set(digests.values())) != len(ROLES):
         raise ValueError("dual-vantage captures must have distinct raw digests")
-    return plan, windows, digests
+    return plan, windows, digests, semantic_rules
 
 
-def _parse_ethernet_payload(frame: bytes) -> bytes:
+def _parse_ethernet_payload(frame: bytes) -> PacketFacts:
     if len(frame) < 14:
         raise ValueError("truncated Ethernet frame")
     ether_type = struct.unpack_from("!H", frame, 12)[0]
     return _parse_ethertype_payload(ether_type, frame[14:])
 
 
-def _parse_ethertype_payload(protocol: int, packet: bytes) -> bytes:
+def _parse_ethertype_payload(protocol: int, packet: bytes) -> PacketFacts:
     vlan_depth = 0
     while protocol in (0x8100, 0x88A8):
         if vlan_depth >= 2 or len(packet) < 4:
@@ -431,7 +688,7 @@ def _parse_ethertype_payload(protocol: int, packet: bytes) -> bytes:
     raise ValueError("capture contains a non-IPv4/IPv6 network packet")
 
 
-def _parse_raw_ip_payload(packet: bytes) -> bytes:
+def _parse_raw_ip_payload(packet: bytes) -> PacketFacts:
     if not packet:
         raise ValueError("truncated raw IP packet")
     version = packet[0] >> 4
@@ -442,7 +699,7 @@ def _parse_raw_ip_payload(packet: bytes) -> bytes:
     raise ValueError("raw capture packet has an unsupported IP version")
 
 
-def _parse_linux_sll_payload(packet: bytes) -> bytes:
+def _parse_linux_sll_payload(packet: bytes) -> PacketFacts:
     if len(packet) < 16:
         raise ValueError("truncated Linux cooked SLL header")
     address_length = struct.unpack_from("!H", packet, 4)[0]
@@ -452,7 +709,7 @@ def _parse_linux_sll_payload(packet: bytes) -> bytes:
     return _parse_ethertype_payload(protocol, packet[16:])
 
 
-def _parse_linux_sll2_payload(packet: bytes) -> bytes:
+def _parse_linux_sll2_payload(packet: bytes) -> PacketFacts:
     if len(packet) < 20:
         raise ValueError("truncated Linux cooked SLL2 header")
     protocol, reserved = struct.unpack_from("!HH", packet, 0)
@@ -462,7 +719,7 @@ def _parse_linux_sll2_payload(packet: bytes) -> bytes:
     return _parse_ethertype_payload(protocol, packet[20:])
 
 
-def _parse_ipv4_payload(packet: bytes) -> bytes:
+def _parse_ipv4_payload(packet: bytes) -> PacketFacts:
     if len(packet) < 20 or packet[0] >> 4 != 4:
         raise ValueError("truncated or malformed IPv4 packet")
     header_length = (packet[0] & 0x0F) * 4
@@ -472,10 +729,16 @@ def _parse_ipv4_payload(packet: bytes) -> bytes:
         raise ValueError("invalid IPv4 length")
     if fragment & 0x3FFF:
         raise ValueError("fragmented IPv4 packets are not a supported oracle seam")
-    return _parse_transport_payload(packet[9], packet[header_length:total_length])
+    return _parse_transport_payload(
+        ip_version=4,
+        protocol=packet[9],
+        source_address=packet[12:16],
+        destination_address=packet[16:20],
+        segment=packet[header_length:total_length],
+    )
 
 
-def _parse_ipv6_payload(packet: bytes) -> bytes:
+def _parse_ipv6_payload(packet: bytes) -> PacketFacts:
     if len(packet) < 40 or packet[0] >> 4 != 6:
         raise ValueError("truncated or malformed IPv6 packet")
     payload_length = struct.unpack_from("!H", packet, 4)[0]
@@ -500,24 +763,57 @@ def _parse_ipv6_payload(packet: bytes) -> bytes:
         extensions += 1
     if next_header == 44:
         raise ValueError("fragmented IPv6 packets are not a supported oracle seam")
-    return _parse_transport_payload(next_header, packet[offset:end])
+    return _parse_transport_payload(
+        ip_version=6,
+        protocol=next_header,
+        source_address=packet[8:24],
+        destination_address=packet[24:40],
+        segment=packet[offset:end],
+    )
 
 
-def _parse_transport_payload(protocol: int, segment: bytes) -> bytes:
+def _parse_transport_payload(
+    *,
+    ip_version: int,
+    protocol: int,
+    source_address: bytes,
+    destination_address: bytes,
+    segment: bytes,
+) -> PacketFacts:
     if protocol == 6:
         if len(segment) < 20:
             raise ValueError("truncated TCP segment")
         header_length = (segment[12] >> 4) * 4
         if header_length < 20 or header_length > len(segment):
             raise ValueError("invalid TCP header length")
-        return segment[header_length:]
+        source_port, destination_port, sequence = struct.unpack_from("!HHI", segment)
+        return PacketFacts(
+            payload=segment[header_length:],
+            ip_version=ip_version,
+            transport="tcp",
+            source_address=source_address,
+            destination_address=destination_address,
+            source_port=source_port,
+            destination_port=destination_port,
+            tcp_sequence=sequence,
+        )
     if protocol == 17:
         if len(segment) < 8:
             raise ValueError("truncated UDP datagram")
         udp_length = struct.unpack_from("!H", segment, 4)[0]
         if udp_length < 8 or udp_length > len(segment):
             raise ValueError("invalid UDP length")
-        return segment[8:udp_length]
+        source_port, destination_port = struct.unpack_from("!HH", segment)
+        return PacketFacts(
+            payload=segment[8:udp_length],
+            ip_version=ip_version,
+            transport="udp",
+            source_address=source_address,
+            destination_address=destination_address,
+            source_port=source_port,
+            destination_port=destination_port,
+            tcp_sequence=None,
+        )
     raise ValueError("capture contains a non-TCP/UDP IP packet")
 
 
@@ -589,7 +885,18 @@ def iter_classic_pcap(path: Path, expected_digest: str) -> Iterator[Packet]:
         if captured_length < original_length:
             yield Packet(timestamp_ns, None)
         else:
-            yield Packet(timestamp_ns, packet_parser(frame))
+            facts = packet_parser(frame)
+            yield Packet(
+                timestamp_ns=timestamp_ns,
+                payload=facts.payload,
+                ip_version=facts.ip_version,
+                transport=facts.transport,
+                source_address=facts.source_address,
+                destination_address=facts.destination_address,
+                source_port=facts.source_port,
+                destination_port=facts.destination_port,
+                tcp_sequence=facts.tcp_sequence,
+            )
 
 
 def _known_marker_matches(
@@ -606,32 +913,115 @@ def _known_marker_matches(
 def _locate_marker_intervals(
     *,
     role: str,
-    capture: Path,
-    expected_digest: str,
-    metadata: CaptureMetadata,
+    packets: list[Packet],
     windows: list[Window],
+    semantic_rules: dict[str, SemanticRule],
     marker_owners: dict[bytes, tuple[str, str]],
 ) -> list[tuple[int, int]]:
     positions: dict[tuple[str, str], MarkerPosition] = {}
-    packet_count = 0
-    for record_index, packet in enumerate(iter_classic_pcap(capture, expected_digest)):
-        packet_count += 1
+    has_startup_rule = any(
+        rule.name == STARTUP_RULE for rule in semantic_rules.values()
+    )
+    startup_streams: dict[
+        tuple[bytes, int, bytes, int], list[tuple[int, int, int, bytes]]
+    ] = {}
+    for record_index, packet in enumerate(packets):
         if packet.payload is None:
             continue
+        if has_startup_rule and packet.transport == "tcp" and packet.payload:
+            assert packet.source_address is not None
+            assert packet.destination_address is not None
+            assert packet.source_port is not None
+            assert packet.destination_port is not None
+            assert packet.tcp_sequence is not None
+            flow = (
+                packet.source_address,
+                packet.source_port,
+                packet.destination_address,
+                packet.destination_port,
+            )
+            startup_streams.setdefault(flow, []).append(
+                (packet.tcp_sequence, record_index, packet.timestamp_ns, packet.payload)
+            )
         matches = _known_marker_matches(packet.payload, marker_owners)
         if len(matches) > 1:
             raise ValueError(f"{role} packet contains duplicate or multiple markers")
         if matches:
             owner = matches[0]
+            if semantic_rules[owner[0]].name == STARTUP_RULE:
+                continue
             if owner in positions:
                 raise ValueError(
                     f"{role} capture contains a duplicate {owner[1]} marker"
                 )
-            positions[owner] = MarkerPosition(record_index, packet.timestamp_ns)
-    if packet_count != metadata.packet_count:
-        raise ValueError(
-            f"{role} parsed packet count does not match private capture metadata"
+            positions[owner] = MarkerPosition(
+                record_index, record_index, packet.timestamp_ns, packet.timestamp_ns
+            )
+
+    for segments in startup_streams.values():
+        unique: dict[tuple[int, bytes], tuple[int, int]] = {}
+        for sequence, record_index, timestamp_ns, payload in segments:
+            unique.setdefault((sequence, payload), (record_index, timestamp_ns))
+        ordered = sorted(
+            (
+                sequence,
+                record_index,
+                timestamp_ns,
+                payload,
+            )
+            for (sequence, payload), (record_index, timestamp_ns) in unique.items()
         )
+        chunks: list[tuple[bytearray, list[int], list[int]]] = []
+        chunk_start = -1
+        chunk_end = -1
+        for sequence, record_index, timestamp_ns, payload in ordered:
+            if not payload:
+                continue
+            if not chunks or sequence > chunk_end:
+                chunks.append(
+                    (
+                        bytearray(payload),
+                        [record_index] * len(payload),
+                        [timestamp_ns] * len(payload),
+                    )
+                )
+                chunk_start = sequence
+                chunk_end = sequence + len(payload)
+                continue
+            if sequence < chunk_start:
+                raise ValueError(
+                    f"{role} TCP marker stream has unsupported sequence wrap"
+                )
+            offset = sequence - chunk_start
+            chunk, record_indexes, timestamps = chunks[-1]
+            overlap = min(len(payload), max(0, len(chunk) - offset))
+            if bytes(chunk[offset : offset + overlap]) != payload[:overlap]:
+                raise ValueError(
+                    f"{role} TCP marker retransmission has conflicting bytes"
+                )
+            suffix = payload[overlap:]
+            if suffix:
+                chunk.extend(suffix)
+                record_indexes.extend([record_index] * len(suffix))
+                timestamps.extend([timestamp_ns] * len(suffix))
+                chunk_end = chunk_start + len(chunk)
+        for chunk, record_indexes, timestamps in chunks:
+            for match in WIRE_MARKER_RE.finditer(chunk):
+                owner = marker_owners.get(match.group(1))
+                if owner is None or semantic_rules[owner[0]].name != STARTUP_RULE:
+                    continue
+                if owner in positions:
+                    raise ValueError(
+                        f"{role} capture contains a duplicate {owner[1]} marker flow"
+                    )
+                marker_indexes = record_indexes[match.start() : match.end()]
+                marker_timestamps = timestamps[match.start() : match.end()]
+                positions[owner] = MarkerPosition(
+                    min(marker_indexes),
+                    max(marker_indexes),
+                    min(marker_timestamps),
+                    max(marker_timestamps),
+                )
 
     intervals: list[tuple[int, int]] = []
     previous_outcome: MarkerPosition | None = None
@@ -644,22 +1034,174 @@ def _locate_marker_intervals(
                 "and one outcome marker"
             )
         if (
-            action.record_index >= outcome.record_index
-            or action.timestamp_ns > outcome.timestamp_ns
+            action.last_record_index >= outcome.first_record_index
+            or action.last_timestamp_ns > outcome.first_timestamp_ns
         ):
             raise ValueError(
                 f"{role} window {window.identifier} action marker must precede outcome marker"
             )
         if previous_outcome is not None and (
-            previous_outcome.record_index >= action.record_index
-            or previous_outcome.timestamp_ns > action.timestamp_ns
+            previous_outcome.last_record_index >= action.first_record_index
+            or previous_outcome.last_timestamp_ns > action.first_timestamp_ns
         ):
             raise ValueError(
                 f"{role} marker intervals must follow plan order without overlap"
             )
-        intervals.append((action.record_index, outcome.record_index))
+        intervals.append((action.first_record_index, outcome.last_record_index))
         previous_outcome = outcome
     return intervals
+
+
+def _is_fixture_packet(packet: Packet, fixture: FixtureContext, port: int) -> bool:
+    return (
+        packet.source_address == fixture.address and packet.source_port == port
+    ) or (
+        packet.destination_address == fixture.address
+        and packet.destination_port == port
+    )
+
+
+def _read_dns_name(
+    payload: bytes, offset: int, *, depth: int = 0
+) -> tuple[tuple[bytes, ...], int]:
+    if depth > 8:
+        raise ValueError("fixture DNS name compression is recursive")
+    labels: list[bytes] = []
+    next_offset: int | None = None
+    while True:
+        if offset >= len(payload):
+            raise ValueError("fixture DNS name is truncated")
+        length = payload[offset]
+        if length & 0xC0 == 0xC0:
+            if offset + 2 > len(payload):
+                raise ValueError("fixture DNS compression pointer is truncated")
+            pointer = ((length & 0x3F) << 8) | payload[offset + 1]
+            if pointer >= len(payload):
+                raise ValueError("fixture DNS compression pointer is out of bounds")
+            pointed_labels, _ignored = _read_dns_name(payload, pointer, depth=depth + 1)
+            labels.extend(pointed_labels)
+            next_offset = offset + 2
+            break
+        offset += 1
+        if length == 0:
+            next_offset = offset
+            break
+        if length > 63 or offset + length > len(payload):
+            raise ValueError("fixture DNS name is malformed")
+        labels.append(payload[offset : offset + length].lower())
+        offset += length
+    assert next_offset is not None
+    return tuple(labels), next_offset
+
+
+def _dns_packet_facts(payload: bytes) -> DnsPacketFacts:
+    if len(payload) < 12:
+        raise ValueError("fixture DNS packet is shorter than its header")
+    transaction_id, flags, question_count, answer_count = struct.unpack_from(
+        "!HHHH", payload
+    )
+    if question_count != 1:
+        raise ValueError("fixture DNS packet must contain exactly one question")
+    labels, offset = _read_dns_name(payload, 12)
+    if offset + 4 > len(payload):
+        raise ValueError("fixture DNS question type/class is truncated")
+    query_type, query_class = struct.unpack_from("!HH", payload, offset)
+    offset += 4
+    answers: list[tuple[tuple[bytes, ...], bytes]] = []
+    for _index in range(answer_count):
+        answer_name, offset = _read_dns_name(payload, offset)
+        if offset + 10 > len(payload):
+            raise ValueError("fixture DNS answer header is truncated")
+        answer_type, answer_class, _ttl, data_length = struct.unpack_from(
+            "!HHIH", payload, offset
+        )
+        offset += 10
+        if offset + data_length > len(payload):
+            raise ValueError("fixture DNS answer data is truncated")
+        answer_data = payload[offset : offset + data_length]
+        offset += data_length
+        if answer_type == 1 and answer_class == 1 and data_length == 4:
+            answers.append((answer_name, answer_data))
+    identity = (
+        struct.pack("!H", transaction_id)
+        + b".".join(labels)
+        + struct.pack("!HH", query_type, query_class)
+    )
+    return DnsPacketFacts(
+        identity=identity,
+        question_labels=labels,
+        is_response=bool(flags & 0x8000),
+        rcode=flags & 0x000F,
+        answer_records=tuple(answers),
+    )
+
+
+def _require_receipt_bound_dns(
+    *,
+    role: str,
+    packets: list[Packet],
+    fixture: FixtureContext,
+    expected_query_sha256: str,
+) -> tuple[bytes, set[int]]:
+    queries: list[tuple[int, DnsPacketFacts, Packet]] = []
+    responses: list[tuple[int, DnsPacketFacts, Packet]] = []
+    for record_index, packet in enumerate(packets):
+        if packet.payload is None or packet.transport != "udp":
+            continue
+        if not _is_fixture_packet(packet, fixture, fixture.dns_udp_port):
+            continue
+        facts = _dns_packet_facts(packet.payload)
+        query_name = b".".join(facts.question_labels)
+        query_sha256 = hashlib.sha256(
+            b"ripdpi:startup-dns-query:v1:" + query_name
+        ).hexdigest()
+        if query_sha256 != expected_query_sha256:
+            continue
+        if (
+            len(facts.question_labels) != len(fixture.fixture_domain_labels) + 1
+            or re.fullmatch(rb"startup-[0-9]+", facts.question_labels[0]) is None
+            or facts.question_labels[1:] != fixture.fixture_domain_labels
+            or not facts.identity.endswith(struct.pack("!HH", 1, 1))
+        ):
+            raise ValueError(
+                f"{role} post-ready fixture DNS question is not source-owned"
+            )
+        if facts.is_response:
+            if (
+                packet.source_address == fixture.address
+                and packet.source_port == fixture.dns_udp_port
+            ):
+                responses.append((record_index, facts, packet))
+        else:
+            if (
+                packet.destination_address == fixture.address
+                and packet.destination_port == fixture.dns_udp_port
+            ):
+                queries.append((record_index, facts, packet))
+    valid_pairs = [
+        (query, response)
+        for query in queries
+        for response in responses
+        if query[0] < response[0]
+        and query[1].identity == response[1].identity
+        and query[1].rcode == 0
+        and response[1].rcode == 0
+        and response[1].answer_records
+        == ((query[1].question_labels, fixture.dns_answer_address),)
+        and query[2].source_address == response[2].destination_address
+        and query[2].source_port == response[2].destination_port
+        and query[2].destination_address == response[2].source_address
+        and query[2].destination_port == response[2].source_port
+    ]
+    if len(valid_pairs) != 1:
+        raise ValueError(
+            f"{role} must contain exactly one matching NOERROR post-ready fixture DNS query/response"
+        )
+    query, response = valid_pairs[0]
+    proof = hashlib.sha256(
+        b"ripdpi:startup-dns-proof:v1:" + query[1].identity + fixture.dns_answer_address
+    ).digest()
+    return proof, {query[0], response[0]}
 
 
 def derive_observation(
@@ -670,7 +1212,10 @@ def derive_observation(
     metadata: CaptureMetadata,
     plan: dict[str, Any],
     windows: list[Window],
-) -> dict[str, Any]:
+    semantic_rules: dict[str, SemanticRule],
+    fixture: FixtureContext | None,
+    startup_query_sha256: str | None,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
     counters = {
         window.identifier: {
             "expected": 0,
@@ -689,28 +1234,76 @@ def derive_observation(
             (window.outcome_sha256, "outcome"),
         )
     }
+    packets = list(iter_classic_pcap(capture, expected_digest))
+    if len(packets) != metadata.packet_count:
+        raise ValueError(
+            f"{role} parsed packet count does not match private capture metadata"
+        )
     intervals = _locate_marker_intervals(
         role=role,
-        capture=capture,
-        expected_digest=expected_digest,
-        metadata=metadata,
+        packets=packets,
         windows=windows,
+        semantic_rules=semantic_rules,
         marker_owners=marker_owners,
     )
+    for window in windows:
+        if semantic_rules[window.identifier].name == STARTUP_RULE:
+            counters[window.identifier]["action"] = 1
+            counters[window.identifier]["outcome"] = 1
+    semantic_proofs: dict[str, bytes] = {}
+    allowed_dns_records: dict[str, set[int]] = {}
+    for index, window in enumerate(windows):
+        if semantic_rules[window.identifier].name != STARTUP_RULE:
+            continue
+        if fixture is None:
+            raise ValueError("startup semantic rule requires a fixture manifest")
+        if startup_query_sha256 is None:
+            raise ValueError("startup semantic rule requires a bound DNS query digest")
+        proof, records = _require_receipt_bound_dns(
+            role=role,
+            packets=packets,
+            fixture=fixture,
+            expected_query_sha256=startup_query_sha256,
+        )
+        start, finish = intervals[index]
+        if any(record < start or record > finish for record in records):
+            raise ValueError(
+                f"{role} receipt-bound fixture DNS exchange is outside the startup marker window"
+            )
+        semantic_proofs[window.identifier] = proof
+        allowed_dns_records[window.identifier] = records
     interval_starts = [start for start, _finish in intervals]
-    packet_count = 0
-    for record_index, packet in enumerate(iter_classic_pcap(capture, expected_digest)):
-        packet_count += 1
+    for record_index, packet in enumerate(packets):
         interval_index = bisect.bisect_right(interval_starts, record_index) - 1
         if interval_index < 0 or record_index > intervals[interval_index][1]:
             continue
         window = windows[interval_index]
+        rule = semantic_rules[window.identifier]
         if packet.payload is None:
             counters[window.identifier]["errors"] += 1
             continue
         if len(packet.payload) > MAX_PACKET_BYTES:
             raise ValueError("transport payload exceeds the scan bound")
         matches = _known_marker_matches(packet.payload, marker_owners)
+        if rule.name == STARTUP_RULE:
+            if fixture is None:
+                raise ValueError("startup semantic rule requires a fixture manifest")
+            if record_index in allowed_dns_records[window.identifier]:
+                counters[window.identifier]["expected"] += 1
+                continue
+            if packet.transport == "tcp" and _is_fixture_packet(
+                packet, fixture, fixture.control_port
+            ):
+                counters[window.identifier]["expected"] += 1
+                for owner_id, phase in matches:
+                    if owner_id != window.identifier:
+                        raise ValueError(
+                            f"{role} marker appears in the wrong ledger window"
+                        )
+                    counters[owner_id][phase] = 1
+                continue
+            counters[window.identifier]["unexpected"] += 1
+            continue
         if not matches:
             counters[window.identifier]["unexpected"] += 1
             continue
@@ -721,11 +1314,6 @@ def derive_observation(
             raise ValueError(f"{role} marker appears in the wrong ledger window")
         counters[owner_id]["expected"] += 1
         counters[owner_id][phase] += 1
-
-    if packet_count != metadata.packet_count:
-        raise ValueError(
-            f"{role} parsed packet count does not match private capture metadata"
-        )
 
     observation_windows: list[dict[str, Any]] = []
     for window in windows:
@@ -762,7 +1350,7 @@ def derive_observation(
         "captureFinishedAtEpoch": metadata.finished,
         "rawCaptureSha256": expected_digest,
         "windows": observation_windows,
-    }
+    }, semantic_proofs
 
 
 def write_private_json(path: Path, value: dict[str, Any]) -> None:
@@ -850,6 +1438,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--client-metadata", required=True, type=Path)
     parser.add_argument("--observer-metadata", required=True, type=Path)
     parser.add_argument("--ledger", required=True, type=Path)
+    parser.add_argument("--action-receipt", type=Path)
+    parser.add_argument("--fixture-manifest", type=Path)
     parser.add_argument("--client-output", required=True, type=Path)
     parser.add_argument("--observer-output", required=True, type=Path)
     return parser.parse_args()
@@ -864,6 +1454,7 @@ def main() -> int:
             args.client_metadata,
             args.observer_metadata,
             args.ledger,
+            *(path for path in (args.action_receipt, args.fixture_manifest) if path),
             args.client_output,
             args.observer_output,
         )
@@ -878,9 +1469,37 @@ def main() -> int:
         ledger, _raw = load_strict_json(
             args.ledger, "action ledger", maximum_bytes=MAX_LEDGER_BYTES
         )
-        plan, windows, digests = validate_ledger(
+        plan, windows, digests, semantic_rules = validate_ledger(
             ledger, forbidden_generic_ids=load_android_dual_vantage_gate_ids()
         )
+        startup_rules = [
+            rule for rule in semantic_rules.values() if rule.name == STARTUP_RULE
+        ]
+        fixture: FixtureContext | None = None
+        startup_query_sha256: str | None = None
+        if startup_rules:
+            if len(startup_rules) != 1:
+                raise ValueError("the startup semantic rule must appear exactly once")
+            if args.action_receipt is None or args.fixture_manifest is None:
+                raise ValueError(
+                    "startup semantic rule requires --action-receipt and --fixture-manifest"
+                )
+            startup_rule = startup_rules[0]
+            assert startup_rule.fixture_identity_sha256 is not None
+            assert startup_rule.action_receipt_sha256 is not None
+            fixture = load_fixture_context(
+                args.fixture_manifest, startup_rule.fixture_identity_sha256
+            )
+            startup_query_sha256 = validate_action_receipt(
+                args.action_receipt,
+                expected_digest=startup_rule.action_receipt_sha256,
+                fixture_identity_sha256=startup_rule.fixture_identity_sha256,
+                plan=plan,
+            )
+        elif args.action_receipt is not None or args.fixture_manifest is not None:
+            raise ValueError(
+                "action receipt and fixture manifest are forbidden without a startup semantic rule"
+            )
         client_metadata_value, _raw = load_strict_json(
             args.client_metadata,
             "client-underlay capture metadata",
@@ -913,22 +1532,30 @@ def main() -> int:
                 raise ValueError(
                     f"{metadata.role} actual capture bounds do not enclose every plan window"
                 )
-        client = derive_observation(
+        client, client_proofs = derive_observation(
             role="client-underlay",
             capture=args.client_pcap,
             expected_digest=digests["client-underlay"],
             metadata=client_metadata,
             plan=plan,
             windows=windows,
+            semantic_rules=semantic_rules,
+            fixture=fixture,
+            startup_query_sha256=startup_query_sha256,
         )
-        observer = derive_observation(
+        observer, observer_proofs = derive_observation(
             role="external-observer",
             capture=args.observer_pcap,
             expected_digest=digests["external-observer"],
             metadata=observer_metadata,
             plan=plan,
             windows=windows,
+            semantic_rules=semantic_rules,
+            fixture=fixture,
+            startup_query_sha256=startup_query_sha256,
         )
+        if client_proofs != observer_proofs:
+            raise ValueError("dual-vantage startup DNS semantic proofs do not match")
         write_private_json(args.client_output, client)
         write_private_json(args.observer_output, observer)
         validate_final_output(args.client_output)

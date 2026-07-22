@@ -5,13 +5,13 @@
       "gateId": "killswitch-tun-establish-native-ready",
       "kind": "direct_window",
       "selector": "com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady",
-      "receiptVersion": "android_network_evidence_action_receipt_v1",
+      "receiptVersion": "android_network_evidence_action_receipt_v2",
       "receiptFile": "network-evidence-action-receipt.json",
       "semanticRule": "tun-establish-native-ready-v1",
       "windowPolicy": "conservative-superset-before-vpn-start-through-running",
       "productionReady": false,
       "blockingReasons": [
-        "gate-specific dual-vantage PCAP analyzer for the conservative marker superset and expected post-ready DNS flow is not implemented",
+        "gate-specific analyzer has no authorized physical dual-vantage capture or producer-provenance approval",
         "physical Pixel capture is not authorized in the current network state"
       ]
     }

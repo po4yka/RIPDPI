@@ -57,6 +57,7 @@ def valid_receipt() -> dict[str, object]:
         "preReadyDnsEventCount": 0,
         "startupWindowAssertionElapsedMs": 300,
         "dnsRcode": 0,
+        "dnsQuerySha256": "7" * 64,
         "dnsAnswersExact": True,
         "postReadyDnsEventCount": 1,
         "txPackets": 2,
@@ -98,6 +99,7 @@ class AndroidNetworkActionReceiptTest(unittest.TestCase):
             "fixtureIdentitySha256": "6" * 64,
             "actionMarkerSha256": "6" * 64,
             "outcomeMarkerSha256": "6" * 64,
+            "dnsQuerySha256": "malformed",
             "selector": "com.example.Wrong#test",
         }
         for field, replacement in mutations.items():

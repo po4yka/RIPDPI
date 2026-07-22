@@ -59,6 +59,7 @@ def receipt() -> dict[str, object]:
         "preReadyDnsEventCount": 0,
         "startupWindowAssertionElapsedMs": 300,
         "dnsRcode": 0,
+        "dnsQuerySha256": "7" * 64,
         "dnsAnswersExact": True,
         "postReadyDnsEventCount": 1,
         "txPackets": 2,
@@ -173,7 +174,7 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
         self.assertEqual(action["kind"], module.KIND)
         self.assertEqual(action["selector"], module.SELECTOR)
         self.assertEqual(
-            action["receiptVersion"], "android_network_evidence_action_receipt_v1"
+            action["receiptVersion"], "android_network_evidence_action_receipt_v2"
         )
         self.assertEqual(action["semanticRule"], "tun-establish-native-ready-v1")
         self.assertEqual(

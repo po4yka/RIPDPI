@@ -355,13 +355,19 @@ mixing local and remote clocks, and derives canonical mode-0600 unstamped
 observations without publishing addresses or payloads. Caller-supplied counters
 and verdicts are rejected; snap-length truncation becomes a capture error.
 
-The oracle's only implemented semantic rule is a generic marker-pair self-test,
-and it explicitly rejects that rule for every Android dual-vantage release gate.
-It is not yet listed in `network-evidence-producers.json`: the ten gate-specific
-Android action/semantic seams, ordinary-results raw verifier, and signed release
-APK are still missing. Copying its digest into the producer
-allowlist before those pieces exist would turn a capture plumbing check into
-false release evidence.
+The oracle keeps the generic marker-pair rule only for non-policy self-tests and
+explicitly rejects it for every Android dual-vantage release gate. The
+`tun-establish-native-ready-v1` rule is the first gate-specific implementation:
+it validates the private Android action receipt and canonical fixture identity,
+reassembles bounded TCP marker streams independently at both vantages, treats
+the conservative interval from before VPN start through confirmed native
+readiness as the direct-window boundary, and permits only the receipt-bound
+post-ready fixture DNS exchange observed identically in both captures without
+publishing its endpoint or question. Any other non-control packet within that
+interval is emitted as unexpected evidence; truncated packets are capture
+errors. The oracle remains outside
+`network-evidence-producers.json` until an authorized physical capture and the
+remaining producer-provenance review are complete.
 
 The first source-owned Android action contract is registered in
 `quality/release-gates/android-network-evidence-actions.json` for
@@ -369,13 +375,15 @@ The first source-owned Android action contract is registered in
 `test-lab/scripts/run-android-network-evidence-action.sh`, invokes exactly
 `VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady` and
 accepts only a private test-produced receipt bound to the clean source SHA,
-client/androidTest artifact digests, fixture identity, and source-derived wire
+client/androidTest artifact digests, fixture identity, a private DNS-query
+digest, and source-derived wire
 markers. Skipped, zero-test, ambiguous, stale, non-private, or semantically
 incomplete receipts fail closed. The action is explicitly `productionReady:
-false`: its gate-specific dual-vantage PCAP analyzer and an authorized physical
-capture are still missing, so it cannot open a producer allowlist or establish a
-release PASS. The runner starts and stops RIPDPI VPN; it must not be executed
-without operator authorization for the current device and network state.
+false`: its analyzer is implemented, but an authorized physical capture and
+producer-provenance approval are still missing, so it cannot open a producer
+allowlist or establish a release PASS. The runner starts and stops RIPDPI VPN;
+it must not be executed without operator authorization for the current device
+and network state.
 
 On success, the utility leaves the raw PCAP at the explicitly requested private
 path for the future gate-specific analyzer. The operator must delete it after

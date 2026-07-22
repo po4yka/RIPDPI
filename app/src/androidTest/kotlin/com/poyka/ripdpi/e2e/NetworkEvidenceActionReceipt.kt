@@ -15,7 +15,7 @@ internal const val NetworkEvidenceStartupKind = "direct_window"
 internal const val NetworkEvidenceStartupSelector =
     "com.poyka.ripdpi.e2e.VpnStartupWindowE2ETest#vpnStartupWindowHoldsDnsPacketUntilNativeReady"
 
-private const val ReceiptVersion = "android_network_evidence_action_receipt_v1"
+private const val ReceiptVersion = "android_network_evidence_action_receipt_v2"
 private const val WireMarkerPrefix = "RIPDPI-EVIDENCE-V2:"
 private const val MarkerDomain = "ripdpi:network-evidence-marker:v2"
 private const val CorrelationIdArg = "ripdpi.networkEvidenceCorrelationId"
@@ -65,6 +65,7 @@ internal data class NetworkEvidenceStartupFacts(
     val preReadyDnsEventCount: Int,
     val startupWindowAssertionElapsedMs: Long,
     val dnsRcode: Int,
+    val dnsQuerySha256: String,
     val dnsAnswersExact: Boolean,
     val postReadyDnsEventCount: Int,
     val txPackets: Long,
@@ -191,6 +192,7 @@ internal fun writeNetworkEvidenceStartupPassReceipt(
     require(facts.closedWindowRunningCount == 0 && facts.preReadyDnsEventCount == 0)
     require(facts.startupWindowAssertionElapsedMs in 1 until 4_000)
     require(facts.dnsRcode == 0 && facts.dnsAnswersExact)
+    require(Sha256Regex.matches(facts.dnsQuerySha256))
     require(facts.postReadyDnsEventCount == 1)
     require(facts.txPackets > 0 && facts.rxPackets > 0)
 
@@ -224,6 +226,7 @@ internal fun writeNetworkEvidenceStartupPassReceipt(
             .put("preReadyDnsEventCount", facts.preReadyDnsEventCount)
             .put("startupWindowAssertionElapsedMs", facts.startupWindowAssertionElapsedMs)
             .put("dnsRcode", facts.dnsRcode)
+            .put("dnsQuerySha256", facts.dnsQuerySha256)
             .put("dnsAnswersExact", facts.dnsAnswersExact)
             .put("postReadyDnsEventCount", facts.postReadyDnsEventCount)
             .put("txPackets", facts.txPackets)
@@ -238,6 +241,14 @@ internal fun writeNetworkEvidenceStartupPassReceipt(
         output.fd.sync()
     }
     check(temporary.renameTo(destination)) { "Could not atomically publish network evidence action receipt" }
+}
+
+internal fun networkEvidenceDnsQuerySha256(queryHost: String): String {
+    require(queryHost.isNotBlank())
+    return MessageDigest
+        .getInstance("SHA-256")
+        .digest("ripdpi:startup-dns-query:v1:${queryHost.lowercase()}".toByteArray(StandardCharsets.US_ASCII))
+        .toHex()
 }
 
 private fun deriveMarkerSha256(

@@ -367,6 +367,7 @@ class VpnStartupWindowE2ETest {
                                 preReadyDnsEventCount = preReadyCorrelatedEvents.size,
                                 startupWindowAssertionElapsedMs = startupWindowAssertionElapsedMs,
                                 dnsRcode = requireNotNull(dnsResult.rcode),
+                                dnsQuerySha256 = networkEvidenceDnsQuerySha256(queryHost),
                                 dnsAnswersExact = dnsResult.answers == listOf(fixture.dnsAnswerIpv4),
                                 postReadyDnsEventCount = correlatedEvents.size,
                                 txPackets = runningTelemetry.tunnelStats.txPackets,
