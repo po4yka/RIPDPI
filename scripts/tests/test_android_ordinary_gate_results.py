@@ -209,6 +209,10 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                         status = producer.main(["--output", str(output)])
                     self.assertEqual(status, 1)
                     results = json.loads(output.read_text(encoding="utf-8"))
+                    self.assertEqual(
+                        output.read_bytes(), producer.canonical_json_bytes(results)
+                    )
+                    self.assertEqual(output.stat().st_mode & 0o777, 0o600)
                     self.assertEqual(self.validate(results), results)
                     self.assertNotIn("stale", results)
                     self.assertTrue(
@@ -239,18 +243,44 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                 )
             )
 
-    def test_cli_removes_stale_pass_when_head_cannot_be_bound(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "results.json"
-            output.write_text('{"stale":"PASS"}\n', encoding="utf-8")
-            with mock.patch.object(
-                producer,
-                "current_head_sha",
-                side_effect=producer.EvidenceError("SOURCE_INVALID", "invalid head"),
-            ):
-                status = producer.main(["--output", str(output)])
-            self.assertEqual(status, 2)
-            self.assertFalse(output.exists())
+    def test_cli_replaces_stale_pass_when_head_cannot_be_bound(self) -> None:
+        failures = (
+            producer.EvidenceError("SOURCE_INVALID", "invalid head"),
+            RuntimeError("unexpected head lookup failure"),
+        )
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__):
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "results.json"
+                    output.write_text('{"stale":"PASS"}\n', encoding="utf-8")
+                    with mock.patch.object(
+                        producer,
+                        "current_head_sha",
+                        side_effect=failure,
+                    ):
+                        status = producer.main(["--output", str(output)])
+                    self.assertEqual(status, 2)
+                    results = json.loads(output.read_text(encoding="utf-8"))
+                    self.assertEqual(
+                        output.read_bytes(), producer.canonical_json_bytes(results)
+                    )
+                    self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+                    self.assertEqual(
+                        set(results["gateResults"]), set(producer.ORDINARY_GATE_IDS)
+                    )
+                    self.assertEqual(results["sourceSha"], producer.UNKNOWN_SOURCE_SHA)
+                    expected_code = (
+                        "SOURCE_INVALID"
+                        if isinstance(failure, producer.EvidenceError)
+                        else "SOURCE_BINDING_FAILED"
+                    )
+                    self.assertTrue(
+                        all(
+                            value["state"] == "FAIL"
+                            and expected_code in value["reason"]
+                            for value in results["gateResults"].values()
+                        )
+                    )
 
 
 if __name__ == "__main__":

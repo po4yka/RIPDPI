@@ -24,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RESULTS_VERSION = "dns_ipv6_killswitch_results_v1"
 APPLIES_TO = "android-client-release"
 SHA1_RE = re.compile(r"[0-9a-f]{40}")
+# Reserved sentinel: no Git object can be trusted when HEAD lookup itself fails.
+UNKNOWN_SOURCE_SHA = "0" * 40
 SOURCE_OWNED_VERIFIER_AVAILABLE = False
 UNAVAILABLE_CODE = "SOURCE_OWNED_VERIFIER_UNAVAILABLE"
 UNAVAILABLE_REASON = (
@@ -134,7 +136,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         source_sha = current_head_sha()
     except Exception as error:  # noqa: BLE001 - stale PASS must not survive
-        args.output.unlink(missing_ok=True)
+        if isinstance(error, EvidenceError):
+            code = error.code
+            reason = error.message
+        else:
+            code = "SOURCE_BINDING_FAILED"
+            reason = f"unexpected source binding failure ({type(error).__name__})"
+        write_canonical_json(
+            args.output,
+            all_failure_results(UNKNOWN_SOURCE_SHA, code=code, reason=reason),
+        )
         print(
             f"Android ordinary producer failed before source binding: {error}",
             file=sys.stderr,
