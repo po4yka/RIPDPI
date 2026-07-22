@@ -71,6 +71,7 @@ class FlowAppAttributionStoreTest {
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.allowed")),
                 sdkInt = Build.VERSION_CODES.R,
+                ownPackage = "com.example.vpn",
                 uidForPackage = { 10123 },
             )
 
@@ -84,6 +85,7 @@ class FlowAppAttributionStoreTest {
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.AllowOnly(uids.keys + "com.example.missing"),
                 sdkInt = Build.VERSION_CODES.S,
+                ownPackage = "com.example.vpn",
                 uidForPackage = uids::get,
             )
 
@@ -96,6 +98,7 @@ class FlowAppAttributionStoreTest {
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.missing")),
                 sdkInt = Build.VERSION_CODES.S,
+                ownPackage = "com.example.vpn",
                 uidForPackage = { null },
             )
 
@@ -108,9 +111,37 @@ class FlowAppAttributionStoreTest {
             nativeUidPolicyFor(
                 plan = VpnAppRoutingPlan.Disallow(setOf("com.example.denied")),
                 sdkInt = Build.VERSION_CODES.S,
+                ownPackage = "com.example.vpn",
                 uidForPackage = { packageName -> if (packageName == "com.example.denied") 10420 else null },
             )
 
         assertEquals(NativeUidPolicy("denylist", listOf(10420)), policy)
+    }
+
+    @Test
+    fun `native uid policy is disarmed for full tunnel own package exclusion`() {
+        val policy =
+            nativeUidPolicyFor(
+                plan = VpnAppRoutingPlan.Disallow(setOf("com.example.vpn")),
+                sdkInt = Build.VERSION_CODES.S,
+                ownPackage = "com.example.vpn",
+                uidForPackage = { 10420 },
+            )
+
+        assertEquals(NativeUidPolicy.Disarmed, policy)
+    }
+
+    @Test
+    fun `native uid denylist remains armed when a third party is excluded`() {
+        val uids = mapOf("com.example.vpn" to 10420, "com.example.denied" to 10421)
+        val policy =
+            nativeUidPolicyFor(
+                plan = VpnAppRoutingPlan.Disallow(uids.keys),
+                sdkInt = Build.VERSION_CODES.S,
+                ownPackage = "com.example.vpn",
+                uidForPackage = uids::get,
+            )
+
+        assertEquals(NativeUidPolicy("denylist", listOf(10420, 10421)), policy)
     }
 }

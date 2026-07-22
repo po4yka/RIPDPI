@@ -59,6 +59,7 @@ jobs:
           cmp -s "$apk" "$RUNNER_TEMP/installed-ripdpi.apk"
           client_artifact_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$apk")"
           echo "CLIENT_ARTIFACT_SHA256=$client_artifact_sha256" >> "$GITHUB_ENV"
+          echo "CLIENT_ARTIFACT_PATH=$apk" >> "$GITHUB_ENV"
 
       - name: Capture client and external-observer evidence
         run: |
@@ -66,7 +67,7 @@ jobs:
             --config "$EVIDENCE_CONFIG" \
             --output-dir "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME" \
             --source-sha "$GITHUB_SHA" \
-            --client-artifact-sha256 "$CLIENT_ARTIFACT_SHA256" \
+            --client-artifact "$CLIENT_ARTIFACT_PATH" \
             --applies-to android-client-release
 
       - name: Reconfirm installed client after capture
@@ -78,14 +79,17 @@ jobs:
           installed_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$RUNNER_TEMP/post-capture-ripdpi.apk")"
           test "$installed_sha256" = "$CLIENT_ARTIFACT_SHA256"
 
-      - name: Enforce complete exact-SHA release evidence
+      - name: Validate exact-SHA dual-vantage bundle
         run: |
-          python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
-            --evidence-manifest "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME/manifest.json" \
+          python3 scripts/ci/network_evidence_manifest.py validate \
+            --manifest "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME/manifest.json" \
+            --artifact-root "$RUNNER_TEMP/$EVIDENCE_OUTPUT_NAME" \
             --applies-to android-client-release \
             --expected-source-sha "$GITHUB_SHA" \
-            --expected-evidence-run-id "$GITHUB_RUN_ID" \
-            --expected-evidence-run-attempt "$GITHUB_RUN_ATTEMPT"
+            --expected-execution-kind github-actions \
+            --expected-execution-id "$GITHUB_RUN_ID" \
+            --expected-execution-attempt "$GITHUB_RUN_ATTEMPT" \
+            --require-pass
 
       - name: Publish validated redacted release evidence
         if: success()
