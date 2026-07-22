@@ -127,6 +127,10 @@ class LogsScreenTest {
 
         assertTrue(runtimeBounds.height <= MaximumChipHeightPx)
         assertTrue(scanBounds.height <= MaximumChipHeightPx)
+        assertTrue(runtimeBounds.left >= entryBounds.left)
+        assertTrue(runtimeBounds.right <= entryBounds.right)
+        assertTrue(scanBounds.left >= entryBounds.left)
+        assertTrue(scanBounds.right <= entryBounds.right)
         assertTrue(entryBounds.height <= MaximumEntryHeightPx)
         assertTrue(copyBounds.top <= entryBounds.top + MaximumCopyTopOffsetPx)
     }
