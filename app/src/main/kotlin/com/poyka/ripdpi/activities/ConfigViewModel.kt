@@ -9,9 +9,15 @@ import com.poyka.ripdpi.config.relay.toUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.RelayPresetDefinition
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
@@ -23,13 +29,29 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
+
+private data class ConfigPersistedSnapshot(
+    val settings: AppSettings,
+    val relayPresets: List<RelayPresetDefinition>,
+    val relayProfileRecords: List<RelayProfileRecord>,
+)
+
+private data class ConfigRuntimeSnapshot(
+    val serviceStatus: Pair<AppStatus, Mode>,
+    val latestDirectModeOutcome: LatestDirectModeOutcomeSnapshot?,
+    val networkSnapshot: NativeNetworkSnapshot?,
+    val capabilityRecords: List<ServerCapabilityRecord>,
+)
 
 @HiltViewModel
 class ConfigViewModel
@@ -47,6 +69,7 @@ class ConfigViewModel
         private val serviceController = dependencies.serviceController
         private val latestDirectModeOutcomeStore = dependencies.latestDirectModeOutcomeStore
         private val capabilityObserver = dependencies.capabilityObserver
+        private val dispatchers = dependencies.dispatchers
         private val masqueClientCredentialImporter = importDependencies.masqueClientCredentialImporter
         private val masquePrivacyPassAvailability = importDependencies.masquePrivacyPassAvailability
         private val editorSession = MutableStateFlow(ConfigEditorSession())
@@ -71,18 +94,43 @@ class ConfigViewModel
             observeCapabilityEvidence()
         }
 
-        val uiState: StateFlow<ConfigUiState> =
+        private val persistedSnapshots =
+            appSettingsRepository.settings
+                .map { settings ->
+                    ConfigPersistedSnapshot(
+                        settings = settings,
+                        relayPresets = relayPresetCatalog.all(),
+                        relayProfileRecords = runCatching { relayArtifacts.listProfiles() }.getOrDefault(emptyList()),
+                    )
+                }.flowOn(dispatchers.io)
+
+        private val runtimeSnapshots =
             combine(
-                appSettingsRepository.settings,
-                editorSession,
                 serviceStateStore.status,
-                serviceStateStore.telemetry,
                 latestDirectModeOutcomeStore.outcome,
-            ) { settings, session, serviceStatus, serviceTelemetry, latestDirectModeOutcome ->
-                val relayPresets = relayPresetCatalog.all()
-                val relayProfileRecords = runCatching { relayArtifacts.listProfiles() }.getOrDefault(emptyList())
+                serviceStateStore.telemetry
+                    .map { telemetry -> telemetry.networkHandoverState }
+                    .distinctUntilChanged(),
+            ) { serviceStatus, latestDirectModeOutcome, _ ->
                 val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
                 val capabilityRecords = capabilityObserver.relayCapabilitiesForCurrentNetwork()
+                ConfigRuntimeSnapshot(
+                    serviceStatus = serviceStatus,
+                    latestDirectModeOutcome = latestDirectModeOutcome,
+                    networkSnapshot = networkSnapshot,
+                    capabilityRecords = capabilityRecords,
+                )
+            }.flowOn(dispatchers.io)
+
+        val uiState: StateFlow<ConfigUiState> =
+            combine(
+                persistedSnapshots,
+                editorSession,
+                serviceStateStore.telemetry,
+                runtimeSnapshots,
+            ) { persistedSnapshot, session, serviceTelemetry, runtimeSnapshot ->
+                val settings = persistedSnapshot.settings
+                val relayProfileRecords = persistedSnapshot.relayProfileRecords
                 val currentDraft =
                     sanitizeMasqueAuthModeForCurrentBuild(
                         draft = settings.toConfigDraft(),
@@ -112,7 +160,10 @@ class ConfigViewModel
 
                 ConfigUiState(
                     activeMode = currentDraft.mode,
-                    runningMode = serviceStatus.second.takeIf { serviceStatus.first == AppStatus.Running },
+                    runningMode =
+                        runtimeSnapshot.serviceStatus.second.takeIf {
+                            runtimeSnapshot.serviceStatus.first == AppStatus.Running
+                        },
                     uiPersona = settings.uiPersona.ifBlank { "simple" },
                     presets = presets,
                     editingPreset = editingPreset,
@@ -128,7 +179,7 @@ class ConfigViewModel
                     relayChainTrustWarning = resolveRelayChainTrustWarning(draft, relayProfiles),
                     relayChainHopStatus = buildRelayChainHopStatus(serviceTelemetry.relayTelemetry),
                     relayPresets =
-                        relayPresets
+                        persistedSnapshot.relayPresets
                             .map { preset ->
                                 RelayPresetUiState(
                                     id = preset.id,
@@ -138,14 +189,18 @@ class ConfigViewModel
                             }.toImmutableList(),
                     relayPresetSuggestion =
                         resolveRelayPresetSuggestion(
-                            heuristicSuggestion = relayPresetCatalog.suggestFor(networkSnapshot, capabilityRecords),
+                            heuristicSuggestion =
+                                relayPresetCatalog.suggestFor(
+                                    runtimeSnapshot.networkSnapshot,
+                                    runtimeSnapshot.capabilityRecords,
+                                ),
                             serviceTelemetry = serviceTelemetry,
-                            capabilityRecords = capabilityRecords,
+                            capabilityRecords = runtimeSnapshot.capabilityRecords,
                             transportRemediation =
                                 recommendTransportRemediation(
-                                    result = latestDirectModeOutcome?.result,
-                                    reasonCode = latestDirectModeOutcome?.reasonCode,
-                                    transportClass = latestDirectModeOutcome?.transportClass,
+                                    result = runtimeSnapshot.latestDirectModeOutcome?.result,
+                                    reasonCode = runtimeSnapshot.latestDirectModeOutcome?.reasonCode,
+                                    transportClass = runtimeSnapshot.latestDirectModeOutcome?.transportClass,
                                 ),
                         ).toUiState(draft),
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,

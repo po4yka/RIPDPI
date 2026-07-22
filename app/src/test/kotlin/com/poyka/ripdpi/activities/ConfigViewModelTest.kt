@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import android.net.Uri
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toRelayPresetReason
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeVerdictResult
@@ -52,6 +53,7 @@ import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -599,7 +601,9 @@ class ConfigViewModelTest {
                         ConfigCapabilityObserver(
                             networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                             serverCapabilityStore = NoOpServerCapabilityStore(),
+                            dispatchers = testDispatchers(),
                         ),
+                    dispatchers = testDispatchers(),
                 ),
             importDependencies =
                 ConfigImportDependencies(
@@ -1022,7 +1026,7 @@ class ConfigViewModelRelayRecommendationTest {
         }
 }
 
-private class InMemoryRelayProfileStore : RelayProfileStore {
+internal class InMemoryRelayProfileStore : RelayProfileStore {
     private val records = LinkedHashMap<String, RelayProfileRecord>()
 
     override suspend fun load(profileId: String): RelayProfileRecord? = records[profileId]
@@ -1038,7 +1042,7 @@ private class InMemoryRelayProfileStore : RelayProfileStore {
     }
 }
 
-private class InMemoryRelayCredentialStore : RelayCredentialStore {
+internal class InMemoryRelayCredentialStore : RelayCredentialStore {
     private val records = LinkedHashMap<String, RelayCredentialRecord>()
 
     override suspend fun load(profileId: String): RelayCredentialRecord? = records[profileId]
@@ -1056,11 +1060,18 @@ private class FakeNativeNetworkSnapshotProvider : NativeNetworkSnapshotProvider 
     override fun capture(): NativeNetworkSnapshot = NativeNetworkSnapshot()
 }
 
-private class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {
+internal fun testDispatchers(): AppCoroutineDispatchers =
+    AppCoroutineDispatchers(
+        default = Dispatchers.Main,
+        io = Dispatchers.Main,
+        main = Dispatchers.Main,
+    )
+
+internal class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {
     override fun capture(): NetworkFingerprint? = null
 }
 
-private class NoOpServerCapabilityStore : ServerCapabilityStore {
+internal class NoOpServerCapabilityStore : ServerCapabilityStore {
     override suspend fun relayCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
         emptyList()
 
@@ -1098,7 +1109,7 @@ private class NoOpServerCapabilityStore : ServerCapabilityStore {
     override suspend fun clearAll() = Unit
 }
 
-private object NoOpMasqueClientCredentialImporter : MasqueClientCredentialImporter {
+internal object NoOpMasqueClientCredentialImporter : MasqueClientCredentialImporter {
     override suspend fun importCertificateChainPem(uri: Uri): String = ""
 
     override suspend fun importPrivateKeyPem(uri: Uri): String = ""
@@ -1109,7 +1120,7 @@ private object NoOpMasqueClientCredentialImporter : MasqueClientCredentialImport
     ): ImportedMasqueClientIdentity = ImportedMasqueClientIdentity(certificateChainPem = "", privateKeyPem = "")
 }
 
-private object NoOpMasquePrivacyPassAvailability : MasquePrivacyPassAvailability {
+internal object NoOpMasquePrivacyPassAvailability : MasquePrivacyPassAvailability {
     override fun isAvailable(): Boolean = false
 
     override fun buildStatus(): MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl

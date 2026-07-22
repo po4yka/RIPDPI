@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.biometric.BiometricManager
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeCellularSnapshot
@@ -23,9 +24,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -73,7 +77,11 @@ class SettingsUiStateAssemblerTest {
                         ),
                     enginePlatformCapabilities = FakeEnginePlatformCapabilities(),
                 )
-            val assembler = SettingsUiStateAssembler(FakeBiometricCapabilityChecker())
+            val assembler =
+                SettingsUiStateAssembler(
+                    FakeBiometricCapabilityChecker(),
+                    testDispatchers(testScheduler),
+                )
             val assemblySnapshot =
                 assembler.buildAssemblySnapshot(
                     settings = settingsUiDependencies.appSettingsRepository.snapshot(),
@@ -114,16 +122,27 @@ class SettingsUiStateAssemblerTest {
                         ),
                     enginePlatformCapabilities = FakeEnginePlatformCapabilities(),
                 )
-            val assembler = SettingsUiStateAssembler(FakeBiometricCapabilityChecker())
+            val assembler =
+                SettingsUiStateAssembler(
+                    FakeBiometricCapabilityChecker(),
+                    testDispatchers(testScheduler),
+                )
             val uiState =
                 assembler.assemble(
                     scope = backgroundScope,
                     settingsUiDependencies = settingsUiDependencies,
                     hostAutolearnStoreRefresh = MutableStateFlow(0),
                 )
-            val collector = backgroundScope.launch { uiState.collect {} }
-            advanceUntilIdle()
+
+            assertFalse(uiState.value.isHydrated)
+            assertEquals(0, routingProtectionCatalogService.snapshotCalls)
+
+            val collector = launch { uiState.collect {} }
+            runCurrent()
             val callsAfterInitialAssembly = routingProtectionCatalogService.snapshotCalls
+
+            assertTrue(uiState.value.isHydrated)
+            assertEquals(1, callsAfterInitialAssembly)
 
             serviceStateStore.updateTelemetry(
                 ServiceTelemetrySnapshot(
@@ -132,7 +151,7 @@ class SettingsUiStateAssemblerTest {
                     updatedAt = 1L,
                 ),
             )
-            advanceUntilIdle()
+            runCurrent()
             serviceStateStore.updateTelemetry(
                 ServiceTelemetrySnapshot(
                     mode = Mode.VPN,
@@ -140,11 +159,20 @@ class SettingsUiStateAssemblerTest {
                     updatedAt = 2L,
                 ),
             )
-            advanceUntilIdle()
+            runCurrent()
 
             assertEquals(callsAfterInitialAssembly, routingProtectionCatalogService.snapshotCalls)
             collector.cancel()
         }
+}
+
+private fun testDispatchers(testScheduler: TestCoroutineScheduler): AppCoroutineDispatchers {
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    return AppCoroutineDispatchers(
+        default = dispatcher,
+        io = dispatcher,
+        main = dispatcher,
+    )
 }
 
 private class FlowRememberedPolicySource(

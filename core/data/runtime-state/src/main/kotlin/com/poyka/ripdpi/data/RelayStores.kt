@@ -245,37 +245,39 @@ class SharedPreferencesRelayProfileStore
         private val preferences = context.getSharedPreferences(ProfilePrefsName, Context.MODE_PRIVATE)
         private val json = RipDpiJson
 
-        override suspend fun load(profileId: String): RelayProfileRecord? {
-            val stored =
-                preferences.getString(prefKey(profileId), null)?.let {
-                    json.decodeFromString(RelayProfileRecord.serializer(), it)
-                } ?: return null
-            val migration = migrateRelayProfileRecord(stored)
-            if (migration.changed) {
-                // One-shot migration: persist the rewritten shape so it only
-                // runs once per legacy record.
-                persist(migration.record)
+        override suspend fun load(profileId: String): RelayProfileRecord? =
+            withContext(Dispatchers.IO) {
+                val stored =
+                    preferences.getString(prefKey(profileId), null)?.let {
+                        json.decodeFromString(RelayProfileRecord.serializer(), it)
+                    } ?: return@withContext null
+                val migration = migrateRelayProfileRecord(stored)
+                if (migration.changed) {
+                    // One-shot migration: persist the rewritten shape so it only
+                    // runs once per legacy record.
+                    persistBlocking(migration.record)
+                }
+                migration.record
             }
-            return migration.record
-        }
 
-        override suspend fun list(): List<RelayProfileRecord> {
-            val migrations =
-                preferences.all.keys
-                    .asSequence()
-                    .filter { it.startsWith(ProfilePrefKeyPrefix) }
-                    .mapNotNull { key ->
-                        preferences.getString(key, null)?.let { encoded ->
-                            json.decodeFromString(RelayProfileRecord.serializer(), encoded)
-                        }
-                    }.map(::migrateRelayProfileRecord)
-                    .toList()
-            migrations.filter(RelayProfileMigrationResult::changed).forEach { persist(it.record) }
-            return migrations.map(RelayProfileMigrationResult::record).sortedBy(RelayProfileRecord::id)
-        }
+        override suspend fun list(): List<RelayProfileRecord> =
+            withContext(Dispatchers.IO) {
+                val migrations =
+                    preferences.all.keys
+                        .asSequence()
+                        .filter { it.startsWith(ProfilePrefKeyPrefix) }
+                        .mapNotNull { key ->
+                            preferences.getString(key, null)?.let { encoded ->
+                                json.decodeFromString(RelayProfileRecord.serializer(), encoded)
+                            }
+                        }.map(::migrateRelayProfileRecord)
+                        .toList()
+                migrations.filter(RelayProfileMigrationResult::changed).forEach { persistBlocking(it.record) }
+                migrations.map(RelayProfileMigrationResult::record).sortedBy(RelayProfileRecord::id)
+            }
 
         override suspend fun save(profile: RelayProfileRecord) {
-            persist(profile)
+            withContext(Dispatchers.IO) { persistBlocking(profile) }
         }
 
         override suspend fun clear(profileId: String) {
@@ -286,15 +288,13 @@ class SharedPreferencesRelayProfileStore
             withContext(Dispatchers.IO) { preferences.edit().clear().commitOrThrow() }
         }
 
-        private suspend fun persist(profile: RelayProfileRecord) {
-            withContext(Dispatchers.IO) {
-                preferences
-                    .edit()
-                    .putString(
-                        prefKey(profile.id),
-                        json.encodeToString(RelayProfileRecord.serializer(), profile),
-                    ).commitOrThrow()
-            }
+        private fun persistBlocking(profile: RelayProfileRecord) {
+            preferences
+                .edit()
+                .putString(
+                    prefKey(profile.id),
+                    json.encodeToString(RelayProfileRecord.serializer(), profile),
+                ).commitOrThrow()
         }
 
         private fun prefKey(profileId: String): String = "$ProfilePrefKeyPrefix$profileId"

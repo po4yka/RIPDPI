@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -21,6 +22,7 @@ class ConfigViewModelDependencies
         val serviceController: ServiceController,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val capabilityObserver: ConfigCapabilityObserver,
+        val dispatchers: AppCoroutineDispatchers,
     )
 
 class ConfigImportDependencies
