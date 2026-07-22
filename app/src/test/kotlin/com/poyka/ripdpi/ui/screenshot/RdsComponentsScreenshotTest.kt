@@ -502,7 +502,7 @@ class RdsComponentsScreenshotTest {
 
     @Test
     fun logsStreamLongMetadata() {
-        captureBothThemes("logsStreamLongMetadata", widthDp = 420, heightDp = 360) {
+        captureBothThemes("logsStreamLongMetadata", widthDp = 371, heightDp = 360) {
             LogsStreamCard(
                 entries =
                     listOf(
