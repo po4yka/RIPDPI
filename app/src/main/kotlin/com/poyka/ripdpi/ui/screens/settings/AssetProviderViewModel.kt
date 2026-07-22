@@ -382,35 +382,51 @@ private class AssetProviderConfigurationPersistence(
         draft: AssetProviderConfigurationDraft,
         throwOnFailure: Boolean,
     ) {
-        var attempt = 0
-        while (draft.sequence > acknowledgedThroughSequence) {
-            if (!throwOnFailure && draft.sequence < latestSequence) return
-            val failure = runCatching { persistOnce(draft) }.exceptionOrNull()
-            when (failure) {
-                null -> {
-                    onPersistenceResult(draft.sequence, null)
-                    return
-                }
-
-                is CancellationException -> {
-                    throw failure
-                }
-
-                is Exception -> {
-                    onPersistenceResult(draft.sequence, failure)
-                    attempt += 1
-                    if (attempt >= AutomaticPersistenceAttempts) {
-                        if (throwOnFailure) throw AssetProviderConfigurationPersistenceException(failure)
-                        return
-                    }
-                    if (attempt >= ImmediatePersistenceAttempts) delay(PersistenceRetryDelayMillis)
-                }
-
-                else -> {
-                    throw failure
-                }
-            }
+        var state =
+            AssetProviderPersistenceRetryState(
+                attempt = 0,
+                finished = draft.sequence <= acknowledgedThroughSequence,
+            )
+        while (!state.finished) {
+            state = attemptPersistence(draft, throwOnFailure, state.attempt)
         }
+    }
+
+    private suspend fun attemptPersistence(
+        draft: AssetProviderConfigurationDraft,
+        throwOnFailure: Boolean,
+        attempt: Int,
+    ): AssetProviderPersistenceRetryState {
+        if (!throwOnFailure && draft.sequence < latestSequence) {
+            return AssetProviderPersistenceRetryState(attempt, finished = true)
+        }
+        val failure = persistFailureOrNull(draft)
+        return if (failure == null) {
+            onPersistenceResult(draft.sequence, null)
+            AssetProviderPersistenceRetryState(attempt, finished = true)
+        } else {
+            handlePersistenceFailure(draft, failure, throwOnFailure, attempt + 1)
+        }
+    }
+
+    private suspend fun handlePersistenceFailure(
+        draft: AssetProviderConfigurationDraft,
+        failure: Exception,
+        throwOnFailure: Boolean,
+        attempt: Int,
+    ): AssetProviderPersistenceRetryState {
+        onPersistenceResult(draft.sequence, failure)
+        val finished = attempt >= AutomaticPersistenceAttempts
+        if (finished && throwOnFailure) throw AssetProviderConfigurationPersistenceException(failure)
+        if (!finished && attempt >= ImmediatePersistenceAttempts) delay(PersistenceRetryDelayMillis)
+        return AssetProviderPersistenceRetryState(attempt, finished)
+    }
+
+    private suspend fun persistFailureOrNull(draft: AssetProviderConfigurationDraft): Exception? {
+        val failure = runCatching { persistOnce(draft) }.exceptionOrNull() ?: return null
+        if (failure is CancellationException) throw failure
+        if (failure is Exception) return failure
+        throw failure
     }
 
     private suspend fun persistOnce(draft: AssetProviderConfigurationDraft) {
@@ -430,3 +446,8 @@ private class AssetProviderConfigurationPersistence(
         const val PersistenceRetryDelayMillis = 1_000L
     }
 }
+
+private data class AssetProviderPersistenceRetryState(
+    val attempt: Int,
+    val finished: Boolean,
+)
