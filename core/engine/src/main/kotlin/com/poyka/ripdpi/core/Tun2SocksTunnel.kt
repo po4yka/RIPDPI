@@ -214,6 +214,10 @@ class Tun2SocksTunnel(
             if (handle != 0L) {
                 throw NativeError.AlreadyRunning("Tunnel")
             }
+            require(config.schemaVersion == Tun2SocksConfigSchemaVersion) {
+                "Unsupported tunnel native config schema version: ${config.schemaVersion}; " +
+                    "expected $Tun2SocksConfigSchemaVersion"
+            }
 
             val createdHandle =
                 withContext(Dispatchers.IO) {
@@ -329,11 +333,12 @@ const val defaultTun2SocksTunnelMtu: Int = 1500
 
 /**
  * Current tunnel native-config wire schema version. [Tun2SocksConfig] must
- * carry `schemaVersion`; missing and non-current versions are rejected. Bumped
- * only on a genuinely breaking shape change. See
+ * carry `schemaVersion`; missing and non-current versions are rejected. Version
+ * 3 establishes fail-closed validation at both the Kotlin and live Android Rust
+ * adapter boundaries; it is independent of the standalone YAML schema. See
  * `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
-const val Tun2SocksConfigSchemaVersion: Int = 2
+const val Tun2SocksConfigSchemaVersion: Int = 3
 
 @Serializable
 data class Tun2SocksConfig(

@@ -120,11 +120,12 @@
     {
       "id": "native-config-json",
       "area": "native-config",
-      "description": "Kotlin proxy, tunnel, and relay native config JSON encoders and Rust decoders must require their current schema and preserve current payload semantics.",
+      "description": "Kotlin proxy, tunnel, and relay native config JSON encoders and their live Rust adapter decoders must require their current schema and preserve current payload semantics.",
       "changeTriggers": [
         "RipDpiProxyUIPreferences field or default changes",
         "Native proxy config serde field or default changes",
-        "Desync chain, relay, QUIC, parser-evasion, or adaptive fallback config changes"
+        "Desync chain, relay, QUIC, parser-evasion, or adaptive fallback config changes",
+        "TunnelConfigPayload field, default, validation, or JNI flat-JSON schema changes"
       ],
       "sourcePaths": [
         "core/engine/src/main/kotlin/com/poyka/ripdpi/core/codec/NativeProxyConfigValidation.kt",
@@ -137,6 +138,10 @@
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigContractSnapshotTest.kt",
         "native/rust/crates/ripdpi-proxy-config/src/lib.rs",
         "native/rust/crates/ripdpi-tunnel-config/src/raw.rs",
+        "native/rust/crates/ripdpi-tunnel-android/src/config/payload.rs",
+        "native/rust/crates/ripdpi-tunnel-android/src/config/validation.rs",
+        "native/rust/crates/ripdpi-tunnel-android/src/config/tests.rs",
+        "native/rust/crates/ripdpi-tunnel-android/src/session/jni_tests.rs",
         "native/rust/crates/ripdpi-relay-core/src/config/flat.rs",
         "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs"
       ],
@@ -172,6 +177,16 @@
           "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-config --lib"
         },
         {
+          "id": "rust-tunnel-android-config-schema",
+          "path": "native/rust/crates/ripdpi-tunnel-android/src/config/tests.rs",
+          "command": "cargo test --locked --offline --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-android config::tests::tunnel_json_requires_current_schema_version"
+        },
+        {
+          "id": "rust-tunnel-android-jni-schema",
+          "path": "native/rust/crates/ripdpi-tunnel-android/src/session/jni_tests.rs",
+          "command": "cargo test --locked --offline --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-android session::jni_tests::exported_jni_requires_current_tunnel_schema_version"
+        },
+        {
           "id": "rust-relay-config-schema",
           "path": "native/rust/crates/ripdpi-relay-core/src/config/flat.rs",
           "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-relay-core --lib"
@@ -179,7 +194,8 @@
       ],
       "invariants": [
         "Kotlin-generated native config fixtures decode and re-encode through Rust without losing fields.",
-        "Proxy schema 2, tunnel schema 2, and relay schema 9 are required; missing, older, and future versions fail closed.",
+        "Proxy JSON schema 2, tunnel JNI flat-JSON schema 3, and relay schema 10 are required; missing, older, and future versions fail closed.",
+        "The ripdpi-tunnel-config standalone YAML schema 2 remains a separate file-format contract and is not the tunnel JNI flat-JSON schema.",
         "Native config defaults and explicit nulls remain stable across command_line and ui payloads.",
         "Fixture scenarios cover TCP-heavy, UDP/QUIC, and relay-heavy config branches."
       ]

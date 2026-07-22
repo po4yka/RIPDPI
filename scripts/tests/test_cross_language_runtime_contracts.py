@@ -82,6 +82,29 @@ class CrossLanguageRuntimeContractsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sourcePaths are missing expected hints"):
             contracts.validate_policy(broken)
 
+    def test_native_config_requires_live_tunnel_jni_sources_and_gates(self) -> None:
+        for source_hint in ("config/payload.rs", "config/validation.rs", "session/jni_tests.rs"):
+            broken = copy.deepcopy(self.policy)
+            surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
+            surface["sourcePaths"] = [path for path in surface["sourcePaths"] if source_hint not in path]
+            with self.assertRaisesRegex(ValueError, "sourcePaths are missing expected hints"):
+                contracts.validate_policy(broken)
+
+        for gate_id in ("rust-tunnel-android-config-schema", "rust-tunnel-android-jni-schema"):
+            broken = copy.deepcopy(self.policy)
+            surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
+            surface["gateTests"] = [gate for gate in surface["gateTests"] if gate["id"] != gate_id]
+            with self.assertRaisesRegex(ValueError, "missing required gate ids"):
+                contracts.validate_policy(broken)
+
+    def test_native_config_distinguishes_jni_json_v3_from_standalone_yaml_v2(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
+        surface["invariants"] = ["Generic config invariants remain stable.", "Unknown fields remain compatible."]
+
+        with self.assertRaisesRegex(ValueError, "invariants must mention"):
+            contracts.validate_policy(broken)
+
     def test_main_validates_repo_policy(self) -> None:
         self.assertEqual(0, contracts.main([]))
 

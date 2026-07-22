@@ -251,7 +251,7 @@ values; never rename or repurpose an existing one.**
 
 **Important compatibility behaviors:**
 
-- An **unknown TCP/UDP step kind is rejected** by both Kotlin and Rust. Strategy steps are security-sensitive executable identifiers, so accepting the surrounding config while silently dropping an unknown step could change bypass semantics. Environment-classification strings remain tolerant and fall back to `Unknown`; do not generalize that behavior to strategy identifiers.
+- An **unknown TCP/UDP step kind is rejected** by both Kotlin and Rust. Strategy steps are security-sensitive executable identifiers, so accepting the surrounding config while silently dropping an unknown step could change runtime strategy semantics. Environment-classification strings remain tolerant and fall back to `Unknown`; do not generalize that behavior to strategy identifiers.
 - Some Rust wire names carry `#[serde(alias = …)]` so a historic spelling still
   decodes — preserve aliases when touching those structs.
 - Telemetry payloads are golden-locked; an event-name or field change is a
@@ -383,14 +383,20 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `2`; missing, version 1,
   and future payloads are rejected by `ripdpi-proxy-config`.
-- The **tunnel native config** carries `schemaVersion` on `Tun2SocksConfig`.
-  Kotlin `Tun2SocksConfigSchemaVersion` and Rust
-  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `2`; missing, version 1,
-  and future payloads are rejected by `ripdpi-tunnel-config`.
+- The Android **tunnel JNI flat-JSON config** carries required
+  `schemaVersion: 3` on `Tun2SocksConfig`. Kotlin validates the version before
+  calling `Tun2SocksBindings.create`; the live `ripdpi-tunnel-android`
+  `TunnelConfigPayload` validates it again before registering a native handle.
+  Missing, retired version `2`, and future versions fail closed. This is
+  intentionally distinct from the standalone `ripdpi-tunnel-config` YAML file
+  format, which remains schema `2`; changing the JNI envelope does not change
+  the YAML schema.
 
-For proxy and tunnel payloads, `schemaVersion` is bumped **only** on a genuinely
-breaking shape change — a field whose meaning changed, or a removed section —
-never for an additive field. Additive changes stay covered by §7.
+For proxy and tunnel payloads, `schemaVersion` is normally bumped **only** on a
+genuinely breaking shape change — a field whose meaning changed, or a removed
+section — never for an additive field. Tunnel JNI flat-JSON schema `3` is the
+explicit fail-closed envelope introduced for the live Android adapter; it does
+not supersede the standalone YAML schema. Additive changes stay covered by §7.
 
 ---
 

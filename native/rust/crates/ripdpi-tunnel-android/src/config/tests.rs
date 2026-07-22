@@ -87,6 +87,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 ),
                 (connect_timeout_ms, tcp_read_write_timeout_ms, udp_read_write_timeout_ms, log_level, limit_nofile),
             )| TunnelConfigPayload {
+                schema_version: crate::config::payload::TUNNEL_JNI_CONFIG_SCHEMA_VERSION,
                 tunnel_name,
                 tunnel_mtu,
                 multi_queue,
@@ -223,6 +224,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 ),
                 (connect_timeout_ms, tcp_read_write_timeout_ms, udp_read_write_timeout_ms, log_level, limit_nofile),
             )| TunnelConfigPayload {
+                schema_version: crate::config::payload::TUNNEL_JNI_CONFIG_SCHEMA_VERSION,
                 tunnel_name,
                 tunnel_mtu,
                 multi_queue,
@@ -422,6 +424,46 @@ fn rejects_invalid_tunnel_json_payload() {
 }
 
 #[test]
+fn tunnel_json_requires_current_schema_version() {
+    let missing = parse_tunnel_config_json(r#"{"socks5Port":1080}"#).expect_err("missing schemaVersion");
+    assert_eq!(missing, "Missing tunnel config schemaVersion; expected 3");
+
+    for version in [2, 4] {
+        let json = format!(r#"{{"socks5Port":1080,"schemaVersion":{version}}}"#);
+        let error = parse_tunnel_config_json(&json).expect_err("unsupported schemaVersion");
+        assert_eq!(error, format!("Unsupported tunnel config schemaVersion: {version}; expected 3"));
+    }
+
+    let current = parse_tunnel_config_json(r#"{"socks5Port":1080,"schemaVersion":3}"#);
+    assert!(current.is_ok(), "current schemaVersion should parse: {current:?}");
+}
+
+#[test]
+fn tunnel_json_rejects_duplicate_schema_and_behavior_fields() {
+    for (json, field) in [
+        (r#"{"schemaVersion":2,"schemaVersion":3,"socks5Port":1080}"#, "schemaVersion"),
+        (r#"{"schemaVersion":3,"socks5Port":1080,"socks5Port":1081}"#, "socks5Port"),
+        (r#"{"schemaVersion":3,"socks5Port":1080,"uidPolicyMode":"allow","uidPolicyMode":"deny"}"#, "uidPolicyMode"),
+    ] {
+        let error = parse_tunnel_config_json(json).expect_err("duplicate field");
+        assert!(
+            error.starts_with("Invalid tunnel config JSON:") && error.contains(&format!("duplicate field `{field}`")),
+            "unexpected duplicate-field error: {error}"
+        );
+    }
+}
+
+#[test]
+fn tunnel_payload_validation_rejects_non_current_schema_version() {
+    let mut payload = sample_payload();
+    payload.schema_version = 2;
+
+    let error = config_from_payload(payload).expect_err("unsupported schemaVersion");
+
+    assert_eq!(error, "Unsupported tunnel config schemaVersion: 2; expected 3");
+}
+
+#[test]
 fn rejects_zero_socks5_port() {
     let mut payload = sample_payload();
     payload.socks5_port = 0;
@@ -484,6 +526,7 @@ fn accepts_boundary_mtu_values() {
 fn accepts_kotlin_defaulted_tunnel_fields_when_omitted() {
     let payload = parse_tunnel_config_json(
         r#"{
+              "schemaVersion": 3,
               "socks5Port": 1080,
               "mapdnsAddress": "198.18.0.53",
               "mapdnsPort": 53,
@@ -514,7 +557,8 @@ fn accepts_kotlin_defaulted_tunnel_fields_when_omitted() {
 
 #[test]
 fn parses_explicit_uid_policy_icmp_opt_in() {
-    let payload = parse_tunnel_config_json(r#"{"socks5Port":1080,"uidPolicyAllowIcmp":true}"#).expect("payload");
+    let payload = parse_tunnel_config_json(r#"{"schemaVersion":3,"socks5Port":1080,"uidPolicyAllowIcmp":true}"#)
+        .expect("payload");
 
     let config = config_from_payload(payload).expect("config");
 
@@ -572,7 +616,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
     use golden_test_support::{assert_contract_fixture, extract_field_paths};
 
     let payload_json = r#"{
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "tunnelName": "tun0",
         "tunnelMtu": 1500,
         "multiQueue": false,

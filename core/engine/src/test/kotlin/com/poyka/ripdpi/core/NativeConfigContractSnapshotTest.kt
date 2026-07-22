@@ -609,7 +609,7 @@ class NativeConfigContractSnapshotTest {
                     10124
                   ],
                   "uidPolicyAllowIcmp": true,
-                  "schemaVersion": 2
+                  "schemaVersion": 3
                 }
                 """,
         )

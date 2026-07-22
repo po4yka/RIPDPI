@@ -6,6 +6,8 @@ use crate::config::defaults::{
 };
 use crate::config::log_context::TunnelLogContext;
 
+pub(crate) const TUNNEL_JNI_CONFIG_SCHEMA_VERSION: u32 = 3;
+
 #[cfg(test)]
 mod sample;
 
@@ -15,6 +17,7 @@ pub(crate) use sample::sample_payload;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TunnelConfigPayload {
+    pub(crate) schema_version: u32,
     #[serde(default = "default_tunnel_name")]
     pub(crate) tunnel_name: String,
     #[serde(default = "default_tunnel_mtu")]
@@ -91,6 +94,22 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) log_context: Option<TunnelLogContext>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TunnelConfigSchemaEnvelope {
+    schema_version: Option<u64>,
+}
+
 pub(crate) fn parse_tunnel_config_json(json: &str) -> Result<TunnelConfigPayload, String> {
+    let envelope = serde_json::from_str::<TunnelConfigSchemaEnvelope>(json)
+        .map_err(|err| format!("Invalid tunnel config JSON: {err}"))?;
+    let schema_version = envelope
+        .schema_version
+        .ok_or_else(|| format!("Missing tunnel config schemaVersion; expected {TUNNEL_JNI_CONFIG_SCHEMA_VERSION}"))?;
+    if schema_version != u64::from(TUNNEL_JNI_CONFIG_SCHEMA_VERSION) {
+        return Err(format!(
+            "Unsupported tunnel config schemaVersion: {schema_version}; expected {TUNNEL_JNI_CONFIG_SCHEMA_VERSION}"
+        ));
+    }
     serde_json::from_str::<TunnelConfigPayload>(json).map_err(|err| format!("Invalid tunnel config JSON: {err}"))
 }

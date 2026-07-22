@@ -3,6 +3,7 @@ use crate::config::payload::TunnelConfigPayload;
 
 pub(crate) fn sample_payload() -> TunnelConfigPayload {
     TunnelConfigPayload {
+        schema_version: super::TUNNEL_JNI_CONFIG_SCHEMA_VERSION,
         tunnel_name: "tun0".to_string(),
         tunnel_mtu: 1500,
         multi_queue: false,

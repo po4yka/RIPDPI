@@ -34,6 +34,8 @@ REQUIRED_GATE_IDS = {
         "kotlin-native-config-round-trip",
         "kotlin-native-config-snapshot",
         "rust-proxy-config-round-trip",
+        "rust-tunnel-android-config-schema",
+        "rust-tunnel-android-jni-schema",
     },
     "native-jni-behavior": {
         "kotlin-native-binary-contract",
@@ -52,7 +54,14 @@ REQUIRED_GATE_IDS = {
 REQUIRED_SOURCE_HINTS = {
     "diagnostics-json-wire": {"EngineContract.kt", "ripdpi-diagnostics-contracts", "contract_fixtures.rs"},
     "app-settings-protobuf": {"app_settings.proto", "AppSettingsSerializer.kt", "feature-contract-harness"},
-    "native-config-json": {"ConfigContractRoundTripTest.kt", "ripdpi-proxy-config", "round_trip.rs"},
+    "native-config-json": {
+        "ConfigContractRoundTripTest.kt",
+        "ripdpi-proxy-config",
+        "round_trip.rs",
+        "ripdpi-tunnel-android/src/config/payload.rs",
+        "ripdpi-tunnel-android/src/config/validation.rs",
+        "ripdpi-tunnel-android/src/session/jni_tests.rs",
+    },
     "native-jni-behavior": {"JNI_CONTRACT.md", "ripdpi-android", "check_ffi_panic_boundary.py"},
     "runtime-telemetry-json": {"NativeRuntimeSnapshot.kt", "NativeTelemetryGoldenTest.kt", "ripdpi-android-telemetry-adapter"},
 }
@@ -60,6 +69,13 @@ REQUIRED_SOURCE_HINTS = {
 REQUIRED_TRIGGER_TERMS = {
     "field",
     "default",
+}
+
+REQUIRED_INVARIANT_TERMS = {
+    "native-config-json": {
+        "jni flat-json schema 3",
+        "standalone yaml schema 2",
+    },
 }
 
 
@@ -136,6 +152,12 @@ def _validate_surface(surface: dict) -> dict:
     invariants = surface.get("invariants")
     if not isinstance(invariants, list) or len(invariants) < 2:
         raise ValueError(f"surface {surface_id} must declare at least two invariants")
+    joined_invariants = "\n".join(str(invariant).lower() for invariant in invariants)
+    missing_invariant_terms = {
+        term for term in REQUIRED_INVARIANT_TERMS.get(surface_id, set()) if term not in joined_invariants
+    }
+    if missing_invariant_terms:
+        raise ValueError(f"surface {surface_id} invariants must mention: {', '.join(sorted(missing_invariant_terms))}")
     joined_sources = "\n".join(source_paths)
     missing_hints = {hint for hint in REQUIRED_SOURCE_HINTS[surface_id] if hint not in joined_sources}
     if missing_hints:

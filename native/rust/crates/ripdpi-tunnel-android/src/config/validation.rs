@@ -1,5 +1,5 @@
 use crate::config::limits::validate_limits;
-use crate::config::payload::TunnelConfigPayload;
+use crate::config::payload::{TUNNEL_JNI_CONFIG_SCHEMA_VERSION, TunnelConfigPayload};
 
 trait BlankCheck {
     fn is_blank(&self) -> bool;
@@ -12,6 +12,12 @@ impl BlankCheck for String {
 }
 
 pub(crate) fn validate_payload(payload: &TunnelConfigPayload) -> Result<(), String> {
+    if payload.schema_version != TUNNEL_JNI_CONFIG_SCHEMA_VERSION {
+        return Err(format!(
+            "Unsupported tunnel config schemaVersion: {}; expected {TUNNEL_JNI_CONFIG_SCHEMA_VERSION}",
+            payload.schema_version
+        ));
+    }
     if payload.socks5_address.is_blank() {
         return Err("socks5Address must not be blank".to_string());
     }

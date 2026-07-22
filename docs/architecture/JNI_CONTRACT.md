@@ -100,6 +100,12 @@ never a raw pointer.
   `Tun2SocksTunnel.start` throw `NativeError.SessionCreationFailed`). Rust-side
   `to_handle(jlong) -> Option<u64>` (`ripdpi-android-bridge-support` and
   `ripdpi-tunnel-android`) rejects `0` and negative values.
+- **Tunnel config validation precedes handle allocation.** Android tunnel
+  sessions accept only the required JNI flat-JSON `schemaVersion: 3`:
+  `Tun2SocksTunnel.start` rejects other versions before entering JNI, and
+  `ripdpi-tunnel-android` independently rejects missing, retired, or future
+  versions before registry insertion. This JNI envelope is separate from the
+  standalone `ripdpi-tunnel-config` YAML schema `2`.
 - **Lifecycle ordering:** `create` → `start` → `stop` → `destroy`. `destroy`
   retires the handle from the registry; a handle must **never** be used after
   `destroy`. `stop` is idempotent on the Rust side.

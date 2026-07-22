@@ -160,6 +160,7 @@ fn decode_long_array(env: &mut Env<'_>, raw: jlongArray) -> Option<Vec<jlong>> {
 
 fn sample_payload_json() -> String {
     r#"{
+        "schemaVersion": 3,
         "tunnelName": "tun0",
         "tunnelMtu": 1500,
         "multiQueue": false,
@@ -190,9 +191,28 @@ fn sample_payload_json() -> String {
         "logLevel": "warn",
         "limitNofile": null,
         "filterInjectedResets": null,
+        "uidPolicyMode": null,
         "taskStackSize": 81920
     }"#
     .to_string()
+}
+
+fn sample_payload_with_schema_version(schema_version: Option<u64>) -> String {
+    let mut payload: Value = serde_json::from_str(&sample_payload_json()).expect("decode sample tunnel payload");
+    let object = payload.as_object_mut().expect("sample tunnel payload must be an object");
+    match schema_version {
+        Some(version) => {
+            object.insert("schemaVersion".to_string(), Value::from(version));
+        }
+        None => {
+            object.remove("schemaVersion");
+        }
+    }
+    serde_json::to_string(&payload).expect("encode sample tunnel payload")
+}
+
+fn sample_payload_with_duplicate_field(field: &str, value: &str) -> String {
+    sample_payload_json().replacen(&format!("\"{field}\":"), &format!("\"{field}\":{value},\"{field}\":"), 1)
 }
 
 #[test]
@@ -218,6 +238,60 @@ fn exported_jni_rejects_malformed_config_json() {
         let exception = take_exception(env);
         assert!(exception.starts_with("java.lang.IllegalArgumentException: Invalid tunnel config JSON:"));
     });
+}
+
+#[test]
+fn exported_jni_requires_current_tunnel_schema_version() {
+    let _serial = JNI_TEST_MUTEX.lock().expect("lock tunnel JNI tests");
+
+    for (schema_version, expected_message) in [
+        (None, "Missing tunnel config schemaVersion; expected 3".to_string()),
+        (Some(2), "Unsupported tunnel config schemaVersion: 2; expected 3".to_string()),
+        (Some(4), "Unsupported tunnel config schemaVersion: 4; expected 3".to_string()),
+    ] {
+        with_env(|env| {
+            let handle = jni_create(env, &sample_payload_with_schema_version(schema_version));
+            if handle != 0 {
+                jni_destroy(env, handle);
+                assert_no_exception(env);
+            }
+            assert_eq!(handle, 0);
+            assert_eq!(take_exception(env), format!("java.lang.IllegalArgumentException: {expected_message}"));
+        });
+    }
+
+    let mut handle = TunnelHandle::new();
+    with_env(|env| {
+        jni_destroy(env, handle.raw());
+        assert_no_exception(env);
+    });
+    handle.disarm();
+}
+
+#[test]
+fn exported_jni_rejects_duplicate_schema_and_behavior_fields() {
+    let _serial = JNI_TEST_MUTEX.lock().expect("lock tunnel JNI tests");
+
+    for (payload, field) in [
+        (sample_payload_with_duplicate_field("schemaVersion", "2"), "schemaVersion"),
+        (sample_payload_with_duplicate_field("socks5Port", "1081"), "socks5Port"),
+        (sample_payload_with_duplicate_field("uidPolicyMode", "\"allow\""), "uidPolicyMode"),
+    ] {
+        with_env(|env| {
+            let handle = jni_create(env, &payload);
+            if handle != 0 {
+                jni_destroy(env, handle);
+                assert_no_exception(env);
+            }
+            assert_eq!(handle, 0);
+            let exception = take_exception(env);
+            assert!(
+                exception.starts_with("java.lang.IllegalArgumentException: Invalid tunnel config JSON:")
+                    && exception.contains(&format!("duplicate field `{field}`")),
+                "unexpected duplicate-field exception: {exception}"
+            );
+        });
+    }
 }
 
 #[test]
