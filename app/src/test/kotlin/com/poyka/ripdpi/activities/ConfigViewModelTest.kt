@@ -1124,6 +1124,13 @@ class ConfigViewModelPersistenceTest {
             advanceUntilIdle()
             assertFalse(recreated.uiState.value.isEditorDirty)
         }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class ConfigViewModelEditorSessionConcurrencyTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
 
     @Test
     fun `throwing hydration aborts the exact editor session and allows retry`() =

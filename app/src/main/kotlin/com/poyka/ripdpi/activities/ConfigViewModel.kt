@@ -6,26 +6,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
-import com.poyka.ripdpi.config.relay.toUiState
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
-import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.DefaultRelayProfileId
-import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeNetworkSnapshot
-import com.poyka.ripdpi.data.RelayPresetDefinition
-import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -37,10 +26,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -48,19 +35,6 @@ import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
-
-private data class ConfigPersistedSnapshot(
-    val settings: AppSettings,
-    val relayPresets: List<RelayPresetDefinition>,
-    val relayProfileRecords: List<RelayProfileRecord>,
-)
-
-private data class ConfigRuntimeSnapshot(
-    val serviceStatus: Pair<AppStatus, Mode>,
-    val latestDirectModeOutcome: LatestDirectModeOutcomeSnapshot?,
-    val networkSnapshot: NativeNetworkSnapshot?,
-    val capabilityRecords: List<ServerCapabilityRecord>,
-)
 
 @HiltViewModel
 class ConfigViewModel
@@ -74,7 +48,6 @@ class ConfigViewModel
         private val appSettingsRepository = dependencies.appSettingsRepository
         private val relayArtifacts = dependencies.relayArtifacts
         private val relayPresetCatalog = dependencies.relayPresetCatalog
-        private val networkSnapshotProvider = dependencies.networkSnapshotProvider
         private val serviceStateStore = dependencies.serviceStateStore
         private val serviceController = dependencies.serviceController
         private val latestDirectModeOutcomeStore = dependencies.latestDirectModeOutcomeStore
@@ -136,6 +109,12 @@ class ConfigViewModel
         private val masqueImportGenerations = ConfigMasqueImportGenerationTracker()
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
         private val masquePrivacyPassBuildStatus = masquePrivacyPassAvailability.buildStatus()
+        private val uiStateFactory =
+            ConfigUiStateFactory(
+                dependencies = dependencies,
+                supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
+            )
 
         private val _effects =
             MutableSharedFlow<ConfigEffect>(
@@ -187,132 +166,39 @@ class ConfigViewModel
             )
         }
 
-        private val persistedSnapshots =
-            appSettingsRepository.settings
-                .map { settings ->
-                    ConfigPersistedSnapshot(
-                        settings = settings,
-                        relayPresets = relayPresetCatalog.all(),
-                        relayProfileRecords = runCatching { relayArtifacts.listProfiles() }.getOrDefault(emptyList()),
-                    )
-                }.flowOn(dispatchers.io)
-
-        private val runtimeSnapshots =
-            combine(
-                serviceStateStore.status,
-                latestDirectModeOutcomeStore.outcome,
-                serviceStateStore.telemetry
-                    .map { telemetry -> telemetry.networkHandoverState }
-                    .distinctUntilChanged(),
-            ) { serviceStatus, latestDirectModeOutcome, _ ->
-                val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
-                val capabilityRecords = capabilityObserver.relayCapabilitiesForCurrentNetwork()
-                ConfigRuntimeSnapshot(
-                    serviceStatus = serviceStatus,
-                    latestDirectModeOutcome = latestDirectModeOutcome,
-                    networkSnapshot = networkSnapshot,
-                    capabilityRecords = capabilityRecords,
-                )
-            }.flowOn(dispatchers.io)
-
         val uiState: StateFlow<ConfigUiState> =
             combine(
-                persistedSnapshots,
+                appSettingsRepository.settings,
                 editorState,
+                serviceStateStore.status,
                 serviceStateStore.telemetry,
-                runtimeSnapshots,
-            ) { persistedSnapshot, editorState, serviceTelemetry, runtimeSnapshot ->
-                val session = editorState.session
-                val settings = persistedSnapshot.settings
-                val relayProfileRecords = persistedSnapshot.relayProfileRecords
-                val currentDraft =
-                    sanitizeMasqueAuthModeForCurrentBuild(
-                        draft = settings.toConfigDraft(),
-                        supportsMasquePrivacyPass = supportsMasquePrivacyPass,
-                    )
-                val draft =
-                    sanitizeMasqueAuthModeForCurrentBuild(
-                        draft = session.draft ?: currentDraft,
-                        supportsMasquePrivacyPass = supportsMasquePrivacyPass,
-                    )
-                val presets = buildConfigPresets(currentDraft)
-                val relayProfiles =
-                    buildRelayProfileOptions(
-                        records = relayProfileRecords,
-                        chainProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId },
-                    )
-                val vpnProfiles = buildVpnProfileOptions(relayProfileRecords)
-                val editingPreset =
-                    session.presetId?.let { presetId ->
-                        presets.firstOrNull { it.id == presetId }?.copy(draft = draft)
-                            ?: ConfigPreset(
-                                id = presetId,
-                                kind = ConfigPresetKind.Custom,
-                                draft = draft,
-                            )
-                    }
-
-                ConfigUiState(
-                    activeMode = currentDraft.mode,
-                    runningMode =
-                        runtimeSnapshot.serviceStatus.second.takeIf {
-                            runtimeSnapshot.serviceStatus.first == AppStatus.Running
-                        },
-                    uiPersona = settings.uiPersona.ifBlank { "simple" },
-                    presets = presets,
-                    editingPreset = editingPreset,
-                    draft = draft,
-                    validationErrors =
-                        validateConfigDraft(
-                            draft = draft,
-                            supportsMasquePrivacyPass = supportsMasquePrivacyPass,
-                            relayProfiles = relayProfileRecords,
-                        ),
-                    relayProfiles = relayProfiles,
-                    vpnProfiles = vpnProfiles,
-                    relayChainTrustWarning = resolveRelayChainTrustWarning(draft, relayProfiles),
-                    relayChainHopStatus = buildRelayChainHopStatus(serviceTelemetry.relayTelemetry),
-                    relayPresets =
-                        persistedSnapshot.relayPresets
-                            .map { preset ->
-                                RelayPresetUiState(
-                                    id = preset.id,
-                                    title = preset.title,
-                                    selected = draft.relayPresetId == preset.id,
-                                )
-                            }.toImmutableList(),
-                    relayPresetSuggestion =
-                        resolveRelayPresetSuggestion(
-                            heuristicSuggestion =
-                                relayPresetCatalog.suggestFor(
-                                    runtimeSnapshot.networkSnapshot,
-                                    runtimeSnapshot.capabilityRecords,
-                                ),
-                            serviceTelemetry = serviceTelemetry,
-                            capabilityRecords = runtimeSnapshot.capabilityRecords,
-                            transportRemediation =
-                                recommendTransportRemediation(
-                                    result = runtimeSnapshot.latestDirectModeOutcome?.result,
-                                    reasonCode = runtimeSnapshot.latestDirectModeOutcome?.reasonCode,
-                                    transportClass = runtimeSnapshot.latestDirectModeOutcome?.transportClass,
-                                ),
-                        ).toUiState(draft),
-                    supportsMasquePrivacyPass = supportsMasquePrivacyPass,
-                    masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
-                    isEditorDirty = session.isDirty,
-                    isEditorLoading = session.hydrationPending || editorState.recoveryPending,
-                    isEditorSaving = editorState.saveInFlight,
-                    isEditorImporting = editorState.importInFlight,
-                    hasEditorRecoveryPersistenceError = editorState.recoveryPersistenceError,
+                latestDirectModeOutcomeStore.outcome,
+            ) { settings, editorState, serviceStatus, serviceTelemetry, latestDirectModeOutcome ->
+                uiStateFactory.create(
+                    settings = settings,
+                    editorState = editorState,
+                    serviceStatus = serviceStatus,
+                    serviceTelemetry = serviceTelemetry,
+                    latestDirectModeOutcome = latestDirectModeOutcome,
                 )
-            }.stateIn(
+            }.flowOn(dispatchers.io)
+                .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = ConfigUiState(isLoading = true),
             )
 
         init {
-            observeEditorDraftRecovery()
+            observeConfigEditorDraftRecovery(
+                scope = viewModelScope,
+                editorSession = editorSession,
+                recoverySessionId = editorRecoverySessionId,
+                recoveryReady = editorRecoveryReady,
+                persistenceError = editorRecoveryPersistenceError,
+                storeLock = editorRecoveryStoreLock,
+                store = editorDraftStore,
+                log = log,
+            )
             restoreEditorDraft()
         }
 
@@ -349,16 +235,11 @@ class ConfigViewModel
                 return
             }
             if (enabled) {
-                startRuntimeMode(mode)
+                startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
             } else {
-                stopRuntimeMode(mode)
+                stopConfigRuntimeMode(mode, serviceStateStore, serviceController)
             }
         }
-
-        private fun startRuntimeMode(mode: Mode) =
-            startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
-
-        private fun stopRuntimeMode(mode: Mode) = stopConfigRuntimeMode(mode, serviceStateStore, serviceController)
 
         fun selectPreset(presetId: String) {
             val saveJob = activeSaveJob.get()
@@ -396,49 +277,52 @@ class ConfigViewModel
         }
 
         fun startEditingPreset(presetId: String = "custom") {
-            activeSaveJob.get()?.let { saveJob ->
-                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
-                viewModelScope.launch {
-                    saveJob.join()
-                    startEditingPreset(presetId)
+            val saveJob = activeSaveJob.get()
+            when {
+                saveJob != null -> {
+                    suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
+                    viewModelScope.launch {
+                        saveJob.join()
+                        startEditingPreset(presetId)
+                    }
                 }
-                return
-            }
-            if (editorRecoveryPending.value) {
-                pendingEditorStartPresetId = presetId
-                return
-            }
-            if (editorRecoveryRestoreFailed) {
-                pendingEditorStartPresetId = presetId
-                restoreEditorDraft()
-                return
-            }
-            val preset = uiState.value.presets.firstOrNull { it.id == presetId }
-            val draft = preset?.draft ?: uiState.value.draft
-            val sessionId = editorSessionIds.incrementAndGet()
-            val session =
-                ConfigEditorSession(
-                    sessionId = sessionId,
-                    presetId = presetId,
-                    draft = draft,
-                    hydrationPending = true,
-                )
-            editorSession.value = session
-            viewModelScope.launch {
-                val hydration = runCatching { relayArtifacts.hydrate(draft) }
-                val error = hydration.exceptionOrNull()
-                if (error == null) {
-                    editorSession.compareAndSet(
-                        expect = session,
-                        update = session.completeHydration(sessionId, hydration.getOrThrow()),
-                    )
-                } else if (error is CancellationException) {
-                    editorSession.compareAndSet(session, ConfigEditorSession())
-                    throw error
-                } else {
-                    if (editorSession.value == session) {
-                        log.e(error) { "Failed to hydrate mode editor relay artifacts" }
-                        _effects.emit(ConfigEffect.EditorHydrationFailed(sessionId))
+
+                editorRecoveryPending.value -> {
+                    pendingEditorStartPresetId = presetId
+                }
+
+                editorRecoveryRestoreFailed -> {
+                    pendingEditorStartPresetId = presetId
+                    restoreEditorDraft()
+                }
+
+                else -> {
+                    val preset = uiState.value.presets.firstOrNull { it.id == presetId }
+                    val draft = preset?.draft ?: uiState.value.draft
+                    val sessionId = editorSessionIds.incrementAndGet()
+                    val session =
+                        ConfigEditorSession(
+                            sessionId = sessionId,
+                            presetId = presetId,
+                            draft = draft,
+                            hydrationPending = true,
+                        )
+                    editorSession.value = session
+                    viewModelScope.launch {
+                        val hydration = runCatching { relayArtifacts.hydrate(draft) }
+                        val error = hydration.exceptionOrNull()
+                        if (error == null) {
+                            editorSession.compareAndSet(
+                                expect = session,
+                                update = session.completeHydration(sessionId, hydration.getOrThrow()),
+                            )
+                        } else if (error is CancellationException) {
+                            editorSession.compareAndSet(session, ConfigEditorSession())
+                            throw error
+                        } else if (editorSession.value == session) {
+                            log.e(error) { "Failed to hydrate mode editor relay artifacts" }
+                            _effects.emit(ConfigEffect.EditorHydrationFailed(sessionId))
+                        }
                     }
                 }
             }
@@ -641,7 +525,9 @@ class ConfigViewModel
                                     draft = persistedDraft,
                                     serviceStateStore = serviceStateStore,
                                     serviceController = serviceController,
-                                    startRuntimeMode = ::startRuntimeMode,
+                                    startRuntimeMode = { mode ->
+                                        startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
+                                    },
                                 )
                                 ConfigSaveOutcome.Saved
                             }
@@ -715,19 +601,6 @@ class ConfigViewModel
                     if (transitioned) clearMasqueImportState()
                 }
             }
-
-        private fun observeEditorDraftRecovery() {
-            observeConfigEditorDraftRecovery(
-                scope = viewModelScope,
-                editorSession = editorSession,
-                recoverySessionId = editorRecoverySessionId,
-                recoveryReady = editorRecoveryReady,
-                persistenceError = editorRecoveryPersistenceError,
-                storeLock = editorRecoveryStoreLock,
-                store = editorDraftStore,
-                log = log,
-            )
-        }
 
         private fun restoreEditorDraft() {
             if (editorRecoveryPending.value) return

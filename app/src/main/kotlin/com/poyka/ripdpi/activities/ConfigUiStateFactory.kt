@@ -1,0 +1,144 @@
+package com.poyka.ripdpi.activities
+
+import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
+import com.poyka.ripdpi.config.relay.toUiState
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
+
+internal class ConfigUiStateFactory(
+    private val dependencies: ConfigViewModelDependencies,
+    private val supportsMasquePrivacyPass: Boolean,
+    private val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus,
+) {
+    suspend fun create(
+        settings: AppSettings,
+        editorState: ConfigEditorState,
+        serviceStatus: Pair<AppStatus, Mode>,
+        serviceTelemetry: ServiceTelemetrySnapshot,
+        latestDirectModeOutcome: LatestDirectModeOutcomeSnapshot?,
+    ): ConfigUiState {
+        val session = editorState.session
+        val records = runCatching { dependencies.relayArtifacts.listProfiles() }.getOrDefault(emptyList())
+        val currentDraft = settings.toConfigDraft().sanitizedMasqueAuthMode()
+        val draft = (session.draft ?: currentDraft).sanitizedMasqueAuthMode()
+        val presets = buildConfigPresets(currentDraft)
+        val relayProfiles =
+            buildRelayProfileOptions(
+                records = records,
+                chainProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId },
+            )
+        val projection =
+            ConfigUiStateProjection(
+                settings = settings,
+                editorState = editorState,
+                serviceStatus = serviceStatus,
+                serviceTelemetry = serviceTelemetry,
+                latestDirectModeOutcome = latestDirectModeOutcome,
+                currentDraft = currentDraft,
+                draft = draft,
+                presets = presets,
+                editingPreset = session.editingPreset(presets, draft),
+                relayProfileRecords = records,
+                relayProfiles = relayProfiles,
+                vpnProfiles = buildVpnProfileOptions(records),
+            )
+        return buildState(projection)
+    }
+
+    private suspend fun buildState(projection: ConfigUiStateProjection): ConfigUiState {
+        val draft = projection.draft
+        val capabilityRecords = dependencies.capabilityObserver.relayCapabilitiesForCurrentNetwork()
+        val networkSnapshot = runCatching { dependencies.networkSnapshotProvider.capture() }.getOrNull()
+        val relayPresetSuggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion = dependencies.relayPresetCatalog.suggestFor(networkSnapshot, capabilityRecords),
+                serviceTelemetry = projection.serviceTelemetry,
+                capabilityRecords = capabilityRecords,
+                transportRemediation =
+                    recommendTransportRemediation(
+                        result = projection.latestDirectModeOutcome?.result,
+                        reasonCode = projection.latestDirectModeOutcome?.reasonCode,
+                        transportClass = projection.latestDirectModeOutcome?.transportClass,
+                    ),
+            ).toUiState(draft)
+        return ConfigUiState(
+            activeMode = projection.currentDraft.mode,
+            runningMode =
+                projection.serviceStatus.second.takeIf {
+                    projection.serviceStatus.first == AppStatus.Running
+                },
+            uiPersona = projection.settings.uiPersona.ifBlank { "simple" },
+            presets = projection.presets,
+            editingPreset = projection.editingPreset,
+            draft = draft,
+            validationErrors =
+                validateConfigDraft(
+                    draft = draft,
+                    supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                    relayProfiles = projection.relayProfileRecords,
+                ),
+            relayProfiles = projection.relayProfiles,
+            vpnProfiles = projection.vpnProfiles,
+            relayChainTrustWarning = resolveRelayChainTrustWarning(draft, projection.relayProfiles),
+            relayChainHopStatus = buildRelayChainHopStatus(projection.serviceTelemetry.relayTelemetry),
+            relayPresets =
+                dependencies.relayPresetCatalog
+                    .all()
+                    .map { preset ->
+                        RelayPresetUiState(
+                            id = preset.id,
+                            title = preset.title,
+                            selected = draft.relayPresetId == preset.id,
+                        )
+                    }.toImmutableList(),
+            relayPresetSuggestion = relayPresetSuggestion,
+            supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+            masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
+            isEditorDirty = projection.editorState.session.isDirty,
+            isEditorLoading =
+                projection.editorState.session.hydrationPending || projection.editorState.recoveryPending,
+            isEditorSaving = projection.editorState.saveInFlight,
+            isEditorImporting = projection.editorState.importInFlight,
+            hasEditorRecoveryPersistenceError = projection.editorState.recoveryPersistenceError,
+        )
+    }
+
+    private fun ConfigDraft.sanitizedMasqueAuthMode(): ConfigDraft =
+        sanitizeMasqueAuthModeForCurrentBuild(this, supportsMasquePrivacyPass)
+}
+
+private fun ConfigEditorSession.editingPreset(
+    presets: ImmutableList<ConfigPreset>,
+    draft: ConfigDraft,
+): ConfigPreset? =
+    presetId?.let { id ->
+        presets.firstOrNull { it.id == id }?.copy(draft = draft)
+            ?: ConfigPreset(
+                id = id,
+                kind = ConfigPresetKind.Custom,
+                draft = draft,
+            )
+    }
+
+private data class ConfigUiStateProjection(
+    val settings: AppSettings,
+    val editorState: ConfigEditorState,
+    val serviceStatus: Pair<AppStatus, Mode>,
+    val serviceTelemetry: ServiceTelemetrySnapshot,
+    val latestDirectModeOutcome: LatestDirectModeOutcomeSnapshot?,
+    val currentDraft: ConfigDraft,
+    val draft: ConfigDraft,
+    val presets: ImmutableList<ConfigPreset>,
+    val editingPreset: ConfigPreset?,
+    val relayProfileRecords: List<RelayProfileRecord>,
+    val relayProfiles: ImmutableList<RelayProfileUiState>,
+    val vpnProfiles: ImmutableList<RelayProfileUiState>,
+)
