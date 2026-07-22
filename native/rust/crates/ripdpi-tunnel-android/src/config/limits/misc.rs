@@ -40,6 +40,7 @@ pub(crate) fn misc_config_from_payload(payload: &TunnelConfigPayload) -> MiscCon
         misc.uid_policy_mode.clone_from(value);
     }
     misc.uid_policy_uids.clone_from(&payload.uid_policy_uids);
+    misc.uid_policy_allow_icmp = payload.uid_policy_allow_icmp;
     misc.strategy_chain_yaml = payload.strategy_chain_yaml.clone().filter(|value| !value.trim().is_empty());
     misc.protect_path = payload.protect_path.clone().filter(|value| !value.trim().is_empty());
     misc.root_helper_socket_path = payload.root_helper_socket_path.clone().filter(|value| !value.trim().is_empty());
@@ -70,5 +71,15 @@ mod tests {
         let misc = misc_config_from_payload(&payload);
 
         assert_eq!(misc.lua_script_base_dir, None);
+    }
+
+    #[test]
+    fn threads_uid_policy_icmp_opt_in_from_payload() {
+        let mut payload = sample_payload();
+        payload.uid_policy_allow_icmp = true;
+
+        let misc = misc_config_from_payload(&payload);
+
+        assert!(misc.uid_policy_allow_icmp);
     }
 }

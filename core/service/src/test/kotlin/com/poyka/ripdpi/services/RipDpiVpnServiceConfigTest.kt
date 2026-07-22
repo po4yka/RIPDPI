@@ -124,6 +124,22 @@ class RipDpiVpnServiceConfigTest {
 
         assertEquals("allowlist", config.uidPolicyMode)
         assertEquals(listOf(10123, 10124), config.uidPolicyUids)
+        assertFalse(config.uidPolicyAllowIcmp)
+    }
+
+    @Test
+    fun buildTun2SocksConfigCarriesNativeUidIcmpOptIn() {
+        val config =
+            buildVpnTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(plainDns("1.1.1.1"), forceTunnelDns = false),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint,
+                ipv6Enabled = false,
+                uidPolicy = NativeUidPolicy("allowlist", listOf(10123)),
+                uidPolicyAllowIcmp = true,
+            )
+
+        assertTrue(config.uidPolicyAllowIcmp)
     }
 
     @Test
