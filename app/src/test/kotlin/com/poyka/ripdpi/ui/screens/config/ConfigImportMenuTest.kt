@@ -3,10 +3,8 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.poyka.ripdpi.proxyimport.ClipboardReader
-import com.poyka.ripdpi.proxyimport.ProxyImportRequest
-import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -32,28 +30,35 @@ class ConfigImportMenuTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `rendering the menu does not read the clipboard`() {
-        val clipboard = RecordingClipboardReader("vless://uuid@example.com:443#Clip")
-        val viewModel = ClipboardImportViewModel(clipboard)
+    fun `rendering the menu does not request clipboard import`() {
+        var importRequests = 0
 
         composeRule.setContent {
             RipDpiTheme {
-                ConfigImportMenu(onProfileImport = {}, viewModel = viewModel)
+                ConfigImportMenu(
+                    unknownContentScheme = null,
+                    clipboardEmpty = false,
+                    onImportFromClipboard = { importRequests += 1 },
+                    onDismissError = {},
+                )
             }
         }
 
-        composeRule.runOnIdle { assertEquals(0, clipboard.readCount) }
+        composeRule.runOnIdle { assertEquals(0, importRequests) }
     }
 
     @Test
-    fun `tapping the import menu item reads the clipboard once and routes`() {
-        val clipboard = RecordingClipboardReader("vless://uuid@example.com:443#Clip")
-        val viewModel = ClipboardImportViewModel(clipboard)
-        var routed: ProxyImportRequest.Profile? = null
+    fun `tapping the import menu item dispatches one import request`() {
+        var importRequests = 0
 
         composeRule.setContent {
             RipDpiTheme {
-                ConfigImportMenu(onProfileImport = { routed = it }, viewModel = viewModel)
+                ConfigImportMenu(
+                    unknownContentScheme = null,
+                    clipboardEmpty = false,
+                    onImportFromClipboard = { importRequests += 1 },
+                    onDismissError = {},
+                )
             }
         }
 
@@ -61,44 +66,29 @@ class ConfigImportMenuTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigImportClipboardMenuItem).performClick()
 
         composeRule.runOnIdle {
-            assertEquals(1, clipboard.readCount)
-            assertEquals("example.com", (routed?.profile as? com.poyka.ripdpi.data.ProxyProfile.Vless)?.server)
+            assertEquals(1, importRequests)
         }
     }
 
     @Test
-    fun `unknown clipboard content surfaces an error and does not route`() {
-        val clipboard = RecordingClipboardReader("http://malicious.example.com/leak")
-        val viewModel = ClipboardImportViewModel(clipboard)
-        var routed: ProxyImportRequest.Profile? = null
+    fun `unknown clipboard content surfaces an error without dispatching import`() {
+        var importRequests = 0
 
         composeRule.setContent {
             RipDpiTheme {
-                ConfigImportMenu(onProfileImport = { routed = it }, viewModel = viewModel)
+                ConfigImportMenu(
+                    unknownContentScheme = "http",
+                    clipboardEmpty = false,
+                    onImportFromClipboard = { importRequests += 1 },
+                    onDismissError = {},
+                )
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigOverflowMenuButton).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigImportClipboardMenuItem).performClick()
+        composeRule.onNodeWithText("Clipboard not a proxy link").assertIsDisplayed()
 
         composeRule.runOnIdle {
-            assertEquals(null, routed)
-            assertEquals("http", viewModel.uiState.value.unknownContentScheme)
+            assertEquals(0, importRequests)
         }
     }
-}
-
-/** [ClipboardReader] double that counts reads so tests can assert the no-watch contract. */
-private class RecordingClipboardReader(
-    private val contents: String?,
-) : ClipboardReader {
-    var readCount: Int = 0
-        private set
-
-    override fun readPrimaryClipText(): String? {
-        readCount += 1
-        return contents
-    }
-
-    override fun clearPrimaryClip() = Unit
 }

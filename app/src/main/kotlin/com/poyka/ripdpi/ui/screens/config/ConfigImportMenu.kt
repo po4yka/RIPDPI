@@ -6,20 +6,15 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.proxyimport.ProxyImportRequest
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
-import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -30,21 +25,22 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
  * action.
  *
  * Privacy contract: the clipboard is read **only** when the user taps the menu item — the
- * tap is what calls [ClipboardImportViewModel.onImportFromClipboard]. There is no watcher,
+ * tap is what calls [onImportFromClipboard]. There is no watcher,
  * no auto-paste detection, and nothing reads the clipboard while this menu merely sits in
  * the top bar. On Android 12+ the system clipboard-access toast is expected and is not
  * suppressed.
  *
- * A recognised proxy URI routes to the profile-import confirmation destination via
- * [onProfileImport]; unknown content or an empty clipboard surface a typed error here.
+ * Navigation is owned by the route; this stateless menu only dispatches the explicit
+ * import action and renders typed clipboard errors.
  */
 @Composable
 fun ConfigImportMenu(
-    onProfileImport: (ProxyImportRequest.Profile) -> Unit,
+    unknownContentScheme: String?,
+    clipboardEmpty: Boolean,
+    onImportFromClipboard: () -> Unit,
+    onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ClipboardImportViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
@@ -73,24 +69,16 @@ fun ConfigImportMenu(
                 onClick = {
                     expanded = false
                     // The clipboard read happens here — and only here — on the user's tap.
-                    viewModel.onImportFromClipboard()
+                    onImportFromClipboard()
                 },
             )
         }
     }
 
-    val navigateTo = uiState.navigateToConfirm
-    if (navigateTo is ProxyImportRequest.Profile) {
-        LaunchedEffect(navigateTo) {
-            viewModel.consumeNavigation()
-            onProfileImport(navigateTo)
-        }
-    }
-
     ClipboardImportErrorBanner(
-        unknownContentScheme = uiState.unknownContentScheme,
-        clipboardEmpty = uiState.clipboardEmpty,
-        onDismiss = viewModel::dismissError,
+        unknownContentScheme = unknownContentScheme,
+        clipboardEmpty = clipboardEmpty,
+        onDismiss = onDismissError,
     )
 }
 
