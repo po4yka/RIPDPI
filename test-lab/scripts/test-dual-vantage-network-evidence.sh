@@ -279,7 +279,13 @@ with open(policy_path, encoding="utf-8") as handle:
 with open(manifest_path, encoding="utf-8") as handle:
     evidence_gate_ids = set(json.load(handle)["gateResults"])
 gate_results = {
-    gate["id"]: "PASS"
+    gate["id"]: {
+        "state": "FAIL",
+        "reason": (
+            "SOURCE_OWNED_VERIFIER_UNAVAILABLE: checked-in raw-artifact "
+            "verifier is not implemented; ordinary PASS is forbidden"
+        ),
+    }
     for gate in policy["gates"]
     if gate["id"] not in evidence_gate_ids
     and "android-client-release" in gate.get("appliesTo", policy["appliesTo"])
@@ -295,14 +301,17 @@ with open(output_path, "w", encoding="utf-8") as handle:
         handle,
     )
 PY
-python3 "$repo_root/scripts/ci/check_dns_ipv6_killswitch_gates.py" \
+if python3 "$repo_root/scripts/ci/check_dns_ipv6_killswitch_gates.py" \
   --results "$results" \
   --evidence-manifest "$output/manifest.json" \
   --applies-to android-client-release \
   --expected-source-sha "$source_sha" \
   --expected-execution-kind local \
   --expected-execution-id local-self-test \
-  --expected-execution-attempt 1 >/dev/null
+  --expected-execution-attempt 1 >/dev/null 2>&1; then
+  echo "fail-closed ordinary results unexpectedly passed release acceptance" >&2
+  exit 1
+fi
 if python3 "$repo_root/scripts/ci/check_dns_ipv6_killswitch_gates.py" \
   --evidence-manifest "$output/manifest.json" \
   --applies-to android-client-release \
