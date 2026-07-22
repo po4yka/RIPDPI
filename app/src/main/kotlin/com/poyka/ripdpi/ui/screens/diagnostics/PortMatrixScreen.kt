@@ -208,7 +208,7 @@ private fun verdictColor(
         RipDpiPortVerdict.Ok -> colors.success
         RipDpiPortVerdict.Warn -> colors.warning
         RipDpiPortVerdict.Bad -> colors.destructive
-        RipDpiPortVerdict.Skipped -> colors.accent
+        RipDpiPortVerdict.Skipped -> colors.mutedForeground
     }
 
 // Standard service ports referenced by the @Preview fixtures. Extracted to

@@ -63,7 +63,7 @@ internal fun FilterCard(
                 Text(
                     text = stringResource(R.string.history_filter_clear_all),
                     style = RipDpiThemeTokens.type.secondaryBody,
-                    color = RipDpiThemeTokens.colors.accent,
+                    color = RipDpiThemeTokens.colors.info,
                     modifier =
                         Modifier
                             .ripDpiClickable(role = Role.Button, onClick = onClearFilters)

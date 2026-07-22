@@ -192,7 +192,7 @@ private fun HandshakeBarTrack(
     val barColor =
         when (stage.tone) {
             HandshakeStageTone.Ok -> colors.success
-            HandshakeStageTone.Info -> colors.accent
+            HandshakeStageTone.Info -> colors.info
             HandshakeStageTone.Warn -> colors.warning
             HandshakeStageTone.Bad -> colors.destructive
             HandshakeStageTone.Queued -> colors.border
