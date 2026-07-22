@@ -35,8 +35,8 @@ fail_infra() {
 [[ -n "$android_serial" ]] || fail "ANDROID_SERIAL is required"
 so_bind_physical_valid_fixture_host "$fixture_host" || fail "a directly routed, non-loopback RIPDPI_FIXTURE_ANDROID_HOST is required"
 command -v python3 >/dev/null 2>&1 || fail "python3 is unavailable"
-fixture_ipv6_host="$(so_bind_physical_normalize_global_ipv6 "$fixture_ipv6_host_raw")" ||
-    fail_infra IPV6_ENDPOINT_REQUIRED "RIPDPI_FIXTURE_ANDROID_IPV6_HOST must be a numeric global IPv6 address"
+fixture_ipv6_host="$(so_bind_physical_normalize_routed_ipv6 "$fixture_ipv6_host_raw")" ||
+    fail_infra IPV6_ENDPOINT_REQUIRED "RIPDPI_FIXTURE_ANDROID_IPV6_HOST must be a numeric routed unicast IPv6 address"
 readonly fixture_ipv6_host
 so_bind_physical_valid_port "$fixture_port" || fail "RIPDPI_FIXTURE_CONTROL_PORT must be in 1..65535"
 so_bind_physical_valid_port "$fixture_tcp_echo_port" || fail "RIPDPI_FIXTURE_TCP_ECHO_PORT must be in 1..65535"
@@ -60,13 +60,14 @@ readonly gradle_bin="${GRADLE_BIN:-$source_root/gradlew}"
     :app:assembleGithubFullDebug \
     :app:assembleGithubFullDebugAndroidTest \
     -Pripdpi.localNativeAbis=arm64-v8a \
+    -Pripdpi.enableAbiSplits=false \
     -Pripdpi.skipNativeBuild=false \
     -Pripdpi.prebuiltJniLibsDir= || fail "source-bound physical APK build failed"
 [[ "$($git_bin -C "$source_root" rev-parse HEAD 2>/dev/null)" == "$source_sha" ]] ||
     fail "source checkout changed during the physical APK build"
 [[ -z "$($git_bin -C "$source_root" status --porcelain=v1 --untracked-files=all)" ]] ||
     fail "physical APK build changed tracked or untracked source inputs"
-readonly app_apk="$source_root/app/build/outputs/apk/github/full/debug/app-github-full-debug.apk"
+readonly app_apk="$source_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 readonly test_apk="$source_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 [[ -f "$app_apk" ]] || fail "source-bound app APK was not produced"
 [[ -f "$test_apk" ]] || fail "source-bound test APK was not produced"
@@ -153,8 +154,11 @@ grep -Eq '(^|[[:space:]])dev[[:space:]]+[^[:space:]]+' "$ipv6_route" ||
 grep -Eq '(^|[[:space:]])src[[:space:]]+[0-9A-Fa-f:]+' "$ipv6_route" ||
     fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route lacks a selected source address"
 ipv6_source="$(awk '{ for (field = 1; field <= NF; field++) if ($field == "src") { print $(field + 1); exit } }' "$ipv6_route")"
-so_bind_physical_normalize_global_ipv6 "$ipv6_source" >/dev/null ||
-    fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route does not select a global source address"
+ipv6_interface="$(awk '{ for (field = 1; field <= NF; field++) if ($field == "dev") { print $(field + 1); exit } }' "$ipv6_route")"
+so_bind_physical_is_underlay_interface "$ipv6_interface" ||
+    fail_infra IPV6_UNDERLAY_REQUIRED "IPv6 route does not select a physical Android underlay interface"
+so_bind_physical_normalize_routed_ipv6 "$ipv6_source" >/dev/null ||
+    fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route does not select a routed unicast source address"
 
 install_and_verify_apk "$app_apk" "com.poyka.ripdpi" "app"
 install_and_verify_apk "$test_apk" "com.poyka.ripdpi.test" "test"

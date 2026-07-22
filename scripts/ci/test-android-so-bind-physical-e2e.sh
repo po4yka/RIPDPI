@@ -7,7 +7,7 @@ library="$repo_root/scripts/ci/android-so-bind-physical-lib.sh"
 # shellcheck source=scripts/ci/android-so-bind-physical-lib.sh
 source "$library"
 temp_dir="$(mktemp -d)"
-source_bound_app_apk="$repo_root/app/build/outputs/apk/github/full/debug/app-github-full-debug.apk"
+source_bound_app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 source_bound_test_apk="$repo_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 cleanup() {
     rm -f "$source_bound_app_apk" "$source_bound_test_apk"
@@ -60,9 +60,10 @@ set -euo pipefail
 [[ "$*" == *":app:assembleGithubFullDebug"* ]] || exit 84
 [[ "$*" == *":app:assembleGithubFullDebugAndroidTest"* ]] || exit 83
 [[ "$*" == *"-Pripdpi.localNativeAbis=arm64-v8a"* ]] || exit 82
+[[ "$*" == *"-Pripdpi.enableAbiSplits=false"* ]] || exit 79
 [[ "$*" == *"-Pripdpi.skipNativeBuild=false"* ]] || exit 81
 [[ "$*" == *"-Pripdpi.prebuiltJniLibsDir="* ]] || exit 80
-app_output="$FAKE_REPO_ROOT/app/build/outputs/apk/github/full/debug/app-github-full-debug.apk"
+app_output="$FAKE_REPO_ROOT/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
 test_output="$FAKE_REPO_ROOT/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 mkdir -p "$(dirname "$app_output")" "$(dirname "$test_output")"
 cp "$FAKE_APP_APK_SEED" "$app_output"
@@ -98,9 +99,10 @@ case "$*" in
     "shell getprop ro.product.device") echo "${FAKE_PRODUCT_DEVICE:-panther}" ;;
     "shell getprop ro.build.version.sdk") echo "${FAKE_API:-37}" ;;
     "shell uname -r") echo "${FAKE_KERNEL:-6.1.99-test}" ;;
-    "shell ip -6 route get 2606:4700:4700::1111")
+    "shell ip -6 route get "*)
         [[ "${FAKE_IPV6_ROUTE_UNAVAILABLE:-0}" != "1" ]] || exit 1
-        echo '2606:4700:4700::1111 from :: dev wlan0 src 2001:4860:1::10 metric 1024'
+        target="${*: -1}"
+        echo "$target from :: dev ${FAKE_IPV6_DEVICE:-wlan0} src ${FAKE_IPV6_SOURCE:-2001:4860:1::10} metric 1024"
         ;;
     "install -r -d "*)
         [[ "${FAKE_INSTALL_FAILURE:-0}" != "1" ]] || exit 1
@@ -168,7 +170,7 @@ case "$*" in
         [[ -f "$FAKE_ALLOWLIST_MARKER" ]] || exit 95
         [[ "$3" == "180" ]] || exit 89
         [[ "$*" == *"-e ripdpi.soBindEvidenceProfile physical_pixel_api37_kernel61"* ]] || exit 91
-        [[ "$*" == *"-e ripdpi.soBindIpv6Host 2606:4700:4700::1111"* ]] || exit 96
+        [[ "$*" == *"-e ripdpi.soBindIpv6Host ${FAKE_IPV6_HOST:-2606:4700:4700::1111}"* ]] || exit 96
         [[ "$*" == *"-e ripdpi.soBindTcpEchoPort 46091"* ]] || exit 86
         [[ "$*" == *"-e ripdpi.soBindUdpEchoPort 46092"* ]] || exit 85
         [[ "$*" == *"-e class com.poyka.ripdpi.e2e.NetworkPathE2ETest#vpnServiceDeniesExcludedTestUidBoundToTun0"* ]] || exit 92
@@ -307,15 +309,26 @@ OUTPUT
     cat "$readonly_scope_stderr" >&2
     exit 1
 }
-normalized_ipv6="$(so_bind_physical_normalize_global_ipv6 '2606:4700:4700:0:0:0:0:1111')"
+normalized_ipv6="$(so_bind_physical_normalize_routed_ipv6 '2606:4700:4700:0:0:0:0:1111')"
 [[ "$normalized_ipv6" == "2606:4700:4700::1111" ]] || {
-    echo "assertion failed: global IPv6 normalization was not canonical" >&2
+    echo "assertion failed: routed IPv6 normalization was not canonical" >&2
     exit 1
 }
-if so_bind_physical_normalize_global_ipv6 '::ffff:8.8.8.8' >/dev/null 2>&1; then
+normalized_ula="$(so_bind_physical_normalize_routed_ipv6 'fd08:7888:d1e0:45b1:0:0:0:1')"
+[[ "$normalized_ula" == "fd08:7888:d1e0:45b1::1" ]] || {
+    echo "assertion failed: routed ULA normalization was not canonical" >&2
+    exit 1
+}
+if so_bind_physical_normalize_routed_ipv6 '::ffff:8.8.8.8' >/dev/null 2>&1; then
     echo "assertion failed: IPv4-mapped IPv6 endpoint was accepted" >&2
     exit 1
 fi
+for unrouted in '::' '::1' 'fe80::1' 'ff02::1' 'fd00::1%wlan0' 'fec0::1'; do
+    if so_bind_physical_normalize_routed_ipv6 "$unrouted" >/dev/null 2>&1; then
+        echo "assertion failed: unrouted IPv6 endpoint was accepted: $unrouted" >&2
+        exit 1
+    fi
+done
 
 run_runner() {
     rm -f "$temp_dir/build.marker"
@@ -358,6 +371,15 @@ assert_status() {
 }
 
 assert_status 0 "exact pass" run_runner FAKE_RESULT=pass
+assert_status 0 "routed ULA endpoint and source pass" run_runner \
+    RIPDPI_FIXTURE_ANDROID_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_SOURCE=fd08:7888:d1e0:45b1::2
+assert_status 2 "VPN interface cannot satisfy physical IPv6 route" run_runner \
+    RIPDPI_FIXTURE_ANDROID_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
+    FAKE_IPV6_SOURCE=fd08:7888:d1e0:45b1::2 \
+    FAKE_IPV6_DEVICE=tun0
 assert_status 0 "global skip-native override defeated" run_runner \
     ORG_GRADLE_PROJECT_ripdpi.skipNativeBuild=true
 assert_status 0 "global prebuilt-native override defeated" run_runner \
