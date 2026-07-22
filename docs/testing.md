@@ -391,22 +391,24 @@ test-lab/scripts/run-dual-vantage-network-evidence.sh \
   --execution-id "$execution_id" \
   --execution-attempt 1
 
-python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
+python3 scripts/ci/approve_local_android_release_evidence.py \
   --results /absolute/path/to/ordinary-gate-results.json \
   --evidence-manifest /tmp/ripdpi-network-evidence/manifest.json \
-  --applies-to android-client-release \
-  --expected-source-sha "$(git rev-parse HEAD)" \
-  --expected-execution-kind local \
-  --expected-execution-id "$execution_id" \
-  --expected-execution-attempt 1
+  --execution-id "$execution_id" \
+  --execution-attempt 1
 ```
 
 The ordinary results file must omit the DNS and startup direct-window gates;
 those results are derived exclusively from the dual-vantage observations. The
 local command is not evidence unless the configured hooks perform real captures
 from distinct networks and the APK path identifies the exact installed client.
-There is currently no checked-in producer for the ordinary 11-gate Android
-artifact. The compatibility release workflow therefore requires
+The checked-in ordinary producer intentionally emits 11 structured no-ship
+failures until source-owned raw-artifact verifiers exist; it cannot self-attest
+a PASS. The local acceptance entrypoint derives the exact clean `HEAD`, requires
+local execution provenance, snapshots both input artifacts into a private
+directory, and runs the checker extracted from that exact commit. GitHub Actions
+is not an acceptance prerequisite. The optional
+compatibility release workflow still requires
 `RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS` to identify a real exact-SHA artifact and
 fails closed when it is absent; it never synthesizes PASS results.
 Run the local contract checks with:
@@ -414,7 +416,8 @@ Run the local contract checks with:
 ```bash
 python3 -m unittest \
   scripts.tests.test_dns_ipv6_killswitch_gates \
-  scripts.tests.test_network_evidence_manifest
+  scripts.tests.test_network_evidence_manifest \
+  scripts.tests.test_local_android_release_acceptance
 bash test-lab/scripts/test-dual-vantage-network-evidence.sh
 ```
 
