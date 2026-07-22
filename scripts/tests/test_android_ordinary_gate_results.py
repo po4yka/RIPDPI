@@ -278,6 +278,22 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertEqual(output.read_bytes(), b"raw-evidence")
 
+            new_output = Path(manifest["artifactRoot"]) / "new-results.json"
+            status = producer.main(
+                [
+                    "--output",
+                    str(new_output),
+                    "--raw-manifest",
+                    str(manifest_path),
+                    "--app-apk",
+                    str(app_apk),
+                    "--test-apk",
+                    str(test_apk),
+                ]
+            )
+            self.assertEqual(status, 2)
+            self.assertFalse(new_output.exists())
+
             root_alias = directory / "artifact-root-alias"
             root_alias.symlink_to(
                 Path(manifest["artifactRoot"]), target_is_directory=True

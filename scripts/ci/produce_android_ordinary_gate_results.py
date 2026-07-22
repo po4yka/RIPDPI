@@ -70,12 +70,26 @@ class OutputDestination:
         parent_identity: tuple[int, ...],
         leaf_fd: int,
         leaf_identity: tuple[int, int],
+        created: bool,
     ) -> None:
         self.path = path
         self.parent_fd = parent_fd
         self.parent_identity = parent_identity
         self.leaf_fd = leaf_fd
         self.leaf_identity = leaf_identity
+        self.created = created
+
+    def discard_if_created(self) -> None:
+        if not self.created:
+            return
+        try:
+            metadata = os.stat(
+                self.path.name, dir_fd=self.parent_fd, follow_symlinks=False
+            )
+        except FileNotFoundError:
+            return
+        if (metadata.st_dev, metadata.st_ino) == self.leaf_identity:
+            os.unlink(self.path.name, dir_fd=self.parent_fd)
 
     def close(self) -> None:
         os.close(self.leaf_fd)
@@ -161,6 +175,7 @@ def open_output_destination(path: Path) -> OutputDestination:
             parent_identity=directory_identity(parent_metadata),
             leaf_fd=leaf_fd,
             leaf_identity=(leaf_metadata.st_dev, leaf_metadata.st_ino),
+            created=output_metadata is None,
         )
     except Exception:
         os.close(parent_fd)
@@ -372,6 +387,7 @@ def main(argv: list[str] | None = None) -> int:
         EvidenceError,
         android_ordinary_raw_evidence.RawEvidenceError,
     ) as error:
+        destination.discard_if_created()
         destination.close()
         print(
             f"Android ordinary producer refused unsafe output: {error}", file=sys.stderr
