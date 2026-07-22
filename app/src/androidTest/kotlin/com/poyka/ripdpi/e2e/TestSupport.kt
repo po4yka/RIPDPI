@@ -199,6 +199,10 @@ data class AppProcessDnsProbeResult(
     val latencyMs: Long? = null,
     val localAddress: String? = null,
     val localPort: Int? = null,
+    val boundDevice: String? = null,
+    val failureKind: String? = null,
+    val failureStage: String? = null,
+    val errno: Int? = null,
     val probePid: Int? = null,
     val probeUid: Int? = null,
     val errorClass: String? = null,
@@ -1310,6 +1314,12 @@ fun probeAppProcessDns(
                                 ?.getLong(DebugNetworkProbeExtraDnsLatencyMs),
                         localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        boundDevice = extras.getString(DebugNetworkProbeExtraBoundDevice),
+                        failureKind = extras.getString(DebugNetworkProbeExtraFailureKind),
+                        failureStage = extras.getString(DebugNetworkProbeExtraFailureStage),
+                        errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
+                        probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
+                        probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -1335,6 +1345,7 @@ fun testProcessDnsProbe(
     serverHost: String = PacketSmokeMapDnsAddress,
     serverPort: Int = PacketSmokeMapDnsPort,
     timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+    bindDevice: String? = null,
 ): AppProcessDnsProbeResult {
     ensureTestProbeNetworkEligibility()
     val context = InstrumentationRegistry.getInstrumentation().context
@@ -1347,6 +1358,7 @@ fun testProcessDnsProbe(
             putExtra(DebugNetworkProbeExtraPort, serverPort)
             putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
             putExtra(DebugNetworkProbeExtraQueryHost, queryHost)
+            bindDevice?.let { putExtra(DebugNetworkProbeExtraBindDevice, it) }
         }
     context.sendOrderedBroadcast(
         intent,

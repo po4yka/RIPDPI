@@ -59,6 +59,18 @@ internal object TestSocketBinder {
         nativeUdpRoundTrip(host, port, payload.utf8Bytes(), timeoutMs, device.utf8Bytes()),
     )
 
+    fun dnsRoundTrip(
+        host: String,
+        port: Int,
+        query: ByteArray,
+        timeoutMs: Int,
+        device: String,
+        extras: Bundle,
+    ) = writeResult(
+        extras,
+        nativeDnsRoundTrip(host, port, query, timeoutMs, device.utf8Bytes()),
+    )
+
     private fun String.utf8Bytes(): ByteArray {
         val encoded = StandardCharsets.UTF_8.encode(this)
         val bytes = ByteArray(encoded.remaining())
@@ -114,6 +126,15 @@ internal object TestSocketBinder {
         host: String,
         port: Int,
         payload: ByteArray,
+        timeoutMs: Int,
+        deviceUtf8: ByteArray,
+    ): Array<String>?
+
+    @JvmStatic
+    private external fun nativeDnsRoundTrip(
+        host: String,
+        port: Int,
+        query: ByteArray,
         timeoutMs: Int,
         deviceUtf8: ByteArray,
     ): Array<String>?

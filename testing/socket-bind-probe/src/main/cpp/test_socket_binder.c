@@ -463,6 +463,32 @@ static bool set_success(
     return success;
 }
 
+static bool set_success_hex(
+    JNIEnv *env,
+    jobjectArray result,
+    const char *device,
+    const uint8_t *response,
+    size_t length) {
+    static const char hex[] = "0123456789abcdef";
+    if (length > (SIZE_MAX - 1) / 2) {
+        return set_result_error(env, result, "decode", EOVERFLOW, device);
+    }
+    char *response_text = malloc(length * 2 + 1);
+    if (response_text == NULL) {
+        return set_result_error(env, result, "decode", ENOMEM, device);
+    }
+    for (size_t index = 0; index < length; index++) {
+        response_text[index * 2] = hex[(response[index] >> 4) & 0x0f];
+        response_text[index * 2 + 1] = hex[response[index] & 0x0f];
+    }
+    response_text[length * 2] = '\0';
+    const bool success = set_result_string(env, result, RESULT_OK, "true") &&
+                         set_result_string(env, result, RESULT_RESPONSE, response_text) &&
+                         set_result_string(env, result, RESULT_BOUND_DEVICE, device);
+    free(response_text);
+    return success;
+}
+
 JNIEXPORT jobjectArray JNICALL
 Java_com_poyka_ripdpi_e2e_TestSocketBinder_nativeTcpRoundTrip(
     JNIEnv *env,
@@ -541,6 +567,76 @@ Java_com_poyka_ripdpi_e2e_TestSocketBinder_nativeTcpRoundTrip(
     }
     close(socket_fd);
     free(payload_bytes);
+    return result;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_poyka_ripdpi_e2e_TestSocketBinder_nativeDnsRoundTrip(
+    JNIEnv *env,
+    jobject receiver,
+    jstring host,
+    jint port,
+    jbyteArray query,
+    jint timeout_ms,
+    jbyteArray device_utf8) {
+    (void)receiver;
+    jobjectArray result = new_result(env);
+    if (result == NULL) {
+        return NULL;
+    }
+    uint8_t *query_bytes = NULL;
+    jsize query_length = 0;
+    if (!copy_payload(env, query, &query_bytes, &query_length)) {
+        if ((*env)->ExceptionCheck(env)) {
+            return NULL;
+        }
+        return set_result_error(env, result, "payload", errno, NULL) ? result : NULL;
+    }
+    char device[IFNAMSIZ];
+    const char *failure_stage = "socket";
+    int socket_fd = open_bound_socket(env, host, port, SOCK_DGRAM, timeout_ms, device_utf8, device, &failure_stage);
+    if (socket_fd < 0) {
+        const int saved_errno = errno;
+        free(query_bytes);
+        if ((*env)->ExceptionCheck(env)) {
+            return NULL;
+        }
+        return set_result_error(env, result, failure_stage, saved_errno, device[0] == '\0' ? NULL : device)
+                   ? result
+                   : NULL;
+    }
+    if (!set_local_endpoint(env, result, socket_fd)) {
+        close(socket_fd);
+        free(query_bytes);
+        return NULL;
+    }
+    struct deadline deadline;
+    if (make_deadline(timeout_ms, &deadline) != 0 ||
+        send_datagram(socket_fd, query_bytes, (size_t)query_length, &deadline) != 0) {
+        if (!set_result_error(env, result, "send", errno, device)) {
+            close(socket_fd);
+            free(query_bytes);
+            return NULL;
+        }
+    } else {
+        uint8_t response[4096];
+        const ssize_t received = receive_datagram(socket_fd, response, sizeof(response), &deadline);
+        if (received < 0) {
+            if (!set_result_error(env, result, "receive", errno, device)) {
+                close(socket_fd);
+                free(query_bytes);
+                return NULL;
+            }
+        } else {
+            if (!set_success_hex(env, result, device, response, (size_t)received)) {
+                close(socket_fd);
+                free(query_bytes);
+                return NULL;
+            }
+        }
+    }
+    close(socket_fd);
+    free(query_bytes);
     return result;
 }
 

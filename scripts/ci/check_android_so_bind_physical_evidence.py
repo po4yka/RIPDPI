@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "android_so_bind_physical_evidence_v2"
+VERSION = "android_so_bind_physical_evidence_v3"
 PROFILE = "physical_pixel_api37_kernel61"
 FAMILIES = ("ipv4", "ipv6")
 POSITIVE_COUNTERS = (
@@ -25,12 +25,19 @@ POSITIVE_COUNTERS = (
     "allowedUdpFixtureEvents",
     "deniedTcpBlockedAttempts",
     "deniedUdpBlockedAttempts",
+    "allowedMapDnsRoundTrips",
+    "allowedMapDnsResolverEvents",
+    "deniedMapDnsBlockedAttempts",
     "livenessTcpRoundTrips",
     "livenessUdpRoundTrips",
     "livenessTcpFixtureEvents",
     "livenessUdpFixtureEvents",
 )
-ZERO_COUNTERS = ("deniedTcpFixtureEvents", "deniedUdpFixtureEvents")
+ZERO_COUNTERS = (
+    "deniedTcpFixtureEvents",
+    "deniedUdpFixtureEvents",
+    "deniedMapDnsResolverEvents",
+)
 TOP_LEVEL_FIELDS = {
     "version",
     "status",
@@ -63,6 +70,9 @@ FAMILY_FIELDS = {
     "deniedUdpErrno",
     "deniedUdpFailureKind",
     "deniedUdpFailureStage",
+    "deniedMapDnsErrno",
+    "deniedMapDnsFailureKind",
+    "deniedMapDnsFailureStage",
     *POSITIVE_COUNTERS,
     *ZERO_COUNTERS,
 }
@@ -198,6 +208,27 @@ def validate(
             and udp_failure_errno not in SOCKET_TIMEOUT_ERRNOS
         ):
             raise ValueError(f"{family} UDP timeout kind/errno pair is inconsistent")
+        mapdns_failure_kind = record["deniedMapDnsFailureKind"]
+        mapdns_failure_stage = record["deniedMapDnsFailureStage"]
+        mapdns_failure_errno = record["deniedMapDnsErrno"]
+        if mapdns_failure_kind not in UDP_BLOCK_FAILURE_KINDS:
+            raise ValueError(f"{family}.deniedMapDnsFailureKind is not a blocked outcome")
+        if mapdns_failure_stage not in TCP_NETWORK_STAGES:
+            raise ValueError(f"{family}.deniedMapDnsFailureStage is not a network stage")
+        if type(mapdns_failure_errno) is not int or mapdns_failure_errno <= 0:
+            raise ValueError(f"{family}.deniedMapDnsErrno must be a positive integer")
+        if mapdns_failure_kind == "ERRNO" and (
+            mapdns_failure_stage != "connect"
+            or mapdns_failure_errno not in TCP_UNREACHABLE_ERRNOS
+        ):
+            raise ValueError(
+                f"{family} MapDNS generic errno is not an unreachable connect outcome"
+            )
+        if (
+            mapdns_failure_kind == "TIMEOUT"
+            and mapdns_failure_errno not in SOCKET_TIMEOUT_ERRNOS
+        ):
+            raise ValueError(f"{family} MapDNS timeout kind/errno pair is inconsistent")
         for counter in POSITIVE_COUNTERS:
             value = record[counter]
             if type(value) is not int or value < 1:

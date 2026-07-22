@@ -233,7 +233,8 @@ import sys
 positive_names = (
     "directTcpRoundTrips", "directUdpRoundTrips", "directTcpFixtureEvents", "directUdpFixtureEvents",
     "allowedTcpRoundTrips", "allowedUdpRoundTrips", "allowedTcpFixtureEvents", "allowedUdpFixtureEvents",
-    "deniedTcpBlockedAttempts", "deniedUdpBlockedAttempts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
+    "deniedTcpBlockedAttempts", "deniedUdpBlockedAttempts", "allowedMapDnsRoundTrips",
+    "allowedMapDnsResolverEvents", "deniedMapDnsBlockedAttempts", "livenessTcpRoundTrips", "livenessUdpRoundTrips",
     "livenessTcpFixtureEvents", "livenessUdpFixtureEvents",
 )
 positive = {name: 1 for name in positive_names}
@@ -246,12 +247,16 @@ families = [{
     "deniedUdpErrno": 110,
     "deniedUdpFailureKind": "TIMEOUT",
     "deniedUdpFailureStage": "receive",
+    "deniedMapDnsErrno": 110,
+    "deniedMapDnsFailureKind": "TIMEOUT",
+    "deniedMapDnsFailureStage": "receive",
     **positive,
     "deniedTcpFixtureEvents": 0,
     "deniedUdpFixtureEvents": 0,
+    "deniedMapDnsResolverEvents": 0,
 } for family in ("ipv4", "ipv6")]
 evidence = {
-        "version": "android_so_bind_physical_evidence_v2",
+        "version": "android_so_bind_physical_evidence_v3",
         "status": "PASS",
         "profile": "physical_pixel_api37_kernel61",
         "runId": sys.argv[2],

@@ -18,6 +18,8 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.debug.PacketSmokeMapDnsAddress
+import com.poyka.ripdpi.debug.PacketSmokeMapDnsPort
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
@@ -60,7 +62,8 @@ private const val SoBindAppApkSha256Arg = "ripdpi.soBindAppApkSha256"
 private const val SoBindTestApkSha256Arg = "ripdpi.soBindTestApkSha256"
 private const val PhysicalSoBindEvidenceProfile = "physical_pixel_api37_kernel61"
 private const val PhysicalSoBindEvidenceFile = "so-bind-physical-evidence.json"
-private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v2"
+private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v3"
+private const val PhysicalSoBindDnsQueryHost = "so-bind-mapdns.fixture.test"
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
@@ -711,10 +714,13 @@ class NetworkPathE2ETest {
 
         val listenPort = reserveLoopbackPort()
         runBlocking {
+            appSettingsRepository.applyFixtureEncryptedDns(
+                fixture = fixture,
+                proxyPort = listenPort,
+            )
             appSettingsRepository.update {
                 proxyPort = listenPort
                 proxyIp = "127.0.0.1"
-                dnsIp = "1.1.1.1"
                 ipv6Enable = true
                 fullTunnelMode = true
                 setSplitTunnelMode(SplitTunnelMode.Off)
@@ -768,6 +774,24 @@ class NetworkPathE2ETest {
                 allowedUdpRoundTrips = 1
             }
         }
+        val allowedDns =
+            testProcessDnsProbe(
+                queryHost = PhysicalSoBindDnsQueryHost,
+                serverHost = PacketSmokeMapDnsAddress,
+                serverPort = PacketSmokeMapDnsPort,
+                bindDevice = "tun0",
+            )
+        assertEquals("allowed DNS did not retain SO_BINDTODEVICE", "tun0", allowedDns.boundDevice)
+        assertSuccessfulPhysicalProbe(
+            "allowed bound MapDNS",
+            allowedDns.ok,
+            allowedDns.failureKind,
+            allowedDns.errno,
+        )
+        assertEquals("allowed MapDNS query did not receive a NOERROR response", 0, allowedDns.rcode)
+        assertTrue("allowed MapDNS query returned no answers", allowedDns.answers.isNotEmpty())
+        assertEquals(testUid, allowedDns.probeUid)
+        assertTrue("allowed MapDNS source port is missing", allowedDns.localPort != null)
         awaitUntil(
             timeoutMs = 5_000L,
             failureMessage = { redactedTunnelSummary() },
@@ -790,6 +814,12 @@ class NetworkPathE2ETest {
                 "${family.id} allowed UDP was not observed by fixture",
                 familyCounters.allowedUdpFixtureEvents > 0,
             )
+        }
+        val allowedDnsEvents = allowedEvents.countPhysicalDns(PhysicalSoBindDnsQueryHost)
+        assertTrue("allowed MapDNS was not resolved through the fixture encrypted resolver", allowedDnsEvents > 0)
+        counters.values.forEach { values ->
+            values.allowedMapDnsRoundTrips = 1
+            values.allowedMapDnsResolverEvents = allowedDnsEvents
         }
 
         stopService(RipDpiVpnService::class.java)
@@ -882,6 +912,40 @@ class NetworkPathE2ETest {
                 deniedUdpErrno = deniedUdp.errno
             }
         }
+        val deniedDns =
+            testProcessDnsProbe(
+                queryHost = PhysicalSoBindDnsQueryHost,
+                serverHost = PacketSmokeMapDnsAddress,
+                serverPort = PacketSmokeMapDnsPort,
+                timeoutMs = 1_000L,
+                bindDevice = "tun0",
+            )
+        assertEquals("denied DNS did not retain SO_BINDTODEVICE", "tun0", deniedDns.boundDevice)
+        assertFalse("excluded UID unexpectedly completed a bound MapDNS query", deniedDns.ok)
+        val deniedDnsAtNetworkStage = deniedDns.failureStage in setOf("connect", "send", "receive")
+        val deniedDnsOutcomeIsBlocked =
+            deniedDns.failureKind == "TIMEOUT" ||
+                (
+                    deniedDns.failureKind == "ERRNO" &&
+                        deniedDns.failureStage == "connect" &&
+                        deniedDns.errno in setOf(OsConstants.ENETUNREACH, OsConstants.EHOSTUNREACH)
+                )
+        assertTrue(
+            "bound MapDNS denial must be timeout or unreachable " +
+                "kind=${deniedDns.failureKind} stage=${deniedDns.failureStage} errno=${deniedDns.errno}",
+            deniedDnsOutcomeIsBlocked,
+        )
+        assertTrue(
+            "bound MapDNS denial occurred before the network operation " +
+                "stage=${deniedDns.failureStage} errno=${deniedDns.errno}",
+            deniedDnsAtNetworkStage && deniedDns.errno != null,
+        )
+        counters.values.forEach { values ->
+            values.deniedMapDnsBlockedAttempts = 1
+            values.deniedMapDnsFailureKind = deniedDns.failureKind
+            values.deniedMapDnsFailureStage = deniedDns.failureStage
+            values.deniedMapDnsErrno = deniedDns.errno
+        }
 
         awaitUntil(
             timeoutMs = 5_000L,
@@ -893,9 +957,11 @@ class NetworkPathE2ETest {
         val deniedEvents = fixtureClient.events()
         val deniedTcpEvents = deniedEvents.count { it.service == "tcp_echo" }
         val deniedUdpEvents = deniedEvents.count { it.service == "udp_echo" }
+        val deniedDnsEvents = deniedEvents.countPhysicalDns(PhysicalSoBindDnsQueryHost)
         assertTrue(
-            "Denied SO_BINDTODEVICE traffic reached fixture tcpEvents=$deniedTcpEvents udpEvents=$deniedUdpEvents",
-            deniedTcpEvents == 0 && deniedUdpEvents == 0,
+            "Denied SO_BINDTODEVICE traffic reached fixture tcpEvents=$deniedTcpEvents " +
+                "udpEvents=$deniedUdpEvents dnsEvents=$deniedDnsEvents",
+            deniedTcpEvents == 0 && deniedUdpEvents == 0 && deniedDnsEvents == 0,
         )
 
         families.forEach { family ->
@@ -971,6 +1037,12 @@ class NetworkPathE2ETest {
                 )
             assertEquals("${family.id} delayed denied TCP reached fixture", 0, familyCounters.deniedTcpFixtureEvents)
             assertEquals("${family.id} delayed denied UDP reached fixture", 0, familyCounters.deniedUdpFixtureEvents)
+            familyCounters.deniedMapDnsResolverEvents = livenessEvents.countPhysicalDns(PhysicalSoBindDnsQueryHost)
+            assertEquals(
+                "${family.id} delayed denied MapDNS reached fixture",
+                0,
+                familyCounters.deniedMapDnsResolverEvents,
+            )
         }
         writePhysicalSoBindEvidence(families, counters)
     }
@@ -1052,6 +1124,13 @@ class NetworkPathE2ETest {
             ) && it.peerAddressIsIpv6() == family.ipv6
         }
 
+    private fun List<FixtureEventDto>.countPhysicalDns(queryHost: String): Int =
+        count {
+            it.service == "dns_http" &&
+                it.protocol == "http" &&
+                it.detail.contains(queryHost)
+        }
+
     private fun writePhysicalSoBindEvidence(
         families: List<PhysicalSoBindFamily>,
         counters: Map<String, PhysicalSoBindCounters>,
@@ -1091,8 +1170,15 @@ class NetworkPathE2ETest {
                             .put("deniedUdpFailureKind", values.deniedUdpFailureKind)
                             .put("deniedUdpFailureStage", values.deniedUdpFailureStage)
                             .put("deniedUdpErrno", values.deniedUdpErrno)
+                            .put("allowedMapDnsRoundTrips", values.allowedMapDnsRoundTrips)
+                            .put("allowedMapDnsResolverEvents", values.allowedMapDnsResolverEvents)
+                            .put("deniedMapDnsBlockedAttempts", values.deniedMapDnsBlockedAttempts)
+                            .put("deniedMapDnsFailureKind", values.deniedMapDnsFailureKind)
+                            .put("deniedMapDnsFailureStage", values.deniedMapDnsFailureStage)
+                            .put("deniedMapDnsErrno", values.deniedMapDnsErrno)
                             .put("deniedTcpFixtureEvents", values.deniedTcpFixtureEvents)
                             .put("deniedUdpFixtureEvents", values.deniedUdpFixtureEvents)
+                            .put("deniedMapDnsResolverEvents", values.deniedMapDnsResolverEvents)
                             .put("livenessTcpRoundTrips", values.livenessTcpRoundTrips)
                             .put("livenessUdpRoundTrips", values.livenessUdpRoundTrips)
                             .put("livenessTcpFixtureEvents", values.livenessTcpFixtureEvents)
@@ -1296,8 +1382,15 @@ private data class PhysicalSoBindCounters(
     var deniedUdpFailureKind: String? = null,
     var deniedUdpFailureStage: String? = null,
     var deniedUdpErrno: Int? = null,
+    var allowedMapDnsRoundTrips: Int = 0,
+    var allowedMapDnsResolverEvents: Int = 0,
+    var deniedMapDnsBlockedAttempts: Int = 0,
+    var deniedMapDnsFailureKind: String? = null,
+    var deniedMapDnsFailureStage: String? = null,
+    var deniedMapDnsErrno: Int? = null,
     var deniedTcpFixtureEvents: Int = 0,
     var deniedUdpFixtureEvents: Int = 0,
+    var deniedMapDnsResolverEvents: Int = 0,
     var livenessTcpRoundTrips: Int = 0,
     var livenessUdpRoundTrips: Int = 0,
     var livenessTcpFixtureEvents: Int = 0,

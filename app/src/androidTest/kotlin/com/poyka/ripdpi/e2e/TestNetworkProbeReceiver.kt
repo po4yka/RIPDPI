@@ -261,6 +261,16 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val serverPort = intent.getIntExtra(ExtraPort, -1)
         val timeoutMs = intent.getIntExtra(ExtraReadTimeoutMs, DefaultReadTimeoutMs)
         val queryHost = intent.getStringExtra(ExtraQueryHost)
+        val requestedBindDevice = intent.getStringExtra(ExtraBindDevice)
+        val bindDevice =
+            if (
+                requestedBindDevice != null &&
+                requestedBindDevice.length > 0
+            ) {
+                requestedBindDevice
+            } else {
+                null
+            }
 
         requireProbeHost(serverHost, "Missing host extra")
         requireProbePort(serverPort, "Invalid port extra: $serverPort")
@@ -269,6 +279,25 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val requestId = Random().nextInt(0x1_0000)
         val query = buildDnsQuery(checkedQueryHost, requestId)
         val startedAt = SystemClock.elapsedRealtime()
+        if (bindDevice != null) {
+            TestSocketBinder.dnsRoundTrip(
+                serverHost ?: throw IllegalArgumentException("Missing host extra"),
+                serverPort,
+                query,
+                timeoutMs,
+                bindDevice,
+                extras,
+            )
+            if (extras.getBoolean(ExtraOk, false)) {
+                val responseHex = extras.getString(ExtraResponse).orEmpty()
+                val answers = ArrayList<String>()
+                val rcode = decodeDnsResponse(decodeHex(responseHex), requestId, answers)
+                extras.putInt(ExtraDnsRcode, rcode)
+                extras.putStringArrayList(ExtraDnsAnswers, answers)
+                extras.putLong(ExtraDnsLatencyMs, SystemClock.elapsedRealtime() - startedAt)
+            }
+            return
+        }
         val socket = DatagramSocket()
         try {
             socket.soTimeout = timeoutMs
@@ -293,6 +322,23 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             socket.close()
         }
     }
+
+    private fun decodeHex(value: String): ByteArray {
+        require(value.length % 2 == 0) { "hex response has odd length" }
+        return ByteArray(value.length / 2) { index ->
+            val high = value[index * 2].hexValue()
+            val low = value[index * 2 + 1].hexValue()
+            ((high shl 4) or low).toByte()
+        }
+    }
+
+    private fun Char.hexValue(): Int =
+        when (this) {
+            in '0'..'9' -> this - '0'
+            in 'a'..'f' -> this - 'a' + 10
+            in 'A'..'F' -> this - 'A' + 10
+            else -> throw IllegalArgumentException("invalid hex digit: $this")
+        }
 
     private fun putLocalSocket(
         extras: Bundle,

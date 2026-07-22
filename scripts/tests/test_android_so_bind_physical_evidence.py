@@ -54,6 +54,9 @@ def valid_evidence() -> dict[str, object]:
                 "deniedUdpErrno": 110,
                 "deniedUdpFailureKind": "TIMEOUT",
                 "deniedUdpFailureStage": "receive",
+                "deniedMapDnsErrno": 110,
+                "deniedMapDnsFailureKind": "TIMEOUT",
+                "deniedMapDnsFailureStage": "receive",
                 **positive,
                 **{counter: 0 for counter in MODULE.ZERO_COUNTERS},
             }
@@ -155,6 +158,19 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "UDP timeout kind/errno pair is inconsistent"):
             self.validate(evidence)
 
+    def test_accepts_unreachable_connect_as_mapdns_block_outcome(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][1]["deniedMapDnsFailureKind"] = "ERRNO"
+        evidence["families"][1]["deniedMapDnsFailureStage"] = "connect"
+        evidence["families"][1]["deniedMapDnsErrno"] = 101
+        self.validate(evidence)
+
+    def test_rejects_inconsistent_mapdns_timeout_errno(self) -> None:
+        evidence = valid_evidence()
+        evidence["families"][0]["deniedMapDnsErrno"] = 104
+        with self.assertRaisesRegex(ValueError, "MapDNS timeout kind/errno pair is inconsistent"):
+            self.validate(evidence)
+
     def test_rejects_obsolete_reset_only_schema(self) -> None:
         evidence = valid_evidence()
         evidence["version"] = "android_so_bind_physical_evidence_v1"
@@ -167,6 +183,13 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
             family.pop("deniedUdpErrno")
             family.pop("deniedUdpFailureKind")
             family.pop("deniedUdpFailureStage")
+            family.pop("allowedMapDnsRoundTrips")
+            family.pop("allowedMapDnsResolverEvents")
+            family.pop("deniedMapDnsBlockedAttempts")
+            family.pop("deniedMapDnsErrno")
+            family.pop("deniedMapDnsFailureKind")
+            family.pop("deniedMapDnsFailureStage")
+            family.pop("deniedMapDnsResolverEvents")
         with self.assertRaisesRegex(ValueError, "unsupported evidence version"):
             self.validate(evidence)
 
