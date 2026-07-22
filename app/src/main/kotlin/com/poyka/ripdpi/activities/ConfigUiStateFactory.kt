@@ -12,6 +12,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 
 internal class ConfigUiStateFactory(
     private val dependencies: ConfigViewModelDependencies,
@@ -26,7 +27,7 @@ internal class ConfigUiStateFactory(
         latestDirectModeOutcome: LatestDirectModeOutcomeSnapshot?,
     ): ConfigUiState {
         val session = editorState.session
-        val records = runCatching { dependencies.relayArtifacts.listProfiles() }.getOrDefault(emptyList())
+        val records = loadRelayProfileRecordsOrEmpty { dependencies.relayArtifacts.listProfiles() }
         val currentDraft = settings.toConfigDraft().sanitizedMasqueAuthMode()
         val draft = (session.draft ?: currentDraft).sanitizedMasqueAuthMode()
         val presets = buildConfigPresets(currentDraft)
@@ -114,6 +115,17 @@ internal class ConfigUiStateFactory(
     private fun ConfigDraft.sanitizedMasqueAuthMode(): ConfigDraft =
         sanitizeMasqueAuthModeForCurrentBuild(this, supportsMasquePrivacyPass)
 }
+
+internal suspend fun loadRelayProfileRecordsOrEmpty(
+    load: suspend () -> List<RelayProfileRecord>,
+): List<RelayProfileRecord> =
+    try {
+        load()
+    } catch (failure: CancellationException) {
+        throw failure
+    } catch (_: Exception) {
+        emptyList()
+    }
 
 private fun ConfigEditorSession.editingPreset(
     presets: ImmutableList<ConfigPreset>,
