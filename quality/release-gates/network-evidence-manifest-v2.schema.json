@@ -95,7 +95,8 @@
         "producerPolicySha256",
         "scenarioPlanSha256",
         "workloadSha256",
-        "clientArtifactSha256"
+        "clientArtifactSha256",
+        "testArtifactSha256"
       ],
       "properties": {
         "executionKind": {
@@ -137,6 +138,9 @@
           "$ref": "#/$defs/sha256"
         },
         "clientArtifactSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "testArtifactSha256": {
           "$ref": "#/$defs/sha256"
         }
       },
@@ -257,6 +261,7 @@
         "networkIdSha256",
         "collectorSha256",
         "clientArtifactSha256",
+        "testArtifactSha256",
         "scenarioPlanSha256",
         "captureStartedAtEpoch",
         "captureFinishedAtEpoch",
@@ -289,6 +294,9 @@
           "$ref": "#/$defs/sha256"
         },
         "clientArtifactSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "testArtifactSha256": {
           "$ref": "#/$defs/sha256"
         },
         "scenarioPlanSha256": {
@@ -377,6 +385,7 @@
         "sourceSha",
         "correlationId",
         "clientArtifactSha256",
+        "testArtifactSha256",
         "windows"
       ],
       "properties": {
@@ -390,6 +399,9 @@
           "$ref": "#/$defs/sha256"
         },
         "clientArtifactSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "testArtifactSha256": {
           "$ref": "#/$defs/sha256"
         },
         "windows": {

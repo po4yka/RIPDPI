@@ -302,9 +302,10 @@ SHA-256 hashing; their raw values and hook paths never leave the runner. The
 runner also records executable digests for itself, the validator, the policy,
 the source-pinned producer policy, both collectors, and the workload,
 rejects a shared collector path, and requires a non-emulated ADB device. Before
-capture, the workflow builds `GithubFullDebug` from the checked-out SHA for the
-physical device ABI, installs it, pulls the installed base APK back, verifies byte
-equality, and records its SHA-256 in provenance. The observer hook owns the
+capture, the workflow builds both the `GithubFullDebug` client and its androidTest
+APK from the checked-out SHA for the physical device ABI, installs them, pulls
+both installed APKs back, verifies byte equality, and records both SHA-256 values
+in provenance. The observer hook owns the
 authenticated remote capture transport; its credentials and endpoint stay in the
 runner-owned installation.
 
@@ -315,21 +316,22 @@ validator, gate policy, and producer policy directly from the selected Git
 commit, re-executes that immutable snapshot, and records the four blob digests.
 Before capture, the mode-0600 config is opened once with no-follow semantics,
 validated through the same descriptor, and copied into private scratch. Hooks
-and the APK are likewise copied
+and both APKs are likewise copied
 through no-follow file descriptors into the mode-0700 scratch directory and the
 immutable copies are hashed and used. Collector, workload, and APK digests must
 also appear in the source-pinned
 `quality/release-gates/network-evidence-producers.json` allowlist. That committed
 allowlist is intentionally empty until real private hook binaries and an
-exact-source signed release-candidate APK have been locally materialized,
+exact-source signed release-candidate and androidTest APKs have been locally materialized,
 reviewed, captured, and pinned. The current `GithubFullDebug` evidence workflow
 does not attest a signed release candidate and therefore remains fail-closed.
 A real capture therefore
 currently fails closed at producer and client-artifact approval rather than
 trusting caller-controlled config. ADB operations and the workload are bounded
 by runner-owned timeouts. The runner requires exactly one physical
-ADB device, pulls its installed base APK, and compares it byte-for-byte with the
-scratch artifact both before and after capture.
+ADB device, requires exactly one package path for `com.poyka.ripdpi` and
+`com.poyka.ripdpi.test`, and compares both installed APKs byte-for-byte with the
+scratch artifacts before and after capture.
 
 `test-lab/scripts/network-evidence-ssh-capture.py` is a checked-in private
 capture utility for acquiring a PCAP from an owner-controlled SSH/tcpdump
@@ -371,11 +373,12 @@ cellular, routes, DNS, Private DNS, VPN state, or airplane mode on its own; an
 absent receipt remains release-blocking.
 
 The fixed hooks receive only a correlation digest, source SHA, marker paths,
-artifact path and digest, and output paths. The workload emits a strict v2
+artifact paths and digests, and output paths. The workload emits a strict v2
 scenario plan with action and outcome marker digests derived from a
 domain-separated hash of correlation ID, gate ID, gate kind, and purpose. All
-markers must be unique across both purposes. Both
-observations must attest those markers and the canonical plan digest with
+markers must be unique across both purposes. The plan, both observations, and
+manifest provenance bind both the client and androidTest artifact digests. Both
+observations must also attest those markers and the canonical plan digest with
 positive action/outcome counts. Validation immediately before publication uses
 the all-PASS mode, so a valid but FAIL or INCONCLUSIVE bundle is never uploaded
 as release evidence. `run-dual-vantage-network-evidence.sh` starts both collectors
@@ -403,6 +406,7 @@ test-lab/scripts/run-dual-vantage-network-evidence.sh \
   --output-dir /tmp/ripdpi-network-evidence \
   --source-root "$PWD" \
   --client-artifact /absolute/path/to/installed-and-verified.apk \
+  --test-artifact /absolute/path/to/installed-and-verified-androidTest.apk \
   --execution-kind local \
   --execution-id "$execution_id" \
   --execution-attempt 1
@@ -421,7 +425,8 @@ from distinct networks and the APK path identifies the exact installed client.
 The checked-in ordinary producer intentionally emits 11 structured no-ship
 failures until source-owned raw-artifact verifiers exist; it cannot self-attest
 a PASS. The local acceptance entrypoint derives the exact clean `HEAD`, requires
-local execution provenance, snapshots both input artifacts into a private
+local execution provenance, snapshots the ordinary results and dual-vantage
+manifest into a private
 directory, and runs the checker extracted from that exact commit. GitHub Actions
 is not an acceptance prerequisite. The optional
 compatibility release workflow still requires

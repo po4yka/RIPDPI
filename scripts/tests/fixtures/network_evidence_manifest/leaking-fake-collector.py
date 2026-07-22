@@ -52,6 +52,7 @@ observation = {
     "correlationId": correlation_id,
     "role": role,
     "clientArtifactSha256": plan["clientArtifactSha256"],
+    "testArtifactSha256": plan["testArtifactSha256"],
     "scenarioPlanSha256": plan_sha256,
     "captureStartedAtEpoch": capture_started,
     "captureFinishedAtEpoch": capture_finished,

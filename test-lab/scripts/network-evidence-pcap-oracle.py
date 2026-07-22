@@ -50,6 +50,7 @@ PLAN_FIELDS = {
     "sourceSha",
     "correlationId",
     "clientArtifactSha256",
+    "testArtifactSha256",
     "windows",
 }
 WINDOW_FIELDS = {
@@ -293,6 +294,7 @@ def validate_ledger(
     correlation_id = require_pattern(plan["correlationId"], SHA256_RE, "correlationId")
     require_pattern(plan["sourceSha"], SHA1_RE, "sourceSha")
     require_pattern(plan["clientArtifactSha256"], SHA256_RE, "clientArtifactSha256")
+    require_pattern(plan["testArtifactSha256"], SHA256_RE, "testArtifactSha256")
 
     raw_windows = plan["windows"]
     if not isinstance(raw_windows, list) or not raw_windows:
@@ -754,6 +756,7 @@ def derive_observation(
         "correlationId": plan["correlationId"],
         "role": role,
         "clientArtifactSha256": plan["clientArtifactSha256"],
+        "testArtifactSha256": plan["testArtifactSha256"],
         "scenarioPlanSha256": hashlib.sha256(canonical_json_bytes(plan)).hexdigest(),
         "captureStartedAtEpoch": metadata.started,
         "captureFinishedAtEpoch": metadata.finished,

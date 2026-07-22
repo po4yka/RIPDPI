@@ -64,12 +64,15 @@ digest = lambda path: hashlib.sha256(open(path, "rb").read()).hexdigest()
 with open(policy_path, "w", encoding="utf-8") as handle:
     json.dump(
         {
-            "version": "network_evidence_producers_v1",
+            "version": "network_evidence_producers_v2",
             "clientCollectorSha256": [digest(collector_path)],
             "observerCollectorSha256": [digest(collector_path)],
             "workloadSha256": [digest(workload_path), digest(mutating_workload_path)],
             "clientArtifactSha256": [
                 hashlib.sha256(b"synthetic client artifact\n").hexdigest()
+            ],
+            "testArtifactSha256": [
+                hashlib.sha256(b"synthetic test artifact\n").hexdigest()
             ],
         },
         handle,
@@ -85,6 +88,8 @@ runner="$repo_root/test-lab/scripts/run-dual-vantage-network-evidence.sh"
 source_sha="$(git -C "$source_checkout" rev-parse HEAD)"
 client_artifact="$tmpdir/client.apk"
 printf 'synthetic client artifact\n' > "$client_artifact"
+test_artifact="$tmpdir/test.apk"
+printf 'synthetic test artifact\n' > "$test_artifact"
 fake_bin="$tmpdir/fake-bin"
 mkdir "$fake_bin"
 python3 - "$fake_bin/adb" <<'PY'
@@ -105,9 +110,17 @@ if [[ "${1:-}" == "shell" && "${2:-}" == "getprop" && "${3:-}" == "ro.kernel.qem
 elif [[ "${1:-}" == "shell" && "${2:-}" == "getprop" && "${3:-}" == "ro.product.name" ]]; then
   printf 'pixel_physical\n'
 elif [[ "${1:-}" == "shell" && "${2:-}" == "pm" && "${3:-}" == "path" ]]; then
-  printf 'package:/data/app/ripdpi/base.apk\n'
+  if [[ "${4:-}" == "com.poyka.ripdpi.test" ]]; then
+    printf 'package:/data/app/ripdpi-test/base.apk\n'
+  else
+    printf 'package:/data/app/ripdpi/base.apk\n'
+  fi
 elif [[ "${1:-}" == "pull" ]]; then
-  cp "$RIPDPI_TEST_INSTALLED_APK" "$3"
+  if [[ "$2" == */ripdpi-test/* ]]; then
+    cp "$RIPDPI_TEST_INSTALLED_TEST_APK" "$3"
+  else
+    cp "$RIPDPI_TEST_INSTALLED_APK" "$3"
+  fi
 else
   exit 2
 fi
@@ -118,7 +131,9 @@ os.chmod(path, 0o700)
 PY
 export PATH="$fake_bin:$PATH"
 export RIPDPI_TEST_INSTALLED_APK="$client_artifact"
+export RIPDPI_TEST_INSTALLED_TEST_APK="$test_artifact"
 local_execution_args=(
+  --test-artifact "$test_artifact"
   --execution-kind local
   --execution-id local-self-test
   --execution-attempt 1
@@ -161,7 +176,7 @@ RIPDPI_TEST_REPO_ROOT="$repo_root" \
 
 [[ "$(find "$output" -maxdepth 1 -type f | wc -l | tr -d ' ')" == "3" ]]
 [[ ! -e "$output/capture.pcap" ]]
-python3 - "$output" "$client_artifact" "$runner" <<'PY'
+python3 - "$output" "$client_artifact" "$test_artifact" "$runner" <<'PY'
 import hashlib
 import json
 import sys
@@ -169,7 +184,8 @@ from pathlib import Path
 
 output = Path(sys.argv[1])
 client_artifact = Path(sys.argv[2])
-runner = Path(sys.argv[3])
+test_artifact = Path(sys.argv[3])
+runner = Path(sys.argv[4])
 documents = {
     path.name: json.loads(path.read_text(encoding="utf-8"))
     for path in output.glob("*.json")
@@ -210,6 +226,9 @@ assert manifest["provenance"]["executionDefinition"] == "local"
 assert manifest["provenance"]["clientArtifactSha256"] == hashlib.sha256(
     client_artifact.read_bytes()
 ).hexdigest()
+assert manifest["provenance"]["testArtifactSha256"] == hashlib.sha256(
+    test_artifact.read_bytes()
+).hexdigest()
 assert manifest["provenance"]["runnerSha256"] == hashlib.sha256(
     runner.read_bytes()
 ).hexdigest()
@@ -231,6 +250,32 @@ for raw_identity in (
 assert b"clientNetworkId" not in published
 assert b"observerNetworkId" not in published
 PY
+
+if bash "$runner" \
+  --config "$config" \
+  --output-dir "$tmpdir/missing-test-artifact-output" \
+  --source-root "$source_checkout" \
+  --client-artifact "$client_artifact" \
+  --execution-kind local \
+  --execution-id missing-test-artifact \
+  --execution-attempt 1 >/dev/null 2>&1; then
+  echo "missing test artifact unexpectedly produced evidence" >&2
+  exit 1
+fi
+unapproved_test_artifact="$tmpdir/unapproved-test.apk"
+printf 'unapproved synthetic test artifact\n' > "$unapproved_test_artifact"
+if bash "$runner" \
+  --config "$config" \
+  --output-dir "$tmpdir/unapproved-test-artifact-output" \
+  --source-root "$source_checkout" \
+  --client-artifact "$client_artifact" \
+  --test-artifact "$unapproved_test_artifact" \
+  --execution-kind local \
+  --execution-id unapproved-test-artifact \
+  --execution-attempt 1 >/dev/null 2>&1; then
+  echo "unapproved test artifact unexpectedly produced evidence" >&2
+  exit 1
+fi
 
 touch "$source_checkout/untracked-dirty-marker"
 if RIPDPI_TEST_REPO_ROOT="$repo_root" \
@@ -266,6 +311,19 @@ if RIPDPI_TEST_REPO_ROOT="$repo_root" \
   --client-artifact "$client_artifact" \
   "${local_execution_args[@]}" >/dev/null 2>&1; then
   echo "mismatched installed APK unexpectedly produced evidence" >&2
+  exit 1
+fi
+different_installed_test_apk="$tmpdir/different-installed-test.apk"
+printf 'different installed test client\n' > "$different_installed_test_apk"
+if RIPDPI_TEST_REPO_ROOT="$repo_root" \
+  RIPDPI_TEST_INSTALLED_TEST_APK="$different_installed_test_apk" \
+  bash "$runner" \
+  --config "$config" \
+  --output-dir "$tmpdir/mismatched-installed-test-output" \
+  --source-root "$source_checkout" \
+  --client-artifact "$client_artifact" \
+  "${local_execution_args[@]}" >/dev/null 2>&1; then
+  echo "mismatched installed test APK unexpectedly produced evidence" >&2
   exit 1
 fi
 results="$tmpdir/results.json"
@@ -348,7 +406,8 @@ GITHUB_RUN_ATTEMPT=1 \
   --output-dir "$github_output" \
   --source-sha "$source_sha" \
   --source-root "$source_checkout" \
-  --client-artifact "$client_artifact" >/dev/null
+  --client-artifact "$client_artifact" \
+  --test-artifact "$test_artifact" >/dev/null
 python3 - "$github_output/manifest.json" <<'PY'
 import json
 import sys

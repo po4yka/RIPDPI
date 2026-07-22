@@ -17,6 +17,7 @@ ORACLE = ROOT / "test-lab/scripts/network-evidence-pcap-oracle.py"
 CORRELATION_ID = "c" * 64
 SOURCE_SHA = "d" * 40
 CLIENT_ARTIFACT_SHA256 = "e" * 64
+TEST_ARTIFACT_SHA256 = "f" * 64
 WINDOW_A = "oracle-fixture-window-a"
 WINDOW_B = "oracle-fixture-window-b"
 
@@ -209,6 +210,7 @@ class NetworkEvidencePcapOracleTest(unittest.TestCase):
             "sourceSha": SOURCE_SHA,
             "correlationId": CORRELATION_ID,
             "clientArtifactSha256": CLIENT_ARTIFACT_SHA256,
+            "testArtifactSha256": TEST_ARTIFACT_SHA256,
             "windows": [
                 {
                     "id": WINDOW_A,
