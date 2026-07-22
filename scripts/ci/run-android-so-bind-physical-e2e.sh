@@ -107,9 +107,9 @@ device_lock_serial="$(printf '%s' "$android_serial" | tr -c 'A-Za-z0-9._-' '_')"
 device_lock_dir="$device_lock_root/ripdpi-android-device-$device_lock_serial.lock"
 cleanup() {
     if [[ "$device_lock_acquired" == "1" ]]; then
+        adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
         rm -rf "$device_lock_dir"
     fi
-    adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
     rm -rf "$temp_dir"
 }
 trap cleanup EXIT

@@ -151,7 +151,11 @@ case "$*" in
         echo '  Temp whitelist schedule:'
         echo '    UID=10444: +4m59s - shell'
         ;;
-    "shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test") rm -f "$FAKE_ALLOWLIST_MARKER" ;;
+    "shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test")
+        [[ -d "$FAKE_DEVICE_LOCK_DIR" ]] || exit 72
+        rm -f "$FAKE_ALLOWLIST_MARKER"
+        : >"$FAKE_ALLOWLIST_REMOVE_MARKER"
+        ;;
     "pull /data/app/app/base.apk "*)
         destination="${@: -1}"
         if [[ "${FAKE_APK_MISMATCH:-0}" == "1" ]]; then
@@ -381,11 +385,13 @@ run_runner() {
         FAKE_TEST_APK="$source_bound_test_apk" \
         FAKE_EVIDENCE="$evidence" \
         FAKE_ALLOWLIST_MARKER="$temp_dir/allowlist.marker" \
+        FAKE_ALLOWLIST_REMOVE_MARKER="$temp_dir/allowlist-remove.marker" \
         FAKE_INSTALL_MARKER="$temp_dir/install.marker" \
         FAKE_HOME_MARKER="$temp_dir/home.marker" \
         FAKE_TARGET_STOP_MARKER="$temp_dir/target-stop.marker" \
         FAKE_TEST_STOP_MARKER="$temp_dir/test-stop.marker" \
         RIPDPI_ANDROID_DEVICE_LOCK_ROOT="$temp_dir/device-locks" \
+        FAKE_DEVICE_LOCK_DIR="$temp_dir/device-locks/ripdpi-android-device-pixel-serial.lock" \
         "$@" \
         bash "$runner" >"$temp_dir/runner.stdout" 2>"$temp_dir/runner.stderr"
 }
@@ -409,8 +415,16 @@ assert_status() {
 device_lock="$temp_dir/device-locks/ripdpi-android-device-pixel-serial.lock"
 mkdir -p "$device_lock"
 assert_status 1 "busy physical device lane rejected" run_runner FAKE_RESULT=pass
+[[ ! -f "$temp_dir/allowlist-remove.marker" ]] || {
+    echo "assertion failed: busy lock contender changed device allowlist state" >&2
+    exit 1
+}
 rmdir "$device_lock"
 assert_status 0 "exact pass" run_runner FAKE_RESULT=pass
+[[ -f "$temp_dir/allowlist-remove.marker" && ! -d "$device_lock" ]] || {
+    echo "assertion failed: lock owner did not clean device state before releasing the lane" >&2
+    exit 1
+}
 assert_status 0 "routed ULA endpoint and source pass" run_runner \
     RIPDPI_FIXTURE_ANDROID_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
     FAKE_IPV6_HOST=fd08:7888:d1e0:45b1::1 \
