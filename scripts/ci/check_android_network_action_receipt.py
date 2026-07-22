@@ -560,6 +560,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--client-artifact-sha256", required=True)
     parser.add_argument("--test-artifact-sha256", required=True)
     parser.add_argument("--fixture-identity-sha256", required=True)
+    parser.add_argument("--test-only-ready-override", type=Path)
     return parser.parse_args(argv)
 
 
@@ -585,7 +586,11 @@ def main(argv: list[str] | None = None) -> int:
         if expected["client_artifact_sha256"] == expected["test_artifact_sha256"]:
             raise ReceiptError("client and androidTest artifact digests must differ")
         value, raw = load_private_receipt(args.receipt)
-        validate_receipt(value, **expected)
+        validate_receipt(
+            value,
+            **expected,
+            test_only_ready_override=args.test_only_ready_override,
+        )
     except (OSError, ReceiptError) as error:
         print(f"Android network action receipt: {error}", file=sys.stderr)
         return 1

@@ -27,7 +27,8 @@ Usage: run-android-network-evidence-action.sh \
   --gate-id ID --correlation-id SHA256 --source-sha SHA1 \
   --client-artifact-sha256 SHA256 --test-artifact-sha256 SHA256 \
   --fixture-identity-sha256 SHA256 --receipt-output ABSOLUTE_PATH \
-  [--fixture-transcript-output ABSOLUTE_PATH]
+  [--fixture-transcript-output ABSOLUTE_PATH] \
+  [--test-only-action-registry-override ABSOLUTE_PATH]
 
 This command starts and stops the RIPDPI VPN. It never changes Wi-Fi, mobile,
 routes, DNS, Private DNS, or airplane mode, but requires explicit operator
@@ -44,6 +45,7 @@ test_artifact_sha256=""
 fixture_identity_sha256=""
 receipt_output=""
 fixture_transcript_output=""
+test_only_action_registry_override=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --gate-id) requested_gate="${2:-}"; shift 2 ;;
@@ -54,6 +56,7 @@ while [[ $# -gt 0 ]]; do
         --fixture-identity-sha256) fixture_identity_sha256="${2:-}"; shift 2 ;;
         --receipt-output) receipt_output="${2:-}"; shift 2 ;;
         --fixture-transcript-output) fixture_transcript_output="${2:-}"; shift 2 ;;
+        --test-only-action-registry-override) test_only_action_registry_override="${2:-}"; shift 2 ;;
         -h|--help) usage ;;
         *) usage ;;
     esac
@@ -74,6 +77,12 @@ if [[ -n "$fixture_transcript_output" ]]; then
     [[ ! -e "$fixture_transcript_output" && ! -L "$fixture_transcript_output" ]] ||
         fail "fixture transcript output must not already exist"
 fi
+if [[ -n "$test_only_action_registry_override" ]]; then
+    [[ "$test_only_action_registry_override" == /* ]] ||
+        fail "test-only action registry override path must be absolute"
+    [[ -f "$test_only_action_registry_override" && ! -L "$test_only_action_registry_override" ]] ||
+        fail "test-only action registry override must be a regular file"
+fi
 [[ -n "$android_serial" ]] || fail "ANDROID_SERIAL is required"
 if [[ ! "$fixture_port" =~ ^[0-9]+$ ]] || ((fixture_port < 1 || fixture_port > 65535)); then
     fail "RIPDPI_FIXTURE_CONTROL_PORT must be in 1..65535"
@@ -89,17 +98,20 @@ source_root="$(cd "$script_dir/../.." && pwd)"
 validator="$source_root/scripts/ci/check_android_network_action_receipt.py"
 [[ -f "$validator" ]] || fail "receipt validator is unavailable"
 descriptor="$({
-    python3 - "$validator" "$requested_gate" <<'PY'
+    python3 - "$validator" "$requested_gate" "$test_only_action_registry_override" <<'PY'
 import importlib.util
+from pathlib import Path
 import sys
 
-path, gate_id = sys.argv[1:]
+path, gate_id, override = sys.argv[1:]
 spec = importlib.util.spec_from_file_location("network_action_receipt", path)
 if spec is None or spec.loader is None:
     raise SystemExit(1)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-descriptor = module.load_action_registry().get(gate_id)
+descriptor = module.load_action_registry(
+    test_only_ready_override=Path(override) if override else None
+).get(gate_id)
 if descriptor is None:
     raise SystemExit(1)
 print("\t".join((
@@ -323,13 +335,19 @@ private_receipt="$temp_dir/receipt.json"
 adb_device shell run-as com.poyka.ripdpi cat "files/$receipt_file" >"$private_receipt" 2>/dev/null ||
     fail "action receipt readback failed"
 chmod 0600 "$private_receipt"
-python3 "$validator" "$private_receipt" \
-    --gate-id "$gate_id" \
-    --source-sha "$source_sha" \
-    --correlation-id "$correlation_id" \
-    --client-artifact-sha256 "$client_artifact_sha256" \
-    --test-artifact-sha256 "$test_artifact_sha256" \
-    --fixture-identity-sha256 "$fixture_identity_sha256" >"$temp_dir/receipt-sha256.txt" ||
+validator_args=(
+    "$validator" "$private_receipt"
+    --gate-id "$gate_id"
+    --source-sha "$source_sha"
+    --correlation-id "$correlation_id"
+    --client-artifact-sha256 "$client_artifact_sha256"
+    --test-artifact-sha256 "$test_artifact_sha256"
+    --fixture-identity-sha256 "$fixture_identity_sha256"
+)
+if [[ -n "$test_only_action_registry_override" ]]; then
+    validator_args+=(--test-only-ready-override "$test_only_action_registry_override")
+fi
+python3 "${validator_args[@]}" >"$temp_dir/receipt-sha256.txt" ||
     fail "action receipt was missing, partial, or malformed"
 
 private_transcript=""

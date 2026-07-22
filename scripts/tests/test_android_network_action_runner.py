@@ -19,6 +19,9 @@ RUNNER = ROOT / "test-lab/scripts/run-android-network-evidence-action.sh"
 VALIDATOR = ROOT / "scripts/ci/check_android_network_action_receipt.py"
 ACTION_MAP = ROOT / "quality/release-gates/android-network-evidence-actions.json"
 LOCK_HELPER = ROOT / "test-lab/scripts/run-with-android-device-lock.py"
+READY_OVERRIDE = (
+    ROOT / "scripts/tests/fixtures/android-network-evidence-test-ready-override.json"
+)
 SPEC = importlib.util.spec_from_file_location(
     "android_network_action_receipt", VALIDATOR
 )
@@ -442,6 +445,7 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
         tamper_receipt: bool = False,
         receipt_output: Path | None = None,
         gate_id: str = module.GATE_ID,
+        test_only_ready_override: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -481,25 +485,33 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
                     "RIPDPI_ANDROID_DEVICE_LOCK_ROOT": str(root / "device-locks"),
                 }
             )
+            command = [
+                "bash",
+                str(RUNNER),
+                "--gate-id",
+                gate_id,
+                "--correlation-id",
+                CORRELATION_ID,
+                "--source-sha",
+                SOURCE_SHA,
+                "--client-artifact-sha256",
+                client_sha,
+                "--test-artifact-sha256",
+                test_sha,
+                "--fixture-identity-sha256",
+                FIXTURE_SHA,
+                "--receipt-output",
+                str(output),
+            ]
+            if test_only_ready_override is not None:
+                command.extend(
+                    [
+                        "--test-only-action-registry-override",
+                        str(test_only_ready_override),
+                    ]
+                )
             result = subprocess.run(
-                [
-                    "bash",
-                    str(RUNNER),
-                    "--gate-id",
-                    gate_id,
-                    "--correlation-id",
-                    CORRELATION_ID,
-                    "--source-sha",
-                    SOURCE_SHA,
-                    "--client-artifact-sha256",
-                    client_sha,
-                    "--test-artifact-sha256",
-                    test_sha,
-                    "--fixture-identity-sha256",
-                    FIXTURE_SHA,
-                    "--receipt-output",
-                    str(output),
-                ],
+                command,
                 cwd=ROOT,
                 env=environment,
                 text=True,
@@ -515,6 +527,11 @@ class AndroidNetworkActionRunnerTest(unittest.TestCase):
         result = self.run_runner()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("action descriptor is not production ready", result.stderr)
+
+    def test_source_owned_ready_override_enables_local_action_run(self) -> None:
+        result = self.run_runner(test_only_ready_override=READY_OVERRIDE)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Android network evidence action passed", result.stdout)
 
     def test_every_registry_descriptor_runs_only_its_bound_selector(self) -> None:
         for gate_id in module.load_action_registry():
