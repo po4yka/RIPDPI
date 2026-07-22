@@ -344,15 +344,31 @@ reachable from the Mac, sharing an Internet exit, or observing unrelated
 traffic is not proof that a router can see the Pixel's packets.
 
 The backend deliberately emits private-capture metadata rather than a release
-observation. It is not yet listed in `network-evidence-producers.json`: the ten
-gate-specific Android actions, packet oracles, ordinary-results producer, and
-signed release APK are still missing. Copying its digest into the producer
+observation. `test-lab/scripts/network-evidence-pcap-oracle.py` now provides the
+source-owned raw-artifact boundary for later hooks: it validates both canonical
+capture-metadata documents and a strict private action ledger, parses bounded
+classic PCAP for Ethernet, raw IP, Linux SLL, and Linux SLL2 (including a bounded
+VLAN stack), aligns each vantage by its action/outcome packet markers rather than
+mixing local and remote clocks, and derives canonical mode-0600 unstamped
+observations without publishing addresses or payloads. Caller-supplied counters
+and verdicts are rejected; snap-length truncation becomes a capture error.
+
+The oracle's only implemented semantic rule is a generic marker-pair self-test,
+and it explicitly rejects that rule for every Android dual-vantage release gate.
+It is not yet listed in `network-evidence-producers.json`: the ten gate-specific
+Android action/semantic seams, ordinary-results raw verifier, and signed release
+APK are still missing. Copying its digest into the producer
 allowlist before those pieces exist would turn a capture plumbing check into
 false release evidence.
 On success, the utility leaves the raw PCAP at the explicitly requested private
 path for the future gate-specific analyzer. The operator must delete it after
 analysis; unlike the integrated runner scratch directory, this standalone
 utility does not apply an automatic successful-run retention policy.
+
+Network-switch scenarios require a separately authorized operator action and a
+source-owned action receipt. Capture or workload tooling must not change Wi-Fi,
+cellular, routes, DNS, Private DNS, VPN state, or airplane mode on its own; an
+absent receipt remains release-blocking.
 
 The fixed hooks receive only a correlation digest, source SHA, marker paths,
 artifact path and digest, and output paths. The workload emits a strict v2
