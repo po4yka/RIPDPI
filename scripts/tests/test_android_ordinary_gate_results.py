@@ -464,16 +464,18 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             output_parent.mkdir(mode=0o700)
             output = output_parent / "results.json"
             app_before = app_apk.read_bytes()
-            load_artifact_root = raw_evidence.load_artifact_root_for_output
+            load_manifest = raw_evidence.load_private_manifest_descriptor
 
-            def move_app_during_manifest_load(path: Path) -> Path:
-                artifact_root = load_artifact_root(path)
+            def move_app_during_manifest_load(
+                descriptor: int, metadata: os.stat_result
+            ) -> tuple[dict, bytes]:
+                loaded = load_manifest(descriptor, metadata)
                 app_apk.rename(output)
-                return artifact_root
+                return loaded
 
             with mock.patch.object(
                 raw_evidence,
-                "load_artifact_root_for_output",
+                "load_private_manifest_descriptor",
                 side_effect=move_app_during_manifest_load,
             ):
                 status = producer.main(
@@ -529,6 +531,180 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertFalse(artifact_root.exists())
             self.assertEqual(output.read_bytes(), artifact_before)
+
+    def test_transient_decoy_manifest_cannot_redirect_output_exclusion(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_root = Path(manifest["artifactRoot"])
+            artifact = manifest["actions"][0]["artifacts"][0]
+            output = artifact_root / artifact["path"]
+            artifact_before = output.read_bytes()
+            decoy_root = directory / "decoy-root"
+            decoy_root.mkdir(mode=0o700)
+            decoy_manifest = directory / "decoy-manifest.json"
+            decoy = dict(manifest)
+            decoy["artifactRoot"] = str(decoy_root)
+            self.rewrite_manifest(decoy_manifest, decoy)
+            saved_manifest = directory / "saved-manifest.json"
+            load_manifest = raw_evidence.load_private_manifest_descriptor
+
+            def transient_decoy(
+                descriptor: int, metadata: os.stat_result
+            ) -> tuple[dict, bytes]:
+                manifest_path.rename(saved_manifest)
+                decoy_manifest.rename(manifest_path)
+                try:
+                    return load_manifest(descriptor, metadata)
+                finally:
+                    manifest_path.rename(decoy_manifest)
+                    saved_manifest.rename(manifest_path)
+
+            with mock.patch.object(
+                raw_evidence,
+                "load_private_manifest_descriptor",
+                side_effect=transient_decoy,
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 2)
+            self.assertEqual(output.read_bytes(), artifact_before)
+
+    def test_artifact_swap_after_read_is_rejected_before_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_root = Path(manifest["artifactRoot"])
+            target = artifact_root / manifest["actions"][0]["artifacts"][0]["path"]
+            replacement_bytes = target.read_bytes()
+            moved = artifact_root / "moved-original"
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            listdir = os.listdir
+            swapped = False
+
+            def swap_after_inventory(path: int) -> list[str]:
+                nonlocal swapped
+                entries = listdir(path)
+                if not swapped:
+                    swapped = True
+                    target.rename(moved)
+                    target.write_bytes(replacement_bytes)
+                    target.chmod(0o600)
+                return entries
+
+            with (
+                mock.patch.object(
+                    raw_evidence.os, "listdir", side_effect=swap_after_inventory
+                ),
+                mock.patch.object(
+                    producer, "current_head_sha", return_value=self.source_sha
+                ),
+                mock.patch.object(
+                    producer, "current_source_sha", return_value=self.source_sha
+                ),
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            results = json.loads(output.read_text())
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL" and "ARTIFACT_CHANGED" in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+
+    def test_artifact_swap_during_publication_replaces_provenance_with_failure(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_root = Path(manifest["artifactRoot"])
+            target = artifact_root / manifest["actions"][0]["artifacts"][0]["path"]
+            replacement_bytes = target.read_bytes()
+            moved = artifact_root / "moved-during-publication"
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            publish_results = producer.publish_results
+            swapped = False
+
+            def swap_before_provenance_publish(
+                destination: producer.OutputDestination,
+                path: Path,
+                value: dict,
+            ) -> bool:
+                nonlocal swapped
+                if "rawBundleProvenance" in value and not swapped:
+                    swapped = True
+                    target.rename(moved)
+                    target.write_bytes(replacement_bytes)
+                    target.chmod(0o600)
+                return publish_results(destination, path, value)
+
+            with (
+                mock.patch.object(
+                    producer,
+                    "publish_results",
+                    side_effect=swap_before_provenance_publish,
+                ),
+                mock.patch.object(
+                    producer, "current_head_sha", return_value=self.source_sha
+                ),
+                mock.patch.object(
+                    producer, "current_source_sha", return_value=self.source_sha
+                ),
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 1)
+            results = json.loads(output.read_text())
+            self.assertNotIn("rawBundleProvenance", results)
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL" and "ARTIFACT_CHANGED" in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
 
     def test_apk_hashing_streams_without_whole_file_helper(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:

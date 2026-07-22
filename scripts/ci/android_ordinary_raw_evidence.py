@@ -43,6 +43,57 @@ class ActionSpec:
     blocker_code: str
 
 
+@dataclass
+class PinnedArtifact:
+    relative: str
+    descriptor: int
+    metadata: os.stat_result
+    digest: str
+    label: str
+
+    def revalidate(self, root_descriptor: int) -> None:
+        try:
+            current = os.stat(
+                self.relative, dir_fd=root_descriptor, follow_symlinks=False
+            )
+        except OSError as error:
+            raise RawEvidenceError(
+                "ARTIFACT_CHANGED", f"{self.label} path changed after verification"
+            ) from error
+        if _stable_metadata(current) != _stable_metadata(self.metadata):
+            raise RawEvidenceError(
+                "ARTIFACT_CHANGED", f"{self.label} path changed after verification"
+            )
+        if (
+            hashlib.sha256(
+                _read_descriptor(self.descriptor, self.metadata, label=self.label)
+            ).hexdigest()
+            != self.digest
+        ):
+            raise RawEvidenceError(
+                "ARTIFACT_CHANGED", f"{self.label} content changed after verification"
+            )
+
+    def close(self) -> None:
+        os.close(self.descriptor)
+
+
+@dataclass
+class ValidatedRawBundle:
+    provenance: dict[str, Any]
+    root_descriptor: int
+    artifacts: list[PinnedArtifact]
+
+    def revalidate(self) -> None:
+        for artifact in self.artifacts:
+            artifact.revalidate(self.root_descriptor)
+
+    def close(self) -> None:
+        for artifact in self.artifacts:
+            artifact.close()
+        self.artifacts.clear()
+
+
 ACTION_SPECS = (
     ActionSpec(
         "ipv4-only",
@@ -169,6 +220,7 @@ def _open_absolute_regular(
 
 
 def _read_descriptor(descriptor: int, metadata: os.stat_result, *, label: str) -> bytes:
+    os.lseek(descriptor, 0, os.SEEK_SET)
     with os.fdopen(descriptor, "rb", closefd=False) as source:
         raw = source.read(metadata.st_size + 1)
     if len(raw) != metadata.st_size or _stable_metadata(
@@ -202,10 +254,7 @@ def read_regular_file(path: Path, *, label: str, maximum: int, private: bool) ->
         os.close(descriptor)
 
 
-def load_private_manifest(path: Path) -> tuple[dict[str, Any], bytes]:
-    raw = read_regular_file(
-        path, label="raw bundle manifest", maximum=MAX_MANIFEST_BYTES, private=True
-    )
+def parse_private_manifest(raw: bytes) -> dict[str, Any]:
     try:
         manifest = json.loads(raw, object_pairs_hook=reject_duplicate_keys)
     except RawEvidenceError:
@@ -218,35 +267,74 @@ def load_private_manifest(path: Path) -> tuple[dict[str, Any], bytes]:
         raise RawEvidenceError("MANIFEST_INVALID", "manifest must be an object")
     if raw != canonical_json_bytes(manifest):
         raise RawEvidenceError("MANIFEST_NONCANONICAL", "manifest is not canonical")
-    return manifest, raw
+    return manifest
+
+
+def load_private_manifest_descriptor(
+    descriptor: int, metadata: os.stat_result
+) -> tuple[dict[str, Any], bytes]:
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise RawEvidenceError(
+            "PATH_INVALID", "raw bundle manifest must be a single-link regular file"
+        )
+    if stat.S_IMODE(metadata.st_mode) != 0o600:
+        raise RawEvidenceError(
+            "PRIVACY_INVALID", "raw bundle manifest mode must be 0600"
+        )
+    if metadata.st_size <= 0 or metadata.st_size > MAX_MANIFEST_BYTES:
+        raise RawEvidenceError(
+            "SIZE_INVALID", "raw bundle manifest size is outside its bound"
+        )
+    raw = _read_descriptor(descriptor, metadata, label="raw bundle manifest")
+    return parse_private_manifest(raw), raw
+
+
+def load_private_manifest(path: Path) -> tuple[dict[str, Any], bytes]:
+    descriptor, metadata = _open_absolute_regular(
+        path, label="raw bundle manifest", maximum=MAX_MANIFEST_BYTES, private=True
+    )
+    try:
+        return load_private_manifest_descriptor(descriptor, metadata)
+    finally:
+        os.close(descriptor)
+
+
+def sha256_descriptor(
+    descriptor: int, metadata: os.stat_result, label: str, maximum: int = MAX_APK_BYTES
+) -> str:
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise RawEvidenceError(
+            "PATH_INVALID", f"{label} must be a single-link regular file"
+        )
+    if metadata.st_size <= 0 or metadata.st_size > maximum:
+        raise RawEvidenceError("SIZE_INVALID", f"{label} size is outside its bound")
+    digest = hashlib.sha256()
+    total = 0
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    with os.fdopen(descriptor, "rb", closefd=False) as source:
+        while chunk := source.read(1024 * 1024):
+            total += len(chunk)
+            if total > metadata.st_size:
+                raise RawEvidenceError("ARTIFACT_CHANGED", f"{label} grew while read")
+            digest.update(chunk)
+    if total != metadata.st_size or _stable_metadata(
+        os.fstat(descriptor)
+    ) != _stable_metadata(metadata):
+        raise RawEvidenceError("ARTIFACT_CHANGED", f"{label} changed while read")
+    return digest.hexdigest()
 
 
 def sha256_file(path: Path, label: str) -> str:
     descriptor, metadata = _open_absolute_regular(
         path, label=label, maximum=MAX_APK_BYTES, private=False
     )
-    digest = hashlib.sha256()
-    total = 0
     try:
-        with os.fdopen(descriptor, "rb", closefd=False) as source:
-            while chunk := source.read(1024 * 1024):
-                total += len(chunk)
-                if total > metadata.st_size:
-                    raise RawEvidenceError(
-                        "ARTIFACT_CHANGED", f"{label} grew while read"
-                    )
-                digest.update(chunk)
-        if total != metadata.st_size or _stable_metadata(
-            os.fstat(descriptor)
-        ) != _stable_metadata(metadata):
-            raise RawEvidenceError("ARTIFACT_CHANGED", f"{label} changed while read")
+        return sha256_descriptor(descriptor, metadata, label)
     finally:
         os.close(descriptor)
-    return digest.hexdigest()
 
 
-def load_artifact_root_for_output(manifest_path: Path) -> Path:
-    manifest, _ = load_private_manifest(manifest_path)
+def artifact_root_from_manifest(manifest: dict[str, Any]) -> Path:
     root_value = manifest.get("artifactRoot")
     if not isinstance(root_value, str) or not Path(root_value).is_absolute():
         raise RawEvidenceError(
@@ -254,6 +342,11 @@ def load_artifact_root_for_output(manifest_path: Path) -> Path:
             "artifactRoot must be absolute before results output can be written",
         )
     return Path(os.path.realpath(root_value))
+
+
+def load_artifact_root_for_output(manifest_path: Path) -> Path:
+    manifest, _ = load_private_manifest(manifest_path)
+    return artifact_root_from_manifest(manifest)
 
 
 def _open_artifact_root(path: Path) -> int:
@@ -281,9 +374,21 @@ def _open_artifact_root(path: Path) -> int:
     return descriptor
 
 
+def validate_artifact_root_descriptor(descriptor: int) -> None:
+    metadata = os.fstat(descriptor)
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise RawEvidenceError("PATH_INVALID", "artifactRoot must be a directory")
+    if stat.S_IMODE(metadata.st_mode) != 0o700:
+        raise RawEvidenceError("PRIVACY_INVALID", "artifactRoot mode must be 0700")
+    if metadata.st_uid != os.getuid():
+        raise RawEvidenceError(
+            "PRIVACY_INVALID", "artifactRoot must be owned by the current user"
+        )
+
+
 def _read_private_artifact(
     root_descriptor: int, entry: dict[str, Any], *, label: str
-) -> bytes:
+) -> PinnedArtifact:
     require_exact_keys(
         entry,
         {
@@ -321,26 +426,32 @@ def _read_private_artifact(
         raise RawEvidenceError(
             "ARTIFACT_MISSING", f"{label} is not readable"
         ) from error
-    try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-            raise RawEvidenceError(
-                "PATH_INVALID", f"{label} must be a single-link regular file"
-            )
-        if stat.S_IMODE(metadata.st_mode) != 0o600:
-            raise RawEvidenceError("PRIVACY_INVALID", f"{label} mode must be 0600")
-        if metadata.st_size <= 0 or metadata.st_size > MAX_ARTIFACT_BYTES:
-            raise RawEvidenceError("SIZE_INVALID", f"{label} size is outside its bound")
-        raw = _read_descriptor(descriptor, metadata, label=label)
-    finally:
+    metadata = os.fstat(descriptor)
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
         os.close(descriptor)
+        raise RawEvidenceError(
+            "PATH_INVALID", f"{label} must be a single-link regular file"
+        )
+    if stat.S_IMODE(metadata.st_mode) != 0o600:
+        os.close(descriptor)
+        raise RawEvidenceError("PRIVACY_INVALID", f"{label} mode must be 0600")
+    if metadata.st_size <= 0 or metadata.st_size > MAX_ARTIFACT_BYTES:
+        os.close(descriptor)
+        raise RawEvidenceError("SIZE_INVALID", f"{label} size is outside its bound")
+    try:
+        raw = _read_descriptor(descriptor, metadata, label=label)
+    except Exception:
+        os.close(descriptor)
+        raise
     if len(raw) != size:
+        os.close(descriptor)
         raise RawEvidenceError("SIZE_MISMATCH", f"{label} size does not match manifest")
     if hashlib.sha256(raw).hexdigest() != expected_digest:
+        os.close(descriptor)
         raise RawEvidenceError(
             "DIGEST_MISMATCH", f"{label} digest does not match manifest"
         )
-    return raw
+    return PinnedArtifact(relative, descriptor, metadata, expected_digest, label)
 
 
 def semantic_blockers_by_gate() -> dict[str, str]:
@@ -349,16 +460,20 @@ def semantic_blockers_by_gate() -> dict[str, str]:
     }
 
 
-def validate_raw_bundle(
-    manifest_path: Path,
+def validate_raw_bundle_pinned(
+    manifest: dict[str, Any],
+    manifest_raw: bytes,
     *,
     expected_source_sha: str,
-    app_apk: Path,
-    test_apk: Path,
+    app_descriptor: int,
+    app_metadata: os.stat_result,
+    test_descriptor: int,
+    test_metadata: os.stat_result,
+    root_descriptor: int,
     now_epoch_ms: int | None = None,
-) -> dict[str, Any]:
+) -> ValidatedRawBundle:
     require_digest(expected_source_sha, SHA1_RE, "expected sourceSha")
-    manifest, manifest_raw = load_private_manifest(manifest_path)
+    validate_artifact_root_descriptor(root_descriptor)
     require_exact_keys(
         manifest,
         {
@@ -391,15 +506,14 @@ def validate_raw_bundle(
     test_digest = require_digest(manifest["testApkSha256"], SHA256_RE, "testApkSha256")
     if app_digest == test_digest:
         raise RawEvidenceError("APK_BINDING_INVALID", "app and test APKs must differ")
-    if sha256_file(app_apk, "app APK") != app_digest:
+    if sha256_descriptor(app_descriptor, app_metadata, "app APK") != app_digest:
         raise RawEvidenceError("APK_DIGEST_MISMATCH", "app APK digest does not match")
-    if sha256_file(test_apk, "test APK") != test_digest:
+    if sha256_descriptor(test_descriptor, test_metadata, "test APK") != test_digest:
         raise RawEvidenceError("APK_DIGEST_MISMATCH", "test APK digest does not match")
 
-    root_value = manifest["artifactRoot"]
-    if not isinstance(root_value, str):
+    if not isinstance(manifest["artifactRoot"], str):
         raise RawEvidenceError("MANIFEST_INVALID", "artifactRoot must be a string")
-    root_descriptor = _open_artifact_root(Path(root_value))
+    pinned_artifacts: list[PinnedArtifact] = []
     try:
         actions = manifest["actions"]
         if not isinstance(actions, list) or len(actions) != len(ACTION_SPECS):
@@ -491,11 +605,12 @@ def validate_raw_bundle(
                     raise RawEvidenceError(
                         "INVENTORY_MISMATCH", "artifact filenames must be unique"
                     )
-                raw = _read_private_artifact(
+                pinned_artifact = _read_private_artifact(
                     root_descriptor, artifact, label=artifact_label
                 )
+                pinned_artifacts.append(pinned_artifact)
                 expected_filenames.add(relative)
-                total_bytes += len(raw)
+                total_bytes += pinned_artifact.metadata.st_size
                 if total_bytes > MAX_BUNDLE_BYTES:
                     raise RawEvidenceError(
                         "SIZE_INVALID", "raw artifact bundle exceeds its size bound"
@@ -506,19 +621,88 @@ def validate_raw_bundle(
                 "INVENTORY_MISMATCH",
                 "artifactRoot entries do not exactly match the manifest inventory",
             )
-    finally:
-        os.close(root_descriptor)
+        for pinned_artifact in pinned_artifacts:
+            pinned_artifact.revalidate(root_descriptor)
+    except Exception:
+        for pinned_artifact in pinned_artifacts:
+            pinned_artifact.close()
+        raise
 
     # Rebind mutable inputs after the complete read. A future semantic oracle may
     # only consume a bundle whose source and APK identities remained stable.
-    if (
-        sha256_file(app_apk, "app APK") != app_digest
-        or sha256_file(test_apk, "test APK") != test_digest
-    ):
-        raise RawEvidenceError("APK_CHANGED", "an APK changed during verification")
-    return {
-        "manifestSha256": hashlib.sha256(manifest_raw).hexdigest(),
-        "artifactCount": len(ACTION_SPECS) * len(ARTIFACT_KINDS),
-        "actionCount": len(ACTION_SPECS),
-        "semanticBlockers": semantic_blockers_by_gate(),
-    }
+    try:
+        if (
+            sha256_descriptor(app_descriptor, app_metadata, "app APK") != app_digest
+            or sha256_descriptor(test_descriptor, test_metadata, "test APK")
+            != test_digest
+        ):
+            raise RawEvidenceError("APK_CHANGED", "an APK changed during verification")
+    except Exception:
+        for pinned_artifact in pinned_artifacts:
+            pinned_artifact.close()
+        raise
+    return ValidatedRawBundle(
+        provenance={
+            "manifestSha256": hashlib.sha256(manifest_raw).hexdigest(),
+            "artifactCount": len(ACTION_SPECS) * len(ARTIFACT_KINDS),
+            "actionCount": len(ACTION_SPECS),
+            "semanticBlockers": semantic_blockers_by_gate(),
+        },
+        root_descriptor=root_descriptor,
+        artifacts=pinned_artifacts,
+    )
+
+
+def validate_raw_bundle(
+    manifest_path: Path,
+    *,
+    expected_source_sha: str,
+    app_apk: Path,
+    test_apk: Path,
+    now_epoch_ms: int | None = None,
+) -> dict[str, Any]:
+    manifest_descriptor, manifest_metadata = _open_absolute_regular(
+        manifest_path,
+        label="raw bundle manifest",
+        maximum=MAX_MANIFEST_BYTES,
+        private=True,
+    )
+    app_descriptor = test_descriptor = root_descriptor = -1
+    try:
+        manifest, manifest_raw = load_private_manifest_descriptor(
+            manifest_descriptor, manifest_metadata
+        )
+        app_descriptor, app_metadata = _open_absolute_regular(
+            app_apk, label="app APK", maximum=MAX_APK_BYTES, private=False
+        )
+        test_descriptor, test_metadata = _open_absolute_regular(
+            test_apk, label="test APK", maximum=MAX_APK_BYTES, private=False
+        )
+        root_value = manifest.get("artifactRoot")
+        if not isinstance(root_value, str):
+            raise RawEvidenceError("MANIFEST_INVALID", "artifactRoot must be a string")
+        root_descriptor = _open_artifact_root(Path(root_value))
+        validated = validate_raw_bundle_pinned(
+            manifest,
+            manifest_raw,
+            expected_source_sha=expected_source_sha,
+            app_descriptor=app_descriptor,
+            app_metadata=app_metadata,
+            test_descriptor=test_descriptor,
+            test_metadata=test_metadata,
+            root_descriptor=root_descriptor,
+            now_epoch_ms=now_epoch_ms,
+        )
+        try:
+            validated.revalidate()
+            return validated.provenance
+        finally:
+            validated.close()
+    finally:
+        os.close(manifest_descriptor)
+        if app_descriptor >= 0:
+            os.close(app_descriptor)
+        if test_descriptor >= 0:
+            os.close(test_descriptor)
+        if root_descriptor >= 0:
+            os.close(root_descriptor)

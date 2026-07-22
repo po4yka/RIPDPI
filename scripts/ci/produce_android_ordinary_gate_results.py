@@ -63,10 +63,11 @@ class EvidenceError(ValueError):
 
 
 class PinnedPath:
-    def __init__(self, path: Path, fd: int, identity: tuple[int, int]) -> None:
+    def __init__(self, path: Path, fd: int, metadata: os.stat_result) -> None:
         self.path = path
         self.fd = fd
-        self.identity = identity
+        self.metadata = metadata
+        self.identity = (metadata.st_dev, metadata.st_ino)
 
     def require_unchanged(self) -> None:
         try:
@@ -75,10 +76,29 @@ class PinnedPath:
             raise EvidenceError(
                 "INPUT_CHANGED", "an evidence input changed after it was pinned"
             ) from error
-        if (
+        stable = (
             metadata.st_dev,
             metadata.st_ino,
-        ) != self.identity or not stat.S_ISREG(metadata.st_mode):
+            metadata.st_mode,
+            metadata.st_nlink,
+            metadata.st_uid,
+            metadata.st_gid,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        )
+        expected = (
+            self.metadata.st_dev,
+            self.metadata.st_ino,
+            self.metadata.st_mode,
+            self.metadata.st_nlink,
+            self.metadata.st_uid,
+            self.metadata.st_gid,
+            self.metadata.st_size,
+            self.metadata.st_mtime_ns,
+            self.metadata.st_ctime_ns,
+        )
+        if stable != expected or not stat.S_ISREG(metadata.st_mode):
             raise EvidenceError(
                 "INPUT_CHANGED", "an evidence input changed after it was pinned"
             )
@@ -159,7 +179,7 @@ def pin_input(path: Path) -> PinnedPath:
         raise EvidenceError(
             "INPUT_PATH_INVALID", "evidence inputs must be single-link regular files"
         )
-    return PinnedPath(path, fd, (metadata.st_dev, metadata.st_ino))
+    return PinnedPath(path, fd, metadata)
 
 
 def pin_artifact_root(path: Path) -> PinnedDirectory:
@@ -435,14 +455,23 @@ def _produce_results(
     args: argparse.Namespace,
     pinned_inputs: tuple[PinnedPath, ...],
     artifact_root_guards: list[PinnedDirectory],
+    raw_bundle_guards: list[android_ordinary_raw_evidence.ValidatedRawBundle],
 ) -> int:
     destination: OutputDestination | None = None
     artifact_root_guard: PinnedDirectory | None = None
+    manifest: dict[str, Any] | None = None
+    manifest_raw: bytes | None = None
     try:
         artifact_root = None
         if args.raw_manifest is not None:
-            artifact_root = android_ordinary_raw_evidence.load_artifact_root_for_output(
-                args.raw_manifest
+            manifest_input = pinned_inputs[0]
+            manifest, manifest_raw = (
+                android_ordinary_raw_evidence.load_private_manifest_descriptor(
+                    manifest_input.fd, manifest_input.metadata
+                )
+            )
+            artifact_root = android_ordinary_raw_evidence.artifact_root_from_manifest(
+                manifest
             )
             for pinned_input in pinned_inputs:
                 pinned_input.require_unchanged()
@@ -517,17 +546,23 @@ def _produce_results(
                 reason="private raw bundle and exact app/test APKs are required",
             )
         else:
-            provenance = android_ordinary_raw_evidence.validate_raw_bundle(
-                args.raw_manifest,
+            assert manifest is not None and manifest_raw is not None
+            raw_validation = android_ordinary_raw_evidence.validate_raw_bundle_pinned(
+                manifest,
+                manifest_raw,
                 expected_source_sha=source_sha,
-                app_apk=args.app_apk,
-                test_apk=args.test_apk,
+                app_descriptor=pinned_inputs[1].fd,
+                app_metadata=pinned_inputs[1].metadata,
+                test_descriptor=pinned_inputs[2].fd,
+                test_metadata=pinned_inputs[2].metadata,
+                root_descriptor=artifact_root_guard.fd,
             )
+            raw_bundle_guards.append(raw_validation)
             if current_source_sha() != source_sha:
                 raise EvidenceError(
                     "SOURCE_CHANGED", "source changed during raw bundle verification"
                 )
-            results = semantic_failure_results(source_sha, provenance)
+            results = semantic_failure_results(source_sha, raw_validation.provenance)
     except Exception as error:  # noqa: BLE001 - finalize every provenance failure
         if isinstance(error, EvidenceError):
             results = all_failure_results(
@@ -545,15 +580,28 @@ def _produce_results(
             )
     try:
         require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+        for raw_bundle_guard in raw_bundle_guards:
+            raw_bundle_guard.revalidate()
     except EvidenceError as error:
         destination.close()
         print(
             f"Android ordinary producer refused changed input: {error}", file=sys.stderr
         )
         return 2
+    except android_ordinary_raw_evidence.RawEvidenceError as error:
+        results = all_failure_results(source_sha, code=error.code, reason=error.message)
     if not publish_results(destination, args.output, results):
         destination.close()
         return 2
+    try:
+        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+        for raw_bundle_guard in raw_bundle_guards:
+            raw_bundle_guard.revalidate()
+    except (EvidenceError, android_ordinary_raw_evidence.RawEvidenceError) as error:
+        results = all_failure_results(source_sha, code=error.code, reason=error.message)
+        if not publish_results(destination, args.output, results):
+            destination.close()
+            return 2
     destination.close()
     print("Android ordinary release evidence is NO-SHIP:", file=sys.stderr)
     for gate_id in ORDINARY_GATE_IDS:
@@ -568,9 +616,14 @@ def produce_results(
     args: argparse.Namespace, pinned_inputs: tuple[PinnedPath, ...]
 ) -> int:
     artifact_root_guards: list[PinnedDirectory] = []
+    raw_bundle_guards: list[android_ordinary_raw_evidence.ValidatedRawBundle] = []
     try:
-        return _produce_results(args, pinned_inputs, artifact_root_guards)
+        return _produce_results(
+            args, pinned_inputs, artifact_root_guards, raw_bundle_guards
+        )
     finally:
+        for raw_bundle_guard in raw_bundle_guards:
+            raw_bundle_guard.close()
         for artifact_root_guard in artifact_root_guards:
             artifact_root_guard.close()
 
