@@ -93,34 +93,44 @@ fun LogRow(
             )
         }
         if (metadataChips.isNotEmpty()) {
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val chipMaxWidth = maxWidth
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            LogMetadataChips(metadataChips)
+        }
+    }
+}
+
+@Composable
+private fun LogMetadataChips(metadataChips: ImmutableList<String>) {
+    val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
+    val spacing = RipDpiThemeTokens.spacing
+    val typeScale = RipDpiThemeTokens.type
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val chipMaxWidth = maxWidth
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            metadataChips.forEach { chip ->
+                Box(
+                    modifier =
+                        Modifier
+                            .widthIn(max = chipMaxWidth)
+                            .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl)
+                            .padding(
+                                horizontal = components.rows.compactPillHorizontalPadding,
+                                vertical = components.rows.compactPillVerticalPadding,
+                            ),
                 ) {
-                    metadataChips.forEach { chip ->
-                        Box(
-                            modifier =
-                                Modifier
-                                    .widthIn(max = chipMaxWidth)
-                                    .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl)
-                                    .padding(
-                                        horizontal = components.rows.compactPillHorizontalPadding,
-                                        vertical = components.rows.compactPillVerticalPadding,
-                                    ),
-                        ) {
-                            androidx.compose.material3.Text(
-                                text = chip,
-                                style = typeScale.smallLabel,
-                                color = colors.mutedForeground,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                softWrap = false,
-                            )
-                        }
-                    }
+                    androidx.compose.material3.Text(
+                        text = chip,
+                        style = typeScale.smallLabel,
+                        color = colors.mutedForeground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false,
+                    )
                 }
             }
         }
