@@ -14,7 +14,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
 | high | outbound | [Package libXray for Android ABIs](issues/package-libxray-for-android-abis.md) | unassigned | 2026-07-14 |
-| high | testing | [Add a redacted dual-vantage network evidence manifest](issues/add-dual-vantage-redacted-network-evidence-manifest.md) | Evidence contract lane | 2026-07-17 |
+| high | testing | [Add a redacted dual-vantage network evidence manifest](issues/add-dual-vantage-redacted-network-evidence-manifest.md) | Evidence contract lane | 2026-07-22 |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | unassigned | 2026-06-05 |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | unassigned | 2026-06-10 |
 | high | transport | [Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)](issues/wire-standalone-amneziawg-profile-transport.md) | unassigned | 2026-06-21 |
@@ -34,11 +34,12 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 | medium | ui | [Disable Simple disconnect controls under Android lockdown](issues/disable-simple-disconnect-under-android-lockdown.md) | Codex Simple lockdown lane | 2026-07-18 |
 
-## Review (5)
+## Review (6)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | high | diagnostics | [Add connection-concurrency as an independent evidence axis](issues/add-connection-concurrency-evidence-axis.md) | Codex | 2026-07-10 |
+| high | testing | [Produce Android ordinary release-gate results locally](issues/produce-android-ordinary-release-gate-results.md) | Android ordinary gate producer lane | 2026-07-22 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | high | transport | [Add a parallel active-probe race for initial transport selection](issues/parallel-active-probe-race-initial-transport-selection.md) | Codex | 2026-07-10 |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | unassigned | 2026-07-14 |
