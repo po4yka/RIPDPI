@@ -3303,8 +3303,8 @@ Quelle: %2$s</string>
     <string name="asset_provider_failure_unexpected">Der Asset-Vorgang ist fehlgeschlagen. Versuche es erneut.</string>
     <string name="asset_provider_persistence_failed_title">Anbietereinstellungen nicht gespeichert</string>
     <string name="asset_provider_persistence_failed_body">RIPDPI konnte diese Einstellungen nicht speichern. Tippe, um es vor dem Verlassen erneut zu versuchen.</string>
-    <string name="asset_provider_exit_pending_title">Asset-Vorgang wird abgeschlossen</string>
-    <string name="asset_provider_exit_pending_body">RIPDPI kehrt zurück, sobald der aktive Vorgang beendet und die Anbieter-Einstellungen gespeichert sind.</string>
+    <string name="asset_provider_exit_pending_title">Asset-Anbieter wird verlassen</string>
+    <string name="asset_provider_exit_pending_body">RIPDPI bricht einen aktiven Asset-Vorgang ab, speichert die Anbieter-Einstellungen und kehrt anschließend zurück.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russland)</string>
     <string name="asset_provider_runetfreedom_desc">De-facto-Regelsatz zur Umgehung für RU; aktueller als antizapret für v2ray/xray-geoip/geosite-Tags.</string>
     <string name="asset_provider_updated_days_ago">Vor %1$d Tagen aktualisiert</string>

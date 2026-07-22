@@ -4092,8 +4092,8 @@ fakeddisorder endhost</string>
     <string name="asset_provider_failure_missing_configuration">Перед проверкой обновлений введите пользовательский базовый URL.</string>
     <string name="asset_provider_persistence_failed_title">Настройки поставщика не сохранены</string>
     <string name="asset_provider_persistence_failed_body">RIPDPI не удалось сохранить эти настройки. Нажмите, чтобы повторить попытку перед выходом.</string>
-    <string name="asset_provider_exit_pending_title">Завершение операции с ресурсами</string>
-    <string name="asset_provider_exit_pending_body">RIPDPI вернётся назад после завершения текущей операции и сохранения настроек провайдера.</string>
+    <string name="asset_provider_exit_pending_title">Выход из настроек ресурсов</string>
+    <string name="asset_provider_exit_pending_body">RIPDPI отменит текущую операцию с ресурсами, сохранит настройки провайдера и затем вернётся назад.</string>
     <string name="strategy_config_restore_failed_title">Не удалось восстановить черновик</string>
     <string name="strategy_config_restore_failed_body">Сохранённый черновик остался на устройстве. Повторите восстановление или удалите его, чтобы выйти.</string>
     <string name="strategy_config_restore_retry">Повторить</string>

@@ -13,19 +13,21 @@ import com.poyka.ripdpi.data.assets.GeoAssetKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 /** How stale the on-disk geo databases are, surfaced as a passive informational line. */
@@ -93,6 +95,7 @@ class AssetProviderViewModel
     ) : ViewModel() {
         private val transient = MutableStateFlow(TransientState())
         private val configurationOperationMutex = Mutex()
+        private val activeOperationJob = AtomicReference<Job?>()
         private val configurationPersistence =
             AssetProviderConfigurationPersistence(
                 scope = viewModelScope,
@@ -132,7 +135,7 @@ class AssetProviderViewModel
         suspend fun persistConfigurationBeforeExit(): Boolean {
             if (!claimExitPersistence()) return false
             return try {
-                transient.first { it.activeOperation == null }
+                cancelActiveOperationForExit()
                 configurationPersistence.persistAndAwait(latestConfigurationDraft())
                 true
             } catch (error: CancellationException) {
@@ -223,32 +226,40 @@ class AssetProviderViewModel
             block: suspend () -> AssetProviderCheckOutcome,
         ) {
             if (!claimOperation(operation)) return
-            viewModelScope.launch {
-                var outcome: AssetProviderCheckOutcome? = null
-                try {
-                    configurationOperationMutex.withLock {
-                        outcome =
-                            runCatching { block() }.fold(
-                                onSuccess = { it },
-                                onFailure = { error ->
-                                    when (error) {
-                                        is CancellationException -> throw error
-                                        is Exception -> AssetProviderCheckOutcome.Failed(mapFailure(error))
-                                        else -> throw error
-                                    }
-                                },
-                            )
-                    }
-                } finally {
-                    transient.update { current ->
-                        if (current.activeOperation == operation) {
-                            current.copy(activeOperation = null, lastResult = outcome)
-                        } else {
-                            current
+            val job =
+                viewModelScope.launch(start = CoroutineStart.LAZY) {
+                    var outcome: AssetProviderCheckOutcome? = null
+                    try {
+                        configurationOperationMutex.withLock {
+                            outcome =
+                                runCatching { block() }.fold(
+                                    onSuccess = { it },
+                                    onFailure = { error ->
+                                        when (error) {
+                                            is CancellationException -> throw error
+                                            is Exception -> AssetProviderCheckOutcome.Failed(mapFailure(error))
+                                            else -> throw error
+                                        }
+                                    },
+                                )
+                        }
+                    } finally {
+                        transient.update { current ->
+                            if (current.activeOperation == operation) {
+                                current.copy(activeOperation = null, lastResult = outcome)
+                            } else {
+                                current
+                            }
                         }
                     }
                 }
-            }
+            activeOperationJob.getAndSet(job)?.cancel()
+            job.invokeOnCompletion { activeOperationJob.compareAndSet(job, null) }
+            job.start()
+        }
+
+        private fun cancelActiveOperationForExit() {
+            activeOperationJob.getAndSet(null)?.cancel()
         }
 
         private fun claimOperation(operation: AssetProviderOperation): Boolean {

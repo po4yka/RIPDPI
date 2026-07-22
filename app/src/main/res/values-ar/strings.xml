@@ -3185,8 +3185,8 @@ fakeddisorder endhost</string>
     <string name="asset_provider_failure_unexpected">فشلت عملية البيانات. حاول مرة أخرى.</string>
     <string name="asset_provider_persistence_failed_title">لم تُحفظ إعدادات الموفّر</string>
     <string name="asset_provider_persistence_failed_body">تعذّر على RIPDPI حفظ هذه الإعدادات. اضغط للمحاولة مرة أخرى قبل المغادرة.</string>
-    <string name="asset_provider_exit_pending_title">جارٍ إنهاء عملية الأصول</string>
-    <string name="asset_provider_exit_pending_body">سيعود RIPDPI بعد انتهاء العملية النشطة وحفظ إعدادات المزوّد.</string>
+    <string name="asset_provider_exit_pending_title">مغادرة موفّر الأصول</string>
+    <string name="asset_provider_exit_pending_body">يلغي RIPDPI أي عملية أصول نشطة، ويحفظ إعدادات الموفّر، ثم يعود.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسيا)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعة قواعد تجاوز RU الفعلية؛ أحدث من antizapret لوسوم geoip/geosite الخاصة بـ v2ray/xray.</string>
     <string name="asset_provider_updated_days_ago">تم التحديث منذ %1$d يوم</string>

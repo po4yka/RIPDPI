@@ -13,7 +13,9 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
@@ -21,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -339,51 +342,61 @@ class AssetProviderViewModelTest {
         }
 
     @Test
-    fun `exit waits for an active import transaction and rejects duplicate exit`() =
+    fun `exit cancels active import rejects duplicate and flushes latest draft`() =
         runTest {
+            val settingsRepository = BlockingAppSettingsRepository(configuredSettingsRepository().snapshot())
             val operationStarted = CompletableDeferred<Unit>()
-            val operationFinished = CompletableDeferred<Unit>()
+            val operationCancelled = CompletableDeferred<Unit>()
             val repository = FakeGeoAssetRepository()
             repository.importAction = {
                 operationStarted.complete(Unit)
-                operationFinished.await()
+                try {
+                    awaitCancellation()
+                } finally {
+                    operationCancelled.complete(Unit)
+                }
             }
-            val viewModel = AssetProviderViewModel(configuredSettingsRepository(), repository)
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
             backgroundScope.launch { viewModel.uiState.collect() }
             runCurrent()
 
+            viewModel.selectProvider(ChangedProviderId)
+            viewModel.updateCustomBaseUrl("  $ChangedCustomUrl  ")
+            settingsRepository.updateStarted.await()
             viewModel.importLocalAsset(GeoAssetKind.Geosite, Uri.parse("content://documents/geosite.db"))
             operationStarted.await()
             val exit = async { viewModel.persistConfigurationBeforeExit() }
             runCurrent()
 
             assertFalse(exit.isCompleted)
-            assertEquals(AssetProviderOperation.ImportGeosite, viewModel.uiState.value.activeOperation)
             assertTrue(viewModel.uiState.value.isExitPersistenceInProgress)
             assertFalse(viewModel.persistConfigurationBeforeExit())
+            operationCancelled.await()
 
-            operationFinished.complete(Unit)
+            settingsRepository.continueUpdate.complete(Unit)
             assertTrue(exit.await())
             advanceUntilIdle()
 
+            assertEquals(ChangedProviderId, settingsRepository.snapshot().geoAssetProviderId)
+            assertEquals(ChangedCustomUrl, settingsRepository.snapshot().geoAssetCustomBaseUrl)
             assertNull(viewModel.uiState.value.activeOperation)
             assertFalse(viewModel.uiState.value.isExitPersistenceInProgress)
-            assertEquals(AssetProviderCheckOutcome.Imported, viewModel.uiState.value.lastResult)
+            assertNull(viewModel.uiState.value.lastResult)
         }
 
     @Test
-    fun `exit is acknowledged only after active check metadata commits`() =
+    fun `exit cancels an active check without committing its metadata`() =
         runTest {
             val settingsRepository = configuredSettingsRepository()
             val checkStarted = CompletableDeferred<Unit>()
-            val allowMetadataCommit = CompletableDeferred<Unit>()
+            val checkCancelled = CompletableDeferred<Unit>()
             val repository = FakeGeoAssetRepository()
             repository.checkAction = {
                 checkStarted.complete(Unit)
-                allowMetadataCommit.await()
-                settingsRepository.update {
-                    geoAssetGeoipVersionTag = ProviderAGeoipTag
-                    geoAssetGeositeVersionTag = ProviderAGeositeTag
+                try {
+                    awaitCancellation()
+                } finally {
+                    checkCancelled.complete(Unit)
                 }
             }
             val viewModel = AssetProviderViewModel(settingsRepository, repository)
@@ -392,17 +405,54 @@ class AssetProviderViewModelTest {
 
             viewModel.checkForUpdates()
             checkStarted.await()
-            val exit = async { viewModel.persistConfigurationBeforeExit() }
+            assertTrue(viewModel.persistConfigurationBeforeExit())
+            advanceUntilIdle()
+            checkCancelled.await()
+
+            assertEquals("", settingsRepository.snapshot().geoAssetGeoipVersionTag)
+            assertEquals("", settingsRepository.snapshot().geoAssetGeositeVersionTag)
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertNull(viewModel.uiState.value.lastResult)
+        }
+
+    @Test
+    fun `failed exit keeps non cooperative operation owned until its finalizer`() =
+        runTest {
+            val initialSettings = configuredSettingsRepository().snapshot()
+            val settingsRepository = FailingAppSettingsRepository(initialSettings, failuresRemaining = Int.MAX_VALUE)
+            val operationStarted = CompletableDeferred<Unit>()
+            val releaseOperation = CompletableDeferred<Unit>()
+            val firstUri = Uri.parse("content://documents/first-geosite.db")
+            val secondUri = Uri.parse("content://documents/second-geosite.db")
+            val repository = FakeGeoAssetRepository()
+            repository.importAction = {
+                operationStarted.complete(Unit)
+                withContext(NonCancellable) { releaseOperation.await() }
+            }
+            val viewModel = AssetProviderViewModel(settingsRepository, repository)
+            backgroundScope.launch { viewModel.uiState.collect() }
             runCurrent()
 
-            assertFalse(exit.isCompleted)
-            assertEquals("", settingsRepository.snapshot().geoAssetGeoipVersionTag)
+            viewModel.updateCustomBaseUrl(ChangedCustomUrl)
+            advanceUntilIdle()
+            viewModel.importLocalAsset(GeoAssetKind.Geosite, firstUri)
+            operationStarted.await()
 
-            allowMetadataCommit.complete(Unit)
-            assertTrue(exit.await())
+            assertFalse(viewModel.persistConfigurationBeforeExit())
+            assertEquals(AssetProviderOperation.ImportGeosite, viewModel.uiState.value.activeOperation)
+            assertTrue(viewModel.uiState.value.hasPersistenceError)
 
-            assertEquals(ProviderAGeoipTag, settingsRepository.snapshot().geoAssetGeoipVersionTag)
-            assertEquals(ProviderAGeositeTag, settingsRepository.snapshot().geoAssetGeositeVersionTag)
+            viewModel.importLocalAsset(GeoAssetKind.Geosite, secondUri)
+            runCurrent()
+
+            assertEquals(GeoAssetKind.Geosite to firstUri, repository.lastImport)
+            assertEquals(AssetProviderOperation.ImportGeosite, viewModel.uiState.value.activeOperation)
+
+            releaseOperation.complete(Unit)
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.activeOperation)
+            assertEquals(AssetProviderCheckOutcome.Imported, viewModel.uiState.value.lastResult)
         }
 
     @Test
