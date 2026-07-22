@@ -56,10 +56,10 @@ import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.util.MainDispatcherRule
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.collect
@@ -595,6 +595,7 @@ class ConfigViewModelTest {
         val relayProfileStore = InMemoryRelayProfileStore()
         val relayCredentialStore = InMemoryRelayCredentialStore()
         return ConfigViewModel(
+            savedStateHandle = SavedStateHandle(),
             dependencies =
                 ConfigViewModelDependencies(
                     appSettingsRepository = appSettingsRepository,
@@ -616,6 +617,7 @@ class ConfigViewModelTest {
                             dispatchers = testDispatchers(),
                         ),
                     dispatchers = testDispatchers(),
+                    editorDraftStore = InMemoryConfigEditorDraftStore(),
                 ),
             importDependencies =
                 ConfigImportDependencies(
@@ -625,6 +627,7 @@ class ConfigViewModelTest {
             stringResolver = ResourceStringResolver(),
         )
     }
+
     @Test
     fun `relay validation accepts naiveproxy blank or absolute path`() {
         val blankPathErrors =
@@ -1635,7 +1638,9 @@ private fun createConfigViewModel(
                     ConfigCapabilityObserver(
                         networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                         serverCapabilityStore = NoOpServerCapabilityStore(),
+                        dispatchers = testDispatchers(),
                     ),
+                dispatchers = testDispatchers(),
                 editorDraftStore = editorDraftStore,
             ),
         importDependencies =
@@ -1646,7 +1651,7 @@ private fun createConfigViewModel(
         stringResolver = ResourceStringResolver(),
     )
 
-private class InMemoryConfigEditorDraftStore(
+internal class InMemoryConfigEditorDraftStore(
     private val invalidationFailure: Throwable? = null,
     var persistFailuresRemaining: Int = 0,
 ) : ConfigEditorDraftStore {

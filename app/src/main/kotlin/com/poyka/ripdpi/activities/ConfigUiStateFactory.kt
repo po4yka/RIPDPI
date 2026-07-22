@@ -6,7 +6,10 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
@@ -19,21 +22,24 @@ internal class ConfigUiStateFactory(
     private val supportsMasquePrivacyPass: Boolean,
     private val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus,
 ) {
-    suspend fun create(
+    fun create(
         settings: AppSettings,
         editorState: ConfigEditorState,
         serviceStatus: Pair<AppStatus, Mode>,
         serviceTelemetry: ServiceTelemetrySnapshot,
         latestDirectModeOutcome: LatestDirectModeOutcomeSnapshot?,
+        relayPresets: List<RelayPresetDefinition>,
+        relayProfileRecords: List<RelayProfileRecord>,
+        networkSnapshot: NativeNetworkSnapshot?,
+        capabilityRecords: List<ServerCapabilityRecord>,
     ): ConfigUiState {
         val session = editorState.session
-        val records = loadRelayProfileRecordsOrEmpty { dependencies.relayArtifacts.listProfiles() }
         val currentDraft = settings.toConfigDraft().sanitizedMasqueAuthMode()
         val draft = (session.draft ?: currentDraft).sanitizedMasqueAuthMode()
         val presets = buildConfigPresets(currentDraft)
         val relayProfiles =
             buildRelayProfileOptions(
-                records = records,
+                records = relayProfileRecords,
                 chainProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId },
             )
         val projection =
@@ -47,22 +53,27 @@ internal class ConfigUiStateFactory(
                 draft = draft,
                 presets = presets,
                 editingPreset = session.editingPreset(presets, draft),
-                relayProfileRecords = records,
+                relayProfileRecords = relayProfileRecords,
                 relayProfiles = relayProfiles,
-                vpnProfiles = buildVpnProfileOptions(records),
+                vpnProfiles = buildVpnProfileOptions(relayProfileRecords),
+                relayPresets = relayPresets,
+                networkSnapshot = networkSnapshot,
+                capabilityRecords = capabilityRecords,
             )
         return buildState(projection)
     }
 
-    private suspend fun buildState(projection: ConfigUiStateProjection): ConfigUiState {
+    private fun buildState(projection: ConfigUiStateProjection): ConfigUiState {
         val draft = projection.draft
-        val capabilityRecords = dependencies.capabilityObserver.relayCapabilitiesForCurrentNetwork()
-        val networkSnapshot = runCatching { dependencies.networkSnapshotProvider.capture() }.getOrNull()
         val relayPresetSuggestion =
             resolveRelayPresetSuggestion(
-                heuristicSuggestion = dependencies.relayPresetCatalog.suggestFor(networkSnapshot, capabilityRecords),
+                heuristicSuggestion =
+                    dependencies.relayPresetCatalog.suggestFor(
+                        projection.networkSnapshot,
+                        projection.capabilityRecords,
+                    ),
                 serviceTelemetry = projection.serviceTelemetry,
-                capabilityRecords = capabilityRecords,
+                capabilityRecords = projection.capabilityRecords,
                 transportRemediation =
                     recommendTransportRemediation(
                         result = projection.latestDirectModeOutcome?.result,
@@ -91,8 +102,7 @@ internal class ConfigUiStateFactory(
             relayChainTrustWarning = resolveRelayChainTrustWarning(draft, projection.relayProfiles),
             relayChainHopStatus = buildRelayChainHopStatus(projection.serviceTelemetry.relayTelemetry),
             relayPresets =
-                dependencies.relayPresetCatalog
-                    .all()
+                projection.relayPresets
                     .map { preset ->
                         RelayPresetUiState(
                             id = preset.id,
@@ -153,4 +163,7 @@ private data class ConfigUiStateProjection(
     val relayProfileRecords: List<RelayProfileRecord>,
     val relayProfiles: ImmutableList<RelayProfileUiState>,
     val vpnProfiles: ImmutableList<RelayProfileUiState>,
+    val relayPresets: List<RelayPresetDefinition>,
+    val networkSnapshot: NativeNetworkSnapshot?,
+    val capabilityRecords: List<ServerCapabilityRecord>,
 )

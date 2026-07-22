@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.lifecycle.SavedStateHandle
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.RelayPresetCatalog
@@ -73,6 +74,7 @@ class ConfigViewModelSnapshotTest {
     ): ConfigViewModel {
         val appSettingsRepository = FakeAppSettingsRepository()
         return ConfigViewModel(
+            savedStateHandle = SavedStateHandle(),
             dependencies =
                 ConfigViewModelDependencies(
                     appSettingsRepository = appSettingsRepository,
@@ -94,6 +96,7 @@ class ConfigViewModelSnapshotTest {
                             dispatchers = testDispatchers(),
                         ),
                     dispatchers = testDispatchers(),
+                    editorDraftStore = InMemoryConfigEditorDraftStore(),
                 ),
             importDependencies =
                 ConfigImportDependencies(
