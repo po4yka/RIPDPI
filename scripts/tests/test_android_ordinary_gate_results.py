@@ -456,6 +456,80 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertFalse(app_apk.exists())
             self.assertEqual(output.read_bytes(), app_before)
 
+    def test_preflight_pins_input_renamed_onto_absent_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(directory)
+            output_parent = directory / "output"
+            output_parent.mkdir(mode=0o700)
+            output = output_parent / "results.json"
+            app_before = app_apk.read_bytes()
+            load_artifact_root = raw_evidence.load_artifact_root_for_output
+
+            def move_app_during_manifest_load(path: Path) -> Path:
+                artifact_root = load_artifact_root(path)
+                app_apk.rename(output)
+                return artifact_root
+
+            with mock.patch.object(
+                raw_evidence,
+                "load_artifact_root_for_output",
+                side_effect=move_app_during_manifest_load,
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 2)
+            self.assertFalse(app_apk.exists())
+            self.assertEqual(output.read_bytes(), app_before)
+
+    def test_preflight_pins_artifact_root_renamed_onto_output_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory_name:
+            directory = Path(directory_name)
+            manifest_path, app_apk, test_apk, manifest = self.create_raw_bundle(
+                directory
+            )
+            artifact_root = Path(manifest["artifactRoot"])
+            artifact = manifest["actions"][0]["artifacts"][0]
+            raw_artifact = artifact_root / artifact["path"]
+            artifact_before = raw_artifact.read_bytes()
+            output_parent = directory / "output"
+            output = output_parent / artifact["path"]
+            pin_artifact_root = producer.pin_artifact_root
+
+            def move_root_after_pin(path: Path) -> producer.PinnedDirectory:
+                guard = pin_artifact_root(path)
+                artifact_root.rename(output_parent)
+                return guard
+
+            with mock.patch.object(
+                producer, "pin_artifact_root", side_effect=move_root_after_pin
+            ):
+                status = producer.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--raw-manifest",
+                        str(manifest_path),
+                        "--app-apk",
+                        str(app_apk),
+                        "--test-apk",
+                        str(test_apk),
+                    ]
+                )
+            self.assertEqual(status, 2)
+            self.assertFalse(artifact_root.exists())
+            self.assertEqual(output.read_bytes(), artifact_before)
+
     def test_apk_hashing_streams_without_whole_file_helper(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             apk = Path(directory_name) / "large.apk"

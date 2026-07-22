@@ -62,6 +62,56 @@ class EvidenceError(ValueError):
         self.message = message
 
 
+class PinnedPath:
+    def __init__(self, path: Path, fd: int, identity: tuple[int, int]) -> None:
+        self.path = path
+        self.fd = fd
+        self.identity = identity
+
+    def require_unchanged(self) -> None:
+        try:
+            metadata = os.stat(self.path, follow_symlinks=False)
+        except OSError as error:
+            raise EvidenceError(
+                "INPUT_CHANGED", "an evidence input changed after it was pinned"
+            ) from error
+        if (
+            metadata.st_dev,
+            metadata.st_ino,
+        ) != self.identity or not stat.S_ISREG(metadata.st_mode):
+            raise EvidenceError(
+                "INPUT_CHANGED", "an evidence input changed after it was pinned"
+            )
+
+    def close(self) -> None:
+        os.close(self.fd)
+
+
+class PinnedDirectory:
+    def __init__(self, path: Path, fd: int, identity: tuple[int, int]) -> None:
+        self.path = path
+        self.fd = fd
+        self.identity = identity
+
+    def require_unchanged(self) -> None:
+        try:
+            metadata = os.stat(self.path, follow_symlinks=False)
+        except OSError as error:
+            raise EvidenceError(
+                "ARTIFACT_ROOT_CHANGED", "raw artifact root changed after it was pinned"
+            ) from error
+        if (
+            metadata.st_dev,
+            metadata.st_ino,
+        ) != self.identity or not stat.S_ISDIR(metadata.st_mode):
+            raise EvidenceError(
+                "ARTIFACT_ROOT_CHANGED", "raw artifact root changed after it was pinned"
+            )
+
+    def close(self) -> None:
+        os.close(self.fd)
+
+
 class OutputDestination:
     def __init__(
         self,
@@ -94,6 +144,33 @@ def directory_identity(metadata: os.stat_result) -> tuple[int, ...]:
 
 def path_is_within(path: Path, root: Path) -> bool:
     return path == root or root in path.parents
+
+
+def pin_input(path: Path) -> PinnedPath:
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    except OSError as error:
+        raise EvidenceError(
+            "INPUT_PATH_INVALID", "evidence inputs must be real regular files"
+        ) from error
+    metadata = os.fstat(fd)
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        os.close(fd)
+        raise EvidenceError(
+            "INPUT_PATH_INVALID", "evidence inputs must be single-link regular files"
+        )
+    return PinnedPath(path, fd, (metadata.st_dev, metadata.st_ino))
+
+
+def pin_artifact_root(path: Path) -> PinnedDirectory:
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_DIRECTORY)
+    except OSError as error:
+        raise EvidenceError(
+            "ARTIFACT_ROOT_INVALID", "raw artifact root must be a real directory"
+        ) from error
+    metadata = os.fstat(fd)
+    return PinnedDirectory(path, fd, (metadata.st_dev, metadata.st_ino))
 
 
 def open_output_destination(
@@ -237,54 +314,24 @@ def write_canonical_json(
             target.close()
 
 
-def reject_output_input_aliases(
-    destination: OutputDestination, inputs: tuple[Path, ...]
+def require_safe_pinned_paths(
+    destination: OutputDestination,
+    inputs: tuple[PinnedPath, ...],
+    artifact_root: PinnedDirectory | None,
 ) -> None:
     for source in inputs:
-        source_path = Path(os.path.realpath(source))
-        if destination.path == source_path:
+        source.require_unchanged()
+        if destination.leaf_identity == source.identity:
             raise EvidenceError(
                 "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
             )
-        try:
-            source_metadata = source.stat()
-            aliases = destination.leaf_identity == (
-                source_metadata.st_dev,
-                source_metadata.st_ino,
-            )
-        except OSError:
-            aliases = False
-        if aliases:
+    if artifact_root is not None:
+        artifact_root.require_unchanged()
+        parent_metadata = os.fstat(destination.parent_fd)
+        if (parent_metadata.st_dev, parent_metadata.st_ino) == artifact_root.identity:
             raise EvidenceError(
-                "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
-            )
-
-
-def reject_output_aliases_before_reservation(
-    output: Path, inputs: tuple[Path, ...]
-) -> None:
-    output_path = Path(os.path.realpath(output))
-    try:
-        output_metadata = output.stat()
-    except OSError:
-        output_metadata = None
-    for source in inputs:
-        if output_path == Path(os.path.realpath(source)):
-            raise EvidenceError(
-                "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
-            )
-        if output_metadata is None:
-            continue
-        try:
-            source_metadata = source.stat()
-        except OSError:
-            continue
-        if (output_metadata.st_dev, output_metadata.st_ino) == (
-            source_metadata.st_dev,
-            source_metadata.st_ino,
-        ):
-            raise EvidenceError(
-                "OUTPUT_ALIASES_INPUT", "results output aliases an evidence input"
+                "OUTPUT_INSIDE_ARTIFACT_ROOT",
+                "results output parent aliases the raw artifact root",
             )
 
 
@@ -384,33 +431,25 @@ def validate_pass_results(*_args: Any, **_kwargs: Any) -> None:
     raise EvidenceError(UNAVAILABLE_CODE, UNAVAILABLE_REASON)
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--raw-manifest", type=Path)
-    parser.add_argument("--app-apk", type=Path)
-    parser.add_argument("--test-apk", type=Path)
-    args = parser.parse_args(argv)
-
-    raw_arguments = (args.raw_manifest, args.app_apk, args.test_apk)
-    if any(value is not None for value in raw_arguments) and not all(
-        value is not None for value in raw_arguments
-    ):
-        parser.error(
-            "--raw-manifest, --app-apk, and --test-apk must be supplied together"
-        )
-
+def _produce_results(
+    args: argparse.Namespace,
+    pinned_inputs: tuple[PinnedPath, ...],
+    artifact_root_guards: list[PinnedDirectory],
+) -> int:
     destination: OutputDestination | None = None
+    artifact_root_guard: PinnedDirectory | None = None
     try:
-        inputs = tuple(value for value in raw_arguments if value is not None)
-        reject_output_aliases_before_reservation(args.output, inputs)
         artifact_root = None
         if args.raw_manifest is not None:
             artifact_root = android_ordinary_raw_evidence.load_artifact_root_for_output(
                 args.raw_manifest
             )
+            for pinned_input in pinned_inputs:
+                pinned_input.require_unchanged()
+            artifact_root_guard = pin_artifact_root(artifact_root)
+            artifact_root_guards.append(artifact_root_guard)
         destination = open_output_destination(args.output, forbidden_root=artifact_root)
-        reject_output_input_aliases(destination, inputs)
+        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
     except (
         OSError,
         EvidenceError,
@@ -446,6 +485,14 @@ def main(argv: list[str] | None = None) -> int:
         destination.close()
         return 2
 
+    try:
+        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+    except EvidenceError as error:
+        destination.close()
+        print(
+            f"Android ordinary producer refused changed input: {error}", file=sys.stderr
+        )
+        return 2
     if not publish_results(
         destination,
         args.output,
@@ -496,6 +543,14 @@ def main(argv: list[str] | None = None) -> int:
                 code="SOURCE_VALIDATION_FAILED",
                 reason=f"unexpected source validation failure ({type(error).__name__})",
             )
+    try:
+        require_safe_pinned_paths(destination, pinned_inputs, artifact_root_guard)
+    except EvidenceError as error:
+        destination.close()
+        print(
+            f"Android ordinary producer refused changed input: {error}", file=sys.stderr
+        )
+        return 2
     if not publish_results(destination, args.output, results):
         destination.close()
         return 2
@@ -507,6 +562,49 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
     return 1
+
+
+def produce_results(
+    args: argparse.Namespace, pinned_inputs: tuple[PinnedPath, ...]
+) -> int:
+    artifact_root_guards: list[PinnedDirectory] = []
+    try:
+        return _produce_results(args, pinned_inputs, artifact_root_guards)
+    finally:
+        for artifact_root_guard in artifact_root_guards:
+            artifact_root_guard.close()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--raw-manifest", type=Path)
+    parser.add_argument("--app-apk", type=Path)
+    parser.add_argument("--test-apk", type=Path)
+    args = parser.parse_args(argv)
+
+    raw_arguments = (args.raw_manifest, args.app_apk, args.test_apk)
+    if any(value is not None for value in raw_arguments) and not all(
+        value is not None for value in raw_arguments
+    ):
+        parser.error(
+            "--raw-manifest, --app-apk, and --test-apk must be supplied together"
+        )
+
+    pinned_inputs: list[PinnedPath] = []
+    try:
+        for value in raw_arguments:
+            if value is not None:
+                pinned_inputs.append(pin_input(value))
+        return produce_results(args, tuple(pinned_inputs))
+    except (OSError, EvidenceError) as error:
+        print(
+            f"Android ordinary producer refused unsafe input: {error}", file=sys.stderr
+        )
+        return 2
+    finally:
+        for pinned_input in pinned_inputs:
+            pinned_input.close()
 
 
 if __name__ == "__main__":
