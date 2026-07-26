@@ -292,13 +292,72 @@ class RuleEntityRoomTest {
                     .addCallback(RipDpiDatabase.SeedCallback)
                     .build()
             try {
-                val rules = seededDb.ruleDao().allRules().first()
-                val names = rules.map { it.name }
-                assertTrue("bypass-LAN seed missing", names.any { it.contains("LAN", ignoreCase = true) })
-                assertTrue("bypass-loopback seed missing", names.any { it.contains("loopback", ignoreCase = true) })
+                val rules =
+                    seededDb
+                        .ruleDao()
+                        .allRules()
+                        .first()
+                        .associateBy { it.name }
+                assertEquals(
+                    listOf("127.0.0.0/8", "::1/128"),
+                    rules
+                        .getValue("Bypass loopback")
+                        .ipCidrs
+                        .lineSequence()
+                        .toList(),
+                )
+                assertEquals(
+                    listOf("192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "169.254.0.0/16", "fc00::/7"),
+                    rules
+                        .getValue("Bypass LAN")
+                        .ipCidrs
+                        .lineSequence()
+                        .toList(),
+                )
             } finally {
                 seededDb.close()
             }
+        }
+
+    @Test
+    fun `opening database repairs only exact malformed legacy seed CIDRs`() =
+        runTest {
+            dao.insert(
+                RuleEntity(
+                    id = 1L,
+                    name = "Bypass loopback",
+                    ipCidrs = "127.0.0.0/8\\n::1/128",
+                    outboundTag = OutboundTag.Bypass,
+                ),
+            )
+            dao.insert(
+                RuleEntity(
+                    id = 2L,
+                    name = "Bypass LAN",
+                    userOrder = 1,
+                    ipCidrs = "192.168.0.0/16\\n10.0.0.0/8\\n172.16.0.0/12\\n169.254.0.0/16\\nfc00::/7",
+                    outboundTag = OutboundTag.Bypass,
+                ),
+            )
+            dao.insert(
+                RuleEntity(
+                    id = 3L,
+                    name = "User rule",
+                    userOrder = 2,
+                    ipCidrs = "10.0.0.0/8\\n192.168.0.0/16",
+                    outboundTag = OutboundTag.Bypass,
+                ),
+            )
+
+            RipDpiDatabase.SeedCallback.onOpen(db.openHelper.writableDatabase)
+
+            val rules = dao.allRules().first().associateBy { it.id }
+            assertEquals("127.0.0.0/8\n::1/128", rules.getValue(1L).ipCidrs)
+            assertEquals(
+                "192.168.0.0/16\n10.0.0.0/8\n172.16.0.0/12\n169.254.0.0/16\nfc00::/7",
+                rules.getValue(2L).ipCidrs,
+            )
+            assertEquals("10.0.0.0/8\\n192.168.0.0/16", rules.getValue(3L).ipCidrs)
         }
 
     @Test
