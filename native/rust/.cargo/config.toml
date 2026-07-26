@@ -1,11 +1,11 @@
 [target.aarch64-linux-android]
-rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "force-frame-pointers=yes"]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "link-arg=-Wl,--exclude-libs,ALL", "-C", "force-frame-pointers=yes"]
 
 [target.armv7-linux-androideabi]
-rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "force-frame-pointers=yes"]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "link-arg=-Wl,--exclude-libs,ALL", "-C", "force-frame-pointers=yes"]
 
 [target.i686-linux-android]
-rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "force-frame-pointers=yes"]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "link-arg=-Wl,--exclude-libs,ALL", "-C", "force-frame-pointers=yes"]
 
 [target.x86_64-linux-android]
-rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "force-frame-pointers=yes"]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384", "-C", "link-arg=-Wl,--build-id=sha1", "-C", "link-arg=-Wl,--exclude-libs,ALL", "-C", "force-frame-pointers=yes"]

@@ -24,6 +24,13 @@ EXPECTED_NATIVE_LIBRARIES = (
 )
 REQUIRED_PAGE_ALIGNMENT = 16 * 1024
 DEFAULT_LIB_DIR = "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"
+ALLOWED_DEFINED_FUNCTION_EXPORTS = {
+    "JNI_OnLoad",
+    "JNI_OnUnload",
+    "__cxa_finalize",
+    "_fini",
+    "_init",
+}
 
 
 def read_gradle_property(repo_root: Path, name: str) -> str:
@@ -105,6 +112,27 @@ def inspect_elf(elf_path: Path, objdump_path: str) -> tuple[set[str], list[int]]
     return needed, alignments
 
 
+def inspect_defined_function_exports(elf_path: Path, objdump_path: str) -> set[str]:
+    output = subprocess.run(
+        [objdump_path, "-T", str(elf_path)],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+    exports = set()
+    for line in output.splitlines():
+        fields = line.split()
+        if "DF" not in fields or "*UND*" in fields or "UND" in fields:
+            continue
+        symbol = fields[-1].split("@", 1)[0]
+        exports.add(symbol)
+    return exports
+
+
+def is_allowed_defined_function_export(symbol: str) -> bool:
+    return symbol.startswith("Java_") or symbol in ALLOWED_DEFINED_FUNCTION_EXPORTS
+
+
 def verify(lib_dir: Path, expected_abis: set[str], objdump_path: str) -> None:
     actual_abis = {path.name for path in lib_dir.iterdir() if path.is_dir()}
     missing_abis = expected_abis - actual_abis
@@ -129,6 +157,16 @@ def verify(lib_dir: Path, expected_abis: set[str], objdump_path: str) -> None:
             if bad_alignments:
                 raise ValueError(
                     f"LOAD segment alignment below 16 KiB for {elf_path}: {bad_alignments}",
+                )
+
+            unexpected_exports = sorted(
+                symbol
+                for symbol in inspect_defined_function_exports(elf_path, objdump_path)
+                if not is_allowed_defined_function_export(symbol)
+            )
+            if unexpected_exports:
+                raise ValueError(
+                    f"Unexpected defined function exports for {elf_path}: {unexpected_exports}",
                 )
 
 
