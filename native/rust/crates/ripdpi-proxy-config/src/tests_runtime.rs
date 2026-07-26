@@ -700,6 +700,36 @@ fn schema_v2_without_destination_routing_keeps_inert_runtime_policy() {
 }
 
 #[test]
+fn command_line_payload_overlays_destination_routing_after_argument_parsing() {
+    let json = with_destination_routing_digest(serde_json::json!({
+        "kind": "command_line",
+        "schemaVersion": 2,
+        "args": ["ripdpi", "--port", "1081"],
+        "geoipDbPath": " /tmp/geoip.db ",
+        "geositeDbPath": "/tmp/geosite.db",
+        "destinationRouting": {
+            "rules": [{
+                "action": "direct",
+                "network": "both",
+                "domains": [{"kind": "exact", "value": "direct.example"}],
+                "ipRanges": [],
+                "destinationPorts": []
+            }],
+            "defaultAction": "tunneled",
+            "canonicalDigest": ""
+        }
+    }));
+    let parsed = parse_proxy_config_json(&json.to_string()).expect("command-line payload");
+    let config = runtime_config_from_payload(parsed).expect("runtime config");
+
+    assert_eq!(config.network.listen.listen_port, 1081);
+    assert_eq!(config.destination_routing.rules.len(), 1);
+    assert_eq!(config.destination_routing.rules[0].action, ripdpi_config::DestinationRoutingAction::Direct);
+    assert_eq!(config.process.geoip_db_path.as_deref(), Some("/tmp/geoip.db"));
+    assert_eq!(config.process.geosite_db_path.as_deref(), Some("/tmp/geosite.db"));
+}
+
+#[test]
 fn destination_routing_round_trips_and_maps_every_wire_variant() {
     let json = with_destination_routing_digest(serde_json::json!({
         "kind": "ui",

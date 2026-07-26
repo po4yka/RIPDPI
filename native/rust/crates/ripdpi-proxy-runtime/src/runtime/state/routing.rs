@@ -35,11 +35,17 @@ impl RuntimeState {
         group_index: usize,
         payload: Option<&[u8]>,
         allow_tfo: bool,
+        egress: DestinationEgress,
     ) -> Option<RouteConnectPolicy> {
+        if egress == DestinationEgress::Block {
+            return None;
+        }
         let settings = tcp_route_connect_settings_with(&self.route_connect_settings, group_index, payload, allow_tfo)?;
         Some(RouteConnectPolicy {
             tfo_enabled: settings.tfo_enabled,
-            upstream_socks_addr: settings.upstream_socks_addr,
+            upstream_socks_addr: (egress == DestinationEgress::Tunneled)
+                .then_some(settings.upstream_socks_addr)
+                .flatten(),
             pre_connect_rcvbuf: settings.pre_connect_rcvbuf,
             connect_timeout: settings.connect_timeout,
             protect_path: settings.protect_path,
@@ -47,6 +53,22 @@ impl RuntimeState {
             window_clamp: settings.window_clamp,
             strip_timestamps: settings.strip_timestamps,
         })
+    }
+    pub(in crate::runtime) fn destination_egress(
+        &self,
+        target: SocketAddr,
+        host: Option<&str>,
+        transport: RuntimeTransportProtocol,
+    ) -> DestinationEgress {
+        self.destination_routing.evaluate(
+            target,
+            host,
+            transport,
+            self.geo_matcher.as_deref().map(|matcher| matcher as &dyn GeoMatcher),
+        )
+    }
+    pub(in crate::runtime) fn destination_policy_may_need_host(&self) -> bool {
+        self.destination_routing.is_active() && self.destination_routing.may_need_host()
     }
     pub(in crate::runtime) fn select_initial_route(
         &self,

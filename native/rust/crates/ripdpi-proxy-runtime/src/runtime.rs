@@ -1,5 +1,6 @@
 mod adaptive;
 mod config;
+mod destination_routing;
 mod desync;
 mod failure;
 mod geo;

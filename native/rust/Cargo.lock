@@ -6724,6 +6724,7 @@ dependencies = [
  "ripdpi-collections",
  "ripdpi-dns-resolver",
  "ripdpi-flow-app-attribution",
+ "ripdpi-geo",
  "ripdpi-io-uring",
  "ripdpi-packets",
  "ripdpi-privileged-ops",

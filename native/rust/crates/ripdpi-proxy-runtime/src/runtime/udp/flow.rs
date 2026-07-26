@@ -8,13 +8,23 @@ use super::flow_selection::try_advance_udp_preferred_target;
 use super::session::UdpFlowSession;
 use super::upstream_socks::UpstreamUdpSocks;
 use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
+use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
 use crate::runtime::types::RuntimeConnectionRoute;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(super) struct UdpFlowKey {
+    pub(super) client: SocketAddr,
+    pub(super) target: SocketAddr,
+    pub(super) host: Option<String>,
+    pub(super) preserve_host_in_response: bool,
+}
 
 pub(super) struct UdpFlowActivationState {
     pub(super) session: UdpFlowSession,
     pub(super) last_used: Instant,
     pub(super) route: RuntimeConnectionRoute,
+    pub(super) destination_egress: DestinationEgress,
     pub(super) socket_settings: RuntimeUdpSocketSettings,
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
@@ -62,37 +72,37 @@ impl UdpFlowExpirySchedule {
 }
 
 pub(super) fn udp_flow_at_capacity<T>(
-    flow_state: &HashMap<(SocketAddr, SocketAddr), T>,
-    flow_key: (SocketAddr, SocketAddr),
+    flow_state: &HashMap<UdpFlowKey, T>,
+    flow_key: &UdpFlowKey,
     flow_limit: usize,
 ) -> bool {
-    RuntimeState::udp_flow_at_capacity(flow_state.contains_key(&flow_key), flow_state.len(), flow_limit)
+    RuntimeState::udp_flow_at_capacity(flow_state.contains_key(flow_key), flow_state.len(), flow_limit)
 }
 
 pub(super) fn expire_udp_flows(
     state: &RuntimeState,
-    flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
+    flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     protect_path: Option<&str>,
     now: Instant,
-    expired: &mut Vec<(SocketAddr, SocketAddr)>,
+    expired: &mut Vec<UdpFlowKey>,
 ) -> io::Result<()> {
     expired.clear();
     expired.extend(
         flow_state
             .iter()
             .filter(|(_, value)| now.duration_since(value.last_used) >= UDP_FLOW_IDLE_TIMEOUT)
-            .map(|(key, _)| *key),
+            .map(|(key, _)| key.clone()),
     );
 
-    for (client_addr, target) in expired.iter().copied() {
-        let Some(mut entry) = flow_state.remove(&(client_addr, target)) else {
+    for key in expired.iter() {
+        let Some(mut entry) = flow_state.remove(key) else {
             continue;
         };
         if !entry.awaiting_response {
             continue;
         }
         if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {
-            flow_state.insert((client_addr, target), entry);
+            flow_state.insert(key.clone(), entry);
             continue;
         }
         note_udp_flow_timeout_failure(state, &entry)?;

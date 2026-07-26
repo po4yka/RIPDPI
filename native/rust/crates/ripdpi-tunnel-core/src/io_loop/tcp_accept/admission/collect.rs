@@ -6,11 +6,12 @@ use smoltcp::iface::{SocketHandle, SocketSet};
 use smoltcp::socket::tcp::Socket as TcpSocket;
 
 use crate::dns_cache::DnsCache;
+use crate::io_loop::dns_intercept::ResolvedMappedTarget;
 use crate::io_loop::packet::{TcpFlowKey, endpoint_to_socketaddr};
 use crate::uid_policy::{CachedFlowUidSource, PROTO_TCP, UidFlowPolicy, Verdict};
 use crate::{ActiveSessions, Stats};
 
-use super::super::target::{pinned_synthetic_ip, tcp_session_target_addr};
+use super::super::target::{pinned_synthetic_ip, tcp_session_target};
 use super::super::tcp_target_endpoint;
 use super::super::unresolved::abort_unresolved_tcp_socket;
 use super::batch::{TCP_ADMISSION_WORK_BUDGET, pending_handle_batch};
@@ -43,17 +44,20 @@ pub(super) fn collect_admissible_sessions(
         // SOCKS session must receive the separately resolved real target.
         let attribution_remote = tcp_target_endpoint(tcp);
         let synthetic_ip = pinned_synthetic_ip(dns_cache, tcp);
-        match tcp_session_target_addr(stats, dns_cache, active_direct_generation.as_deref_mut(), tcp) {
-            Some(target_addr) => collect_resolved_session(
-                handle,
-                tcp,
-                target_addr,
-                attribution_remote.unwrap_or(target_addr),
-                synthetic_ip,
-                uid_policy,
-                &mut new_sessions,
-                &mut unresolvable,
-            ),
+        match tcp_session_target(stats, dns_cache, active_direct_generation.as_deref_mut(), tcp) {
+            Some(target) => {
+                let attribution_remote = attribution_remote.unwrap_or(target.addr);
+                collect_resolved_session(
+                    handle,
+                    tcp,
+                    target,
+                    attribution_remote,
+                    synthetic_ip,
+                    uid_policy,
+                    &mut new_sessions,
+                    &mut unresolvable,
+                );
+            }
             None => {
                 abort_unresolved_tcp_socket(handle, tcp);
                 unresolvable.push(handle);
@@ -66,20 +70,27 @@ pub(super) fn collect_admissible_sessions(
 fn collect_resolved_session(
     handle: SocketHandle,
     tcp: &mut TcpSocket<'_>,
-    target_addr: std::net::SocketAddr,
+    target: ResolvedMappedTarget,
     attribution_remote: std::net::SocketAddr,
     synthetic_ip: Option<u32>,
     uid_policy: &UidFlowPolicy,
     new_sessions: &mut Vec<PendingTcpSession>,
     unresolvable: &mut Vec<SocketHandle>,
 ) {
+    let ResolvedMappedTarget { addr: target_addr, host: target_host } = target;
     // This is the one site that sees both the app source and intercepted destination; `note_flow` only queues exact-tuple attribution work and never invokes JNI on this hot path.
     let Some(app_src) = tcp.remote_endpoint().map(endpoint_to_socketaddr) else {
         if uid_policy.is_enforcing() {
             abort_unresolved_tcp_socket(handle, tcp);
             unresolvable.push(handle);
         } else {
-            new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip, attribution_token: None });
+            new_sessions.push(PendingTcpSession {
+                handle,
+                target_addr,
+                target_host,
+                synthetic_ip,
+                attribution_token: None,
+            });
         }
         return;
     };
@@ -88,6 +99,7 @@ fn collect_resolved_session(
         Verdict::Allow => new_sessions.push(PendingTcpSession {
             handle,
             target_addr,
+            target_host,
             synthetic_ip,
             attribution_token: Some(observation.token),
         }),

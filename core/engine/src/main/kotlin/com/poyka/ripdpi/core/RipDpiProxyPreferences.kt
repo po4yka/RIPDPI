@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.utility.shellSplit
@@ -383,6 +384,9 @@ class RipDpiProxyJsonPreferences(
 class RipDpiProxyCmdPreferences(
     val args: Array<String>,
     private val hostAutolearnStorePath: String? = null,
+    val destinationRouting: DestinationRoutingPolicy = DestinationRoutingPolicy(canonicalDigest = ""),
+    val geoipDbPath: String? = null,
+    val geositeDbPath: String? = null,
     val runtimeContext: RipDpiRuntimeContext? = null,
     val logContext: RipDpiLogContext? = null,
 ) : RipDpiProxyPreferences {
@@ -393,7 +397,18 @@ class RipDpiProxyCmdPreferences(
         hostAutolearnStorePath: String?,
         runtimeContext: RipDpiRuntimeContext?,
         logContext: RipDpiLogContext? = null,
-    ) : this(cmdToArgs(cmd), hostAutolearnStorePath, runtimeContext, logContext)
+        destinationRouting: DestinationRoutingPolicy = DestinationRoutingPolicy(canonicalDigest = ""),
+        geoipDbPath: String? = null,
+        geositeDbPath: String? = null,
+    ) : this(
+        args = cmdToArgs(cmd),
+        hostAutolearnStorePath = hostAutolearnStorePath,
+        destinationRouting = destinationRouting,
+        geoipDbPath = geoipDbPath,
+        geositeDbPath = geositeDbPath,
+        runtimeContext = runtimeContext,
+        logContext = logContext,
+    )
 
     companion object {
         private fun cmdToArgs(cmd: String): Array<String> {
@@ -407,6 +422,9 @@ class RipDpiProxyCmdPreferences(
         RipDpiProxyJsonCodec.encodeCommandLinePreferences(
             args = args.toList(),
             hostAutolearnStorePath = hostAutolearnStorePath,
+            destinationRouting = destinationRouting,
+            geoipDbPath = geoipDbPath,
+            geositeDbPath = geositeDbPath,
             runtimeContext = runtimeContext,
             logContext = logContext,
         )

@@ -105,6 +105,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
 mod tests {
     use super::*;
     use crate::runtime::config::RuntimeConfig;
+    use crate::runtime::destination_routing::DestinationEgress;
     use crate::runtime::types::RuntimeConnectionRoute;
     use crate::runtime::udp::flow::UdpFlowActivationState;
     use crate::runtime::udp::session::UdpFlowSession;
@@ -118,6 +119,7 @@ mod tests {
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
             route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+            destination_egress: DestinationEgress::Tunneled,
             socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
             packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),

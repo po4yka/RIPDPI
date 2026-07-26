@@ -169,7 +169,7 @@ class ServiceSessionModuleTest {
                     fdProtector = { true },
                 )
             val vpnTunnelRuntime =
-                VpnServiceSessionModule.provideVpnTunnelRuntime(
+                VpnServiceSessionModule.createVpnTunnelRuntime(
                     host = host,
                     dependencies = runtimeDependencies,
                     protectSocketServer = protectSocketServer,

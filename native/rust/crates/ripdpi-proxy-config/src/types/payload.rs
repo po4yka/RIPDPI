@@ -1,6 +1,7 @@
 use ripdpi_config::RuntimeConfig;
 use serde::{Deserialize, Serialize};
 
+use super::destination_routing::ProxyUiDestinationRoutingConfig;
 use super::runtime_context::{ProxyLogContext, ProxyRuntimeContext};
 use super::ui::ProxyUiConfig;
 
@@ -28,6 +29,12 @@ pub enum ProxyConfigPayload {
         args: Vec<String>,
         #[serde(default)]
         host_autolearn_store_path: Option<String>,
+        #[serde(default)]
+        destination_routing: ProxyUiDestinationRoutingConfig,
+        #[serde(default)]
+        geoip_db_path: Option<String>,
+        #[serde(default)]
+        geosite_db_path: Option<String>,
         #[serde(default)]
         runtime_context: Option<ProxyRuntimeContext>,
         #[serde(default)]

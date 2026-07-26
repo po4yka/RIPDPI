@@ -3,7 +3,7 @@ use crate::classify::classify_ip_packet;
 use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, Verdict};
 
 use super::dns_intercept::{
-    dns_query_name, resolve_mapped_target, route_dns_packet, sync_direct_dns_mapping_generation,
+    dns_query_name, resolve_mapped_destination, route_dns_packet, sync_direct_dns_mapping_generation,
 };
 use super::packet::is_injected_rst;
 use super::state::LoopState;
@@ -73,7 +73,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                 }
                 _ => None,
             };
-            if let Some(resolved_dst) = resolve_mapped_target(
+            if let Some(resolved) = resolve_mapped_destination(
                 &state.stats,
                 &mut state.dns_cache,
                 Some(&mut state.active_direct_dns_generation),
@@ -84,7 +84,8 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                     &state.runtime.auth,
                     src,
                     dst,
-                    resolved_dst,
+                    resolved.addr,
+                    resolved.host.as_deref(),
                     synthetic_ip,
                     payload,
                     &mut state.dns_cache,

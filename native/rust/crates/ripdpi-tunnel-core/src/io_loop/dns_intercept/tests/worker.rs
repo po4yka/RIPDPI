@@ -189,6 +189,7 @@ fn route_dns_block_returns_refused_without_upstream() {
         }],
         direct_resolver_candidates: Vec::new(),
         bootstrap_pins: Vec::new(),
+        geosite_db_path: None,
         coverage_reason: None,
     })
     .expect("policy");
@@ -216,7 +217,7 @@ fn route_dns_block_returns_refused_without_upstream() {
 }
 
 #[test]
-fn route_dns_direct_falls_back_to_encrypted_proxy_queue() {
+fn route_dns_direct_without_underlay_fails_closed_without_proxy_fallback() {
     let _guard = crate::tunnel_api::direct_dns_binding::TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let (tx, mut rx) = tokio::sync::mpsc::channel::<DnsRequest>(8);
     let (_resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(8);
@@ -241,6 +242,7 @@ fn route_dns_direct_falls_back_to_encrypted_proxy_queue() {
         }],
         direct_resolver_candidates: vec![IpAddr::V4(Ipv4Addr::new(192, 0, 2, 53))],
         bootstrap_pins: Vec::new(),
+        geosite_db_path: None,
         coverage_reason: None,
     })
     .expect("policy");
@@ -260,8 +262,8 @@ fn route_dns_direct_falls_back_to_encrypted_proxy_queue() {
         Some("direct.example".to_string()),
     );
 
-    assert!(rx.try_recv().is_ok(), "direct policy must use the encrypted proxy worker fallback");
-    assert!(device.tx_queue.is_empty(), "direct fallback must not synthesize a local response");
+    assert!(rx.try_recv().is_err(), "direct policy must not change egress after classification");
+    assert_eq!(device.tx_queue.len(), 1, "unavailable direct underlay must synthesize SERVFAIL");
     let snapshot = stats.dns_snapshot();
     assert_eq!(snapshot.split_dns_direct_fallback_decisions, 1);
     assert_eq!(snapshot.split_dns_proxy_decisions, 0);

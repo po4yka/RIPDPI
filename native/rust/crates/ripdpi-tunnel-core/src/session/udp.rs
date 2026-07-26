@@ -10,7 +10,10 @@ use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use super::protect::protect_socket_if_available;
-use super::socks5::{Auth, associate, decode_udp_frame, encode_udp_frame, handshake};
+use super::socks5::{
+    Auth, TargetAddr, associate, decode_udp_frame, decode_udp_target_frame, encode_udp_frame, encode_udp_target_frame,
+    handshake,
+};
 
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
@@ -201,6 +204,19 @@ impl UdpSession {
         Ok(())
     }
 
+    /// Send a UDP datagram with its logical SOCKS5 destination authority intact.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: frame construction is synchronous and the only `.await` is
+    /// one message-atomic `UdpSocket::send`; cancellation cannot leave a partial
+    /// datagram or mutate the established relay association.
+    pub(crate) async fn send_to_target(&self, dst: &TargetAddr, payload: &[u8]) -> io::Result<()> {
+        let frame = encode_udp_target_frame(dst, payload)?;
+        let _ = self.udp.send(&frame).await?;
+        Ok(())
+    }
+
     /// Receive a UDP datagram from the established SOCKS5 relay.
     ///
     /// - `cancel`: signals early termination (returns `Ok(None)`).
@@ -233,6 +249,33 @@ impl UdpSession {
                 Ok(Some((data, from)))
             }
             _ = timeout_fut => Ok(None),
+            _ = cancel.cancelled() => Ok(None),
+        }
+    }
+
+    /// Receive a UDP datagram while retaining the SOCKS target identity.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe. The socket receive is message-atomic and target decoding is
+    /// synchronous, so cancellation cannot consume and lose a datagram.
+    /// Timeout and cancellation arms do not mutate session state.
+    pub(crate) async fn recv_from_target(
+        &self,
+        cancel: CancellationToken,
+    ) -> io::Result<Option<(Vec<u8>, TargetAddr)>> {
+        let recv_fut = async {
+            let mut buf = self.memory_budget.receive_pool.acquire().await?;
+            let n = self.udp.recv(buf.as_mut_slice()).await?;
+            let (from, data) = decode_udp_target_frame(&buf.as_mut_slice()[..n])?;
+            Ok::<_, io::Error>((from, data.to_vec()))
+        };
+        tokio::select! {
+            result = recv_fut => {
+                let (from, data) = result?;
+                Ok(Some((data, from)))
+            }
+            _ = tokio::time::sleep(self.recv_timeout) => Ok(None),
             _ = cancel.cancelled() => Ok(None),
         }
     }

@@ -11,6 +11,7 @@ use tracing::debug;
 use crate::Stats;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
+use crate::session::TargetAddr;
 use crate::session::udp::UdpMemoryBudget;
 use crate::uid_policy::PROTO_UDP;
 
@@ -28,6 +29,7 @@ pub(super) fn deliver_udp_datagram(
     src: SocketAddr,
     attribution_dst: SocketAddr,
     resolved_dst: SocketAddr,
+    target_host: Option<&str>,
     synthetic_ip: Option<u32>,
     payload: &[u8],
     dns_cache: &mut Option<DnsCache>,
@@ -45,7 +47,10 @@ pub(super) fn deliver_udp_datagram(
         return;
     };
     record_udp_activity(associations, eviction_heap, src);
-    let Some(datagram) = OutboundDatagram::try_new(resolved_dst, attribution_dst, payload, memory_budget) else {
+    let target = target_host
+        .map_or(TargetAddr::Ip(resolved_dst), |host| TargetAddr::ResolvedDomain(host.to_owned(), resolved_dst));
+    let Some(datagram) = OutboundDatagram::try_new(target, resolved_dst, attribution_dst, payload, memory_budget)
+    else {
         debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
         return;
     };
@@ -63,7 +68,7 @@ pub(super) fn deliver_udp_datagram(
                 proxy_addr,
                 auth,
                 src,
-                datagram.dest,
+                datagram.resolved_dest,
                 &datagram.payload,
                 dns_cache,
                 idle_timeout,

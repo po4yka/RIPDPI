@@ -124,13 +124,15 @@ fn parse_shadowsocks_target_handles_ipv4_and_resolved_domain_targets() {
     let ipv4_packet = [S_ATP_I4, 127, 0, 0, 1, 0x01, 0xbb];
     let (ipv4_target, ipv4_header_len) =
         state.parse_shadowsocks_target(&ipv4_packet, resolve_ip_literal).expect("parse ipv4 target");
-    assert_eq!(ipv4_target, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
+    assert_eq!(ipv4_target.addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
+    assert_eq!(ipv4_target.host, None);
     assert_eq!(ipv4_header_len, ipv4_packet.len());
 
     let domain_packet = [0x03, 9, b'1', b'2', b'7', b'.', b'0', b'.', b'0', b'.', b'1', 0x00, 0x50];
     let (domain_target, domain_header_len) =
         state.parse_shadowsocks_target(&domain_packet, resolve_ip_literal).expect("parse domain target");
-    assert_eq!(domain_target, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80));
+    assert_eq!(domain_target.addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80));
+    assert_eq!(domain_target.host.as_deref(), Some("127.0.0.1"));
     assert_eq!(domain_header_len, domain_packet.len());
 }
 
@@ -161,7 +163,7 @@ fn read_shadowsocks_request_returns_fragmented_target_and_first_payload() {
     let (target, first_payload) =
         read_shadowsocks_request(&mut reader, S_ATP_I4, &state, resolve_ip_literal).expect("read shadowsocks request");
 
-    assert_eq!(target, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
+    assert_eq!(target.addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
     assert_eq!(first_payload, payload);
 }
 
@@ -233,7 +235,8 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
     let shadowsocks_request = [0x03, 12, b'f', b'i', b'x', b't', b'u', b'r', b'e', b'.', b't', b'e', b's', b't', 0, 80];
     let (shadowsocks_target, header_len) =
         state.parse_shadowsocks_target(&shadowsocks_request, resolver).expect("parse shadowsocks target");
-    assert_eq!(shadowsocks_target.ip(), expected_ip);
+    assert_eq!(shadowsocks_target.addr.ip(), expected_ip);
+    assert_eq!(shadowsocks_target.host.as_deref(), Some("fixture.test"));
     assert_eq!(header_len, shadowsocks_request.len());
 }
 

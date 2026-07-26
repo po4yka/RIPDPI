@@ -37,6 +37,15 @@ impl GeoMatcher for RuntimeGeoMatcher {
     fn geosite_matches_host(&self, category: &str, host: &str) -> bool {
         self.runtime.geosite_contains(category, host)
     }
+
+    fn country_match(&self, country_code: &str, ip: IpAddr) -> Option<bool> {
+        self.runtime.versions().geoip.as_ref()?;
+        Some(self.runtime.country_contains_ip(country_code, ip))
+    }
+
+    fn geosite_match(&self, category: &str, host: &str) -> Option<bool> {
+        self.runtime.geosite_match(category, host)
+    }
 }
 
 pub(super) fn load_runtime_geo_matcher(config: &RuntimeConfig) -> Option<Arc<dyn GeoMatcher + Send + Sync>> {
@@ -124,6 +133,8 @@ mod tests {
 
         assert!(!matcher.country_matches_ip("US", IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)));
         assert!(!matcher.geosite_matches_host("category-ads", "example.com"));
+        assert_eq!(matcher.country_match("US", IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)), None);
+        assert_eq!(matcher.geosite_match("category-ads", "example.com"), None);
     }
 
     #[test]

@@ -77,6 +77,7 @@ pub(super) fn empty_split_dns_policy() -> ripdpi_tunnel_config::SplitDnsPolicyCo
         rules: Vec::new(),
         direct_resolver_candidates: Vec::new(),
         bootstrap_pins: Vec::new(),
+        geosite_db_path: None,
         coverage_reason: None,
     }
 }

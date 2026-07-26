@@ -1,19 +1,17 @@
 use std::collections::HashMap;
 use std::io;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::UdpSocket;
 #[cfg(unix)]
 use std::os::fd::{AsRawFd, RawFd};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 
-use super::encode_socks5_udp_packet_into;
+use super::encode_socks5_udp_packet_with_resolved_host_into;
 use super::feedback::note_udp_first_response_success;
-use super::flow::UdpFlowActivationState;
+use super::flow::{UdpFlowActivationState, UdpFlowKey};
 use super::migration::maybe_rebind_udp_source_port;
 use crate::runtime::state::RuntimeState;
-
-type UdpFlowKey = (SocketAddr, SocketAddr);
 
 #[derive(Default)]
 pub(super) struct UdpUpstreamPollScratch {
@@ -34,8 +32,8 @@ pub(super) fn pump_udp_upstream_responses(
     protect_path: Option<&str>,
 ) -> io::Result<bool> {
     let mut made_progress = false;
-    for &(client_addr, logical_target) in ready_udp_flow_keys(flow_state, poll_scratch)? {
-        let Some(entry) = flow_state.get_mut(&(client_addr, logical_target)) else {
+    for key in ready_udp_flow_keys(flow_state, poll_scratch)?.to_vec() {
+        let Some(entry) = flow_state.get_mut(&key) else {
             continue;
         };
         match entry.upstream.recv(upstream_buffer) {
@@ -58,8 +56,19 @@ pub(super) fn pump_udp_upstream_responses(
                 entry.session.observe_upstream_response(response);
                 note_udp_first_response_success(state, entry)?;
                 maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
-                encode_socks5_udp_packet_into(encode_buffer, entry.logical_target, response);
-                client_relay.send_to(encode_buffer, client_addr)?;
+                if key.preserve_host_in_response
+                    && let Some(host) = key.host.as_deref()
+                {
+                    encode_socks5_udp_packet_with_resolved_host_into(
+                        encode_buffer,
+                        entry.logical_target,
+                        host,
+                        response,
+                    );
+                } else {
+                    RuntimeState::encode_socks5_udp_packet_into(encode_buffer, entry.logical_target, response);
+                }
+                client_relay.send_to(encode_buffer, key.client)?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
             Err(err) if udp_platform::is_connection_refused(&err) => {}
@@ -94,7 +103,7 @@ fn ready_udp_flow_keys<'a>(
     scratch: &'a mut UdpUpstreamPollScratch,
 ) -> io::Result<&'a [UdpFlowKey]> {
     scratch.entries.clear();
-    scratch.entries.extend(flow_state.iter().map(|(&key, entry)| (key, entry.upstream.as_raw_fd())));
+    scratch.entries.extend(flow_state.iter().map(|(key, entry)| (key.clone(), entry.upstream.as_raw_fd())));
     ready_udp_poll_keys(&scratch.entries, &mut scratch.pollfds, &mut scratch.ready_keys)?;
     Ok(&scratch.ready_keys)
 }
@@ -105,7 +114,7 @@ fn ready_udp_flow_keys<'a>(
     scratch: &'a mut UdpUpstreamPollScratch,
 ) -> io::Result<&'a [UdpFlowKey]> {
     scratch.ready_keys.clear();
-    scratch.ready_keys.extend(flow_state.keys().copied());
+    scratch.ready_keys.extend(flow_state.keys().cloned());
     Ok(&scratch.ready_keys)
 }
 
@@ -121,7 +130,7 @@ pub(super) fn ready_udp_poll_keys(
         return Ok(());
     }
 
-    pollfds.extend(entries.iter().map(|&(_, fd)| libc::pollfd { fd, events: libc::POLLIN, revents: 0 }));
+    pollfds.extend(entries.iter().map(|(_, fd)| libc::pollfd { fd: *fd, events: libc::POLLIN, revents: 0 }));
     // SAFETY: `pollfds` is a live mutable buffer for the full call, and
     // `libc::poll` only reads/writes within the pointer plus exact length.
     let result = unsafe { libc::poll(pollfds.as_mut_ptr(), pollfds.len() as libc::nfds_t, 0) };
@@ -137,7 +146,8 @@ pub(super) fn ready_udp_poll_keys(
         entries
             .iter()
             .zip(pollfds.iter())
-            .filter_map(|(&(key, _), pollfd)| (pollfd.revents & READY_EVENTS != 0).then_some(key)),
+            .filter(|(_, pollfd)| pollfd.revents & READY_EVENTS != 0)
+            .map(|((key, _), _)| key.clone()),
     );
     Ok(())
 }

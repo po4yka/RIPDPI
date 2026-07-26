@@ -1,6 +1,7 @@
 use super::*;
 
 impl RuntimeState {
+    #[cfg(test)]
     pub(in crate::runtime) fn parse_socks5_udp_packet<'a>(
         &self,
         packet: &'a [u8],
@@ -8,12 +9,29 @@ impl RuntimeState {
     ) -> Option<(SocketAddr, &'a [u8])> {
         runtime_parse_socks5_udp_packet(&self.udp_packet_parser, packet, resolve_name)
     }
+    pub(in crate::runtime) fn parse_socks5_udp_packet_with_host<'a>(
+        &self,
+        packet: &'a [u8],
+        resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+    ) -> Option<ParsedSocks5UdpPacket<'a>> {
+        runtime_parse_socks5_udp_packet_with_host(&self.udp_packet_parser, packet, resolve_name)
+    }
     #[allow(dead_code)]
     pub(in crate::runtime) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
         encode_socks5_udp_packet(target, payload)
     }
     pub(in crate::runtime) fn encode_socks5_udp_packet_into(out: &mut Vec<u8>, target: SocketAddr, payload: &[u8]) {
-        encode_socks5_udp_packet_into(out, target, payload);
+        ripdpi_proxy_runtime_adapter::model::session::encode_socks5_udp_packet_into(out, target, payload);
+    }
+    pub(in crate::runtime) fn encode_socks5_udp_packet_with_resolved_host_into(
+        out: &mut Vec<u8>,
+        target: SocketAddr,
+        host: &str,
+        payload: &[u8],
+    ) {
+        ripdpi_proxy_runtime_adapter::model::session::encode_socks5_udp_packet_with_resolved_host_into(
+            out, target, host, payload,
+        );
     }
     pub(in crate::runtime) fn classify_udp_payload(&self, payload: &[u8]) -> UdpPayloadInfo {
         runtime_classify_udp_payload(&self.udp_payload_classifier, payload)
@@ -28,13 +46,20 @@ impl RuntimeState {
     ) -> bool {
         udp_flow_at_capacity(flow_exists, active_flow_count, flow_limit)
     }
-    pub(in crate::runtime) fn udp_flow_group_policy(&self, group_index: usize) -> Option<UdpFlowGroupPolicy> {
+    pub(in crate::runtime) fn udp_flow_group_policy(
+        &self,
+        group_index: usize,
+        egress: DestinationEgress,
+    ) -> Option<UdpFlowGroupPolicy> {
+        if egress == DestinationEgress::Block {
+            return None;
+        }
         let group = udp_group_settings_with(&self.udp_group_settings, group_index)?;
         Some(UdpFlowGroupPolicy {
             socket: RuntimeUdpSocketSettings { bind_low_port: group.socket.bind_low_port },
             packet: runtime_udp_packet_settings(group.packet),
             source_rebind: RuntimeUdpSourceRebindPolicy { after_handshake: group.source_rebind.after_handshake },
-            upstream_socks_addr: group.upstream_socks_addr,
+            upstream_socks_addr: (egress == DestinationEgress::Tunneled).then_some(group.upstream_socks_addr).flatten(),
             connect_timeout: group.connect_timeout,
         })
     }

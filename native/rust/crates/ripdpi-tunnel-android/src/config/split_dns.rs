@@ -108,6 +108,11 @@ fn convert_policy(payload: &SplitDnsPolicyPayload) -> Result<SplitDnsPolicyConfi
     if total_matchers > MAX_TOTAL_MATCHERS {
         return Err(format!("splitDnsPolicy domain matchers exceed {MAX_TOTAL_MATCHERS}"));
     }
+    if let Some(path) = payload.geosite_db_path.as_deref()
+        && (path.len() > 4_096 || !std::path::Path::new(path).is_absolute())
+    {
+        return Err("Invalid splitDnsPolicy geositeDbPath".to_string());
+    }
     Ok(SplitDnsPolicyConfig {
         canonical_digest: payload.canonical_digest.clone(),
         destination_routing_digest: payload.destination_routing_digest.clone(),
@@ -115,6 +120,7 @@ fn convert_policy(payload: &SplitDnsPolicyPayload) -> Result<SplitDnsPolicyConfi
         rules: payload.rules.iter().map(convert_rule).collect::<Result<Vec<_>, _>>()?,
         direct_resolver_candidates: parse_addresses(&payload.direct_resolver_candidates, "directResolverCandidates")?,
         bootstrap_pins: parse_addresses(&payload.bootstrap_pins, "bootstrapPins")?,
+        geosite_db_path: payload.geosite_db_path.clone(),
         coverage_reason: payload.coverage_reason.clone(),
     })
 }
@@ -227,6 +233,7 @@ mod tests {
             rules: vec![rule()],
             direct_resolver_candidates: vec!["192.0.2.53".to_string()],
             bootstrap_pins: vec!["94.140.14.14".to_string()],
+            geosite_db_path: None,
             coverage_reason: None,
         }
     }
@@ -266,6 +273,13 @@ mod tests {
         assert_eq!(
             convert_policy(&invalid_domain).expect_err("canonical domain"),
             "Invalid splitDnsPolicy domain matcher: Upper.EXAMPLE",
+        );
+
+        let mut relative_geosite = policy();
+        relative_geosite.geosite_db_path = Some("geo/geosite.db".to_string());
+        assert_eq!(
+            convert_policy(&relative_geosite).expect_err("absolute geosite path"),
+            "Invalid splitDnsPolicy geositeDbPath",
         );
 
         for digest in ["short".to_string(), "A".repeat(64), "g".repeat(64)] {

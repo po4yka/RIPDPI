@@ -156,7 +156,14 @@ async fn association_worker_sends_datagram_queued_during_setup() {
     association
         .outbound
         .try_send(
-            OutboundDatagram::try_new(dest, dest, b"queued-during-setup", &memory_budget).expect("reserve queue bytes"),
+            OutboundDatagram::try_new(
+                crate::session::TargetAddr::Ip(dest),
+                dest,
+                dest,
+                b"queued-during-setup",
+                &memory_budget,
+            )
+            .expect("reserve queue bytes"),
         )
         .expect("queue datagram");
     let datagram = tokio::time::timeout(Duration::from_secs(1), datagram_rx)
@@ -192,7 +199,16 @@ async fn mapdns_udp_response_uses_synthetic_source_tuple() {
 
     association
         .outbound
-        .try_send(OutboundDatagram::try_new(resolved, synthetic, b"stun", &memory_budget).expect("reserve queue bytes"))
+        .try_send(
+            OutboundDatagram::try_new(
+                crate::session::TargetAddr::ResolvedDomain("stun.example".into(), resolved),
+                resolved,
+                synthetic,
+                b"stun",
+                &memory_budget,
+            )
+            .expect("reserve queue bytes"),
+        )
         .expect("queue datagram");
     let event = tokio::time::timeout(Duration::from_secs(1), udp_rx.recv())
         .await

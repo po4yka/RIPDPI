@@ -14,7 +14,9 @@ mod ws_first;
 use super::super::state::RuntimeState;
 use super::protocol_io::HandshakeKind;
 use super::ws_tunnel::{WsTunnelResult, run_ws_tunnel, run_ws_tunnel_with_seed};
+use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::types::RuntimeConnectionRoute;
+use crate::runtime::types::RuntimeTransportProtocol;
 use delay::{DelayConnect, maybe_delay_connect};
 use relay::{connect_after_ws_attempt, delayed_connect_relay, immediate_connect_relay};
 use reply::write_success_reply;
@@ -88,7 +90,7 @@ where
         &RuntimeState,
         SocketAddr,
         Option<&str>,
-        HandshakeKind,
+        Option<HandshakeKind>,
     ) -> Result<DelayConnect, ConnectRelayError>,
     ImmediateConnectRelay: FnMut(
         &mut TcpStream,
@@ -96,6 +98,7 @@ where
         &RuntimeState,
         Option<String>,
         &SuccessReply,
+        bool,
     ) -> Result<(), ConnectRelayError>,
     DelayedConnectRelay: FnMut(
         &mut TcpStream,
@@ -108,8 +111,19 @@ where
     ConnectAfterWsAttempt:
         FnMut(&mut TcpStream, SocketAddr, &RuntimeState, Option<String>, Vec<u8>) -> Result<(), ConnectRelayError>,
 {
-    if let Some(outcome) =
-        run_ws_always_first(client, target, state, &reply, &mut write_success_reply_fn, &mut run_ws_tunnel_fn)?
+    let destination_egress = state.destination_egress(target, host_hint.as_deref(), RuntimeTransportProtocol::Tcp);
+    if destination_egress == DestinationEgress::Block {
+        return Err(ConnectRelayError::new(
+            io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"),
+            false,
+        ));
+    }
+    let defer_ws_for_destination = destination_egress == DestinationEgress::Direct
+        || (host_hint.is_none() && state.destination_policy_may_need_host());
+
+    if !defer_ws_for_destination
+        && let Some(outcome) =
+            run_ws_always_first(client, target, state, &reply, &mut write_success_reply_fn, &mut run_ws_tunnel_fn)?
     {
         return match outcome {
             AlwaysWsOutcome::Handled => Ok(()),
@@ -120,19 +134,20 @@ where
         };
     }
 
-    let desync_result = match reply.handshake_kind() {
-        Some(kind) => match maybe_delay_connect_fn(client, state, target, host_hint.as_deref(), kind)? {
-            DelayConnect::Immediate => immediate_connect_relay_fn(client, target, state, host_hint, &reply),
+    let desync_result =
+        match maybe_delay_connect_fn(client, state, target, host_hint.as_deref(), reply.handshake_kind())? {
+            DelayConnect::Immediate { success_reply_sent } => {
+                immediate_connect_relay_fn(client, target, state, host_hint, &reply, success_reply_sent)
+            }
             DelayConnect::Delayed { route, payload } => {
                 delayed_connect_relay_fn(client, target, state, host_hint, route, payload)
             }
             DelayConnect::Closed => Ok(()),
-        },
-        None => immediate_connect_relay_fn(client, target, state, host_hint, &reply),
-    };
+        };
 
     match desync_result {
         Ok(()) => Ok(()),
+        Err(err) if defer_ws_for_destination => Err(err),
         Err(err) => run_ws_fallback_after_desync(
             client,
             target,

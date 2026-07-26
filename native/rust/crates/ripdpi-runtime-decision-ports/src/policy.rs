@@ -74,6 +74,14 @@ pub trait GeoMatcher {
     fn country_matches_ip(&self, country_code: &str, ip: IpAddr) -> bool;
 
     fn geosite_matches_host(&self, category: &str, host: &str) -> bool;
+
+    fn country_match(&self, country_code: &str, ip: IpAddr) -> Option<bool> {
+        Some(self.country_matches_ip(country_code, ip))
+    }
+
+    fn geosite_match(&self, category: &str, host: &str) -> Option<bool> {
+        Some(self.geosite_matches_host(category, host))
+    }
 }
 
 pub trait DirectPathLearningObserver {

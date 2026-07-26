@@ -43,6 +43,7 @@ internal class VpnTunnelRuntime(
      */
     private val flowAttributionBridge: FlowAttributionBridge? = null,
     private val nativeUidPolicyProvider: ((VpnAppRoutingPlan) -> NativeUidPolicy)? = null,
+    private val geositeDbPath: String? = null,
 ) {
     @Volatile
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -216,6 +217,7 @@ internal class VpnTunnelRuntime(
                     rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
                     luaScriptBaseDir = luaScriptBaseDir,
                     uidPolicy = uidPolicy,
+                    geositeDbPath = geositeDbPath,
                 )
             val tunnelSession =
                 vpnTunnelSessionProvider.establish(

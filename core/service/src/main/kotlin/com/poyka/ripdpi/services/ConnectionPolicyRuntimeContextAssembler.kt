@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
@@ -143,13 +144,19 @@ internal class ConnectionPolicyRuntimeContextAssembler
             runtimeContext: RipDpiRuntimeContext?,
             destinationRouting: DestinationRoutingPolicy,
             awg: AwgActivationRequest? = null,
-        ): RipDpiProxyPreferences =
-            if (settings.enableCmdSettings) {
-                RipDpiProxyCmdPreferences(
-                    settings.cmdArgs,
-                    hostAutolearnStorePath = hostAutolearnStorePath,
-                    runtimeContext = runtimeContext,
-                )
+        ): RipDpiProxyPreferences {
+            val geoPaths = resolveGeoDatabasePaths(context)
+            return if (settings.enableCmdSettings) {
+                val commandLine =
+                    RipDpiProxyCmdPreferences(
+                        settings.cmdArgs,
+                        hostAutolearnStorePath = hostAutolearnStorePath,
+                        destinationRouting = destinationRouting,
+                        geoipDbPath = geoPaths.geoipDbPath,
+                        geositeDbPath = geoPaths.geositeDbPath,
+                        runtimeContext = runtimeContext,
+                    )
+                commandLine
             } else {
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
@@ -160,9 +167,12 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     rootHelperSocketPath = rootHelperManager.socketPath,
                     environmentKind = environmentDetector.kind,
                     destinationRouting = destinationRouting,
+                    geoipDbPath = geoPaths.geoipDbPath,
+                    geositeDbPath = geoPaths.geositeDbPath,
                     awg = awg,
                 )
             }
+        }
 
         fun rememberedPreferences(
             configJson: String,
@@ -173,6 +183,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
             destinationRouting: DestinationRoutingPolicy,
             awg: AwgActivationRequest? = null,
         ): RipDpiProxyPreferences {
+            val geoPaths = resolveGeoDatabasePaths(context)
             val remembered =
                 com.poyka.ripdpi.core.RipDpiProxyJsonPreferences(
                     configJson = configJson,
@@ -182,6 +193,8 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     rootMode = settings.rootModeEnabled,
                     rootHelperSocketPath = rootHelperManager.socketPath,
                     environmentKind = environmentDetector.kind,
+                    geoipDbPath = geoPaths.geoipDbPath,
+                    geositeDbPath = geoPaths.geositeDbPath,
                     awg = awg,
                 )
             return checkNotNull(decodeRipDpiProxyUiPreferences(remembered.toNativeConfigJson())) {

@@ -28,6 +28,7 @@ impl RuntimeState {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         let decision_engine = new_decision_engine(&handle);
         let geo_matcher = super::super::geo::load_runtime_geo_matcher(&config);
+        let destination_routing = DestinationRoutingEvaluator::compile(&config.destination_routing);
         let RuntimeConfigProjection {
             listener_settings,
             handshake_settings,
@@ -79,6 +80,7 @@ impl RuntimeState {
             first_response_exchange_policy,
             response_failure_evidence_settings,
             geo_matcher,
+            destination_routing,
             services: handle,
             decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),

@@ -1,6 +1,7 @@
 use crate::exit_ip_cap::{ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use crate::{SameSniProfileCaps, SameSniProfileGuard, SameSniProfileLimiter};
+use ripdpi_proxy_runtime_adapter::model::session::TargetAddr;
 use std::collections::BTreeMap;
 use std::io::{self, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
@@ -21,6 +22,7 @@ use super::config::{
     runtime_config_projection_with_geo, should_rebind_udp_source_port_with, tcp_rotation_seed_with,
     tcp_route_connect_settings_with, udp_flow_at_capacity, udp_group_settings_with,
 };
+use super::destination_routing::{DestinationEgress, DestinationRoutingEvaluator};
 use super::desync::{
     DesyncSendRequest, OutboundSendError, OutboundSendOutcome, RuntimeDesyncProjection, TcpDesyncExecutionContext,
     TcpDesyncExecutor, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
@@ -52,16 +54,18 @@ use super::response::{
 };
 #[cfg(test)]
 use super::response::{RuntimeTriggerEvent, runtime_response_trigger_flag, runtime_response_trigger_supported};
+#[cfg(test)]
+use super::session::runtime_parse_socks5_udp_packet;
 use super::session::{
-    FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, ProxyReply, RuntimeSessionProjection,
-    S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET,
-    S_ER_TTL, S_VER5, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, encode_http_connect_reply,
-    encode_socks4_reply, encode_socks5_reply, encode_socks5_udp_packet, encode_socks5_udp_packet_into,
+    FirstOutboundPayloadPolicy, OutboundPayloadInfo, ParsedSocks5UdpPacket, PayloadHostExtractor, ProxyReply,
+    RuntimeSessionProjection, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN,
+    S_ER_GEN, S_ER_HOST, S_ER_NET, S_ER_TTL, S_VER5, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, encode_socks5_udp_packet,
     encode_upstream_socks_connect, extract_payload_host_with, has_inbound_payload, new_session_state,
     observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
-    read_upstream_socks_reply, runtime_classify_udp_payload, runtime_parse_socks5_udp_packet,
+    read_upstream_socks_reply, runtime_classify_udp_payload, runtime_parse_socks5_udp_packet_with_host,
     runtime_session_projection, validate_http_proxy_auth,
 };
 use super::types::{
@@ -122,6 +126,7 @@ pub(super) struct RuntimeState {
     first_response_exchange_policy: RuntimeFirstResponseExchangePolicy,
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     geo_matcher: Option<std::sync::Arc<dyn GeoMatcher + Send + Sync>>,
+    destination_routing: DestinationRoutingEvaluator,
     services: ServicesStateHandle,
     /// Single decision boundary that proxy-runtime now composes through —
     /// see `ripdpi-runtime-decision-engine`. Today this engine delegates
@@ -228,6 +233,7 @@ impl RuntimeState {
             sink.on_runtime_decision_snapshot(&runtime_decision.snapshot);
         }
         let geo_matcher = super::geo::load_runtime_geo_matcher(&config);
+        let destination_routing = DestinationRoutingEvaluator::compile(&config.destination_routing);
 
         let RuntimeConfigProjection {
             listener_settings,
@@ -280,6 +286,7 @@ impl RuntimeState {
             first_response_exchange_policy,
             response_failure_evidence_settings,
             geo_matcher,
+            destination_routing,
             services: handle,
             decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),
@@ -463,7 +470,7 @@ mod state_coverage_tests {
         assert_eq!(state.classify_udp_payload(b"").host, None);
         assert!(state.udp_flow_limit() > 0);
         assert!(RuntimeState::udp_flow_at_capacity(false, state.udp_flow_limit(), state.udp_flow_limit()));
-        let udp_policy = state.udp_flow_group_policy(0).expect("udp policy");
+        let udp_policy = state.udp_flow_group_policy(0, DestinationEgress::Tunneled).expect("udp policy");
         assert!(!RuntimeState::should_rebind_udp_flow_source_port(udp_policy.source_rebind, false, 0, b""));
     }
 
@@ -506,7 +513,9 @@ mod state_coverage_tests {
             RuntimeTransportProtocol::Tcp
         ));
         assert!(!state.route_uses_direct_syn_data_tfo(&route, Some(b"GET / HTTP/1.1\r\n\r\n")));
-        let policy = state.route_connect_policy(0, Some(b"GET / HTTP/1.1\r\n\r\n"), true).expect("route policy");
+        let policy = state
+            .route_connect_policy(0, Some(b"GET / HTTP/1.1\r\n\r\n"), true, DestinationEgress::Tunneled)
+            .expect("route policy");
         assert!(policy.connect_timeout.is_some());
         assert!(
             state

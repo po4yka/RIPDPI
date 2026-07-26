@@ -4,12 +4,13 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use super::client_receive::UdpClientPacket;
-use super::flow::{UdpFlowActivationState, udp_flow_at_capacity};
+use super::flow::{UdpFlowActivationState, UdpFlowKey, udp_flow_at_capacity};
 use super::session::UdpFlowSession;
 use super::sockets::build_udp_upstream_socket;
 use super::upstream_pump::send_udp_flow_payload;
 use super::upstream_socks::{UpstreamUdpSocks, open_upstream_udp_associate};
 use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy};
+use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
@@ -62,13 +63,13 @@ fn build_udp_flow_upstream(
 pub(super) fn ensure_udp_flow_selected(
     state: &RuntimeState,
     protect_path: Option<&str>,
-    flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
+    flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     flow_limit: usize,
     packet: &UdpClientPacket<'_>,
     now: Instant,
 ) -> io::Result<bool> {
     let flow_key = packet.flow_key();
-    if udp_flow_at_capacity(flow_state, flow_key, flow_limit) {
+    if udp_flow_at_capacity(flow_state, &flow_key, flow_limit) {
         tracing::warn!(
             client = %packet.sender,
             target = %packet.original_target,
@@ -100,7 +101,11 @@ pub(super) fn select_udp_flow_target(
     target_candidates: &[SocketAddr],
     start_index: usize,
     phase: &'static str,
+    egress: DestinationEgress,
 ) -> io::Result<Option<UdpFlowSelection>> {
+    if egress == DestinationEgress::Block {
+        return Ok(None);
+    }
     for (target_index, &target) in target_candidates.iter().enumerate().skip(start_index) {
         let Ok(route) =
             select_route_for_transport(state, target, Some(payload), host, false, RuntimeTransportProtocol::Udp)
@@ -108,7 +113,7 @@ pub(super) fn select_udp_flow_target(
             continue;
         };
         state.note_route_selected(target, route.group_index, host, phase);
-        let Some(group_policy) = state.udp_flow_group_policy(route.group_index) else {
+        let Some(group_policy) = state.udp_flow_group_policy(route.group_index, egress) else {
             continue;
         };
         let socket_settings = group_policy.socket;
@@ -137,11 +142,12 @@ pub(super) fn reselect_udp_flow_target(
     original_target: SocketAddr,
     payload: &[u8],
     host: Option<&str>,
+    egress: DestinationEgress,
 ) -> io::Result<Option<UdpFlowSelectionWithCandidates>> {
     let target_candidates =
         preferred_targets_for_transport(state, original_target, host, RuntimeTransportProtocol::Udp);
     let Some(selection) =
-        select_udp_flow_target(state, protect_path, host, payload, &target_candidates, 0, "payload_reselect")?
+        select_udp_flow_target(state, protect_path, host, payload, &target_candidates, 0, "payload_reselect", egress)?
     else {
         return Ok(None);
     };
@@ -186,6 +192,7 @@ pub(super) fn try_advance_udp_preferred_target(
         &entry.target_candidates,
         next_index,
         "edge_fallback",
+        entry.destination_egress,
     )? {
         entry.route = selection.route;
         entry.socket_settings = selection.socket_settings;
@@ -211,6 +218,11 @@ fn build_initial_udp_flow_entry(
     packet: &UdpClientPacket<'_>,
     now: Instant,
 ) -> io::Result<Option<UdpFlowActivationState>> {
+    let destination_egress =
+        state.destination_egress(packet.original_target, packet.host.as_deref(), RuntimeTransportProtocol::Udp);
+    if destination_egress == DestinationEgress::Block {
+        return Ok(None);
+    }
     let target_candidates = preferred_targets_for_transport(
         state,
         packet.original_target,
@@ -225,6 +237,7 @@ fn build_initial_udp_flow_entry(
         &target_candidates,
         0,
         "initial",
+        destination_egress,
     )?
     else {
         return Ok(None);
@@ -233,6 +246,7 @@ fn build_initial_udp_flow_entry(
         session: UdpFlowSession::new(),
         last_used: now,
         route: selection.route,
+        destination_egress,
         socket_settings: selection.socket_settings,
         packet_settings: selection.packet_settings,
         source_rebind_policy: selection.source_rebind_policy,
@@ -275,6 +289,7 @@ fn update_udp_flow_selection(
             packet.original_target,
             packet.payload,
             packet.host.as_deref(),
+            entry.destination_egress,
         )?
         else {
             return Ok(false);

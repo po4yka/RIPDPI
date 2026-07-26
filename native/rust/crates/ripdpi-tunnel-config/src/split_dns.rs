@@ -46,5 +46,6 @@ pub struct SplitDnsPolicyConfig {
     pub rules: Vec<SplitDnsRule>,
     pub direct_resolver_candidates: Vec<IpAddr>,
     pub bootstrap_pins: Vec<IpAddr>,
+    pub geosite_db_path: Option<String>,
     pub coverage_reason: Option<String>,
 }

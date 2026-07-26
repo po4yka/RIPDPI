@@ -1,3 +1,4 @@
+use ripdpi_geo::{GeoRuntime, GeoRuntimePaths};
 use ripdpi_tunnel_config::{SplitDnsAction, SplitDnsMatcherKind, SplitDnsNetwork, SplitDnsPolicyConfig, SplitDnsRule};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +19,7 @@ pub(crate) struct SplitDnsPolicy {
     rules: Box<[SplitDnsRule]>,
     coverage_reason: Option<Box<str>>,
     direct_resolver_candidates: Box<[std::net::IpAddr]>,
+    geosite: Option<std::sync::Arc<GeoRuntime>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +38,7 @@ impl SplitDnsPolicy {
             rules: config.rules.clone().into_boxed_slice(),
             coverage_reason: config.coverage_reason.clone().map(String::into_boxed_str),
             direct_resolver_candidates: config.direct_resolver_candidates.clone().into_boxed_slice(),
+            geosite: load_geosite_runtime(config.geosite_db_path.as_deref()),
         })
     }
 
@@ -45,12 +48,18 @@ impl SplitDnsPolicy {
         };
 
         for rule in &self.rules {
-            match evaluate_rule(rule, qname) {
+            let rule_match = evaluate_rule(rule, qname, self.geosite.as_deref());
+            if rule_match != RuleMatch::NoMatch
+                && (rule.network != SplitDnsNetwork::Both || rule.has_ip_ranges || rule.has_ports)
+            {
+                return proxy(Some("mixed_route_constraints"));
+            }
+            match rule_match {
                 RuleMatch::NoMatch => continue,
-                RuleMatch::Inconclusive => return proxy(Some("unsupported_domain_matcher")),
-                RuleMatch::Match if rule.network != SplitDnsNetwork::Both || rule.has_ip_ranges || rule.has_ports => {
-                    return proxy(Some("mixed_route_constraints"));
+                RuleMatch::Inconclusive if rule.action == SplitDnsAction::Block => {
+                    return DnsPolicyDecision { plane: DnsPolicyPlane::Block, reason: Some("blocked_geo_unavailable") };
                 }
+                RuleMatch::Inconclusive => return proxy(Some("unsupported_domain_matcher")),
                 RuleMatch::Match => {
                     return match rule.action {
                         SplitDnsAction::Tunneled => proxy(None),
@@ -76,7 +85,7 @@ fn proxy(reason: Option<&str>) -> DnsPolicyDecision<'_> {
     DnsPolicyDecision { plane: DnsPolicyPlane::Proxy, reason }
 }
 
-fn evaluate_rule(rule: &SplitDnsRule, qname: &str) -> RuleMatch {
+fn evaluate_rule(rule: &SplitDnsRule, qname: &str, geosite: Option<&GeoRuntime>) -> RuleMatch {
     if rule.domains.is_empty() {
         return RuleMatch::Match;
     }
@@ -87,8 +96,13 @@ fn evaluate_rule(rule: &SplitDnsRule, qname: &str) -> RuleMatch {
             SplitDnsMatcherKind::Exact => qname.eq_ignore_ascii_case(&matcher.value),
             SplitDnsMatcherKind::Suffix => suffix_matches(qname, &matcher.value),
             SplitDnsMatcherKind::Geosite => {
-                inconclusive = true;
-                false
+                match geosite.and_then(|runtime| runtime.geosite_match(&matcher.value, qname)) {
+                    Some(matches) => matches,
+                    None => {
+                        inconclusive = true;
+                        false
+                    }
+                }
             }
         };
         if matches {
@@ -96,6 +110,15 @@ fn evaluate_rule(rule: &SplitDnsRule, qname: &str) -> RuleMatch {
         }
     }
     if inconclusive { RuleMatch::Inconclusive } else { RuleMatch::NoMatch }
+}
+
+fn load_geosite_runtime(path: Option<&str>) -> Option<std::sync::Arc<GeoRuntime>> {
+    let geosite_db = std::path::PathBuf::from(path?);
+    if !geosite_db.is_file() {
+        return None;
+    }
+    let geoip_db = geosite_db.parent()?.join("geoip.db");
+    GeoRuntime::load(GeoRuntimePaths { geoip_db, geosite_db }).ok().map(|load| std::sync::Arc::new(load.runtime))
 }
 
 fn suffix_matches(qname: &str, suffix: &str) -> bool {
@@ -157,6 +180,7 @@ mod tests {
             rules,
             direct_resolver_candidates: vec![IpAddr::V4(Ipv4Addr::new(192, 0, 2, 53))],
             bootstrap_pins: vec![IpAddr::V4(Ipv4Addr::new(94, 140, 14, 14))],
+            geosite_db_path: None,
             coverage_reason: coverage_reason.map(str::to_string),
         })
         .expect("compile policy")
@@ -223,6 +247,47 @@ mod tests {
             policy.evaluate("blocked.example"),
             DnsPolicyDecision { plane: DnsPolicyPlane::Block, reason: None }
         );
+    }
+
+    #[test]
+    fn unavailable_geosite_block_never_opens_proxy_dns() {
+        let policy = compile(
+            vec![rule(
+                SplitDnsAction::Block,
+                vec![matcher(SplitDnsMatcherKind::Geosite, "blocked")],
+                SplitDnsNetwork::Both,
+                false,
+                false,
+            )],
+            None,
+        );
+
+        assert_eq!(
+            policy.evaluate("blocked.example"),
+            DnsPolicyDecision { plane: DnsPolicyPlane::Block, reason: Some("blocked_geo_unavailable") }
+        );
+    }
+
+    #[test]
+    fn unavailable_geosite_block_with_non_dns_constraints_stays_protected() {
+        for (network, has_ip_ranges, has_ports) in [
+            (SplitDnsNetwork::Tcp, false, false),
+            (SplitDnsNetwork::Both, true, false),
+            (SplitDnsNetwork::Both, false, true),
+        ] {
+            let policy = compile(
+                vec![rule(
+                    SplitDnsAction::Block,
+                    vec![matcher(SplitDnsMatcherKind::Geosite, "blocked")],
+                    network,
+                    has_ip_ranges,
+                    has_ports,
+                )],
+                None,
+            );
+
+            assert_eq!(policy.evaluate("blocked.example"), proxy(Some("mixed_route_constraints")));
+        }
     }
 
     #[test]

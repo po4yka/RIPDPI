@@ -41,12 +41,18 @@ pub fn runtime_config_envelope_from_payload(
         ProxyConfigPayload::CommandLine {
             args,
             host_autolearn_store_path,
+            destination_routing,
+            geoip_db_path,
+            geosite_db_path,
             runtime_context,
             log_context,
             session_overrides,
             schema_version: _,
         } => {
             let mut config = runtime_config_from_command_line(args)?;
+            config.destination_routing = destination_routing::convert(destination_routing)?;
+            config.process.geoip_db_path = normalized_optional_path(geoip_db_path);
+            config.process.geosite_db_path = normalized_optional_path(geosite_db_path);
             config.host_autolearn.store_path = host_autolearn_store_path
                 .as_deref()
                 .map(str::trim)

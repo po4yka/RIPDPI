@@ -32,6 +32,7 @@ lru = { workspace = true }
 etherparse = { workspace = true }
 ripdpi-socks5-core = { workspace = true }
 ripdpi-packets = { workspace = true }
+ripdpi-geo = { workspace = true }
 ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.codec.SessionOverrideCodec
 import com.poyka.ripdpi.core.codec.WarpSectionCodec
 import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
 import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.serialization.RipDpiNativeProxyJson
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -30,6 +31,9 @@ internal object RipDpiProxyJsonCodec {
     fun encodeCommandLinePreferences(
         args: List<String>,
         hostAutolearnStorePath: String?,
+        destinationRouting: DestinationRoutingPolicy = DestinationRoutingPolicy(canonicalDigest = ""),
+        geoipDbPath: String? = null,
+        geositeDbPath: String? = null,
         runtimeContext: RipDpiRuntimeContext?,
         logContext: RipDpiLogContext?,
         localListenPortOverride: Int? = null,
@@ -39,6 +43,9 @@ internal object RipDpiProxyJsonCodec {
             NativeProxyConfig.CommandLine(
                 args = args,
                 hostAutolearnStorePath = hostAutolearnStorePath,
+                destinationRouting = DestinationRoutingSectionCodec.toNative(destinationRouting),
+                geoipDbPath = geoipDbPath,
+                geositeDbPath = geositeDbPath,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(logContext),
                 sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
@@ -177,6 +184,8 @@ internal object RipDpiProxyJsonCodec {
                         original,
                         mapOf(
                             "runtimeContext" to encodeNullable(json, nextRuntimeContext),
+                            "geoipDbPath" to jsonPrimitiveOrNull(geoipDbPath ?: payload.geoipDbPath),
+                            "geositeDbPath" to jsonPrimitiveOrNull(geositeDbPath ?: payload.geositeDbPath),
                             "logContext" to encodeNullable(json, nextLogContext),
                             "sessionOverrides" to
                                 encodeNullable(

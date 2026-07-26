@@ -14,7 +14,7 @@ use super::SessionDuplex;
 pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
-    target_addr: SocketAddr,
+    target: TargetAddr,
     protect_path: Option<&str>,
     connect_timeout: Duration,
     read_write_timeout: Duration,
@@ -26,7 +26,7 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
     let session_inst = TcpSession::with_stats(
         proxy_sockaddr,
         auth.clone(),
-        TargetAddr::Ip(target_addr),
+        target,
         protect_path.map(str::to_owned),
         connect_timeout,
         read_write_timeout,

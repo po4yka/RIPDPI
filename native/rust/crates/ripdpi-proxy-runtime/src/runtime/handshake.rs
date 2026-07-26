@@ -130,6 +130,14 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     }
     negotiate_socks5(&mut client, state.proxy_auth_token())?;
     let request = read_socks5_request(&mut client)?;
+    if request.get(3).copied().is_some_and(RuntimeState::is_socks5_resolved_domain_address_type)
+        && (!client.peer_addr()?.ip().is_loopback() || !state.resolved_domain_targets_allowed())
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "RIPDPI resolved-domain address type is restricted to the local tunnel hop",
+        ));
+    }
     let resolver = |host: &str| state.resolve_handshake_name(host);
 
     match state.parse_socks5_client_request(&request, resolver) {
@@ -194,16 +202,15 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
 
 fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u8) -> io::Result<()> {
     let resolver = |host: &str| state.resolve_handshake_name(host);
-    let (target, first_request): (SocketAddr, Vec<u8>) =
-        read_shadowsocks_request(&mut client, first_byte, state, resolver)?;
-    let host = state.extract_relay_payload_host(&first_request);
+    let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, state, resolver)?;
+    let host = target.host.or_else(|| state.extract_relay_payload_host(&first_request));
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
-    let (upstream, route, _cap_guard) = super::routing::connect_target(target, state, payload, false, host)?;
+    let (upstream, route, _cap_guard) = super::routing::connect_target(target.addr, state, payload, false, host)?;
     super::relay::relay(
         client,
         upstream,
         state,
-        target,
+        target.addr,
         route,
         if first_request.is_empty() { None } else { Some(first_request) },
     )

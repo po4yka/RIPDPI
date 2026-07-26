@@ -442,6 +442,7 @@ data class Tun2SocksSplitDnsPolicy(
     val rules: List<Tun2SocksSplitDnsRule>,
     val directResolverCandidates: List<String>,
     val bootstrapPins: List<String>,
+    val geositeDbPath: String? = null,
     val coverageReason: String? = null,
 )
 

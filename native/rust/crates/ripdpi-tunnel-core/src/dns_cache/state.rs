@@ -119,7 +119,8 @@ impl DnsCache {
             return Err(DnsCacheError::EmptyCache);
         }
 
-        let key = DnsCacheKey { host: host.to_string(), real_ip };
+        let canonical_host = host.strip_suffix('.').unwrap_or(host).to_ascii_lowercase();
+        let key = DnsCacheKey { host: canonical_host, real_ip };
 
         if let Some(&idx) = self.lru.get(&key) {
             return Ok((self.net | idx as u32, true));

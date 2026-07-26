@@ -12,7 +12,9 @@ use std::net::SocketAddr;
 #[cfg(test)]
 pub(super) use self::config::mapdns_resolver_transport;
 pub(super) use self::config::{build_encrypted_dns_resolver, parse_dns_cache, parse_mapdns_runtime};
-pub(super) use self::mapping::{resolve_mapped_target, sync_direct_dns_mapping_generation};
+#[cfg(test)]
+pub(super) use self::mapping::resolve_mapped_target;
+pub(super) use self::mapping::{ResolvedMappedTarget, resolve_mapped_destination, sync_direct_dns_mapping_generation};
 pub(super) use self::responses::handle_dns_result;
 pub(super) use self::types::{DirectDnsRequest, DnsRequest, DnsResponse};
 pub(super) use self::wire::dns_query_name;

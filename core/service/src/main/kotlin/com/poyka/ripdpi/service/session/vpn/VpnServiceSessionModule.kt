@@ -4,6 +4,7 @@ import android.net.VpnService
 import com.poyka.ripdpi.core.RipDpiXrayRuntime
 import com.poyka.ripdpi.core.XrayNativeBridge
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
+import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
@@ -86,11 +87,29 @@ internal object VpnServiceSessionModule {
     @Provides
     @ServiceSessionScope
     fun provideVpnTunnelRuntime(
+        vpnService: VpnService,
         host: VpnCoordinatorHost,
         dependencies: VpnServiceRuntimeRuntimeDependencies,
         protectSocketServer: VpnProtectSocketServer,
         rootHelperManager: RootHelperManager,
         flowAttributionBridge: FlowAttributionBridge,
+    ): VpnTunnelRuntime =
+        createVpnTunnelRuntime(
+            host = host,
+            dependencies = dependencies,
+            protectSocketServer = protectSocketServer,
+            rootHelperManager = rootHelperManager,
+            flowAttributionBridge = flowAttributionBridge,
+            geositeDbPath = resolveGeoDatabasePaths(vpnService).geositeDbPath,
+        )
+
+    internal fun createVpnTunnelRuntime(
+        host: VpnCoordinatorHost,
+        dependencies: VpnServiceRuntimeRuntimeDependencies,
+        protectSocketServer: VpnProtectSocketServer,
+        rootHelperManager: RootHelperManager,
+        flowAttributionBridge: FlowAttributionBridge,
+        geositeDbPath: String? = null,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
@@ -106,6 +125,7 @@ internal object VpnServiceSessionModule {
             luaScriptBaseDir = File(File(protectSocketServer.socketPath).parentFile, "lua").absolutePath,
             rootHelperSocketPathProvider = { rootHelperManager.socketPath },
             flowAttributionBridge = flowAttributionBridge,
+            geositeDbPath = geositeDbPath,
         )
 
     @Provides

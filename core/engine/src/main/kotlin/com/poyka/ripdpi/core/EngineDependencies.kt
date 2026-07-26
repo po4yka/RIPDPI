@@ -31,10 +31,16 @@ class DefaultProxyPreferencesResolver
             val morphPolicy =
                 strategyPackStateStore.state.value.morphPolicy
                     ?.toRipDpiMorphPolicy()
+            val geoDatabasePaths = resolveGeoDatabasePaths(context)
             return if (settings.enableCmdSettings) {
-                RipDpiProxyCmdPreferences(settings.cmdArgs, hostAutolearnStorePath, runtimeContext = null)
+                RipDpiProxyCmdPreferences(
+                    settings.cmdArgs,
+                    hostAutolearnStorePath,
+                    runtimeContext = null,
+                    geoipDbPath = geoDatabasePaths.geoipDbPath,
+                    geositeDbPath = geoDatabasePaths.geositeDbPath,
+                )
             } else {
-                val geoDatabasePaths = resolveGeoDatabasePaths(context)
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
                     hostAutolearnStorePath,

@@ -1,4 +1,5 @@
 use std::io;
+use std::net::SocketAddr;
 
 use ripdpi_socks5_core::client::outbound::{OutboundTarget, encode_connect_request};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -28,16 +29,51 @@ pub async fn connect<S>(stream: &mut S, target: &TargetAddr) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    if let TargetAddr::ResolvedDomain(domain, addr) = target {
+        let req = encode_resolved_domain_connect(domain, *addr)?;
+        stream.write_all(&req).await?;
+        return read_connect_reply(stream).await;
+    }
     let outbound_target = match target {
         TargetAddr::Ip(std::net::SocketAddr::V4(addr)) => OutboundTarget::Ipv4(*addr.ip(), addr.port()),
         TargetAddr::Ip(std::net::SocketAddr::V6(addr)) => OutboundTarget::Ipv6(*addr.ip(), addr.port()),
         TargetAddr::Domain(domain, port) => OutboundTarget::Domain(domain.clone(), *port),
+        TargetAddr::ResolvedDomain(_, _) => unreachable!("handled above"),
     };
     let req =
         encode_connect_request(&outbound_target).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
 
     stream.write_all(&req).await?;
+    read_connect_reply(stream).await
+}
 
+fn encode_resolved_domain_connect(domain: &str, addr: SocketAddr) -> io::Result<Vec<u8>> {
+    let domain = domain.as_bytes();
+    let len = u8::try_from(domain.len())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "SOCKS5 resolved domain exceeds 255 bytes"))?;
+    if len == 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "SOCKS5 resolved domain is empty"));
+    }
+    let mut req = vec![0x05, 0x01, 0x00, 0x05, len];
+    req.extend_from_slice(domain);
+    match addr {
+        SocketAddr::V4(addr) => {
+            req.push(0x01);
+            req.extend_from_slice(&addr.ip().octets());
+        }
+        SocketAddr::V6(addr) => {
+            req.push(0x04);
+            req.extend_from_slice(&addr.ip().octets());
+        }
+    }
+    req.extend_from_slice(&addr.port().to_be_bytes());
+    Ok(req)
+}
+
+async fn read_connect_reply<S>(stream: &mut S) -> io::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     // Read reply header: [VER, REP, RSV, ATYP]
     let mut header = [0u8; 4];
     stream.read_exact(&mut header).await?;

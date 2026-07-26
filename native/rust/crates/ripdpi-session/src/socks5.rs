@@ -1,9 +1,9 @@
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 
 use crate::types::{
-    ClientRequest, NameResolver, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_CMD_AUDP, S_CMD_CONN, S_ER_ATP, S_ER_CMD, S_ER_GEN,
-    S_ER_HOST, S_SIZE_I4, S_SIZE_I6, S_SIZE_ID, S_SIZE_MIN, SessionConfig, SessionError, SocketType, TargetAddr,
-    read_be_u16,
+    ClientRequest, NameResolver, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_ATP_RESOLVED_ID, S_CMD_AUDP, S_CMD_CONN, S_ER_ATP,
+    S_ER_CMD, S_ER_GEN, S_ER_HOST, S_SIZE_I4, S_SIZE_I6, S_SIZE_ID, S_SIZE_MIN, SessionConfig, SessionError,
+    SocketType, TargetAddr, read_be_u16,
 };
 
 pub fn parse_socks5_request(
@@ -40,6 +40,7 @@ pub fn parse_socks5_request(
             let resolved = resolver.resolve(domain, socket_type).ok_or_else(|| SessionError::socks5(S_ER_HOST))?;
             (TargetAddr { addr: SocketAddr::new(resolved.ip(), 0), host: Some(domain.to_string()) }, offset)
         }
+        S_ATP_RESOLVED_ID => parse_resolved_domain_target(buffer)?,
         S_ATP_I6 => {
             if !config.ipv6 {
                 return Err(SessionError::socks5(S_ER_ATP));
@@ -61,6 +62,31 @@ pub fn parse_socks5_request(
         S_CMD_AUDP => Ok(ClientRequest::Socks5UdpAssociate(target)),
         _ => Err(SessionError::socks5(S_ER_CMD)),
     }
+}
+
+fn parse_resolved_domain_target(buffer: &[u8]) -> Result<(TargetAddr, usize), SessionError> {
+    let name_len = *buffer.get(4).ok_or_else(|| SessionError::socks5(S_ER_GEN))? as usize;
+    if name_len == 0 {
+        return Err(SessionError::socks5(S_ER_HOST));
+    }
+    let host_end = 5 + name_len;
+    let domain = std::str::from_utf8(buffer.get(5..host_end).ok_or_else(|| SessionError::socks5(S_ER_GEN))?)
+        .map_err(|_| SessionError::socks5(S_ER_HOST))?;
+    let ip_type = *buffer.get(host_end).ok_or_else(|| SessionError::socks5(S_ER_GEN))?;
+    let (ip, offset) = match ip_type {
+        S_ATP_I4 => {
+            let raw = buffer.get(host_end + 1..host_end + 5).ok_or_else(|| SessionError::socks5(S_ER_GEN))?;
+            (IpAddr::V4(std::net::Ipv4Addr::new(raw[0], raw[1], raw[2], raw[3])), host_end + 7)
+        }
+        S_ATP_I6 => {
+            let raw = buffer.get(host_end + 1..host_end + 17).ok_or_else(|| SessionError::socks5(S_ER_GEN))?;
+            let mut octets = [0; 16];
+            octets.copy_from_slice(raw);
+            (IpAddr::V6(Ipv6Addr::from(octets)), host_end + 19)
+        }
+        _ => return Err(SessionError::socks5(S_ER_ATP)),
+    };
+    Ok((TargetAddr { addr: SocketAddr::new(ip, 0), host: Some(domain.to_ascii_lowercase()) }, offset))
 }
 
 #[cfg(test)]
@@ -96,6 +122,26 @@ mod tests {
             ClientRequest::Socks5UdpAssociate(TargetAddr {
                 addr: SocketAddr::from(([198, 51, 100, 20], 8080)),
                 host: Some("example.net".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_private_resolved_domain_preserves_pinned_ip_without_resolver() {
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_RESOLVED_ID, 11];
+        request.extend_from_slice(b"example.com");
+        request.extend_from_slice(&[S_ATP_I4, 203, 0, 113, 9]);
+        request.extend_from_slice(&443u16.to_be_bytes());
+        let panic_resolver = |_: &str, _: SocketType| -> Option<SocketAddr> { panic!("resolver must not run") };
+
+        let parsed = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &panic_resolver)
+            .expect("resolved domain request");
+
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks5Connect(TargetAddr {
+                addr: SocketAddr::from(([203, 0, 113, 9], 443)),
+                host: Some("example.com".to_string()),
             })
         );
     }

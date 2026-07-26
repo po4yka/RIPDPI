@@ -7,7 +7,6 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
-| critical | routing | [Implement fail-closed destination split routing policy](issues/implement-destination-split-routing-policy.md) | Codex serialized routing policy lane | 2026-07-18 |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-07-17 |
 | high | ci | [Run a recurring real-VPS AmneziaWG and NAT lane](issues/run-recurring-real-vps-awg-nat-lane.md) | AWG real-VPS lane | 2026-07-22 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |

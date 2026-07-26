@@ -21,6 +21,39 @@ fn runtime_state(config: RuntimeConfig, telemetry: Option<StdArc<dyn RuntimeTele
     RuntimeState::test_with_telemetry(config, telemetry)
 }
 
+#[test]
+fn pre_sent_success_reply_is_propagated_to_immediate_relay() {
+    let (_peer, mut client) = connected_pair();
+    let state = runtime_state(RuntimeConfig::default(), None);
+    let target = SocketAddr::from(([192, 0, 2, 22], 22));
+    let immediate_calls = StdArc::new(AtomicUsize::new(0));
+
+    let result = connect_and_relay_with(
+        &mut client,
+        target,
+        &state,
+        None,
+        SuccessReply::Socks5,
+        |_client, _reply, _upstream| Ok(()),
+        |_client, _state| unreachable!("WS should be disabled"),
+        |_client, _seed, _state| unreachable!("WS should be disabled"),
+        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: true }),
+        {
+            let immediate_calls = immediate_calls.clone();
+            move |_client, _target, _state, _host, _reply, success_reply_sent| {
+                assert!(success_reply_sent, "immediate relay must not emit a second success reply");
+                immediate_calls.fetch_add(1, StdOrdering::Relaxed);
+                Ok(())
+            }
+        },
+        |_client, _target, _state, _host, _route, _payload| unreachable!("delayed relay should not run"),
+        |_client, _target, _state, _host, _seed| unreachable!("WS fallback should not run"),
+    );
+
+    assert!(result.is_ok());
+    assert_eq!(immediate_calls.load(StdOrdering::Relaxed), 1);
+}
+
 #[derive(Default)]
 struct TestTelemetry {
     ws_escalations: StdMutex<Vec<(SocketAddr, u8, bool)>>,
@@ -94,8 +127,8 @@ fn fallback_validated_mtproto_with_fake_sni(fake_sni: Option<&str>, allow_insecu
         |_client, _reply, _upstream| Ok(()),
         |_client, _state| unreachable!("fresh WS sniff should not be used"),
         |_client, _replay_seed, _state| WsTunnelResult::ValidatedMtproto { dc: RuntimeTelegramDc::production(2) },
-        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
-        move |_client, _target, _state, _dc_host, _reply| {
+        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::other("desync exhausted"),
                 true,
@@ -156,7 +189,9 @@ fn always_mode_replays_non_mtproto_seed_through_plain_connect() {
         move |_client, _state| WsTunnelResult::NotMtproto { seed_request: sniff_seed.clone() },
         |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
         |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
-        |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
+        |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+            unreachable!("plain immediate relay should not run")
+        },
         |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
         move |_client, replay_target, _state, dc_host, replay_seed| {
             assert_eq!(replay_target, target);
@@ -201,7 +236,9 @@ fn always_mode_fails_closed_for_validated_mtproto_after_bootstrap_failure() {
         },
         |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
         |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
-        |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
+        |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+            unreachable!("plain immediate relay should not run")
+        },
         |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     )
@@ -244,7 +281,9 @@ fn always_mode_fails_closed_for_validated_mtproto_after_ws_relay_failure() {
         },
         |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
         |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
-        |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
+        |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
+            unreachable!("plain immediate relay should not run")
+        },
         |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
         |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
     )
@@ -287,8 +326,8 @@ fn fallback_mode_reuses_preserved_seed_for_validated_mtproto() {
             assert_eq!(replay_seed, fallback_seed);
             WsTunnelResult::ValidatedMtproto { dc: RuntimeTelegramDc::production(2) }
         },
-        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
-        move |_client, _target, _state, _dc_host, _reply| {
+        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::other("desync exhausted"),
                 true,
@@ -335,8 +374,8 @@ fn fallback_mode_returns_original_error_for_non_mtproto_preserved_seed() {
             assert_eq!(replay_seed, fallback_seed);
             WsTunnelResult::NotMtproto { seed_request: replay_seed }
         },
-        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
-        move |_client, _target, _state, _dc_host, _reply| {
+        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::new(io::ErrorKind::TimedOut, "desync timeout"),
                 true,
@@ -381,8 +420,8 @@ fn fallback_mode_returns_original_error_for_bootstrap_failure() {
                 error: io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out"),
             }
         },
-        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
-        move |_client, _target, _state, _dc_host, _reply| {
+        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
+        move |_client, _target, _state, _dc_host, _reply, _success_reply_sent| {
             Err(ConnectRelayError::with_seed_request(
                 io::Error::new(io::ErrorKind::TimedOut, "desync timeout"),
                 true,

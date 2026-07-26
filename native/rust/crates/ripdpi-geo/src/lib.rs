@@ -80,6 +80,12 @@ impl GeoRuntime {
         self.databases.load().geosite_contains(category, domain)
     }
 
+    pub fn geosite_match(&self, category: &str, domain: &str) -> Option<bool> {
+        let databases = self.databases.load();
+        let rules = databases.geosite.as_ref()?.category(category)?;
+        Some(rules.iter().any(|rule| rule.matches(domain)))
+    }
+
     pub fn geosite_category(&self, category: &str) -> Option<Vec<GeositeDomainRule>> {
         self.databases.load().geosite_category(category)
     }
@@ -475,6 +481,9 @@ mod tests {
         assert!(result.runtime.geosite_contains("RU", "www.example.ru"));
         assert!(result.runtime.geosite_contains("ru", "exact.ru"));
         assert!(!result.runtime.geosite_contains("ru", "www.exact.ru"));
+        assert_eq!(Some(true), result.runtime.geosite_match("ru", "www.example.ru"));
+        assert_eq!(Some(false), result.runtime.geosite_match("ru", "foreign.example"));
+        assert_eq!(None, result.runtime.geosite_match("missing", "www.example.ru"));
         assert_eq!(
             Some(vec![GeositeDomainRule { kind: GeositeDomainKind::RootDomain, value: "example.ru".to_owned() }]),
             result.runtime.geosite_category("ru").map(|rules| vec![rules[0].clone()])

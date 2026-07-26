@@ -22,6 +22,11 @@ internal sealed interface NativeProxyConfig {
     data class CommandLine(
         val args: List<String>,
         val hostAutolearnStorePath: String? = null,
+        val destinationRouting: NativeDestinationRoutingConfig = NativeDestinationRoutingConfig(),
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val geoipDbPath: String? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val geositeDbPath: String? = null,
         val runtimeContext: NativeRuntimeContext? = null,
         val logContext: NativeLogContext? = null,
         val sessionOverrides: NativeSessionLocalProxyOverrides? = null,

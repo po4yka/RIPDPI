@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use crate::sync::{Arc, AtomicBool, Ordering};
 
 use self::client_receive::receive_and_forward_udp_client_packet;
-use self::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, expire_udp_flows};
+use self::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, UdpFlowKey, expire_udp_flows};
 pub(in crate::runtime) use self::settings::{
     RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
     runtime_udp_packet_settings,
@@ -36,12 +36,25 @@ pub(crate) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Ve
     RuntimeState::encode_socks5_udp_packet(target, payload)
 }
 
-pub(crate) fn encode_socks5_udp_packet_into(out: &mut Vec<u8>, target: SocketAddr, payload: &[u8]) {
-    RuntimeState::encode_socks5_udp_packet_into(out, target, payload);
+pub(crate) fn encode_socks5_udp_packet_with_resolved_host_into(
+    out: &mut Vec<u8>,
+    target: SocketAddr,
+    host: &str,
+    payload: &[u8],
+) {
+    RuntimeState::encode_socks5_udp_packet_with_resolved_host_into(out, target, host, payload);
 }
 
+#[cfg(test)]
 pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
     state.parse_socks5_udp_packet(packet, |host, socket_type| state.resolve_proxy_name(host, socket_type))
+}
+
+fn parse_socks5_udp_packet_with_host<'a>(
+    packet: &'a [u8],
+    state: &RuntimeState,
+) -> Option<ripdpi_proxy_runtime_adapter::model::session::ParsedSocks5UdpPacket<'a>> {
+    state.parse_socks5_udp_packet_with_host(packet, |host, socket_type| state.resolve_proxy_name(host, socket_type))
 }
 
 pub(super) fn udp_associate_loop(
@@ -54,7 +67,7 @@ pub(super) fn udp_associate_loop(
     let mut client_buffer = [0u8; 65_535];
     let mut upstream_buffer = [0u8; 65_535];
     let mut encode_buffer: Vec<u8> = Vec::with_capacity(65_535 + 24);
-    let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
+    let mut flow_state = HashMap::<UdpFlowKey, UdpFlowActivationState>::new();
     let mut expiry_schedule = UdpFlowExpirySchedule::default();
     let mut expired_flow_keys = Vec::new();
     let mut upstream_poll_scratch = UdpUpstreamPollScratch::default();

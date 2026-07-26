@@ -1,6 +1,15 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.routing.DestinationDomainMatcher
+import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
+import com.poyka.ripdpi.core.routing.DestinationIpMatcher
+import com.poyka.ripdpi.core.routing.DestinationIpMatcherKind
+import com.poyka.ripdpi.core.routing.DestinationPortRange
+import com.poyka.ripdpi.core.routing.DestinationRoutingAction
+import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
+import com.poyka.ripdpi.core.routing.DestinationRoutingRule
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
@@ -14,6 +23,8 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -39,6 +51,32 @@ import java.io.IOException
 @Config(sdk = [35])
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyServiceAutoApplyLifecycleTest {
+    @Test
+    fun `destination policy change rebuilds active proxy runtime`() =
+        runTest {
+            var runtimeStarts = 0
+            val routingSource = MutableDestinationRoutingPolicySource()
+            val env =
+                newEnv(
+                    destinationRoutingPolicySource = routingSource,
+                    runtimeFactory = {
+                        runtimeStarts += 1
+                        TestProxyRuntime()
+                    },
+                )
+
+            env.coordinator.start()
+            repeat(3) { runCurrent() }
+            routingSource.policy = destinationRoutingPolicy()
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            val session = requireNotNull(env.runtimeRegistry.current(Mode.Proxy) as? ProxyRuntimeSession)
+            assertEquals(2, runtimeStarts)
+            assertEquals(destinationRoutingPolicy().canonicalDigest, session.currentDestinationRoutingDigest)
+            assertEquals("destination_policy_changed", session.currentActiveConnectionPolicy?.restartReason)
+        }
+
     @Test
     fun `background automatic probing policy auto applies on matching proxy start`() =
         runTest {
@@ -148,6 +186,7 @@ class ProxyServiceAutoApplyLifecycleTest {
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint = sampleFingerprint(),
         runtimeFactory: () -> TestProxyRuntime = { TestProxyRuntime() },
+        destinationRoutingPolicySource: DestinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val clock = TestServiceClock(now = 1_000L)
@@ -189,7 +228,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 environmentDetector = EnvironmentDetector(),
                 serverCapabilityStore = TestServerCapabilityStore(),
                 awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
-                destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                destinationRoutingPolicySource = destinationRoutingPolicySource,
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(
@@ -273,6 +312,30 @@ class ProxyServiceAutoApplyLifecycleTest {
             winningTcpStrategyFamily = "tcp-family",
         )
 
+    private fun destinationRoutingPolicy(): DestinationRoutingPolicy =
+        DestinationRoutingPolicy(
+            rules =
+                listOf(
+                    DestinationRoutingRule(
+                        action = DestinationRoutingAction.DIRECT,
+                        network = DestinationRoutingNetwork.BOTH,
+                        domains =
+                            listOf(
+                                DestinationDomainMatcher(DestinationDomainMatcherKind.EXACT, "example.com"),
+                                DestinationDomainMatcher(DestinationDomainMatcherKind.SUFFIX, "example.net"),
+                                DestinationDomainMatcher(DestinationDomainMatcherKind.GEOSITE, "ru"),
+                            ),
+                        ipRanges =
+                            listOf(
+                                DestinationIpMatcher(DestinationIpMatcherKind.CIDR, "192.0.2.0/24"),
+                                DestinationIpMatcher(DestinationIpMatcherKind.GEO_IP, "ru"),
+                            ),
+                        destinationPorts = listOf(DestinationPortRange(443, 8443)),
+                    ),
+                ),
+            canonicalDigest = "e7ed9f9ec8688b89eea6f22a7ae6e93e7f441a903b9f9de96d387700c122bee7",
+        )
+
     private data class Env(
         val coordinator: ProxyServiceRuntimeCoordinator,
         val rememberedPolicies: DefaultRememberedNetworkPolicyStore,
@@ -282,6 +345,13 @@ class ProxyServiceAutoApplyLifecycleTest {
         val factory: TestRipDpiProxyFactory,
         val clock: TestServiceClock,
     )
+}
+
+private class MutableDestinationRoutingPolicySource : DestinationRoutingPolicySource {
+    var policy: DestinationRoutingPolicy = DestinationRoutingPolicy(canonicalDigest = "")
+
+    override suspend fun snapshot(): DestinationRoutingPolicySnapshot =
+        DestinationRoutingPolicySnapshot.Available(policy)
 }
 
 private class InMemoryRememberedNetworkPolicyRecordStore(

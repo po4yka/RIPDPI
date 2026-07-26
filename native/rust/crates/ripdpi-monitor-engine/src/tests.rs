@@ -23,7 +23,8 @@ use crate::{
 
 use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
 use ripdpi_monitor_adapter::proxy_config::{
-    ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig, parse_proxy_config_json,
+    ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig, ProxyUiDestinationRoutingConfig,
+    parse_proxy_config_json,
 };
 
 use std::net::{IpAddr, Ipv4Addr};
@@ -566,6 +567,9 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
             serde_json::to_string(&ProxyConfigPayload::CommandLine {
                 args: vec!["ripdpi".to_string(), "--split".to_string()],
                 host_autolearn_store_path: None,
+                destination_routing: ProxyUiDestinationRoutingConfig::default(),
+                geoip_db_path: None,
+                geosite_db_path: None,
                 runtime_context: None,
                 log_context: None,
                 session_overrides: None,

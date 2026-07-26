@@ -9,9 +9,10 @@ use ripdpi_config::{
     FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, QuicFakeProfile, QuicInitialMode, TcpChainStepKind,
 };
 use ripdpi_proxy_config::{
-    FAKE_TLS_SNI_MODE_RANDOMIZED, ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiFakePacketConfig,
-    ProxyUiHostAutolearnConfig, ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiParserEvasionConfig,
-    ProxyUiProtocolConfig, ProxyUiQuicConfig, ProxyUiTcpChainStep, ProxyUiUdpChainStep, QUIC_FAKE_PROFILE_DISABLED,
+    FAKE_TLS_SNI_MODE_RANDOMIZED, ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiDestinationRoutingConfig,
+    ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig, ProxyUiHostsConfig, ProxyUiListenConfig,
+    ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig, ProxyUiTcpChainStep, ProxyUiUdpChainStep,
+    QUIC_FAKE_PROFILE_DISABLED,
 };
 
 const HOSTS_DISABLE: &str = "disable";
@@ -78,6 +79,9 @@ fn command_line_payload(args: Vec<String>) -> ProxyConfigPayload {
     ProxyConfigPayload::CommandLine {
         args,
         host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
         runtime_context: None,
         log_context: None,
         session_overrides: None,

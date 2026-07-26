@@ -45,8 +45,12 @@ import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.buildLogContext
 import com.poyka.ripdpi.services.withLogContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 internal data class ProxyRuntimeSupervisorBundle(
     val upstreamRelaySupervisor: UpstreamRelaySupervisor,
@@ -127,6 +131,7 @@ internal class ProxyServiceRuntimeCoordinator(
             currentSession = { runtimeSession },
             consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
             currentNetworkHandoverState = currentNetworkHandoverState,
+            refreshDestinationRoutingPolicy = ::refreshDestinationRoutingPolicy,
         )
 
     override val runtimeHooks =
@@ -179,6 +184,7 @@ internal class ProxyServiceRuntimeCoordinator(
         restartReason: String,
         appliedAt: Long,
     ) {
+        session.currentDestinationRoutingDigest = resolution.destinationRoutingDigest
         val policy =
             resolution.appliedPolicy ?: run {
                 session.clearActiveConnectionPolicy()
@@ -250,6 +256,85 @@ internal class ProxyServiceRuntimeCoordinator(
             onAwgExit = supervisorExitHandler::handleAwgExit,
             onProxyExit = supervisorExitHandler::handleProxyExit,
         )
+    }
+
+    private suspend fun refreshDestinationRoutingPolicy() {
+        val observedSession = runtimeSession ?: return
+        val resolution = resolveDestinationRoutingPolicy(observedSession) ?: return
+        if (observedSession.currentDestinationRoutingDigest != resolution.destinationRoutingDigest) {
+            mutex.withLock {
+                rebuildForDestinationRoutingPolicy(observedSession, resolution)
+            }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun resolveDestinationRoutingPolicy(
+        observedSession: ProxyRuntimeSession,
+    ): ConnectionPolicyResolution? =
+        try {
+            connectionPolicyResolver.resolve(mode = Mode.Proxy)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            mutex.withLock {
+                if (runtimeSession?.runtimeId == observedSession.runtimeId && status == ServiceStatus.Connected) {
+                    stopRuntimeBestEffort()
+                    updateStatus(ServiceStatus.Failed, classifyFailureReason(error))
+                }
+            }
+            null
+        }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun rebuildForDestinationRoutingPolicy(
+        observedSession: ProxyRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+    ) {
+        val session = runtimeSession
+        if (!isCurrentDestinationRoutingRefresh(session, observedSession, resolution)) return
+        checkNotNull(session)
+        handoverRestarting = true
+        try {
+            proxyRuntimeStack.stop(skipRuntimeShutdown = false)
+            applyActiveConnectionPolicy(
+                session = session,
+                resolution = resolution,
+                restartReason = "destination_policy_changed",
+                appliedAt = clock.nowMillis(),
+            )
+            startResolvedRuntime(session, resolution)
+        } catch (cancelled: CancellationException) {
+            stopRuntimeBestEffort()
+            throw cancelled
+        } catch (error: Exception) {
+            stopRuntimeBestEffort()
+            updateStatus(ServiceStatus.Failed, classifyFailureReason(error))
+        } finally {
+            handoverRestarting = false
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun stopRuntimeBestEffort() {
+        withContext(NonCancellable) {
+            try {
+                proxyRuntimeStack.stop(skipRuntimeShutdown = false)
+            } catch (_: Exception) {
+                // Preserve the original policy-resolution or rebuild failure.
+            }
+        }
+    }
+
+    private fun isCurrentDestinationRoutingRefresh(
+        session: ProxyRuntimeSession?,
+        observedSession: ProxyRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+    ): Boolean {
+        if (session == null) return false
+        return session.runtimeId == observedSession.runtimeId &&
+            status == ServiceStatus.Connected &&
+            session.currentDestinationRoutingDigest != resolution.destinationRoutingDigest
     }
 
     private fun updateStatus(

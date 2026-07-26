@@ -32,6 +32,7 @@ fn split_dns_policy_payload(bootstrap_pins: Vec<&str>) -> super::payload::SplitD
         }],
         direct_resolver_candidates: vec!["192.0.2.53".to_string()],
         bootstrap_pins: bootstrap_pins.into_iter().map(str::to_string).collect(),
+        geosite_db_path: None,
         coverage_reason: None,
     }
 }
@@ -529,6 +530,7 @@ fn split_dns_policy_maps_ordered_v3_wire_payload_into_runtime_config() {
                 ],
                 "directResolverCandidates":["192.0.2.53","2001:db8::53"],
                 "bootstrapPins":["94.140.14.14"],
+                "geositeDbPath":"/data/user/0/com.example/files/geo/geosite.db",
                 "coverageReason":"fixture_reason"
             }
         }"#,
@@ -541,6 +543,7 @@ fn split_dns_policy_maps_ordered_v3_wire_payload_into_runtime_config() {
     assert_eq!(policy.destination_routing_digest, "b".repeat(64));
     assert_eq!(policy.direct_resolver_candidates.len(), 2);
     assert_eq!(policy.bootstrap_pins.len(), 1);
+    assert_eq!(policy.geosite_db_path.as_deref(), Some("/data/user/0/com.example/files/geo/geosite.db"));
     assert_eq!(policy.coverage_reason.as_deref(), Some("fixture_reason"));
     assert_eq!(policy.rules.len(), 2);
     assert_eq!(policy.rules[0].domains[0].value, "api.example");
@@ -843,6 +846,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
             }],
             "directResolverCandidates": ["192.0.2.53"],
             "bootstrapPins": ["94.140.14.14"],
+            "geositeDbPath": "/data/user/0/com.poyka.ripdpi/files/geo/geosite.db",
             "coverageReason": "route_policy_unavailable"
         },
         "strategyChainYaml": "version: 1\nchains:\n  - id: vpn-synack",

@@ -131,6 +131,7 @@ class RipDpiVpnServiceConfigTest {
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = false,
+                geositeDbPath = "/data/user/0/com.example/files/geo/geosite.db",
                 uidPolicy = NativeUidPolicy("allowlist", listOf(10123, 10124)),
             )
 
@@ -285,6 +286,7 @@ class RipDpiVpnServiceConfigTest {
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = false,
+                geositeDbPath = "/data/user/0/com.example/files/geo/geosite.db",
             )
 
         val native = requireNotNull(config.splitDnsPolicy)
@@ -293,6 +295,7 @@ class RipDpiVpnServiceConfigTest {
         assertEquals("tunneled", native.defaultAction)
         assertEquals(listOf("192.0.2.53", "2001:db8:0:0:0:0:0:54"), native.directResolverCandidates)
         assertEquals(listOf("94.140.14.14", "2001:db8:0:0:0:0:0:53"), native.bootstrapPins)
+        assertEquals("/data/user/0/com.example/files/geo/geosite.db", native.geositeDbPath)
         assertNull(native.coverageReason)
         assertEquals(listOf("exact", "suffix"), native.rules[0].domains.map { it.kind })
         assertEquals(listOf("api.example", "example"), native.rules[0].domains.map { it.value })

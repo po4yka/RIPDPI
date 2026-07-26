@@ -417,6 +417,7 @@ mod tests {
                     }],
                     direct_resolver_candidates: vec!["192.0.2.53".parse().expect("resolver")],
                     bootstrap_pins: Vec::new(),
+                    geosite_db_path: None,
                     coverage_reason: None,
                 })
                 .expect("split DNS policy"),

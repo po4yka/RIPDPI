@@ -20,6 +20,7 @@ private const val MapDnsPort = 53
 private const val MapDnsCacheSize = 10_000
 private const val DnsQueryTimeoutMs = 4_000
 
+@Suppress("LongParameterList")
 internal fun buildVpnTun2SocksConfig(
     dnsPlan: VpnTunnelDnsPlan,
     overrideReason: String?,
@@ -35,6 +36,7 @@ internal fun buildVpnTun2SocksConfig(
     luaScriptBaseDir: String? = null,
     uidPolicy: NativeUidPolicy = NativeUidPolicy.Disarmed,
     uidPolicyAllowIcmp: Boolean = false,
+    geositeDbPath: String? = null,
 ): Tun2SocksConfig {
     val tunnelDns = dnsPlan.resolverDns
     val mapDnsEnabled = dnsPlan.mapDnsEnabled
@@ -77,7 +79,7 @@ internal fun buildVpnTun2SocksConfig(
         resolverFallbackActive = overrideReason != null,
         resolverFallbackReason = overrideReason,
         routeDnsThroughSocks5 = dnsPlan.routeDnsThroughSocks5,
-        splitDnsPolicy = dnsPlan.splitStrictPolicy?.toNativeSplitDnsPolicy(),
+        splitDnsPolicy = dnsPlan.splitStrictPolicy?.toNativeSplitDnsPolicy(geositeDbPath),
         strategyChainYaml = strategyChainYaml,
         protectPath = protectPath,
         rootHelperSocketPath = rootHelperSocketPath,
@@ -92,7 +94,7 @@ internal fun buildVpnTun2SocksConfig(
     )
 }
 
-private fun ValidatedSplitStrictDnsPolicy.toNativeSplitDnsPolicy(): Tun2SocksSplitDnsPolicy =
+private fun ValidatedSplitStrictDnsPolicy.toNativeSplitDnsPolicy(geositeDbPath: String?): Tun2SocksSplitDnsPolicy =
     Tun2SocksSplitDnsPolicy(
         canonicalDigest = canonicalDigest,
         destinationRoutingDigest = destinationRouting.canonicalDigest,
@@ -115,6 +117,7 @@ private fun ValidatedSplitStrictDnsPolicy.toNativeSplitDnsPolicy(): Tun2SocksSpl
             },
         directResolverCandidates = directResolverCandidates,
         bootstrapPins = bootstrapPins,
+        geositeDbPath = geositeDbPath,
         coverageReason = policyCoverageReason,
     )
 

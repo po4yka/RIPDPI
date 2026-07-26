@@ -181,6 +181,7 @@ internal object NativeProxyConfigValidation {
                 require(payload.args.firstOrNull() != LegacyCommandLineProgram) {
                     "Legacy command-line executable alias is not supported"
                 }
+                validateDestinationRouting(payload.destinationRouting)
             }
 
             is NativeProxyConfig.Ui -> {

@@ -8,13 +8,17 @@ use proptest::prelude::*;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    QuicInitialMode, RuntimeConfig, should_cache_udp_host, udp_flow_limit,
+    DestinationDomainMatcher, DestinationDomainMatcherKind, DestinationRoutingAction, DestinationRoutingNetwork,
+    DestinationRoutingPolicy, DestinationRoutingRule, DesyncGroup, QuicInitialMode, RuntimeConfig, UpstreamSocksConfig,
+    should_cache_udp_host, udp_flow_limit,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ExtractedHost, HostSource, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
 
-use super::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, udp_flow_at_capacity};
+use super::client_receive::UdpClientPacket;
+use super::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, UdpFlowKey, udp_flow_at_capacity};
+use super::flow_selection::ensure_udp_flow_selected;
 use super::session::UdpFlowSession;
 #[cfg(unix)]
 use super::upstream_pump::ready_udp_poll_keys;
@@ -23,6 +27,7 @@ use super::{
     RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, build_udp_relay_sockets,
     encode_socks5_udp_packet, parse_socks5_udp_packet, sockets,
 };
+use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::routing::preferred_targets_for_transport;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::state::UDP_FLOW_IDLE_TIMEOUT;
@@ -76,6 +81,81 @@ fn dynamic_fixture_config() -> FixtureConfig {
         control_port: 0,
         ..FixtureConfig::default()
     }
+}
+
+fn udp_policy_for_host(action: DestinationRoutingAction, host: &str) -> DestinationRoutingPolicy {
+    DestinationRoutingPolicy {
+        rules: vec![DestinationRoutingRule {
+            action,
+            network: DestinationRoutingNetwork::Udp,
+            domains: vec![DestinationDomainMatcher {
+                kind: DestinationDomainMatcherKind::Exact,
+                value: host.to_string(),
+            }],
+            ip_ranges: vec![],
+            destination_ports: vec![],
+        }],
+        default_action: DestinationRoutingAction::Tunneled,
+        canonical_digest: "digest".to_string(),
+    }
+}
+
+#[test]
+fn blocked_destination_creates_no_udp_flow_or_egress_socket() {
+    let target = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target").local_addr().expect("target addr");
+    let config = RuntimeConfig {
+        groups: vec![DesyncGroup::new(0)],
+        destination_routing: udp_policy_for_host(DestinationRoutingAction::Block, "blocked.example"),
+        ..Default::default()
+    };
+    let state = test_runtime_state(config);
+    let packet = UdpClientPacket {
+        sender: "127.0.0.1:53000".parse().expect("sender"),
+        original_target: target,
+        payload: b"payload",
+        host: Some("blocked.example".to_string()),
+        preserve_host_in_response: false,
+        cache_host: false,
+    };
+    let mut flows = HashMap::new();
+
+    assert!(
+        !ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now()).expect("blocked selection")
+    );
+    assert!(flows.is_empty());
+}
+
+#[test]
+fn direct_destination_bypasses_group_udp_socks_associate() {
+    let target_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target");
+    let target = target_socket.local_addr().expect("target addr");
+    let unavailable_socks = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve socks port");
+    let unavailable_socks_addr = unavailable_socks.local_addr().expect("socks addr");
+    drop(unavailable_socks);
+    let mut group = DesyncGroup::new(0);
+    group.policy.ext_socks = Some(UpstreamSocksConfig { addr: unavailable_socks_addr });
+    let config = RuntimeConfig {
+        groups: vec![group],
+        destination_routing: udp_policy_for_host(DestinationRoutingAction::Direct, "direct.example"),
+        ..Default::default()
+    };
+    let state = test_runtime_state(config);
+    let packet = UdpClientPacket {
+        sender: "127.0.0.1:53001".parse().expect("sender"),
+        original_target: target,
+        payload: b"payload",
+        host: Some("direct.example".to_string()),
+        preserve_host_in_response: false,
+        cache_host: false,
+    };
+    let flow_key = packet.flow_key();
+    let mut flows = HashMap::new();
+
+    assert!(ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now()).expect("direct selection"));
+    let flow = flows.get(&flow_key).expect("direct flow");
+    assert_eq!(flow.destination_egress, DestinationEgress::Direct);
+    assert_eq!(flow.upstream.peer_addr().expect("direct peer"), target);
+    assert!(flow.upstream_socks.is_none());
 }
 
 #[test]
@@ -228,12 +308,19 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
     let preferred_edge = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443);
     let client_addr = client_receiver.local_addr().expect("client addr");
     let mut flow_state = HashMap::new();
+    let flow_key = UdpFlowKey {
+        client: client_addr,
+        target: original_target,
+        host: Some("example.org".to_string()),
+        preserve_host_in_response: false,
+    };
     flow_state.insert(
-        (client_addr, original_target),
+        flow_key,
         UdpFlowActivationState {
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
             route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+            destination_egress: DestinationEgress::Tunneled,
             socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
             packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
@@ -336,12 +423,14 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
 
     let mut flow_state = HashMap::new();
+    let flow_key = UdpFlowKey { client: client_addr, target, host: None, preserve_host_in_response: false };
     flow_state.insert(
-        (client_addr, target),
+        flow_key.clone(),
         UdpFlowActivationState {
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
             route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 0 },
+            destination_egress: DestinationEgress::Tunneled,
             socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
             packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
             source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
@@ -363,7 +452,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     // for an upstream-SOCKS5 flow (RFC 1928 header addressing the real target),
     // then verify the relay echo is stripped back to the bare payload on recv.
     {
-        let entry = flow_state.get(&(client_addr, target)).expect("flow entry");
+        let entry = flow_state.get(&flow_key).expect("flow entry");
         assert!(entry.socks_framed(), "ext_socks flow must be RFC 1928-framed");
         let mut framed = vec![0, 0, 0, 0x01];
         let SocketAddr::V4(v4) = target else { panic!("ipv4 target") };
@@ -425,13 +514,16 @@ fn udp_flow_capacity_rejects_only_new_flows_once_limit_is_reached() {
     let first_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443);
     let second_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 11)), 443);
     let third_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 12)), 443);
-    let mut flow_state = HashMap::<(SocketAddr, SocketAddr), ()>::new();
+    let mut flow_state = HashMap::<UdpFlowKey, ()>::new();
 
-    flow_state.insert((client, first_target), ());
-    flow_state.insert((client, second_target), ());
+    let first = UdpFlowKey { client, target: first_target, host: None, preserve_host_in_response: false };
+    let second = UdpFlowKey { client, target: second_target, host: None, preserve_host_in_response: false };
+    let third = UdpFlowKey { client, target: third_target, host: None, preserve_host_in_response: false };
+    flow_state.insert(first.clone(), ());
+    flow_state.insert(second, ());
 
-    assert!(!udp_flow_at_capacity(&flow_state, (client, first_target), 2));
-    assert!(udp_flow_at_capacity(&flow_state, (client, third_target), 2));
+    assert!(!udp_flow_at_capacity(&flow_state, &first, 2));
+    assert!(udp_flow_at_capacity(&flow_state, &third, 2));
 }
 
 #[test]
@@ -484,8 +576,9 @@ fn udp_upstream_poll_returns_only_ready_flow_keys() {
     let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 10_800);
     let ready_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 30)), 443);
     let idle_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 31)), 443);
-    let poll_entries =
-        vec![((client, ready_target), ready_receiver.as_raw_fd()), ((client, idle_target), idle_receiver.as_raw_fd())];
+    let ready_key = UdpFlowKey { client, target: ready_target, host: None, preserve_host_in_response: false };
+    let idle_key = UdpFlowKey { client, target: idle_target, host: None, preserve_host_in_response: false };
+    let poll_entries = vec![(ready_key.clone(), ready_receiver.as_raw_fd()), (idle_key, idle_receiver.as_raw_fd())];
     let mut pollfds = Vec::new();
     let mut ready = Vec::new();
 
@@ -493,7 +586,7 @@ fn udp_upstream_poll_returns_only_ready_flow_keys() {
     let mut received = [0u8; 16];
     ready_receiver.peek(&mut received).expect("observe first datagram without draining it");
     ready_udp_poll_keys(&poll_entries, &mut pollfds, &mut ready).expect("poll first ready udp socket");
-    assert_eq!(ready, vec![(client, ready_target)]);
+    assert_eq!(ready, vec![ready_key.clone()]);
     let entry_ptr = poll_entries.as_ptr();
     let entry_capacity = poll_entries.capacity();
     let pollfd_ptr = pollfds.as_ptr();
@@ -506,7 +599,7 @@ fn udp_upstream_poll_returns_only_ready_flow_keys() {
     ready_receiver.peek(&mut received).expect("observe second datagram without draining it");
     ready_udp_poll_keys(&poll_entries, &mut pollfds, &mut ready).expect("poll second ready udp socket");
 
-    assert_eq!(ready, vec![(client, ready_target)]);
+    assert_eq!(ready, vec![ready_key]);
     assert_eq!(poll_entries.len(), 2);
     assert_eq!(poll_entries.as_ptr(), entry_ptr);
     assert_eq!(poll_entries.capacity(), entry_capacity);

@@ -20,6 +20,7 @@ internal class ProxyTelemetryCoordinator(
     private val currentSession: () -> ProxyRuntimeSession?,
     private val consumePendingNetworkHandoverClass: () -> String?,
     private val currentNetworkHandoverState: () -> String?,
+    private val refreshDestinationRoutingPolicy: suspend () -> Unit = {},
 ) {
     private companion object {
         private const val TelemetryPollIntervalMs = 1_000L
@@ -57,6 +58,7 @@ internal class ProxyTelemetryCoordinator(
                     )
                 }
                 delay(nextTelemetryPollInterval())
+                refreshDestinationRoutingPolicy()
             }
         }
     }

@@ -200,6 +200,19 @@ async fn connect_domain_sends_correct_bytes() {
 }
 
 #[tokio::test]
+async fn connect_resolved_domain_preserves_hostname_and_pinned_ip() {
+    let domain = "blocked.example";
+    let addr = SocketAddr::from(([203, 0, 113, 9], 443));
+    let mut expected = vec![0x05, 0x01, 0x00, 0x05, domain.len() as u8];
+    expected.extend_from_slice(domain.as_bytes());
+    expected.extend_from_slice(&[0x01, 203, 0, 113, 9]);
+    expected.extend_from_slice(&443u16.to_be_bytes());
+    let mut mock = Builder::new().write(&expected).read(CONNECT_REPLY_IPV4).build();
+
+    connect(&mut mock, &TargetAddr::ResolvedDomain(domain.to_string(), addr)).await.unwrap();
+}
+
+#[tokio::test]
 async fn connect_rejects_domain_longer_than_wire_field_before_write() {
     let mut mock = Builder::new().build();
     let addr = TargetAddr::Domain("x".repeat(256), 443);
@@ -353,9 +366,42 @@ fn encode_frame_rfc1928_rsv2_frag1_atyp_layout_ipv6() {
     assert_eq!(frame[3], 0x04, "IPv6 ATYP must be 0x04");
 }
 
-/// ATYP=0x03 (domain) is unsupported by encode_udp_frame (no domain variant on
-/// SocketAddr). Verify that a hand-crafted frame with ATYP=0x03 is rejected by
-/// the decoder with InvalidData.
+#[test]
+fn encode_target_frame_preserves_domain_authority() {
+    let frame = encode_udp_target_frame(&TargetAddr::Domain("direct.example".to_string(), 443), b"payload")
+        .expect("domain frame");
+
+    assert_eq!(&frame[..5], &[0x00, 0x00, 0x00, 0x03, 14]);
+    assert_eq!(&frame[5..19], b"direct.example");
+    assert_eq!(&frame[19..21], &443u16.to_be_bytes());
+    assert_eq!(&frame[21..], b"payload");
+}
+
+#[test]
+fn encode_target_frame_preserves_resolved_domain_and_pinned_ip() {
+    let frame = encode_udp_target_frame(
+        &TargetAddr::ResolvedDomain("direct.example".to_string(), SocketAddr::from(([203, 0, 113, 9], 443))),
+        b"payload",
+    )
+    .expect("resolved domain frame");
+
+    assert_eq!(&frame[..5], &[0, 0, 0, 0x05, 14]);
+    assert_eq!(&frame[5..19], b"direct.example");
+    assert_eq!(&frame[19..24], &[0x01, 203, 0, 113, 9]);
+    assert_eq!(&frame[24..26], &443u16.to_be_bytes());
+    assert_eq!(&frame[26..], b"payload");
+}
+
+#[test]
+fn encode_target_frame_rejects_oversized_domain() {
+    let error = encode_udp_target_frame(&TargetAddr::Domain("x".repeat(256), 443), b"")
+        .expect_err("oversized domain must fail");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+}
+
+/// Response decoding remains IP-only because the local runtime resolves and
+/// returns the concrete sender address.
 #[test]
 fn decode_frame_rejects_domain_atyp() {
     // [RSV RSV FRAG ATYP=0x03 len=11 "example.com" port(2) data]
@@ -366,6 +412,36 @@ fn decode_frame_rejects_domain_atyp() {
     frame.extend_from_slice(b"payload");
     let err = decode_udp_frame(&frame).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+}
+
+#[test]
+fn decode_target_frame_preserves_domain_response_authority() {
+    let mut frame = vec![0, 0, 0, 0x03, 11];
+    frame.extend_from_slice(b"one.example");
+    frame.extend_from_slice(&443u16.to_be_bytes());
+    frame.extend_from_slice(b"reply");
+
+    let (target, payload) = super::decode_udp_target_frame(&frame).expect("domain response");
+
+    assert_eq!(target, TargetAddr::Domain("one.example".to_string(), 443));
+    assert_eq!(payload, b"reply");
+}
+
+#[test]
+fn decode_target_frame_preserves_resolved_response_authority() {
+    let frame = encode_udp_target_frame(
+        &TargetAddr::ResolvedDomain("One.Example.".to_string(), SocketAddr::from(([203, 0, 113, 9], 443))),
+        b"reply",
+    )
+    .expect("resolved response frame");
+
+    let (target, payload) = super::decode_udp_target_frame(&frame).expect("resolved response");
+
+    assert_eq!(
+        target,
+        TargetAddr::ResolvedDomain("one.example.".to_string(), SocketAddr::from(([203, 0, 113, 9], 443)))
+    );
+    assert_eq!(payload, b"reply");
 }
 
 /// Truncated frame (fewer than the minimum 10 bytes) must be rejected by the

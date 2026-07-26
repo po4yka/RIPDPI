@@ -81,6 +81,15 @@ impl RuntimeState {
     pub(in crate::runtime) fn is_socks5_domain_address_type(address_type: u8) -> bool {
         address_type == 0x03
     }
+    pub(in crate::runtime) fn is_socks5_resolved_domain_address_type(address_type: u8) -> bool {
+        // RIPDPI-private local TUN -> proxy address type; see ripdpi-session.
+        address_type == 0x05
+    }
+    pub(in crate::runtime) fn resolved_domain_targets_allowed(&self) -> bool {
+        self.listener_settings.bind_addr.ip().is_loopback()
+            && self.listener_settings.bind_addr.port() == 0
+            && self.handshake_settings.auth_token.is_some()
+    }
     pub(in crate::runtime) fn encode_socks4_reply(granted: bool) -> ProxyReply {
         encode_socks4_reply(granted)
     }
@@ -154,7 +163,7 @@ impl RuntimeState {
         &self,
         request: &[u8],
         mut resolve_name: impl FnMut(&str) -> Option<SocketAddr>,
-    ) -> Option<(SocketAddr, usize)> {
+    ) -> Option<(TargetAddr, usize)> {
         parse_shadowsocks_target(request, self.handshake_settings.shadowsocks_target_policy, |host, socket_type| {
             let _ = socket_type;
             resolve_name(host)

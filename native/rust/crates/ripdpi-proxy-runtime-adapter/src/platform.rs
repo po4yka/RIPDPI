@@ -624,10 +624,7 @@ pub mod process {
                 daemonize: true,
                 pid_file_path: None,
             });
-            let error = match result {
-                Ok(_) => panic!("embedded builds must reject daemonization"),
-                Err(error) => error,
-            };
+            let Err(error) = result else { panic!("embedded builds must reject daemonization") };
 
             assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
         }

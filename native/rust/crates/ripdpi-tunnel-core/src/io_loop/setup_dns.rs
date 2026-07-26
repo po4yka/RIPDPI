@@ -70,6 +70,7 @@ mod tests {
                 rules: Vec::new(),
                 direct_resolver_candidates: Vec::new(),
                 bootstrap_pins: Vec::new(),
+                geosite_db_path: None,
                 coverage_reason: None,
             }),
             misc: MiscConfig::default(),

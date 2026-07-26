@@ -7,6 +7,7 @@ use super::connect::connect_target_candidates_via_group;
 use super::failure::{advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure};
 use super::policy::{preferred_targets_for_transport, select_route};
 use crate::exit_ip_cap::ExitIpSessionGuard;
+use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(in crate::runtime) fn connect_target(
@@ -16,24 +17,51 @@ pub(in crate::runtime) fn connect_target(
     allow_unknown_payload: bool,
     host: Option<String>,
 ) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
+    let egress = state.destination_egress(target, host.as_deref(), RuntimeTransportProtocol::Tcp);
+    if egress == DestinationEgress::Block {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"));
+    }
     let route = select_route(state, target, payload, host.as_deref(), allow_unknown_payload)?;
     state.note_route_selected(target, route.group_index, host.as_deref(), "initial");
-    connect_target_with_route(target, state, route, payload, host)
+    connect_target_with_route_and_egress(target, state, route, payload, host, egress)
 }
 
 pub(in crate::runtime) fn connect_target_with_route(
     target: SocketAddr,
     state: &RuntimeState,
+    route: RuntimeConnectionRoute,
+    payload: Option<&[u8]>,
+    host: Option<String>,
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
+    let egress = state.destination_egress(target, host.as_deref(), RuntimeTransportProtocol::Tcp);
+    if egress == DestinationEgress::Block {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"));
+    }
+    connect_target_with_route_and_egress(target, state, route, payload, host, egress)
+}
+
+fn connect_target_with_route_and_egress(
+    target: SocketAddr,
+    state: &RuntimeState,
     mut route: RuntimeConnectionRoute,
     payload: Option<&[u8]>,
     host: Option<String>,
+    egress: DestinationEgress,
 ) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     let mut retries: usize = 0;
     loop {
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
         note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp)?;
-        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, true, true) {
+        match connect_target_candidates_via_group(
+            &attempt_targets,
+            state,
+            route.group_index,
+            payload,
+            true,
+            true,
+            egress,
+        ) {
             Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
                 retries += 1;
@@ -47,6 +75,7 @@ pub(in crate::runtime) fn connect_target_with_route(
                         payload,
                         false,
                         true,
+                        egress,
                     ) {
                         Ok((stream, guard)) => return Ok((stream, route, guard)),
                         Err(fallback_err) => {
@@ -108,13 +137,24 @@ fn reconnect_target_with_tfo_mode(
     payload: Option<&[u8]>,
     allow_tfo: bool,
 ) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
+    let egress = state.destination_egress(target, host.as_deref(), RuntimeTransportProtocol::Tcp);
+    if egress == DestinationEgress::Block {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"));
+    }
     let mut retries: usize = 0;
     loop {
         crate::runtime::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
-        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, allow_tfo, false)
-        {
+        match connect_target_candidates_via_group(
+            &attempt_targets,
+            state,
+            route.group_index,
+            payload,
+            allow_tfo,
+            false,
+            egress,
+        ) {
             Ok((stream, _)) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
@@ -131,6 +171,7 @@ fn reconnect_target_with_tfo_mode(
                         payload,
                         false,
                         false,
+                        egress,
                     ) {
                         Ok((stream, _)) => return Ok((stream, route)),
                         Err(fallback_err) => {
@@ -157,9 +198,78 @@ mod tests {
     use crate::runtime::failure::{
         RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage,
     };
-    use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use ripdpi_proxy_runtime_adapter::model::config::{
+        DestinationDomainMatcher, DestinationDomainMatcherKind, DestinationRoutingAction, DestinationRoutingNetwork,
+        DestinationRoutingPolicy, DestinationRoutingRule, DesyncGroup, UpstreamSocksConfig,
+    };
     use std::net::{Ipv4Addr, TcpListener};
     use std::thread;
+
+    fn policy_for_host(action: DestinationRoutingAction, host: &str) -> DestinationRoutingPolicy {
+        DestinationRoutingPolicy {
+            rules: vec![DestinationRoutingRule {
+                action,
+                network: DestinationRoutingNetwork::Tcp,
+                domains: vec![DestinationDomainMatcher {
+                    kind: DestinationDomainMatcherKind::Exact,
+                    value: host.to_string(),
+                }],
+                ip_ranges: vec![],
+                destination_ports: vec![],
+            }],
+            default_action: DestinationRoutingAction::Tunneled,
+            canonical_digest: "digest".to_string(),
+        }
+    }
+
+    #[test]
+    fn blocked_destination_opens_no_tcp_egress_socket() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target listener");
+        listener.set_nonblocking(true).expect("nonblocking listener");
+        let target = listener.local_addr().expect("listener addr");
+        let config = RuntimeConfig {
+            groups: vec![DesyncGroup::new(0)],
+            destination_routing: policy_for_host(DestinationRoutingAction::Block, "blocked.example"),
+            ..Default::default()
+        };
+
+        let error =
+            connect_target(target, &RuntimeState::test(config), None, true, Some("blocked.example".to_string()))
+                .expect_err("blocked route must fail before connect");
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(listener.accept().expect_err("no egress connection").kind(), io::ErrorKind::WouldBlock);
+    }
+
+    #[test]
+    fn direct_destination_bypasses_group_upstream_socks() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target listener");
+        let target = listener.local_addr().expect("listener addr");
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let accept_thread = thread::spawn(move || {
+            let (_stream, _) = listener.accept().expect("direct target accepted");
+            release_rx.recv().expect("release target");
+        });
+        let unavailable_socks = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve socks port");
+        let unavailable_socks_addr = unavailable_socks.local_addr().expect("socks addr");
+        drop(unavailable_socks);
+        let mut group = DesyncGroup::new(0);
+        group.policy.ext_socks = Some(UpstreamSocksConfig { addr: unavailable_socks_addr });
+        let config = RuntimeConfig {
+            groups: vec![group],
+            destination_routing: policy_for_host(DestinationRoutingAction::Direct, "direct.example"),
+            ..Default::default()
+        };
+
+        let (stream, _, _) =
+            connect_target(target, &RuntimeState::test(config), None, true, Some("direct.example".to_string()))
+                .expect("direct route must bypass unavailable SOCKS upstream");
+
+        assert_eq!(stream.peer_addr().expect("peer"), target);
+        drop(stream);
+        release_tx.send(()).expect("release target");
+        accept_thread.join().expect("accept thread");
+    }
 
     #[test]
     fn max_route_retries_default_is_eight() {

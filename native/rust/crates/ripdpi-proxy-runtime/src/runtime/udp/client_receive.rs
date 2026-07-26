@@ -3,9 +3,9 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use super::flow::UdpFlowActivationState;
+use super::flow::{UdpFlowActivationState, UdpFlowKey};
 use super::flow_selection::ensure_udp_flow_selected;
-use super::parse_socks5_udp_packet;
+use super::parse_socks5_udp_packet_with_host;
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::state::RuntimeState;
 
@@ -14,12 +14,18 @@ pub(super) struct UdpClientPacket<'a> {
     pub(super) original_target: SocketAddr,
     pub(super) payload: &'a [u8],
     pub(super) host: Option<String>,
+    pub(super) preserve_host_in_response: bool,
     pub(super) cache_host: bool,
 }
 
 impl UdpClientPacket<'_> {
-    pub(super) fn flow_key(&self) -> (SocketAddr, SocketAddr) {
-        (self.sender, self.original_target)
+    pub(super) fn flow_key(&self) -> UdpFlowKey {
+        UdpFlowKey {
+            client: self.sender,
+            target: self.original_target,
+            host: self.host.clone(),
+            preserve_host_in_response: self.preserve_host_in_response,
+        }
     }
 }
 
@@ -27,7 +33,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
     client_relay: &UdpSocket,
     client_buffer: &mut [u8],
     udp_client_addr: &mut Option<SocketAddr>,
-    flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
+    flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     flow_limit: usize,
     state: &RuntimeState,
     protect_path: Option<&str>,
@@ -62,14 +68,16 @@ fn decode_udp_client_packet<'a>(
         return None;
     }
 
-    let (original_target, payload) = parse_socks5_udp_packet(packet, state)?;
-    let udp_payload = state.classify_udp_payload(payload);
+    let parsed = parse_socks5_udp_packet_with_host(packet, state)?;
+    let udp_payload = state.classify_udp_payload(parsed.payload);
+    let authoritative_host = parsed.host.is_some();
     Some(UdpClientPacket {
         sender,
-        original_target,
-        payload,
-        host: udp_payload.host,
-        cache_host: udp_payload.cache_host,
+        original_target: parsed.target,
+        payload: parsed.payload,
+        host: parsed.host.or(udp_payload.host),
+        preserve_host_in_response: parsed.preserve_host_in_response,
+        cache_host: !authoritative_host && udp_payload.cache_host,
     })
 }
 

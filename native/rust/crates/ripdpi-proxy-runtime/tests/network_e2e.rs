@@ -11,7 +11,9 @@ use local_network_fixture::{
 use ripdpi_packets::IS_HTTPS;
 use ripdpi_packets::{IS_TCP, IS_UDP};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStep, TcpChainStepKind,
+    DestinationDomainMatcher, DestinationDomainMatcherKind, DestinationIpMatcher, DestinationIpMatcherKind,
+    DestinationRoutingAction, DestinationRoutingNetwork, DestinationRoutingRule, DesyncGroup, QuicInitialMode,
+    RuntimeConfig, TcpChainStep, TcpChainStepKind,
 };
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_proxy_runtime_adapter::model::config::{OffsetBase, OffsetExpr};
@@ -206,6 +208,57 @@ fn host_filters_only_route_matching_domain_via_upstream_end_to_end() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     hosts_filter_only_routes_matching_domain_via_upstream(&fixture);
+}
+
+#[test]
+fn destination_policy_direct_bypasses_upstream_end_to_end() {
+    if !nested_proxy_e2e_enabled() {
+        eprintln!(
+            "skipping destination_policy_direct_bypasses_upstream_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
+        );
+        return;
+    }
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let upstream_telemetry = Arc::new(RecordingTelemetry::default());
+    let upstream = start_proxy(
+        ephemeral_proxy_config(&["--ip", "127.0.0.1"]),
+        Some(upstream_telemetry.clone() as Arc<dyn RuntimeTelemetrySink>),
+    );
+    let proxy = start_proxy(direct_ip_policy_config(upstream.port), None);
+
+    assert_eq!(
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"direct policy"),
+        b"direct policy",
+    );
+    assert_eq!(upstream_telemetry.snapshot().accepted, 0, "direct destination traversed the upstream proxy");
+}
+
+#[test]
+fn destination_policy_block_opens_no_upstream_or_destination_connection_end_to_end() {
+    if !nested_proxy_e2e_enabled() {
+        eprintln!(
+            "skipping destination_policy_block_opens_no_upstream_or_destination_connection_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
+        );
+        return;
+    }
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let upstream_telemetry = Arc::new(RecordingTelemetry::default());
+    let upstream = start_proxy(
+        ephemeral_proxy_config(&["--ip", "127.0.0.1"]),
+        Some(upstream_telemetry.clone() as Arc<dyn RuntimeTelemetrySink>),
+    );
+    let proxy =
+        start_proxy(destination_policy_config(upstream.port, DestinationRoutingAction::Block, "localhost"), None);
+
+    let (_stream, reply) = socks_connect_domain(proxy.port, "localhost", fixture.manifest().tcp_echo_port);
+    assert_ne!(reply[1], 0, "blocked destination received a successful SOCKS5 reply");
+    assert_eq!(upstream_telemetry.snapshot().accepted, 0, "blocked destination traversed the upstream proxy");
+    assert!(
+        fixture.events().snapshot().iter().all(|event| event.service != "tcp_echo" || event.detail != "echo"),
+        "blocked destination reached the fixture",
+    );
 }
 
 #[test]
@@ -916,6 +969,28 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
     );
     drop(proxy);
     drop(upstream);
+}
+
+fn destination_policy_config(upstream_port: u16, action: DestinationRoutingAction, host: &str) -> RuntimeConfig {
+    let mut config =
+        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--to-socks5", &format!("127.0.0.1:{upstream_port}")]);
+    config.destination_routing.rules = vec![DestinationRoutingRule {
+        action,
+        network: DestinationRoutingNetwork::Both,
+        domains: vec![DestinationDomainMatcher { kind: DestinationDomainMatcherKind::Exact, value: host.to_string() }],
+        ip_ranges: Vec::new(),
+        destination_ports: Vec::new(),
+    }];
+    config.destination_routing.canonical_digest = "network-e2e".to_string();
+    config
+}
+
+fn direct_ip_policy_config(upstream_port: u16) -> RuntimeConfig {
+    let mut config = destination_policy_config(upstream_port, DestinationRoutingAction::Direct, "unused.example");
+    config.destination_routing.rules[0].domains.clear();
+    config.destination_routing.rules[0].ip_ranges =
+        vec![DestinationIpMatcher { kind: DestinationIpMatcherKind::Cidr, value: "127.0.0.1/32".to_string() }];
+    config
 }
 
 fn _assert_fixture_event_contains(events: &[FixtureEvent], service: &str, detail: &str) {

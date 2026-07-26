@@ -10,7 +10,7 @@ use tracing::info;
 
 use crate::dns_cache::DnsCache;
 use crate::io_loop::packet::TcpFlowKey;
-use crate::session::Auth;
+use crate::session::{Auth, TargetAddr};
 use crate::{ActiveSessions, SessionEntry, Stats};
 
 use super::super::duplex::create_session_duplex;
@@ -37,10 +37,13 @@ pub(super) fn admit_session(
     remove_pending_listen(pending_listens, pending.handle);
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
 
+    let target = pending.target_host.as_ref().map_or(TargetAddr::Ip(pending.target_addr), |host| {
+        TargetAddr::ResolvedDomain(host.clone(), pending.target_addr)
+    });
     let session = create_session_duplex(
         proxy_sockaddr,
         auth,
-        pending.target_addr,
+        target,
         protect_path,
         connect_timeout,
         read_write_timeout,

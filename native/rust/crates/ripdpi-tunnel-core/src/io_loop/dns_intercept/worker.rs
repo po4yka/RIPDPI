@@ -60,23 +60,42 @@ pub(in crate::io_loop) fn spawn_dns_worker(
 
 /// # Cancel safety
 ///
-/// Cancel-safe: direct and encrypted exchanges own their request I/O and do
+/// cancel-safe: direct and encrypted exchanges own their request I/O and do
 /// not publish cache/shared state. Cancellation drops that I/O before the
 /// response is sent to the tunnel loop.
 async fn resolve_request(request: DnsRequest, resolver: &EncryptedDnsResolver, timeout: Duration) -> DnsResponse {
     let resolver_endpoint_label = resolver.endpoint_label();
     let request_generation = request.direct.as_ref().map(|direct| direct.generation);
-    let (direct_fallback, upstream) = if let Some(direct) = request.direct.as_ref() {
+    if let Some(direct) = request.direct.as_ref() {
         match direct_dns::exchange(&request.query, &direct.candidates, direct.generation, timeout).await {
-            Ok(success) => (false, Ok(success)),
-            Err(_) => (
-                true,
-                resolver.exchange_with_metadata(&request.query).await.map_err(|err| (err.kind(), err.to_string())),
-            ),
+            Ok(success) => {
+                return DnsResponse {
+                    src: request.src,
+                    query: request.query,
+                    host: request.host,
+                    upstream: Ok(success),
+                    resolver_error_kind: None,
+                    resolver_endpoint_label: Some(resolver_endpoint_label),
+                    direct_generation: request_generation,
+                    direct_fallback: false,
+                };
+            }
+            Err(error) => {
+                return DnsResponse {
+                    src: request.src,
+                    query: request.query,
+                    host: request.host,
+                    upstream: Err(error.to_string()),
+                    resolver_error_kind: None,
+                    resolver_endpoint_label: Some(resolver_endpoint_label),
+                    direct_generation: request_generation,
+                    direct_fallback: false,
+                };
+            }
         }
-    } else {
-        (false, resolver.exchange_with_metadata(&request.query).await.map_err(|err| (err.kind(), err.to_string())))
-    };
+    }
+    let (direct_fallback, upstream) =
+        (false, resolver.exchange_with_metadata(&request.query).await.map_err(|err| (err.kind(), err.to_string())));
     let (resolver_error_kind, upstream) = match upstream {
         Ok(success) => (None, Ok(success)),
         Err((kind, message)) => (Some(kind), Err(message)),
@@ -153,18 +172,27 @@ pub(in crate::io_loop) fn route_dns_packet(
         } else {
             None
         };
-        if decision.plane != DnsPolicyPlane::Direct || direct.is_none() {
-            let kind = if decision.plane == DnsPolicyPlane::Direct {
-                SplitDnsDecisionKind::DirectProxyFallback
-            } else {
-                SplitDnsDecisionKind::ProxyEncrypted
-            };
-            let reason = if decision.plane == DnsPolicyPlane::Direct {
-                Some("direct_underlay_unavailable")
-            } else {
-                decision.reason
-            };
-            stats.record_split_dns_decision(kind, reason);
+        if decision.plane == DnsPolicyPlane::Direct && direct.is_none() {
+            stats.record_split_dns_decision(
+                SplitDnsDecisionKind::DirectProxyFallback,
+                Some("direct_underlay_unavailable"),
+            );
+            if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
+                send_dns_servfail(
+                    device,
+                    stats,
+                    mapdns,
+                    cache,
+                    src,
+                    payload,
+                    host.as_deref(),
+                    "direct DNS underlay unavailable",
+                );
+            }
+            return;
+        }
+        if decision.plane != DnsPolicyPlane::Direct {
+            stats.record_split_dns_decision(SplitDnsDecisionKind::ProxyEncrypted, decision.reason);
         }
     }
     match (&mapdns_runtime, dns_cache, dns_req_tx.as_ref()) {

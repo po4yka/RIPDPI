@@ -54,6 +54,7 @@
   "splitDnsPolicy.defaultAction",
   "splitDnsPolicy.destinationRoutingDigest",
   "splitDnsPolicy.directResolverCandidates[]",
+  "splitDnsPolicy.geositeDbPath",
   "splitDnsPolicy.rules[].action",
   "splitDnsPolicy.rules[].domains[].kind",
   "splitDnsPolicy.rules[].domains[].value",

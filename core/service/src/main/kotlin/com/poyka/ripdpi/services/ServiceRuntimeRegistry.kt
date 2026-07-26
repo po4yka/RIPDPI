@@ -82,6 +82,7 @@ class ProxyRuntimeSession(
     override var networkHandoverState: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
+    var currentDestinationRoutingDigest: String? = null
 }
 
 interface ServiceRuntimeRegistry {

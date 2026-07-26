@@ -46,6 +46,24 @@ pub(in crate::runtime::handshake) fn read_socks5_request(client: &mut TcpStream)
         let mut tail = vec![0u8; len[0] as usize + 2];
         client.read_exact(&mut tail)?;
         out.extend_from_slice(&tail);
+    } else if RuntimeState::is_socks5_resolved_domain_address_type(header[3]) {
+        let mut len = [0u8; 1];
+        client.read_exact(&mut len)?;
+        if len[0] == 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "empty RIPDPI resolved domain name"));
+        }
+        out.extend_from_slice(&len);
+        let mut host = vec![0u8; len[0] as usize];
+        client.read_exact(&mut host)?;
+        out.extend_from_slice(&host);
+        let mut ip_type = [0u8; 1];
+        client.read_exact(&mut ip_type)?;
+        out.extend_from_slice(&ip_type);
+        let tail_len = RuntimeState::socks5_fixed_address_tail_len(ip_type[0])
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid resolved SOCKS5 IP type"))?;
+        let mut tail = vec![0u8; tail_len];
+        client.read_exact(&mut tail)?;
+        out.extend_from_slice(&tail);
     } else {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 address type"));
     }

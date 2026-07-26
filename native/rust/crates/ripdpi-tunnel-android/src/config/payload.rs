@@ -17,6 +17,8 @@ pub(crate) struct SplitDnsPolicyPayload {
     pub(crate) rules: Vec<SplitDnsRulePayload>,
     pub(crate) direct_resolver_candidates: Vec<String>,
     pub(crate) bootstrap_pins: Vec<String>,
+    #[serde(default)]
+    pub(crate) geosite_db_path: Option<String>,
     pub(crate) coverage_reason: Option<String>,
 }
 

@@ -64,6 +64,14 @@ class NativeConfigContractSnapshotTest {
                         },
                     )
                     put("hostAutolearnStorePath", JsonNull)
+                    put(
+                        "destinationRouting",
+                        buildJsonObject {
+                            put("rules", JsonArray(emptyList()))
+                            put("defaultAction", JsonPrimitive("tunneled"))
+                            put("canonicalDigest", JsonPrimitive(""))
+                        },
+                    )
                     put("logContext", JsonNull)
                     put("runtimeContext", JsonNull)
                     put("schemaVersion", JsonPrimitive(2))

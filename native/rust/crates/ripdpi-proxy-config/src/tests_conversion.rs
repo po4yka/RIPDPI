@@ -562,6 +562,9 @@ fn runtime_config_envelope_rejects_unsupported_schema_version() {
     let payload = ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--split".to_string(), "host+1".to_string()],
         host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
         runtime_context: None,
         log_context: None,
         session_overrides: None,
@@ -578,6 +581,9 @@ fn command_line_payload_requires_runnable_config() {
     let err = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--help".to_string()],
         host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
         runtime_context: None,
         log_context: None,
         session_overrides: None,
@@ -593,6 +599,9 @@ fn command_line_session_overrides_apply_ephemeral_port_and_auth_token() {
     let envelope = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],
         host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
         runtime_context: None,
         log_context: None,
         session_overrides: Some(ProxySessionOverrides {
@@ -649,6 +658,9 @@ fn invalid_session_override_listen_port_is_rejected() {
     let err = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],
         host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
         runtime_context: None,
         log_context: None,
         session_overrides: Some(ProxySessionOverrides {
@@ -667,6 +679,9 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
     let envelope = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--split".to_string(), "host+1".to_string()],
         host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
         runtime_context: Some(ProxyRuntimeContext {
             encrypted_dns: None,
             protect_path: None,

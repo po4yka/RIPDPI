@@ -7,6 +7,9 @@ pub const S_AUTH_USERPASS: u8 = 0x02;
 pub const S_ATP_I4: u8 = 0x01;
 pub const S_ATP_ID: u8 = 0x03;
 pub const S_ATP_I6: u8 = 0x04;
+/// RIPDPI-private address type carrying a logical hostname together with its
+/// already-authoritative MapDNS address across the local TUN -> proxy hop.
+pub const S_ATP_RESOLVED_ID: u8 = 0x05;
 
 pub const S_CMD_CONN: u8 = 0x01;
 pub const S_CMD_BIND: u8 = 0x02;

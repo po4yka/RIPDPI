@@ -12,11 +12,22 @@ pub(super) fn immediate_connect_relay(
     state: &RuntimeState,
     host_hint: Option<String>,
     reply: &SuccessReply,
+    success_reply_sent: bool,
 ) -> Result<(), ConnectRelayError> {
-    let upstream_route = connect_immediate_route(target, state, host_hint)?;
-    write_success_reply(client, reply, Some(&upstream_route.upstream))
-        .map_err(|err| ConnectRelayError::new(err, false))?;
+    let upstream_route = connect_immediate_route(target, state, host_hint)
+        .map_err(|err| preserve_success_reply_state(err, success_reply_sent))?;
+    if !success_reply_sent {
+        write_success_reply(client, reply, Some(&upstream_route.upstream))
+            .map_err(|err| ConnectRelayError::new(err, false))?;
+    }
     relay_upstream(client, state, target, upstream_route, reply.requires_client_ack())
+}
+
+fn preserve_success_reply_state(mut err: ConnectRelayError, success_reply_sent: bool) -> ConnectRelayError {
+    if success_reply_sent {
+        err.mark_success_reply_sent();
+    }
+    err
 }
 
 pub(super) fn delayed_connect_relay(
@@ -65,4 +76,19 @@ fn relay_upstream(
         upstream_route.seed_request,
     )
     .map_err(|err| ConnectRelayError::new(err, success_reply_sent))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use super::{ConnectRelayError, preserve_success_reply_state};
+
+    #[test]
+    fn pre_sent_success_is_preserved_on_immediate_route_failure() {
+        let err =
+            preserve_success_reply_state(ConnectRelayError::new(io::Error::other("upstream unavailable"), false), true);
+
+        assert!(err.success_reply_sent());
+    }
 }

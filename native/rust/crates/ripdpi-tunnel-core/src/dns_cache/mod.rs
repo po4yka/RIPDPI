@@ -153,6 +153,20 @@ mod tests {
     }
 
     #[test]
+    fn mapping_identity_canonicalizes_host_case_and_trailing_dot() {
+        let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
+        let real_ip = u32::from(Ipv4Addr::new(203, 0, 113, 10));
+
+        let (first, first_hit) = cache.find("One.Example.", real_ip).expect("first mapping");
+        let (second, second_hit) = cache.find("one.example", real_ip).expect("canonical mapping");
+
+        assert!(!first_hit);
+        assert!(second_hit);
+        assert_eq!(first, second);
+        assert_eq!(cache.lookup(first).expect("reverse mapping").host, "one.example");
+    }
+
+    #[test]
     fn rewritten_synthetic_answers_are_not_cacheable_across_tunnel_sessions() {
         let mut cache = DnsCache::new(NET, MASK, 8).expect("valid cache");
         let query = build_query("fixture.test");

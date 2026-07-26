@@ -6,6 +6,7 @@ use super::error::ConnectAttemptError;
 use super::post_connect::{apply_group_socket_options, record_connect_telemetry};
 use super::socket::connect_socket_detailed;
 use super::socks::connect_via_socks;
+use crate::runtime::destination_routing::DestinationEgress;
 
 pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     targets: &[SocketAddr],
@@ -14,12 +15,14 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     payload: Option<&[u8]>,
     allow_tfo: bool,
     acquire_cap_slot: bool,
+    egress: DestinationEgress,
 ) -> Result<(TcpStream, Option<crate::exit_ip_cap::ExitIpSessionGuard>), ConnectAttemptError> {
-    let policy = state.route_connect_policy(group_index, payload, allow_tfo).ok_or_else(|| ConnectAttemptError {
-        source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
-        tcp_total_retransmissions: None,
-        tcp_fast_open_enabled: false,
-    })?;
+    let policy =
+        state.route_connect_policy(group_index, payload, allow_tfo, egress).ok_or_else(|| ConnectAttemptError {
+            source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
+            tcp_total_retransmissions: None,
+            tcp_fast_open_enabled: false,
+        })?;
     let mut last_error = None;
     let mut any_capped = false;
     for &candidate in targets {
@@ -181,7 +184,8 @@ mod exit_ip_cap_wiring_tests {
         // Connecting with cap-slot acquisition must return a live guard and
         // increment the in-flight session count for this exit IP.
         let (stream, guard) =
-            connect_target_candidates_via_group(&[addr], &state, 0, None, true, true).expect("connect candidate");
+            connect_target_candidates_via_group(&[addr], &state, 0, None, true, true, DestinationEgress::Tunneled)
+                .expect("connect candidate");
         assert!(guard.is_some(), "acquire_cap_slot=true must yield a slot guard on a clear path");
         assert_eq!(state.active_exit_sessions(exit_ip), 1, "an acquired slot must be counted in-flight");
 
@@ -213,8 +217,16 @@ mod exit_ip_cap_wiring_tests {
 
         // A is first in the candidate list but at cap, so the loop must skip it
         // and connect to B instead, holding a slot on B.
-        let (stream, guard) = connect_target_candidates_via_group(&[addr_a, addr_b], &state, 0, None, true, true)
-            .expect("connect prefers alternate candidate");
+        let (stream, guard) = connect_target_candidates_via_group(
+            &[addr_a, addr_b],
+            &state,
+            0,
+            None,
+            true,
+            true,
+            DestinationEgress::Tunneled,
+        )
+        .expect("connect prefers alternate candidate");
         assert_eq!(stream.peer_addr().expect("peer addr"), addr_b, "must connect to the alternate candidate B");
         assert!(guard.is_some(), "a slot must be held on the alternate candidate");
         assert_eq!(state.active_exit_sessions(addr_b.ip()), 1, "the slot is counted for candidate B");
@@ -244,8 +256,9 @@ mod exit_ip_cap_wiring_tests {
             .collect();
         assert!(state.try_acquire_exit_session(exit_ip).is_none(), "candidate must be at cap");
 
-        let (stream, guard) = connect_target_candidates_via_group(&[addr], &state, 0, None, true, true)
-            .expect("advisory fallback must still connect when every candidate is at cap");
+        let (stream, guard) =
+            connect_target_candidates_via_group(&[addr], &state, 0, None, true, true, DestinationEgress::Tunneled)
+                .expect("advisory fallback must still connect when every candidate is at cap");
         assert!(guard.is_none(), "the advisory-fallback connection must NOT hold a slot");
         // The count is unchanged: the fallback did not open a counted session.
         assert_eq!(
@@ -277,7 +290,15 @@ mod exit_ip_cap_wiring_tests {
             .map(|_| state.try_acquire_exit_session(addr_a.ip()).expect("pre-acquire A slot"))
             .collect();
 
-        let result = connect_target_candidates_via_group(&[addr_a, addr_b], &state, 0, None, true, true);
+        let result = connect_target_candidates_via_group(
+            &[addr_a, addr_b],
+            &state,
+            0,
+            None,
+            true,
+            true,
+            DestinationEgress::Tunneled,
+        );
         assert!(result.is_err(), "a real connect error must propagate, not be masked by an at-cap sibling candidate");
         // B's failed attempt must not leak a slot.
         assert_eq!(state.active_exit_sessions(addr_b.ip()), 0, "a failed connect frees its slot");
