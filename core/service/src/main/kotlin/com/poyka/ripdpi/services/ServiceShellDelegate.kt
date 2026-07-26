@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.net.VpnService
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
@@ -14,6 +15,9 @@ internal const val notificationStopAction = "notification_stop"
 internal const val diagnosticsStopAction = "diagnostics_stop"
 internal const val diagnosticsStartAction = "diagnostics_start"
 internal const val diagnosticsCompensatingStopAction = "diagnostics_compensating_stop"
+
+internal fun isServiceRecoveryStartAction(action: String?): Boolean =
+    action == null || action == VpnService.SERVICE_INTERFACE
 
 internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
@@ -42,8 +46,9 @@ internal class ServiceShellDelegate(
         startId: Int,
     ): Int =
         when (action) {
-            // null action indicates a sticky restart after process death.
-            null -> {
+            // null is a sticky restart after process death. Android's Always-on
+            // controller starts VpnService with SERVICE_INTERFACE after boot.
+            null, VpnService.SERVICE_INTERFACE -> {
                 enqueue(onStart)
                 android.app.Service.START_STICKY
             }

@@ -126,7 +126,7 @@ class RipDpiVpnService :
         // is then rejected as already-running and would never restore Running —
         // leaving the status stuck. Reconnecting is overwritten by Running on connect
         // or Halted if the resume fails.
-        if (intent?.action == null && serviceStateStore.status.value.first == AppStatus.Halted) {
+        if (isServiceRecoveryStartAction(intent?.action) && serviceStateStore.status.value.first == AppStatus.Halted) {
             serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
         }
         return shellDelegate.onStartCommand(intent?.action, startId)

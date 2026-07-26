@@ -284,6 +284,26 @@ class ServiceShellDelegateTest {
         }
 
     @Test
+    fun `android always-on action triggers recovery start`() =
+        runTest {
+            var startCalls = 0
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { startCalls += 1 },
+                    onStop = {},
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            val result = delegate.onStartCommand(android.net.VpnService.SERVICE_INTERFACE, 2)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(1, startCalls)
+        }
+
+    @Test
     fun `unknown action is ignored without stopping service`() =
         runTest {
             val stopIds = mutableListOf<Int?>()
