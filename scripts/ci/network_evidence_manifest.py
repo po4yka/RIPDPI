@@ -830,6 +830,7 @@ def validate_manifest(
     expected_execution_id: str | None = None,
     expected_execution_attempt: int | None = None,
     require_pass: bool = False,
+    allow_unready_actions_for_local_self_test: bool = False,
 ) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise ValueError("manifest must be a JSON object")
@@ -937,6 +938,12 @@ def validate_manifest(
         and execution_attempt != expected_execution_attempt
     ):
         raise ValueError("manifest executionAttempt does not match selected execution")
+    if allow_unready_actions_for_local_self_test and (
+        execution_kind != "local" or execution_id != "local-self-test"
+    ):
+        raise ValueError(
+            "unready-action override is reserved for the local-self-test execution"
+        )
 
     artifacts = manifest["artifacts"]
     if not isinstance(artifacts, list) or len(artifacts) != 2:
@@ -1024,7 +1031,8 @@ def validate_manifest(
         }
         if non_pass:
             raise ValueError(f"evidence bundle is not all PASS: {non_pass}")
-        require_production_ready_actions(applies_to=applies_to)
+        if not allow_unready_actions_for_local_self_test:
+            require_production_ready_actions(applies_to=applies_to)
     if generated < max(
         observation["captureFinishedAtEpoch"] for observation in observations.values()
     ):
@@ -1099,6 +1107,14 @@ def main(argv: list[str] | None = None) -> int:
     validate.add_argument("--expected-execution-id")
     validate.add_argument("--expected-execution-attempt", type=int)
     validate.add_argument("--require-pass", action="store_true")
+    validate.add_argument(
+        "--allow-unready-actions-for-local-self-test",
+        action="store_true",
+        help=(
+            "test-only: allow the local-self-test synthetic evidence bundle to "
+            "exercise PASS validation before Android actions have production proof"
+        ),
+    )
     validate.add_argument("--results-output", type=Path)
 
     validate_plan_parser = subparsers.add_parser(
@@ -1207,6 +1223,9 @@ def main(argv: list[str] | None = None) -> int:
             expected_execution_id=args.expected_execution_id,
             expected_execution_attempt=args.expected_execution_attempt,
             require_pass=args.require_pass,
+            allow_unready_actions_for_local_self_test=(
+                args.allow_unready_actions_for_local_self_test
+            ),
         )
         if args.results_output:
             write_canonical_json(

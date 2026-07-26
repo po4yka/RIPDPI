@@ -772,15 +772,24 @@ python3 "$repo_root/scripts/ci/network_evidence_manifest.py" assemble \
   --client-artifact-sha256 "$client_artifact_sha256" \
   --test-artifact-sha256 "$test_artifact_sha256" \
   --output "$publish_dir/manifest.json"
-python3 "$repo_root/scripts/ci/network_evidence_manifest.py" validate \
-  --manifest "$publish_dir/manifest.json" \
-  --artifact-root "$publish_dir" \
-  --expected-source-sha "$source_sha" \
-  --applies-to "$applies_to" \
-  --expected-execution-kind "$execution_kind" \
-  --expected-execution-id "$execution_id" \
-  --expected-execution-attempt "$execution_attempt" \
+validation_args=(
+  --manifest "$publish_dir/manifest.json"
+  --artifact-root "$publish_dir"
+  --expected-source-sha "$source_sha"
+  --applies-to "$applies_to"
+  --expected-execution-kind "$execution_kind"
+  --expected-execution-id "$execution_id"
+  --expected-execution-attempt "$execution_attempt"
   --require-pass
+)
+if [[ -n "${RIPDPI_TEST_REPO_ROOT:-}" ]]; then
+  [[ "$execution_kind" == "local" && "$execution_id" == "local-self-test" ]] || {
+    echo "test-only unready-action override requires local-self-test provenance" >&2
+    exit 1
+  }
+  validation_args+=(--allow-unready-actions-for-local-self-test)
+fi
+python3 "$repo_root/scripts/ci/network_evidence_manifest.py" validate "${validation_args[@]}"
 
 [[ -d "$output_dir" && ! -L "$output_dir" && \
   -z "$(find "$output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] || {
