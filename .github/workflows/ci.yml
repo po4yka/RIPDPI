@@ -570,7 +570,8 @@ jobs:
           python3 -m unittest \
             scripts.tests.test_package_native_symbols \
             scripts.tests.test_release_artifact_uploads \
-            scripts.tests.test_rust_native_task_layout
+            scripts.tests.test_rust_native_task_layout \
+            scripts.tests.test_verify_jni_readiness_mapping
 
       - name: Run nightly coverage selection contract tests
         run: python3 -m unittest scripts.tests.test_nightly_coverage_selection
@@ -734,6 +735,9 @@ jobs:
             echo "error: no packaged release native library directories found" >&2
             exit 1
           fi
+
+      - name: Verify JNI callback names in release mapping
+        run: python3 scripts/ci/verify_jni_readiness_mapping.py
 
       - name: Package deterministic release native symbols
         if: matrix.variant.id == 'github-full'
