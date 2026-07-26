@@ -54,7 +54,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | diagnostics | [Add network-security-config with opportunistic domainEncryption](issues/add-network-security-config-with-opportunistic-domainencryption.md) | unassigned | 2026-06-05 |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | unassigned | 2026-06-05 |
 | medium | testing | [Add Hysteria 2 Salamander obfuscation conformance fixtures](issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md) | unassigned | 2026-06-11 |
-| medium | transport | [Investigate operator-specific protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | unassigned | 2026-06-11 |
+| medium | transport | [Investigate operator-specific protocol-class signatures (Dec 2025 shift)](issues/investigate-operator-protocol-class-signatures.md) | unassigned | 2026-06-11 |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | unassigned | 2026-06-11 |
 
 ## Todo (1)
@@ -68,7 +68,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | medium | android | [Introduce a VPN-session Hilt scope to reset per-session service state](issues/introduce-vpn-session-hilt-scope.md) | unassigned | 2026-06-10 |
-| medium | epic | [Epic - Transport obfuscation and censor-signature research](issues/epic-transport-obfuscation-research.md) | unassigned | 2026-06-11 |
+| medium | epic | [Epic - Transport obfuscation and network-signature research](issues/epic-transport-obfuscation-research.md) | unassigned | 2026-06-11 |
 | medium | rust-native | [Add optional Cloudflare Workers transport mode](issues/add-cloudflare-workers-domain-fronting-bypass.md) | unassigned | 2026-06-10 |
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | unassigned | 2026-06-11 |
 | medium | rust-native | [Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel](issues/introduce-ws-transport-port-to-fix-layer-violations.md) | unassigned | 2026-06-10 |

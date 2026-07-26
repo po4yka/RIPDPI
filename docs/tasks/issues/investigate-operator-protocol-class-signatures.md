@@ -11,7 +11,7 @@ blocked_by: []
 created: 2026-05-22
 updated: 2026-06-11
 source_wiki_pages:
-  - "rkn-protocol-class-blocking-shift-dec-2025"
+  - "operator-protocol-class-blocking-shift-dec-2025"
 linked_task: null
 ---
 
@@ -25,9 +25,9 @@ Child task of `epic-transport-obfuscation-research` (the former `epic-direct-mod
 
 Diagnostic investigation, not a feature build:
 
-1. Run dpi-checkers + DPI Detector + rkn-block-checker against the full transport catalogue (every protocol crate under `native/rust/crates/ripdpi-<transport>/`).
+1. Run dpi-checkers + DPI Detector + protocol-block-checker against the full transport catalogue (every protocol crate under `native/rust/crates/ripdpi-<transport>/`).
 2. Catalog which protocol fingerprints currently trigger blocks vs pass through, across multiple RU ISP vantages.
-3. Update `rkn-protocol-class-blocking-shift-dec-2025` wiki page with the empirical fingerprint catalog.
+3. Update `operator-protocol-class-blocking-shift-dec-2025` wiki page with the empirical fingerprint catalog.
 4. Feed results into `ripdpi-runtime-policy` defaults — automatically de-prioritize transports with high block rate.
 
 ## Acceptance criteria
@@ -44,10 +44,10 @@ Diagnostic investigation, not a feature build:
 
 ## References
 
-- rkn-protocol-class-blocking-shift-dec-2025 — wiki concept page
-- rkn-block-checker-methodology — diagnostic tool
+- operator-protocol-class-blocking-shift-dec-2025 — wiki concept page
+- protocol-block-checker-methodology — diagnostic tool
 - Parent epic: `epic-transport-obfuscation-research` (reassigned 2026-06-10; former `epic-direct-mode-transport-policy-and-verdicts` was removed)
-- Linked deploy task: `investigate-rkn-unannounced-protocol-class-signatures-deploy`
+- Linked deploy task: `investigate-operator-protocol-class-signatures-deploy`
 - Gating dependency: cannot progress without sustained access to ≥3 RU ISP vantages (external, not a repo-side task) — see Risks.
 
 ## Design spike — measurement methodology + policy-hook design (2026-06-11)
