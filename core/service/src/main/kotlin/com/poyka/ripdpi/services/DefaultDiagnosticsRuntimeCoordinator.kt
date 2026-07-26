@@ -11,8 +11,12 @@ import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlCommand
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlReason
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,6 +49,8 @@ internal class DefaultDiagnosticsRuntimeCoordinator
     ) : DiagnosticsRuntimeCoordinator {
         private var waitAttempts: Int = 50
         private var waitDelayMs: Long = 200L
+        private val rawPathWindowMutex = Mutex()
+        private var rawPathWindow: RawPathWindow? = null
 
         internal constructor(
             runtimeControlPlane: RuntimeControlPlane,
@@ -68,48 +74,96 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         }
 
         override suspend fun runRawPathScan(block: suspend () -> Unit) {
-            val resumeLease = runtimeResumeIntentTracker.captureResumeLease()
-            reportingScanActivity("Raw-path scan") {
-                val (status, mode) = serviceStateStore.status.value
-                val diagnostics = appSettingsRepository.snapshot().toSettingsSections().diagnostics
-                val shouldResume = status == AppStatus.Running && diagnostics.diagnosticsAutoResumeAfterRawScan
+            val diagnostics = appSettingsRepository.snapshot().toSettingsSections().diagnostics
+            runInRawPathWindow(
+                label = "Raw-path scan",
+                resumeIfRuntimeWasRunning = diagnostics.diagnosticsAutoResumeAfterRawScan,
+                block = block,
+            )
+        }
 
-                if (status == AppStatus.Running) {
-                    runtimeControlPlane.execute(
-                        RuntimeControlCommand.StopRuntime(RuntimeControlReason.DiagnosticsRawPathScan),
-                    )
-                    waitForStatus(AppStatus.Halted)
+        override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+            runInRawPathWindow(
+                label = "Automatic raw-path scan",
+                resumeIfRuntimeWasRunning = true,
+                block = block,
+            )
+        }
+
+        private suspend fun runInRawPathWindow(
+            label: String,
+            resumeIfRuntimeWasRunning: Boolean,
+            block: suspend () -> Unit,
+        ) {
+            enterRawPathWindow(label, resumeIfRuntimeWasRunning)
+            try {
+                block()
+            } finally {
+                withContext(NonCancellable) {
+                    leaveRawPathWindow()
+                }
+            }
+        }
+
+        private suspend fun enterRawPathWindow(
+            label: String,
+            resumeIfRuntimeWasRunning: Boolean,
+        ) {
+            rawPathWindowMutex.withLock {
+                rawPathWindow?.let { activeWindow ->
+                    activeWindow.participantCount += 1
+                    activeWindow.shouldResume =
+                        activeWindow.shouldResume ||
+                        (activeWindow.runtimeWasRunning && resumeIfRuntimeWasRunning)
+                    Logger.d { "$label joined active raw-path window" }
+                    return@withLock
                 }
 
+                val resumeLease = runtimeResumeIntentTracker.captureResumeLease()
+                val (status, mode) = serviceStateStore.status.value
+                val runtimeWasRunning = status == AppStatus.Running
+                rawPathWindow =
+                    RawPathWindow(
+                        mode = mode,
+                        resumeLease = resumeLease,
+                        runtimeWasRunning = runtimeWasRunning,
+                        shouldResume = runtimeWasRunning && resumeIfRuntimeWasRunning,
+                    )
+                runtimeModeProjectionStore.markDiagnosticsScanActive(true)
+                var windowPrepared = false
                 try {
-                    block()
+                    val projection = runtimeModeProjectionStore.projection.first()
+                    Logger.d { "$label starting; runtime mode = $projection" }
+                    if (runtimeWasRunning) {
+                        runtimeControlPlane.execute(
+                            RuntimeControlCommand.StopRuntime(RuntimeControlReason.DiagnosticsRawPathScan),
+                        )
+                        waitForStatus(AppStatus.Halted)
+                    }
+                    windowPrepared = true
                 } finally {
-                    if (shouldResume) {
-                        resumeRuntimeIfOwned(mode, resumeLease)
+                    if (!windowPrepared) {
+                        rawPathWindow = null
+                        runCatching { runtimeModeProjectionStore.markDiagnosticsScanActive(false) }
                     }
                 }
             }
         }
 
-        override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
-            val resumeLease = runtimeResumeIntentTracker.captureResumeLease()
-            reportingScanActivity("Automatic raw-path scan") {
-                val (status, mode) = serviceStateStore.status.value
-                val shouldResume = status == AppStatus.Running
-
-                if (status == AppStatus.Running) {
-                    runtimeControlPlane.execute(
-                        RuntimeControlCommand.StopRuntime(RuntimeControlReason.DiagnosticsRawPathScan),
-                    )
-                    waitForStatus(AppStatus.Halted)
+        private suspend fun leaveRawPathWindow() {
+            rawPathWindowMutex.withLock {
+                val activeWindow = checkNotNull(rawPathWindow) { "Raw-path window is not active" }
+                activeWindow.participantCount -= 1
+                if (activeWindow.participantCount > 0) {
+                    return@withLock
                 }
-
                 try {
-                    block()
-                } finally {
-                    if (shouldResume) {
-                        resumeRuntimeIfOwned(mode, resumeLease)
+                    if (activeWindow.shouldResume) {
+                        resumeRuntimeIfOwned(activeWindow.mode, activeWindow.resumeLease)
                     }
+                } finally {
+                    rawPathWindow = null
+                    runtimeModeProjectionStore.markDiagnosticsScanActive(false)
                 }
             }
         }
@@ -138,28 +192,6 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     false
                 }
             }
-
-        /**
-         * Run a raw-path scan while keeping [RuntimeModeProjectionStore] in step:
-         * publish the diagnostics-scan layer as active for the scan's duration,
-         * and log the runtime mode the scan is operating against.
-         *
-         * This is read-only observability wrapped around the existing scan — it
-         * changes neither the scan nor any service start/stop transition.
-         */
-        private suspend fun reportingScanActivity(
-            label: String,
-            scan: suspend () -> Unit,
-        ) {
-            runtimeModeProjectionStore.markDiagnosticsScanActive(true)
-            try {
-                val projection = runtimeModeProjectionStore.projection.first()
-                Logger.d { "$label starting; runtime mode = $projection" }
-                scan()
-            } finally {
-                runtimeModeProjectionStore.markDiagnosticsScanActive(false)
-            }
-        }
 
         private suspend fun waitForStatus(target: AppStatus) {
             repeat(waitAttempts) {
@@ -235,5 +267,13 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private data class ResumeWaitState(
             val resolved: Boolean = false,
             val compensatedGeneration: Long? = null,
+        )
+
+        private data class RawPathWindow(
+            val mode: Mode,
+            val resumeLease: ResumeLease,
+            val runtimeWasRunning: Boolean,
+            var shouldResume: Boolean,
+            var participantCount: Int = 1,
         )
     }

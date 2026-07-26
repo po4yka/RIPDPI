@@ -12,6 +12,8 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.DefaultRuntimeControlPlane
 import com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,59 @@ import org.junit.Test
 import java.io.IOException
 
 class DiagnosticsRuntimeCoordinatorTest {
+    @Test
+    fun `concurrent raw path scans resume only after the last scan finishes`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val controller = FakeServiceController(stateStore)
+            val coordinator =
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
+                )
+            val firstEntered = CompletableDeferred<Unit>()
+            val secondEntered = CompletableDeferred<Unit>()
+            val releaseFirst = CompletableDeferred<Unit>()
+            val releaseSecond = CompletableDeferred<Unit>()
+
+            val first =
+                async {
+                    coordinator.runRawPathScan {
+                        firstEntered.complete(Unit)
+                        releaseFirst.await()
+                    }
+                }
+            firstEntered.await()
+            val second =
+                async {
+                    coordinator.runRawPathScan {
+                        secondEntered.complete(Unit)
+                        releaseSecond.await()
+                    }
+                }
+            secondEntered.await()
+
+            assertEquals(AppStatus.Halted to Mode.VPN, stateStore.status.value)
+            assertEquals(1, controller.stopCount)
+            assertEquals(0, controller.startCount)
+
+            releaseFirst.complete(Unit)
+            first.await()
+            assertEquals(AppStatus.Halted to Mode.VPN, stateStore.status.value)
+            assertEquals(0, controller.startCount)
+
+            releaseSecond.complete(Unit)
+            second.await()
+            assertEquals(AppStatus.Running to Mode.VPN, stateStore.status.value)
+            assertEquals(1, controller.startCount)
+        }
+
     @Test
     fun `stop failure aborts raw path scan before block runs`() =
         runTest {
