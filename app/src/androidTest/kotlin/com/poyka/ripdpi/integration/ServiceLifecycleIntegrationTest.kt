@@ -13,6 +13,7 @@ import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultScope
 import com.poyka.ripdpi.core.testing.FaultSpec
@@ -43,6 +44,9 @@ import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
 import com.poyka.ripdpi.testing.ProxyRuntimeFaultTarget
 import com.poyka.ripdpi.testing.TunnelBridgeFaultTarget
@@ -74,6 +78,7 @@ import kotlin.time.Duration.Companion.seconds
     VpnTunnelSessionProviderModule::class,
     NetworkHandoverMonitorModule::class,
     PermissionWatchdogModule::class,
+    DestinationRoutingPolicySourceModule::class,
 )
 class ServiceLifecycleIntegrationTest {
     @get:Rule
@@ -121,6 +126,15 @@ class ServiceLifecycleIntegrationTest {
     @BindValue
     @JvmField
     var permissionWatchdog: PermissionWatchdog = IntegrationTestOverrides.permissionWatchdog
+
+    @BindValue
+    @JvmField
+    var destinationRoutingPolicySource: DestinationRoutingPolicySource =
+        DestinationRoutingPolicySource {
+            DestinationRoutingPolicySnapshot.Available(
+                DestinationRoutingPolicy(canonicalDigest = "integration-test"),
+            )
+        }
 
     @Inject
     lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore

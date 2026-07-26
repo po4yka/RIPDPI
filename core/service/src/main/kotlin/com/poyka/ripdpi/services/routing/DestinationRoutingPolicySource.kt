@@ -61,10 +61,10 @@ internal class RoomDestinationRoutingPolicySource internal constructor(
 
 @Module
 @InstallIn(SingletonComponent::class)
-internal abstract class DestinationRoutingPolicySourceModule {
+abstract class DestinationRoutingPolicySourceModule {
     @Binds
     @Singleton
-    abstract fun bindDestinationRoutingPolicySource(
+    internal abstract fun bindDestinationRoutingPolicySource(
         source: RoomDestinationRoutingPolicySource,
     ): DestinationRoutingPolicySource
 }
