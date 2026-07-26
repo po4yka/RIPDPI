@@ -63,6 +63,7 @@ async fn resolve_request(request: DnsRequest, resolver: &EncryptedDnsResolver, t
                     resolver_endpoint_label: Some(resolver_endpoint_label),
                     direct_generation: request_generation,
                     direct_fallback: false,
+                    tcp_reply: request.tcp_reply,
                 };
             }
             Err(error) => {
@@ -75,6 +76,7 @@ async fn resolve_request(request: DnsRequest, resolver: &EncryptedDnsResolver, t
                     resolver_endpoint_label: Some(resolver_endpoint_label),
                     direct_generation: request_generation,
                     direct_fallback: false,
+                    tcp_reply: request.tcp_reply,
                 };
             }
         }
@@ -94,5 +96,6 @@ async fn resolve_request(request: DnsRequest, resolver: &EncryptedDnsResolver, t
         resolver_endpoint_label: Some(resolver_endpoint_label),
         direct_generation: request_generation,
         direct_fallback,
+        tcp_reply: request.tcp_reply,
     }
 }

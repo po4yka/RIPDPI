@@ -4,8 +4,10 @@ use crate::dns_cache::DnsCache;
 use crate::stats::SplitDnsDecisionKind;
 use crate::{Stats, TunDevice};
 
-use super::super::{IO_PHASE_WORK_BUDGET, send_dns_servfail};
-use super::{DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_result, sync_direct_dns_mapping_generation};
+use super::super::IO_PHASE_WORK_BUDGET;
+use super::{
+    DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_failure, handle_dns_result, sync_direct_dns_mapping_generation,
+};
 
 pub(in crate::io_loop) fn drain_dns_responses(
     device: &mut TunDevice,
@@ -55,16 +57,7 @@ pub(in crate::io_loop) fn handle_dns_response(
     {
         stats.record_direct_dns_stale_response();
         cache.reset_unleased();
-        send_dns_servfail(
-            device,
-            stats,
-            mapdns,
-            cache,
-            response.src,
-            &response.query,
-            response.host.as_deref(),
-            "direct DNS generation stale",
-        );
+        handle_dns_failure(device, stats, mapdns, cache, response, "direct DNS generation stale");
     } else {
         if response.direct_generation.is_some() && !response.direct_fallback && response.upstream.is_ok() {
             stats.record_direct_dns_success();

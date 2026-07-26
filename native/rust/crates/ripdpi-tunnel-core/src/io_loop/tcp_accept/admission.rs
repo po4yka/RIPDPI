@@ -8,8 +8,10 @@ use smoltcp::iface::{SocketHandle, SocketSet};
 use tokio_util::sync::CancellationToken;
 
 use crate::dns_cache::DnsCache;
+use crate::io_loop::dns_intercept::{DnsRequest, MapDnsRuntime};
 use crate::io_loop::packet::TcpFlowKey;
 use crate::session::Auth;
+use crate::split_dns::SplitDnsPolicy;
 use crate::uid_policy::UidFlowPolicy;
 use crate::{ActiveSessions, Stats};
 
@@ -20,7 +22,7 @@ mod collect;
 mod pending;
 mod session;
 
-use collect::collect_admissible_sessions;
+use collect::{AdmissionInputs, collect_admissible_sessions};
 use session::admit_session;
 
 #[allow(clippy::too_many_arguments)]
@@ -39,16 +41,18 @@ pub(crate) fn spawn_new_tcp_sessions(
     dns_cache: &mut Option<DnsCache>,
     active_direct_generation: Option<&mut Option<u64>>,
     uid_policy: &UidFlowPolicy,
+    mapdns_runtime: Option<MapDnsRuntime>,
+    dns_req_tx: Option<tokio::sync::mpsc::Sender<DnsRequest>>,
+    split_dns_policy: Option<SplitDnsPolicy>,
 ) -> Vec<smoltcp::iface::SocketHandle> {
     let (new_sessions, unresolvable) = collect_admissible_sessions(
         socket_set,
         sessions,
         pending_listens,
         admission_cursor,
-        stats,
         dns_cache,
         active_direct_generation,
-        uid_policy,
+        AdmissionInputs { stats, uid_policy, mapdns_runtime },
     );
     let resetting = abort_unresolved_sessions(pending_listens, unresolvable);
 
@@ -66,6 +70,8 @@ pub(crate) fn spawn_new_tcp_sessions(
             stats,
             dns_cache,
             pending,
+            dns_req_tx.clone(),
+            split_dns_policy.clone(),
         );
     }
     resetting

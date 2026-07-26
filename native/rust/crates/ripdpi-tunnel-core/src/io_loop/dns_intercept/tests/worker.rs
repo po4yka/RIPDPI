@@ -297,6 +297,7 @@ fn drain_dns_responses_processes_pending() {
             resolver_endpoint_label: Some("test".to_string()),
             direct_generation: None,
             direct_fallback: false,
+            tcp_reply: None,
         })
         .expect("send response");
 
@@ -345,6 +346,7 @@ fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation
                 resolver_endpoint_label: Some("test".to_string()),
                 direct_generation: Some(11),
                 direct_fallback,
+                tcp_reply: None,
             })
             .expect("queue stale response");
     }
@@ -384,6 +386,7 @@ fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation
             resolver_endpoint_label: Some("test".to_string()),
             direct_generation: Some(12),
             direct_fallback: false,
+            tcp_reply: None,
         })
         .expect("queue current response");
     drain_dns_responses(
@@ -431,6 +434,7 @@ fn drain_dns_responses_yields_after_one_phase_budget() {
                 resolver_endpoint_label: Some("test".to_string()),
                 direct_generation: None,
                 direct_fallback: false,
+                tcp_reply: None,
             })
             .expect("queue response");
     }

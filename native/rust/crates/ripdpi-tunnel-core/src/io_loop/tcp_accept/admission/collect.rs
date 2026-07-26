@@ -6,6 +6,7 @@ use smoltcp::iface::{SocketHandle, SocketSet};
 use smoltcp::socket::tcp::Socket as TcpSocket;
 
 use crate::dns_cache::DnsCache;
+use crate::io_loop::dns_intercept::MapDnsRuntime;
 use crate::io_loop::dns_intercept::ResolvedMappedTarget;
 use crate::io_loop::packet::{TcpFlowKey, endpoint_to_socketaddr};
 use crate::uid_policy::{CachedFlowUidSource, PROTO_TCP, UidFlowPolicy, Verdict};
@@ -17,15 +18,26 @@ use super::super::unresolved::abort_unresolved_tcp_socket;
 use super::batch::{TCP_ADMISSION_WORK_BUDGET, pending_handle_batch};
 use super::pending::PendingTcpSession;
 
+pub(super) struct AdmissionInputs<'a> {
+    pub(super) stats: &'a Arc<Stats>,
+    pub(super) uid_policy: &'a UidFlowPolicy,
+    pub(super) mapdns_runtime: Option<MapDnsRuntime>,
+}
+
+struct AdmissionTarget {
+    resolved: ResolvedMappedTarget,
+    synthetic_ip: Option<u32>,
+    dns_intercept: bool,
+}
+
 pub(super) fn collect_admissible_sessions(
     socket_set: &mut SocketSet<'static>,
     sessions: &ActiveSessions,
     pending_listens: &HashMap<TcpFlowKey, (SocketHandle, Instant)>,
     admission_cursor: &mut usize,
-    stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
     mut active_direct_generation: Option<&mut Option<u64>>,
-    uid_policy: &UidFlowPolicy,
+    inputs: AdmissionInputs<'_>,
 ) -> (Vec<PendingTcpSession>, Vec<SocketHandle>) {
     let mut new_sessions = Vec::new();
     let mut unresolvable = Vec::new();
@@ -44,16 +56,31 @@ pub(super) fn collect_admissible_sessions(
         // SOCKS session must receive the separately resolved real target.
         let attribution_remote = tcp_target_endpoint(tcp);
         let synthetic_ip = pinned_synthetic_ip(dns_cache, tcp);
-        match tcp_session_target(stats, dns_cache, active_direct_generation.as_deref_mut(), tcp) {
+        let dns_intercept = attribution_remote
+            .is_some_and(|target| inputs.mapdns_runtime.is_some_and(|mapdns| target == mapdns.intercept_addr));
+        if dns_intercept {
+            let intercept_addr = attribution_remote.expect("DNS intercept endpoint checked above");
+            let target = ResolvedMappedTarget { addr: intercept_addr, host: None };
+            collect_resolved_session(
+                handle,
+                tcp,
+                AdmissionTarget { resolved: target, synthetic_ip: None, dns_intercept: true },
+                intercept_addr,
+                inputs.uid_policy,
+                &mut new_sessions,
+                &mut unresolvable,
+            );
+            continue;
+        }
+        match tcp_session_target(inputs.stats, dns_cache, active_direct_generation.as_deref_mut(), tcp) {
             Some(target) => {
                 let attribution_remote = attribution_remote.unwrap_or(target.addr);
                 collect_resolved_session(
                     handle,
                     tcp,
-                    target,
+                    AdmissionTarget { resolved: target, synthetic_ip, dns_intercept: false },
                     attribution_remote,
-                    synthetic_ip,
-                    uid_policy,
+                    inputs.uid_policy,
                     &mut new_sessions,
                     &mut unresolvable,
                 );
@@ -70,14 +97,14 @@ pub(super) fn collect_admissible_sessions(
 fn collect_resolved_session(
     handle: SocketHandle,
     tcp: &mut TcpSocket<'_>,
-    target: ResolvedMappedTarget,
+    target: AdmissionTarget,
     attribution_remote: std::net::SocketAddr,
-    synthetic_ip: Option<u32>,
     uid_policy: &UidFlowPolicy,
     new_sessions: &mut Vec<PendingTcpSession>,
     unresolvable: &mut Vec<SocketHandle>,
 ) {
-    let ResolvedMappedTarget { addr: target_addr, host: target_host } = target;
+    let AdmissionTarget { resolved, synthetic_ip, dns_intercept } = target;
+    let ResolvedMappedTarget { addr: target_addr, host: target_host } = resolved;
     // This is the one site that sees both the app source and intercepted destination; `note_flow` only queues exact-tuple attribution work and never invokes JNI on this hot path.
     let Some(app_src) = tcp.remote_endpoint().map(endpoint_to_socketaddr) else {
         if uid_policy.is_enforcing() {
@@ -90,6 +117,7 @@ fn collect_resolved_session(
                 target_host,
                 synthetic_ip,
                 attribution_token: None,
+                dns_intercept,
             });
         }
         return;
@@ -102,6 +130,7 @@ fn collect_resolved_session(
             target_host,
             synthetic_ip,
             attribution_token: Some(observation.token),
+            dns_intercept,
         }),
         Verdict::Pending => {}
         Verdict::ResetTcp | Verdict::DropUdp => {

@@ -23,7 +23,7 @@ pub(super) use self::mapping::ResolvedMappedTarget;
 pub(super) use self::mapping::resolve_mapped_target;
 pub(super) use self::resolution::resolve_mapped_destination;
 pub(super) use self::response_processing::{drain_dns_responses, handle_dns_response};
-pub(super) use self::responses::handle_dns_result;
+pub(super) use self::responses::{handle_dns_failure, handle_dns_result};
 pub(super) use self::route::route_dns_packet;
 pub(super) use self::types::{DirectDnsRequest, DnsRequest, DnsResponse};
 pub(super) use self::wire::dns_query_name;

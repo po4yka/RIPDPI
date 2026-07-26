@@ -91,7 +91,7 @@ pub(in crate::io_loop) fn route_dns_packet(
     }
     match (&mapdns_runtime, dns_cache, dns_req_tx.as_ref()) {
         (Some(_), Some(_), Some(request_tx)) => {
-            let request = DnsRequest { src, query: payload.to_vec(), host, direct };
+            let request = DnsRequest { src, query: payload.to_vec(), host, direct, tcp_reply: None };
             match request_tx.try_send(request) {
                 Ok(()) => {}
                 Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {

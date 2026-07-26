@@ -1,3 +1,4 @@
+mod delivery;
 mod servfail;
 
 use std::sync::Arc;
@@ -5,19 +6,19 @@ use std::sync::Arc;
 use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
 
-use super::super::bridge::enqueue_tun_packet;
-use super::super::packet::build_udp_response;
 use super::{DnsResponse, MapDnsRuntime};
-use servfail::send_servfail;
+use delivery::deliver_dns_payload;
+pub(in crate::io_loop) use delivery::handle_dns_failure;
+use servfail::servfail_payload;
 
 pub(in crate::io_loop) fn handle_dns_result(
     device: &mut TunDevice,
     stats: &Arc<Stats>,
     mapdns: MapDnsRuntime,
     dns_cache: &mut DnsCache,
-    response: DnsResponse,
+    mut response: DnsResponse,
 ) {
-    match response.upstream {
+    let payload = match response.upstream {
         Ok(upstream) => match dns_cache.rewrite_response(&response.query, &upstream.response_bytes) {
             Ok(result) => {
                 stats.record_dns_success(
@@ -27,13 +28,12 @@ pub(in crate::io_loop) fn handle_dns_result(
                     Some(&upstream.endpoint_label),
                     Some(upstream.latency_ms),
                 );
-                let raw = build_udp_response(mapdns.intercept_addr, response.src, &result.response);
-                enqueue_tun_packet(device, raw);
+                Some(result.response)
             }
             Err(err) => {
                 let message = err.to_string();
                 stats.record_dns_failure(response.host.as_deref(), &message, Some(&upstream.endpoint_label));
-                send_servfail(device, mapdns, dns_cache, response.src, &response.query, "rewrite error");
+                servfail_payload(dns_cache, &response.query, "rewrite error")
             }
         },
         Err(err) => {
@@ -46,7 +46,10 @@ pub(in crate::io_loop) fn handle_dns_result(
                 &formatted_error,
                 response.resolver_endpoint_label.as_deref(),
             );
-            send_servfail(device, mapdns, dns_cache, response.src, &response.query, "upstream failure");
+            servfail_payload(dns_cache, &response.query, "upstream failure")
         }
+    };
+    if let Some(payload) = payload {
+        deliver_dns_payload(device, mapdns, response.src, response.tcp_reply.take(), payload);
     }
 }

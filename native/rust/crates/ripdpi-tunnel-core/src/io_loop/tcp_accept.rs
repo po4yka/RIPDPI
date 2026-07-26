@@ -257,6 +257,102 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mapdns_tcp_listener_starts_local_dns_session() {
+        use tokio::io::AsyncWriteExt;
+
+        let mut device = TunDevice::new(1500);
+        let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
+        let mut iface = Interface::new(config, &mut device, Instant::now());
+        iface.update_ip_addrs(|addrs| {
+            addrs.push(smoltcp::wire::IpCidr::new(IpAddress::v4(10, 0, 0, 2), 24)).unwrap();
+        });
+        iface
+            .routes_mut()
+            .add_default_ipv4_route(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2))
+            .expect("default ipv4 route");
+        iface.set_any_ip(true);
+
+        let mut socket_set = SocketSet::new(vec![]);
+        let mut pending_listens = HashMap::new();
+        let mut admission_cursor = 0;
+        let mut sessions = ActiveSessions::new(8);
+        let cancel = CancellationToken::new();
+        let stats = Arc::new(Stats::default());
+        let mut dns_cache = Some(DnsCache::new(0xC612_0000, 0xFFFE_0000, 8).expect("valid MapDNS cache"));
+        let auth = super::Auth::NoAuth;
+        let proxy_sockaddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9);
+        let uid_policy = crate::uid_policy::UidFlowPolicy::disarmed();
+        let intercept = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 53)), 53);
+        let mapdns = crate::io_loop::dns_intercept::MapDnsRuntime {
+            intercept_addr: intercept,
+            synthetic_net: 0xC612_0000,
+            synthetic_mask: 0xFFFE_0000,
+            intercept_port: 53,
+        };
+        let (dns_tx, mut dns_rx) = tokio::sync::mpsc::channel(1);
+        let client_ip = Ipv4Addr::new(10, 0, 0, 99);
+        let client_port = 51_053;
+
+        let syn = build_ipv4_tcp_syn_packet(client_ip, Ipv4Addr::new(198, 18, 0, 53), client_port, 53);
+        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+        device.rx_queue.push_back(syn);
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+        let syn_ack = device.tx_queue.pop_front().expect("syn-ack");
+        let (server_seq, _) = tcp_seq_ack(&syn_ack);
+        device.rx_queue.push_back(build_ipv4_tcp_ack_packet(
+            client_ip,
+            Ipv4Addr::new(198, 18, 0, 53),
+            client_port,
+            53,
+            1,
+            server_seq + 1,
+        ));
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+
+        let resetting = spawn_new_tcp_sessions(
+            &mut socket_set,
+            &mut sessions,
+            &mut pending_listens,
+            &mut admission_cursor,
+            proxy_sockaddr,
+            &auth,
+            None,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+            &cancel,
+            &stats,
+            &mut dns_cache,
+            None,
+            &uid_policy,
+            Some(mapdns),
+            Some(dns_tx),
+            None,
+        );
+        assert!(resetting.is_empty());
+        assert_eq!(sessions.len(), 1, "TCP/53 must use a local DNS session instead of SOCKS");
+
+        let query = [
+            0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, b'w', b'w', b'w', 0x07, b'e',
+            b'x', b'a', b'm', b'p', b'l', b'e', 0x03, b'c', b'o', b'm', 0x00, 0x00, 0x01, 0x00, 0x01,
+        ];
+        let (_, entry) = sessions.iter_mut().next().expect("DNS session");
+        entry.smoltcp_side.write_u16(query.len() as u16).await.expect("query length");
+        entry.smoltcp_side.write_all(&query).await.expect("query body");
+        let request = dns_rx.recv().await.expect("intercepted DNS request");
+        assert_eq!(request.query, query);
+        assert!(request.tcp_reply.is_some());
+
+        cancel.cancel();
+        let handles: Vec<_> = sessions.iter_mut().map(|(handle, _)| handle).collect();
+        for handle in handles {
+            if let Some(entry) = sessions.remove(handle) {
+                entry.handle.abort();
+            }
+            socket_set.remove(handle);
+        }
+    }
+
+    #[tokio::test]
     async fn spawn_new_tcp_sessions_waits_for_handshake_and_uid_resolution() {
         let _guard = UID_ADMISSION_TEST_GUARD.lock().expect("UID admission test guard");
         ripdpi_flow_app_attribution::clear();
@@ -312,6 +408,9 @@ mod tests {
             &mut dns_cache,
             None,
             &uid_policy,
+            None,
+            None,
+            None,
         );
         assert!(resetting.is_empty(), "half-open socket must not be reset");
         assert!(sessions.is_empty(), "half-open SYN-RECEIVED sockets must not spawn upstream sessions");
@@ -337,6 +436,9 @@ mod tests {
             &mut dns_cache,
             None,
             &uid_policy,
+            None,
+            None,
+            None,
         );
         assert!(resetting.is_empty(), "pending UID socket must not be reset");
         assert!(sessions.is_empty(), "established sockets must remain parked while UID resolution is pending");
@@ -363,6 +465,9 @@ mod tests {
             &mut dns_cache,
             None,
             &uid_policy,
+            None,
+            None,
+            None,
         );
         assert!(resetting.is_empty(), "allowed UID socket must not be reset");
         assert_eq!(sessions.len(), 1, "an authorized resolved UID must open one upstream session");
@@ -435,6 +540,9 @@ mod tests {
             &mut dns_cache,
             None,
             &uid_policy,
+            None,
+            None,
+            None,
         );
         assert!(resetting.is_empty(), "pending UID socket must not be reset");
         let request = ripdpi_flow_app_attribution::FlowResolveRequest {
@@ -460,6 +568,9 @@ mod tests {
             &mut dns_cache,
             None,
             &uid_policy,
+            None,
+            None,
+            None,
         );
         assert_eq!(resetting.len(), 1, "denied established socket must be scheduled for reset cleanup");
         iface.poll(Instant::now(), &mut device, &mut socket_set);

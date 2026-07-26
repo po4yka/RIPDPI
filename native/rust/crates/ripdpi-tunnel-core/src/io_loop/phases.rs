@@ -113,6 +113,9 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
         &mut state.dns_cache,
         Some(&mut state.active_direct_dns_generation),
         &state.runtime.uid_policy,
+        state.runtime.mapdns_runtime,
+        state.dns_req_tx.clone(),
+        state.runtime.split_dns_policy.clone(),
     );
     if resetting.is_empty() {
         return;
@@ -731,6 +734,7 @@ mod tests {
                         resolver_endpoint_label: None,
                         direct_generation: Some(11),
                         direct_fallback: false,
+                        tcp_reply: None,
                     })),
                 ),
                 WaitOutcome::Continue

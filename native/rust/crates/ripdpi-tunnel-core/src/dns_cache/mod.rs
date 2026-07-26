@@ -7,6 +7,10 @@ mod state;
 pub use self::packet::DnsRewriteResult;
 pub use self::state::DnsCache;
 
+pub(crate) fn servfail_response(query: &[u8]) -> Result<Vec<u8>, DnsCacheError> {
+    packet::servfail_response(query)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DnsCacheEntry {
     pub host: String,
@@ -50,7 +54,7 @@ impl DnsCache {
 
     pub fn servfail_response(&self, query: &[u8]) -> Result<Vec<u8>, DnsCacheError> {
         let _ = self;
-        packet::servfail_response(query)
+        servfail_response(query)
     }
 }
 

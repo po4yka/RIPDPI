@@ -9,11 +9,13 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use crate::dns_cache::DnsCache;
+use crate::io_loop::dns_intercept::DnsRequest;
 use crate::io_loop::packet::TcpFlowKey;
 use crate::session::{Auth, TargetAddr};
+use crate::split_dns::SplitDnsPolicy;
 use crate::{ActiveSessions, SessionEntry, Stats};
 
-use super::super::duplex::create_session_duplex;
+use super::super::duplex::{create_session_duplex, create_tcp_dns_duplex};
 use super::super::eviction::remove_evicted_session_socket;
 use super::super::eviction::remove_pending_listen;
 use super::super::target::pin_synthetic_ip;
@@ -33,6 +35,8 @@ pub(super) fn admit_session(
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
     pending: PendingTcpSession,
+    dns_req_tx: Option<tokio::sync::mpsc::Sender<DnsRequest>>,
+    split_dns_policy: Option<SplitDnsPolicy>,
 ) {
     remove_pending_listen(pending_listens, pending.handle);
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
@@ -40,16 +44,20 @@ pub(super) fn admit_session(
     let target = pending.target_host.as_ref().map_or(TargetAddr::Ip(pending.target_addr), |host| {
         TargetAddr::ResolvedDomain(host.clone(), pending.target_addr)
     });
-    let session = create_session_duplex(
-        proxy_sockaddr,
-        auth,
-        target,
-        protect_path,
-        connect_timeout,
-        read_write_timeout,
-        cancel,
-        stats,
-    );
+    let session = if pending.dns_intercept {
+        create_tcp_dns_duplex(pending.target_addr, dns_req_tx, split_dns_policy, cancel, stats)
+    } else {
+        create_session_duplex(
+            proxy_sockaddr,
+            auth,
+            target,
+            protect_path,
+            connect_timeout,
+            read_write_timeout,
+            cancel,
+            stats,
+        )
+    };
     let entry = SessionEntry {
         smoltcp_side: session.smoltcp_side,
         cancel: session.cancel,
