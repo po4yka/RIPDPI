@@ -289,7 +289,10 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
 
     let addons_len = usize::from(bytes[17]);
     let mut cursor = VERSION_AND_UUID_LEN + 1;
-    if bytes.len() < cursor + addons_len + 3 {
+    // After addons, the fixed prefix still needs command (1), port (2),
+    // and address type (1). Checking only the first three bytes let a
+    // truncated header reach the address-type read below and panic.
+    if bytes.len() < cursor + addons_len + 4 {
         return Err(ParseRequestError::NeedMoreData);
     }
     cursor += addons_len;
@@ -508,6 +511,15 @@ mod tests {
         let encoded = encode_request(&uuid, &[], "example.com:443").expect("encode request");
 
         assert_eq!(Err(ParseRequestError::NeedMoreData), parse_request_header(&encoded[..8]));
+    }
+
+    #[test]
+    fn parse_request_header_reports_missing_address_type() {
+        let encoded = encode_request(&[0x66; 16], &[], "example.com:443").expect("encode request");
+
+        // Version + UUID + addons length + command + port. The next byte,
+        // the address type, is not yet available.
+        assert_eq!(Err(ParseRequestError::NeedMoreData), parse_request_header(&encoded[..21]));
     }
 
     #[test]
