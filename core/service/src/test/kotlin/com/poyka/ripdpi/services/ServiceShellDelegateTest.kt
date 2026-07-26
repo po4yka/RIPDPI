@@ -304,6 +304,30 @@ class ServiceShellDelegateTest {
         }
 
     @Test
+    fun `android always-on action uses recovery barrier instead of user start`() =
+        runTest {
+            val events = mutableListOf<String>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { events += "user-start" },
+                    onRecoveryStart = {
+                        events += "recover"
+                        events += "runtime-start"
+                    },
+                    onStop = {},
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            val result = delegate.onStartCommand(android.net.VpnService.SERVICE_INTERFACE, 3)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(listOf("recover", "runtime-start"), events)
+        }
+
+    @Test
     fun `unknown action is ignored without stopping service`() =
         runTest {
             val stopIds = mutableListOf<Int?>()

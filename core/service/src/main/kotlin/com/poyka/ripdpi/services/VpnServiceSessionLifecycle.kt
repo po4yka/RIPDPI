@@ -19,6 +19,7 @@ internal class VpnServiceSessionLifecycle(
     private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
+    private val recoverProfileMutations: suspend () -> Unit = {},
     private val hardKillSwitchRefreshBroadcastLifecycle: HardKillSwitchRefreshLifecycle =
         HardKillSwitchRefreshBroadcastLifecycle(
             context = service,
@@ -57,6 +58,12 @@ internal class VpnServiceSessionLifecycle(
                 serviceScope = service.serviceScope,
                 serviceLabel = "vpn",
                 onStart = runtimeCoordinator::start,
+                onRecoveryStart = {
+                    recoverProfileMutationsThenStart(
+                        recoverProfileMutations = recoverProfileMutations,
+                        startRuntime = runtimeCoordinator::start,
+                    )
+                },
                 onStop = runtimeCoordinator::stop,
                 isStopAllowed = service::isUserStopAllowed,
                 onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
@@ -129,6 +136,14 @@ internal class VpnServiceSessionLifecycle(
                 .build()
         return EntryPoints.get(checkNotNull(sessionComponent), VpnServiceSessionEntryPoint::class.java)
     }
+}
+
+internal suspend inline fun recoverProfileMutationsThenStart(
+    crossinline recoverProfileMutations: suspend () -> Unit,
+    crossinline startRuntime: suspend () -> Unit,
+) {
+    recoverProfileMutations()
+    startRuntime()
 }
 
 internal interface HardKillSwitchRefreshLifecycle : AutoCloseable {

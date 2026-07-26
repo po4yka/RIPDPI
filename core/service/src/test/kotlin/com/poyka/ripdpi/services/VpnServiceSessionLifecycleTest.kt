@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -41,9 +42,44 @@ class VpnServiceSessionLifecycleTest {
         data object Unregister : Event
 
         data object Register : Event
+
+        data object ProfileRecover : Event
+
+        data object RuntimeStart : Event
     }
 
     private val events = mutableListOf<Event>()
+
+    @Test
+    fun `recovery start replays profile mutations before starting runtime`() =
+        runTest {
+            recoverProfileMutationsThenStart(
+                recoverProfileMutations = { events += Event.ProfileRecover },
+                startRuntime = { events += Event.RuntimeStart },
+            )
+
+            assertEquals(listOf(Event.ProfileRecover, Event.RuntimeStart), events)
+        }
+
+    @Test
+    fun `recovery failure prevents runtime start`() =
+        runTest {
+            val failure = IllegalStateException("recovery failed")
+
+            val thrown =
+                runCatching {
+                    recoverProfileMutationsThenStart(
+                        recoverProfileMutations = {
+                            events += Event.ProfileRecover
+                            throw failure
+                        },
+                        startRuntime = { events += Event.RuntimeStart },
+                    )
+                }.exceptionOrNull()
+
+            assertSame(failure, thrown)
+            assertEquals(listOf(Event.ProfileRecover), events)
+        }
 
     /**
      * Drives the advertise seam exactly as `createShellDelegate` does:

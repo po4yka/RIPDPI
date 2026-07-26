@@ -23,6 +23,7 @@ internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
     private val serviceLabel: String,
     private val onStart: suspend () -> Unit,
+    private val onRecoveryStart: suspend () -> Unit = onStart,
     private val onStop: suspend (Int?) -> Unit,
     private val isStopAllowed: (String) -> Boolean = { true },
     private val onAcceptedStart: () -> Unit = {},
@@ -49,7 +50,7 @@ internal class ServiceShellDelegate(
             // null is a sticky restart after process death. Android's Always-on
             // controller starts VpnService with SERVICE_INTERFACE after boot.
             null, VpnService.SERVICE_INTERFACE -> {
-                enqueue(onStart)
+                enqueue(onRecoveryStart)
                 android.app.Service.START_STICKY
             }
 

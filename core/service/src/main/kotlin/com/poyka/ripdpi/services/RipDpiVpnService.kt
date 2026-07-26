@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
@@ -65,6 +66,9 @@ class RipDpiVpnService :
     lateinit var acceptedUserStopRecorder: AcceptedUserStopRecorder
 
     @Inject
+    lateinit var profileMutationCoordinator: ProfileMutationCoordinator
+
+    @Inject
     internal lateinit var directDnsUnderlayAuthority: DirectDnsUnderlayAuthority
 
     @Inject
@@ -93,6 +97,7 @@ class RipDpiVpnService :
                 activeProtectSocketPathProvider = activeProtectSocketPathProvider,
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
+                recoverProfileMutations = profileMutationCoordinator::recover,
             )
         shellDelegate = sessionLifecycle.createShellDelegate()
         // Start the selector-runtime loops (member hot-reload + latency failover)
