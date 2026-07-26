@@ -35,6 +35,11 @@ fn drain_ready_with_budget<T>(
     drained
 }
 
+/// # Cancel safety
+///
+/// Cancel-safe. `mpsc::Receiver::recv` is cancel-safe and the receiver remains
+/// in its caller-owned `Option`; dropping this future does not close or replace
+/// the channel.
 pub(super) async fn recv_dns_response(
     receiver: &mut Option<tokio::sync::mpsc::Receiver<DnsResponse>>,
 ) -> Option<DnsResponse> {
@@ -57,6 +62,7 @@ pub(super) fn handle_dns_wait_response(state: &mut LoopState, response: DnsRespo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn ready_event_drain_yields_at_phase_budget() {
@@ -79,5 +85,16 @@ mod tests {
         assert_eq!(drained, IO_PHASE_WORK_BUDGET);
         assert_eq!(handled, IO_PHASE_WORK_BUDGET);
         assert_eq!(remaining, 1, "one ready event must remain for the next loop tick");
+    }
+
+    #[tokio::test]
+    async fn cancelling_dns_receive_keeps_receiver_installed() {
+        let (_tx, rx) = tokio::sync::mpsc::channel(1);
+        let mut receiver = Some(rx);
+
+        let result = tokio::time::timeout(Duration::from_millis(1), recv_dns_response(&mut receiver)).await;
+
+        assert!(result.is_err(), "empty receiver must remain pending until the deadline");
+        assert!(receiver.is_some(), "cancelling receive must not remove or close the receiver");
     }
 }

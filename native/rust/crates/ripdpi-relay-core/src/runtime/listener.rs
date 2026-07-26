@@ -24,6 +24,11 @@ impl SocksSessionAdmission {
     }
 }
 
+/// # Cancel safety
+///
+/// Cancel-safe. `TcpListener::accept` is cancel-safe when the polling timeout
+/// drops it, accepted streams are either moved into a runtime-tracked session
+/// or dropped synchronously, and admission permits release in `Drop`.
 pub(super) async fn run_accept_loop(
     runtime: Arc<RelayRuntime>,
     backend: Arc<RelayBackend>,

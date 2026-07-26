@@ -97,6 +97,7 @@ pub(super) fn spawn_udp_worker(
             // CancellationToken::cancelled are all cancel-safe, so select may
             // drop either losing arm without losing a datagram or queue item.
             tokio::select! {
+                biased;
                 _ = cancel.cancelled() => break,
                 outbound = outbound_rx.recv() => {
                     let Some(outbound) = outbound else { break };

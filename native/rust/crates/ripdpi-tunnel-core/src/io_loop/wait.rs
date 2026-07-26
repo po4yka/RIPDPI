@@ -26,6 +26,12 @@ pub(super) enum WaitEvent {
     Cancelled,
 }
 
+/// # Cancel safety
+///
+/// Cancel-safe. Every `select!` arm uses a cancel-safe primitive (`readable`,
+/// timer, or channel receive), and the DNS receiver remains borrowed in
+/// `LoopState` while suspended instead of being removed and restored around the
+/// await. Dropping this future therefore cannot disable DNS responses.
 pub(in crate::io_loop) async fn wait_for_next_event(
     tun: &AsyncDevice,
     state: &mut LoopState,
@@ -38,8 +44,7 @@ pub(in crate::io_loop) async fn wait_for_next_event(
 
     drain_udp_events(state);
 
-    let mut dns_resp_rx = state.dns_resp_rx.take();
-    let dns_enabled = dns_resp_rx.is_some();
+    let dns_enabled = state.dns_resp_rx.is_some();
     // biased; checks the cancellation arm first on every poll so shutdown is prompt
     // under sustained TUN/UDP/DNS readiness (Foreground-Service 5s teardown window).
     let event = tokio::select! {
@@ -49,9 +54,8 @@ pub(in crate::io_loop) async fn wait_for_next_event(
         _ = tun.readable() => WaitEvent::TunReadable,
         _ = tokio::time::sleep(smol_delay) => WaitEvent::PollTimer,
         udp_event = state.udp_rx.recv() => WaitEvent::Udp(udp_event),
-        dns_result = recv_dns_response(&mut dns_resp_rx), if dns_enabled => WaitEvent::Dns(dns_result),
+        dns_result = recv_dns_response(&mut state.dns_resp_rx), if dns_enabled => WaitEvent::Dns(dns_result),
     };
-    state.dns_resp_rx = dns_resp_rx;
 
     handle_wait_event(state, event)
 }

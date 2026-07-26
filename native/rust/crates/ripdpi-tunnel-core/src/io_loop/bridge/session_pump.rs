@@ -96,6 +96,6 @@ pub(in crate::io_loop) async fn pump_active_sessions(
     }
 
     for handle in to_remove.drain(..) {
-        remove_session(handle, sessions, socket_set, dns_cache).await;
+        remove_session(handle, sessions, socket_set, dns_cache);
     }
 }

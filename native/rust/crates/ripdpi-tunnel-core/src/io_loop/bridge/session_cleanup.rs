@@ -1,35 +1,34 @@
 use std::io;
 
 use smoltcp::iface::{SocketHandle, SocketSet};
-use tokio::io::AsyncWriteExt;
 use tokio::task::JoinHandle;
 
 use crate::ActiveSessions;
 use crate::dns_cache::DnsCache;
+use crate::io_loop::task_shutdown::{TASK_SHUTDOWN_GRACE, spawn_task_drain};
 
 mod socket_removal;
 
 use socket_removal::remove_tcp_socket;
 
-pub(super) async fn remove_session(
+pub(super) fn remove_session(
     handle: SocketHandle,
     sessions: &mut ActiveSessions,
     socket_set: &mut SocketSet<'static>,
     dns_cache: &mut Option<DnsCache>,
 ) {
-    if let Some(task) = take_session_task(handle, sessions, socket_set, dns_cache).await {
-        task.abort();
+    if let Some(task) = take_session_task(handle, sessions, socket_set, dns_cache) {
+        spawn_task_drain(task, TASK_SHUTDOWN_GRACE);
     }
 }
 
-/// NOT cancel-safe: the returned task handle must be drained or aborted by the caller.
-pub(super) async fn take_session_task(
+pub(super) fn take_session_task(
     handle: SocketHandle,
     sessions: &mut ActiveSessions,
     socket_set: &mut SocketSet<'static>,
     dns_cache: &mut Option<DnsCache>,
 ) -> Option<JoinHandle<io::Result<()>>> {
-    let mut entry = sessions.remove(handle)?;
+    let entry = sessions.remove(handle)?;
     if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
         cache.unpin(ip);
     }
@@ -37,7 +36,7 @@ pub(super) async fn take_session_task(
         ripdpi_flow_app_attribution::evict_flow(token);
     }
     entry.cancel.cancel();
-    entry.smoltcp_side.shutdown().await.ok();
+    drop(entry.smoltcp_side);
     remove_tcp_socket(socket_set, handle);
     Some(entry.handle)
 }

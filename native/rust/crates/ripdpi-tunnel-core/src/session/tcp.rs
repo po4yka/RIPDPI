@@ -14,6 +14,7 @@ use crate::stats::{Stats, TcpConnectObservation};
 
 const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_READ_WRITE_TIMEOUT: Duration = Duration::from_secs(300);
+const RELAY_DRAIN_GRACE: Duration = Duration::from_secs(1);
 
 /// High-level TCP session: connect to SOCKS5 proxy, perform handshake,
 /// issue CONNECT to the target, then bidirectionally relay bytes until
@@ -96,8 +97,8 @@ impl TcpSession {
     ///
     /// Cancel-safe at the `cancel`-token boundary it exposes (see
     /// [`Self::run_with_proxy`]); it forwards to `run_with_connector`. Dropping
-    /// the returned future outright (rather than signalling `cancel`) inherits
-    /// the underlying [`splice`] buffer-loss caveat documented there.
+    /// the returned future outright can still interrupt a non-cancellable
+    /// buffer drain, so production callers signal `cancel` and join the task.
     pub async fn run<L>(&self, local: &mut L, cancel: CancellationToken) -> io::Result<()>
     where
         L: AsyncRead + AsyncWrite + Unpin,
@@ -148,19 +149,13 @@ impl TcpSession {
 
     /// # Cancel safety
     ///
-    /// Cancel-safe at the `cancel` boundary, with one documented buffer-loss
-    /// caveat. The SOCKS5 handshake + CONNECT run to completion *before* the
-    /// relay loop (a torn handshake cannot leak into the splice). The relay is a
-    /// `select!` of [`splice`] against `cancel.cancelled()`: a `cancel` win drops
-    /// the in-flight `splice` future and returns `Ok(())`.
-    ///
-    /// Dropping `splice` mid-copy discards any bytes that `tokio::io::copy` has
-    /// read into its internal buffer but not yet written, and skips the EOF
-    /// half-close shutdown. This is bounded: `cancel` is the session token, fired
-    /// only at session GC/teardown (`SessionRegistry` reaping an idle or closed
-    /// session), never mid-stream on a live transfer — so a still-flowing session
-    /// is not torn here. The drain rewrite is deferred until a test demonstrates
-    /// observable loss; see the task `annotate-and-harden-async-cancel-safety`.
+    /// Cancel-safe at the `cancel` boundary. The SOCKS5 handshake + CONNECT run
+    /// to completion before the relay loop, so a torn handshake cannot leak into
+    /// the splice. During relay, [`splice_with_idle_timeout`] owns cancellation:
+    /// it stops each direction only at a cancel-safe `read` boundary, drains any
+    /// bytes already read before observing cancellation, and then half-closes the
+    /// corresponding writer. The caller must signal `cancel` and await this
+    /// future; dropping it outright can still interrupt that protected drain.
     async fn run_with_proxy<L, P>(&self, local: &mut L, cancel: CancellationToken, proxy: &mut P) -> io::Result<()>
     where
         L: AsyncRead + AsyncWrite + Unpin,
@@ -198,66 +193,140 @@ impl TcpSession {
             _ = cancel.cancelled() => return Ok(()),
         }
         debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 CONNECT complete");
-        tokio::select! {
-            result = splice_with_idle_timeout(local, proxy, self.read_write_timeout) => {
-                match &result {
-                    Ok((forward, backward)) => {
-                        debug!(
-                            proxy = %self.proxy_addr,
-                            target = ?self.target,
-                            forward_bytes = *forward,
-                            backward_bytes = *backward,
-                            "tcp session relay completed"
-                        );
-                    }
-                    Err(err) => {
-                        debug!(proxy = %self.proxy_addr, target = ?self.target, error = %err, "tcp session relay failed");
-                    }
-                }
-                result.map(|_| ())
-            },
-            _ = cancel.cancelled() => Ok(()),
+        let result = splice_with_idle_timeout(local, proxy, self.read_write_timeout, cancel).await;
+        match &result {
+            Ok((forward, backward)) => {
+                debug!(
+                    proxy = %self.proxy_addr,
+                    target = ?self.target,
+                    forward_bytes = *forward,
+                    backward_bytes = *backward,
+                    "tcp session relay completed"
+                );
+            }
+            Err(err) => {
+                debug!(proxy = %self.proxy_addr, target = ?self.target, error = %err, "tcp session relay failed");
+            }
         }
+        result.map(|_| ())
     }
 }
 
-fn timed_out(operation: &'static str) -> io::Error {
-    io::Error::new(io::ErrorKind::TimedOut, format!("{operation} timed out"))
+#[derive(Clone, Copy)]
+enum RelayStop {
+    Cancelled,
+    Idle,
 }
 
-async fn splice_with_idle_timeout<L, P>(local: &mut L, proxy: &mut P, idle_timeout: Duration) -> io::Result<(u64, u64)>
+/// # Cancel safety
+///
+/// Conditionally cancel-safe: the function owns the pinned transfer while it
+/// races the cancel/idle supervisor. A supervisor win does not drop the losing
+/// transfer; it cancels both directions at their next safe read boundary and
+/// awaits their buffered writes and half-closes. A writer that remains blocked
+/// past [`RELAY_DRAIN_GRACE`] is dropped together with the transport; callers do
+/// not reuse either stream. The returned future itself must not be dropped while
+/// that drain is in progress.
+async fn splice_with_idle_timeout<L, P>(
+    local: &mut L,
+    proxy: &mut P,
+    idle_timeout: Duration,
+    cancel: CancellationToken,
+) -> io::Result<(u64, u64)>
 where
     L: AsyncRead + AsyncWrite + Unpin,
     P: AsyncRead + AsyncWrite + Unpin,
 {
     let (mut local_read, mut local_write) = tokio::io::split(local);
     let (mut proxy_read, mut proxy_write) = tokio::io::split(proxy);
-    let (activity, mut activity_rx) = tokio::sync::watch::channel(0u64);
+    let (activity, activity_rx) = tokio::sync::watch::channel(0u64);
+    let transfer_cancel = cancel.child_token();
+    let error_cancel = transfer_cancel.clone();
+    let forward_cancel = transfer_cancel.clone();
+    let backward_cancel = transfer_cancel.clone();
     let forward_activity = activity.clone();
     let transfer = async move {
-        let forward = copy_with_activity(&mut local_read, &mut proxy_write, forward_activity);
-        let backward = copy_with_activity(&mut proxy_read, &mut local_write, activity);
-        tokio::try_join!(forward, backward)
-    };
-    let idle = async move {
-        loop {
-            match tokio::time::timeout(idle_timeout, activity_rx.changed()).await {
-                Ok(Ok(())) => {}
-                Ok(Err(_)) | Err(_) => return,
-            }
+        let forward = copy_with_activity(&mut local_read, &mut proxy_write, forward_activity, forward_cancel);
+        let backward = copy_with_activity(&mut proxy_read, &mut local_write, activity, backward_cancel);
+        tokio::pin!(forward);
+        tokio::pin!(backward);
+
+        tokio::select! {
+            biased;
+            result = &mut forward => match result {
+                Ok(forward_bytes) => backward.await.map(|backward_bytes| (forward_bytes, backward_bytes)),
+                Err(err) => {
+                    error_cancel.cancel();
+                    let _ = tokio::time::timeout(RELAY_DRAIN_GRACE, &mut backward).await;
+                    Err(err)
+                }
+            },
+            result = &mut backward => match result {
+                Ok(backward_bytes) => forward.await.map(|forward_bytes| (forward_bytes, backward_bytes)),
+                Err(err) => {
+                    error_cancel.cancel();
+                    let _ = tokio::time::timeout(RELAY_DRAIN_GRACE, &mut forward).await;
+                    Err(err)
+                }
+            },
         }
     };
-    tokio::select! {
+    tokio::pin!(transfer);
+    let stop = tokio::select! {
         biased;
-        result = transfer => result,
-        () = idle => Err(timed_out("TCP relay idle")),
+        result = &mut transfer => return result,
+        stop = wait_for_relay_stop(cancel, activity_rx, idle_timeout) => stop,
+    };
+
+    transfer_cancel.cancel();
+    let drained = tokio::time::timeout(RELAY_DRAIN_GRACE, &mut transfer).await;
+    match stop {
+        RelayStop::Cancelled => match drained {
+            Ok(Ok(counts)) => Ok(counts),
+            Ok(Err(_)) | Err(_) => Ok((0, 0)),
+        },
+        RelayStop::Idle => match drained {
+            Ok(Err(err)) => Err(err),
+            Ok(Ok(_)) | Err(_) => Err(timed_out("TCP relay idle")),
+        },
     }
 }
 
+/// # Cancel safety
+///
+/// Cancel-safe: `CancellationToken::cancelled`, `watch::Receiver::changed`, and
+/// the timer are individually cancel-safe. The only mutable state is the local
+/// watch cursor, which may be discarded together with this supervisor.
+async fn wait_for_relay_stop(
+    cancel: CancellationToken,
+    mut activity_rx: tokio::sync::watch::Receiver<u64>,
+    idle_timeout: Duration,
+) -> RelayStop {
+    loop {
+        tokio::select! {
+            biased;
+            () = cancel.cancelled() => return RelayStop::Cancelled,
+            changed = tokio::time::timeout(idle_timeout, activity_rx.changed()) => match changed {
+                Ok(Ok(())) => {}
+                Ok(Err(_)) | Err(_) => return RelayStop::Idle,
+            },
+        }
+    }
+}
+
+/// # Cancel safety
+///
+/// Conditionally cancel-safe: cancellation is observed only while awaiting the
+/// individually cancel-safe `read`. Once bytes have been read, every partial
+/// `write` is driven to completion before cancellation is checked again, then
+/// the writer is half-closed. The owning transfer must not be dropped during
+/// that non-cancellable drain. Its caller enforces a hard deadline and then
+/// discards both transports rather than reusing torn protocol state.
 async fn copy_with_activity<R, W>(
     reader: &mut R,
     writer: &mut W,
     activity: tokio::sync::watch::Sender<u64>,
+    cancel: CancellationToken,
 ) -> io::Result<u64>
 where
     R: AsyncRead + Unpin,
@@ -266,7 +335,14 @@ where
     let mut copied = 0u64;
     let mut buffer = [0u8; 16 * 1024];
     loop {
-        let read = reader.read(&mut buffer).await?;
+        let read = tokio::select! {
+            biased;
+            () = cancel.cancelled() => {
+                writer.shutdown().await?;
+                return Ok(copied);
+            }
+            result = reader.read(&mut buffer) => result?,
+        };
         if read == 0 {
             writer.shutdown().await?;
             return Ok(copied);
@@ -283,6 +359,10 @@ where
         }
         copied = copied.saturating_add(read as u64);
     }
+}
+
+fn timed_out(operation: &'static str) -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, format!("{operation} timed out"))
 }
 
 /// Bidirectionally splice bytes between `local` and `proxy` until both sides close.
@@ -674,6 +754,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cancellation_drains_the_already_read_tcp_chunk_before_shutdown() {
+        const CHUNK: usize = 16 * 1024;
+        let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1080);
+        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(proxy_addr));
+        let cancel = CancellationToken::new();
+        let cancel_for_session = cancel.clone();
+        let (mut local, mut local_peer) = tokio::io::duplex(CHUNK * 2);
+        let (mut proxy, mut proxy_peer) = tokio::io::duplex(64);
+
+        let session_task =
+            tokio::spawn(async move { session.run_with_proxy(&mut local, cancel_for_session, &mut proxy).await });
+
+        let mut greeting = [0u8; 3];
+        proxy_peer.read_exact(&mut greeting).await.expect("read SOCKS5 greeting");
+        proxy_peer.write_all(&[0x05, 0x00]).await.expect("write SOCKS5 method reply");
+        let mut header = [0u8; 4];
+        proxy_peer.read_exact(&mut header).await.expect("read SOCKS5 CONNECT header");
+        read_socks5_addr(&mut proxy_peer, header[3]).await.expect("read SOCKS5 target");
+        proxy_peer.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0, 0]).await.expect("write SOCKS5 success");
+
+        let payload = vec![0x5a; CHUNK * 2];
+        local_peer.write_all(&payload).await.expect("queue two relay chunks");
+        let mut received = vec![0u8; 1];
+        proxy_peer.read_exact(&mut received).await.expect("observe first relayed byte");
+
+        cancel.cancel();
+        proxy_peer.read_to_end(&mut received).await.expect("drain relayed bytes after cancellation");
+        session_task.await.expect("join cancelled TCP session").expect("cancel TCP session cleanly");
+
+        assert_eq!(received.len(), CHUNK, "the complete already-read chunk must be drained");
+        assert_eq!(received, payload[..CHUNK]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn stalled_post_cancel_writer_is_bounded_by_hard_drain_deadline() {
+        const CHUNK: usize = 16 * 1024;
+        let (mut local, mut local_peer) = tokio::io::duplex(CHUNK);
+        let (mut proxy, mut proxy_peer) = tokio::io::duplex(1);
+        proxy_peer.shutdown().await.expect("close reverse direction");
+        local_peer.write_all(&vec![0x6b; CHUNK]).await.expect("queue relay chunk");
+
+        let result =
+            splice_with_idle_timeout(&mut local, &mut proxy, Duration::from_millis(25), CancellationToken::new())
+                .await
+                .expect_err("stalled drain must preserve the idle timeout failure");
+
+        assert_eq!(result.kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[tokio::test]
     async fn async_socks5_client_round_trips_against_fixture() {
         init_test_tracing();
         let fixture = FixtureStack::start(FixtureConfig {
@@ -790,7 +920,7 @@ mod tests {
 
         let result = timeout(
             Duration::from_secs(1),
-            splice_with_idle_timeout(&mut local, &mut proxy, Duration::from_millis(25)),
+            splice_with_idle_timeout(&mut local, &mut proxy, Duration::from_millis(25), CancellationToken::new()),
         )
         .await
         .expect("splice must enforce its own idle deadline")
@@ -803,10 +933,9 @@ mod tests {
     async fn tcp_splice_activity_in_either_direction_resets_idle_deadline() {
         let (mut local, mut local_peer) = tokio::io::duplex(128);
         let (mut proxy, mut proxy_peer) = tokio::io::duplex(128);
-        let splice =
-            tokio::spawn(
-                async move { splice_with_idle_timeout(&mut local, &mut proxy, Duration::from_millis(75)).await },
-            );
+        let splice = tokio::spawn(async move {
+            splice_with_idle_timeout(&mut local, &mut proxy, Duration::from_millis(75), CancellationToken::new()).await
+        });
 
         for byte in 0..4u8 {
             sleep(Duration::from_millis(25)).await;
