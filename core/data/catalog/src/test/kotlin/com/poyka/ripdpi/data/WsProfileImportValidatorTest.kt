@@ -17,7 +17,7 @@ import org.junit.Test
  * immediately rather than at first connect.
  *
  * Tracks the service-layer side of
- * `docs/tasks/issues/gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md`.
+ * Completed task `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` (see git history).
  */
 class WsProfileImportValidatorTest {
     private val json = Json { ignoreUnknownKeys = true }

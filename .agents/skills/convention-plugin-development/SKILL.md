@@ -75,7 +75,7 @@ diagnostics catalog renderer uses it at task execution time.
 | `DiagnosticsCatalogDomain.kt` | Domain model: `DiagnosticsCatalog`, `TargetPackDefinition`, `DiagnosticsProfileDefinition`, enums |
 | `DiagnosticsCatalogDpiData.kt` | DPI-specific target pack data (IP addresses, endpoints, domains) |
 | `DiagnosticsCatalogPackSource.kt` | `DefaultDiagnosticsCatalogPackSource` -- builds target pack list |
-| `DiagnosticsCatalogProfileSource.kt` | `DefaultDiagnosticsCatalogProfileSource` -- builds profile list referencing packs |
+| `DefaultDiagnosticsCatalogProfileSource.kt` | `DefaultDiagnosticsCatalogProfileSource` -- builds profile list referencing packs |
 | `DiagnosticsCatalogRendering.kt` | `DiagnosticsCatalogJsonRenderer` and `DiagnosticsCatalogValidator` -- serializes to JSON, validates pack refs and versions |
 | `DiagnosticsCatalogSharedData.kt` | Shared constants (common domains, DNS servers) reused across packs |
 | `DiagnosticsCatalogSupport.kt` | Helper functions for building domain/DNS/TCP target lists |
@@ -104,7 +104,7 @@ as an `@Input` to force re-execution when the generation date changes.
 
 ### Adding a New Target Pack or Profile
 
-1. Add data to `DiagnosticsCatalogDpiData.kt` (packs) or `DiagnosticsCatalogProfileSource.kt` (profiles)
+1. Add data to `DiagnosticsCatalogDpiData.kt` (packs) or `DefaultDiagnosticsCatalogProfileSource.kt` (profiles)
 2. Run `:core:diagnostics:generateDiagnosticsCatalog`
 3. Commit the updated JSON asset alongside the Kotlin changes
 

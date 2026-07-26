@@ -64,7 +64,7 @@ test-lab/scripts/check-feature-gap-readiness.sh
 
 ## QUIC-Drop Scenario
 
-Use this when validating UDP/QUIC failure handling. The default drop port is `9443`; pass a different port if the lab exposes QUIC elsewhere.
+Use this when validating UDP/QUIC failure handling. This scenario is fixed to lab port `9443`: `clear.sh` removes only the matching `9443` rules.
 
 ```bash
 NETEM_DEV=eth0 test-lab/chaos/netem/apply-quic-drop.sh 9443

@@ -48,7 +48,7 @@ Convention plugin `ripdpi.android.compose.gradle.kts` enables reports when
 `CI=true` or `-Pripdpi.composeReports=true`:
 
 ```bash
-./gradlew :app:assembleRelease -Pripdpi.composeReports=true
+./gradlew :app:assembleGithubFullRelease -Pripdpi.composeReports=true
 ```
 
 Output: `app/build/compose-reports/` and `app/build/compose-metrics/`.

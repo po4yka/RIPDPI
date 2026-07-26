@@ -9,7 +9,7 @@ description: Use when managing the Rust workspace, adding/removing crates, editi
 
 ```text
 native/rust/
-  Cargo.toml              # Virtual workspace manifest (97 crates as of 2026-05)
+  Cargo.toml              # Virtual workspace manifest; derive package count with cargo metadata --locked
   Cargo.lock              # Checked in -- reproducible builds
   .cargo/config.toml      # Per-target rustflags for Android NDK
   .config/nextest.toml    # nextest profiles (default + ci)
@@ -19,6 +19,8 @@ native/rust/
     ripdpi-tunnel-android/# cdylib -- JNI tunnel entry point (libripdpi-tunnel.so)
     ripdpi-warp-android/  # cdylib -- JNI WARP entry point (libripdpi-warp.so)
     ripdpi-relay-android/ # cdylib -- JNI relay entry point (libripdpi-relay.so)
+    ripdpi-amneziawg-android/ # cdylib -- JNI AmneziaWG entry point (libripdpi-amneziawg.so)
+    ripdpi-root-helper/   # separate privileged Android executable asset
     ripdpi-cli/           # Host-only CLI binary
     ripdpi-bench/         # Criterion benchmarks
     ... (34 more library crates)
@@ -69,6 +71,7 @@ Local dev overrides via `ripdpi.localNativeCargoProfileDefault` and
 
 All four Android targets share the same rustflags:
 - `-C link-arg=-Wl,-z,max-page-size=16384` (Android 15+ 16 KiB page size)
+- `-C link-arg=-Wl,--build-id=sha1` (deterministic symbol-sidecar correlation)
 - `-C force-frame-pointers=yes` (profiling / crash symbolication)
 
 Linkers are NOT configured here -- the Gradle task sets `CARGO_TARGET_<TRIPLE>_LINKER`
@@ -79,12 +82,13 @@ environment variables pointing to NDK clang at build time.
 ### Build flow
 
 1. Gradle task `buildRustNativeLibs` (registered by `ripdpi.android.rust-native` plugin)
-2. Runs `cargo build --locked --target <triple> --profile <profile> -p ripdpi-android -p ripdpi-tunnel-android`
+2. Runs `cargo build --locked --target <triple> --profile <profile>` for `ripdpi-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, `ripdpi-amneziawg-android`, and `ripdpi-tunnel-android`.
 3. Builds all ABIs in parallel (one thread per ABI, capped at CPU count)
 4. Each ABI gets its own `CARGO_TARGET_DIR` to avoid lock contention
-5. Copies `libripdpi_android.so` -> `libripdpi.so` and `libripdpi_tunnel_android.so` -> `libripdpi-tunnel.so`
+5. Maps their Cargo outputs to `libripdpi.so`, `libripdpi-relay.so`, `libripdpi-warp.so`, `libripdpi-amneziawg.so`, and `libripdpi-tunnel.so`.
 6. Output lands in `build/generated/jniLibs/<abi>/` and is wired into Android `jniLibs` source set
 7. Task is wired into `merge*JniLibFolders`, `copy*JniLibsProjectOnly`, `merge*NativeLibs`, and `preBuild`
+8. The separate `buildRustRootHelper` task builds and packages the privileged executable asset.
 
 ### Building locally
 
@@ -102,9 +106,14 @@ cd native/rust && cargo bench --locked -p ripdpi-bench
 
 ## cdylib crates and JNI considerations
 
-Two crates produce shared libraries loaded via `System.loadLibrary()`:
+Five crates produce shared libraries loaded via `System.loadLibrary()`:
 - `ripdpi-android` -> `libripdpi.so` (path-optimization engine)
 - `ripdpi-tunnel-android` -> `libripdpi-tunnel.so` (VPN tunnel)
+- `ripdpi-relay-android` -> `libripdpi-relay.so` (relay engine)
+- `ripdpi-warp-android` -> `libripdpi-warp.so` (WARP engine)
+- `ripdpi-amneziawg-android` -> `libripdpi-amneziawg.so` (AmneziaWG engine)
+
+`ripdpi-root-helper` is an executable asset, not a `System.loadLibrary()` cdylib.
 
 Key rules for cdylib JNI crates:
 - `crate-type = ["cdylib"]` in `[lib]` -- produces `.so` for Android
@@ -168,14 +177,14 @@ cargo deny --locked check
 ## CI caching
 
 ```yaml
-# Preferred: Swatinem/rust-cache
-- uses: Swatinem/rust-cache@v2
+# Copy the exact pinned action SHA from the nearest current workflow job.
+- uses: Swatinem/rust-cache@<exact-pinned-sha>
   with:
     cache-on-failure: true
     workspaces: "native/rust -> target"
 
-# Manual cache (use v4, not v3)
-- uses: actions/cache@v4
+# Manual cache, when the current workflow uses it
+- uses: actions/cache@<exact-pinned-sha>
   with:
     path: |
       ~/.cargo/registry/index/

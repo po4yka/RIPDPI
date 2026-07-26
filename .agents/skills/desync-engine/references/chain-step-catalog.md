@@ -1,7 +1,7 @@
 # Chain Step Catalog
 
 Complete reference for all `TcpChainStepKind` and `UdpChainStepKind` variants.
-Defined in `native/rust/crates/ripdpi-config/src/model.rs`, planned in
+Defined under `native/rust/crates/ripdpi-config/src/model/`, planned in
 `native/rust/crates/ripdpi-desync/src/plan_tcp.rs` and `plan_udp.rs`.
 
 ## TCP chain steps (`TcpChainStepKind`)

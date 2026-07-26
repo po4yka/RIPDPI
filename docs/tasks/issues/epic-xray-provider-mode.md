@@ -2,14 +2,15 @@
 title: Epic - Xray provider mode
 type: epic
 status: blocked
-area: outbound
+area: epic
 priority: high
 owner: unassigned
 parent: null
 blocks: []
 blocked_by: []
+status_detail: externally-gated — real gomobile libXray execution, native link, and device egress proof remain unavailable
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-07-26
 ---
 
 ## Goal
@@ -53,7 +54,7 @@ Status as of 2026-05-30 (`done` = every acceptance criterion test-verified; `bac
 
 **Architecture**
 - Define Xray VPN provider architecture (closed task)
-- [[Package libXray for Android ABIs]] — backlog (pins/policy/license/verify-script landed; real gomobile ABI build OPEN)
+- Package libXray for Android ABIs — completed task (packaging and verification contract landed; see git history). Real device execution remains an epic-level external proof gap.
 
 **Runtime path**
 - Render validated Xray client configs — **done**, closed task (renderer, validation gate, redactor, golden tests green offline; git history is the audit trail)

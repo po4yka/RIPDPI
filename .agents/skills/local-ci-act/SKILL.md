@@ -17,16 +17,9 @@ Use `act` for local workflow parsing and a narrow subset of practical CI-parity 
 
 ## Wrapper Coverage
 
-`scripts/ci/act-local.sh` currently wraps this subset of `ci.yml`:
-
-| Job | Wrapped | Notes |
-|-----|:-:|---|
-| `build` | Yes | Best first local parity check |
-| `static-analysis` | Yes | Covers Gradle plus Rust static checks |
-| `rust-network-e2e` | Yes | Lightest repo-owned network lane |
-| `rust-native-soak` | Yes* | Uses the dispatch payload helper |
-
-*`rust-native-soak` requires a `workflow_dispatch` event payload, which the wrapper selects automatically.
+`scripts/ci/act-local.sh --list` is the source of truth for currently wrapped,
+native-fallback, and intentionally skipped lanes. Do not copy that changing
+matrix into this skill.
 
 ## Workflow Surface Outside The Wrapper
 
@@ -34,7 +27,7 @@ These jobs exist in CI but are not curated by the wrapper yet:
 
 | Job | Practical on macOS with act | Preferred local fallback |
 |-----|:-:|---|
-| `release-verification` | Likely | `./gradlew :app:assembleRelease` |
+| `release-verification` | Likely | use the flavor-qualified release tasks from the current workflow |
 | `cli-packet-smoke` | Maybe | `bash scripts/ci/run-cli-packet-smoke.sh` |
 | `rust-turmoil` | Likely | `bash scripts/ci/run-rust-turmoil-tests.sh` |
 | `coverage` | Heavy | `./gradlew coverageReport` plus the CI-scoped `bash scripts/ci/run-rust-coverage.sh` |
@@ -79,21 +72,12 @@ Why:
 
 Rust toolchains, NDK packages, and most cargo tools are still installed by workflow steps.
 
-## Third-Party Action Handling
+## Third-party action handling
 
-| Action | Works in act | Notes |
-|--------|:-:|---|
-| `actions/checkout@v6` | Yes | Mounts the local repo |
-| `actions/setup-java@v5` | Yes | Downloads JDK |
-| `dtolnay/rust-toolchain@master` | Yes | Installs Rust |
-| `android-actions/setup-android@v4` | Yes | Sets up SDK paths |
-| `Swatinem/rust-cache@v2` | Yes | Works well for the native workspace |
-| `gradle/actions/setup-gradle@v6` | Yes | Preferred Gradle cache/setup path |
-| `taiki-e/install-action@v2` | Yes | Installs cargo tools |
-| `EmbarkStudios/cargo-deny-action@v2` | Yes | Runs cargo-deny |
-| `actions/upload-artifact@v7` | No-op | Expected locally |
-| `reactivecircus/android-emulator-runner@v2` | No | Requires KVM |
-| `github/codeql-action/*` | Mixed | Fine for YAML wiring checks; low value for daily local use |
+Run the exact action SHAs and versions committed in the current workflow. Do
+not maintain a tag-based compatibility table here. Artifact upload is normally
+a local no-op, emulator actions still require host virtualization, and CodeQL
+actions have limited value in daily local runs.
 
 ## Troubleshooting
 

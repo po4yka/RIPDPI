@@ -4,12 +4,12 @@
 
 ## Responsibility
 
-PCAP diagnostic recording — captures packet-level traces during a scan for
-debugging. A leaf crate with no internal dependencies.
+Standalone PCAP encoding/recording primitives for explicit diagnostic tooling.
+The crate is not currently wired into the production scan pipeline.
 
 ## Main dependencies
 
-None (leaf crate). Consumed by `ripdpi-android-proxy-adapter`.
+None (standalone leaf crate; no current workspace consumer).
 
 ## Extension points
 

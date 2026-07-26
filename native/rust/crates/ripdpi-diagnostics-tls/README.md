@@ -4,7 +4,7 @@
 
 ## Responsibility
 
-TLS-layer diagnostic probes: TLS-handshake reachability, JA3 / JA4
+TLS-layer diagnostic probes: TLS-handshake reachability and JA3
 fingerprinting, and the ECH handshake spike. Produces TLS observations the
 classifier consumes.
 

@@ -10,14 +10,15 @@
 WARP / AmneziaWG runtime behind `jniCreate` / `jniStart` / `jniStop` /
 `jniPollTelemetry` / `jniDestroy`, plus `jniExecuteProvisioning` and
 `jniProbeEndpoint`, and its own `jniRegisterVpnProtect` /
-`jniUnregisterVpnProtect`. WARP ships as its own `.so`, separate from
+`jniUnregisterVpnProtect`, readiness-listener registration, and quality
+telemetry projection. WARP ships as its own `.so`, separate from
 `libripdpi.so`.
 
 ## Rust crates it calls
 
 `ripdpi-warp-core` (the native WARP runtime + AmneziaWG codec),
 `ripdpi-native-protect` (the `VpnService.protect` callback registry, used by
-`src/vpn_protect.rs`), `ripdpi-tls-profiles`, `android-support`.
+`src/vpn_protect.rs`), `ripdpi-quality`, `ripdpi-tls-profiles`, `android-support`.
 
 ## JNI handle / error / panic / lifecycle expectations
 

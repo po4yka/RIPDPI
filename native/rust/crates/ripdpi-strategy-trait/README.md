@@ -26,14 +26,14 @@ strategy crates advertise themselves to the registry.
   strategy advertises and the runtime gates it on.
 
 This is a hand-authored contract trait — **do not auto-generate it**. A change
-to the trait or its types ripples to all 10 `ripdpi-strategy-*` crates and is a
+to the trait or its types ripples to the six implementation crates and ten
+current consumers and is a
 breaking ABI change (see `NATIVE_RUST.md` §5).
 
 ## Dependency direction
 
 **Upstream:** none (leaf crate). **Downstream:** every `ripdpi-strategy-*`
-implementation crate, `ripdpi-strategy-registry`, and `ripdpi-desync`
-(fan-in 10).
+implementation crate, `ripdpi-strategy-registry`, and `ripdpi-desync`.
 
 ## Adding a new strategy
 

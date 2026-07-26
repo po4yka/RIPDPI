@@ -41,4 +41,6 @@ The runtime mapping is implemented, wired, and tested:
 
 Landed in commits `02292caa2` (feat(tuic)), `96e32784e` (feat(relay-core)), `3ead52203` (docs(tasks) close).
 
-A parallel gap remains for `FailureClass::ShadowTlsVersionMismatch`, which has the same never-constructed-at-runtime shape — tracked in `docs/tasks/issues/wire-shadowtls-version-mismatch-into-service-telemetry.md`.
+The parallel `FailureClass::ShadowTlsVersionMismatch` gap is also closed:
+`protocols/shadowtls.rs` maps the typed error for direct and chain paths, with
+coverage in `tests/shadowtls_version.rs`.

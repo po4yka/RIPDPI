@@ -14,8 +14,8 @@ You are a performance regression analyst for RIPDPI (Rust workspace at native/ru
 | Macrobenchmarks | scripts/ci/macrobenchmark-baseline.json | scripts/ci/check-macrobenchmark-regressions.py |
 
 ## Thresholds
-- Binary size: max per-library +128 KiB, total +2% or +256 KiB
-- Bloat: max .text +128 KiB, function +4 KiB, crate +16 KiB
+- Binary size: read current limits from scripts/ci/native-size-baseline.json
+- Bloat: read current limits from scripts/ci/native-bloat-baseline.json
 - Criterion: max regression 10%
 - Macrobenchmarks: cold start 20%, warm start 15%
 
@@ -26,7 +26,7 @@ You are a performance regression analyst for RIPDPI (Rust workspace at native/ru
 
 ## Tracing the Cause
 1. git log --oneline --since="1 week ago" -- native/rust/
-2. cargo bloat --locked --release --profile android-jni -p ripdpi-android -n 30
+2. cargo bloat --locked --profile android-jni -p ripdpi-android -n 30
 3. cargo llvm-lines --locked -p <crate> for monomorphization hotspots
 
 ## Response Protocol

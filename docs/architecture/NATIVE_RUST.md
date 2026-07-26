@@ -116,11 +116,12 @@ Rules, all of which **hold today** in `Cargo.toml`:
 1. **Dependencies point inward / downward only.** No L1/L2/L5 crate may depend
    on an L3+ crate; no L3 crate may depend on L4/L6/L7/L8. The artifact roots
    (L8 cdylibs, the bin crates) are sinks — nothing depends on them.
-2. **JNI containment.** Only the 13 L8 crates may depend on the `jni` crate or
-   on `android-support`. Today exactly 12 crates pull `jni`
-   (`ripdpi-android-telemetry-adapter` is the one L8 crate without it), and
-   `android-support` is consumed by L8 crates *only*. Every other crate must
-   stay JNI-free — see [§5](#5-crates-that-must-stay-androidjni-free).
+2. **JNI containment.** Only the 13 L8 crates may use `jni` or
+   `android-support` through production normal/build dependencies. Today
+   exactly 12 crates pull `jni` (`ripdpi-android-telemetry-adapter` is the one
+   L8 crate without it). Dev-only test-support edges are permitted; every
+   non-L8 production crate stays JNI-free — see
+   [§5](#5-crates-that-must-stay-androidjni-free).
 3. **`cdylib` is L8-exclusive.** Exactly five crates set
    `crate-type = ["cdylib"]`; all five are L8 artifact roots. No other crate
    may become a `cdylib`.
@@ -362,8 +363,8 @@ the L8 adapters can implement them. `ripdpi-proxy-runtime`, `ripdpi-tunnel-core`
 `ripdpi-monitor-engine`, and `ripdpi-relay-core` are the runtime cores compiled
 into the `.so` files but must themselves contain no JNI.
 
-This invariant holds in `Cargo.toml` today: only the 12 JNI-bearing L8 crates
-pull `jni`, and `android-support` is consumed by L8 crates only.
+This invariant holds for production normal/build dependencies today: only the
+12 JNI-bearing L8 crates pull `jni`; dev-only test-support edges are excluded.
 
 `scripts/ci/check_native_architecture_contracts.py` enforces it: a crate
 outside the 13 L8 crates (the allowlist mirrors [§6](#6-outer-android-adapter-crates))

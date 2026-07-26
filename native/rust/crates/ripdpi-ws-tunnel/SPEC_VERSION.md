@@ -31,4 +31,4 @@ This crate implements:
 
 - RFC 6455 is stable; drift not expected.
 - Telegram DC IP table is rotated by Telegram; review when Telegram publishes data-center range changes.
-- IPv6 DC support is currently passthrough-only.
+- Known Telegram IPv6 supernets map to their DC; unmatched IPv6 stays passthrough.

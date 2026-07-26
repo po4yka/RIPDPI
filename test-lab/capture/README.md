@@ -5,7 +5,8 @@ Use MacBook interface captures for physical devices and Docker/container logs fo
 Examples:
 
 ```bash
-sudo tcpdump -i en0 -nn -s 0 -w capture/phone-all.pcap host "${PHONE_IP}"
-sudo tcpdump -i en0 -nn -s 0 -w capture/dns.pcap host "${PHONE_IP}" and port 53
-sudo tcpdump -i en0 -nn -s 0 -w capture/quic.pcap host "${PHONE_IP}" and udp port 9443
+mkdir -p test-lab/capture
+sudo tcpdump -i en0 -nn -s 0 -w test-lab/capture/phone-all.pcap host "${PHONE_IP}"
+sudo tcpdump -i en0 -nn -s 0 -w test-lab/capture/dns.pcap host "${PHONE_IP}" and port "${RIPDPI_DNS_PORT:-1053}"
+sudo tcpdump -i en0 -nn -s 0 -w test-lab/capture/quic.pcap host "${PHONE_IP}" and udp port 9443
 ```

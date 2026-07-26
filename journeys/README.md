@@ -33,8 +33,8 @@ assertion from the screenshots and layout tree.
 | `03-advanced-settings-edit-save.journey` | `maestro/03-advanced-settings-edit-save.yaml` | Edit + save diagnostics history retention |
 | `04-start-stop-configured-mode.journey` | `maestro/04-start-stop-configured-mode.yaml` | Toggle the primary local DPI-bypass mode |
 
-The `.journey` files are XML (root `<journey>` with a `<description>` and ordered
-`<step>` elements), mirroring the Android Studio "New > Journey Test" template
+The `.journey` files are XML (root `<journey>` with a `<description>` and an
+`<actions>` list of ordered `<action>` elements), mirroring the Android Studio "New > Journey Test" template
 for familiarity. No CLI command parses them — they are agent-consumed specs, so
 the schema is for human/agent legibility only.
 

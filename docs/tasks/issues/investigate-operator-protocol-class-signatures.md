@@ -8,8 +8,9 @@ owner: unassigned
 parent: epic-transport-obfuscation-research
 blocks: []
 blocked_by: []
+status_detail: externally-gated — requires sustained measurements across multiple operator-controlled network vantages
 created: 2026-05-22
-updated: 2026-06-11
+updated: 2026-07-26
 source_wiki_pages:
   - "operator-protocol-class-blocking-shift-dec-2025"
 linked_task: null

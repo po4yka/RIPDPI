@@ -34,7 +34,7 @@ When you add a class with `external fun` members called from Rust:
 
 1. Add the class to `core/engine/consumer-rules.pro` following the exact pattern of the three existing entries.
 2. Keep the rule to `-keepclasseswithmembernames` + `native <methods>;` only. Do **not** add `-keep class` (full class preservation) — only the native method names need to survive shrinking, the higher-level Kotlin wrapper does not.
-3. Verify the native method signatures resolve post-shrink by running `./gradlew :app:assembleRelease` followed by launching the app and triggering a call into the new binding.
+3. Verify the native method signatures resolve post-shrink with the affected flavor-qualified release task, then launch that artifact and trigger the new binding.
 
 **Anchor example:**
 
@@ -67,7 +67,7 @@ The existing rule `-keep class com.poyka.ripdpi.proto.** { *; }` covers everythi
 
 ### Handling `missing_rules.txt` after a failed release build
 
-R8 emits `app/build/outputs/mapping/release/missing_rules.txt` with suggestions. These are **mechanical** — they don't know what's a genuine compatibility boundary vs. a false positive.
+For `assembleGithubFullRelease`, R8 emits `app/build/outputs/mapping/githubFullRelease/missing_rules.txt` with suggestions. These are **mechanical** — they don't know what's a genuine compatibility boundary vs. a false positive.
 
 **Review protocol:**
 
@@ -80,7 +80,7 @@ R8 emits `app/build/outputs/mapping/release/missing_rules.txt` with suggestions.
 
 After any change to a `.pro` file:
 
-1. `./gradlew :app:assembleRelease` — must complete without R8 warnings escalating to errors.
+1. The affected flavor-qualified `assemble*Release` task must complete without R8 warnings escalating to errors.
 2. Install the release APK on an emulator and exercise the code path the new rule protects (a nav transition for a route rule, an engine call for a JNI rule, a settings read for a proto rule).
 3. `./gradlew staticAnalysis` — lint must not regress.
 4. If `missing_rules.txt` appears with new suggestions after your change, treat the appearance itself as a review signal: something in your diff created a new boundary that R8 can't analyze. Surface this in PR review, don't paper over it.

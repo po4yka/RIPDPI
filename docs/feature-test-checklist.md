@@ -230,7 +230,7 @@ Combination checks:
 - [ ] Connectivity profile runs to completion with default targets.
 - [ ] Quick strategy probe runs automatic recommendations.
 - [ ] Full matrix audit runs selected target cohorts.
-- [ ] Home composite run executes stages in order: automatic audit, default connectivity, network-path connectivity profile, strategy profile.
+- [ ] Home composite run executes the eight-stage plan: automatic audit; concurrent detection signals, default connectivity, RU throttling, RU circumvention, and DPI full; dependent path comparison; then DPI strategy.
 - [ ] Home composite skips remaining stages after audit failure or timeout.
 - [ ] Home composite marks current stage failed if the service halts.
 - [ ] Home composite fallback finalization runs when audit is not actionable.

@@ -21,7 +21,10 @@ The `FileLogWriter` writes to `filesDir/logs/app_log.txt` with 512KB rotation. B
 
 ## Crash Breadcrumbs
 
-All log entries (any severity) are captured by `BreadcrumbLogWriter` into an in-memory ring buffer of 50 entries. On crash, these breadcrumbs are serialized into the crash report JSON, providing pre-crash context.
+Entries that pass the active build's minimum level are captured by
+`BreadcrumbLogWriter` into an in-memory ring buffer of 50 entries. Debug builds
+retain all levels; release builds retain WARN+. On crash, these breadcrumbs are
+serialized into the crash report JSON.
 
 ## Subsystem Tags
 

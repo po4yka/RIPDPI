@@ -1,8 +1,9 @@
 ---
+description: Manual external reference for the sibling ripdpi-vpn-deploy repository; no RIPDPI-local path selector.
 paths:
-  - "ansible/**/*.yml"
-  - "ansible/**/*.yaml"
-  - "ansible/**/*.j2"
+  - "../ripdpi-vpn-deploy/ansible/**/*.yml"
+  - "../ripdpi-vpn-deploy/ansible/**/*.yaml"
+  - "../ripdpi-vpn-deploy/ansible/**/*.j2"
 ---
 
 ## Ansible molecule + xray template authoring
@@ -10,8 +11,8 @@ paths:
 Three failure modes ate hours of converge time during the May 2026
 full-stack test pass against the sibling `ripdpi-vpn-deploy` repo. All
 three are nearly invisible until the converge logs are read carefully,
-and all three are load-bearing for any new molecule scenario or xray
-config template touched from this workspace.
+and all three are load-bearing when separately working in that sibling
+repository. This file is not an automatic rule for RIPDPI-local paths.
 
 ### Rule 1: molecule platforms must be in the target group, not host_vars alone
 

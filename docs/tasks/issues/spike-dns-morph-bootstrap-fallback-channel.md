@@ -8,8 +8,9 @@ owner: unassigned
 parent: epic-transport-obfuscation-research
 blocks: []
 blocked_by: []
+status_detail: externally-gated — requires a separately operated bridge and measured network vantage
 created: 2026-05-22
-updated: 2026-06-11
+updated: 2026-07-26
 source_wiki_pages:
   - "dns-morph-bootstrap"
 linked_task: null

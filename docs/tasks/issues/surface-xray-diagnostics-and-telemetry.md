@@ -8,8 +8,9 @@ owner: unassigned
 parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
+status_detail: externally-gated — live gomobile-backed provider telemetry still requires device execution
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-07-26
 ---
 
 ## Summary

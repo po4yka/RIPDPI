@@ -10,7 +10,13 @@ This is a recorded GO. It does not authorize a direct-bootstrap default, UDP ove
 
 ## Context
 
-`ripdpi-tor` wraps `arti-client` 0.42.0 to provide TCP relay connections and DNS resolution over Tor. It is reachable end to end today: `transport_descriptor.rs` registers `build_tor`, `builders/tor.rs` constructs `RelayBackend::Tor` via `TorRelayBackend::from_bridge_pt_config`, and `RelayBackendConfig::Tor` / `RelayKind::Tor` resolve through the standard relay config path (schema version 6 was current when this ADR was written; the ceiling is now 8 per ADR 0004, with v6 still the accepted minimum — v6 configs migrate forward losslessly).
+At the decision snapshot, `ripdpi-tor` wrapped `arti-client` 0.42.0. The current
+version is owned by `native/rust/Cargo.toml` (0.44.0 at this refresh). It is
+reachable end to end: `transport_descriptor.rs` registers `build_tor`,
+`builders/tor.rs` constructs `RelayBackend::Tor` via
+`TorRelayBackend::from_bridge_pt_config`, and the standard relay config path
+accepts current schema 10 only. The size measurement below remains the
+historical 0.42.0 snapshot.
 
 Arti is heavy: pulling `arti-client` into the relay cdylib adds `arti-client` plus 36 `tor-*` crates (`tor-proto`, `tor-netdir`, `tor-netdoc`, `tor-dirmgr`, `tor-circmgr`, `tor-guardmgr`, `tor-hsclient`, `tor-keymgr`, `tor-llcrypto`, ...). The crate's `arti-client` dependency is unconditional (no cargo feature gate), so the code is statically linked into the shipped `.so` for every user, whether or not they ever enable a Tor profile. "Is that size cost acceptable?" is the feasibility question this ADR settles, mirroring the Step 0 gate used for the Snowflake native-port decision.
 

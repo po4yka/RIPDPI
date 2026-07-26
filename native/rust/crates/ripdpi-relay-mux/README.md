@@ -15,7 +15,7 @@ the surface consumed by `ripdpi-relay-core` and `ripdpi-vless`.
 ## Dependency direction
 
 **Upstream:** none (leaf crate). **Downstream:** `ripdpi-relay-core`,
-`ripdpi-vless`.
+`ripdpi-relay-tls-transports`, and `ripdpi-vless`.
 
 ## Non-root fallback
 

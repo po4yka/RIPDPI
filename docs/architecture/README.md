@@ -31,7 +31,7 @@ Cross-boundary contract docs:
 
 **Diagnosis classification:** Rust produces the final blocking verdict because packet, TLS, DNS, and timing evidence is collected in the native monitor. Kotlin maps the result to UI and persistence without re-classifying. Owner: `native/rust/crates/ripdpi-diagnostics-classification/src/classification/diagnosis.rs`.
 
-**Service lifecycle:** `ServiceRuntimeCoordinator` owns lifecycle sequencing, restart/backoff, and stop/start orchestration. Mode-specific behavior is composed through injected policies rather than subclass override logic.
+**Service lifecycle:** abstract `BaseServiceRuntimeCoordinator` owns shared sequencing, restart/backoff, and stop/start orchestration. `ProxyServiceRuntimeCoordinator` and `VpnServiceRuntimeCoordinator` provide mode-specific orchestration through concrete subclasses and composed collaborators.
 
 **Cloudflare tunnel mode:** Kotlin dispatches `consume_existing` versus `publish_local_origin`. Rust relay-core remains transport-only and intentionally does not branch on tunnel mode.
 

@@ -38,7 +38,7 @@ ripdpi-telemetry recorder (counters/gauges/histograms) ─┤
 |--------------------|-----------------|-------------------|
 | Process-global metrics recorder — counters, gauges, latency histograms; `RecorderSnapshot`, `LatencyPercentiles`, `LatencyDistributions` | `native/rust/crates/ripdpi-telemetry` (`src/lib.rs`, `src/recorder/`) | latency portion projected into `NativeRuntimeSnapshot` |
 | Runtime snapshot — `NativeRuntimeSnapshot` plus `NativeRuntimeEvent`, `DirectPathLearningSignal`, `TunnelStatsSnapshot` | `native/rust/crates/ripdpi-android-telemetry-adapter` (`src/types.rs`, `src/snapshot.rs`, `src/observer.rs`) | `core/data/model/.../data/NativeRuntimeSnapshot.kt` |
-| Native event ring — `NativeEventRecord`, `RingConfig`, `EventDomain` | `native/rust/crates/android-support` (`src/events.rs`) | drained into `NativeRuntimeSnapshot.nativeEvents` |
+| Native event ring — `NativeEventRecord`, private `RingConfig` / `EventRing`, and string-based source routing | `native/rust/crates/android-support` (`src/events.rs`) | drained into `NativeRuntimeSnapshot.nativeEvents` |
 | Telemetry projection / enrichment | — | `core/service/.../service/telemetry/RuntimeTelemetryProjection.kt` |
 | Telemetry persistence | — | `core/diagnostics-data/.../data/diagnostics/DiagnosticsTelemetryEntities.kt` (`TelemetrySampleEntity`, `NativeSessionEventEntity`) |
 | Telemetry export (archive) | — | `core/diagnostics/.../diagnostics/export/DiagnosticsArchive*.kt` |
@@ -91,7 +91,7 @@ values, never rename or repurpose an existing one** (mirrors
 
 | Identifier class | Values / source of truth |
 |------------------|--------------------------|
-| **Event domain** (`source`) | `proxy`, `relay`, `warp`, `tunnel`, `diagnostics` — `EventDomain` in `android-support/src/events.rs`. `monitor` is accepted as an input alias normalized to `diagnostics`; `amneziawg` is accepted and normalized to the WARP-family event ring. |
+| **Event domain** (`source`) | `proxy`, `relay`, `warp`, `tunnel`, `diagnostics` — string routing in `android-support/src/events.rs`. `monitor` is normalized to `diagnostics`; `amneziawg` is normalized to the WARP-family event ring. |
 | **Event `kind`** | Optional and sparse — most events carry no `kind`. Defined today: `runtime_ready`, `runtime_stopped` (`ripdpi-android-telemetry-adapter/src/lifecycle.rs`). Read by Kotlin via `nativeEvents.any { it.kind == "runtime_ready" }`. |
 | **Event `level`** | `info`, `warn`, `error` — log-level strings. |
 | **Direct-path learning event** | `QUIC_SUCCESS`, `QUIC_BLOCKED_TCP_OK`, `TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK`, `ALL_IPS_FAILED`, `NO_TCP_FALLBACK_DETECTED` — Rust `DirectPathLearningSignal.event: String`, decoded Kotlin-side into the `DirectPathLearningEvent` **wire-preserving value class** (known events are companion constants; an unknown name decodes verbatim). See the forward-compatibility note below. |
@@ -189,8 +189,9 @@ runtime is already safe with no Kotlin change at all.
    additive.
 2. **New event `kind`.** Just emit it from Rust; `kind` is an open `String?`.
    Document the new value in the §Stable identifiers table.
-3. **New event domain.** Add the `EventDomain` arm in `android-support` and a
-   ring capacity in `RingConfig`; the `source` string is then frozen.
+3. **New event domain.** Add the source-mapping arm in `android-support`, ring
+   capacity and storage, and its drain/snapshot projection; the source string
+   is then frozen.
 4. **New `DirectPathLearningEvent`.** Known event: add a `DirectPathLearningEvent`
    companion constant and one `DirectPathLearningEventRules` entry — additive,
    no `when` edits. Unrecognized events already decode and are ignored; see the

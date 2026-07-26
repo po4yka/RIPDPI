@@ -69,7 +69,7 @@ The engine uses a plan-then-execute architecture:
 ### Cancellation and deadlines
 
 `ExecutionRuntime` checks `is_cancelled()` (cooperative via `AtomicBool`) and
-`is_past_deadline()` (270s hard deadline) between stages. A cancelled scan
+`is_past_deadline()` (360s default hard deadline) between stages. A cancelled scan
 still produces a partial report.
 
 ### Progress reporting
@@ -95,45 +95,13 @@ Each candidate is a `StrategyCandidateSpec` with an id, label, family,
 eligibility rule, warmup requirements, and a `ProxyUiConfig` describing the
 bypass strategy parameters.
 
-#### TCP candidates (24 total)
+#### Candidate inventory
 
-| ID | Family | TTL required |
-|----|--------|--------------|
-| `plain` | plain | no |
-| `split` | split | no |
-| `disorder` | disorder | no |
-| `split_host` | split | no |
-| `disorder_host` | disorder | no |
-| `tlsrec` | tlsrec | no |
-| `tlsrec_split` | tlsrec | no |
-| `tlsrec_disorder` | tlsrec | no |
-| `oob` | oob | yes |
-| `oob_host` | oob | yes |
-| `tlsrec_oob` | tlsrec+oob | yes |
-| `disoob` | disorder+oob | yes |
-| `disoob_host` | disorder+oob | yes |
-| `tlsrec_disoob` | tlsrec+oob | yes |
-| `tlsrandrec` | tlsrandrec | no |
-| `tlsrandrec_split` | tlsrandrec | no |
-| `tlsrandrec_disorder` | tlsrandrec | no |
-| `fake` | fake | yes |
-| `fake_split` | fake | yes |
-| `fake_disorder` | fake | yes |
-| `md5_fake` | fake | yes |
-| `tlsrec_hostfake_random` | hostfake | no |
-| `split_delayed_50ms` | split | no |
-| `split_delayed_150ms` | split | no |
-
-#### QUIC candidates (6 total)
-
-| ID | Family | TTL required |
-|----|--------|--------------|
-| `quic_plain` | quic_plain | no |
-| `quic_sni_split` | quic_sni_split | no |
-| `quic_fake_version` | quic_fake | yes |
-| `quic_dummy_prepend` | quic_dummy | no |
-| `quic_initial_split` | quic_split | no |
-| `quic_initial_disorder` | quic_disorder | no |
+Candidate membership is capability-dependent (TFO, raw-packet and
+IP-fragmentation support). Do not copy a fixed list or count into docs. Read
+`build_strategy_probe_suite()` and the TCP/QUIC builder families in
+`ripdpi-diagnostics-candidates`, then exercise the registry tests for the
+runtime capabilities under review.
 
 ### DNS baseline (`strategy.rs`)
 
@@ -144,7 +112,7 @@ scan short-circuits -- it skips all TCP/QUIC candidates and recommends a
 resolver override instead.
 
 The encrypted DNS context is resolved via `strategy_probe_encrypted_dns_context()`
-which prefers the user's configured resolver, falling back to Cloudflare DoH.
+which prefers the user's configured resolver, falling back to AdGuard.
 
 #### DNS fallback for strategy probes
 
@@ -212,7 +180,7 @@ Located in `build-logic/convention/src/main/kotlin/DiagnosticsCatalog*.kt`:
 - `DiagnosticsCatalogPackSource.kt` -- `DefaultDiagnosticsCatalogPackSource`
   defines target packs (e.g., `ru-independent-media`, `ru-global-platforms`,
   `ru-messaging`, `ru-circumvention`, `ru-throttling`, `neutral-control`)
-- `DiagnosticsCatalogProfileSource.kt` -- `DefaultDiagnosticsCatalogProfileSource`
+- `DefaultDiagnosticsCatalogProfileSource.kt` -- `DefaultDiagnosticsCatalogProfileSource`
   defines profiles that reference packs and configure scan behavior
 - `DiagnosticsCatalogAssembler.kt` -- loads packs, loads profiles (with
   pack index for cross-referencing), validates, then renders to JSON
@@ -383,7 +351,7 @@ End-to-end walkthrough for adding a hypothetical "ping" probe:
 
 ## 11. Adding a New Diagnostic Profile
 
-1. Open `build-logic/convention/src/main/kotlin/DiagnosticsCatalogProfileSource.kt`.
+1. Open `build-logic/convention/src/main/kotlin/DefaultDiagnosticsCatalogProfileSource.kt`.
 2. Add a private function returning `DiagnosticsProfileDefinition`:
    ```kotlin
    private fun myNewProfile(index: DiagnosticsCatalogIndex): DiagnosticsProfileDefinition {

@@ -15,7 +15,7 @@ import kotlinx.serialization.json.JsonObject
  * Default is [NoOp] — accept everything — so callers that have not yet wired
  * the native tester still get static-validation gating.
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 fun interface XrayConfigTester {
     fun test(config: JsonObject): TestResult

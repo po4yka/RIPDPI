@@ -30,10 +30,7 @@
 //     random=client_random, session_id_length=0x20.
 //   - now              = 1_700_000_000.
 //
-// Required modules (run `go mod init reality-vector && go get ...`):
-//
-//	golang.org/x/crypto/curve25519
-//	golang.org/x/crypto/hkdf
+// Required modules are installed at pinned versions by the README procedure.
 package main
 
 import (

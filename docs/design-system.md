@@ -369,8 +369,8 @@ These checks cover:
 
 Roborazzi screenshot baselines live under `app/src/test/screenshots`.
 
-- Record baselines with `./gradlew :app:recordRoborazziDebug`
-- Verify baselines with `./gradlew :app:verifyRoborazziDebug`
+- Record baselines with `./gradlew :app:recordRoborazziGithubFullDebug`
+- Verify baselines with `./gradlew :app:verifyRoborazziGithubFullDebug`
 - Root shortcuts are available as `./gradlew recordScreenshots` and `./gradlew verifyScreenshots`
 
 The curated suite covers:

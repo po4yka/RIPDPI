@@ -19,7 +19,7 @@ Requirements: JDK 17, the Android SDK level declared by `ripdpi.compileSdk` in `
 
 The Android build invokes the `ripdpi.android.rust-native` convention plugin from `:core:engine`, which builds the native workspace under `native/rust/`. Local non-release builds default to the host ABI; CI and releases build the full ABI set.
 
-Copy `.claude/settings.example.json` to the gitignored `.claude/settings.json` only when using optional local Claude MCP configuration. Security enforcement must live in committed project settings or blocking CI; local settings must not be treated as the enforcement boundary.
+Merge only the required entries from `.claude/settings.example.json` into the gitignored `.claude/settings.local.json` when using optional local Claude MCP configuration. Never overwrite the committed `.claude/settings.json`; it contains repository security hooks. Security enforcement must live in committed project settings or blocking CI; local settings must not be treated as the enforcement boundary.
 
 See `docs/contributor/build-performance.md` for Gradle, KSP, sccache, worktree, Android Studio, and parallel-build tuning.
 

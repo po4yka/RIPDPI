@@ -48,7 +48,7 @@ pub struct WsTunnelConfig {
     /// standard TLS certificate verification. Required to honour
     /// `fake_sni`; defaults to `false` for safe-by-default behaviour.
     /// See
-    /// `docs/tasks/issues/gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md`.
+    /// completed task `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` (see git history).
     pub allow_insecure_sni: bool,
 }
 

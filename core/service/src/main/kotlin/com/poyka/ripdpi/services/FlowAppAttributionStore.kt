@@ -81,7 +81,7 @@ internal fun decideAttribution(
  * Process-wide map of `destination-IP digest -> owning app`, the Kotlin join point
  * between the tun2socks `.so` (which knows the originating app 5-tuple) and the
  * proxy `.so`'s direct-path learning signals (which carry only the destination
- * digest). See `docs/tasks/issues/attribute-direct-mode-flows-to-app-package.md`.
+ * digest). See the completed `attribute-direct-mode-flows-to-app-package` task in git history.
  */
 interface FlowAppAttributionStore {
     /**

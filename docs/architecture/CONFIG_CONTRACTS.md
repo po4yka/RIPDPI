@@ -62,8 +62,9 @@ The settings store is Jetpack DataStore — a wire-format change is a
 **persisted-data** change.
 
 - **Never reuse a field number.** Once assigned, a number is permanent. The
-  highest `AppSettings` number in use today is `409` (`ui_persona`); a new field
-  takes the next free number.
+  highest `AppSettings` number in use today is `410`
+  (`simple_failover_awg_profile_id`). Determine the next unreserved number from
+  the current proto rather than relying on this prose snapshot.
 - **Never reuse a field name.** A name carries semantics into goldens and DSL.
 - **On removal, reserve both.** `AppSettings` already does this — `reserved 15,
   16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130, 190;` plus the matching
@@ -326,8 +327,9 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
 8. **Goldens.** Update the config-translation goldens under human supervision;
    if it touches diagnostics or telemetry payloads, follow those contracts'
    governance (see §9 and `DiagnosticsContractGovernanceTest`).
-9. **Locales.** Any new UI string lands in all 7 locale files in the same
-   commit.
+9. **Locales.** Any new UI string lands in the default `values/` file and all
+   eight translations (`ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-rCN`, `hi`) in
+   the same commit.
 10. **Support link.** Confirm the generated support-settings registry test covers the new top-level path; add explicit preview/apply tests for sensitive, repeated, or protobuf-message settings.
 11. **Tests.** Protobuf round-trip test; codec/mapper test; Rust deserialization
     test proving a current-schema config with the optional field absent uses

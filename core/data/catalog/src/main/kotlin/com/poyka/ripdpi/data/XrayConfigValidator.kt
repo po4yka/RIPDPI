@@ -28,7 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * consumer today (the typed `VlessOutbound` schema does not expose
  * `flow` or `allowInsecure`, and the native wire layer hardcodes the
  * Vision flow). Tracks
- * `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Completed task `render-validated-xray-client-configs` (see git history).
  */
 object XrayConfigValidator {
     /**

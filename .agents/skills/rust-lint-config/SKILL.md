@@ -34,7 +34,7 @@ All lint configuration is centralized at the workspace level. Individual crates 
 
 ### Workspace Cargo.toml `[workspace.lints.rust]`
 
-- `unsafe_op_in_unsafe_fn = "warn"` -- require explicit `unsafe` blocks inside `unsafe fn`
+- `unsafe_op_in_unsafe_fn = "deny"` -- require explicit `unsafe` blocks inside `unsafe fn`
 
 ### clippy.toml
 
@@ -49,7 +49,7 @@ disallowed-methods = [
 ### rustfmt.toml
 
 ```toml
-edition = "2021"
+edition = "2024"
 max_width = 120
 use_small_heuristics = "Max"
 ```

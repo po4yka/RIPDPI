@@ -11,7 +11,12 @@ These are conventions and pitfalls confirmed against live source that are not ye
 
 ### Rust: ordering for cross-thread lifecycle atomics
 
-Use `Ordering::Release` for the store and `Ordering::Acquire` for the load on any `AtomicBool` (or similar) that signals shutdown, cancellation, or lifecycle state across threads — ARM's weak memory model can leave a `Relaxed` store invisible to another core indefinitely, which reads as an intermittent hang rather than a crash. This is already the convention for production cancellation flags (for example `ripdpi-monitor-engine/src/session/lifecycle.rs`'s `cancel` flag), while test-only stop flags in fixtures and soak harnesses correctly stay on `Relaxed` since no other thread's control flow depends on their exact visibility timing. Add an explicit one-line comment at every new lifecycle-atomic site stating which ordering was chosen and why, so a later edit does not silently downgrade it to `Relaxed`.
+Use `Release`/`Acquire` when an atomic transition publishes or consumes other
+memory and document that invariant at the site. `Relaxed` is valid for pure
+counters and for flags whose correctness does not depend on visibility of
+separate state; synchronization-backed cancellation tokens do not need a
+blanket ordering rule here. Add a short comment when the ordering supplies a
+specific happens-before edge.
 
 ### Rust: isolate panics in bare `thread::spawn` workers that never cross the FFI boundary
 

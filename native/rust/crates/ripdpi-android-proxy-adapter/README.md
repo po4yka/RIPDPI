@@ -9,13 +9,13 @@
 by the coroutine-facing `RipDpiProxy` runtime. This adapter implements the
 proxy-session lifecycle behind `jniCreate` / `jniStart` / `jniStop` /
 `jniPollTelemetry` / `jniDestroy` / `jniUpdateNetworkSnapshot`, plus geo-database
-and PCAP-recording exports. The `ripdpi-android` facade forwards to it.
+exports. The `ripdpi-android` facade forwards to it.
 
 ## Rust crates it calls
 
 `ripdpi-proxy-runtime` (the proxy runtime), `ripdpi-runtime-api` (the
 `EmbeddedProxyControl` / telemetry-sink ports), `ripdpi-proxy-config` (config
-translation), `ripdpi-config`, `ripdpi-diagnostics-pcap`,
+translation), `ripdpi-config`,
 `ripdpi-android-telemetry-adapter`, `ripdpi-android-bridge-support`,
 `ripdpi-failure-classifier`, `ripdpi-quality`, `ripdpi-runtime-decision-ports`,
 and `android-support`.

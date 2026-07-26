@@ -12,7 +12,8 @@ The app ships with a bundled snapshot and can also refresh those packs manually 
 
 ## Source Policy
 
-The app stays offline at runtime. Bundled packs are generated explicitly through:
+The bundled snapshot preserves offline functionality. An optional, explicit
+runtime refresh may access GitHub; bundled packs are generated through:
 
 ```bash
 python3 scripts/sync_host_packs.py

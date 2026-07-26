@@ -19,9 +19,9 @@ Guide agents through Rust supply chain security: vulnerability scanning with car
 
 ## Project context
 
-- 97 Rust crates under `native/rust/`
+- Rust workspace under `native/rust/`; derive the current package count with `cargo metadata --locked --no-deps`
 - Policy config: `native/rust/deny.toml`
-- CI job: `cargo-deny` in `.github/workflows/ci.yml` (cargo-deny v0.19.0, installed via `taiki-e/install-action@v2`)
+- CI job: `cargo-deny` in `.github/workflows/ci.yml` (read the exact current pin; v0.19.8 at this review)
 - CI invocation: `cargo deny --locked --manifest-path native/rust/Cargo.toml check`
 
 ## Workflow
@@ -113,7 +113,9 @@ Attack class: typosquatting against async and crypto utility names — the exact
 3. Scan the published crate's `build.rs` / `src/lib.rs` for network calls, shell-out, or process spawns. A utility crate that opens sockets is a red flag.
 4. Pin to a specific version (`=1.2.3`) for the first adoption commit; loosen to `^1.2` only after the crate has been in the tree for at least one release cycle without incident.
 
-`cargo-deny 0.19.0` (Jan 2026, the version pinned in CI) improved `bans` and `sources` rule expressiveness — use `allow = [...]` / `deny = [...]` lists rather than relying solely on `multiple-versions` detection.
+Use the exact cargo-deny version pinned by the current workflow (`0.19.8` at
+this review). Its `bans` and `sources` rules use explicit `allow = [...]` /
+`deny = [...]` lists rather than relying only on multiple-version detection.
 
 ### 3b. RUSTSEC triage SLA
 
@@ -179,7 +181,7 @@ cargo vet
 The project CI runs cargo-deny as a standalone job on every PR (skipped for scheduled builds). The job:
 
 1. Checks out the repo
-2. Installs cargo-deny v0.19.0 via `taiki-e/install-action@v2`
+2. Installs the exact cargo-deny version pinned by the workflow
 3. Runs `cargo deny --locked --manifest-path native/rust/Cargo.toml check`
 
 If the CI job fails:

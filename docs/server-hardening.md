@@ -60,9 +60,14 @@ stream {
 
     access_log /var/log/nginx/stream_access.log ripdpi_stream;
 
-    map $remote_addr $ripdpi_route {
+    geo $ripdpi_graylisted {
+        default 0;
         include /etc/ripdpi/graylist.map;
-        default protected_origin;
+    }
+
+    map $ripdpi_graylisted $ripdpi_route {
+        0 protected_origin;
+        1 probe_fallback;
     }
 
     upstream protected_origin {
@@ -89,12 +94,14 @@ The fallback target should behave consistently and cheaply. Good options are:
 
 ## Graylist Map Format
 
-`nginx stream` can include a plain `map` fragment:
+The main config owns the NGINX `geo` block. The included
+`/etc/ripdpi/graylist.map` file contains only address/CIDR value rows; `map` is
+string-keyed and does not interpret CIDR prefixes:
 
 ```nginx
-203.0.113.14 probe_fallback;
-198.51.100.0/24 probe_fallback;
-2001:db8:100::/64 probe_fallback;
+203.0.113.14 1;
+198.51.100.0/24 1;
+2001:db8:100::/64 1;
 ```
 
 Operational guidance:
@@ -113,16 +120,20 @@ set -euo pipefail
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="${1:-/var/log/ripdpi-captures}"
+umask 077
 mkdir -p "$OUT"
 
-tcpdump -i any \
+timeout 120 tcpdump -i any \
   -nn \
-  -s 0 \
+  -s 256 \
+  -c 20000 \
   -w "$OUT/stream-${STAMP}.pcap" \
   'tcp port 443 or icmp or icmp6'
 ```
 
-Keep captures short and rotate aggressively. The goal is operator debugging, not long-term retention.
+Keep captures short, access-restricted, and rotate them aggressively. Packet
+captures contain network metadata and possibly payload prefixes; do not retain
+or attach them without applying the project's redaction policy.
 
 ## Compose Reference
 

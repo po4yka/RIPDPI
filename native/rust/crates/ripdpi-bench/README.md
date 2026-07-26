@@ -32,9 +32,9 @@ cargo bench -p ripdpi-bench --bench protocol_throughput
 ### Baselines and the regression lane
 
 The committed baseline is `scripts/ci/rust-bench-baseline.json` (one entry per
-Criterion key, e.g. `protocol-throughput/tuic_1MiB`, with `mean_ns` / `median_ns`
+Criterion key, e.g. `protocol-throughput/tuic_1MiB`, with `median_ns`
 and a `maxRegressionPercent`). `scripts/ci/check-criterion-regressions.py`
-discovers `native/rust/target/criterion/**/new/estimates.json` and compares mean
+discovers `native/rust/target/criterion/**/new/estimates.json` and compares the median
 against that baseline.
 
 Baselines are **not committed from developer machines** — Criterion throughput is
@@ -43,11 +43,11 @@ captured on the CI reference runner. Wiring (in the `rust-criterion-bench` job o
 `.github/workflows/ci.yml`, which runs on the nightly `schedule`):
 
 - **Nightly (`schedule`) — enforced:** runs the bench and fails the lane on a
-  `>20%` mean regression in any `protocol-throughput/*` transport
+  `>20%` median regression in each enforced `protocol-throughput/*` transport
   (`--only-prefix 'protocol-throughput/' --max-regression-percent 20`, no
   `--warn-only`). The 20% gate tolerates shared-runner noise while still catching
-  the 25% definition-of-done slowdown. Until the baseline holds the 7
-  `protocol-throughput/*` keys this is a safe no-op (missing key → warning → pass).
+  the 25% definition-of-done slowdown. The committed baseline currently covers
+  the six enforced transport keys; WebSocket remains advisory.
 - **PRs / manual dispatch — advisory:** full suite with `--warn-only` (early
   warnings, never a hard fail on heterogeneous PR hardware).
 

@@ -7,7 +7,7 @@ description: Android-specific Rust build, verification, and packaging — per-ta
 
 ## Purpose
 
-RIPDPI ships 4 Android ABIs (arm64-v8a, armeabi-v7a, x86_64, x86) cross-compiled from Rust via cargo-ndk + a Gradle convention plugin. This skill codifies the build-and-verify discipline: which `rustflags` go where, how to verify 16 KiB alignment per ABI, the ELF symbol allowlist, size budgets per ABI, and the NDK 29 specifics that broke older config snippets.
+RIPDPI ships 4 Android ABIs (arm64-v8a, armeabi-v7a, x86_64, x86). The `ripdpi.android.rust-native` convention plugin invokes plain `cargo build --locked` with the NDK linker for each ABI; `cargo-ndk` is not part of the build path. This skill codifies the build-and-verify discipline: which `rustflags` go where, how to verify 16 KiB alignment per ABI, the ELF symbol allowlist, size budgets per ABI, and NDK 29 specifics.
 
 ## When to consult
 
@@ -31,26 +31,33 @@ Play Store has required 16 KiB-aligned `.so` files for new and updated apps targ
 [target.aarch64-linux-android]
 rustflags = [
     "-C", "link-arg=-Wl,-z,max-page-size=16384",
-    "-C", "link-arg=-Wl,-z,common-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
     "-C", "force-frame-pointers=yes",
 ]
 
 [target.x86_64-linux-android]
 rustflags = [
     "-C", "link-arg=-Wl,-z,max-page-size=16384",
-    "-C", "link-arg=-Wl,-z,common-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
     "-C", "force-frame-pointers=yes",
 ]
 
-# 32-bit ABIs do NOT need 16 KiB alignment — kernel uses 4 KiB pages.
 [target.armv7-linux-androideabi]
-rustflags = ["-C", "force-frame-pointers=yes"]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
+    "-C", "force-frame-pointers=yes",
+]
 
 [target.i686-linux-android]
-rustflags = ["-C", "force-frame-pointers=yes"]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
+    "-C", "force-frame-pointers=yes",
+]
 ```
 
-Putting 16 KiB flags on armv7/i686 is harmless but wastes some space on padding. Pure-Rust crates do not need the explicit `-Wl` flags (NDK lld defaults are correct on r28+), but transitive C dependencies (`ring`, `aws-lc-sys`, `boring-sys`) compiled by `cc-rs` honor the rustflags and produce correctly aligned object files.
+The committed policy intentionally applies the same alignment, build-id, and frame-pointer flags to all four Android targets. Keep this block byte-for-byte aligned with `.cargo/config.toml`.
 
 ### Verification per ABI
 
@@ -63,17 +70,18 @@ NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$(uname | tr '[:upper:]' '[:
   | sort -u
 # Expected: 0x4000
 
-# armv7-linux-androideabi — Align column will be 0x1000 (4 KiB), that's correct
+# armv7-linux-androideabi — project policy also requires 0x4000
 "$NDK_BIN/llvm-readelf" -lW app/build/intermediates/.../armeabi-v7a/libripdpi.so \
   | awk '/LOAD/ {print $NF}' | sort -u
-# Expected: 0x1000
+# Expected: 0x4000
 ```
 
-AAB-level verification:
+Merged-native-library verification:
 
 ```bash
-zipalign -c -P 16 -v 4 app/build/outputs/bundle/release/app-release.aab
-# Exit 0 = all .so files inside the bundle are properly aligned at 16 KiB.
+python3 scripts/ci/verify_native_elfs.py \
+  --lib-dir app/build/intermediates/merged_native_libs/githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib
+# The gate checks the merged JNI library tree; it does not open or validate an APK/AAB archive.
 ```
 
 Pre-release gate: a CI step should fail if `0x4000` is missing from `arm64-v8a` or `x86_64` LOAD segments.
@@ -95,8 +103,8 @@ opt-level = "z"           # size > speed for Android distribution
 lto = "fat"
 codegen-units = 1
 panic = "unwind"          # JNI needs unwind for catch_unwind
-strip = "symbols"
-debug = false
+strip = "none"
+debug = "line-tables-only"
 
 [profile.android-jni-dev]
 inherits = "dev"
@@ -105,17 +113,17 @@ panic = "unwind"
 debug = "line-tables-only"  # symbols for on-device profiling
 ```
 
-Plus `RUSTFLAGS` at build invocation:
+Build through the convention plugin so Cargo, linker, ABI, and packaging inputs
+stay identical to the app build:
 
 ```bash
-RUSTFLAGS="-C link-arg=-Wl,--gc-sections -C link-arg=-Wl,--icf=all -C link-arg=-Wl,--exclude-libs,ALL" \
-  cargo ndk -t arm64-v8a build --profile android-jni
+./gradlew :core:engine:buildRustNativeLibs \
+  -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
 What each flag does:
 - `--gc-sections` — dead-code elimination at link time. ~5–10% size reduction.
 - `--icf=all` — identical code folding. Multiple identical functions (common with generics post-monomorphization) collapse to one. ~5% reduction.
-- `--exclude-libs,ALL` — symbols from static rlibs are NOT exported. Equivalent to `-fvisibility=hidden` for C/C++.
 
 For an additional 20–40% size reduction at the cost of losing panic info:
 
@@ -146,20 +154,14 @@ llvm-objdump -T app/build/intermediates/.../arm64-v8a/libripdpi.so \
 
 Any unexpected symbol is ABI leak — a `pub fn` somewhere in the workspace marked `#[unsafe(no_mangle)]` without the `Java_*` prefix. These leak the Rust ABI to anyone who can `dlopen` your library.
 
-`--exclude-libs,ALL` in rustflags prevents static-rlib symbols from leaking. Apply it.
+Keep the exported-symbol allowlist enforced by `scripts/ci/verify_native_elfs.py`; do not document linker flags that are absent from `.cargo/config.toml`.
 
 ## .so size budgets
 
-Per-ABI baselines (RIPDPI as of mid-2026):
-
-| ABI | `libripdpi.so` | `libripdpi-tunnel.so` |
-|-----|----------------|------------------------|
-| arm64-v8a | ~4-5 MiB | ~1.5-2.5 MiB |
-| armeabi-v7a | ~3-4 MiB | ~1.2-2.0 MiB |
-| x86_64 | ~4.5-5.5 MiB | ~1.8-2.8 MiB |
-| x86 | ~3.5-4.5 MiB | ~1.4-2.2 MiB |
-
-Gate: any PR that grows a `.so` by >5% from `ci/baseline-sizes.json` blocks. >1% warns. Update baseline manually in a separate PR with explicit rationale.
+The authoritative per-ABI baselines are in
+`scripts/ci/native-size-baseline.json`. `scripts/ci/verify_native_sizes.py`
+permits at most 128 KiB growth per tracked library and total growth up to the
+tighter of 2% or 256 KiB. Do not copy byte counts into this skill.
 
 Audit a regression:
 
@@ -186,7 +188,7 @@ NDK r29 (RIPDPI's pin) changed:
 When bumping NDK in a future PR:
 1. Update `native/rust/rust-toolchain.toml` if Rust MSRV needs adjusting (NDK r29 supports rustc 1.78+).
 2. Rebuild all 4 ABIs, run `llvm-readelf -lW` per `.so`, confirm alignment.
-3. Re-run size baseline measurement, update `ci/baseline-sizes.json`, separate PR.
+3. Re-run size verification and, when justified, update `scripts/ci/native-size-baseline.json` in a separate commit.
 4. Run `android-test-runner` against the new NDK on every API level (28, 33, 34, 35).
 
 ## Cargo + Gradle integration

@@ -2,7 +2,7 @@
 title: Epic - Remove Cloudflare from critical path
 type: epic
 status: doing
-area: relay
+area: epic
 priority: critical
 status_note: code/automation landed across client + deploy; non-Cloudflare hosts await operator provisioning
 owner: unassigned

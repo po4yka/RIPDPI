@@ -4,7 +4,7 @@ Wire-format byte vectors for VLESS-mux frames, exercised by the fixture-walker t
 
 - `ripdpi-relay-mux::wire_mux::yamux::upstream_yamux_fixtures_round_trip`
 
-The checked-in walker currently covers yamux vectors. Sing-mux codec coverage lives in `ripdpi-relay-mux` unit tests; add a dedicated fixture walker when sing-mux wire vectors are checked in.
+Two fixture families are enforced differently: pinned upstream `.bin` frames are walked by `ripdpi-relay-mux`, while the `sing-mux-6fb501d/*.hex` encoder vectors are decoded and checked by `ripdpi-vless`.
 
 ## Directory layout
 
@@ -34,7 +34,7 @@ The yamux fixture-walker tests pick new yamux files up automatically on the next
 
 ### `sing-mux-6fb501d/mux/yamux/`
 
-Eight pinned SagerNet sing-mux version-0/yamux carrier and TCP stream-request vectors, derived from `protocol.go` at upstream commit `6fb501d02534177fed5567ee8f63afbc825e2861` and `sing` v0.7.14's Socksaddr serializer. They are stored as lowercase hex because the carrier fields include NUL bytes; `ripdpi-vless::mux::pinned_yamux_fixtures_match_encoder` decodes and verifies every vector.
+Eight encoder vectors derived from SagerNet sing-mux version-0/yamux carrier and TCP stream-request behavior at upstream commit `6fb501d02534177fed5567ee8f63afbc825e2861` and `sing` v0.7.14's Socksaddr serializer. Unlike the pinned `.bin` frame captures below, these `.hex` files are expected encoder outputs; `ripdpi-vless::mux::pinned_yamux_fixtures_match_encoder` decodes and verifies every vector.
 
 ### `v1.260206.0/mux/yamux/`
 

@@ -2,9 +2,9 @@
 
 **Responsibility:** relay-core adapters for TLS-shaped relay transports.
 
-This crate is the adapter layer between protocol clients and `ripdpi-relay-core` factories. It exposes session factories and relay-stream wrappers for AnyTLS, Shadowsocks, ShadowTLS, Tor, and Trojan so relay-core can build pooled backends without duplicating protocol-specific connection code.
+This crate is the adapter layer between protocol clients and `ripdpi-relay-core` factories. It exposes session factories and relay-stream wrappers for AnyTLS, Shadowsocks, ShadowTLS, Tor, Trojan, Mieru, and SSH so relay-core can build pooled backends without duplicating protocol-specific connection code.
 
-**Upstream:** `ripdpi-relay-mux`, `ripdpi-anytls`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-trojan`, and `ripdpi-vless`. **Downstream:** `ripdpi-relay-core`.
+**Upstream:** `ripdpi-relay-mux`, `ripdpi-anytls`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-trojan`, `ripdpi-mieru`, `ripdpi-ssh`, `ripdpi-network-time`, `ripdpi-vless`, and `ripdpi-native-protect`. **Downstream:** `ripdpi-relay-core`.
 
 ## Exported Adapters
 
@@ -13,6 +13,7 @@ This crate is the adapter layer between protocol clients and `ripdpi-relay-core`
 - ShadowTLS: `ShadowTlsSessionFactory`, `ShadowTlsClientConfig`, and inner-relay configuration.
 - Tor: `TorRelayBackend`, `TorRelayStream`, `TorRelayTarget`, bridge/PT config DTOs, and pluggable-transport config DTOs.
 - Trojan: `TrojanSessionFactory`, `TrojanSession`, `TrojanUdpSession`, and helper target conversion.
+- Mieru and SSH: TCP session factories with protected-connect adapters.
 
 ## Boundaries
 

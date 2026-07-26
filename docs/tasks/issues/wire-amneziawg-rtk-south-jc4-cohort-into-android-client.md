@@ -22,7 +22,7 @@ Plain WireGuard at Rostelecom South (RTK юг, Rostov Oblast) experiences period
 Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H1=1 H2=2 H3=3 H4=4` plus per-deployment `I1-I5`. Connects successfully though sometimes requires 3–4 attempts (probabilistic passing — TSPU rule may be threshold-based rather than a hard block).
 
 > [!info] Dedup notes
-> No `ripdpi-amneziawg` crate exists in the workspace. Adjacent open issue `add-wireguard-over-websocket-transport-amneziawg-disguise.md` covers a DIFFERENT mechanism (WG-over-WebSocket disguise) — confirm distinct in PR.
+> The workspace now contains the AmneziaWG Android/native implementation. The completed `add-wireguard-over-websocket-transport-amneziawg-disguise` task (see git history) covered a DIFFERENT mechanism: WG-over-WebSocket disguise.
 
 ## Proposed change
 
@@ -59,4 +59,4 @@ Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H
 
 - wireguard-rtk-south-amneziawg-bypass — wiki concept page with full parameter set
 - Linked deploy task: `add-amneziawg-rtk-south-cohort`
-- Related (different mechanism): existing issue `add-wireguard-over-websocket-transport-amneziawg-disguise`
+- Related (different mechanism): completed task `add-wireguard-over-websocket-transport-amneziawg-disguise` (see git history)

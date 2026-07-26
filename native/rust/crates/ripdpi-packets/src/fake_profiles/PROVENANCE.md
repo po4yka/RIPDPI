@@ -16,9 +16,11 @@ Binary blobs used by `TlsFakeProfile`, `HttpFakeProfile`, and `UdpFakeProfile` t
 ### JA3 pre-hash strings
 
 The canonical JA3 pre-hash string (`version,ciphers,extensions,groups,ec_point_formats`,
-decimal IDs, GREASE filtered out) computed by the **production** JA3 parser
-(`ripdpi-diagnostics-tls/src/ja3/`) for each profile. These are pinned by the
-drift guard in `ja3_drift_guard.rs`; this table and that test MUST agree. We pin
+decimal IDs, GREASE filtered out) computed by the inline compatibility parser in
+the packets test. The production algorithm lives in `ripdpi-diagnostics-tls`;
+there is currently no automatic cross-crate assertion that the implementations
+remain identical. These values are pinned by the local drift guard in
+`ja3_drift_guard.rs`. We pin
 the string, not the MD5 hash, so any drift is human-diffable. (`CompatDefault` /
 `DEFAULT_FAKE_TLS` is a truncated synthetic blob and does not parse as a
 ClientHello, so it has no JA3 string.)

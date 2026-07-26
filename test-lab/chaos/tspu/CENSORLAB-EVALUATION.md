@@ -1,11 +1,11 @@
 # CensorLab evaluation — offline censor-replay harness
 
-**Spike:** `spike-censorlab-as-offline-censor-replay-harness` (epic `epic-orchestration-test-posture`).
+**Spike:** `spike-censorlab-as-offline-censor-replay-harness`; its completed parent `epic-orchestration-test-posture` was closed on 2026-07-26 after child acceptance criteria and regression posture were verified, and is retained in git history.
 **Date:** 2026-06-11. **Source citation:** ripdpi-android-research-2026-04-20 §Academic papers; CensorLab = arXiv:2412.16349.
 
 ## Decision: REJECT as a maintained dependency — FORK three ideas into `tspu`
 
-Do **not** adopt CensorLab as a build/CI dependency. The offline-censor-replay niche this spike set out to fill is **already filled** by `test-lab/chaos/tspu/` (this directory): a programmable, NFQUEUE-based censor-replay harness with a deterministic offline dry-run mode, already wired green into CI. CensorLab's packet-interception plumbing is the *same* Linux NFQUEUE mechanism `tspu` already uses, so adopting it adds cost without replacing anything load-bearing.
+Do **not** adopt CensorLab as a build/CI dependency. The offline middlebox-replay niche this spike set out to fill is **already filled** by the in-repo harness in this directory: a classifier-oriented, NFQUEUE-based replay harness with a deterministic offline dry-run mode and path-triggered evidence workflows. CensorLab's packet-interception plumbing is the *same* Linux NFQUEUE mechanism the local harness already uses, so adopting it adds cost without replacing anything load-bearing.
 
 Instead, **selectively port** the three CensorLab capabilities that close real `tspu` gaps (see *Next concrete actions*). This is the "fork" branch of adopt/fork/reject: keep our harness, borrow the distinctive ideas.
 
@@ -15,10 +15,10 @@ Instead, **selectively port** the three CensorLab capabilities that close real `
 | --- | --- | --- |
 | What it is | Academic *censor generator* + accuracy benchmarker (Rust ~470 KLOC + Python). The censor side of an experiment — not a replay corpus, not a bypass tool. | Purpose-built TSPU-threat-model censor-replay harness for RIPDPI's desync arms. |
 | Interception | Linux **NFQUEUE** (Tap), 2-NIC userspace MITM (Wire), or offline PCAP. | Linux **NFQUEUE** (`runner/nfqueue_adapter.py`, live) + deterministic offline dry-run (`runner/replay.py`). **Same plumbing.** |
-| Build/runtime | **Nix-first**, nightly Rust + `libffi` + RustPython, unstable git-pinned deps (`smoltcp` main, `ort 2.0.0-rc.11`); cold build is heavy/slow. Live needs `CAP_NET_ADMIN`+`CAP_NET_RAW`/`sudo`. | Pure **Python 3.11 stdlib** (no scapy/dpkt); dry-run needs no privileges, no Nix. |
-| CI fit | PCAP-mode *can* run on `ubuntu-latest`, but only after a warm Nix/Docker cache; cold first build exceeds "a few minutes"; live NFQ is fragile on hosted runners. | `l7-adversarial-dryrun.yml` runs in **5 min**, Python 3.11, no privileges; `l7-adversarial-live.yml` in 8 min with `libnetfilter-queue`. Both green on `main`. |
+| Build/runtime | **Nix-first**, nightly Rust + `libffi` + RustPython, unstable git-pinned deps (`smoltcp` main, `ort 2.0.0-rc.11`); cold build is heavy/slow. Live needs `CAP_NET_ADMIN`+`CAP_NET_RAW`/`sudo`. | Dry-run is pure **Python 3.11 stdlib** (no scapy/dpkt) and needs no privileges or Nix; live additionally requires `NetfilterQueue` and `libnetfilter-queue`. |
+| CI fit | PCAP-mode *can* run on `ubuntu-latest`, but only after a warm Nix/Docker cache; cold first build exceeds "a few minutes"; live NFQ is fragile on hosted runners. | `l7-adversarial-dryrun.yml` and `l7-adversarial-live.yml` run only when the harness paths change; they publish evidence but do not gate every desync change. |
 | Licence | **GPL-3.0** — copyleft; vendoring its source into our toolchain triggers obligations. | Repo-owned, no external copyleft. |
-| Maturity | 2-author lab artifact, ~6 stars, **no releases/tags**, crate 0.2.0, last push ~2026-03. | Maintained in-tree, gated on every `ripdpi-desync` PR. |
+| Maturity | 2-author lab artifact, ~6 stars, **no releases/tags**, crate 0.2.0, last push ~2026-03. | Maintained in-tree with path-triggered dry-run and live workflows. |
 | Verdict model | Research-grade accuracy metrics (TPR/TNR vs `labels.csv`, Tables 3/4 vs Scapy/Zeek) — **not a unit-test oracle**. | `runner/schema.py` `{bypassed,blocked,degraded,inconclusive}`, `REPORT_SCHEMA_VERSION=1`, golden per-cell expectations in `tests/test_replay.py` — a CI oracle. |
 
 Adopting CensorLab would mean carrying a Nix + nightly-Rust + GPL research artifact, pinning a known-good commit against unstable deps, and authoring our own pass/fail assertion layer on top (it has no stable "feed bypass-tool traffic → get pass/fail" API) — to obtain interception we already have. Net marginal value is **ideas, not infrastructure**.
@@ -36,7 +36,7 @@ From the harness audit (`runner/*.py`, `patterns/*.py`):
 1. **No stateful TCP/QUIC reassembly** — a split/record-fragmented ClientHello is scored `bypassed` because no single packet carries the SNI (`tlsrandrec_profile_a`, `split_offset_3_chlo`); a real stream-reassembling DPI would still catch it. (README: "Not in v1.x".)
 2. **No DoH/DoQ classifier + no QUIC Initial decryption** — criterion 3's open item.
 3. **No timing/phase model** — fixtures have no timestamps; `two_phase_send`'s `phase_gap_ms`, delayed-RST, and residual-censorship windows can't be expressed.
-4. **Effects recorded, not simulated** — `verdict_for()` marks a cell `blocked` on a single matched packet; it does not inject an RST, mangle the ClientHello, or drop downstream packets to observe the flow's real fate.
+4. **Effects classified, not executed end to end** — `verdict_for()` marks a cell `blocked` on a single matched packet. Dry-run does not inject an RST, mangle the ClientHello, or observe the flow's real fate; live mode can only accept or drop the current packet.
 5. **Five hardcoded primitives vs a programmable censor language** — adding a behaviour means writing a new `patterns/<x>.py`, not scripting a strategy.
 6. **No ML/DPI-censor emulation** — `tspu` cannot model entropy/popcount or ONNX-classifier "futuristic" censors at all.
 

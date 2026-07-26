@@ -7,11 +7,11 @@ description: Use when adding or reviewing any unsafe Rust block, FFI/JNI export,
 
 ## Purpose
 
-Guide agents through writing, reviewing, and auditing unsafe Rust in RIPDPI's 97 native crates. The dominant unsafe patterns are JNI FFI, Linux ioctl/tun device operations, and signal handling.
+Guide agents through writing, reviewing, and auditing unsafe Rust in RIPDPI's native workspace. Derive current package and unsafe inventories from source; the dominant unsafe patterns are JNI FFI, Linux ioctl/tun device operations, and signal handling.
 
 ## Governance: `#![forbid(unsafe_code)]`
 
-Pure-logic crates MUST carry `#![forbid(unsafe_code)]` at the crate root. Currently enforced in: `ripdpi-failure-classifier`, `ripdpi-ipfrag`, `ripdpi-desync`, `ripdpi-session`, `ripdpi-config`, `ripdpi-packets`. When creating a new crate that has no FFI or OS-level calls, add the attribute. When reviewing, verify it has not been removed without justification.
+Pure-logic crates MUST carry `#![forbid(unsafe_code)]` at the crate root. Discover the current set with `rg -l '#!\[forbid\(unsafe_code\)\]' native/rust/crates`. When creating a new crate that has no FFI or OS-level calls, add the attribute. When reviewing, verify it has not been removed without justification.
 
 ## Lint floor for unsafe crates
 

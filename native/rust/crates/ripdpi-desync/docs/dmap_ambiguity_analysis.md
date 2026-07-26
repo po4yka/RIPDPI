@@ -12,12 +12,12 @@ Albrecht et al., "dMAP: Fingerprinting DPI Middleboxes by Probing Protocol Ambig
 
 | Arm | Split base | Delta distribution | Stable? |
 |---|---|---|---|
-| `seg_pre_sni` | `SniExt` | {-2, -1, 0} (buckets 0, 1-3, 4-9) | No |
-| `seg_mid_sni` | `MidSld` | {-2, -1, 0, +1, +2} (5-way) | No |
-| `seg_post_sni` | `EndHost` | {0, +1, +2} (buckets 0-5, 6-8, 9) | No |
-| `rec_pre_sni` | `SniExt` | {-2, -1, 0} (same as seg_pre_sni) | No |
-| `rec_mid_sni` | `MidSld` | {-2, -1, 0, +1, +2} (same as seg_mid_sni) | No |
-| `two_phase_send` | absolute | first_write_len in [64,256], gap_ms in [5,15] | No |
+| `seg_pre_sni` | `SniExt` | {-2, -1, 0} (buckets 0, 1-3, 4-9) | Yes |
+| `seg_mid_sni` | `MidSld` | {-2, -1, 0, +1, +2} (5-way) | Yes |
+| `seg_post_sni` | `EndHost` | {0, +1, +2} (buckets 0-5, 6-8, 9) | Yes |
+| `rec_pre_sni` | `SniExt` | {-2, -1, 0} (same as seg_pre_sni) | Yes |
+| `rec_mid_sni` | `MidSld` | {-2, -1, 0, +1, +2} (same as seg_mid_sni) | Yes |
+| `two_phase_send` | absolute | first_write_len in [64,256], gap_ms in [5,15] | Yes |
 
 ## Methodology
 
@@ -64,5 +64,5 @@ No immediate remediation is required.  The following observations inform future 
 
 ## Follow-up
 
-- Link to [[Epic - Orchestration test posture]]: add this test to the recurring CI regression gate once neighbourhood widening for `seg_pre_sni` / `rec_pre_sni` is complete.
+- The completed `epic-orchestration-test-posture` is retained in git history. It was closed on 2026-07-26 after its child acceptance criteria and regression posture were verified; future neighbourhood widening remains ordinary follow-up work.
 - Re-run this analysis after any change to `weighted_family_delta` or `two_phase_variant` in `ripdpi-desync-runtime`.

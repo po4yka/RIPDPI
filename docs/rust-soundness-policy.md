@@ -9,6 +9,10 @@
 
 The soundness audits recorded in this policy showed that the most expensive bugs we have shipped were **safe APIs that smuggled unsafe contracts to their callers**. This policy exists so that "safe Rust" in this repo means what `unsafe` says it means in the language.
 
+Inventory tables in this policy are audit snapshots, not permanent counts. The
+current allowlists and `scripts/ci/check_*unsafe*` scanners are authoritative;
+re-run them before relying on a count or site list during review.
+
 ## The rule
 
 A `pub fn` / `pub(crate) fn` must not require its caller to uphold any memory-safety obligation in order for the function to be sound. Either the function is genuinely safe — invariants enforced by types, lifetimes, visibility, runtime checks, or RAII — or the function is `unsafe fn` with a `# Safety` section that documents every precondition.
@@ -380,11 +384,13 @@ A `Box::into_raw` / `Box::from_raw` pair encodes a manual ownership transfer tha
 - A `from_raw` whose matching `into_raw` is in a different crate. The allowlist entry's `enforcement` field must name both sites; if they cross a crate boundary, the upstream crate must also publish the typed wrapper so the boundary is one-sided.
 - `mem::forget(boxed)` as a substitute for `Box::into_raw`. Both forms leak the allocation; only `Box::into_raw` returns a pointer that can be reclaimed. Using `mem::forget` to "leak intentionally" then later trying to `Box::from_raw` on an external pointer is UB.
 
-**Workspace inventory.** Exactly one production `Box::into_raw` / `Box::from_raw` pair in the entire workspace, plus three test-mode `into_raw` calls each paired in the same function:
+**Audited production shape.** The Reality callback is the production
+`Box::into_raw` / `Box::from_raw` ownership transfer. Test-only occurrences vary
+as regression coverage evolves and must be obtained from the current scanner.
 
 | File | Production `into_raw` | Matching `from_raw` | Test pairs |
 |---|---|---|---|
-| `ripdpi-vless/src/reality_hook.rs` | `install_reality_client_hello_hook` (line 141) | `Drop for RealityHookGuard` (line 111) | 3 (each paired within the same `#[test]` body) |
+| `ripdpi-vless/src/reality_hook.rs` | `install_reality_client_hello_hook` | `Drop for RealityHookGuard` | covered by current unit and Miri tests |
 
 **Miri validation.** `cargo +nightly miri test -p ripdpi-vless reality_hook::tests` runs the four reality-hook unit tests under Miri, including `guard_reclaims_box_on_drop`. All four pass: Miri detects no double-free, no use-after-free, and no aliasing violation along the Drop path.
 
@@ -573,13 +579,9 @@ The audit checklist for every `Vec::set_len(n)` site:
 - `unsafe { v.set_len(n) }` where the loop above wrote `n` elements via index assignment (`v[i] = …`) instead of `MaybeUninit::write` — `v[i]` is `&mut T` and assigns through, but the Vec's `len` was 0 at the time, so `v[i]` is itself UB. Use `spare_capacity_mut()[i].write(value)` instead.
 - `unsafe { v.set_len(n) }` immediately followed by `&v[..]` when only some of `[0, n)` was written — the borrow exposes uninit bytes. Set `len` to the initialised count, not the buffer capacity.
 
-**Workspace inventory.** As of issue #19: **zero** production `Vec::set_len` calls. The single occurrence in the workspace is the regression test `vec_with_capacity_spare_capacity_round_trip_models_recv_fill` in `ripdpi-vless/src/scoped_handle.rs:331`, which demonstrates the recommended idiom (per shape 2 above) end-to-end. The other three `.set_len(` matches in the workspace are NOT `Vec::set_len`:
-
-| File | Method | Allowlisted? |
-|---|---|---|
-| `ripdpi-io-uring/src/tun.rs:95` | `BufferHandle::set_len(&mut self, usize)` | No — safe inherent method on the io_uring buffer wrapper; clamps to `buffer_size`. |
-| `ripdpi-proxy-runtime/src/runtime/relay/stream_copy_uring/inbound_zc.rs:43` | `BufferHandle::set_len` (same method) | No — same as above. |
-| `ripdpi-proxy-runtime-adapter/src/platform.rs:363` | `std::fs::File::set_len(0)` | No — truncate syscall. |
+**Workspace inventory.** The policy baseline permits no unaudited production
+`Vec::set_len` calls. Use the current unsafe-boundary scanner to distinguish
+that API from unrelated methods such as `std::fs::File::set_len`.
 
 **Allowlist entry requirements.** A `unsafe Vec::set_len` allowlist entry's `enforcement` field MUST address every point as FIVE NAMED mandatory fields:
 
@@ -666,11 +668,12 @@ The audit checklist for each zero-init site:
 2. **`MaybeUninit` staged init:** `let mut u = MaybeUninit::<T>::uninit(); /* fill */ unsafe { u.assume_init() }`. Forces field-by-field accountability — no "memset and pray".
 3. **Field-by-field zero, not whole-struct zero:** `let s = MyStruct { a: 0, b: 0, c: false };` — the compiler chooses the byte representation; you don't pretend zero bytes are a valid `MyStruct`.
 
-**Workspace inventory.** As of issue #21: **two** sound production sites, both audited and allowlisted. **Zero `MaybeUninit::zeroed`**, **zero `libc::memset`**.
+**Audited production zero-fill sites.** The current allowlist, rather than a
+fixed count, is authoritative.
 
 | File | API | Element type | Sound because |
 |---|---|---|---|
-| `ripdpi-io-uring/src/probe.rs:85` | `mem::zeroed::<libc::utsname>()` | `libc::utsname` | `#[repr(C)]` with every field `[c_char; N]` (= `[i8; N]`). `i8` has no validity invariant; zero bytes also represent the empty NUL-terminated C string each field is contractually allowed to start as (kernel `uname(2)` fills every field). |
+| `ripdpi-vless/src/reality_hook.rs` | `ptr::write_bytes(*mut u8, 0, 32)` | `u8` | Fixed-size BoringSSL output buffer; every byte pattern is valid and the callback validates pointers and length before writing. |
 | `ripdpi-privileged-ops/src/linux/mmap_region.rs:65` | `ptr::write_bytes(*mut u8, 0, len)` | `u8` | Element type is `u8`; every bit pattern is a valid `u8`. Destination is exclusive (`&mut self` on the owning `MmapRegion: !Copy`); no aliased reader can observe a mid-write state. Bounds (`len`) come from the region's own owned `NonZeroUsize`. |
 
 **Anti-patterns.**

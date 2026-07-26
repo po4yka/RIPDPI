@@ -11,11 +11,11 @@ import org.junit.Test
  *
  * The native helper at `native/rust/crates/ripdpi-naiveproxy/src/main.rs`
  * emits a single `RIPDPI-PROBE { ... }` line on `--probe` exit carrying
- * `schema_version`, `helper_version`, and `features`. These tests pin the parser
- * and schema-range helper; manager-side preflight invocation is still tracked by the task below.
- *
- * Tracks the second half of
- * `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`.
+ * `schema_version`, `helper_version`, and `features`. These tests pin only the
+ * parser and schema-range helper. The production manager does not currently
+ * consume the probe output, so this suite does not claim end-to-end preflight
+ * enforcement. The parser contract originated in the completed
+ * `make-naiveproxy-helper-probe-return-structured-version-json` task (see git history).
  */
 class NaiveProxyProbeParserTest {
     @Test

@@ -106,8 +106,8 @@ bindings.faults.enqueue(
 |--------------|----------|--------|
 | Kotlin business logic | `core/*/src/test/` | `./gradlew :core:*:testDebugUnitTest` |
 | Rust native logic | `native/rust/crates/*/tests/` | `cargo nextest run --locked -p crate` |
-| JNI integration | `app/src/androidTest/.../integration/` | `connectedDebugAndroidTest` |
-| Network E2E | `app/src/androidTest/.../e2e/` | `connectedDebugAndroidTest` |
+| JNI integration | `app/src/androidTest/.../integration/` | `connectedGithubFullDebugAndroidTest` |
+| Network E2E | `app/src/androidTest/.../e2e/` | `connectedGithubFullDebugAndroidTest` |
 | Rust network E2E | `native/rust/crates/*/tests/` | `bash scripts/ci/run-rust-network-e2e.sh` |
 
 ## Subagent Strategy

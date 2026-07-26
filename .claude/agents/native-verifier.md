@@ -37,14 +37,15 @@ Run checks in this order, stopping on the first failure unless asked to run all:
 
 ### 1. ELF metadata (scripts/ci/verify_native_elfs.py)
 
-Checks ABI completeness, NEEDED dependencies (libc, libm, libdl, liblog only),
-and 16 KiB LOAD segment alignment. Run:
+Checks ABI/library completeness, the exact-set `NEEDED` oracle where the script
+defines one, and 16 KiB LOAD segment alignment. Do not generalize a dependency
+oracle from one library to every packaged ELF. Run:
 
 ```
 python3 scripts/ci/verify_native_elfs.py --lib-dir <path>
 ```
 
-Default lib-dir: `app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib`
+Typical GitHub Full debug lib-dir: `app/build/intermediates/merged_native_libs/githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib`; resolve the current path from the flavored task output.
 
 Failures here mean: wrong linker flags, extra shared dependencies linked, or
 misaligned ELF segments (Android 15+ requires 16 KiB page alignment).
@@ -52,7 +53,7 @@ misaligned ELF segments (Android 15+ requires 16 KiB page alignment).
 ### 2. Library sizes (scripts/ci/verify_native_sizes.py)
 
 Compares .so file sizes against `scripts/ci/native-size-baseline.json`.
-Thresholds: per-library max +128 KiB, total max +2% or +256 KiB.
+Read all size thresholds from `scripts/ci/native-size-baseline.json` on each run.
 
 ```
 python3 scripts/ci/verify_native_sizes.py
@@ -70,8 +71,7 @@ Runs cargo-bloat for the package subset declared by `PACKAGES` in the script (cu
 against the `android-jni` profile on `x86_64-linux-android`. Compares top 20
 functions and top 20 crates against `scripts/ci/native-bloat-baseline.json`.
 
-Thresholds: text section max +128 KiB, per-function max +4 KiB,
-per-crate max +16 KiB, new function max 12 KiB, new crate max 64 KiB.
+Read text/function/crate and new-entry thresholds from `scripts/ci/native-bloat-baseline.json` on each run.
 
 ```
 python3 scripts/ci/verify_native_bloat.py
@@ -101,7 +101,7 @@ with security fixes, intentional code addition). Never extend baselines to
 suppress regressions from unintended bloat.
 
 Steps:
-1. Build native libraries: `./gradlew mergeDebugNativeLibs`
+1. Build native libraries: `./gradlew :app:mergeGithubFullDebugNativeLibs`
 2. Update size baseline: `python3 scripts/ci/verify_native_sizes.py --dump-current > scripts/ci/native-size-baseline.json`
 3. Update bloat baseline: `python3 scripts/ci/verify_native_bloat.py --dump-current > scripts/ci/native-bloat-baseline.json`
 4. Commit with message: `chore: update native size baseline after <reason>`

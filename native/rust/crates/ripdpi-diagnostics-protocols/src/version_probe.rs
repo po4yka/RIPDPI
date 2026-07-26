@@ -13,7 +13,7 @@
 //! diagnostics runner doesn't pull every protocol crate in directly.
 //!
 //! Tracks the cross-crate probe acceptance criterion in
-//! `docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`.
+//! completed task `introduce-protocol-version-enum-and-version-probe-diagnostic` (see git history).
 
 /// Wire protocol the probe is targeting. Drives which byte-level
 /// heuristic applies.

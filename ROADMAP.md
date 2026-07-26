@@ -17,5 +17,5 @@ These items have an owning architecture note or design doc and are not blocking 
 ## Roadmap Hygiene
 
 - Update this file in the same change as every roadmap-scoped implementation.
-- The "Open Follow-ups" table is the contract; if you close an item, remove the row in the same commit. If you discover a new item, add the row.
+- The "Open Follow-ups" list is the contract; if you close an item, remove it in the same commit. If you discover a new item, add it to the list.
 - Do not accumulate dated completed-work sections here. Git history and compact architecture notes are the canonical record of completed work; this file is the next-step list.

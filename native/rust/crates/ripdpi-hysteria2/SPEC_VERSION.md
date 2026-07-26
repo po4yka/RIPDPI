@@ -1,6 +1,6 @@
 # Spec Version
 
-This crate's wire format (Hysteria 2 over QUIC, Salamander obfuscation, port-hopping schedule, Privacy Pass-like auth) is pinned against the following upstream reference.
+This crate's wire format (Hysteria 2 over QUIC, Salamander obfuscation, port-hopping schedule, and the H3 authentication exchange) is pinned against the following upstream reference.
 
 - **Upstream repo:** https://github.com/apernet/hysteria
 - **Upstream tag:** v2 (latest tagged release line)
@@ -15,7 +15,7 @@ This crate implements the Hysteria 2 client over Quinn, including:
 - QUIC transport setup with custom congestion config
 - Salamander XOR-style obfuscation keyed by server-supplied secret
 - Port hopping window scheduling
-- Bearer / preshared auth headers
+- HTTP/3 `POST https://hysteria/auth` with an opaque `Hysteria-Auth` value and status `233` on success
 - H3 CONNECT and CONNECT-UDP paths for TCP and UDP forwarding
 
 Pins on the v2 release line. v1 was removed entirely per `docs/adr/0004-protocol-support-policy.md`.

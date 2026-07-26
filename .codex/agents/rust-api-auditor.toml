@@ -44,7 +44,7 @@ Focus on ripdpi-proxy-runtime, ripdpi-runtime-services, and ripdpi-relay-core:
 ### 5. Enum Delegation Bloat
 - rg 'match self' native/rust/crates/ripdpi-relay-core/src/ --type rust -n
 - Flag enums with > 5 variants and identical method delegation.
-- Track `RelayBackend` enum delegation bloat; current in-process dispatch variants are `Hysteria2`, `Tuic`, `VlessReality`, `Xhttp`, `ChainRelay`, `Masque`, `ShadowTls`, `Trojan`, `AnyTls`, `Shadowsocks`, and `Tor`, plus `Unsupported`.
+- Derive `RelayBackend` variants from ripdpi-relay-core/src/backend.rs; the current 13 in-process variants include Mieru and SSH, plus Unsupported.
 
 ### 6. Crate Cohesion
 - rg '^pub mod|^mod ' native/rust/crates/<name>/src/lib.rs --type rust -c
@@ -57,7 +57,7 @@ Focus on ripdpi-proxy-runtime, ripdpi-runtime-services, and ripdpi-relay-core:
 
 ## Known Issues to Track
 - ripdpi-proxy-runtime relay/session-copy `Arc<Mutex<...>>` inventory
-- RelayBackend enum: 11 in-process dispatch variants plus Unsupported
+- RelayBackend enum: derive the current variant count from source
 - ripdpi-proxy-runtime pub item count
 
 ## Response Protocol

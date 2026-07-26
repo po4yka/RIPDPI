@@ -546,7 +546,7 @@ It runs the Python unit suite plus the full checked-in sample corpus and uploads
 - `drift-report.json`
 - `report.md`
 
-The `build` job in `.github/workflows/ci.yml` also runs the offline analytics unit tests for fast PR feedback.
+The dedicated workflow owns these tests; `.github/workflows/ci.yml` does not run them.
 
 ## Android instrumentation
 
@@ -558,14 +558,13 @@ Android instrumentation is split into two practical layers:
 Common commands:
 
 ```bash
-./gradlew :app:assembleDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
-./gradlew :app:connectedDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew :app:assembleGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
+./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
 CI runs `:app` integration tests and the macrobenchmark suite on **Gradle Managed Devices**
-(the `android-instrumented-tests` and `android-macrobenchmark` jobs) — Pixel 6 / API 34,
-`aosp-atd` + `google_apis`. To reproduce on a managed emulator instead of a connected device,
-run `just test-instrumented` (or `./gradlew :app:pixel6Api34AtdGithubFullDebugAndroidTest`). The
+through the current API 27 / 33 / 35 device matrix. To reproduce on a managed emulator instead of a connected device,
+run `just test-instrumented` (or inspect `RipDpiManagedDevices.kt` for the current variant-specific task). The
 shared device registry lives in `build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt`.
 
 Useful runner filters:
@@ -577,7 +576,7 @@ Useful runner filters:
 For local debug builds you can narrow native compilation to one ABI:
 
 ```bash
-./gradlew :app:connectedDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
 For physical devices, expose the host fixture over `adb reverse` and point the fixture manifest at loopback before running the E2E package:
@@ -591,7 +590,7 @@ adb reverse tcp:46001 tcp:46001
 adb reverse tcp:46003 tcp:46003
 adb reverse tcp:46053 tcp:46053
 adb reverse tcp:46054 tcp:46054
-./gradlew :app:connectedDebugAndroidTest \
+./gradlew :app:connectedGithubFullDebugAndroidTest \
   -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e
 ```
@@ -867,13 +866,14 @@ The live `nfqueue` mode is documented with the emulator harness. Phase-16 now di
 
 ## CI overview
 
-PR CI runs:
+PR CI includes:
 
-- `build` -- Kotlin unit tests via `./gradlew testDebugUnitTest`
-- `static-analysis` -- detekt + ktlint + Android lint + Rust fmt/clippy
+- `build-android-debug` / `build-android-tests` -- Android compilation and unit-test artifacts
+- `gradle-static-analysis` -- detekt + ktlint + Android lint
+- `rust-lint` -- Rust fmt/clippy and policy scanners
 - `rust-network-e2e` -- host-side proxy E2E against local fixture
-- `android-network-e2e` -- instrumentation E2E on emulator
-- `android-instrumented-tests` -- `:app` integration tests on Gradle Managed Devices (Pixel 6 / API 34, `aosp-atd` + `google_apis`), one runner per device
+- `android-network-e2e` -- opt-in instrumentation E2E when its dispatch/label condition is satisfied
+- managed-device instrumentation -- flavor-qualified `:app` suites across the API 27 / 33 / 35 registry
 - `coverage` -- JaCoCo + Rust LLVM coverage
 - `rust-turmoil` -- deterministic fault-injection network tests
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)

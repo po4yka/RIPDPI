@@ -49,10 +49,10 @@ Three layers of rules, evaluated together at build time:
 Enable with `-Pripdpi.r8Diagnostics=true` to generate analysis files:
 
 ```bash
-./gradlew assembleRelease -Pripdpi.r8Diagnostics=true
+./gradlew assembleGithubFullRelease -Pripdpi.r8Diagnostics=true
 ```
 
-Output in `app/build/outputs/mapping/release/`:
+Output in `app/build/outputs/mapping/githubFullRelease/` for that task:
 - `usage.txt` -- Classes/methods removed by R8
 - `seeds.txt` -- Classes/methods kept by keep rules
 - `configuration.txt` -- Merged R8 configuration
@@ -75,21 +75,21 @@ When adding a new JNI binding class, add a keep rule to the module's `consumer-r
 
 | Property | Location | Current |
 |----------|----------|---------|
-| `versionCode` | `app/build.gradle.kts` | 3 |
-| `versionName` | `app/build.gradle.kts` | "0.0.3" |
+| `versionCode` | `app/build.gradle.kts` | read `ripdpiVersionCode` live (11 at this review) |
+| `versionName` | `app/build.gradle.kts` | read `ripdpiVersionName` live (`0.1.3` at this review) |
 
 **Artifact naming pattern** (from `ripdpi.android.application.gradle.kts`):
 
 ```
-RIPDPI-{versionName}-{versionCode}-{buildType}.aab
-RIPDPI-{versionName}-{versionCode}-{buildType}.apk
+RIPDPI-{versionName}-{versionCode}-{buildType}-universal.aab
+RIPDPI-{versionName}-{versionCode}-{buildType}-universal.apk
 ```
 
 Version bumping checklist:
 1. Update `versionCode` (must increment for every Play Store upload)
 2. Update `versionName` (semantic versioning)
-3. Create a git tag: `git tag v{versionName}`
-4. Push tag to trigger release: `git push origin v{versionName}`
+3. After explicit user approval, create a git tag: `git tag v{versionName}`
+4. After explicit user approval, push the tag to trigger release: `git push origin v{versionName}`
 
 ## Release Artifacts
 
@@ -97,13 +97,14 @@ The release workflow uploads (90-day retention):
 
 | Artifact | Path |
 |----------|------|
-| Release AAB | `app/build/outputs/bundle/release/*.aab` |
-| Release APK | `app/build/outputs/apk/release/*.apk` |
-| R8 Mapping | `app/build/outputs/mapping/release/mapping.txt` |
+| Play AAB | `app/build/outputs/bundle/playFullRelease/*.aab` |
+| F-Droid APK | `app/build/outputs/apk/fdroidFull/release/*.apk` |
+| GitHub APK | `app/build/outputs/apk/githubFull/release/*.apk` |
+| R8 Mapping | `app/build/outputs/mapping/*Release/mapping.txt` |
 | Compose Mapping | Compose stability report |
-| Native Symbols | `app/build/intermediates/native_symbol_tables/release/` |
+| Native Symbols | packaged `release-native-symbols/manifest.json` and `release-native-symbols.zip` |
 
-A GitHub Release is created automatically via `softprops/action-gh-release@v2` with auto-generated notes.
+A GitHub Release uses the exact pinned `softprops/action-gh-release` SHA currently annotated as v3.0.1, and runs only for a tag or a manual dispatch with `create_release=true`.
 
 ## Release Verification in CI
 
@@ -121,7 +122,7 @@ The `release-verification` job in `ci.yml` builds a minified release APK on **ev
 | Same `versionCode` as previous release | Play Store rejects. Always increment `versionCode`. |
 | Skipping R8 diagnostics check | Run with `-Pripdpi.r8Diagnostics=true` before release to verify keep rules. |
 | Adding keep rules to `app/proguard-rules.pro` | Use module-level `consumer-rules.pro` so rules travel with the module. |
-| Forgetting native symbol upload | Crash reports will lack native stack traces. Verify `native_symbol_tables` artifact uploads. |
+| Forgetting native symbol upload | Crash reports will lack native stack traces. Verify the packaged `release-native-symbols.zip` and manifest upload. |
 
 ## See Also
 

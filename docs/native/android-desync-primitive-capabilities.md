@@ -4,6 +4,18 @@
 
 **Audit date:** 2026-05-29. All file:line citations are relative to `native/rust/` unless otherwise noted.
 
+> **Current-state correction (2026-07-26).** The detailed audit below is a
+> historical snapshot and several runtime conclusions have since changed.
+> Android settings enable `md5sig` only when root mode is enabled
+> (`NativeProxyDesyncPreferencesMapper`); unsupported/permission errors now
+> degrade gracefully and preserve the real payload instead of failing the
+> connection. Raw-packet operations dispatch to a registered root helper first,
+> then use the local platform path where permitted. Startup capability discovery
+> uses `probe_ip_fragmentation_capabilities`, so the helper is not the only
+> capability signal. Use the current mapper, `PrivilegedActionExecutor`, and
+> runtime-platform capability probe as the source of truth rather than the
+> obsolete unconditional-attempt and “only escape hatch” statements below.
+
 ---
 
 ## Summary Table

@@ -41,10 +41,10 @@ If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back t
 ## Safety Checklist
 
 ### Panic Safety
-- Every `pub extern "system" fn Java_*` must be wrapped in `catch_unwind`
+- Every `pub extern "system" fn Java_*` must use a supported FFI boundary: `android_support::ffi_boundary`, explicit `catch_unwind`, or `EnvUnowned::with_env` plus `into_outcome`.
 - Panics across FFI corrupt the JVM -- verify no code path can panic without catching
 - Check for `unwrap()`, `expect()`, `panic!()`, `todo!()`, array indexing inside JNI functions
-- Verify `catch_unwind` result is translated to a Java exception via `env.throw_new()`
+- For throwing JNI contracts, verify failures become Java exceptions. Sentinel-return contracts must preserve their documented sentinel instead of throwing unconditionally.
 
 ### Thread Attachment
 - `JavaVM::attach_current_thread()` used for callbacks from Rust worker threads

@@ -12,7 +12,7 @@ paths:
 ### What this is NOT
 
 - **Not a Roborazzi replacement.** Roborazzi (`ripdpi.android.roborazzi`) continues to own regression-locked golden screenshots under `app/src/test/screenshots/`. Those goldens are governed by `golden-bless-discipline.md` and are intentionally hard to change.
-- **Not a daemon.** Upstream ships a CLI + a Gradle plugin + a VS Code extension — **no HTTP daemon, no localhost endpoint**. Agents drive it through Gradle tasks. (The original integration plan called for a daemon; it does not exist in the upstream project as of `0.10.18`.)
+- **Not a daemon.** Upstream ships a CLI + a Gradle plugin + a VS Code extension — **no HTTP daemon, no localhost endpoint**. Agents drive it through Gradle tasks. (The original integration plan called for a daemon; it does not exist in the pinned `0.16.59` integration.)
 - **Not goldens.** Output PNGs are throwaway artifacts. They live under a gitignored path and must never be committed, copied into `app/src/test/screenshots/`, or used as bless inputs.
 
 ### Architecture — what the plugin does vs what the CLI does
@@ -39,7 +39,7 @@ The script wraps the upstream CLI (`compose-preview render` / `compose-preview l
 
 ### Where the PNGs land
 
-Fixed by the plugin (no override exposed at 0.10.18):
+Fixed by the pinned plugin (`0.16.59`; verify upstream before assuming a new override):
 
 | Path | Contents |
 |------|----------|
@@ -50,17 +50,22 @@ Fixed by the plugin (no override exposed at 0.10.18):
 
 All matched by the `**/build/compose-previews/` entry in `.gitignore`. None of those paths overlap the regex enforced by `golden-bless-discipline.md` (`tests/golden/|src/test/resources/golden/`).
 
-### Defaults the plugin ships with
+### Required RIPDPI configuration
+
+The convention plugin does not currently set this block. Treat it as the
+required configuration when the variant override is wired, not as active
+state today:
 
 ```kotlin
 composePreview {
-    variant.set("debug")     // Android build variant
+    variant.set("githubFullDebug") // RIPDPI app variant
     sdkVersion.set(35)       // Robolectric SDK version — matches ripdpi.targetSdk=35
     enabled.set(true)
 }
 ```
 
-Defaults match RIPDPI's `debug` variant and `targetSdk=35`. The convention plugin (`ripdpi.android.compose.gradle.kts`) leaves the extension at its defaults — override locally if you need to spot-check a different SDK level.
+Use RIPDPI's `githubFullDebug` app variant and current target SDK. Derive both
+from the Gradle model when the plugin or Android configuration changes.
 
 ### Forbidden actions (hard rules for agents)
 
@@ -77,10 +82,10 @@ Defaults match RIPDPI's `debug` variant and `targetSdk=35`. The convention plugi
 
 | Requirement | Upstream needs | RIPDPI has |
 |---|---|---|
-| Gradle | 9.4.1+ | 9.x (workspace) |
+| Gradle | 9.4.1+ | 9.6.1 |
 | Java | 17+ | JVM 17 target |
-| AGP | 9.1+ | 9.2.1 |
-| Kotlin | 2.2.21+ | 2.3.21 |
+| AGP | 9.1+ | 9.3.1 |
+| Kotlin | 2.2.21+ | 2.4.10 |
 | Robolectric | 4.16.x | 4.16.1 (already pinned) |
 
 A Robolectric major-version drift in either direction must be re-verified — `compose-preview` and Roborazzi share the Robolectric classpath.

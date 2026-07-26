@@ -12,7 +12,8 @@ ShadowTLS servers.
 
 ## Dependency direction
 
-**Upstream:** none internal (`tokio`, `rustls`). **Downstream:**
+**Upstream:** `ripdpi-native-protect` plus `tokio`, `rustls`, `ring`, and
+`webpki-roots`. **Downstream:** `ripdpi-relay-tls-transports` and
 `ripdpi-relay-core`.
 
 ## Non-root fallback
@@ -26,7 +27,8 @@ The `test-server` feature compiles `ShadowTlsLoopback` (`src/loopback.rs`): an
 in-process loopback server that completes the v3 handshake with this crate's
 client and HMAC-echoes application data, for soak and round-trip tests. It is a
 **dev/test fixture, NOT a production ShadowTLS server implementation** — it emits
-a self-signed cover ServerHello and does not proxy to a real cover host. Never
+a self-signed rustls config only to produce a TLS 1.3 ServerHello; no
+Certificate flight is sent or processed, and it does not proxy to a real cover host. Never
 enable `test-server` in a release build. The back-to-back-handshake soak case is
 `#[ignore]` by default; run it with
 `cargo nextest run -p ripdpi-shadowtls --run-ignored all`.

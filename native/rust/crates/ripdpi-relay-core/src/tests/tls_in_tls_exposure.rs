@@ -11,8 +11,9 @@ use super::*;
 ///
 /// The audit, the `mux-on / mux-supported-off / mux-incapable` classification, and
 /// the scope limits of the source study (Xue et al., USENIX Security 2024 — a US
-/// academic-ISP feasibility measurement, not a TSPU/GFW finding) live in
-/// `docs/tasks/issues/audit-relay-mux-default-nested-handshake-conformance.md`.
+/// academic-ISP feasibility measurement, not evidence about any particular
+/// deployed middlebox) are retained in git history under the completed task
+/// `audit-relay-mux-default-nested-handshake-conformance`.
 ///
 /// `tls_over_tcp` (the one axis classified here) = the outer transport places TLS
 /// records on a TCP stream, the substrate for the TLS-in-TLS-over-TCP fingerprint.

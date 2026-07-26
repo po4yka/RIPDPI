@@ -2,7 +2,7 @@
 <!--
   RIPDPI journey: toggle the primary mode. Mirrors
   maestro/04-start-stop-configured-mode.yaml. Schema (root <journey> +
-  <description> + ordered <step>) follows the Android Studio "New > Journey Test"
+  <description> + <actions>/<action>) follows the Android Studio "New > Journey Test"
   template; confirm against the installed Android CLI 1.0 template before this
   lane gates merges. See journeys/README.md.
 -->
@@ -12,12 +12,14 @@
     mode from the Home screen, verifying the UI stays consistent. Does not
     assert a live tunnel (a real VPN start raises the system consent dialog).
   </description>
-  <step>Launch the RIPDPI app from a cold start (force-stop it first if running).</step>
-  <step>Confirm the Home screen is displayed.</step>
-  <step>Expand the "Modes &amp; diagnostics" section.</step>
-  <step>Confirm the primary "Local DPI bypass" mode is visible on the Home screen.</step>
-  <step>Tap the primary "Local DPI bypass" mode to start it.</step>
-  <step>Confirm the primary "Local DPI bypass" mode is still visible and the Home screen reflects the change.</step>
-  <step>Tap the primary "Local DPI bypass" mode again to stop it.</step>
-  <step>Confirm the Home screen still shows the primary "Local DPI bypass" mode.</step>
+  <actions>
+    <action>Launch the RIPDPI app from a cold start (force-stop it first if running).</action>
+    <action>Confirm the Home screen is displayed.</action>
+    <action>Expand the "Modes &amp; diagnostics" section.</action>
+    <action>Confirm the primary "Local DPI bypass" mode is visible on the Home screen.</action>
+    <action>Tap the primary "Local DPI bypass" mode to start it.</action>
+    <action>Confirm the primary "Local DPI bypass" mode is still visible and the Home screen reflects the change.</action>
+    <action>Tap the primary "Local DPI bypass" mode again to stop it.</action>
+    <action>Confirm the Home screen still shows the primary "Local DPI bypass" mode.</action>
+  </actions>
 </journey>

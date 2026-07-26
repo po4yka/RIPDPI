@@ -11,7 +11,7 @@ middlebox/DPI blocks Telegram by detecting MTProto signatures on direct TCP to k
 IPs. The WS tunnel wraps MTProto inside WSS to `kws*.web.telegram.org`, so DPI sees
 standard TLS + HTTP Upgrade rather than raw MTProto.
 
-`WsTunnelMode` (in `ripdpi-config/src/model.rs`, `AdaptiveConfig::ws_tunnel_mode`):
+`WsTunnelMode` lives in `ripdpi-config/src/model/group.rs`; the adaptive runtime setting lives in `model/runtime.rs`:
 - `Off` -- disabled (default)
 - `Always` -- every Telegram connection uses WS tunnel immediately
 - `Fallback` -- try desync first; escalate to WS tunnel only on failure
@@ -148,7 +148,7 @@ TLS+WS handshake to DC2 without sending MTProto data. Reports `wsTunnelStatus`,
 DC 1x, WS 1x). Wrapped in `catch_unwind` for panic recovery.
 
 Telemetry: `on_ws_tunnel_escalation(target, dc, success)` fires on fallback
-escalation (`ripdpi-android/src/telemetry.rs`).
+escalation (`ripdpi-android-telemetry-adapter/src/{observer,adaptive}.rs`); runtime emission lives in `ripdpi-proxy-runtime/src/runtime/state/ws.rs`.
 
 ## 10. Updating Telegram DC Ranges
 

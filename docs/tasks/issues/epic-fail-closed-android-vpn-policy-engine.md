@@ -2,7 +2,7 @@
 title: Epic - Fail-closed Android VPN policy engine
 type: epic
 status: doing
-area: vpn
+area: epic
 priority: critical
 owner: unassigned
 parent: null

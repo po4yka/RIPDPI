@@ -13,7 +13,7 @@ exposed as typed settings (`relay_tuic_congestion_control`, `relay_tuic_zero_rtt
 
 ## Dependency direction
 
-**Upstream:** none internal (`quinn`, `tokio`, `rustls`). **Downstream:**
+**Upstream:** `ripdpi-native-protect` plus `quinn`, `tokio`, and `rustls`. **Downstream:**
 `ripdpi-relay-core`.
 
 ## Non-root fallback

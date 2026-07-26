@@ -7,14 +7,15 @@
 
 `RipDpiRelayNativeBindings` (in `core/engine/.../core/RipDpiRelay.kt`). It runs
 the encrypted relay transports behind `jniCreate` / `jniStart` / `jniStop` /
-`jniPollTelemetry` / `jniDestroy`. The relay runtime ships as its **own** `.so`,
+`jniPollTelemetry` / `jniDestroy`, plus
+`jniRegisterReadinessListener` / `jniUnregisterReadinessListener`. The relay runtime ships as its **own** `.so`,
 separate from `libripdpi.so`.
 
 ## Rust crates it calls
 
 `ripdpi-relay-core` (shared relay backend and capability surface) and
 `ripdpi-apps-script-core` (the Google Apps Script relay path), plus
-`android-support` and `ripdpi-native-protect` for the JNI-backed `VpnService.protect` callback. `ripdpi-relay-core` in turn pulls the relay transport stack through `ripdpi-relay-tls-transports` and related crates, including VLESS/xHTTP, TUIC, Hysteria2, MASQUE, ShadowTLS, Shadowsocks, Trojan, AnyTLS, Tor, and relay chaining.
+`android-support`, `ripdpi-quality`, and `ripdpi-native-protect` for quality projection and the JNI-backed `VpnService.protect` callback. `ripdpi-relay-core` in turn pulls the relay transport stack through `ripdpi-relay-tls-transports` and related crates, including VLESS/xHTTP, TUIC, Hysteria2, MASQUE, ShadowTLS, Shadowsocks, Trojan, AnyTLS, Tor, Mieru, SSH, and relay chaining.
 
 ## JNI handle / error / panic / lifecycle expectations
 

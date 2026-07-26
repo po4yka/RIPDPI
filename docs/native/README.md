@@ -50,7 +50,7 @@ The same bridge also carries the runtime context used by the service layer:
 
 ## Relay Transport Expansion
 
-The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust `ripdpi-relay-core` transport registry. The native registry currently wires in-process backends for Hysteria2, TUIC v5, VLESS Reality TCP/xHTTP, Cloudflare Tunnel consume mode, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, and Tor; NaiveProxy is intentionally a subprocess fallback. WebTunnel is an in-repository Rust PT helper binary managed by Kotlin service code, while Snowflake and obfs4 are external PT binaries; none of those PT helpers are relay-core backends. Google Apps Script is an in-repository Rust Apps Script relay runtime selected by service orchestration, not a relay-core descriptor row. WARP and AmneziaWG are separate VPN/tunnel profile surfaces rather than `relay_kind` values.
+The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust `ripdpi-relay-core` transport registry. The native registry currently wires in-process backends for Hysteria2, TUIC v5, VLESS Reality TCP/xHTTP, Cloudflare Tunnel consume mode, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, Mieru, and SSH; NaiveProxy is intentionally a subprocess fallback. WebTunnel is an in-repository Rust PT helper binary managed by Kotlin service code, while Snowflake and obfs4 are external PT binaries; none of those PT helpers are relay-core backends. Google Apps Script is an in-repository Rust Apps Script relay runtime selected by service orchestration, not a relay-core descriptor row. WARP and AmneziaWG are separate VPN/tunnel profile surfaces rather than `relay_kind` values.
 
 - `native/rust/crates/ripdpi-relay-core` is the shared relay backend and pooling layer used by Android service orchestration.
 - `native/rust/crates/ripdpi-relay-mux` provides reusable relay-session pooling and stream-lease logic for reusable transports.
@@ -230,7 +230,7 @@ See [proxy-engine.md](proxy-engine.md) for the proxy-specific details and [../pa
 - `build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts` cross-compiles the `native/rust` workspace with Cargo plus the Android NDK linker toolchain.
 - `native/rust/.cargo/config.toml` holds the 16 KiB page-size linker flags per Android target.
 - The Android build targets these ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`.
-- Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.
+- Local non-release builds default to `ripdpi.localNativeAbisDefault=host`, which derives the ABI from the build host.
 - `ripdpi.localNativeAbis=x86_64` is the fast path for emulator-oriented local builds.
 - `ripdpi.localNativeAbis` can still override the ABI set explicitly for local debug builds.
 

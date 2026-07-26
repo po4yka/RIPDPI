@@ -102,7 +102,7 @@ A bare `.unwrap()` with no proof fails `pr-reviewer` in CI.
 
 **Rule**: a library crate `src/lib.rs` that imports `anyhow::Result` in its public API is a smell. The `rust-api-auditor` agent flags this.
 
-Current state (2026-04-17): 2 crates use `anyhow` (`ripdpi-warp-core`, `ripdpi-dns-resolver`); 6 use `thiserror` (`ripdpi-hysteria2`, `ripdpi-ipfrag`, `ripdpi-tls-profiles`, `ripdpi-tun-driver`, `ripdpi-tunnel-config`, `ripdpi-xhttp`). Most crates lack either — they propagate via `Result<_, String>` or bare unwraps, which is the drift this skill exists to reverse.
+Derive current `anyhow` and `thiserror` use from workspace manifests; do not preserve a dated crate-count snapshot here. Crates without a typed error dependency still need the same boundary review for `Result<_, String>` and bare unwraps.
 
 ## Converting Rust panics to Java exceptions
 

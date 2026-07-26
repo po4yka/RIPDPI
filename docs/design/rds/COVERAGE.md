@@ -1,6 +1,6 @@
 # RDS Design System Coverage Audit
 
-**Last Verified:** 2026-05-28
+**Last Verified:** 2026-07-26
 **Spec Inventory:** 146 HTML preview files  
 **Audit Scope:** Kotlin implementation alignment with RDS specs
 
@@ -10,18 +10,18 @@
 
 | Category | Count | Have | Partial | Missing | Status |
 |----------|-------|------|---------|---------|--------|
-| **Components** | 47 | 47 | 0 | 0 | ✅ Complete |
+| **Components** | 47 | 46 | 1 | 0 | ⚠️ Partial |
 | **VPN flow screens** | 35 | 35 | 0 | 0 | ✅ Complete |
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
-| **Diagnostic screens** | 6 | 6 | 0 | 0 | ✅ Complete |
+| **Diagnostic screens** | 6 | 5 | 0 | 1 | ⚠️ Missing |
 | **Share flow** | 5 | 5 | 0 | 0 | ✅ Complete |
 | **Gesture interactions** | 3 | 3 | 0 | 0 | ✅ Complete |
 | **Onboarding** | 2 | 2 | 0 | 0 | ✅ Complete |
 | **One-offs** | 6 | 6 | 0 | 0 | ✅ Complete |
 | **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 129/129 implementable specs have verified Kotlin implementations (100%). **No missing or partial rows in any category.**
+**Overall Coverage:** 127 of 129 implementable specs have verified Kotlin implementations; one is partial and one is missing.
 
 Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47 components + 16 Android + 9 motion + 6 diagnostic + 5 share + 3 gesture + 2 onboarding + 6 one-offs = **129 implementable**; 8 color + 5 type + 2 brand + 2 a11y = **17 reference**; total = **146** ✓. (The pre-existing audit had loose totals — 122 implementable / 24 reference — that did not add up to the 146 inventory; this audit corrects them.)
 
@@ -70,7 +70,7 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - **Spinner** (`components-spinner.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiSpinner.kt`; golden `RdsComponentsScreenshotTest.spinner`
 - **Segmented Controls** (`components-segmented.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiSegmentedButton.kt`; golden `RdsComponentsScreenshotTest.segmentedButton`
 - **Tooltip** (`components-tooltip.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltip.kt` + rich variant `RipDpiTooltipRich.kt`; goldens `RdsComponentsScreenshotTest.tooltip` and `.tooltipRich`
-- **Command Palette** (`components-command-palette.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCommandPalette.kt` (Esc/Enter keyboard wired); golden `RdsComponentsScreenshotTest.commandPalettePlaceholder`
+- **Command Palette** (`components-command-palette.html`) — partial placeholder coverage only in `RdsComponentsScreenshotTest.commandPalettePlaceholder`; no production `RipDpiCommandPalette` exists yet
 - **Combobox** (`components-combobox.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCombobox.kt`; golden `RdsComponentsScreenshotTest.combobox`
 - **Page Indicators** (`components-page-indicators.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiPageIndicators.kt`; golden `RdsComponentsScreenshotTest.pageIndicators`
 - **Progress Bar** (`components-progress-bar.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiProgressBar.kt`; golden `RdsComponentsScreenshotTest.progressBar`
@@ -210,7 +210,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 ### ✅ Full Implementation Continued
 
 - **Port Matrix** (`diagnostic-port-matrix.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PortMatrixScreen.kt`; 12-port-column grid keyed to RipDpiPortVerdict tier (Ok/Warn/Bad/Skipped) with legend chips + horizontal scroll
-- **Middlebox Signature** (`diagnostic-censorship-signature.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/CensorshipSignatureScreen.kt`; severity-coded row list with mono evidence blocks + worst-tier header pill (CLEAR/OBSERVED/ANOMALOUS/BLOCKING)
+- **Middlebox Signature** (`diagnostic-censorship-signature.html`) — missing; no production `CensorshipSignatureScreen` exists yet
 
 ---
 
@@ -280,20 +280,21 @@ These are design tokens, brand guidelines, and accessibility references — no d
 ## Key Findings
 
 ### Strengths
-- All implementable categories report zero ❌ missing rows
-- All 47 atomic components have full implementations with token discipline enforced by `RipDpiMotionTest` lint sentinels
+- 127 implementable specs have verified production implementations
+- 46 of 47 atomic components have full implementations; Command Palette remains a placeholder
 - Glance widget theme parity enforced by `GlanceWidgetThemeParityTest`
 - All 9 motion specs ship as `RipDpiMotion` helpers consumed by their respective indicators
 - All 16 Android platform surfaces ship (splash, qs-tile, nav-rail, glance-widget, notifications, etc.)
 - Reduced-motion path wired via `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion`
 
-### Remaining polish (none blocking)
+### Remaining gaps
 - All share-flow specs now closed; link-preview was a pure presentation card, not a remote-fetch feature
 - All VPN-flow partials closed; all 35 VPN screens have verified Kotlin implementations
+- Implement Command Palette and Middlebox Signature before claiming 100% coverage
 
 ---
 
-**Audit Date:** 2026-05-28 | **Coverage:** 129/129 specs implemented (100%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+**Audit Date:** 2026-07-26 | **Coverage:** 127 complete, 1 partial, 1 missing | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
 
 ---
 

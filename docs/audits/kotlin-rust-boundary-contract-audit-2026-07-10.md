@@ -1,5 +1,9 @@
 # Kotlin-Rust boundary contract audit — 2026-07-10
 
+> **Status refresh (2026-07-26):** the authoritative post-remediation versions
+> are relay 10, diagnostics engine 5, and telemetry 3. The findings and migration
+> statement below were refreshed to match the current contract tests.
+
 ## Audited scope
 
 This audit covered Kotlin external declarations and Rust JNI exports for proxy, tunnel, relay, WARP, AmneziaWG, diagnostics, strategy, capability, ECH, fetch, and shared-prior surfaces; proxy/tunnel/relay native-config JSON; remembered proxy-policy persistence and replay; `AppSettings` protobuf/DataStore behavior; service config consumers; diagnostics request/report/progress JSON; runtime telemetry payloads and event domains; relay backend schema projection; and committed field manifests, golden fixtures, and cross-language release gates. Eight explicit read-only specialist lanes audited JNI exports, native config JSON, protobuf/DataStore, relay schema, diagnostics wire schema, telemetry contracts, remembered-policy replay, and golden-test coverage before coordinator consolidation.
@@ -28,7 +32,7 @@ This audit covered Kotlin external declarations and Rust JNI exports for proxy, 
 
 ## Migration and backward-compatibility statement
 
-This change intentionally ends legacy compatibility at the audited native boundary. Proxy schema 1, tunnel schema 1, relay schemas 6–9, diagnostics engine schema 2, telemetry schema 1, and payloads missing those schema envelopes are unsupported. Kotlin and Rust require proxy 2, tunnel 2, relay 10, diagnostics engine 3, and telemetry 2. Old remembered proxy JSON is not migrated: it is rejected, failure-counted, suppression-aware, and replaced with baseline for startup. Historical AppSettings xHTTP wire tags are not semantically reinterpreted; protobuf reservations and standard unknown-field preservation remain. Stable keys, JNI identifiers, telemetry domains/kinds, protobuf field names/numbers, and executable strategy identifiers were not renamed. Additive unknown fields remain tolerated within the current schema, and current optional omissions retain inert defaults except for required relay TLS fingerprint identity fields.
+This change intentionally ends legacy compatibility at the audited native boundary. Proxy schema 1, tunnel schema 1, relay schemas 6–9, diagnostics engine schemas below 5, telemetry schemas below 3, and payloads missing those schema envelopes are unsupported. Kotlin and Rust require proxy 2, tunnel 2, relay 10, diagnostics engine 5, and telemetry 3. Old remembered proxy JSON is not migrated: it is rejected, failure-counted, suppression-aware, and replaced with baseline for startup. Historical AppSettings xHTTP wire tags are not semantically reinterpreted; protobuf reservations and standard unknown-field preservation remain. Stable keys, JNI identifiers, telemetry domains/kinds, protobuf field names/numbers, and executable strategy identifiers were not renamed. Additive unknown fields remain tolerated within the current schema, and current optional omissions retain inert defaults except for required relay TLS fingerprint identity fields.
 
 Existing settings-generated runtime configs are regenerated with current versions. The intentional user-visible breaks are limited to retired remembered payloads/native binaries and historical xHTTP bytes from the ambiguous tag window; those users receive baseline behavior or must reconfigure rather than receiving a guessed migration.
 

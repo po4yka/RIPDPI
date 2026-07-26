@@ -11,7 +11,7 @@
 #     CLI auto-inject skips its own classpath injection — so the two layers
 #     don't fight.
 #
-# Output (fixed by the plugin at 0.10.18):
+# Output (verified with the pinned plugin at 0.16.59):
 #   app/build/compose-previews/renders/   PNG of each preview
 #   app/build/compose-previews/diffs/     visual diffs vs baseline
 #   app/build/compose-previews/*.json     preview index / metadata

@@ -20,4 +20,7 @@ ShadowTLS v2 is intentionally unsupported. The v3-only decision and failure-clas
 
 ## Drift policy
 
-ShadowTLS upstream is small; wire-affecting changes are rare. Watched weekly via `.github/workflows/upstream-spec-watch.yml`.
+ShadowTLS upstream is small; wire-affecting changes are rare. The weekly
+workflow validates presence, formatting, and recorded pins; it does not fetch
+upstream or prove that this pin is current. A maintainer must perform the
+upstream comparison before updating `Last reviewed`.

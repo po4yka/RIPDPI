@@ -19,11 +19,10 @@ package com.poyka.ripdpi.data
  * Conservative by default: an *unattributed* signal — one with no package
  * identity — is never eligible to set or be matched by this memory, so the
  * direct-mode engine falls back to authority/IP-scoped policy and never pins a
- * per-app verdict it cannot attribute. Per-flow UID→package attribution is a
- * tracked follow-up (see `docs/tasks/issues/attribute-direct-mode-flows-to-app-package.md`);
- * until it lands this memory is exercised by tests and the app-identity-aware
- * learner branch, and stays inert on production telemetry that carries no
- * package.
+ * per-app verdict it cannot attribute. Per-flow UID→package attribution is wired
+ * through `FlowAttributionBridge` and `FlowAppAttributionStore` into the
+ * app-identity-aware learner. Signals whose owning package cannot be resolved
+ * therefore remain ineligible for this memory.
  *
  * Pure in-memory and not thread-safe by itself; callers hold it under their own
  * session scope (mirroring the reference type, which is also a plain in-memory

@@ -96,12 +96,15 @@ transitively: the frozen `(runner, phase, artifact_source)` table in
 its inventory.
 
 `execution_coordinator()` in `engine/runners/mod.rs` iterates the registry to
-build the connectivity portion of the runners vector, then appends the 4
+build the connectivity portion of the runners vector, then appends the 5
 strategy runners (`StrategyDnsBaselineRunner`, `StrategyTcpRunner`,
-`StrategyQuicRunner`, `StrategyRecommendationRunner`) — those are
-intentionally **not** registered, because they consume
-`StrategyCandidateSpec` inputs rather than the `Probe` trait and take a
-`CandidateRuntimeLauncher` constructor argument. `connectivity_stage_order()`
+`StrategyQuicRunner`, `StrategyRecommendationRunner`,
+`StrategyConnectionConcurrencyRunner`) — those are
+intentionally **not** registered because they are hand-composed strategy-stage
+runners rather than `Probe`-trait connectivity registrations. Only the TCP and
+QUIC runners consume `StrategyCandidateSpec` inputs and take a
+`CandidateRuntimeLauncher`; the DNS baseline, recommendation, and connection-
+concurrency runners are unit structs. `connectivity_stage_order()`
 in `engine/plan.rs` derives `stage_order` from the same registry: it filters
 for always-on entries first (today only `Environment`), then either iterates
 the user-supplied `probe_tasks` (deduplicated) or the registration order for
@@ -155,7 +158,7 @@ pub trait Probe {
 A probe is stateless: it captures its parameters at construction and the
 runner invokes `run()` once per tick with a `ProbeContext` (the *active*
 network scope / resolver / relay / strategy hints — so a probe validates the
-user's real path, not a hard-coded baseline). The 16 concrete probe structs
+user's real path, not a hard-coded baseline). The 17 concrete probe structs
 are plain modules re-exported from `src/probes.rs`; each owns a
 `pub const <NAME>_PROBE_ID: &str`. The ECH implementation also exports a
 driver (`HickoryRustlsEchHandshakeDriver`) alongside the probe structs. The
@@ -192,10 +195,11 @@ table. The descriptor-shaped types that exist, by layer:
 | Scheduled connectivity stage | `ProbeDescriptor` + `PROBE_DESCRIPTORS` (`ripdpi-diagnostics-probes`) | One static row per scheduled connectivity stage: probe id, family, scheduled `probe_type`, runner name, path-mode requirement, and label. Drift tests pin the table to `SCHEDULED_PROBE_INVENTORY`. |
 | Monitor-engine stage runner | `ProbeStageRegistration` (`ripdpi-monitor-engine`) | The runtime scheduler registry. It mirrors descriptor fields without importing the probes crate; parity tests and the probes crate drift tests pin the seam. |
 
-`PROBE_DESCRIPTORS` intentionally covers only the 9 scheduled connectivity
-stages. The 4 strategy runners remain out of scope because they consume
-`StrategyCandidateSpec` inputs rather than the `Probe` trait. For new
-connectivity probes, add the backing `Probe`, the scheduled-inventory row, and
+`PROBE_DESCRIPTORS` intentionally covers only the 10 scheduled connectivity
+stages. The 5 hand-composed strategy runners remain out of scope because they
+do not implement the `Probe`-trait connectivity registration contract; only
+the TCP and QUIC runners consume `StrategyCandidateSpec`. For new connectivity
+probes, add the backing `Probe`, the scheduled-inventory row, and
 the matching `ProbeDescriptor` row. For new strategy candidates, extend
 `StrategyCandidateSpec` instead. See [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md)
 §3, "The probe registration seam".
@@ -299,11 +303,11 @@ declaration is load-bearing for the Play Store Data Safety surface.
 | **Contract** (L2) | `ripdpi-diagnostics-contracts` — `ScanRequest`/`ScanReport`/progress wire types, `ScanPathMode`, `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` |
 | **Probe primitives** | `ripdpi-diagnostics-transport` — TCP-connect / TTL / WS-TLS |
 | **Per-protocol probes** | `ripdpi-diagnostics-{tls, http, dns, fat-header, telegram}` |
-| **Protocol-probe aggregation** | `ripdpi-diagnostics-protocols` (current), `ripdpi-diagnostics-net` (compat facade — no current consumer) |
+| **Protocol-probe aggregation** | `ripdpi-diagnostics-protocols` |
 | **Candidate planning** | `ripdpi-diagnostics-candidates` — `StrategyCandidateSpec` enumeration |
 | **Classification** | `ripdpi-diagnostics-classification` — probe observations → verdict |
 | **Probe-task execution** | `ripdpi-diagnostics-probes` — the `Probe` trait + concrete probe tasks |
-| **Support** | `ripdpi-diagnostics-parsers` (HTTP response + DNS packet parsers — no current consumer), `ripdpi-diagnostics-pcap` (PCAP recording) |
+| **Support** | `ripdpi-diagnostics-parsers` (HTTP response + DNS packet parsers; currently fuzz/test consumption only), `ripdpi-diagnostics-pcap` (standalone PCAP utility, not yet wired into scans) |
 | **Scan runner** | `ripdpi-diagnostics-runner` — connectivity / strategy / domain scans, budget, winner selection |
 | **Monitor engine** | `ripdpi-monitor-engine` — the active-scan engine (sessions, the `ExecutionStageRunner` loop) |
 | **Monitor adapters** | `ripdpi-monitor-adapter` (↔ contracts), `ripdpi-monitor-lane-adapter` (`LANE_ADAPTERS` probe wiring), `ripdpi-monitor-proxy-runtime` (↔ passive proxy-runtime telemetry) |

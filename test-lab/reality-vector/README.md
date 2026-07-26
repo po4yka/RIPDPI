@@ -7,12 +7,17 @@ This is a Go program that reproduces xray-core's `transport/internet/reality/rea
 ## Run
 
 ```sh
-cd test-lab/reality-vector
-go mod init reality-vector            # first run only
-go get golang.org/x/crypto/curve25519
-go get golang.org/x/crypto/hkdf
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+cp test-lab/reality-vector/main.go "$tmp/"
+cd "$tmp"
+go mod init ripdpi-reality-vector
+go get golang.org/x/crypto@v0.52.0
 go run main.go
 ```
+
+The temporary module pins `x/crypto` to the same reviewed version used by the
+local QUIC fixture and leaves the repository tree unchanged.
 
 Expected output (also the frozen bytes in the Rust test):
 

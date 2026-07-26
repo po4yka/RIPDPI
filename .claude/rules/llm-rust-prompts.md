@@ -10,7 +10,7 @@ LLM-generated Rust can pass build and test gates while still containing UB, dead
 
 ### Prompt construction (when delegating Rust to a subagent)
 
-1. **Pin versions in the prompt.** Quote from `Cargo.lock`, not from memory. "tokio 1.42.x, sqlx 0.7.x, axum 0.7.x" — never bare "tokio". Empirical: this cut `std::sync::Mutex`-across-`.await` errors from 46% to 19%.
+1. **Pin versions in the prompt.** Quote each relevant package and version from the current `Cargo.lock`, never from a stored example or memory.
 2. **Specify runtime flavor.** `multi_thread(N)` vs `current_thread`. The cancel-safety rules differ.
 3. **Require cancel-safety annotation on every async fn.** Phrase as: "For each async fn you produce, prefix with `// cancel-safe: <reason>` or `// NOT cancel-safe: <reason>`." This walks every function. "Write cancel-safe code" alone is ignored.
 4. **Require `// SAFETY:` blocks for every `unsafe` block.** List invariants per-pointer/per-fd, matching the format in the `rust-unsafe` skill.
@@ -37,7 +37,7 @@ No exceptions. The reviewer pass costs minutes; an unaudited bug from this list 
 ### CI infrastructure expectations
 
 - **Miri nightly** for every crate without `#![forbid(unsafe_code)]`. The 10× test slowdown is the price; empirical measurement shows 22/40 (~55%) of LLM-generated `unsafe` samples have UB. Run as a scheduled (nightly) job, not on every PR.
-- **`clippy::pedantic` + `clippy::nursery`** enabled for files where AI authorship ≥ 50%. Many LLM-class errors surface only at these lint levels. Adopt this **per-crate** (crate-root `#![warn(clippy::pedantic)]` opt-in), not as a workspace-wide group flip — see `docs/tasks/issues/lints-pedantic-nursery-M7.md` for the rationale and pattern (`ripdpi-tor` is the first demonstration crate).
+- **`clippy::pedantic` + selected nursery lints** for substantially AI-authored code. Adopt this **per-crate** (crate-root `#![warn(clippy::pedantic)]` opt-in), not as a workspace-wide group flip; `ripdpi-tor/src/lib.rs` is the maintained demonstration.
 - **`cargo deny --locked` on every PR** — already wired in RIPDPI; do not regress.
 - **`cargo audit` daily on `main`** to catch published advisories against pinned deps.
 

@@ -6,7 +6,7 @@
 
 ## Dependencies
 
-- **Upstream:** `ripdpi-dns-resolver`, `ripdpi-proxy-config`, `ripdpi-runtime-platform`, `ripdpi-tls-profiles`, `ripdpi-ws-tunnel`.
+- **Upstream:** `ripdpi-dns-resolver`, `ripdpi-runtime-dns-cache`, `ripdpi-proxy-config`, `ripdpi-runtime-platform`, `ripdpi-tls-profiles`, `ripdpi-ws-tunnel`.
 - **Downstream:** runtime and proxy adapter paths that need WS tunnel bootstrap.
 
 ## Boundaries

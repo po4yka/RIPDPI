@@ -11,14 +11,16 @@ Implements VLESS with Reality (`reality.rs` / `reality_hook.rs` /
 
 Selected by `relay_kind = "vless_reality"` (`relay_vless_transport` chooses
 `reality_tcp` vs `xhttp`). The VLESS wire format and the Reality handshake are
-fixed protocol contracts. The Reality path declares six BoringSSL symbols by
+fixed protocol contracts. The Reality path declares three BoringSSL symbols by
 hand — `boring` / `tokio-boring` are pinned to exact versions in the workspace
 `Cargo.toml`; do not let a transitive update move them.
 
 ## Dependency direction
 
-**Upstream:** `ripdpi-relay-mux`, `ripdpi-tls-profiles`. **Downstream:**
-`ripdpi-relay-core`, `ripdpi-xhttp`, `ripdpi-cloudflare-origin`.
+**Upstream:** `ripdpi-relay-mux`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`,
+`ripdpi-tls-profiles`, `ripdpi-native-protect`, and the shared protocol/config
+crates. **Downstream:** `ripdpi-relay-core`, `ripdpi-relay-tls-transports`,
+`ripdpi-xhttp`, `ripdpi-cloudflare-origin`.
 
 ## Non-root fallback
 

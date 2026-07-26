@@ -535,7 +535,7 @@ mod tests {
     /// file decodes cleanly and re-encodes byte-for-byte.
     ///
     /// Tracks the upstream-conformance side of
-    /// `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
+    /// completed task `add-vless-mux-conformance-tests-against-xray-core` (see git history).
     #[test]
     fn upstream_yamux_fixtures_round_trip() {
         let repo_root = golden_test_support::repo_root();

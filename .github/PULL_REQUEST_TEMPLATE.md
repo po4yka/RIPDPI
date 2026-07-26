@@ -1,6 +1,6 @@
 ## Task
 
-Link to task file: <!-- e.g. docs/tasks/active.md#task-title -->
+Link to task file: <!-- e.g. docs/tasks/issues/<slug>.md -->
 
 ## Summary
 

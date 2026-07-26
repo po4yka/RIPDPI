@@ -102,7 +102,7 @@ pub struct RuntimeAdaptiveSettings {
     /// certificate verification. The ws-tunnel runtime refuses a `fake_sni`
     /// value at connect time unless this is `true`. Defaults to `false` for
     /// safe-by-default behaviour. See
-    /// `docs/tasks/issues/gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md`.
+    /// completed task `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` (see git history).
     pub ws_tunnel_allow_insecure_sni: bool,
     pub strategy_evolution: bool,
     /// Exploration rate in thousandths (0-1000 maps to 0.0-1.0). Default: 100 (= 10%).

@@ -30,6 +30,10 @@ blocks: []            # task slugs this task blocks
 blocked_by: []        # task slugs blocking this task
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
+source_wiki_pages: []  # optional provenance for imported knowledge tasks
+linked_task: null      # optional external/local task link
+status_detail: null    # optional concise blocker/progress detail
+status_note: null      # optional board-visible lifecycle note
 ---
 ```
 
@@ -50,23 +54,25 @@ Epic files use `type: epic` and `area: epic`, and add `## Goal / ## Why now /
 1. **New task** — copy an existing `issues/*.md`, rename to the new kebab-case slug, fill
    the frontmatter and spec body. `status: backlog` (or `todo`).
 2. **Status transition** — update `status:` in the frontmatter and bump `updated:`.
+   A `blocked` issue must either name in-repo blocker slugs in `blocked_by` or
+   provide a non-empty `status_detail` for an external evidence/toolchain/hardware gate.
 3. **Done / dropped** — delete `issues/<slug>.md`. Git history is the audit trail:
    `git log -- docs/tasks/issues/<slug>.md`.
 
 ## Regenerate `board.md`
 
-`board.md` is derived from issue frontmatter. After changing statuses, regenerate it
-(any equivalent script is fine):
+`board.md` is derived deterministically from issue frontmatter. After changing
+an issue, regenerate all five displayed columns (`Priority`, `Area`, `Issue`,
+`Owner`, `Updated`):
 
 ```bash
-cd docs/tasks/issues
-for f in *.md; do
-  awk -F': ' '
-    /^status:/{s=$2} /^priority:/{p=$2} /^area:/{a=$2} /^title:/{sub(/^title: /,"");t=$0}
-    END{printf "%s\t%s\t%s\t%s\t%s\n", s, p, a, t, FILENAME}
-  ' "$f"
-done | sort
+python3 scripts/ci/generate_task_board.py
 ```
 
-Group the rows by status, sort by priority within each group, and write the result into
-`docs/tasks/board.md` (the source-of-truth remains the per-issue files).
+Verify without writing (suitable for local gates):
+
+```bash
+python3 scripts/ci/generate_task_board.py --check
+```
+
+The source of truth remains the per-issue files.

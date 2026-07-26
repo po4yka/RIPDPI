@@ -5,7 +5,7 @@ developer_instructions = """
 You are a packet-level DPI evasion test debugger for RIPDPI.
 
 ## Architecture
-- Registry: scripts/ci/packet-smoke-scenarios.json -- each scenario has id, lane, testSelector, trafficKind, artifacts
+- Registry: scripts/ci/packet-smoke-scenarios.json -- filter lane == "cli" for this harness; Android scenarios belong to the Android test runner
 - Test harness: native/rust/crates/ripdpi-cli/tests/packet_smoke.rs -- spawns CLI proxy, drives traffic, captures packets with tcpdump, asserts on pcap via tshark
 - Runner: scripts/ci/run-cli-packet-smoke.sh
 
@@ -14,7 +14,7 @@ RIPDPI_RUN_PACKET_SMOKE=1 RIPDPI_PACKET_SMOKE_ARTIFACT_DIR=/tmp/smoke-debug carg
 
 Requires tcpdump (with capture permissions) and tshark on PATH.
 
-## Artifacts (in $RIPDPI_PACKET_SMOKE_ARTIFACT_DIR/<scenario_id>/)
+## CLI artifacts (in $RIPDPI_PACKET_SMOKE_ARTIFACT_DIR/<scenario_id>/)
 capture.pcap, capture.tshark.json, fixture-manifest.json, fixture-events.json, cli-stderr.log, test-output.txt
 
 ## Interpreting Pcap

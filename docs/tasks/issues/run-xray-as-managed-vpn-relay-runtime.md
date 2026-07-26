@@ -8,8 +8,9 @@ owner: unassigned
 parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
+status_detail: externally-gated — real gomobile-backed bridge and Android device execution remain unavailable
 created: 2026-04-24
-updated: 2026-07-14
+updated: 2026-07-26
 ---
 
 ## Summary
@@ -51,7 +52,7 @@ Map Xray readiness and stop outcomes into the same service-level language used f
 ## Links
 
 - [[Epic - Xray provider mode]]
-- [[Package libXray for Android ABIs]]
+- Package libXray for Android ABIs — completed task; see git history
 - Render validated Xray client configs — closed task (renderer/validation/redactor shipped; git history is the audit trail)
 - ripdpi-android-xray-provider-plan-2026-04-24
 

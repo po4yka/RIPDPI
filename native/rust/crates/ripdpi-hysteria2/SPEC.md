@@ -17,7 +17,7 @@ Hysteria 2 client over Quinn, including Salamander obfuscation, port-hopping sch
 | Salamander obfuscation | `salamander.rs` | XOR keyed by server secret |
 | Port hopping | `port_hopping.rs` | Window-scheduled UDP rebind |
 | H3 transports | `quic_transport/h3.rs` | `connect`, `connect-udp` (RFC 9298) |
-| Auth | `auth.rs` | Bearer / preshared / privacy_pass |
+| Auth | `tls_quic.rs` | HTTP/3 `POST https://hysteria/auth`, opaque `Hysteria-Auth` value, success status 233 |
 
 ## Migration
 

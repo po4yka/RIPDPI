@@ -1,5 +1,11 @@
 # RIPDPI Native Rust Modernization — Consolidated Audit Report
 
+> **Snapshot note (2026-07-26):** the implementation outcome below is the
+> authoritative disposition. Later opportunity/count sections preserve the
+> pre-implementation audit snapshot rather than current debt. The current
+> workspace has 116 packages; toolchain references resolve through
+> `native/rust/rust-toolchain.toml`.
+
 **Target:** Rust 1.96.0, edition 2024 · **Scope:** 111 crates · **Auditors:** 14 · **Raw findings:** 161
 
 ## Implementation outcome (2026-06-03, branch `worktree-rust-modernization`)

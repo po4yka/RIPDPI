@@ -12,7 +12,7 @@ contract that must interoperate with external Hysteria2 servers.
 
 ## Dependency direction
 
-**Upstream:** none internal (`quinn`, `tokio`, `rustls`). **Downstream:**
+**Upstream:** `ripdpi-native-protect` plus `quinn`, `tokio`, and `rustls`. **Downstream:**
 `ripdpi-relay-core`, `ripdpi-masque`.
 
 ## Non-root fallback

@@ -1,6 +1,6 @@
 # Offset System Reference
 
-The offset system is defined in `native/rust/crates/ripdpi-config/src/model.rs`
+The offset system is defined under `native/rust/crates/ripdpi-config/src/model/offset.rs`
 (`OffsetBase`, `OffsetExpr`) and resolved in
 `native/rust/crates/ripdpi-desync/src/offset.rs` (`gen_offset()`,
 `resolve_offset()`, `resolve_adaptive_offset()`).

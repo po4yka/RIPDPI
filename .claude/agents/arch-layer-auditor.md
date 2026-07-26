@@ -15,17 +15,10 @@ You are an architecture layering auditor for RIPDPI, an Android VPN/proxy app wi
 
 ### Kotlin Module Hierarchy (outer depends on inner only)
 
-```
-L0 (leaf):    :core:data, :xray-protos
-L1 (engine):  :core:engine (depends on :core:data)
-L2 (service): :core:service (depends on :core:engine, :core:data, :core:diagnostics-data)
-L2 (diag-d):  :core:diagnostics-data
-L3 (diag):    :core:diagnostics (depends on :core:diagnostics-data, :core:data, :core:engine)
-L3 (detect):  :core:detection (depends on :core:data, :xray-protos)
-L4 (app):     :app (depends on all core modules)
-```
-
-KNOWN VIOLATION: `:core:diagnostics` depending on `:core:service` is a layer violation (L3 -> L2).
+Regenerate the current Kotlin graph with `./gradlew createModuleGraph` and
+inspect the split data modules, `:core:engine-api`, diagnostics modules, and
+`:core:pcap-export`. Do not reuse a hand-written module snapshot or assume a
+`:core:diagnostics -> :core:service` edge exists.
 
 ### Rust Crate Hierarchy (inner must not depend on outer)
 
@@ -118,7 +111,7 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
    `ripdpi-runtime-learning`. (`ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
    `ripdpi-runtime-services` are currently allowed — see KNOWN LIMITATIONS below.)
 
-   *Fan-out (target ≤ 9, current known state: ~14 — tracked tech debt):*
+   *Fan-out (measure from the current graph; do not preserve a snapshot count):*
 
    ```bash
    cargo tree --locked -p ripdpi-proxy-runtime --depth 1 --edges normal \
@@ -145,14 +138,13 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
 
 ## Known Issues to Track
 
-- `:core:diagnostics` -> `:core:service` layer violation (L3 -> L2)
 - Track whether new cross-layer edges appear between audits
 
 ## Known Limitations (Rust — tracked tech debt)
 
 - **port traits in wrong layer**: `PolicyPort` lives in `ripdpi-runtime-policy` and `AdaptivePort` lives in `ripdpi-runtime-adaptive` instead of `ripdpi-runtime-api`. Until migrated, `proxy-runtime` legitimately depends on those two crates for the trait definitions and associated data types (`ConnectionRoute`, `TransportProtocol`, `RouteAdvance`, etc.). This is NOT a violation — it is a known compromise.
 - **ServicesState construction in proxy-runtime**: `RuntimeState::new()` constructs `ServicesState` / `ServicesStateHandle` internally, requiring `ripdpi-runtime-services` as a direct dep of `proxy-runtime`. The fix is to move this construction into binary entry crates and inject via `EmbeddedProxyControl::runtime_services()`. Until done, this dep is allowed.
-- **fan-out target**: `proxy-runtime` fan-out is ~14 ripdpi-* direct deps. Target is ≤ 9, achievable only after completing port trait migration to `runtime-api`.
+- **fan-out target**: measure `proxy-runtime` direct dependencies with current `cargo metadata --locked` / `cargo tree --locked`; treat its adapter boundary as the review subject rather than a stored count.
 
 ## Response Protocol
 

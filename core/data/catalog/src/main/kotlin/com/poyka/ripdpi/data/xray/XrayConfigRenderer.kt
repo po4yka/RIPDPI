@@ -22,7 +22,7 @@ import kotlinx.serialization.json.put
  * Field insertion order is deterministic so rendered configs are
  * golden-test-stable.
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 class XrayConfigRenderer(
     /**

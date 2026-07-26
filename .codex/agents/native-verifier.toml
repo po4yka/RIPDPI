@@ -22,22 +22,22 @@ Derive actual coverage from each script: verify_native_elfs.py EXPECTED_LIBS, ve
 ## Verification Workflow
 
 ### 1. ELF Metadata (scripts/ci/verify_native_elfs.py)
-Checks ABI completeness, NEEDED dependencies (libc, libm, libdl, liblog only), and 16 KiB LOAD alignment.
-Run: python3 scripts/ci/verify_native_elfs.py --lib-dir app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib
+Checks ABI/library completeness, exact-set NEEDED oracles only where the script defines one, and 16 KiB LOAD alignment.
+Run against the current flavored path, normally: python3 scripts/ci/verify_native_elfs.py --lib-dir app/build/intermediates/merged_native_libs/githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib
 
 ### 2. Library Sizes (scripts/ci/verify_native_sizes.py)
 Compares .so sizes against scripts/ci/native-size-baseline.json.
-Thresholds: per-library max +128 KiB, total max +2% or +256 KiB.
+Read thresholds from scripts/ci/native-size-baseline.json.
 Run: python3 scripts/ci/verify_native_sizes.py
 
 ### 3. Bloat Hotspots (scripts/ci/verify_native_bloat.py)
 Runs cargo-bloat for the PACKAGES subset declared by the script (currently ripdpi-android and ripdpi-tunnel-android) against android-jni profile.
-Thresholds: text section max +128 KiB, per-function max +4 KiB, per-crate max +16 KiB.
+Read all thresholds from scripts/ci/native-bloat-baseline.json.
 Run: python3 scripts/ci/verify_native_bloat.py
 
 ## Updating Baselines
 Only update when growth is legitimate. Never extend baselines to suppress regressions.
-1. Build: ./gradlew mergeDebugNativeLibs
+1. Build: ./gradlew :app:mergeGithubFullDebugNativeLibs
 2. Size: python3 scripts/ci/verify_native_sizes.py --dump-current > scripts/ci/native-size-baseline.json
 3. Bloat: python3 scripts/ci/verify_native_bloat.py --dump-current > scripts/ci/native-bloat-baseline.json
 

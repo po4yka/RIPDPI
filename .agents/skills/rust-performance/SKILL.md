@@ -7,12 +7,12 @@ description: Use when profiling native .so files on Android with simpleperf/Perf
 
 ## Project context
 
-- 97 Rust crates at `native/rust/`, cross-compiled to 4 Android NDK targets
+- Large Rust workspace at `native/rust/`; derive the current package count with `cargo metadata --locked --no-deps`
 - Custom Cargo profiles in `native/rust/Cargo.toml`:
-  - `android-jni` — release for APK: `opt-level="z"`, `panic="unwind"`, thin LTO, `codegen-units=1`, `strip=symbols`
+  - `android-jni` — release for APK: `opt-level="z"`, `panic="unwind"`, fat LTO, `codegen-units=1`, `strip=none`, `debug="line-tables-only"`
   - `android-jni-dev` — dev for on-device debugging: `opt-level=1`, `debug="line-tables-only"`, `panic="unwind"`
   - `bench` — host benchmarks: `debug=false`, `lto="thin"`
-- Benchmark crate: `native/rust/crates/ripdpi-bench/` with `config_parse` and `relay_throughput` benchmarks
+- Benchmark crate: `native/rust/crates/ripdpi-bench/` with `config_parse`, `relay_throughput`, `protocol_throughput`, `runtime_control_snapshot`, `relay_connect_setup`, and `runtime_lock_contention`
 - Criterion 0.8 (workspace dependency)
 
 ---
@@ -70,8 +70,7 @@ adb pull /data/local/tmp/trace .
 #### Reading Android profiles
 
 - Use `android-jni-dev` profile for symbol info (`debug="line-tables-only"`)
-- `android-jni` strips symbols — profiles will show raw addresses only
-- For release builds, keep an unstripped copy: check `target/aarch64-linux-android/android-jni/libripdpi.so` before strip
+- `android-jni` and `android-jni-dev` both retain symbols and line tables for symbolication.
 
 ### 2. Binary size analysis (cargo-bloat)
 
@@ -97,10 +96,10 @@ diff before.txt after.txt
 
 | Setting | .so size | Debuggable | Notes |
 |---------|----------|------------|-------|
-| `strip = "symbols"` (current) | Smallest | No | Default for APK |
+| `strip = "symbols"` | Smallest | No | Not used by `android-jni` |
 | `strip = "debuginfo"` | ~5-10% larger | Partial | Keeps symbol names for profiling |
 | `strip = "none"` + `debug = 0` | ~10-15% larger | No | ELF symbols remain |
-| `strip = "none"` + `debug = "line-tables-only"` | ~30-50% larger | Yes | For profiling sessions only |
+| `strip = "none"` + `debug = "line-tables-only"` (current `android-jni`) | ~30-50% larger | Yes | Shipped profile plus packaged symbol sidecars |
 
 ### 3. Monomorphization bloat (cargo-llvm-lines)
 
@@ -211,7 +210,9 @@ cargo llvm-lines --locked --release | head -20
 
 ### 8. sccache — compilation caching
 
-sccache is critical for this project: 97 crates × 4 Android targets = massive redundant work without caching.
+sccache is critical for this large workspace across 4 Android targets; derive
+the current package count with `cargo metadata --locked --no-deps` rather than
+copying a snapshot here.
 
 ```bash
 # Install
@@ -284,7 +285,7 @@ Rules for effective workspace splitting:
 
 ### 11. LTO configuration
 
-Current project config: `lto = "thin"`, `codegen-units = 1`, `strip = "symbols"`, `panic = "abort"` for release. This is well-optimized.
+The base `release` profile uses thin LTO, stripped symbols, and abort-on-panic. The shipped JNI profile overrides those settings with fat LTO, `strip = "none"`, line tables, and unwind so JNI panic boundaries remain catchable.
 
 ```toml
 [profile.release]
@@ -296,7 +297,10 @@ panic = "abort"      # smaller binaries, no unwinding overhead
 [profile.android-jni]
 inherits = "release"
 opt-level = "z"      # size-optimized for Android
+lto = "fat"
 panic = "unwind"     # JNI requires unwinding
+strip = "none"
+debug = "line-tables-only"
 
 [profile.dev]
 debug = "line-tables-only"  # faster than full debug info

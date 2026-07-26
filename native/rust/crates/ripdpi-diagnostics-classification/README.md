@@ -4,10 +4,10 @@
 
 ## Responsibility
 
-Turns collected probe **observations** into the typed diagnostic **verdict**
-(`TRANSPARENT_WORKS`, `OWNED_STACK_ONLY`, `NO_DIRECT_SOLUTION`,
-`IP_BLOCK_SUSPECT`). Owns `classification/diagnosis.rs` and the per-domain
-diagnosis logic — RIPDPI's authoritative blocking-verdict source.
+Turns collected probe **observations** into ordered `Vec<Diagnosis>` results and
+classifies strategy failures for candidate ordering. The separate
+`classify_ip_block_suspect` API returns the IP-block verdict and arm gate; it is
+not the return type of the general diagnosis pipeline.
 
 ## Main dependencies
 

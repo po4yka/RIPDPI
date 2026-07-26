@@ -21,7 +21,7 @@ the `ProtectCallback` trait) into that crate's global protect-callback registry.
   `GlobalRef` to the `VpnService`; `unregister_entry` drops it. Registration
   must be **symmetric** with VPN start/stop or the Java object is pinned.
 - `JniProtectCallback::protect(fd)` runs on native worker threads — it calls
-  `JavaVM::attach_current_thread` and invokes `VpnService.protect(int)`.
+  `JavaVM::attach_current_thread_for_scope` and invokes `VpnService.protect(int)`.
 - The `ripdpi-android` facade wraps the register/unregister exports in
   `ffi_boundary`; the registration entry also handles `Outcome::Panic`
   explicitly.

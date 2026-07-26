@@ -22,7 +22,7 @@ const ENCRYPTED_PREFIX_ABRIDGED: u32 = 0xefef_efef;
 /// "not MTProto at all" and gives a hook point for future per-family
 /// stats. Mirrors the `ProtocolVersion` pattern in `ripdpi-vless` and
 /// `ripdpi-tuic` (see
-/// `docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`).
+/// completed `introduce-protocol-version-enum-and-version-probe-diagnostic` task; see git history).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MtprotoTransportFamily {
     /// `0xdddddddd` — padded intermediate.

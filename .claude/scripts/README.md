@@ -23,6 +23,7 @@ python3 scripts/tests/test_agent_hooks.py
 python3 scripts/ci/check_harness_manifests.py
 python3 scripts/ci/check_harness_links.py --strict
 python3 scripts/ci/check_harness_policy.py
+python3 scripts/ci/check_harness_cargo_locked.py
 python3 scripts/ci/check_codex_skills_sync.py
 bash scripts/ci/check-rules-drift.sh
 ```

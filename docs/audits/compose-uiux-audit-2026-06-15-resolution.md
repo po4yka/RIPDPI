@@ -1,8 +1,9 @@
 # Compose UI/UX Audit — Resolution Ledger (2026-06-15)
 
 Disposition of all **148** findings from [compose-uiux-audit-2026-06-15.md](compose-uiux-audit-2026-06-15.md),
-implemented on branch `fix/compose-uiux-audit`. Every fixable finding is its own
-atomic commit (`Closes audit finding idx N` in the body). At that branch's final commit, these gates were green:
+implemented on branch `fix/compose-uiux-audit`. Fixes landed as atomic commits,
+with some commits covering related findings and some findings spanning multiple
+commits (`Closes audit finding idx N` in the body). At that branch's final commit, these gates were green:
 `:app:compileGithubDebugKotlin`, `:app:testGithubDebugUnitTest`, `:app:detekt`,
 `:app:ktlintCheck`, `:app:lintGithubDebug` (incl. `MissingTranslation` across the then-current 8 locales),
 plus the regenerated `config/i18n/translatable-keys.txt` manifest.

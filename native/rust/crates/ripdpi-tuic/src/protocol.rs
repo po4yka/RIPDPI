@@ -14,7 +14,7 @@ use crate::config::Config;
 /// `ProtocolVersion` pattern in `ripdpi-vless::wire` and the
 /// `MtprotoTransportFamily` enum in `ripdpi-ws-tunnel::mtproto`, and
 /// is the hook point for the future version-mismatch probe diagnostic
-/// (`docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`).
+/// (completed task `introduce-protocol-version-enum-and-version-probe-diagnostic`; see git history).
 /// v4 is intentionally unsupported per
 /// `docs/architecture/tuic-v4-policy.md` (v5-only policy).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -168,7 +168,7 @@ It runs:
 - the full sample-corpus pipeline
 - optional private-corpus execution when a runner-local path is provided through `workflow_dispatch`
 
-The main `ci.yml` build job also runs the offline analytics unit test so schema and pipeline regressions fail quickly on PRs.
+This validation is owned by `offline-analytics.yml`; the main `ci.yml` does not run the offline analytics unit test.
 
 ## Privacy And Scope
 

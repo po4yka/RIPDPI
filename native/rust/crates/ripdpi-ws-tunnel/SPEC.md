@@ -13,7 +13,9 @@ WebSocket tunnel for Telegram MTProto traffic, plus a generic HTTP/1.1 Upgrade t
 ## Tunnel flow
 
 1. Client opens a TCP socket (protected via VPN `protect` socket when under VPN mode).
-2. TLS to `kws{dc}.web.telegram.org` (or to a configured fake-SNI cover hostname; cert validation is then disabled — see `docs/tasks/issues/gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md`).
+2. TLS to `kws{dc}.web.telegram.org`. A configured fake-SNI cover is rejected
+   unless `allow_insecure_sni=true` explicitly acknowledges the certificate
+   bypass; the insecure mode is never inferred from the hostname alone.
 3. WSS upgrade to `/apiws` with the `Sec-WebSocket-Protocol: binary` subprotocol.
 4. First 64 bytes of the relayed stream are validated MTProto obfuscated2 init bytes; remaining bytes are forwarded as WS frames.
 
@@ -25,7 +27,8 @@ Recognized encrypted prefixes: TLS, GET, HEAD, OPTIONS, POST, plus padded-interm
 
 ## Telegram DC IP table
 
-Production DCs 1-5 are mapped from IPv4 addresses in `dc.rs`. IPv6 is returned as passthrough.
+Production DCs 1-5 are mapped from known IPv4 and Telegram IPv6 supernets in
+`dc.rs`. Only unmatched IPv6 addresses are returned as passthrough.
 
 Review the v4 table when Telegram publishes data-center range changes; there is no active recurring task note in this tree.
 

@@ -26,9 +26,9 @@ these breaks something downstream:
 - **Never extend a baseline** (detekt, lint, LoC). Fix the violation. The
   PreToolUse hook blocks edits to `*baseline*` files.
 - **Locale sync.** Any new key in `app/src/main/res/values/strings.xml` or
-  `core/service/src/main/res/values/strings.xml` must land in all 6 other
-  locale files in the same commit (`lint.xml` sets `MissingTranslation` to
-  `error`).
+  `core/service/src/main/res/values/strings.xml` must land in all eight
+  translated locale files (`values-{ru,es,de,fr,fa,ar,zh-rCN,hi}`) in the same
+  commit (`lint.xml` sets `MissingTranslation` to `error`).
 - **`VpnService.protect()` invariant.** Any new non-loopback `TcpStream`/
   `UdpSocket`/`mio` socket in Rust must be protected before `connect`/`bind`.
   See [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md).
@@ -36,9 +36,10 @@ these breaks something downstream:
   files or bundled assets only.
 - **Non-rooted baseline.** The app must fully function without root; root-only
   capability is opt-in behind `root_mode_enabled` and degrades gracefully.
-- **JNI containment.** Only the 12 L8 Android crates may touch `jni` /
-  `android-support` (see [`NATIVE_RUST.md`](NATIVE_RUST.md) §5). New core logic
-  stays JNI-free.
+- **JNI containment.** Production normal/build dependencies may touch `jni` or
+  `android-support` only in the 13 allowlisted L8 Android crates (12 currently
+  depend on `jni`; see [`NATIVE_RUST.md`](NATIVE_RUST.md) §5). Dev-only test
+  edges are permitted by the architecture gate. New core logic stays JNI-free.
 - **Config contract direction.** Kotlin owns user-facing models, defaults,
   validation, and JSON serialization; Rust consumes the JSON. Never let Rust
   re-derive a user setting.
@@ -197,13 +198,12 @@ approximation or be inert when root is unavailable. `multidisorder` is
 
 ### The transport-descriptor seam
 
-`ripdpi-relay-core` exposes a `RelayTransportDescriptor` — the
-`relay_kind`-keyed source of truth for a relay transport's generic capability
-profile (`RELAY_TRANSPORT_DESCRIPTORS`, looked up with
-`relay_transport_descriptor()`, both re-exported from the crate root). Each row
-records the static, `relay_kind`-keyed facts: the stable `relay_kind` string, a
-label, the SOCKS capability profile (TCP / UDP / connection reuse), and
-outbound-bind-IP support.
+`ripdpi-relay-core` keeps one private `RelayTransportRegistration` row per
+supported kind in `RELAY_TRANSPORT_REGISTRATIONS`. Each row combines the public
+`RelayTransportDescriptor`, an optional backend builder, and the fallback mode;
+`relay_transport_descriptor()` is the public lookup. The descriptor records the
+stable kind string, label, SOCKS capability profile (TCP / UDP / connection
+reuse), and outbound-bind-IP support.
 
 `runtime_validation` resolves the **generic** capability decisions through the
 descriptor: `planned_backend_capabilities` reads TCP / UDP / reuse from it, and
@@ -212,33 +212,30 @@ remaining per-kind logic still flows through these decentralized sites:
 
 | Site | What it holds |
 |------|---------------|
-| `RelayTransportDescriptor` / `RELAY_TRANSPORT_DESCRIPTORS` (`transport_descriptor.rs`) | the source of truth for generic `relay_kind`-keyed capabilities |
+| `RelayTransportRegistration` / `RELAY_TRANSPORT_REGISTRATIONS` (`transport_descriptor.rs`) | descriptor, optional builder, and fallback mode for each supported kind |
 | `RelayKind` enum + `RelayBackendConfig::kind_id()` (`config/`) | the taxonomy and the `relay_kind` → kind-id mapping used by dispatch |
 | `RelayKind::supports_finalmask` (`config/kind.rs`) | the sub-mode-dependent finalmask predicate (varies with VLESS `xhttp`) |
-| `pool_config_for_backend` / `planned_backend_fallback_mode` / `describe_upstream` (`runtime_validation.rs`) | per-kind `match` statements for pool sizing, backend-specific fallback mode, and upstream description |
-| `BUILDERS: &[BackendBuilder]` (`backend/builder/builders/mod.rs`) | the `{ supports, build }` dispatch slice |
+| `pool_config_for_backend` / `describe_upstream` (`runtime_validation.rs`) | remaining per-kind pool sizing and upstream description |
 | `RelayKindResolverRegistry.kt` + per-kind `*RelayKindResolver.kt` (`:core:service`) | the Kotlin-side resolver registry |
 
-Adding a transport is a descriptor row **plus** editing each remaining Rust
-`match RelayKind` arm and adding a Kotlin resolver — the `relay_kind` string is
-still re-matched at those layers.
+Adding a transport starts with one registration row, then updates the remaining
+Rust `match RelayKind` arms and adds a Kotlin resolver.
 
 *Future improvement — migrate the remaining runtime matches onto the
 descriptor.* `planned_backend_capabilities` and the outbound-bind-IP gate are
 already descriptor lookups; the
 `relay_planned_capabilities_are_pinned_for_every_kind` and
-`relay_transport_descriptors_cover_every_kind_exactly_once` tests pin the table
+`relay_transport_registry_is_consistent` tests pin the registry
 against every `RelayKind`. The remaining `match RelayKind` statements in
 `runtime_validation.rs` — `pool_config_for_backend`,
-`planned_backend_fallback_mode`, `describe_upstream` — and
+`describe_upstream` — and
 `RelayKind::supports_finalmask` stay match-based because they are not purely
 `relay_kind`-keyed: pool tuning and finalmask support both vary with VLESS
 Reality's `xhttp` transport sub-mode (`RelayKind::VlessReality { xhttp }`
 splits one `relay_kind` string into two profiles), the fallback mode and
 upstream description are backend-specific, and `RelayKind::Unsupported` is a
 borrowed catch-all with no row. Folding them in needs an `xhttp`-aware key or a
-per-row variant. Keep the `BUILDERS` dispatch slice as-is — it is already a
-descriptor-shaped registry.
+per-row variant.
 
 ### Compatibility checks
 
@@ -302,24 +299,21 @@ still function with no relay configured (proxy/VPN modes work standalone).
 
 ### The probe registration seam
 
-Diagnostics has **no central registry and no `linkme` slice** — registration
-is four decentralized, hand-maintained seams. Edit the one(s) your probe
-needs; nothing is discovered at link time:
+Diagnostics uses explicit static registries rather than link-time discovery.
+Edit the seam required by the probe:
 
 | Seam | Where | Edit it for |
 |------|-------|-------------|
-| Scan stage runner | the `ExecutionCoordinator::new(vec![…])` list in `ripdpi-monitor-engine/src/engine/runners/mod.rs` | a new scan stage the engine schedules |
+| Scan stage runner | `PROBE_STAGE_REGISTRATIONS` in `ripdpi-monitor-engine/src/engine/runners/registry.rs` | a new connectivity stage the engine schedules |
 | Lane adapter | the `LANE_ADAPTERS` table + an `adapters` module in `ripdpi-monitor-lane-adapter` | surfacing a new `ripdpi-diagnostics-*` crate into the engine |
-| Concrete probe | a `Probe` impl + a `*_PROBE_ID` const in `ripdpi-diagnostics-probes` | a single named offline/online check |
+| Concrete probe | a `Probe` impl, scheduled inventory row, and `ProbeDescriptor` in `ripdpi-diagnostics-probes` | a single named offline/online check |
 | Strategy candidate | a `StrategyCandidateSpec` planned by `build_strategy_probe_suite()` in `ripdpi-diagnostics-candidates` | a new strategy configuration in the TCP/QUIC matrix |
 
-`StrategyCandidateSpec` is the canonical descriptor pattern — id, family,
-capability requirements (`requires_fake_ttl`, `requires_capabilities`),
-eligibility. There is **no unified `ProbeDescriptor`** table for the scheduled
-stage runners; building one is gated on finishing the `Probe`-trait migration
-so every scheduled probe is a `Probe` impl carrying its descriptor as an
-associated `const`. The full registration flow and the descriptor-seam
-rationale live in
+`StrategyCandidateSpec` is the candidate descriptor pattern — id, family,
+capability requirements (`requires_fake_ttl`, `requires_capabilities`), and
+eligibility. Connectivity probes use `PROBE_DESCRIPTORS` plus matching
+`ProbeStageRegistration` rows. A lane adapter is needed only when introducing
+a new crate seam. The full registration flow lives in
 [`DIAGNOSTICS_ARCHITECTURE.md`](DIAGNOSTICS_ARCHITECTURE.md).
 
 ### Compatibility checks
@@ -447,7 +441,7 @@ validated recommendations drive remembered-policy persistence.
 ### Compatibility checks
 
 - Never renumber or reuse a field; reserve removed fields by number **and** name.
-- A new UI string must land in all 7 locale files in the same commit;
+- A new UI string must land in the default file and all eight translations in the same commit;
   `language_name_*` keys stay byte-identical across locales.
 - The setting only takes effect after a runtime restart unless it is wired into
   live handover re-resolution — decide and document which.

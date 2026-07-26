@@ -32,13 +32,16 @@ The defining structural property is **pre-matching**: non-final actions (`sniff`
 - `quicMode` (`ALLOW`/`SOFT_DISABLE`/`HARD_DISABLE`), `preferredStack` (`H3`/`H2`/`H1`), `dnsMode`, `tcpFamily` (`SEG_*`/`REC_*`/`TWO_PHASE_SEND` — TLS segmentation/record-fragmentation families around the SNI), `outcome` (`TRANSPARENT_OK`/`OWNED_STACK_ONLY`/`NO_DIRECT_SOLUTION`).
 - Envelope: `dnsClassification`, `transportClass`, `reasonCode`, `cooldownUntil`, `ipSetDigest`.
 
-There is **no user-authored matcher→action rule DSL** in RIPDPI; routing/transport choice is *learned*, not *declared*.
+The learned `TransportPolicy` is not a user-authored matcher→action rule DSL.
+RIPDPI now also has a deliberately narrower `destinationRouting` policy with
+domain/IP/port matchers and `Tunneled` / `Direct` / `Block` actions; that is not
+full sing-box rule-action parity and does not reshape learned transport policy.
 
 ## Decision
 
 **DIVERGE on structure; ALIGN tactic vocabulary at the export boundary.**
 
-1. **Do not adopt the rule-action structure.** sing-box's matchers + final/non-final actions + pre-matching solve a *declarative routing* problem RIPDPI does not have. Reshaping the learned `TransportPolicy` cache into a match→action DSL is a category mismatch with no functional gain (no user routing rules to express), and a large refactor of a load-bearing, serialized (`TransportPolicyEnvelope` version 1) type.
+1. **Do not reshape learned policy into the rule-action structure.** sing-box's final/non-final actions and pre-matching solve a broader declarative routing problem. RIPDPI's separate `destinationRouting` surface covers only its bounded destination policy; `TransportPolicyEnvelope` remains a learned, serialized outcome cache.
 
 2. **Align the names of the shared desync tactics**, because that is where the interop value actually is. The tactics RIPDPI learns map almost 1:1 onto sing-box `route-options`:
 

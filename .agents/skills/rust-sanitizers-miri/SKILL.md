@@ -11,7 +11,7 @@ Guide agents through runtime safety validation for Rust: ASan/TSan/MSan/UBSan vi
 
 ## RIPDPI Project Context
 
-This project has ~135 `unsafe` occurrences across 97 Rust crates. JNI interop crates (`ripdpi-android`, `ripdpi-tunnel-android`) use heavy FFI with the JVM. Other crates use raw pointers, libc syscalls, and platform-specific code. Miri cannot execute JNI/FFI code -- see the FFI caveat in section 4.
+Unsafe and package counts change frequently; use the repository unsafe-boundary scanners and `cargo metadata --locked --no-deps` for the current inventory. JNI adapter crates use FFI with the JVM; other crates use raw pointers, libc syscalls, and platform-specific code. Miri cannot execute JNI/FFI code -- see the FFI caveat in section 4.
 
 ## Triggers
 
@@ -131,7 +131,7 @@ Tombstone analysis: `adb pull /data/tombstones/<latest>` and grep for `MTEAERR` 
 
 Same UB class as HWASan: use-after-free on heap allocations, double-free, buffer overflow into adjacent tagged allocation, type confusion that crosses allocation boundaries. NOT caught: stack-based UAF (different mechanism — Stack-MTE is a separate, less-deployed extension), uninit reads (use MSan or Miri), data races (use TSan or loom).
 
-For RIPDPI's hot-path code with raw pointers (`ripdpi-runtime-platform/src/linux.rs`, packet parsers using `ptr::read_unaligned`), MTE is the right production-grade safety net once the hardware supports it.
+For RIPDPI's hot-path code with raw pointers (`ripdpi-runtime-platform/src/{raw_packet.rs,ip_fragmentation/}`, packet parsers using `ptr::read_unaligned`), MTE is the right production-grade safety net once the hardware supports it.
 
 #### Rollout
 

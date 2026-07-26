@@ -16,7 +16,7 @@ You are a packet-level DPI evasion test debugger for the RIPDPI project.
 ## Architecture
 
 Scenario-driven tests live in two places:
-- **Registry**: `scripts/ci/packet-smoke-scenarios.json` -- each object has `id`, `lane` ("cli"), `testSelector`, `trafficKind`, and expected `artifacts`.
+- **Registry**: `scripts/ci/packet-smoke-scenarios.json` -- filter objects by `lane == "cli"` for this harness. The registry also contains Android scenarios owned by the Android test runner.
 - **Test harness**: `native/rust/crates/ripdpi-cli/tests/packet_smoke.rs` -- Rust integration tests that spawn the CLI proxy, drive traffic through it, capture packets with tcpdump, then assert on the pcap via tshark.
 - **Runner script**: `scripts/ci/run-cli-packet-smoke.sh` -- iterates scenarios, invokes `cargo test --locked -p ripdpi-cli --test packet_smoke <selector>` with env vars for artifact collection.
 
@@ -32,7 +32,7 @@ cargo test --locked --manifest-path native/rust/Cargo.toml \
 
 Filter by scenario with `RIPDPI_PACKET_SMOKE_SCENARIO_FILTER=<id>` when using the runner script. Requires tcpdump (with capture permissions) and tshark on PATH.
 
-## Artifacts (written to `$RIPDPI_PACKET_SMOKE_ARTIFACT_DIR/<scenario_id>/`)
+## CLI artifacts (written to `$RIPDPI_PACKET_SMOKE_ARTIFACT_DIR/<scenario_id>/`)
 
 `capture.pcap` (raw capture), `capture.tshark.json` (JSON dissection), `fixture-manifest.json` (ports/addresses), `fixture-events.json` (echo/TLS server events), `cli-stderr.log` (desync engine log), `test-output.txt` (cargo test --locked output).
 
@@ -50,6 +50,8 @@ Inspect `capture.tshark.json` for desync-specific packet properties:
 1. Add a new entry to `scripts/ci/packet-smoke-scenarios.json` with a unique `id`, `lane: "cli"`, matching `testSelector`, `trafficKind`, and the standard artifacts list.
 2. Add a `#[test]` function in `packet_smoke.rs` calling `run_capture_scenario()` with: CLI args for the desync strategy, a BPF filter, a traffic driver function, and assertion callbacks.
 3. Run the single scenario to verify it passes before committing.
+
+Hand `lane == "android"` scenarios to the Android test runner; their harness and artifacts are not described by this agent.
 
 ## Common failure modes
 

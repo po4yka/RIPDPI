@@ -1,5 +1,11 @@
 # Live Android client matrix — 2026-07-18
 
+> **Status addendum (2026-07-26):** the destination split-routing bridge that
+> this report identified as missing subsequently landed, culminating in commit
+> `50840588c`. The historical routing observations below remain unchanged. The
+> required physical 20-domain matrix and its dual-vantage leak evidence are
+> still not proven by this report.
+
 ## Scope and handling
 
 This report records a physical-device validation of the Github Simple Debug flavor against the private `android-ripdpi` deployment bundle. It is intentionally redacted: endpoint addresses, UUIDs, authentication values, keys, PSKs, short IDs, client tunnel addresses, and full external addresses are not retained here.

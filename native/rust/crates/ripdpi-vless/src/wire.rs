@@ -18,7 +18,7 @@ const RESPONSE_VERSION: u8 = 0x00;
 /// `ProtocolVersion::SUPPORTED` slice is the source of truth for
 /// "what does this client speak" and is the hook point for the future
 /// version-mismatch probe diagnostic
-/// (`docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`).
+/// (completed task `introduce-protocol-version-enum-and-version-probe-diagnostic`; see git history).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolVersion {
     /// Wire byte `0x00`. The only revision xray-core has shipped.

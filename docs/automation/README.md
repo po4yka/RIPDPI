@@ -134,5 +134,5 @@ The underlying action is `com.poyka.ripdpi.DEBUG_PROBE`. It is declared only in 
 
 The GitHub Actions `CI` workflow exposes manual inputs on `workflow_dispatch`:
 
-- `run_maestro_smoke` -- Maestro smoke flows run after `connectedDebugAndroidTest` in the emulator lane.
+- `run_maestro_smoke` -- Maestro smoke flows run after the flavor-qualified Github Full instrumentation task in the emulator lane.
 - `run_appium_smoke` -- Appium smoke tests run after Maestro (if enabled) in the same emulator lane.

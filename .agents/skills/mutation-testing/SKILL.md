@@ -76,7 +76,7 @@ exclude_re = ["Display::fmt", "impl.*Debug"]
 **Schedule**: Weekly on Monday 06:00 UTC (`cron: "0 6 * * 1"`).
 
 **Manual dispatch inputs**:
-- `packages` -- space-separated crate names; empty = all 23 crates
+- `packages` -- space-separated package names; empty = all current workspace packages discovered by `cargo metadata --locked`; scheduled coverage rotates four shards
 - `in_diff` -- `true` to only mutate lines changed vs main
 
 **Key details**:

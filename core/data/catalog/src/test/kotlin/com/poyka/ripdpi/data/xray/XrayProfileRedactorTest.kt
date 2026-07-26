@@ -11,7 +11,7 @@ import org.junit.Test
  * Coverage for [XrayProfileRedactor]: every secret and endpoint identifier is
  * scrubbed from both the typed-profile summary and the free-form text path.
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 class XrayProfileRedactorTest {
     private val uuid = "550e8400-e29b-41d4-a716-446655440000"

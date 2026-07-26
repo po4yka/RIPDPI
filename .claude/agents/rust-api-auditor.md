@@ -87,7 +87,7 @@ rg 'match self' native/rust/crates/ripdpi-relay-core/src/ --type rust -n
 ```
 
 - Flag cases where an `enum_dispatch` macro or trait object would reduce boilerplate.
-- Track the `RelayBackend` enum; current in-process dispatch variants are `Hysteria2`, `Tuic`, `VlessReality`, `Xhttp`, `ChainRelay`, `Masque`, `ShadowTls`, `Trojan`, `AnyTls`, `Shadowsocks`, and `Tor`, plus `Unsupported`.
+- Derive `RelayBackend` variants from `ripdpi-relay-core/src/backend.rs`; the current 13 in-process variants include Mieru and SSH, plus `Unsupported`.
 - Check `RelayUdpSession` enum for similar patterns.
 
 ### 6. Crate Cohesion
@@ -152,7 +152,7 @@ See `rust-discipline` skill for detail on each rule.
 ## Known Issues to Track
 
 - `ripdpi-proxy-runtime` relay/session-copy `Arc<Mutex<...>>` inventory -- track growth
-- RelayBackend enum: 11 in-process dispatch variants plus Unsupported -- track delegation bloat
+- RelayBackend enum: derive the current variant count from source -- track delegation bloat
 - Thread-per-connection model in `ripdpi-proxy-runtime` -- track migration
 - `ripdpi-proxy-runtime` pub item count -- track API surface growth
 

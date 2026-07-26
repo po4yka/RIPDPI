@@ -153,11 +153,11 @@ payload size, stream-byte range). Stored as `tcp_chain_steps` /
 
 **telemetry event** — A discrete runtime event (lifecycle change, route
 decision, retry, DNS failover, …) recorded into a fixed-capacity bounded ring
-and drained by the Kotlin side on its ~1 Hz poll. Event structures live in
-`native/rust/crates/ripdpi-telemetry`; the ring and its per-domain drain
-helpers (`proxy`, `tunnel`, `relay`, `warp`, `diagnostics`, `monitor`) are in
-`native/rust/crates/android-support/src/events.rs`. Telemetry payloads are
-golden-locked contracts; no packet payloads are recorded.
+and drained by the Kotlin side on its ~1 Hz poll. Native event records, routing,
+and drain helpers live in `native/rust/crates/android-support/src/events.rs`;
+`monitor` aliases `diagnostics`, and `amneziawg` aliases the WARP-family ring.
+`ripdpi-telemetry` owns the separate process-global metrics recorder. Telemetry
+payloads are golden-locked contracts; no packet payloads are recorded.
 
 **TUN** — The Android `VpnService` virtual network interface. In VPN mode its
 file descriptor (from `VpnService.Builder.establish()`) is handed across JNI to

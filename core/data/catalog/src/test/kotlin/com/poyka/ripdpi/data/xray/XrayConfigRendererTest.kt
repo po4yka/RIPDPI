@@ -20,7 +20,7 @@ import org.junit.Test
  * (`prettyPrint`) so key ordering is the renderer's insertion order and the
  * comparison is stable across runs.
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 class XrayConfigRendererTest {
     private val canonical =

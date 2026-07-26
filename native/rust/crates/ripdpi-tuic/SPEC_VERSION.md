@@ -21,4 +21,7 @@ TUIC v4 is intentionally unsupported. The v5-only decision and failure-classific
 
 ## Drift policy
 
-TUIC upstream activity is slower than xray-core. Watched weekly via `.github/workflows/upstream-spec-watch.yml`. Wire-affecting changes are expected to be rare; auth and command-byte changes are the most likely source of drift.
+TUIC upstream activity is slower than xray-core. The weekly workflow validates
+presence, formatting, and recorded pins; it does not fetch upstream or detect
+wire drift automatically. Auth and command-byte changes remain the most likely
+source of drift.

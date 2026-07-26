@@ -56,7 +56,7 @@ auto-generated Mermaid graph at
 | `:core:engine-api` | Kotlin interfaces, native runtime DTOs, and schema-versioned wire contracts shared without exposing the JNI implementation |
 | `:core:pcap-export` | Explicit opt-in PCAP capture controller, reader, and export support |
 | `:core:diagnostics` | Active diagnostics, passive telemetry collection, diagnostics UI logic |
-| `:core:diagnostics-data` | Protobuf schemas + data contracts for diagnostics |
+| `:core:diagnostics-data` | Room database, entities, DAOs, migrations, and persistence contracts for diagnostics, telemetry, snapshots, and policies |
 | `:core:detection` | VPN/DPI detection and checkers (consensus, privacy, `vpn`, `dpi`, `export`, `community`, `probe` subpackages); depends on `:xray-protos` |
 | `:core:data` | Aggregator — `api`-exports the four sub-modules below; Room DB (KSP), backup, rules |
 | `:core:data:model` | App-settings + geosite protobuf schemas (see [§6](#6-config-flow)) |

@@ -23,7 +23,7 @@ runCurrent()
 advanceUntilIdle()
 ```
 
-Minimal stall example:
+Minimal stall example (inside `VpnProtectSocketServerTest`, which defines the private fake session used below):
 
 ```kotlin
 val gate = HarnessStallGate()

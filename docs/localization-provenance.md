@@ -66,7 +66,7 @@ enhancement, not a correctness requirement.
 ## Freshness
 
 When a source string changes, the translation falls out of date silently
-(parity stays green because the key still exists). The pipeline's weekly
-string-diff (see [localization.md](localization.md)) surfaces changed source
-keys so reviewers can re-translate; until a native pass lands for `ar`, treat
-its strings as MT drafts subject to revision.
+(parity stays green because the key still exists). Current workflows detect
+key additions/removals, not changed English values under an existing key;
+reviewers must inspect source-value changes explicitly. Until a native pass
+lands for `ar`, treat its strings as MT drafts subject to revision.

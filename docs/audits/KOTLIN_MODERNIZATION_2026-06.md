@@ -1,5 +1,10 @@
 # RIPDPI Kotlin / Android / Compose Modernization Audit — 2026-06
 
+> **Historical snapshot:** the stack versions and opportunity sections below
+> describe the June audit pin. The implementation outcome later in this report
+> records 25 of 27 items landed. Current versions must be read from
+> `gradle/libs.versions.toml` and `gradle.properties`, not this snapshot.
+
 > Read-only audit. Toolchain pin: Kotlin **2.3.21**, Compose BOM **2026.05.01** (core 1.11.x),
 > coroutines **1.11.0**, lifecycle **2.10.0**, Hilt **2.59.2**, Room **2.8.4**, compileSdk/targetSdk **36**, jvmTarget **17**.
 > Scope: ~2056 `.kt` files (~358k LoC) across 9 module slices. Produced by a fan-out audit workflow

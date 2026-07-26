@@ -35,7 +35,7 @@ The desync engine is a three-layer pipeline:
 
 ### Layer 1: Configuration model (`ripdpi-config`)
 
-File: `native/rust/crates/ripdpi-config/src/model.rs`
+Files: `native/rust/crates/ripdpi-config/src/model/` (start at `mod.rs`; group and runtime settings are split by domain)
 
 Defines the data model: `DesyncGroup`, `DesyncGroupActionSettings`,
 `TcpChainStep`, `TcpChainStepKind`, `UdpChainStep`, `UdpChainStepKind`,
@@ -275,7 +275,7 @@ hot path.
 End-to-end walkthrough for adding a hypothetical "TcpReorder" step:
 
 ### 1. Add config variant
-In `native/rust/crates/ripdpi-config/src/model.rs`:
+In the relevant file under `native/rust/crates/ripdpi-config/src/model/`:
 - Add `TcpReorder` to the `TcpChainStepKind` enum.
 - Implement `as_mode()` mapping (or return `None` if no legacy mode).
 - Add any new fields to `TcpChainStep` if needed.

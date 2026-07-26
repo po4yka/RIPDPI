@@ -381,7 +381,7 @@ mod tests {
     /// and is deferred to that follow-up.
     ///
     /// Tracks the partial-progress portion of
-    /// `docs/tasks/issues/add-port-hopping-window-soak-test-for-hysteria2.md`.
+    /// completed task `add-port-hopping-window-soak-test-for-hysteria2` (see git history).
     #[test]
     fn socket_rebind_soak_thirty_iterations() {
         use crate::quic_transport::build_client_udp_socket;
@@ -406,7 +406,7 @@ mod tests {
     /// telemetry counter matching the hop count.
     ///
     /// Closes the deferred socket-rebind + bidirectional-bytes criteria of
-    /// `docs/tasks/issues/add-port-hopping-window-soak-test-for-hysteria2.md`
+    /// completed task `add-port-hopping-window-soak-test-for-hysteria2` (see git history)
     /// using the `ripdpi-protocol-loopback` Quinn harness. Runs in standard CI
     /// (16 hops complete in well under a second).
     #[tokio::test]

@@ -14,8 +14,9 @@ Two dependency ecosystems (Gradle + Cargo) with Renovate automating PR creation.
 Structure:
 ```toml
 [versions]
-agp = "9.1.0"              # <-- update versions HERE
-kotlin = "2.3.20"
+agp = "9.3.1"              # current snapshot; read versions live
+kotlin-compose = "2.4.10"
+compose-bom = "2026.06.01"
 
 [libraries]
 androidx-core = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
@@ -33,8 +34,8 @@ lifecycle = ["lifecycle-runtime", "lifecycle-viewmodel"]
 
 | Group | Versions to Update Together |
 |-------|-----------------------------|
-| Kotlin | `kotlin`, `ksp`, `kotlinComposeCompiler` |
-| Compose | `composeBom` (single BOM controls all Compose libs) |
+| Kotlin / Compose plugin | `kotlin-compose` and its compatible KSP entry |
+| Compose | `compose-bom` (single BOM controls Compose libraries) |
 | AndroidX | Individually, but Renovate groups them |
 | AGP | `agp` (may require Gradle wrapper update) |
 | Testing | `junit`, `robolectric`, `roborazzi` independently |

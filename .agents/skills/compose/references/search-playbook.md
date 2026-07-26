@@ -133,7 +133,7 @@ When uniqueness is not guaranteed, flag as a latent crash and suggest a dedup in
 Confirm the project's compiler version:
 
 - `rg -n 'kotlin\s*=\s*"' -g '*.toml'` and `rg -n 'org\.jetbrains\.kotlin' -g '*.gradle*'` to find the Kotlin version
-- Strong Skipping is on by default at Kotlin **2.0.20+**; RIPDPI uses Kotlin 2.3.20, so Strong Skipping is active
+- Strong Skipping is on by default at Kotlin **2.0.20+**; read the active Kotlin Compose version from `gradle/libs.versions.toml` (2.4.10 at this review)
 
 ## 4. State Management Checks
 

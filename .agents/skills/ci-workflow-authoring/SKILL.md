@@ -5,110 +5,37 @@ description: GitHub Actions authoring for workflows, CI jobs, caches, artifacts,
 
 # CI Workflow Authoring
 
-Four GitHub Actions workflows live in `.github/workflows/`:
+Workflow count, jobs, dispatch inputs, action versions, and concurrency rules
+are source-controlled in `.github/workflows/`. Inspect the current manifests
+and copy the nearest existing job; do not maintain a second hand-written
+inventory here.
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `ci.yml` | Push/PR to main, daily schedule, manual dispatch | Main validation pipeline: build, static analysis, release verification, coverage, Rust lanes, benchmarks, Android E2E, soak/load, Linux TUN |
-| `codeql.yml` | Push/PR to main, weekly schedule | CodeQL analysis for GitHub Actions; Kotlin analysis is intentionally disabled for now |
-| `release.yml` | Tag `v*` or manual dispatch | Signed release build, artifact upload, optional GitHub Release |
-| `mutation-testing.yml` | Weekly Monday 06:00 UTC, manual dispatch | Rust mutation testing via `cargo-mutants` |
+## CI architecture (`ci.yml`)
 
-## CI Architecture (`ci.yml`)
-
-### Non-scheduled lanes
-
-```text
-build
-  -> static-analysis
-  -> release-verification
-  -> coverage
-  -> rust-network-e2e
-  -> cli-packet-smoke
-  -> android-instrumented-tests
-  -> rust-turmoil
-  -> rust-criterion-bench
-  -> android-macrobenchmark
-  -> rust-loom
-```
-
-### Scheduled / manual lanes
-
-```text
-rust-native-soak
-rust-native-load
-nightly-rust-coverage
-android-network-e2e
-linux-tun-e2e
-linux-tun-soak
-```
-
-`android-network-e2e` also runs on regular CI, but Maestro/Appium smoke add-ons are gated behind `workflow_dispatch` inputs.
-
-### Concurrency
-
-```yaml
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-```
-
-This is per-ref cancellation, not per-workflow-name cancellation.
+Derive the current job graph, triggers, dispatch inputs, and `concurrency:`
+policy directly from `.github/workflows/ci.yml`; these change too often for a
+second inventory here.
 
 ## Environment Setup Pattern
 
-Most Android/native jobs follow this skeleton:
-
-```yaml
-steps:
-  - uses: actions/checkout@v6
-
-  - uses: actions/setup-java@v5
-    with:
-      distribution: temurin
-      java-version: 17
-
-  - uses: dtolnay/rust-toolchain@master
-    with:
-      toolchain: "1.96.0"
-      components: rustfmt, clippy
-
-  - uses: android-actions/setup-android@v4
-
-  - uses: Swatinem/rust-cache@v2
-    with:
-      workspaces: native/rust -> target
-      cache-on-failure: true
-
-  - name: Read native toolchain policy
-    id: native-toolchain
-    run: |
-      echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-  - name: Install Rust Android targets
-    run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-  - name: Install NDK
-    run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
-
-  - uses: gradle/actions/setup-gradle@v6
-```
-
-For native-heavy Android jobs, `mozilla-actions/sccache-action@v0.0.9` is added before Gradle runs.
+Most Android/native jobs reuse `.github/actions/setup-android-rust`. Copy that
+composite action or the nearest current job, including every exact action SHA;
+never substitute a floating tag from an example.
 
 ## Caching Strategy
 
 | Cache | Implementation | Notes |
 |-------|---------------|-------|
-| Gradle | `gradle/actions/setup-gradle@v6` | Preferred over hand-rolled cache blocks |
-| Rust workspace | `Swatinem/rust-cache@v2` | Caches `native/rust -> target` |
-| Rust compiler cache | `mozilla-actions/sccache-action@v0.0.9` | Used on native-heavy jobs |
+| Gradle | Exact pinned `gradle/actions/setup-gradle` SHA from the nearest job | Preferred over hand-rolled cache blocks |
+| Rust workspace | Exact pinned `Swatinem/rust-cache` SHA from the nearest job | Caches `native/rust -> target` |
+| Rust compiler cache | Exact pinned sccache action SHA from the nearest job | Used on native-heavy jobs |
 | Benchmark baselines | `actions/cache/restore` / `save` | Used by criterion baselines on PRs and main |
 | Tool installs | `taiki-e/install-action@v2` | Used for `cargo-nextest`, `cargo-llvm-cov`, `cargo-bloat` |
 
 ## Manual Dispatch Inputs
 
-`ci.yml` currently exposes:
+Derive the current inputs from the `workflow_dispatch.inputs` mapping in
+`ci.yml`; it changes as optional lanes evolve. Typical inputs include:
 
 ```yaml
 workflow_dispatch:
@@ -133,7 +60,7 @@ Checklist:
 7. If the job is nightly-only, gate it explicitly on `schedule` or `workflow_dispatch`.
 8. If the job runs `:app` or `:baselineprofile` instrumented tests, use the Gradle Managed Device pattern: a `<device>...AndroidTest` task plus the shared device registry in `build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt` (see the `android-instrumented-tests` and `android-macrobenchmark` jobs). Specialized emulator lanes (journeys, relay-smoke, network-e2e) still use the `scripts/ci/start-android-emulator.sh` harness.
 
-### Job Template
+### Job template
 
 ```yaml
 my-new-job:
@@ -141,14 +68,11 @@ my-new-job:
   runs-on: ubuntu-latest
   timeout-minutes: 30
   steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-java@v5
-      with:
-        distribution: temurin
-        java-version: 17
+    - uses: actions/checkout@<copy-exact-pinned-sha-from-nearest-job>
+    - uses: ./.github/actions/setup-android-rust
     - name: Run tests
       run: ./gradlew :module:testDebugUnitTest
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@<copy-exact-pinned-sha-from-nearest-job>
       if: always()
       with:
         name: my-results
@@ -159,7 +83,7 @@ my-new-job:
 ## CodeQL Workflow (`codeql.yml`)
 
 - Current scope is only `language: actions`.
-- Kotlin/Java analysis is commented out until `github/codeql-action` supports the repo's Kotlin 2.3.20 toolchain.
+- Kotlin/Java analysis remains disabled; re-check the current workflow comment and active Kotlin version before changing that decision.
 - If re-enabling Kotlin analysis, restore explicit Android/JDK build steps rather than assuming the default CodeQL autobuild is enough.
 
 ## Release Workflow (`release.yml`)
@@ -169,7 +93,7 @@ Triggered by `v*` tags or manual dispatch.
 Key behaviors:
 
 1. Decode the base64 keystore secret.
-2. Run `./gradlew bundleRelease -Pripdpi.enableAbiSplits=false` then `./gradlew assembleRelease`.
+2. Run the flavor-qualified Play/Fdroid/Github release tasks defined in `release.yml`.
 3. Upload AAB, APK, mapping files, compose mapping, and native symbols.
 4. Optionally create a GitHub Release.
 
@@ -186,7 +110,7 @@ See `release-signing` for signing and R8 details.
 | Mistake | Fix |
 |---------|-----|
 | Hardcoding the NDK version | Read `ripdpi.nativeNdkVersion` from `gradle.properties` |
-| Using outdated action versions from old workflow snippets | Match the versions already used in this repo (`checkout@v6`, `setup-java@v5`, `setup-gradle@v6`, etc.) |
+| Using outdated action versions from old workflow snippets | Copy the exact pinned SHA and version comment from the nearest current workflow job |
 | Forgetting schedule/manual gating on soak or load jobs | Mirror the existing `schedule || workflow_dispatch` pattern |
 | Uploading artifacts only on success | Use `if: always()` so failure artifacts are preserved |
 | Treating CodeQL as if Kotlin were enabled | The current workflow analyzes only GitHub Actions files |

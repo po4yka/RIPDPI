@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
  * before any diagnostic/log emission — see
  * [com.poyka.ripdpi.data.xray.XrayProfileRedactor].
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 @Serializable
 data class XrayProfile(

@@ -35,7 +35,11 @@ See `wire.rs` for the encoder; the response header is one version byte + one add
 7. The REALITY-only connector advertises Ed25519 because the authenticated server flight uses an ephemeral Ed25519 certificate and CertificateVerify signature.
 8. Standard certificate verification is disabled because REALITY uses its own authentication model.
 
-The vendored BoringSSL hook surface is declared in `reality_hook.rs`; `reality_seal.rs` owns the HKDF/AES-GCM sealing logic. Pinning policy lives in `docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md`.
+The vendored BoringSSL hook surface is declared in `reality_hook.rs`;
+`reality_seal.rs` owns the HKDF/AES-GCM sealing logic. The exact BoringSSL pin
+lives in `native/rust/Cargo.toml`; `tests/reality_hook_vector.json` and
+`scripts/ci/check_reality_boring_vector.py` are the executable compatibility
+oracles.
 
 ## XTLS-Vision
 

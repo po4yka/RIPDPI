@@ -2,7 +2,8 @@
 
 **Responsibility:** the native WARP runtime — WireGuard plus the AmneziaWG
 handshake-obfuscation codec, a userspace virtual interface, endpoint probing,
-and the SOCKS front.
+the WireGuard-over-WebSocket carrier, and the SOCKS front. The same runtime is
+adapted for the separate AmneziaWG Android surface.
 **Layer:** L7 — relay transports.
 
 WARP is its own feature, gated by the `warp_*` settings (`warp_enabled`,
@@ -17,8 +18,8 @@ protocol contract); the `warp_amnezia_preset` values
 
 ## Dependency direction
 
-**Upstream:** none internal (`smoltcp`, `tokio`). **Downstream:**
-`ripdpi-warp-android` → `libripdpi-warp.so`.
+**Upstream:** `ripdpi-wireguard-ws` plus `smoltcp` and `tokio`. **Downstream:**
+`ripdpi-warp-android` → `libripdpi-warp.so`, and `ripdpi-amneziawg-android`.
 
 ## Non-root fallback
 

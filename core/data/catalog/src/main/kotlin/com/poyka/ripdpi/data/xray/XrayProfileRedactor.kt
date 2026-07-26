@@ -14,7 +14,7 @@ package com.poyka.ripdpi.data.xray
  * addresses, and live `host:port` endpoints. Each is replaced with a stable
  * placeholder so the redacted output is still readable and diff-stable.
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 object XrayProfileRedactor {
     const val REDACTED: String = "[REDACTED]"

@@ -52,8 +52,8 @@ workspace = true
 | `ripdpi.localNativeAbis` | Per-invocation ABI override | `arm64-v8a` |
 | `ripdpi.nativeCargoProfile` | Default cargo profile | `android-jni` |
 | `ripdpi.localNativeCargoProfileDefault` | Local dev profile | `android-jni-dev` |
-| `ripdpi.nativeNdkVersion` | NDK version string | `27.2.12479018` |
-| `ripdpi.minSdk` | Android minSdk (passed to clang target) | `26` |
+| `ripdpi.nativeNdkVersion` | NDK version string | read current value from `gradle.properties` (`29.0.14206865` at this review) |
+| `ripdpi.minSdk` | Android minSdk (passed to clang target) | `27` |
 
 ## Artifact mapping
 
@@ -63,6 +63,11 @@ The Gradle task maps Cargo output names to Android library names:
 |---------------|-------------|-------------|
 | ripdpi-android | libripdpi_android.so | libripdpi.so |
 | ripdpi-tunnel-android | libripdpi_tunnel_android.so | libripdpi-tunnel.so |
+| ripdpi-relay-android | libripdpi_relay_android.so | libripdpi-relay.so |
+| ripdpi-warp-android | libripdpi_warp_android.so | libripdpi-warp.so |
+| ripdpi-amneziawg-android | libripdpi_amneziawg_android.so | libripdpi-amneziawg.so |
+
+`ripdpi-root-helper` is built by `buildRustRootHelper` as an executable asset, not mapped to a `.so`.
 
 ## Selective build commands
 

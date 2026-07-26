@@ -10,7 +10,7 @@ status_detail: externally-gated — harness shipped; the 8 conformance goldens n
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-06-11
+updated: 2026-07-26
 ---
 
 ## Summary

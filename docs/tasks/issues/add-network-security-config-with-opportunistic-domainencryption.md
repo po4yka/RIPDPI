@@ -8,8 +8,9 @@ owner: unassigned
 parent: null
 blocks: []
 blocked_by: []
+status_detail: externally-gated — Android 17 physical-device ECH attempt verification remains unavailable
 created: 2026-04-20
-updated: 2026-06-05
+updated: 2026-07-26
 ---
 
 ## Summary

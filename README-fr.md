@@ -37,7 +37,7 @@ Lorsqu'aucun relais n'est configuré, le trafic quitte l'appareil directement �
 Chaîne le trafic du proxy local ou du VPN via des protocoles de relais chiffrés vers un serveur que vous configurez :
 
 > [!NOTE]
-> Matrice protocolaire factuelle mise à jour à partir du code source le 2026-05-28. La prose traduite environnante peut être en retard sur `README.md` jusqu'à la révision humaine.
+> La matrice protocolaire reflète les registres actuels du code source. La prose traduite environnante peut être en retard sur `README.md` jusqu'à la révision humaine.
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -111,7 +111,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 
 - **Mode proxy** : proxy SOCKS5 local sur le port localhost configuré.
 - **Mode VPN** : route le trafic de l'appareil Android via un pont local TUN-vers-SOCKS au moyen de `VpnService`.
-- **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage. L'analyse du presse-papiers et de la feuille de partage utilise le codec URI proxy, qui accepte `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` et `ssh://` ; le scan QR réussit actuellement pour `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` et `tuic://`. AmneziaWG utilise le codec distinct `amneziawg://`. Les filtres d'intention Android exposent également `ssh://` au trampoline d'import, et le codec URI proxy le parse et le sérialise dans les deux sens.
+- **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage. L'analyse du presse-papiers et de la feuille de partage utilise le codec URI proxy, qui accepte `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` et `ssh://` ; le scan QR réussit actuellement pour `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `tuic://` et `mieru://`. AmneziaWG utilise le codec distinct `amneziawg://`. Les filtres d'intention Android exposent également `ssh://` au trampoline d'import, et le codec URI proxy le parse et le sérialise dans les deux sens.
 - **Abonnements** : formats d'abonnement base64, Clash / Clash.Meta YAML, sing-box JSON et WireGuard-INI avec mise à jour automatique en arrière-plan, détection des profils en double, groupes selector/urltest et livraison multi-miroir.
 - **DNS chiffré** : prise en charge des résolveurs DoH, DoT, DNSCrypt et DoQ dans les chemins liés au VPN.
 - **Contrôles de stratégie** : familles TCP split/disorder/fake, fragmentation d'enregistrements TLS et faux profils, variation de handshake QUIC, variation du champ de longueur UDP, en-têtes d'extension IPv6, `rawsend` Lua, filtres d'activation par étape, contrôle de l'ID IPv4 et injection OOB.

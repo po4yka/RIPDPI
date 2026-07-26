@@ -37,7 +37,7 @@ Cuando no hay relevo configurado, el tráfico sale del dispositivo directamente:
 Encadena el tráfico del proxy local o de la VPN a través de protocolos de relevo cifrados hacia un servidor que tú configuras:
 
 > [!NOTE]
-> Matriz de protocolos actualizada a partir del código fuente el 2026-05-28. La prosa traducida circundante puede no estar al día con `README.md` hasta la próxima revisión humana.
+> La matriz de protocolos refleja los registros actuales del código fuente. La prosa traducida circundante puede no estar al día con `README.md` hasta la próxima revisión humana.
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -111,7 +111,7 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 
 - **Modo proxy**: proxy SOCKS5 local en el puerto localhost configurado.
 - **Modo VPN**: enruta el tráfico del dispositivo Android a través de un puente local TUN-a-SOCKS mediante `VpnService`.
-- **Importación de perfiles**: escaneo y generación de QR, más importación desde portapapeles y hoja de compartir. El análisis del portapapeles y la hoja de compartir usa el códec de URI de proxy, que acepta `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` y `ssh://`; el escaneo de QR funciona actualmente para `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` y `tuic://`. AmneziaWG utiliza el códec separado `amneziawg://`. Los filtros de intent de Android también exponen `ssh://` al trampolín de importación, y el códec de URI de proxy lo analiza y lo codifica en ambas direcciones.
+- **Importación de perfiles**: escaneo y generación de QR, más importación desde portapapeles y hoja de compartir. El análisis del portapapeles y la hoja de compartir usa el códec de URI de proxy, que acepta `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` y `ssh://`; el escaneo de QR funciona actualmente para `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `tuic://` y `mieru://`. AmneziaWG utiliza el códec separado `amneziawg://`. Los filtros de intent de Android también exponen `ssh://` al trampolín de importación, y el códec de URI de proxy lo analiza y lo codifica en ambas direcciones.
 - **Suscripciones**: formatos de suscripción base64, Clash / Clash.Meta YAML, sing-box JSON y WireGuard-INI con actualización automática en segundo plano, detección de perfiles duplicados, grupos selector/urltest y entrega multi-mirror.
 - **DNS cifrado**: soporte de resolutores DoH, DoT, DNSCrypt y DoQ en las rutas relacionadas con VPN.
 - **Controles de estrategia**: familias TCP split/disorder/fake, fragmentación de registros TLS y perfiles falsos, variación de handshake QUIC, variación del campo de longitud UDP, cabeceras de extensión IPv6, `rawsend` Lua, filtros de activación por paso, control de IPv4 ID e inyección OOB.

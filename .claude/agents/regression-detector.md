@@ -21,8 +21,8 @@ You are a performance regression analyst for the RIPDPI project (`native/rust/` 
 
 ## Thresholds (from baselines)
 
-- **Binary size**: max per-library growth 128 KiB, max total growth 2% or 256 KiB
-- **Bloat**: max .text growth 128 KiB, max function growth 4 KiB, max crate growth 16 KiB
+- **Binary size**: read per-library and total growth limits from `native-size-baseline.json`
+- **Bloat**: read text/function/crate and new-entry limits from `native-bloat-baseline.json`
 - **Criterion**: max regression 10% (mean_ns comparison)
 - **Macrobenchmarks**: cold start 20%, warm start 15% (median and P95)
 
@@ -45,7 +45,7 @@ You are a performance regression analyst for the RIPDPI project (`native/rust/` 
 ## Tracing the Cause
 
 1. `git log --oneline --since="1 week ago" -- native/rust/` to find recent native changes.
-2. `cargo bloat --locked --release --profile android-jni -p ripdpi-android -n 30` to see top functions.
+2. `cargo bloat --locked --profile android-jni -p ripdpi-android -n 30` to see top functions.
 3. Compare function lists: diff current `--dump-current` output against `scripts/ci/native-bloat-baseline.json`.
 4. For Criterion: look at `native/rust/target/criterion/<bench>/new/estimates.json` vs baseline entries.
 5. Use `cargo llvm-lines --locked -p <crate>` to find monomorphization hotspots if .text grew unexpectedly.

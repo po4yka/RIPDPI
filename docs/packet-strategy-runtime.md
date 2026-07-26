@@ -45,7 +45,9 @@ flowchart TD
     U -- Yes --> V["ripdpi-root-helper\nsend_raw_ip_packet"]
     U -- No --> W["Local platform\nraw socket attempt"]
     V & W --> X["Network interface"]
-    N --> Y["Original session\ncontinues to SOCKS5"]
+    N --> Y{"Original packet verdict"}
+    Y -- "pass / forward_original: true" --> Z["Continue through SOCKS5"]
+    Y -- "rawsend default or VERDICT_DROP" --> AA["Consume original"]
 ```
 
 ## Root Helper Lifecycle
@@ -77,7 +79,10 @@ Shutdown is bounded. The manager asks the helper to stop, waits briefly, and for
 
 ## TUN Egress Actions
 
-TUN-egress actions run before the original packet is bridged to the local SOCKS5 session. A packet action may emit an additional raw packet, but the original app flow continues through the ordinary tunnel path unless the selected strategy explicitly says otherwise.
+TUN-egress actions run before the original packet is bridged to the local SOCKS5
+session. Lua `rawsend` consumes the original packet by default. Set
+`forward_original: true` to treat the injected packet as a sidecar; an explicit
+`VERDICT_DROP` always consumes the original.
 
 ```mermaid
 flowchart LR

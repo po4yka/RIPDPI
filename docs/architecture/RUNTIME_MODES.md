@@ -297,9 +297,10 @@ in [AGENTS.md](../../AGENTS.md) § DNS Resolver Resilience.
 
 ## 7. Lifecycle transition summary
 
-`ServiceRuntimeCoordinator` (`core/service/.../services/ServiceRuntimeCoordinator.kt`)
-owns lifecycle sequencing, restart/backoff, and stop/start orchestration;
-mode-specific behavior is composed through injected policies, not subclassing
+`BaseServiceRuntimeCoordinator` (`core/service/.../services/ServiceRuntimeCoordinator.kt`)
+owns shared lifecycle sequencing, restart/backoff, and stop/start orchestration;
+`ProxyServiceRuntimeCoordinator` and `VpnServiceRuntimeCoordinator` implement
+mode-specific orchestration through concrete subclasses and composed collaborators
 (see [`architecture/README.md`](README.md) § Ownership Boundaries).
 
 | Transition | What happens |

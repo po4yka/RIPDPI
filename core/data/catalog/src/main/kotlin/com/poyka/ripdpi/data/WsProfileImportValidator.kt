@@ -8,8 +8,8 @@ import kotlinx.serialization.json.booleanOrNull
  * Import-time validator for WS-tunnel profiles.
  *
  * The native ws-tunnel runtime refuses `fake_sni` at connect time
- * when `allow_insecure_sni` is unset (see commit 41d69a14 +
- * `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md`).
+ * when `allow_insecure_sni` is unset (see commit 41d69a14 and the completed
+ * `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` task in git history).
  * This validator catches the same misconfiguration at *import* time
  * so users see the error before any connect attempt is made.
  *

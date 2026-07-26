@@ -18,4 +18,5 @@ xray-core ships XHTTP-affecting changes on its release cadence. Known deadlines:
 
 - xray-core v26.1.18 — XHTTP+REALITY combination breakage
 
-Watched weekly via `.github/workflows/upstream-spec-watch.yml`.
+The weekly workflow validates presence, formatting, and recorded pins; it does
+not fetch xray-core or detect upstream wire drift automatically.

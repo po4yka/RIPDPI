@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 // AI-authorship >= 50% — opt into the full pedantic group on top of the curated
-// workspace floor. First demonstration crate for the per-crate adoption pattern
-// in docs/tasks/issues/lints-pedantic-nursery-M7.md.
+// workspace floor. This crate is the maintained per-crate adoption example.
 #![warn(clippy::pedantic)]
 #![allow(clippy::must_use_candidate)] // accessor-heavy client API; #[must_use] churn not worth it
 #![allow(clippy::missing_errors_doc)] // TorError variants are self-describing at the call site

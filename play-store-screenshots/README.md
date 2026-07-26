@@ -41,7 +41,7 @@ This builds the prod bundle, boots a server on port 3099, captures all 56 assets
 | `capture.mjs` | Puppeteer driver — loops over all locales and slides |
 | `scripts/capture-prod.mjs` | Orchestrates build → server → capture → teardown |
 | `scripts/validate-play-store.mjs` | Zero-dep PNG header validator |
-| `public/screenshots/` | Stage-1 raw 1080×2400 app captures (manually produced via adb) |
+| `public/screenshots/` | Stage-1 raw 1344×2992 app captures (manually produced via adb) |
 | `public/app-icon.png` | Copied from `app/src/main/ic_launcher-playstore.png` |
 | `../docs/screenshots/` | Final Puppeteer output (committed to git) |
 

@@ -11,7 +11,7 @@ XHTTP transport, FinalMask Sudoku padding, and gRPC length-prefixed framing for 
 
 ## XHTTP transport
 
-Tunnels VLESS traffic over HTTP/1.1 or HTTP/2 with custom path, headers, and pooling. Connection-pooling logic in `pool.rs`; relay glue in `relay.rs`. Direct h2 body framing in `h2_body.rs`.
+Tunnels VLESS traffic over HTTP/2 with custom path, headers, and pooling. Connection-pooling logic in `pool.rs`; relay glue in `relay.rs`. Direct h2 body framing in `h2_body.rs`.
 
 ## FinalMask Sudoku padding
 
@@ -21,7 +21,9 @@ Sudoku-based byte-mapping padding applied at the transport boundary on TCP. Impl
 - `masks.rs` — encoder/decoder
 - `bridge.rs` — bridges into the TCP inbound/outbound
 
-Operates on attacker-influenced bytes. Fuzz target tracked in `docs/tasks/issues/add-fuzz-target-for-xhttp-finalmask-sudoku-decoder.md`.
+The implemented modes are `HeaderCustom`, `Noise`, `Fragment`, and `Sudoku`.
+They operate on attacker-influenced bytes and are exercised by the
+`finalmask_spec` and `finalmask_decoder` fuzz targets.
 
 ## gRPC framing
 
@@ -35,4 +37,3 @@ Length-prefixed message framing per the gRPC over HTTP/2 wire (5-byte prefix: 1 
 ## Non-goals
 
 - Server-side XHTTP.
-- Non-Sudoku FinalMask variants.

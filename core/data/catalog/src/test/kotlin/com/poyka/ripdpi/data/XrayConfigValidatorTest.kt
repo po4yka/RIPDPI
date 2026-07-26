@@ -18,7 +18,7 @@ import org.junit.Test
  * future import-from-Xray-config feature, or out-of-tree publisher tool
  * that wraps RIPDPI types, can call into a single source of truth.
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 class XrayConfigValidatorTest {
     private val json = Json { ignoreUnknownKeys = true }

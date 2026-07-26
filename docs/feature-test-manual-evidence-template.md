@@ -50,14 +50,22 @@ Run `test-lab/scripts/check-relay-matrix-config.sh --config <private-matrix>` be
 | Relay ID | Proxy | VPN | Diagnostics | Restart | Invalid credentials | Reset | Timeout | Malformed response | DNS fallback | Handover | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | mock_relay | | | | | | | | | | | |
+| vless | | | | | | | | | | | |
 | vless_reality | | | | | | | | | | | |
 | vless_xhttp | | | | | | | | | | | |
+| chain_relay | | | | | | | | | | | |
 | warp | | | | | | | | | | | |
 | cloudflare_tunnel | | | | | | | | | | | |
 | masque | | | | | | | | | | | |
 | hysteria2 | | | | | | | | | | | |
 | tuic_v5 | | | | | | | | | | | |
 | shadowtls_v3 | | | | | | | | | | | |
+| anytls | | | | | | | | | | | |
+| trojan | | | | | | | | | | | |
+| shadowsocks | | | | | | | | | | | |
+| tor | | | | | | | | | | | |
+| mieru | | | | | | | | | | | |
+| ssh | | | | | | | | | | | |
 | naiveproxy | | | | | | | | | | | |
 | webtunnel | | | | | | | | | | | |
 | obfs4 | | | | | | | | | | | |

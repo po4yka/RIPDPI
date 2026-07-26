@@ -15,10 +15,10 @@ Android's process model imposes constraints that Rust code rarely encounters els
 
 Low Memory Killer (LMK) terminates the process with `SIGKILL`. NO Drop runs. NO `tokio::runtime::Runtime::shutdown_background()` runs. Any state required across a kill cycle MUST be persisted via:
 
-- A WAL-backed store (`sled`, `sqlite` via `rusqlite`/`sqlx`) — durability is the library's job.
-- For small state (`< 1 KiB`, infrequent updates): `serde_json::to_writer(BufWriter::new(...))` + explicit `fsync` after every significant transition.
+- DataStore for settings or Room for diagnostics/runtime history — durability is owned by the repository layer.
+- For small native state only (`< 1 KiB`, infrequent updates): write a temporary file, explicitly `fsync`, then atomically rename it.
 
-`serde_json::to_writer` to a path that contains user data, with NO fsync, is FORBIDDEN. The next LMK kill discards everything.
+Writing required state without the repository's durable store or an fsynced atomic file is FORBIDDEN. The next LMK kill may discard it.
 
 ### Tokio runtime shutdown — avoid the self-deadlock
 
@@ -33,7 +33,11 @@ NEVER call `runtime.block_on(runtime.shutdown_*)` from a JNI method.
 
 ### Foreground Service contract
 
-`startForeground(NOTIFICATION_ID, notification)` MUST be called within 5 seconds of `onStartCommand` returning. The notification MUST be visible (no transparent/blank notifications); Android demotes the service to LMK-eligible if the notification disappears.
+`startForeground(NOTIFICATION_ID, notification)` must be called within the
+platform deadline measured from `startForegroundService()` launch to foreground
+promotion, not from `onStartCommand` returning. Promote immediately on service
+entry; do not spend the budget on config or network work. The notification must
+remain visible.
 
 Worker threads must set a readable name:
 - pthread: `pthread_setname_np(thread, "ripdpi-...")`.
@@ -45,7 +49,9 @@ Unnamed threads in logcat are a debugging tax — enforce naming in `JNI_OnLoad`
 
 With Android 6+ Doze: timer-based alarms via `AlarmManager.setExactAndAllowWhileIdle` may be deferred. WorkManager periodic tasks may be skipped. App Standby Buckets (Android 9+) further demote inactive apps.
 
-Rule: state must be persisted on every significant state transition, NOT on a periodic timer. A timer that misfires loses an hour of policy updates; an event-driven save captures every transition regardless of Doze.
+Rule: durable state may use DataStore or Room, but it must be persisted on every
+significant transition, not only on a periodic timer. A timer that misfires loses
+policy updates; an event-driven save captures each transition regardless of Doze.
 
 ### Signal handling
 

@@ -16,9 +16,7 @@ Confirm package names with `cargo metadata --manifest-path native/rust/Cargo.tom
 
 ## Benchmark Infrastructure
 
-- **Criterion benchmarks**: `native/rust/crates/ripdpi-bench/`
-  - `config_parse` -- configuration parsing throughput
-  - `relay_throughput` -- SOCKS5 relay throughput (uses `local-network-fixture`)
+- **Criterion benchmarks**: derive every `[[bench]]` target from `native/rust/crates/ripdpi-bench/Cargo.toml` before selecting a benchmark.
 - **Soak tests**: `scripts/ci/run-rust-native-soak.sh` (stability under sustained load)
 - **Load tests**: `scripts/ci/run-rust-native-load.sh` (peak throughput measurement)
 
@@ -61,8 +59,9 @@ Flag functions with >1000 copies or >10000 lines of LLVM IR.
 ### 4. Binary Size Analysis
 
 ```bash
-cargo bloat --locked --package ripdpi-android --profile android-jni --release -n 20
-cargo bloat --locked --package ripdpi-android --profile android-jni --release --crates
+cd native/rust
+cargo bloat --locked --package ripdpi-android --profile android-jni -n 20
+cargo bloat --locked --package ripdpi-android --profile android-jni --crates
 ```
 
 Cross-reference with `native-verifier` baseline in `scripts/ci/verify_native_sizes.py`.

@@ -19,12 +19,14 @@ ShadowTLS v3 uses HKDF-derived authentication and HMAC-tagged framing. Modules:
 - `stream.rs` — async stream wrapper around the framed layer
 - `client.rs` — top-level client
 
-The TLS cover handshake is performed against the configured upstream server name; the cover certificate is observed but not validated by client trust roots (this is the obfuscation point).
+The client switches to ShadowTLS framing after the cover ServerHello, before a
+Certificate flight is sent or processed; this is not a normal certificate-
+validated TLS session.
 
 ## Known divergences from upstream
 
 - v2 is intentionally unsupported; `docs/architecture/shadowtls-version-policy.md` records the v3-only decision and the version-mismatch classifier surface.
-- No in-tree server; see `docs/tasks/issues/add-shadowtls-loopback-test-server-for-soak-runs.md`.
+- The feature-gated in-tree `ShadowTlsLoopback` is a test fixture, not a production server or external-interop oracle.
 
 ## Non-goals
 

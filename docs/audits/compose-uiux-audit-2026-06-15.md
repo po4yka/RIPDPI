@@ -1,5 +1,10 @@
 # RIPDPI — Compose UI/UX Audit
 
+> **Historical status:** this is the original finding snapshot. See
+> [the resolution ledger](compose-uiux-audit-2026-06-15-resolution.md) for the
+> verified disposition: 96 fixed, 41 invalid/already correct, 10 won't-fix,
+> and 1 deferred. Do not treat the unmodified findings below as the current UI.
+
 **Date:** 2026-06-15 · **Scope:** all Jetpack Compose UI under `app/src/main/kotlin/com/poyka/ripdpi/ui` + `widget/` (255 `@Composable` files)
 
 **Method:** multi-agent workflow — 9 area auditors (one per UI cluster) + a dedicated RDS-token-discipline pass + a cross-cutting a11y/i18n sweep (11 auditors total), then an adversarial verification pass and synthesis. Each finding is anchored to file:line across 7 lenses: RDS token discipline, accessibility, recomposition/perf, state, i18n, Material 3 consistency, and UX completeness.

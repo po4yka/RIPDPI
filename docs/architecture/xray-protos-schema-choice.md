@@ -25,7 +25,10 @@ Vendored proto sources under `xray-protos/src/main/proto/`:
 - `transport/internet/config.proto`
 - `transport/internet/reality/config.proto`
 
-The live consumer is `:core:detection`: `XrayApiClient` imports the generated `com.xray.*` classes to inspect a local Xray API endpoint. Runtime Xray client-config rendering is tracked separately by `docs/tasks/issues/render-validated-xray-client-configs.md`.
+The generated protobuf consumer is `:core:detection`: `XrayApiClient` imports
+the generated `com.xray.*` classes to inspect a local Xray API endpoint.
+Runtime client-config rendering is implemented separately by
+`:core:data:catalog`'s `XrayConfigRenderer`.
 
 ## Validation Shape
 
@@ -40,5 +43,5 @@ The validator currently covers:
 ## Rationale
 
 - Generated Java lite classes are useful for local Xray API inspection because that API is protobuf/gRPC-shaped.
-- Product profile rendering needs a smaller, secret-safe model than the full Xray schema; that work belongs in the Xray provider tasks, not in this schema module.
-- Keeping validation on `JsonObject` lets RIPDPI reject unsafe or upstream-broken combinations before the full provider renderer lands.
+- Product profile rendering uses a smaller, secret-safe model than the full Xray schema and remains outside this schema module.
+- Keeping validation on `JsonObject` lets RIPDPI reject unsafe or upstream-broken combinations before invoking the renderer/tester gate.

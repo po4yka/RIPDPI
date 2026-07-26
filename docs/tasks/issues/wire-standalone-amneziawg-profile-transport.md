@@ -152,4 +152,4 @@ implementation series. Its core concerns were addressed as follows:
   consumes).
 - `docs/architecture/NATIVE_RUST.md` §1/§2/§6 (the new L8 crate).
 - `.claude/rules/vpnservice-protect-invariant.md` (outbound UDP socket protect).
-- Different mechanism: `add-wireguard-over-websocket-transport-amneziawg-disguise`.
+- Different mechanism: completed task `add-wireguard-over-websocket-transport-amneziawg-disguise` (see git history).

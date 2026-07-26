@@ -26,7 +26,8 @@ the Android relay bridge depends on. Relay selection is keyed by the
 **Upstream:** `ripdpi-relay-mux`, `ripdpi-relay-tls-transports`, and transport
 crates including `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-shadowtls`,
 `ripdpi-tuic`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-trojan`,
-`ripdpi-anytls`, `ripdpi-shadowsocks`, and `ripdpi-tor`. **Downstream:**
+`ripdpi-anytls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-mieru`, and
+`ripdpi-ssh`. **Downstream:**
 `ripdpi-relay-android` → `libripdpi-relay.so`.
 
 ## Non-root fallback
@@ -54,14 +55,14 @@ Non-goals for this backend are UDP over Tor (`udp_capable=false`), running a Tor
 ## Transport-descriptor seam
 
 `RelayTransportDescriptor` (`src/transport_descriptor.rs`, re-exported from the
-crate root with `RELAY_TRANSPORT_DESCRIPTORS` and `relay_transport_descriptor`)
+crate root with private `RELAY_TRANSPORT_REGISTRATIONS` and the public lookup)
 is the `relay_kind`-keyed **source of truth** for a relay transport's generic
 capability profile: one row per `relay_kind`, carrying the static facts — kind
 string, label, SOCKS capability profile (TCP / UDP / connection reuse), and
 outbound-bind-IP support.
 
 `runtime_validation` resolves the generic capability decisions through this table: `planned_backend_capabilities` reads TCP / UDP / reuse from it, and the outbound-bind-IP validation gate reads `supports_outbound_bind_ip`. Runtime construction dispatches through `RELAY_TRANSPORT_REGISTRATIONS`; each registration binds a descriptor to its builder. The
-`relay_transport_descriptors_cover_every_kind_exactly_once` and
+`relay_transport_registry_is_consistent` and
 `relay_planned_capabilities_are_pinned_for_every_kind` crate tests pin the
 table against every `RelayKind`. Finalmask support, pool tuning, chain-relay
 upstream description, and the NaiveProxy subprocess fallback are intentionally

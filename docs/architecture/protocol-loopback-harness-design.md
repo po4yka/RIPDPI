@@ -47,7 +47,7 @@ pub trait ProtocolLoopbackServer: Send {
 
 ## What stays out of scope
 
-- Wire conformance against upstream. The harness validates that the client's encoder/decoder are mutually consistent; it does *not* validate that the bytes match xray-core / apernet/hysteria / EAimTY/tuic output. Upstream conformance is a separate concern (`docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`, `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`).
+- Wire conformance against upstream. The harness validates that the client's encoder/decoder are mutually consistent; it does *not* validate that the bytes match xray-core / apernet/hysteria / EAimTY/tuic output. Upstream conformance remains tracked by `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md` and `docs/tasks/issues/epic-protocol-conformance-tests.md`.
 - Cryptographic side-channels and CVE coverage.
 - Multi-stream / port-hopping soak topology — those live in the hysteria2 `port_hopping` tests directly against the encoder.
 

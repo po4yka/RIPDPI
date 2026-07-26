@@ -18,7 +18,7 @@ import org.junit.Test
  *   all fail CLOSED (Rejected).
  * - Rejection messages never leak the UUID / key / host from the input.
  *
- * Tracks `docs/tasks/issues/render-validated-xray-client-configs.md`.
+ * Tracks the completed `render-validated-xray-client-configs` task (see git history).
  */
 class XrayImportParserTest {
     private val parser = XrayImportParser()
