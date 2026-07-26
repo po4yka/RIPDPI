@@ -782,11 +782,7 @@ validation_args=(
   --expected-execution-attempt "$execution_attempt"
   --require-pass
 )
-if [[ -n "${RIPDPI_TEST_REPO_ROOT:-}" ]]; then
-  [[ "$execution_kind" == "local" && "$execution_id" == "local-self-test" ]] || {
-    echo "test-only unready-action override requires local-self-test provenance" >&2
-    exit 1
-  }
+if [[ -n "${RIPDPI_TEST_REPO_ROOT:-}" && "$execution_kind" == "local" && "$execution_id" == "local-self-test" ]]; then
   validation_args+=(--allow-unready-actions-for-local-self-test)
 fi
 python3 "$repo_root/scripts/ci/network_evidence_manifest.py" validate "${validation_args[@]}"
