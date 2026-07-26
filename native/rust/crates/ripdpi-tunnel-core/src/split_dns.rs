@@ -3,6 +3,7 @@ use ripdpi_tunnel_config::{SplitDnsAction, SplitDnsMatcherKind, SplitDnsNetwork,
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DnsPolicyPlane {
     Proxy,
+    Direct,
     Block,
 }
 
@@ -16,6 +17,7 @@ pub(crate) struct DnsPolicyDecision<'a> {
 pub(crate) struct SplitDnsPolicy {
     rules: Box<[SplitDnsRule]>,
     coverage_reason: Option<Box<str>>,
+    direct_resolver_candidates: Box<[std::net::IpAddr]>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +35,7 @@ impl SplitDnsPolicy {
         Ok(Self {
             rules: config.rules.clone().into_boxed_slice(),
             coverage_reason: config.coverage_reason.clone().map(String::into_boxed_str),
+            direct_resolver_candidates: config.direct_resolver_candidates.clone().into_boxed_slice(),
         })
     }
 
@@ -51,7 +54,10 @@ impl SplitDnsPolicy {
                 RuleMatch::Match => {
                     return match rule.action {
                         SplitDnsAction::Tunneled => proxy(None),
-                        SplitDnsAction::Direct => proxy(Some("direct_plane_unbound")),
+                        SplitDnsAction::Direct if self.direct_resolver_candidates.is_empty() => {
+                            proxy(Some("direct_resolver_unavailable"))
+                        }
+                        SplitDnsAction::Direct => DnsPolicyDecision { plane: DnsPolicyPlane::Direct, reason: None },
                         SplitDnsAction::Block => DnsPolicyDecision { plane: DnsPolicyPlane::Block, reason: None },
                     };
                 }
@@ -59,6 +65,10 @@ impl SplitDnsPolicy {
         }
 
         proxy(self.coverage_reason.as_deref())
+    }
+
+    pub(crate) fn direct_resolver_candidates(&self) -> &[std::net::IpAddr] {
+        &self.direct_resolver_candidates
     }
 }
 
@@ -181,7 +191,7 @@ mod tests {
             None,
         );
 
-        assert_eq!(policy.evaluate("API.EXAMPLE."), proxy(Some("direct_plane_unbound")));
+        assert_eq!(policy.evaluate("API.EXAMPLE."), DnsPolicyDecision { plane: DnsPolicyPlane::Direct, reason: None },);
         assert_eq!(policy.evaluate("www.example"), proxy(Some("unsupported_domain_matcher")));
         assert_eq!(policy.evaluate("other.test"), proxy(Some("unsupported_domain_matcher")));
     }

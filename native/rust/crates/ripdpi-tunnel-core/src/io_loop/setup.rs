@@ -82,6 +82,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         pending_uid_udp_packets: PendingUidUdpPackets::new(mtu + 64),
         dns_req_tx,
         dns_resp_rx,
+        active_direct_dns_generation: None,
         tun_read_buf: vec![0u8; mtu + 64],
         retransmit_tracker: RetransmitTracker::new(),
         last_loss_emit_iteration: 0,

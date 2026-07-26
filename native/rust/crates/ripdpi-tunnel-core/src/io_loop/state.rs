@@ -46,6 +46,7 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) pending_uid_udp_packets: PendingUidUdpPackets,
     pub(in crate::io_loop) dns_req_tx: Option<Sender<DnsRequest>>,
     pub(in crate::io_loop) dns_resp_rx: Option<Receiver<DnsResponse>>,
+    pub(in crate::io_loop) active_direct_dns_generation: Option<u64>,
     pub(in crate::io_loop) tun_read_buf: Vec<u8>,
     pub(in crate::io_loop) retransmit_tracker: RetransmitTracker,
     pub(in crate::io_loop) last_loss_emit_iteration: u32,

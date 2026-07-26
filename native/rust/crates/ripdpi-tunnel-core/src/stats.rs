@@ -72,6 +72,8 @@ pub struct Stats {
     pub split_dns_proxy_decisions: AtomicU64,
     pub split_dns_direct_fallback_decisions: AtomicU64,
     pub split_dns_block_decisions: AtomicU64,
+    direct_dns_successes: AtomicU64,
+    direct_dns_stale_responses: AtomicU64,
     pub last_split_dns_coverage_reason: Mutex<Option<String>>,
     pub last_dns_host: Mutex<Option<String>>,
     pub last_dns_error: Mutex<Option<String>>,
@@ -150,6 +152,8 @@ impl Stats {
             split_dns_proxy_decisions: AtomicU64::new(0),
             split_dns_direct_fallback_decisions: AtomicU64::new(0),
             split_dns_block_decisions: AtomicU64::new(0),
+            direct_dns_successes: AtomicU64::new(0),
+            direct_dns_stale_responses: AtomicU64::new(0),
             last_split_dns_coverage_reason: Mutex::new(None),
             last_dns_host: Mutex::new(None),
             last_dns_error: Mutex::new(None),
@@ -289,6 +293,22 @@ impl Stats {
         if let Ok(mut target) = self.last_dns_error.lock() {
             *target = Some(error.to_string());
         }
+    }
+
+    pub(crate) fn record_direct_dns_success(&self) {
+        self.direct_dns_successes.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_direct_dns_stale_response(&self) {
+        self.direct_dns_stale_responses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn direct_dns_outcomes(&self) -> (u64, u64) {
+        (
+            self.direct_dns_successes.load(std::sync::atomic::Ordering::Relaxed),
+            self.direct_dns_stale_responses.load(std::sync::atomic::Ordering::Relaxed),
+        )
     }
 
     pub fn record_last_host(&self, host: Option<&str>) {

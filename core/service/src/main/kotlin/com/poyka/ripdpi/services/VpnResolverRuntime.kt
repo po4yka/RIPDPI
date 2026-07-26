@@ -66,6 +66,7 @@ internal fun dnsSignature(
     activeDns: ActiveDnsSettings,
     overrideReason: String?,
     destinationRoutingDigest: String = "",
+    underlayLeaseGeneration: Long? = null,
 ): String =
     (
         listOf(
@@ -90,10 +91,12 @@ internal fun dnsSignature(
             activeDns.encryptedDnsOdohConfigsRetrievedAtSecs.toString(),
             activeDns.encryptedDnsOdohConfigsTtlSecs.toString(),
             overrideReason.orEmpty(),
-        ) + destinationRoutingDigest.takeIf(String::isNotEmpty).orEmptyList()
+        ) +
+            listOfNotNull(
+                destinationRoutingDigest.takeIf(String::isNotEmpty),
+                underlayLeaseGeneration?.toString(),
+            )
     ).joinToString("|")
-
-private fun String?.orEmptyList(): List<String> = if (this == null) emptyList() else listOf(this)
 
 internal fun classifyNetworkHandover(
     previous: NetworkFingerprint?,

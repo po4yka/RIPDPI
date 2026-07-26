@@ -152,6 +152,24 @@ flowchart TD
   callback (`vpn_protect.rs` / `VpnNativeProtectRegistration.kt`) preferred,
   Unix-socket fallback (`VpnProtectSocketServer.kt`). See
   [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md).
+- **Split-DNS direct underlay** — a service-owned lease accepts only the
+  validated, non-VPN, non-captive default network whose callback-delivered
+  LinkProperties DNS set matches the immutable policy. A singleton callback
+  authority issues an ephemeral generation only after capabilities and link
+  properties are complete; the fingerprint carries that non-persisted token
+  into the runtime policy. Direct UDP/53 sockets are protected and bound to
+  that exact `Network`; truncated replies retry over TCP/53. A stale token
+  suppresses late responses before MapDNS rewrite/cache insertion, while a
+  missing token falls back to the encrypted proxy resolver. The runtime-only
+  DNS signature includes the token so the periodic policy refresh closes the
+  cold-start callback race without changing the canonical policy digest. Relay
+  hostname bootstrap uses the same eligible callback snapshot independently of
+  the split-DNS policy lease and rejects results if its generation changes
+  during resolution.
+  Android underlay publication is tri-state: encrypted-only policies use
+  `null` (system default), an exact direct lease publishes one `Network`, and
+  an explicit direct policy with a missing or stale lease publishes an empty
+  blocking array until authority is restored.
 - **Telemetry is pull-model** — `:core:service` polls native snapshots once per
   second and stores only metadata (counters, lifecycle changes, route
   decisions). No packet payloads are persisted.

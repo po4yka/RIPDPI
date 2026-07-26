@@ -816,6 +816,20 @@ Findings from earlier audits that were still open at the start of 2026-Q2 and ha
 - **C-1** -- "Dual adaptive systems (`adaptive_tuning` + `strategy_evolver`) uncoordinated." Resolved via a documented priority chain in `ripdpi-runtime-strategy/src/strategy_evolver.rs` and `ripdpi-runtime-adaptive/src/adaptive_tuning.rs`: evolver hints override per-flow adaptive hints when the evolver is enabled, otherwise per-flow cycling drives the dimensions.
 - **E-1** -- "`adaptive_tuning.rs` has no dedicated unit tests." `#[cfg(test)] mod tests;` is declared and the module covers candidate cycling and dimension-order shuffling.
 - **VPN/DNS-leak instrumentation matrix** -- landed as JVM coverage under `core/service/src/test/kotlin/com/poyka/ripdpi/services/`: `DnsLeakDetectorTest`, `DnsLeakReportTest`, `DnsPolicyNetworkSwitchTest`, and the `services/leak/*` matrix tests cover DNS, IPv6, lifecycle, revoked-credential, per-app, and transition leak cases.
+- **Split-DNS validated-underlay execution** -- Kotlin fault tests cover the
+  callback-authority epoch/ABA machine, exact fingerprint token matching,
+  cold-start policy refresh, publish serialization, and exact
+  `protect -> duplicate -> bind -> close -> recheck` order. Native fixtures
+  cover candidate timeout/failover, mismatched UDP/TCP replies, truncation to
+  TCP, UID admission before routing, in-flight registry replacement, and late
+  direct/encrypted-fallback response suppression before MapDNS cache mutation.
+  Relay hostname bootstrap is also covered before any direct-DNS policy lease,
+  including a generation change during resolution. Builder/live-publication
+  regressions distinguish encrypted-only `null`, an exact one-network lease,
+  and the empty fail-closed barrier retained across a failed rebuild. Rebuild
+  coverage also keeps the active runtime on committed lease A while lease B is
+  only prepared on its replacement builder; B commits after establish and A
+  retirement, while establish failure aborts B without publishing it.
 - **HTTP-injection error-page probe** -- landed as `ripdpi-diagnostics-http::http_injection_probe` with classifier unit tests and the `ripdpi-diagnostics-probes::http_injection` adapter.
 - **Owned-stack JA3/JA4 fingerprint snapshot** -- release CI runs `scripts/ci/check-owned-stack-tls-fingerprint.sh`, which captures the native owned-TLS fallback ClientHello against a loopback fixture and compares it with `contract-fixtures/owned_stack_tls_fingerprint_snapshot.json`. To intentionally accept a reviewed upstream TLS profile rotation, run `CARGO_TARGET_DIR=/tmp/ripdpi-owned-stack-fingerprint-target RIPDPI_REGENERATE_OWNED_STACK_TLS_FINGERPRINT_FIXTURE=1 cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-android-fetch-adapter owned_stack_tls_fingerprint_snapshot_matches_fixture -- --nocapture`, inspect the JSON diff for `ja4RipdpiV1`, `keyShareGroupsNoGrease`, and `containsX25519Mlkem768KeyShare`, then rerun `bash scripts/ci/check-owned-stack-tls-fingerprint.sh`.
 - **D-1 adaptive strategy residual** -- `ripdpi-runtime-strategy` now includes adaptive timing jitter and OOB byte placement in the evolver combo identity and shared-prior pool; `ripdpi-runtime-adaptive` threads those hints into the morph policy.

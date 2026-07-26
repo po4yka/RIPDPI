@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -195,6 +196,10 @@ data class NativeRuntimeSnapshot(
     val splitDnsProxyDecisions: Long = 0,
     val splitDnsDirectFallbackDecisions: Long = 0,
     val splitDnsBlockDecisions: Long = 0,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val directDnsSuccesses: Long = 0,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val directDnsStaleResponses: Long = 0,
     val lastSplitDnsCoverageReason: String? = null,
     val lastDnsHost: String? = null,
     val lastDnsError: String? = null,

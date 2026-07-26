@@ -1145,8 +1145,15 @@ internal class TestTun2SocksBridge(
 
 internal class TestTun2SocksBridgeFactory(
     val bridge: TestTun2SocksBridge = TestTun2SocksBridge(),
+    additionalBridges: List<TestTun2SocksBridge> = emptyList(),
 ) : Tun2SocksBridgeFactory {
-    override fun create(): Tun2SocksBridge = bridge
+    private val queuedBridges =
+        ArrayDeque<TestTun2SocksBridge>().apply {
+            add(bridge)
+            addAll(additionalBridges)
+        }
+
+    override fun create(): Tun2SocksBridge = if (queuedBridges.isNotEmpty()) queuedBridges.removeFirst() else bridge
 }
 
 internal class TestVpnTunnelSession(
@@ -1218,11 +1225,17 @@ internal class TestProxyServiceHost(
 
 internal class TestVpnServiceHost(
     override val serviceScope: CoroutineScope,
+    private val lifecycleEvents: MutableList<String>? = null,
 ) : VpnCoordinatorHost {
     private val installedPackagesState = MutableStateFlow<Set<String>>(emptySet())
     val notifications = mutableListOf<Pair<TunnelStats, NativeRuntimeSnapshot>>()
     val stopRequests = mutableListOf<Int?>()
     var underlyingNetworkSyncs: Int = 0
+    var directDnsApplyCount: Int = 0
+    var directDnsApplyResult: Boolean = false
+    var directDnsLeaseGeneration: Long = 0L
+    var lastDirectDnsCandidates: List<String> = emptyList()
+    var lastDirectDnsNetworkHandle: Long? = null
     var builderSession: VpnTunnelSession? = TestVpnTunnelSession()
     var tunnelNetworkParameters: VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()
     var appRoutingPlan: VpnAppRoutingPlan = VpnAppRoutingPlan.Disallow(emptySet())
@@ -1248,8 +1261,37 @@ internal class TestVpnServiceHost(
         stopRequests += stopSelfStartId
     }
 
-    override fun syncUnderlyingNetworksFromActiveNetwork() {
+    override fun prepareDirectDnsUnderlay(
+        candidates: List<String>,
+        leaseGeneration: Long?,
+    ): Long {
         underlyingNetworkSyncs += 1
+        lastDirectDnsCandidates = candidates
+        lastDirectDnsNetworkHandle = leaseGeneration
+        lifecycleEvents?.add("dns:prepare")
+        return directDnsPrepareToken
+    }
+
+    var directDnsPrepareToken: Long = 1L
+
+    override fun finishDirectDnsUnderlay(
+        token: Long,
+        action: DirectDnsUnderlayAction,
+    ): Boolean {
+        when (action) {
+            DirectDnsUnderlayAction.Commit -> {
+                directDnsApplyCount += 1
+                directDnsLeaseGeneration = token
+            }
+
+            DirectDnsUnderlayAction.FailClosed -> {
+                directDnsLeaseGeneration = 0L
+            }
+
+            DirectDnsUnderlayAction.Abort -> {}
+        }
+        lifecycleEvents?.add("dns:${action.name.lowercase()}:$token")
+        return action == DirectDnsUnderlayAction.Commit && directDnsApplyResult
     }
 
     override fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = tunnelNetworkParameters

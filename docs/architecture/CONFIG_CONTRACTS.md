@@ -394,8 +394,12 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   section is present, MapDNS and a complete encrypted resolver endpoint are
   mandatory, and `bootstrapPins` must exactly match the ordered top-level
   `encryptedDnsBootstrapIps`. Digests are immutable policy identity carried for
-  diagnostics and the future direct-plane work; `directResolverCandidates` are
-  validated but intentionally not executed until that later stage. This is
+  diagnostics. `directResolverCandidates` execute only when Android supplies
+  a validated, non-VPN, non-captive default-network lease whose numeric DNS set
+  and binder-issued callback generation exactly match the policy. That
+  generation is runtime-only: it is excluded from persistence, scope hashes,
+  and the canonical routing digest. Missing, rejected, or stale leases use the
+  configured encrypted resolver instead of the system default. This is
   intentionally distinct from the standalone `ripdpi-tunnel-config` YAML file
   format, which remains schema `2`; changing the JNI envelope does not change
   the YAML schema.

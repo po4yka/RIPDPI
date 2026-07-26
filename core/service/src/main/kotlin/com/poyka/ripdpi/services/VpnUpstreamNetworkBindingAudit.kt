@@ -4,7 +4,7 @@ internal data class VpnUpstreamNetworkBindingAudit(
     val readsActiveNetwork: Boolean,
     val activeNetworkAvailable: Boolean,
     val usesSetUnderlyingNetworks: Boolean = true,
-    val usesBindSocket: Boolean = false,
+    val usesBindSocket: Boolean = true,
     val usesAllowBypass: Boolean = false,
 ) {
     val bindsActiveNetwork: Boolean

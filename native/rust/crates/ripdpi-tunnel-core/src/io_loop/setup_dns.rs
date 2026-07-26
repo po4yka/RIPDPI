@@ -34,7 +34,10 @@ pub(in crate::io_loop) fn build_dns_worker(
         return Ok((None, None));
     };
 
-    let (tx, rx) = spawn_dns_worker(resolver, cancel.child_token());
+    let timeout = std::time::Duration::from_millis(u64::from(
+        config.mapdns.as_ref().map_or(4_000, |mapdns| mapdns.dns_query_timeout_ms),
+    ));
+    let (tx, rx) = spawn_dns_worker(resolver, cancel.child_token(), timeout);
     Ok((Some(tx), Some(rx)))
 }
 

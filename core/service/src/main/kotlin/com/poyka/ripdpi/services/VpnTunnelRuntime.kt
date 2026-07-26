@@ -117,8 +117,6 @@ internal class VpnTunnelRuntime(
         // service can publish Failed.
         pendingSession = pendingTunnel.session
         startBridge(pendingTunnel, retainFailedBridge = false)
-
-        vpnHost.syncUnderlyingNetworksFromActiveNetwork()
     }
 
     /**
@@ -157,19 +155,23 @@ internal class VpnTunnelRuntime(
         tun2SocksBridge = null
         try {
             try {
-                previousBridge.stop()
-            } catch (error: Exception) {
-                retiringBridge = previousBridge
-                throw error
+                try {
+                    previousBridge.stop()
+                } catch (error: Exception) {
+                    retiringBridge = previousBridge
+                    throw error
+                }
+            } finally {
+                previousSession.close()
             }
-        } finally {
-            previousSession.close()
+        } catch (error: Exception) {
+            vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.FailClosed)
+            throw error
         }
         startBridge(pendingTunnel, retainFailedBridge = true)
-
-        vpnHost.syncUnderlyingNetworksFromActiveNetwork()
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun prepareTunnel(
         activeDns: ActiveDnsSettings,
         overrideReason: String?,
@@ -180,55 +182,67 @@ internal class VpnTunnelRuntime(
     ): PendingTunnel {
         val settings = appSettingsRepository.snapshot()
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns, splitStrictDnsPolicy)
-        val ipv6 = settings.ipv6Enable
-        val tunnelNetworkParameters = vpnHost.currentTunnelNetworkParameters()
-        val interfacePolicy =
-            resolveInterfacePolicy(
-                settings = settings,
-                groups = proxyGroupRepository.list(),
-                installedPackages = vpnHost.currentInstalledPackages(),
+        val directDnsPrepareToken =
+            vpnHost.prepareDirectDnsUnderlay(
+                splitStrictDnsPolicy?.directResolverCandidates.orEmpty(),
+                splitStrictDnsPolicy?.underlayLeaseGeneration,
             )
-        val appRoutingPlan = interfacePolicy.appRoutingPlan
-        val uidPolicy =
-            nativeUidPolicyProvider?.invoke(appRoutingPlan)
-                ?: flowAttributionBridge?.nativeUidPolicy(appRoutingPlan)
-                ?: NativeUidPolicy.Disarmed
-        val config =
-            buildVpnTun2SocksConfig(
-                dnsPlan = dnsPlan,
-                overrideReason = overrideReason,
-                localProxyEndpoint = localProxyEndpoint,
-                ipv6Enabled = ipv6,
-                webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
-                tunnelMtu = tunnelNetworkParameters.tunnelMtu,
-                logContext = logContext,
-                encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
-                strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
-                protectPath = protectPath,
-                rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
-                luaScriptBaseDir = luaScriptBaseDir,
-                uidPolicy = uidPolicy,
+        try {
+            val ipv6 = settings.ipv6Enable
+            val tunnelNetworkParameters = vpnHost.currentTunnelNetworkParameters()
+            val interfacePolicy =
+                resolveInterfacePolicy(
+                    settings = settings,
+                    groups = proxyGroupRepository.list(),
+                    installedPackages = vpnHost.currentInstalledPackages(),
+                )
+            val appRoutingPlan = interfacePolicy.appRoutingPlan
+            val uidPolicy =
+                nativeUidPolicyProvider?.invoke(appRoutingPlan)
+                    ?: flowAttributionBridge?.nativeUidPolicy(appRoutingPlan)
+                    ?: NativeUidPolicy.Disarmed
+            val config =
+                buildVpnTun2SocksConfig(
+                    dnsPlan = dnsPlan,
+                    overrideReason = overrideReason,
+                    localProxyEndpoint = localProxyEndpoint,
+                    ipv6Enabled = ipv6,
+                    webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
+                    tunnelMtu = tunnelNetworkParameters.tunnelMtu,
+                    logContext = logContext,
+                    encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
+                    strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
+                    protectPath = protectPath,
+                    rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
+                    luaScriptBaseDir = luaScriptBaseDir,
+                    uidPolicy = uidPolicy,
+                )
+            val tunnelSession =
+                vpnTunnelSessionProvider.establish(
+                    host = vpnHost,
+                    dns = dnsPlan.builderDnsAddress,
+                    ipv6 = ipv6,
+                    appRoutingPlan = appRoutingPlan,
+                    httpProxyPort = interfacePolicy.httpProxyPort,
+                    interfaceSettings = settings,
+                )
+            return PendingTunnel(
+                session = tunnelSession,
+                config = config,
+                directDnsPrepareToken = directDnsPrepareToken,
+                dnsSignature =
+                    dnsSignature(
+                        activeDns,
+                        overrideReason,
+                        splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
+                        splitStrictDnsPolicy?.underlayLeaseGeneration,
+                    ),
+                interfacePolicySignature = interfacePolicy.signature,
             )
-        val tunnelSession =
-            vpnTunnelSessionProvider.establish(
-                host = vpnHost,
-                dns = dnsPlan.builderDnsAddress,
-                ipv6 = ipv6,
-                appRoutingPlan = appRoutingPlan,
-                httpProxyPort = interfacePolicy.httpProxyPort,
-                interfaceSettings = settings,
-            )
-        return PendingTunnel(
-            session = tunnelSession,
-            config = config,
-            dnsSignature =
-                dnsSignature(
-                    activeDns,
-                    overrideReason,
-                    splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
-                ),
-            interfacePolicySignature = interfacePolicy.signature,
-        )
+        } catch (error: Exception) {
+            vpnHost.finishDirectDnsUnderlay(directDnsPrepareToken, DirectDnsUnderlayAction.Abort)
+            throw error
+        }
     }
 
     private suspend fun desiredInterfacePolicySignature(): String {
@@ -264,10 +278,12 @@ internal class VpnTunnelRuntime(
     ) {
         val tunnelBridge = tun2SocksBridgeFactory.create()
         try {
+            vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.Commit)
             withTimeout(NativeTunnelStartTimeoutMillis) {
                 tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, flowAttributionBridge)
             }
         } catch (error: Exception) {
+            vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.FailClosed)
             if (retainFailedBridge) retiringBridge = tunnelBridge
             throw error
         }
@@ -328,6 +344,7 @@ internal class VpnTunnelRuntime(
     private data class PendingTunnel(
         val session: VpnTunnelSession,
         val config: Tun2SocksConfig,
+        val directDnsPrepareToken: Long,
         val dnsSignature: String,
         val interfacePolicySignature: String,
     )

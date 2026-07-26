@@ -23,6 +23,7 @@ pub(super) fn collect_admissible_sessions(
     admission_cursor: &mut usize,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
+    mut active_direct_generation: Option<&mut Option<u64>>,
     uid_policy: &UidFlowPolicy,
 ) -> (Vec<PendingTcpSession>, Vec<SocketHandle>) {
     let mut new_sessions = Vec::new();
@@ -42,7 +43,7 @@ pub(super) fn collect_admissible_sessions(
         // SOCKS session must receive the separately resolved real target.
         let attribution_remote = tcp_target_endpoint(tcp);
         let synthetic_ip = pinned_synthetic_ip(dns_cache, tcp);
-        match tcp_session_target_addr(stats, dns_cache, tcp) {
+        match tcp_session_target_addr(stats, dns_cache, active_direct_generation.as_deref_mut(), tcp) {
             Some(target_addr) => collect_resolved_session(
                 handle,
                 tcp,

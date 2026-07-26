@@ -25,6 +25,14 @@ class VpnResolverRuntimeTest {
 
         assertEquals(legacy, dnsSignature(activeDns, overrideReason = null, destinationRoutingDigest = ""))
         assertNotEquals(legacy, dnsSignature(activeDns, overrideReason = null, destinationRoutingDigest = "route-a"))
+        assertNotEquals(
+            legacy,
+            dnsSignature(activeDns, overrideReason = null, underlayLeaseGeneration = 17L),
+        )
+        assertEquals(
+            dnsSignature(activeDns, overrideReason = null, underlayLeaseGeneration = 17L),
+            dnsSignature(activeDns, overrideReason = null, underlayLeaseGeneration = 17L),
+        )
     }
 
     @Test

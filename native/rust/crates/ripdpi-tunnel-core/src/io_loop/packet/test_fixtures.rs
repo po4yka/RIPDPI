@@ -19,6 +19,45 @@ pub(crate) fn finalize_checksum(mut sum: u32) -> u16 {
     !(sum as u16)
 }
 
+pub(crate) fn build_ipv4_tcp_ack_packet(
+    src_ip: Ipv4Addr,
+    dst_ip: Ipv4Addr,
+    src_port: u16,
+    dst_port: u16,
+    seq: u32,
+    ack: u32,
+) -> Vec<u8> {
+    let mut pkt = vec![0u8; 40];
+    pkt[0] = 0x45;
+    pkt[3] = 40;
+    pkt[9] = 6;
+    pkt[12..16].copy_from_slice(&src_ip.octets());
+    pkt[16..20].copy_from_slice(&dst_ip.octets());
+    pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
+    pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
+    pkt[24..28].copy_from_slice(&seq.to_be_bytes());
+    pkt[28..32].copy_from_slice(&ack.to_be_bytes());
+    pkt[32] = 0x50;
+    pkt[33] = 0x10;
+    let ip_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
+    pkt[10..12].copy_from_slice(&ip_checksum.to_be_bytes());
+    let mut sum = checksum_sum(&src_ip.octets());
+    sum += checksum_sum(&dst_ip.octets());
+    sum += u32::from(6u16);
+    sum += u32::from((pkt.len() - 20) as u16);
+    sum += checksum_sum(&pkt[20..]);
+    let tcp_checksum = finalize_checksum(sum);
+    pkt[36..38].copy_from_slice(&tcp_checksum.to_be_bytes());
+    pkt
+}
+
+pub(crate) fn tcp_seq_ack(pkt: &[u8]) -> (u32, u32) {
+    let ihl = ((pkt[0] & 0x0f) as usize) * 4;
+    let seq = u32::from_be_bytes([pkt[ihl + 4], pkt[ihl + 5], pkt[ihl + 6], pkt[ihl + 7]]);
+    let ack = u32::from_be_bytes([pkt[ihl + 8], pkt[ihl + 9], pkt[ihl + 10], pkt[ihl + 11]]);
+    (seq, ack)
+}
+
 pub(crate) fn build_ipv4_tcp_syn_packet(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, src_port: u16, dst_port: u16) -> Vec<u8> {
     let mut pkt = vec![0u8; 40];
     pkt[0] = 0x45;

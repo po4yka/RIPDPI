@@ -25,7 +25,21 @@ internal interface ServiceCoordinatorHost {
 internal interface VpnCoordinatorHost :
     ServiceCoordinatorHost,
     VpnTunnelBuilderHost {
-    fun syncUnderlyingNetworksFromActiveNetwork()
+    fun prepareDirectDnsUnderlay(
+        candidates: List<String>,
+        leaseGeneration: Long?,
+    ): Long = 0L
+
+    fun finishDirectDnsUnderlay(
+        token: Long,
+        action: DirectDnsUnderlayAction,
+    ): Boolean = false
+}
+
+enum class DirectDnsUnderlayAction {
+    Commit,
+    Abort,
+    FailClosed,
 }
 
 internal interface HandoverAwareSession {

@@ -387,6 +387,7 @@ class DefaultConnectionPolicyResolver
                         activeDns = encryptedDns,
                         routingSnapshot = routingSnapshot,
                         underlayDnsServers = fingerprint.validatedDnsServers(),
+                        underlayLeaseGeneration = fingerprint?.directDnsUnderlayGeneration,
                     )
                 }
 

@@ -1,3 +1,4 @@
+mod direct_dns_binding;
 mod dns_cache;
 #[allow(dead_code)]
 pub(crate) mod session;

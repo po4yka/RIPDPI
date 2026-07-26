@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.NetworkFingerprint
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -14,6 +16,7 @@ class AndroidNetworkFingerprintProviderTest {
                 snapshotSource =
                     FixedSnapshotSource(
                         CapturedNetworkSnapshot(
+                            directDnsUnderlayGeneration = 17L,
                             transports = setOf(CapturedTransport.Wifi),
                             wifi = CapturedWifiIdentity(ssid = "\"Cafe Wifi\""),
                         ),
@@ -25,6 +28,10 @@ class AndroidNetworkFingerprintProviderTest {
 
         assertEquals("wifi", fingerprint?.transport)
         assertEquals("cafe wifi", fingerprint?.wifi?.ssid)
+        assertEquals(17L, fingerprint?.directDnsUnderlayGeneration)
+        assertEquals(fingerprint?.copy(directDnsUnderlayGeneration = null)?.scopeKey(), fingerprint?.scopeKey())
+        val encoded = Json.encodeToString(NetworkFingerprint.serializer(), checkNotNull(fingerprint))
+        assertEquals(false, encoded.contains("directDnsUnderlayGeneration"))
     }
 
     @Test

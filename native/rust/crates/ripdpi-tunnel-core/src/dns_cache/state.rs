@@ -19,6 +19,11 @@ pub struct DnsCache {
     mask: u32,
     max: usize,
     next_free: usize,
+    free_slots: Vec<usize>,
+    #[cfg(test)]
+    reset_inspections: usize,
+    #[cfg(test)]
+    allocation_steps: usize,
 }
 
 impl DnsCache {
@@ -46,6 +51,11 @@ impl DnsCache {
             mask,
             max,
             next_free: 0,
+            free_slots: Vec::new(),
+            #[cfg(test)]
+            reset_inspections: 0,
+            #[cfg(test)]
+            allocation_steps: 0,
         })
     }
 
@@ -84,6 +94,26 @@ impl DnsCache {
         }
     }
 
+    /// Drop every mapping that is not owned by an active flow. Generation
+    /// changes call this before committing a response from the new underlay.
+    pub(crate) fn reset_unleased(&mut self) {
+        #[cfg(test)]
+        {
+            self.reset_inspections = self.reset_inspections.saturating_add(self.lru.len());
+        }
+        let stale = self
+            .lru
+            .iter()
+            .filter_map(|(key, &index)| {
+                let ip = self.net | index as u32;
+                (!self.leases.contains_key(&ip)).then(|| (key.clone(), index))
+            })
+            .collect::<Vec<_>>();
+        for (key, index) in stale {
+            self.reclaim_slot(&key, index);
+        }
+    }
+
     pub(crate) fn find(&mut self, host: &str, real_ip: u32) -> Result<(u32, bool), DnsCacheError> {
         if self.max == 0 {
             return Err(DnsCacheError::EmptyCache);
@@ -95,7 +125,13 @@ impl DnsCache {
             return Ok((self.net | idx as u32, true));
         }
 
-        let idx = if self.next_free < self.max {
+        #[cfg(test)]
+        {
+            self.allocation_steps = self.allocation_steps.saturating_add(1);
+        }
+        let idx = if let Some(idx) = self.free_slots.pop() {
+            idx
+        } else if self.next_free < self.max {
             let idx = self.next_free;
             self.next_free += 1;
             idx
@@ -122,14 +158,19 @@ impl DnsCache {
             .map(|(key, &slot)| (key.clone(), slot));
 
         if let Some((evicted_key, evicted_idx)) = candidate {
-            self.remove_slot(&evicted_key, evicted_idx);
+            self.clear_slot(&evicted_key, evicted_idx);
             return Ok(evicted_idx);
         }
 
         Err(DnsCacheError::AllMappingsLeased)
     }
 
-    fn remove_slot(&mut self, key: &DnsCacheKey, idx: usize) {
+    fn reclaim_slot(&mut self, key: &DnsCacheKey, idx: usize) {
+        self.clear_slot(key, idx);
+        self.free_slots.push(idx);
+    }
+
+    fn clear_slot(&mut self, key: &DnsCacheKey, idx: usize) {
         self.lru.pop(key);
         self.remove_record(idx);
     }
@@ -143,5 +184,15 @@ impl DnsCache {
     #[cfg(test)]
     pub(crate) fn lease_count(&self, ip: u32) -> usize {
         self.leases.get(&ip).copied().unwrap_or(0)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn reset_inspection_count(&self) -> usize {
+        self.reset_inspections
+    }
+
+    #[cfg(test)]
+    pub(crate) fn allocation_step_count(&self) -> usize {
+        self.allocation_steps
     }
 }

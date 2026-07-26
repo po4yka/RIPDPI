@@ -417,3 +417,20 @@ fn exported_jni_rejects_stale_handles_as_unknown() {
         assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Unknown tunnel handle");
     });
 }
+
+#[test]
+fn exported_direct_dns_registration_rejects_object_without_callback_contract() {
+    let _serial = JNI_TEST_MUTEX.lock().expect("lock tunnel JNI tests");
+
+    with_env(|env| {
+        let object = env.new_object(jni::jni_str!("java/lang/Object"), jni::jni_sig!("()V"), &[]).expect("object");
+        let token = crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniRegisterDirectDnsSocketBinderNative(
+            env_to_unowned(env),
+            JObject::null(),
+            object,
+        );
+        assert_eq!(token, 0, "method-contract preflight must reject the wrong bridge object");
+        let exception = take_exception(env);
+        assert!(exception.starts_with("java.lang.RuntimeException: Direct DNS binder registration failed"));
+    });
+}

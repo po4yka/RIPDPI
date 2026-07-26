@@ -44,7 +44,9 @@ internal class VpnServiceSessionLifecycle(
                     establishProtectPath(
                         startProtectSocketServer = socketServer::start,
                         advertiseProtectPath = { activeProtectSocketPathProvider.set(socketServer.socketPath) },
-                        registerNativeProtect = { VpnNativeProtectRegistration.register(service) },
+                        registerNativeProtect = {
+                            VpnNativeProtectRegistration.register(service, service.underlyingNetworkBinder)
+                        },
                         rollbackProtection = ::cleanupNativeProtect,
                     )
                 }.exceptionOrNull()

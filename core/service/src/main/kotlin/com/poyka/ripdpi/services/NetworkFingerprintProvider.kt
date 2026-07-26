@@ -58,6 +58,7 @@ internal data class CapturedCellularIdentity(
 )
 
 internal data class CapturedNetworkSnapshot(
+    val directDnsUnderlayGeneration: Long? = null,
     val transports: Set<CapturedTransport>? = null,
     val networkValidated: Boolean = false,
     val captivePortalDetected: Boolean = false,
@@ -77,6 +78,7 @@ internal class DefaultAndroidNetworkSnapshotSource
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val underlayAuthority: DirectDnsUnderlayAuthority,
     ) : AndroidNetworkSnapshotSource {
         private val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -92,6 +94,8 @@ internal class DefaultAndroidNetworkSnapshotSource
             val linkProperties = connectivityManager.getLinkProperties(network)
             val transports = capabilities?.let(::captureTransports)
             return CapturedNetworkSnapshot(
+                directDnsUnderlayGeneration =
+                    underlayAuthority.generationFor(network, capabilities, linkProperties),
                 transports = transports,
                 networkValidated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
                 captivePortalDetected =
@@ -243,6 +247,7 @@ internal class NetworkFingerprintMapper
                 wifi = resolveWifiIdentity(snapshot),
                 cellular = resolveCellularIdentity(snapshot),
                 metered = snapshot.metered,
+                directDnsUnderlayGeneration = snapshot.directDnsUnderlayGeneration,
             )
 
         private fun resolveTransport(transports: Set<CapturedTransport>?): String =

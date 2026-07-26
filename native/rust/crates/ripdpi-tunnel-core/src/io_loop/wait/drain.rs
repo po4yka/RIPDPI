@@ -1,5 +1,5 @@
 use super::super::IO_PHASE_WORK_BUDGET;
-use super::super::dns_intercept::{DnsResponse, handle_dns_result};
+use super::super::dns_intercept::{DnsResponse, handle_dns_response};
 use super::super::state::LoopState;
 use super::super::udp_assoc::handle_udp_event;
 
@@ -43,7 +43,14 @@ pub(super) async fn recv_dns_response(
 
 pub(super) fn handle_dns_wait_response(state: &mut LoopState, response: DnsResponse) {
     if let (Some(mapdns), Some(cache)) = (state.runtime.mapdns_runtime, state.dns_cache.as_mut()) {
-        handle_dns_result(&mut state.device, &state.stats, mapdns, cache, response);
+        handle_dns_response(
+            &mut state.device,
+            &state.stats,
+            mapdns,
+            cache,
+            &mut state.active_direct_dns_generation,
+            response,
+        );
     }
 }
 

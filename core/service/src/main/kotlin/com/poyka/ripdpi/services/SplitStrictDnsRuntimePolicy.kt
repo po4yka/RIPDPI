@@ -50,6 +50,7 @@ class ValidatedSplitStrictDnsPolicy private constructor(
     directResolverCandidates: List<String>,
     bootstrapPins: List<String>,
     val policyCoverageReason: String?,
+    val underlayLeaseGeneration: Long? = null,
 ) {
     val directResolverCandidates: List<String> = directResolverCandidates.toList()
     val bootstrapPins: List<String> = bootstrapPins.toList()
@@ -117,6 +118,7 @@ class ValidatedSplitStrictDnsPolicy private constructor(
             activeDns: ActiveDnsSettings,
             routingSnapshot: DestinationRoutingPolicySnapshot,
             underlayDnsServers: List<String>,
+            underlayLeaseGeneration: Long? = null,
         ): ValidatedSplitStrictDnsPolicy {
             require(activeDns.isEncrypted) { "Split-strict proxy resolver must be encrypted" }
             val bootstrap = numericAddressesOrEmpty(activeDns.encryptedDnsBootstrapIps, "bootstrap")
@@ -147,6 +149,7 @@ class ValidatedSplitStrictDnsPolicy private constructor(
                             }
                         }
                     },
+                underlayLeaseGeneration = underlayLeaseGeneration,
             )
         }
     }

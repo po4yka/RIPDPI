@@ -32,6 +32,7 @@ internal class VpnResolverRefreshPlanner
                     activeDns = connectionPolicy.activeDns,
                     overrideReason = connectionPolicy.resolverFallbackReason,
                     destinationRoutingDigest = connectionPolicy.splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
+                    underlayLeaseGeneration = connectionPolicy.splitStrictDnsPolicy?.underlayLeaseGeneration,
                 )
             return ResolverRefreshPlan(
                 resolution = resolution,

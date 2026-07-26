@@ -37,6 +37,7 @@ pub(crate) fn spawn_new_tcp_sessions(
     cancel: &CancellationToken,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
+    active_direct_generation: Option<&mut Option<u64>>,
     uid_policy: &UidFlowPolicy,
 ) -> Vec<smoltcp::iface::SocketHandle> {
     let (new_sessions, unresolvable) = collect_admissible_sessions(
@@ -46,6 +47,7 @@ pub(crate) fn spawn_new_tcp_sessions(
         admission_cursor,
         stats,
         dns_cache,
+        active_direct_generation,
         uid_policy,
     );
     let resetting = abort_unresolved_sessions(pending_listens, unresolvable);

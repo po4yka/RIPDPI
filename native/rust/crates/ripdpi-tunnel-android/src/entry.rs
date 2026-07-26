@@ -22,8 +22,9 @@
 //! `jniStart` takes the TUN `tun_fd` by value and **dups** it (`adopt_tun_fd`).
 //! The JVM caller keeps ownership of the original descriptor (the `VpnService`
 //! `ParcelFileDescriptor`) and must close it; the native side closes only its
-//! dup, when the worker exits. There is no JNI callback channel — outbound
-//! sockets are protected via the `protectPath` Unix-domain socket in the config.
+//! dup, when the worker exits. Ordinary outbound sockets use the `protectPath`
+//! Unix-domain socket; direct-DNS sockets use the generation-guarded JNI
+//! underlay binder registered by the VPN service.
 //!
 //! ## Blocking and errors
 //! `jniStart` returns after the worker thread is spawned (it does not run
@@ -130,6 +131,30 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniUnr
     token: jlong,
 ) {
     ffi_boundary((), move || crate::flow_attribution::unregister_flow_attribution(token));
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniRegisterDirectDnsSocketBinderNative(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    bridge: JObject,
+) -> jlong {
+    ffi_boundary(0, move || crate::direct_dns_binding::register_from_jni(env, bridge))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniUnregisterDirectDnsSocketBinderNative(
+    _env: EnvUnowned<'_>,
+    _thiz: JObject,
+    token: jlong,
+) {
+    ffi_boundary((), move || {
+        if let Ok(generation) =
+            ripdpi_tunnel_core::tunnel_api::direct_dns_binding::DirectDnsBinderGeneration::try_from(token)
+        {
+            crate::direct_dns_binding::unregister(generation);
+        }
+    });
 }
 
 #[unsafe(no_mangle)]

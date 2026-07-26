@@ -264,6 +264,73 @@ mod tests {
     }
 
     #[test]
+    fn generation_reset_drops_unleased_mappings_without_overwriting_pinned_holes() {
+        let mut cache = DnsCache::new(NET, MASK, 3).expect("valid cache");
+        let first = cache
+            .rewrite_response(
+                &build_query("first.test"),
+                &build_response("first.test", &[Ipv4Addr::new(203, 0, 113, 1)], false),
+            )
+            .expect("first mapping");
+        let second = cache
+            .rewrite_response(
+                &build_query("pinned.test"),
+                &build_response("pinned.test", &[Ipv4Addr::new(203, 0, 113, 2)], false),
+            )
+            .expect("pinned mapping");
+        let first_ip = u32::from(a_answers(&first.response)[0]);
+        let pinned_ip = u32::from(a_answers(&second.response)[0]);
+        assert!(cache.pin(pinned_ip));
+
+        cache.reset_unleased();
+
+        assert!(cache.lookup(first_ip).is_none());
+        assert_eq!(cache.lookup(pinned_ip).expect("pinned mapping survives").host, "pinned.test");
+        cache
+            .rewrite_response(
+                &build_query("new.test"),
+                &build_response("new.test", &[Ipv4Addr::new(203, 0, 113, 3)], false),
+            )
+            .expect("empty hole is reusable");
+        assert_eq!(cache.lookup(pinned_ip).expect("pinned slot not overwritten").host, "pinned.test");
+    }
+
+    #[test]
+    fn sparse_large_cache_reset_inspects_only_live_mappings() {
+        let mut cache = DnsCache::new(NET, MASK, 65_536).expect("large cache");
+        for index in 0..8_u32 {
+            cache.find(&format!("sparse-{index}.test"), 0xcb00_7100 + index).expect("mapping");
+        }
+
+        let before = cache.reset_inspection_count();
+        cache.reset_unleased();
+
+        assert_eq!(cache.reset_inspection_count() - before, 8, "reset cost must scale with live mappings");
+    }
+
+    #[test]
+    fn reclaimed_large_cache_slot_is_allocated_in_one_step_without_scanning_pinned_prefix() {
+        let mut cache = DnsCache::new(NET, MASK, 10_000).expect("default-sized cache");
+        let mut pinned = Vec::new();
+        for index in 0..128_u32 {
+            let (ip, _) = cache.find(&format!("filled-{index}.test"), 0xcb00_7100 + index).expect("mapping");
+            if index < 64 {
+                assert!(cache.pin(ip));
+                pinned.push(ip);
+            }
+        }
+        cache.reset_unleased();
+        let before = cache.allocation_step_count();
+
+        cache.find("reclaimed.test", 0xcb00_71ff).expect("reclaimed mapping");
+
+        assert_eq!(cache.allocation_step_count() - before, 1, "reclaimed allocation must be O(1)");
+        for ip in pinned {
+            assert!(cache.lookup(ip).is_some(), "pinned mapping must survive reset and reclaimed allocation");
+        }
+    }
+
+    #[test]
     fn construction_rejects_invalid_capacity_without_panicking() {
         assert!(matches!(DnsCache::new(NET, MASK, 0), Err(DnsCacheError::EmptyCache)));
         assert_eq!(

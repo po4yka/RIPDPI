@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use ripdpi_dns_resolver::EncryptedDnsResolver;
 use tokio_util::sync::CancellationToken;
@@ -13,11 +14,15 @@ use crate::{Stats, TunDevice};
 use super::super::IO_PHASE_WORK_BUDGET;
 
 use super::super::send_dns_servfail;
-use super::{DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_result, parse_dns_query};
+use super::{
+    DirectDnsRequest, DnsRequest, DnsResponse, MapDnsRuntime, direct_dns, handle_dns_result, parse_dns_query,
+    sync_direct_dns_mapping_generation,
+};
 
 pub(in crate::io_loop) fn spawn_dns_worker(
     resolver: EncryptedDnsResolver,
     cancel: CancellationToken,
+    timeout: Duration,
 ) -> (tokio::sync::mpsc::Sender<DnsRequest>, tokio::sync::mpsc::Receiver<DnsResponse>) {
     let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(super::super::DNS_QUEUE_CAPACITY);
     let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(super::super::DNS_QUEUE_CAPACITY);
@@ -32,34 +37,60 @@ pub(in crate::io_loop) fn spawn_dns_worker(
                     let Some(request) = request else {
                         break;
                     };
-                    let resolver_endpoint_label = resolver.endpoint_label();
-                    let upstream =
-                        resolver
-                            .exchange_with_metadata(&request.query)
-                            .await
-                            .map_err(|err| {
-                                let kind = err.kind();
-                                (kind, err.to_string())
-                            });
-                    let (resolver_error_kind, upstream) = match upstream {
-                        Ok(success) => (None, Ok(success)),
-                        Err((kind, message)) => (Some(kind), Err(message)),
+                    let response = tokio::select! {
+                        biased;
+                        _ = cancel.cancelled() => break,
+                        response = resolve_request(request, &resolver, timeout) => response,
                     };
-                    if resp_tx.send(DnsResponse {
-                        src: request.src,
-                        query: request.query,
-                        host: request.host,
-                        upstream,
-                        resolver_error_kind,
-                        resolver_endpoint_label: Some(resolver_endpoint_label),
-                    }).await.is_err() {
-                        break;
+                    tokio::select! {
+                        biased;
+                        _ = cancel.cancelled() => break,
+                        sent = resp_tx.send(response) => {
+                            if sent.is_err() {
+                                break;
+                            }
+                        }
                     }
                 }
             }
         }
     });
     (req_tx, resp_rx)
+}
+
+/// # Cancel safety
+///
+/// Cancel-safe: direct and encrypted exchanges own their request I/O and do
+/// not publish cache/shared state. Cancellation drops that I/O before the
+/// response is sent to the tunnel loop.
+async fn resolve_request(request: DnsRequest, resolver: &EncryptedDnsResolver, timeout: Duration) -> DnsResponse {
+    let resolver_endpoint_label = resolver.endpoint_label();
+    let request_generation = request.direct.as_ref().map(|direct| direct.generation);
+    let (direct_fallback, upstream) = if let Some(direct) = request.direct.as_ref() {
+        match direct_dns::exchange(&request.query, &direct.candidates, direct.generation, timeout).await {
+            Ok(success) => (false, Ok(success)),
+            Err(_) => (
+                true,
+                resolver.exchange_with_metadata(&request.query).await.map_err(|err| (err.kind(), err.to_string())),
+            ),
+        }
+    } else {
+        (false, resolver.exchange_with_metadata(&request.query).await.map_err(|err| (err.kind(), err.to_string())))
+    };
+    let (resolver_error_kind, upstream) = match upstream {
+        Ok(success) => (None, Ok(success)),
+        Err((kind, message)) => (Some(kind), Err(message)),
+    };
+    DnsResponse {
+        src: request.src,
+        query: request.query,
+        host: request.host,
+        upstream,
+        resolver_error_kind,
+        resolver_endpoint_label: Some(resolver_endpoint_label),
+        direct_generation: request_generation,
+        direct_fallback,
+    }
 }
 
 /// Route a DNS query packet: enqueue to the resolver channel, or send SERVFAIL
@@ -80,6 +111,7 @@ pub(in crate::io_loop) fn route_dns_packet(
     payload: &[u8],
     host: Option<String>,
 ) {
+    let mut direct = None;
     if let Some(policy) = split_dns_policy {
         let parsed = parse_dns_query(payload);
         let decision = policy.evaluate(parsed.as_ref().map_or("", |query| query.host.as_str()));
@@ -113,16 +145,31 @@ pub(in crate::io_loop) fn route_dns_packet(
             }
             return;
         }
-        let kind = if decision.reason == Some("direct_plane_unbound") {
-            SplitDnsDecisionKind::DirectProxyFallback
+        direct = if decision.plane == DnsPolicyPlane::Direct {
+            crate::tunnel_api::direct_dns_binding::current_direct_dns_generation().map(|generation| DirectDnsRequest {
+                generation,
+                candidates: policy.direct_resolver_candidates().to_vec().into_boxed_slice(),
+            })
         } else {
-            SplitDnsDecisionKind::ProxyEncrypted
+            None
         };
-        stats.record_split_dns_decision(kind, decision.reason);
+        if decision.plane != DnsPolicyPlane::Direct || direct.is_none() {
+            let kind = if decision.plane == DnsPolicyPlane::Direct {
+                SplitDnsDecisionKind::DirectProxyFallback
+            } else {
+                SplitDnsDecisionKind::ProxyEncrypted
+            };
+            let reason = if decision.plane == DnsPolicyPlane::Direct {
+                Some("direct_underlay_unavailable")
+            } else {
+                decision.reason
+            };
+            stats.record_split_dns_decision(kind, reason);
+        }
     }
     match (&mapdns_runtime, dns_cache, dns_req_tx.as_ref()) {
         (Some(_), Some(_), Some(request_tx)) => {
-            let request = DnsRequest { src, query: payload.to_vec(), host };
+            let request = DnsRequest { src, query: payload.to_vec(), host, direct };
             match request_tx.try_send(request) {
                 Ok(()) => {}
                 Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
@@ -186,6 +233,7 @@ pub(in crate::io_loop) fn drain_dns_responses(
     cache: &mut DnsCache,
     dns_resp_rx: &mut Option<tokio::sync::mpsc::Receiver<DnsResponse>>,
     dns_req_tx: &mut Option<tokio::sync::mpsc::Sender<DnsRequest>>,
+    active_direct_generation: &mut Option<u64>,
 ) {
     for _ in 0..IO_PHASE_WORK_BUDGET {
         let dns_response = match dns_resp_rx.as_mut() {
@@ -204,6 +252,47 @@ pub(in crate::io_loop) fn drain_dns_responses(
         let Some(response) = dns_response else {
             break;
         };
+        handle_dns_response(device, stats, mapdns, cache, active_direct_generation, response);
+    }
+}
+
+pub(in crate::io_loop) fn handle_dns_response(
+    device: &mut TunDevice,
+    stats: &Arc<Stats>,
+    mapdns: MapDnsRuntime,
+    cache: &mut DnsCache,
+    active_direct_generation: &mut Option<u64>,
+    response: DnsResponse,
+) {
+    sync_direct_dns_mapping_generation(Some(cache), active_direct_generation);
+    if response.direct_fallback {
+        stats.record_split_dns_decision(SplitDnsDecisionKind::DirectProxyFallback, Some("direct_transport_failed"));
+    }
+    if response
+        .direct_generation
+        .is_some_and(|generation| !crate::tunnel_api::direct_dns_binding::is_direct_dns_generation_current(generation))
+    {
+        stats.record_direct_dns_stale_response();
+        cache.reset_unleased();
+        send_dns_servfail(
+            device,
+            stats,
+            mapdns,
+            cache,
+            response.src,
+            &response.query,
+            response.host.as_deref(),
+            "direct DNS generation stale",
+        );
+    } else {
+        if response.direct_generation.is_some() && !response.direct_fallback && response.upstream.is_ok() {
+            stats.record_direct_dns_success();
+        }
+        if let Some(generation) = response.direct_generation
+            && active_direct_generation.replace(generation) != Some(generation)
+        {
+            cache.reset_unleased();
+        }
         handle_dns_result(device, stats, mapdns, cache, response);
     }
 }

@@ -39,25 +39,30 @@ class VpnNativeProtectRegistrationTest {
     private val relayRegisterCalls = mutableListOf<Long>()
     private val warpRegisterCalls = mutableListOf<Long>()
     private val awgRegisterCalls = mutableListOf<Long>()
+    private val directDnsRegisterCalls = mutableListOf<Long>()
     private val proxyUnregisterCalls = mutableListOf<Long>()
     private val relayUnregisterCalls = mutableListOf<Long>()
     private val warpUnregisterCalls = mutableListOf<Long>()
     private val awgUnregisterCalls = mutableListOf<Long>()
+    private val directDnsUnregisterCalls = mutableListOf<Long>()
 
     private val nextProxyToken = AtomicLong(1L)
     private val nextRelayToken = AtomicLong(50L)
     private val nextWarpToken = AtomicLong(100L)
     private val nextAwgToken = AtomicLong(200L)
+    private val nextDirectDnsToken = AtomicLong(500L)
 
     // Saved originals restored in tearDown.
     private val savedProxyRegister = VpnNativeProtectRegistration.proxyRegister
     private val savedRelayRegister = VpnNativeProtectRegistration.relayRegister
     private val savedWarpRegister = VpnNativeProtectRegistration.warpRegister
     private val savedAwgRegister = VpnNativeProtectRegistration.awgRegister
+    private val savedDirectDnsRegister = VpnNativeProtectRegistration.directDnsRegister
     private val savedProxyUnregister = VpnNativeProtectRegistration.proxyUnregister
     private val savedRelayUnregister = VpnNativeProtectRegistration.relayUnregister
     private val savedWarpUnregister = VpnNativeProtectRegistration.warpUnregister
     private val savedAwgUnregister = VpnNativeProtectRegistration.awgUnregister
+    private val savedDirectDnsUnregister = VpnNativeProtectRegistration.directDnsUnregister
 
     @Before
     fun setUp() {
@@ -74,6 +79,7 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.relayUnregister = { token -> relayUnregisterCalls += token }
         VpnNativeProtectRegistration.warpUnregister = { token -> warpUnregisterCalls += token }
         VpnNativeProtectRegistration.awgUnregister = { token -> awgUnregisterCalls += token }
+        VpnNativeProtectRegistration.directDnsUnregister = { token -> directDnsUnregisterCalls += token }
     }
 
     private fun installSuccessfulRegisterHooks() {
@@ -89,6 +95,9 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.awgRegister = {
             nextAwgToken.getAndIncrement().also { awgRegisterCalls += it }
         }
+        VpnNativeProtectRegistration.directDnsRegister = {
+            nextDirectDnsToken.getAndIncrement().also { directDnsRegisterCalls += it }
+        }
     }
 
     private fun clearUnregisterCalls() {
@@ -96,6 +105,7 @@ class VpnNativeProtectRegistrationTest {
         relayUnregisterCalls.clear()
         warpUnregisterCalls.clear()
         awgUnregisterCalls.clear()
+        directDnsUnregisterCalls.clear()
     }
 
     @After
@@ -105,10 +115,12 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.relayRegister = savedRelayRegister
         VpnNativeProtectRegistration.warpRegister = savedWarpRegister
         VpnNativeProtectRegistration.awgRegister = savedAwgRegister
+        VpnNativeProtectRegistration.directDnsRegister = savedDirectDnsRegister
         VpnNativeProtectRegistration.proxyUnregister = savedProxyUnregister
         VpnNativeProtectRegistration.relayUnregister = savedRelayUnregister
         VpnNativeProtectRegistration.warpUnregister = savedWarpUnregister
         VpnNativeProtectRegistration.awgUnregister = savedAwgUnregister
+        VpnNativeProtectRegistration.directDnsUnregister = savedDirectDnsUnregister
     }
 
     /**
@@ -120,13 +132,14 @@ class VpnNativeProtectRegistrationTest {
      */
     @Test
     fun `register twice then unregister once clears tokens and unregisters first pair during second register`() {
-        VpnNativeProtectRegistration.register(fakeService)
+        VpnNativeProtectRegistration.register(fakeService, fakeService)
         val firstProxy = proxyRegisterCalls[0]
         val firstRelay = relayRegisterCalls[0]
         val firstWarp = warpRegisterCalls[0]
         val firstAwg = awgRegisterCalls[0]
+        val firstDirectDns = directDnsRegisterCalls[0]
 
-        VpnNativeProtectRegistration.register(fakeService)
+        VpnNativeProtectRegistration.register(fakeService, fakeService)
         assertEquals(
             "proxy unregister must be called with first proxy token during double-register guard",
             listOf(firstProxy),
@@ -147,34 +160,44 @@ class VpnNativeProtectRegistrationTest {
             listOf(firstAwg),
             awgUnregisterCalls,
         )
+        assertEquals(
+            "direct DNS unregister must be called with first token during double-register guard",
+            listOf(firstDirectDns),
+            directDnsUnregisterCalls,
+        )
 
         // Clear guard-unregister calls so we can inspect the final unregister independently.
         proxyUnregisterCalls.clear()
         relayUnregisterCalls.clear()
         warpUnregisterCalls.clear()
         awgUnregisterCalls.clear()
+        directDnsUnregisterCalls.clear()
 
         val secondProxy = proxyRegisterCalls[1]
         val secondRelay = relayRegisterCalls[1]
         val secondWarp = warpRegisterCalls[1]
         val secondAwg = awgRegisterCalls[1]
+        val secondDirectDns = directDnsRegisterCalls[1]
 
         VpnNativeProtectRegistration.unregister()
         assertEquals(listOf(secondProxy), proxyUnregisterCalls)
         assertEquals(listOf(secondRelay), relayUnregisterCalls)
         assertEquals(listOf(secondWarp), warpUnregisterCalls)
         assertEquals(listOf(secondAwg), awgUnregisterCalls)
+        assertEquals(listOf(secondDirectDns), directDnsUnregisterCalls)
 
         // After unregister tokens must be zero; a follow-up unregister is a no-op.
         proxyUnregisterCalls.clear()
         relayUnregisterCalls.clear()
         warpUnregisterCalls.clear()
         awgUnregisterCalls.clear()
+        directDnsUnregisterCalls.clear()
         VpnNativeProtectRegistration.unregister()
         assertEquals(emptyList<Long>(), proxyUnregisterCalls)
         assertEquals(emptyList<Long>(), relayUnregisterCalls)
         assertEquals(emptyList<Long>(), warpUnregisterCalls)
         assertEquals(emptyList<Long>(), awgUnregisterCalls)
+        assertEquals(emptyList<Long>(), directDnsUnregisterCalls)
     }
 
     /**
@@ -188,7 +211,7 @@ class VpnNativeProtectRegistrationTest {
             val t1 =
                 Thread {
                     barrier.await()
-                    VpnNativeProtectRegistration.register(fakeService)
+                    VpnNativeProtectRegistration.register(fakeService, fakeService)
                 }
             val t2 =
                 Thread {
@@ -207,11 +230,13 @@ class VpnNativeProtectRegistrationTest {
         relayUnregisterCalls.clear()
         warpUnregisterCalls.clear()
         awgUnregisterCalls.clear()
+        directDnsUnregisterCalls.clear()
         VpnNativeProtectRegistration.unregister()
         assertEquals(emptyList<Long>(), proxyUnregisterCalls)
         assertEquals(emptyList<Long>(), relayUnregisterCalls)
         assertEquals(emptyList<Long>(), warpUnregisterCalls)
         assertEquals(emptyList<Long>(), awgUnregisterCalls)
+        assertEquals(emptyList<Long>(), directDnsUnregisterCalls)
     }
 
     @Test
@@ -221,7 +246,7 @@ class VpnNativeProtectRegistrationTest {
 
         val thrown =
             assertThrows(IllegalStateException::class.java) {
-                VpnNativeProtectRegistration.register(fakeService)
+                VpnNativeProtectRegistration.register(fakeService, fakeService)
             }
 
         assertSame(registrationFailure, thrown)
@@ -229,6 +254,7 @@ class VpnNativeProtectRegistrationTest {
         assertEquals(listOf(50L), relayUnregisterCalls)
         assertEquals(emptyList<Long>(), warpUnregisterCalls)
         assertEquals(emptyList<Long>(), awgUnregisterCalls)
+        assertEquals(emptyList<Long>(), directDnsUnregisterCalls)
     }
 
     @Test
@@ -239,6 +265,7 @@ class VpnNativeProtectRegistrationTest {
                 { VpnNativeProtectRegistration.relayRegister = { 0L } },
                 { VpnNativeProtectRegistration.warpRegister = { 0L } },
                 { VpnNativeProtectRegistration.awgRegister = { 0L } },
+                { VpnNativeProtectRegistration.directDnsRegister = { 0L } },
             )
 
         zeroHooks.forEachIndexed { ownerIndex, installZeroHook ->
@@ -247,19 +274,20 @@ class VpnNativeProtectRegistrationTest {
             installZeroHook()
 
             assertThrows(IllegalStateException::class.java) {
-                VpnNativeProtectRegistration.register(fakeService)
+                VpnNativeProtectRegistration.register(fakeService, fakeService)
             }
 
             assertEquals(if (ownerIndex > 0) 1 else 0, proxyUnregisterCalls.size)
             assertEquals(if (ownerIndex > 1) 1 else 0, relayUnregisterCalls.size)
             assertEquals(if (ownerIndex > 2) 1 else 0, warpUnregisterCalls.size)
-            assertEquals(0, awgUnregisterCalls.size)
+            assertEquals(if (ownerIndex > 3) 1 else 0, awgUnregisterCalls.size)
+            assertEquals(0, directDnsUnregisterCalls.size)
         }
     }
 
     @Test
     fun `unregister attempts every slot and retries only failed owners`() {
-        VpnNativeProtectRegistration.register(fakeService)
+        VpnNativeProtectRegistration.register(fakeService, fakeService)
         val proxyFailure = IllegalStateException("proxy unregister failed")
         val warpFailure = IllegalArgumentException("warp unregister failed")
         VpnNativeProtectRegistration.proxyUnregister = { token ->
@@ -282,6 +310,7 @@ class VpnNativeProtectRegistrationTest {
         assertEquals(listOf(50L), relayUnregisterCalls)
         assertEquals(listOf(100L), warpUnregisterCalls)
         assertEquals(listOf(200L), awgUnregisterCalls)
+        assertEquals(listOf(500L), directDnsUnregisterCalls)
 
         VpnNativeProtectRegistration.proxyUnregister = { token -> proxyUnregisterCalls += token }
         VpnNativeProtectRegistration.warpUnregister = { token -> warpUnregisterCalls += token }
@@ -291,6 +320,7 @@ class VpnNativeProtectRegistrationTest {
         assertEquals(listOf(50L), relayUnregisterCalls)
         assertEquals(listOf(100L, 100L), warpUnregisterCalls)
         assertEquals(listOf(200L), awgUnregisterCalls)
+        assertEquals(listOf(500L), directDnsUnregisterCalls)
     }
 
     @Test
@@ -321,24 +351,30 @@ class VpnNativeProtectRegistrationTest {
                         error("awg failed")
                     }
                 },
+                {
+                    VpnNativeProtectRegistration.directDnsUnregister = { token ->
+                        directDnsUnregisterCalls += token
+                        error("direct DNS failed")
+                    }
+                },
             )
 
         failureHooks.forEachIndexed { failedOwner, installFailure ->
             installSuccessfulRegisterHooks()
             installSuccessfulUnregisterHooks()
             clearUnregisterCalls()
-            VpnNativeProtectRegistration.register(fakeService)
+            VpnNativeProtectRegistration.register(fakeService, fakeService)
             installFailure()
 
             assertThrows(IllegalStateException::class.java) {
                 VpnNativeProtectRegistration.unregister()
             }
-            assertEquals(listOf(1, 1, 1, 1), unregisterCallCounts())
+            assertEquals(listOf(1, 1, 1, 1, 1), unregisterCallCounts())
 
             installSuccessfulUnregisterHooks()
             VpnNativeProtectRegistration.unregister()
             assertEquals(
-                List(4) { owner -> if (owner == failedOwner) 2 else 1 },
+                List(5) { owner -> if (owner == failedOwner) 2 else 1 },
                 unregisterCallCounts(),
             )
         }
@@ -350,5 +386,6 @@ class VpnNativeProtectRegistrationTest {
             relayUnregisterCalls.size,
             warpUnregisterCalls.size,
             awgUnregisterCalls.size,
+            directDnsUnregisterCalls.size,
         )
 }

@@ -18,7 +18,10 @@ mod test_fixtures;
 #[cfg(test)]
 pub(crate) use tcp_flags::is_tcp_syn;
 #[cfg(test)]
-pub(crate) use test_fixtures::{build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, checksum_sum, finalize_checksum};
+pub(crate) use test_fixtures::{
+    build_ipv4_tcp_ack_packet, build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, checksum_sum, finalize_checksum,
+    tcp_seq_ack,
+};
 
 #[cfg(test)]
 mod tests {

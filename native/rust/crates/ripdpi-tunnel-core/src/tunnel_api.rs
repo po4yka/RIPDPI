@@ -266,3 +266,16 @@ mod tests {
         assert_eq!(iface.ipv6_addr(), Some(smoltcp::wire::Ipv6Address::new(0xfd00, 0, 0, 0, 0, 0, 0, 1)));
     }
 }
+pub mod direct_dns_binding {
+    pub use crate::direct_dns_binding::{
+        DirectDnsBinderGeneration, DirectDnsSocketBinder, register_direct_dns_socket_binder,
+        unregister_direct_dns_socket_binder_if,
+    };
+
+    pub(crate) use crate::direct_dns_binding::{
+        bind_direct_dns_socket, current_direct_dns_generation, is_direct_dns_generation_current,
+    };
+
+    #[cfg(test)]
+    pub(crate) use crate::direct_dns_binding::{TEST_BINDER_LOCK, register_test_direct_dns_socket_binder};
+}

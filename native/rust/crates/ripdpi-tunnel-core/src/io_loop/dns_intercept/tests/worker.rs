@@ -1,5 +1,7 @@
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::os::fd::RawFd;
+use std::sync::{Arc, PoisonError};
 
 use ripdpi_dns_resolver::EncryptedDnsExchangeSuccess;
 use ripdpi_tunnel_config::{
@@ -11,6 +13,22 @@ use crate::{Stats, TunDevice};
 
 use super::super::{DnsRequest, DnsResponse, drain_dns_responses, route_dns_packet};
 use super::support::{build_query, build_response, test_dns_cache, test_mapdns};
+
+struct FixedBinder(u64);
+
+impl crate::tunnel_api::direct_dns_binding::DirectDnsSocketBinder for FixedBinder {
+    fn current_generation(&self) -> Option<u64> {
+        Some(self.0)
+    }
+
+    fn is_current(&self, generation: u64) -> bool {
+        generation == self.0
+    }
+
+    fn bind_socket(&self, _fd: RawFd, generation: u64) -> io::Result<()> {
+        if self.is_current(generation) { Ok(()) } else { Err(io::ErrorKind::NotConnected.into()) }
+    }
+}
 
 #[test]
 fn route_dns_sends_to_resolver() {
@@ -199,6 +217,7 @@ fn route_dns_block_returns_refused_without_upstream() {
 
 #[test]
 fn route_dns_direct_falls_back_to_encrypted_proxy_queue() {
+    let _guard = crate::tunnel_api::direct_dns_binding::TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let (tx, mut rx) = tokio::sync::mpsc::channel::<DnsRequest>(8);
     let (_resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(8);
     let mut dns_req_tx = Some(tx);
@@ -246,7 +265,7 @@ fn route_dns_direct_falls_back_to_encrypted_proxy_queue() {
     let snapshot = stats.dns_snapshot();
     assert_eq!(snapshot.split_dns_direct_fallback_decisions, 1);
     assert_eq!(snapshot.split_dns_proxy_decisions, 0);
-    assert_eq!(snapshot.last_split_dns_coverage_reason.as_deref(), Some("direct_plane_unbound"));
+    assert_eq!(snapshot.last_split_dns_coverage_reason.as_deref(), Some("direct_underlay_unavailable"));
 }
 
 #[test]
@@ -274,13 +293,111 @@ fn drain_dns_responses_processes_pending() {
             }),
             resolver_error_kind: None,
             resolver_endpoint_label: Some("test".to_string()),
+            direct_generation: None,
+            direct_fallback: false,
         })
         .expect("send response");
 
-    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx);
+    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
 
     assert_eq!(device.tx_queue.len(), 1, "response should have been processed and queued");
     assert!(dns_req_tx.is_some(), "channels should remain open");
+}
+
+#[test]
+fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation_replacement() {
+    use crate::tunnel_api::direct_dns_binding::{
+        TEST_BINDER_LOCK, register_direct_dns_socket_binder, unregister_direct_dns_socket_binder_if,
+    };
+
+    let _guard = TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    let registration_a = register_direct_dns_socket_binder(Arc::new(FixedBinder(11))).expect("A registration");
+    let mapdns = test_mapdns();
+    let mut cache = test_dns_cache();
+    let old_query = build_query("old.test");
+    cache
+        .rewrite_response(&old_query, &build_response("old.test", Ipv4Addr::new(203, 0, 113, 1)))
+        .expect("prepopulate unleased mapping");
+    assert!(cache.lookup(u32::from(Ipv4Addr::new(198, 18, 0, 0))).is_some());
+
+    let mut device = TunDevice::new(1500);
+    let stats = Arc::new(Stats::default());
+    let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(8);
+    let (req_tx, _req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(8);
+    let mut dns_resp_rx = Some(resp_rx);
+    let mut dns_req_tx = Some(req_tx);
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+
+    for (host, direct_fallback) in [("direct-late.test", false), ("fallback-late.test", true)] {
+        resp_tx
+            .try_send(DnsResponse {
+                src,
+                query: build_query(host),
+                host: Some(host.to_string()),
+                upstream: Ok(EncryptedDnsExchangeSuccess {
+                    response_bytes: build_response(host, Ipv4Addr::new(203, 0, 113, 2)),
+                    endpoint_label: "test".to_string(),
+                    latency_ms: 5,
+                }),
+                resolver_error_kind: None,
+                resolver_endpoint_label: Some("test".to_string()),
+                direct_generation: Some(11),
+                direct_fallback,
+            })
+            .expect("queue stale response");
+    }
+
+    let registration_b = register_direct_dns_socket_binder(Arc::new(FixedBinder(12))).expect("B registration");
+    let mut active_generation = None;
+    drain_dns_responses(
+        &mut device,
+        &stats,
+        mapdns,
+        &mut cache,
+        &mut dns_resp_rx,
+        &mut dns_req_tx,
+        &mut active_generation,
+    );
+
+    assert_eq!(device.tx_queue.len(), 2, "both stale results must become SERVFAIL responses");
+    assert_eq!(active_generation, Some(12), "cache generation must advance to the current B binding");
+    assert_eq!(stats.direct_dns_outcomes(), (0, 2));
+    for offset in 0..8 {
+        assert!(
+            cache.lookup(u32::from(Ipv4Addr::new(198, 18, 0, offset))).is_none(),
+            "old and late unleased mappings must be absent",
+        );
+    }
+    resp_tx
+        .try_send(DnsResponse {
+            src,
+            query: build_query("current.test"),
+            host: Some("current.test".to_string()),
+            upstream: Ok(EncryptedDnsExchangeSuccess {
+                response_bytes: build_response("current.test", Ipv4Addr::new(203, 0, 113, 3)),
+                endpoint_label: "test".to_string(),
+                latency_ms: 5,
+            }),
+            resolver_error_kind: None,
+            resolver_endpoint_label: Some("test".to_string()),
+            direct_generation: Some(12),
+            direct_fallback: false,
+        })
+        .expect("queue current response");
+    drain_dns_responses(
+        &mut device,
+        &stats,
+        mapdns,
+        &mut cache,
+        &mut dns_resp_rx,
+        &mut dns_req_tx,
+        &mut active_generation,
+    );
+    assert_eq!(device.tx_queue.len(), 3);
+    assert_eq!(active_generation, Some(12));
+    assert_eq!(stats.direct_dns_outcomes(), (1, 2));
+    assert!(!unregister_direct_dns_socket_binder_if(registration_a), "stale unregister cannot clear B");
+    assert!(unregister_direct_dns_socket_binder_if(registration_b));
 }
 
 #[test]
@@ -310,11 +427,13 @@ fn drain_dns_responses_yields_after_one_phase_budget() {
                 }),
                 resolver_error_kind: None,
                 resolver_endpoint_label: Some("test".to_string()),
+                direct_generation: None,
+                direct_fallback: false,
             })
             .expect("queue response");
     }
 
-    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx);
+    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
 
     assert_eq!(device.tx_queue.len(), IO_PHASE_WORK_BUDGET, "one io-loop phase must process only its bounded batch");
     assert!(

@@ -2,6 +2,11 @@ use ripdpi_quality::ConnectionQualitySnapshot;
 use ripdpi_telemetry::LatencyDistributions;
 use serde::Serialize;
 
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde's skip predicate receives a field reference.
+const fn is_zero(value: &u64) -> bool {
+    *value == 0
+}
+
 pub(crate) use super::event::NativeRuntimeEvent;
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,6 +72,10 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) split_dns_proxy_decisions: u64,
     pub(crate) split_dns_direct_fallback_decisions: u64,
     pub(crate) split_dns_block_decisions: u64,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub(crate) direct_dns_successes: u64,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub(crate) direct_dns_stale_responses: u64,
     pub(crate) last_split_dns_coverage_reason: Option<String>,
     pub(crate) last_dns_host: Option<String>,
     pub(crate) last_dns_error: Option<String>,

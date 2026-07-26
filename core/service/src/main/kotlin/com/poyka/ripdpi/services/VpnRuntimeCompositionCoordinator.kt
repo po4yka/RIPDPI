@@ -154,6 +154,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 resolution.activeDns,
                 resolution.resolverFallbackReason,
                 resolution.splitStrictDnsPolicy?.canonicalDigest.orEmpty(),
+                resolution.splitStrictDnsPolicy?.underlayLeaseGeneration,
             )
         session.currentNetworkScopeKey = resolution.networkScopeKey
         session.recordDestinationPolicy(resolution)

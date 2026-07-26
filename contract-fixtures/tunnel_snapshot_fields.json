@@ -11,6 +11,8 @@
   "connectionQuality.transportKind",
   "connectionQuality.windowStartAtMs",
   "dhtTriggerObservations",
+  "directDnsStaleResponses",
+  "directDnsSuccesses",
   "dnsCacheHits",
   "dnsCacheMisses",
   "dnsFailuresTotal",

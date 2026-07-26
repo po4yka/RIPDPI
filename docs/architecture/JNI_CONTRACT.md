@@ -269,6 +269,15 @@ a deliberate follow-up rather than a mechanical refactor:
   **symmetric** — see [§10](#10-vpnserviceprotect-callback-rules); the
   generation guard makes an *asymmetric* (stale) unregister a safe no-op rather
   than a clobber — see below.
+- **Direct-DNS underlay binder** — `Tun2SocksNativeBindings` loads
+  `libripdpi-tunnel.so` before its static register/unregister wrappers call the
+  private JNI exports. Registration preflights
+  `directDnsLeaseGeneration()J`, `isDirectDnsLeaseCurrent(J)Z`, and
+  `bindDirectDnsSocket(IJ)Z` before publishing the `GlobalRef`. Rust snapshots
+  one non-zero lease token per request, and both Kotlin and Rust recheck it
+  after `protect(fd)` plus `Network.bindSocket(dup(fd))`. Registry replacement
+  and stale unregister are generation guarded, so an in-flight call from an
+  old VPN session cannot publish a result into a newer session.
 - **Runtime readiness callback** (ADR 0003) — registered by
   `jniRegisterReadinessListener(handle: jlong, listener): jlong`, cleared by
   `jniUnregisterReadinessListener(handle: jlong)`, on `RipDpiProxyNativeBindings`,
@@ -324,7 +333,8 @@ with no Rust object spanning them, the token round-trips through Kotlin:
    registration failed).
 2. `jniUnregisterVpnProtect(jlong)` takes it back; a stale token (a superseded
    session) or a `0` token clears nothing — a safe no-op.
-3. `VpnNativeProtectRegistration` holds the proxy and WARP tokens between
+3. `VpnNativeProtectRegistration` holds the proxy, relay, WARP, AWG, and
+   tunnel direct-DNS tokens between
    register and unregister.
 
 `register_protect_callback` / `unregister_protect_callback` remain as

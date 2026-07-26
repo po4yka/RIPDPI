@@ -112,6 +112,8 @@ class NativeTelemetryGoldenTest {
                 splitDnsProxyDecisions = 11,
                 splitDnsDirectFallbackDecisions = 2,
                 splitDnsBlockDecisions = 4,
+                directDnsSuccesses = 9,
+                directDnsStaleResponses = 1,
                 lastSplitDnsCoverageReason = "route_policy_unavailable",
                 lastDnsHost = "example.org",
                 lastDnsError = "timeout",
@@ -136,6 +138,8 @@ class NativeTelemetryGoldenTest {
         assertEquals(11L, parsed.splitDnsProxyDecisions)
         assertEquals(2L, parsed.splitDnsDirectFallbackDecisions)
         assertEquals(4L, parsed.splitDnsBlockDecisions)
+        assertEquals(9L, parsed.directDnsSuccesses)
+        assertEquals(1L, parsed.directDnsStaleResponses)
         assertEquals("route_policy_unavailable", parsed.lastSplitDnsCoverageReason)
     }
 

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.security.MessageDigest
 import java.util.Locale
 
@@ -68,6 +69,8 @@ data class NetworkFingerprint(
     val wifi: WifiNetworkIdentityTuple? = null,
     val cellular: CellularNetworkIdentityTuple? = null,
     val metered: Boolean = false,
+    /** Ephemeral binder-issued underlay snapshot token; excluded from persistence and scope hashing. */
+    @Transient val directDnsUnderlayGeneration: Long? = null,
 ) {
     fun scopeKey(): String =
         canonicalParts()

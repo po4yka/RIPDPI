@@ -68,52 +68,14 @@ mod tests {
 
     use super::super::TCP_SOCKET_BUF;
     use super::super::packet::{
-        build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr, is_injected_rst, tcp_syn_flow_key,
+        build_ipv4_tcp_ack_packet, build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr,
+        is_injected_rst, tcp_seq_ack, tcp_syn_flow_key,
     };
     use super::{
         ensure_pending_listen_for_syn, socketaddr_to_listen_endpoint, spawn_new_tcp_sessions, tcp_session_target_addr,
     };
 
     static UID_ADMISSION_TEST_GUARD: Mutex<()> = Mutex::new(());
-
-    fn build_ipv4_tcp_ack_packet(
-        src_ip: Ipv4Addr,
-        dst_ip: Ipv4Addr,
-        src_port: u16,
-        dst_port: u16,
-        seq: u32,
-        ack: u32,
-    ) -> Vec<u8> {
-        let mut pkt = vec![0u8; 40];
-        pkt[0] = 0x45;
-        pkt[3] = 40;
-        pkt[9] = 6;
-        pkt[12..16].copy_from_slice(&src_ip.octets());
-        pkt[16..20].copy_from_slice(&dst_ip.octets());
-        pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
-        pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
-        pkt[24..28].copy_from_slice(&seq.to_be_bytes());
-        pkt[28..32].copy_from_slice(&ack.to_be_bytes());
-        pkt[32] = 0x50;
-        pkt[33] = 0x10;
-        let ip_checksum = super::super::packet::finalize_checksum(super::super::packet::checksum_sum(&pkt[..20]));
-        pkt[10..12].copy_from_slice(&ip_checksum.to_be_bytes());
-        let mut sum = super::super::packet::checksum_sum(&src_ip.octets());
-        sum += super::super::packet::checksum_sum(&dst_ip.octets());
-        sum += u32::from(6u16);
-        sum += u32::from((pkt.len() - 20) as u16);
-        sum += super::super::packet::checksum_sum(&pkt[20..]);
-        let tcp_checksum = super::super::packet::finalize_checksum(sum);
-        pkt[36..38].copy_from_slice(&tcp_checksum.to_be_bytes());
-        pkt
-    }
-
-    fn tcp_seq_ack(pkt: &[u8]) -> (u32, u32) {
-        let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-        let seq = u32::from_be_bytes([pkt[ihl + 4], pkt[ihl + 5], pkt[ihl + 6], pkt[ihl + 7]]);
-        let ack = u32::from_be_bytes([pkt[ihl + 8], pkt[ihl + 9], pkt[ihl + 10], pkt[ihl + 11]]);
-        (seq, ack)
-    }
 
     #[test]
     fn socketaddr_to_listen_endpoint_preserves_ip_and_port() {
@@ -202,7 +164,7 @@ mod tests {
             Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 51000))
         );
         assert_eq!(
-            tcp_session_target_addr(&stats, &mut dns_cache, second_socket),
+            tcp_session_target_addr(&stats, &mut dns_cache, None, second_socket),
             Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)), 443))
         );
     }
@@ -245,7 +207,7 @@ mod tests {
         let socket = socket_set.get::<TcpSocket>(handle);
         let stats = Arc::new(Stats::default());
         let mut dns_cache = None;
-        let target = tcp_session_target_addr(&stats, &mut dns_cache, socket).expect("session target");
+        let target = tcp_session_target_addr(&stats, &mut dns_cache, None, socket).expect("session target");
 
         assert_eq!(socket.remote_endpoint().map(endpoint_to_socketaddr), Some(client),);
         assert_eq!(target, destination);
@@ -286,7 +248,7 @@ mod tests {
         let socket = socket_set.get::<TcpSocket>(handle);
         let stats = Arc::new(Stats::default());
         let mut dns_cache = None;
-        let target = tcp_session_target_addr(&stats, &mut dns_cache, socket).expect("session target");
+        let target = tcp_session_target_addr(&stats, &mut dns_cache, None, socket).expect("session target");
 
         assert_eq!(socket.remote_endpoint().map(endpoint_to_socketaddr), Some(client),);
         assert_eq!(target, destination);
@@ -347,6 +309,7 @@ mod tests {
             &cancel,
             &stats,
             &mut dns_cache,
+            None,
             &uid_policy,
         );
         assert!(resetting.is_empty(), "half-open socket must not be reset");
@@ -371,6 +334,7 @@ mod tests {
             &cancel,
             &stats,
             &mut dns_cache,
+            None,
             &uid_policy,
         );
         assert!(resetting.is_empty(), "pending UID socket must not be reset");
@@ -396,6 +360,7 @@ mod tests {
             &cancel,
             &stats,
             &mut dns_cache,
+            None,
             &uid_policy,
         );
         assert!(resetting.is_empty(), "allowed UID socket must not be reset");
@@ -467,6 +432,7 @@ mod tests {
             &cancel,
             &stats,
             &mut dns_cache,
+            None,
             &uid_policy,
         );
         assert!(resetting.is_empty(), "pending UID socket must not be reset");
@@ -491,6 +457,7 @@ mod tests {
             &cancel,
             &stats,
             &mut dns_cache,
+            None,
             &uid_policy,
         );
         assert_eq!(resetting.len(), 1, "denied established socket must be scheduled for reset cleanup");

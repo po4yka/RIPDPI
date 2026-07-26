@@ -67,6 +67,8 @@ impl TunnelTelemetryState {
             split_dns_proxy_decisions: dns_stats.split_dns_proxy_decisions,
             split_dns_direct_fallback_decisions: dns_stats.split_dns_direct_fallback_decisions,
             split_dns_block_decisions: dns_stats.split_dns_block_decisions,
+            direct_dns_successes: dns_stats.direct_dns_successes,
+            direct_dns_stale_responses: dns_stats.direct_dns_stale_responses,
             last_split_dns_coverage_reason: dns_stats.last_split_dns_coverage_reason,
             last_dns_host: dns_stats.last_dns_host,
             last_dns_error: dns_stats.last_dns_error,

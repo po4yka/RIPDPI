@@ -2,7 +2,9 @@ use crate::IpClass;
 use crate::classify::classify_ip_packet;
 use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, Verdict};
 
-use super::dns_intercept::{dns_query_name, resolve_mapped_target, route_dns_packet};
+use super::dns_intercept::{
+    dns_query_name, resolve_mapped_target, route_dns_packet, sync_direct_dns_mapping_generation,
+};
 use super::packet::is_injected_rst;
 use super::state::LoopState;
 use super::tcp_accept::ensure_pending_listen_for_syn;
@@ -43,6 +45,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                 Verdict::DropUdp | Verdict::ResetTcp => return,
                 Verdict::Allow => {}
             }
+            sync_direct_dns_mapping_generation(state.dns_cache.as_mut(), &mut state.active_direct_dns_generation);
             let host = dns_query_name(payload);
             route_dns_packet(
                 &mut state.device,
@@ -70,7 +73,12 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                 }
                 _ => None,
             };
-            if let Some(resolved_dst) = resolve_mapped_target(&state.stats, &mut state.dns_cache, dst) {
+            if let Some(resolved_dst) = resolve_mapped_target(
+                &state.stats,
+                &mut state.dns_cache,
+                Some(&mut state.active_direct_dns_generation),
+                dst,
+            ) {
                 let outcome = forward_udp_payload(
                     state.runtime.proxy_sockaddr,
                     &state.runtime.auth,

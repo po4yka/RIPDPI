@@ -45,16 +45,18 @@ import javax.inject.Inject
  * [start] **dups** the TUN fd it is handed (`adopt_tun_fd`). The caller keeps
  * ownership of the original descriptor — the `VpnService` `ParcelFileDescriptor`
  * — and must close it itself; the native side closes only its own dup, when the
- * tunnel worker exits. There is no JNI callback channel: outbound sockets are
- * protected through the `protectPath` Unix-domain socket named in the config,
- * not through a registered callback.
+ * tunnel worker exits. Ordinary outbound sockets are protected through the
+ * `protectPath` Unix-domain socket; direct-DNS sockets use the separately
+ * generation-guarded JNI underlay binder.
  *
  * ## Error mapping
  * Native failures throw Java exceptions from the JNI frame:
  * `IllegalArgumentException` (bad handle, bad config, invalid TUN fd),
  * `IllegalStateException` (wrong lifecycle state), `IOException` (fd adoption
- * or worker-spawn failure). A contained Rust panic surfaces as the sentinel
- * return (`0` handle / no-op) rather than crossing the boundary.
+ * or worker-spawn failure). A contained Rust panic in the session lifecycle
+ * surfaces as the sentinel return (`0` handle / no-op) rather than crossing the
+ * boundary; direct-DNS binder registration instead throws a sanitized
+ * `RuntimeException` so the service rolls back the registration group.
  *
  * ## Blocking
  * [start] returns after the worker has completed packet-loop initialization —
@@ -111,13 +113,39 @@ interface Tun2SocksBindings {
     fun unregisterFlowAttribution(token: Long)
 }
 
+object Tun2SocksNativeLoader {
+    init {
+        System.loadLibrary("ripdpi-tunnel")
+    }
+
+    fun ensureLoaded() = Unit
+}
+
 class Tun2SocksNativeBindings
     @Inject
     constructor() : Tun2SocksBindings {
         companion object {
-            init {
-                System.loadLibrary("ripdpi-tunnel")
+            @JvmStatic
+            fun registerDirectDnsSocketBinder(bridge: Any): Long {
+                Tun2SocksNativeLoader.ensureLoaded()
+                return jniRegisterDirectDnsSocketBinderNative(bridge)
             }
+
+            @JvmStatic
+            fun unregisterDirectDnsSocketBinder(token: Long) {
+                Tun2SocksNativeLoader.ensureLoaded()
+                jniUnregisterDirectDnsSocketBinderNative(token)
+            }
+
+            @JvmStatic
+            private external fun jniRegisterDirectDnsSocketBinderNative(bridge: Any): Long
+
+            @JvmStatic
+            private external fun jniUnregisterDirectDnsSocketBinderNative(token: Long)
+        }
+
+        init {
+            Tun2SocksNativeLoader.ensureLoaded()
         }
 
         override fun create(configJson: String): Long = jniCreate(configJson)

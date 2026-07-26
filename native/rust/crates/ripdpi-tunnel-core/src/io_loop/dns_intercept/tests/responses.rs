@@ -33,6 +33,8 @@ fn handle_dns_result_queues_response_for_later_tun_flush() {
             }),
             resolver_error_kind: None,
             resolver_endpoint_label: Some("fixture".to_string()),
+            direct_generation: None,
+            direct_fallback: false,
         },
     );
 
@@ -60,6 +62,8 @@ fn handle_dns_result_records_endpoint_for_upstream_failure() {
             upstream: Err("TLS handshake failed unexpected EOF".to_string()),
             resolver_error_kind: Some(EncryptedDnsErrorKind::Tls),
             resolver_endpoint_label: Some("fixture.test:853".to_string()),
+            direct_generation: None,
+            direct_fallback: false,
         },
     );
 

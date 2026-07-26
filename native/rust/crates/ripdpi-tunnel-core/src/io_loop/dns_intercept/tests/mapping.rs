@@ -28,7 +28,8 @@ fn normalized_default_mapdns_network_preserves_reverse_lookup() {
         })
         .expect("rewritten ipv4 answer");
     let stats = Arc::new(Stats::default());
-    let resolved = resolve_mapped_target(&stats, &mut Some(cache), SocketAddr::new(IpAddr::V4(synthetic_ip), 443));
+    let resolved =
+        resolve_mapped_target(&stats, &mut Some(cache), None, SocketAddr::new(IpAddr::V4(synthetic_ip), 443));
 
     assert_eq!(resolved, Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443)));
 }
@@ -39,7 +40,7 @@ fn resolve_mapped_target_returns_none_for_unmapped_synthetic_ip() {
     let cache = DnsCache::new(mapdns.synthetic_net, mapdns.synthetic_mask, 8).expect("valid cache");
     let stats = Arc::new(Stats::default());
     let synthetic_dns = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 53)), 853);
-    let resolved = resolve_mapped_target(&stats, &mut Some(cache), synthetic_dns);
+    let resolved = resolve_mapped_target(&stats, &mut Some(cache), None, synthetic_dns);
 
     assert_eq!(resolved, None);
 }

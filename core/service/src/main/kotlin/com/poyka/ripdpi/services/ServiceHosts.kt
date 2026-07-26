@@ -60,5 +60,13 @@ internal interface VpnServiceHost :
         proxyTelemetry: NativeRuntimeSnapshot,
     )
 
-    fun syncUnderlyingNetworksFromActiveNetwork()
+    fun prepareDirectDnsUnderlay(
+        candidates: List<String>,
+        leaseGeneration: Long?,
+    ): Long = 0L
+
+    fun finishDirectDnsUnderlay(
+        token: Long,
+        action: DirectDnsUnderlayAction,
+    ): Boolean = false
 }

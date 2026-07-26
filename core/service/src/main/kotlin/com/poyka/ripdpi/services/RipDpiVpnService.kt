@@ -65,13 +65,16 @@ class RipDpiVpnService :
     lateinit var acceptedUserStopRecorder: AcceptedUserStopRecorder
 
     @Inject
+    internal lateinit var directDnsUnderlayAuthority: DirectDnsUnderlayAuthority
+
+    @Inject
     lateinit var selectorRuntimeLifecycleListeners:
         Set<@JvmSuppressWildcards com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener>
 
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
-    private lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
+    internal lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
     private val connectivityManager: ConnectivityManager
         get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     override val serviceScope = lifecycleScope
@@ -80,8 +83,8 @@ class RipDpiVpnService :
         super.onCreate()
         notificationController = VpnForegroundNotificationController(serviceStateStore)
         notificationController.registerChannel(this)
-        underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this)
-        underlyingNetworkBinder.captureActiveNetwork()
+        underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this, directDnsUnderlayAuthority)
+        underlyingNetworkBinder.start()
         sessionLifecycle =
             VpnServiceSessionLifecycle(
                 service = this,
@@ -101,6 +104,7 @@ class RipDpiVpnService :
     override fun onDestroy() {
         selectorRuntimeLifecycleListeners.forEach { it.stop() }
         sessionLifecycle.destroy()
+        underlyingNetworkBinder.stop()
         rootHelperManager.stop()
         super.onDestroy()
     }
@@ -177,11 +181,38 @@ class RipDpiVpnService :
             builder = createBuilder(dns, ipv6, appRoutingPlan, interfaceSettings, httpProxyPort),
         )
 
+    private var preparedDirectDnsUnderlayToken: Long = 0L
+
     @android.annotation.SuppressLint("MissingPermission")
-    override fun syncUnderlyingNetworksFromActiveNetwork() {
+    override fun prepareDirectDnsUnderlay(
+        candidates: List<String>,
+        leaseGeneration: Long?,
+    ): Long {
         refreshHardKillSwitchState()
-        underlyingNetworkBinder.syncFromActiveNetwork()
+        return underlyingNetworkBinder.preparePolicy(candidates, leaseGeneration).also { token ->
+            preparedDirectDnsUnderlayToken = token
+        }
     }
+
+    override fun finishDirectDnsUnderlay(
+        token: Long,
+        action: DirectDnsUnderlayAction,
+    ): Boolean =
+        when (action) {
+            DirectDnsUnderlayAction.Commit -> {
+                underlyingNetworkBinder.commitPreparedLease(token)
+            }
+
+            DirectDnsUnderlayAction.Abort -> {
+                underlyingNetworkBinder.abortPreparedLease(token)
+                false
+            }
+
+            DirectDnsUnderlayAction.FailClosed -> {
+                underlyingNetworkBinder.failClosedPreparedLease(token)
+                false
+            }
+        }
 
     /** Resolve bootstrap hostnames on the explicitly selected underlying network. */
     @Keep
@@ -197,6 +228,7 @@ class RipDpiVpnService :
         Logger.v { "DNS configured" }
         val tunnelNetworkParameters = currentTunnelNetworkParameters()
         val builder = Builder()
+        underlyingNetworkBinder.applyToBuilder(builder, preparedDirectDnsUnderlayToken)
         builder.setSession("RIPDPI")
         builder.setMtu(tunnelNetworkParameters.tunnelMtu)
         builder.setConfigureIntent(

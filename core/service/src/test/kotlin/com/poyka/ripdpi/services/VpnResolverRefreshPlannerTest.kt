@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -10,6 +11,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,6 +21,38 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VpnResolverRefreshPlannerTest {
+    @Test
+    fun binderGenerationAppearanceRequestsOneTunnelRebuild() =
+        runTest {
+            val settings = AppSettingsSerializer.defaultValue
+            val activeDns = settings.activeDnsSettings()
+            val policy =
+                ValidatedSplitStrictDnsPolicy.build(
+                    activeDns = activeDns,
+                    routingSnapshot =
+                        DestinationRoutingPolicySnapshot.Available(
+                            DestinationRoutingPolicy(canonicalDigest = "route"),
+                        ),
+                    underlayDnsServers = listOf("1.1.1.1"),
+                    underlayLeaseGeneration = 17L,
+                )
+            val planner =
+                VpnResolverRefreshPlanner(
+                    connectionPolicyResolver =
+                        TestConnectionPolicyResolver(
+                            sampleResolution(mode = Mode.VPN, settings = settings).copy(splitStrictDnsPolicy = policy),
+                        ),
+                    resolverOverrideStore = TestResolverOverrideStore(),
+                )
+            val previous = dnsSignature(activeDns, null, policy.canonicalDigest, underlayLeaseGeneration = null)
+
+            val first = planner.plan(previous, tunnelRunning = true)
+            val stable = planner.plan(first.signature, tunnelRunning = true)
+
+            assertTrue(first.requiresTunnelRebuild)
+            assertFalse(stable.requiresTunnelRebuild)
+        }
+
     @Test
     fun routePolicyMutationRequestsRuntimeRecompose() =
         runTest {

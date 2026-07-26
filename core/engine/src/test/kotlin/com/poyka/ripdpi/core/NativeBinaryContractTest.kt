@@ -263,6 +263,8 @@ class NativeBinaryContractTest {
                 dnsCacheHits = 50,
                 dnsCacheMisses = 30,
                 dnsFailuresTotal = 5,
+                directDnsSuccesses = 2,
+                directDnsStaleResponses = 1,
                 lastDnsHost = "example.org",
                 lastDnsError = "SERVFAIL",
                 autolearnEnabled = true,

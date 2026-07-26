@@ -17,7 +17,7 @@ class VpnUpstreamNetworkBindingTest {
         assertTrue(audit.readsActiveNetwork)
         assertTrue(audit.bindsActiveNetwork)
         assertTrue(audit.usesSetUnderlyingNetworks)
-        assertFalse(audit.usesBindSocket)
+        assertTrue(audit.usesBindSocket)
         assertFalse(audit.usesAllowBypass)
     }
 
@@ -33,7 +33,7 @@ class VpnUpstreamNetworkBindingTest {
         assertFalse(audit.bindsActiveNetwork)
         assertEquals(
             "read_active_network=false, active_network_available=true, set_underlying_networks=true, " +
-                "bind_socket=false, allow_bypass=false, binds_active_network=false",
+                "bind_socket=true, allow_bypass=false, binds_active_network=false",
             audit.logSummary(),
         )
     }

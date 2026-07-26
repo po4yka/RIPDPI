@@ -18,7 +18,7 @@ pub(in crate::io_loop) enum WaitOutcome {
     Cancelled,
 }
 
-enum WaitEvent {
+pub(super) enum WaitEvent {
     TunReadable,
     PollTimer,
     Udp(Option<UdpEvent>),
@@ -53,6 +53,10 @@ pub(in crate::io_loop) async fn wait_for_next_event(
     };
     state.dns_resp_rx = dns_resp_rx;
 
+    handle_wait_event(state, event)
+}
+
+pub(super) fn handle_wait_event(state: &mut LoopState, event: WaitEvent) -> WaitOutcome {
     match event {
         WaitEvent::TunReadable | WaitEvent::PollTimer => WaitOutcome::Continue,
         WaitEvent::Udp(Some(event)) => {
