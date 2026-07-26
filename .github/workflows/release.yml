@@ -175,28 +175,20 @@ jobs:
             --size-report "github-apk-size-report.md" \
             --max-abi-apk-size-mib 170
 
+      - name: Install Syft
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh |
+            sh -s -- -b /usr/local/bin
+
       - name: Generate Rust SBOM
         run: |
           set -euo pipefail
-          # cargo-cyclonedx 0.5.8+ replaced --output-pattern with --override-filename and
-          # changed default output locations; use the new flag set with whatever version
-          # the runner resolves. --force ensures we overwrite any cached binary.
-          cargo install cargo-cyclonedx --locked --force --quiet
-          which cargo-cyclonedx && cargo-cyclonedx --version || true
-          cd native/rust
-          cargo cyclonedx --format json --top-level --override-filename bom
-          # Locate the produced bom.json (path differs across cargo-cyclonedx versions).
-          bom="$(find . -maxdepth 4 -type f -name 'bom.json' -print -quit)"
-          if [ -z "$bom" ]; then
-            echo "bom.json not produced by cargo cyclonedx; recent .json files:" >&2
-            find . -maxdepth 4 -type f -name '*.json' -newer Cargo.toml >&2 || true
-            exit 1
-          fi
-          cp "$bom" "$GITHUB_WORKSPACE/rust-bom.json"
+          syft packages dir:native/rust --output "cyclonedx-json=$GITHUB_WORKSPACE/rust-bom.json"
 
       - name: Generate Android SBOM
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          set -euo pipefail
           syft packages dir:. --output "cyclonedx-json=$GITHUB_WORKSPACE/android-bom.json"
 
       - name: Generate SHA-256 checksums

@@ -78,6 +78,22 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         self.assertIn("name: native-symbols-x86_64", source)
         self.assertIn("if-no-files-found: error", source)
 
+    def test_release_sboms_use_single_scoped_syft_inventories(self) -> None:
+        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+
+        self.assertEqual(1, source.count("anchore/syft/main/install.sh"))
+        self.assertNotIn("cargo cyclonedx", source)
+        rust_block = upload_block(source, "Generate Rust SBOM")
+        self.assertIn(
+            'syft packages dir:native/rust --output "cyclonedx-json=$GITHUB_WORKSPACE/rust-bom.json"',
+            rust_block,
+        )
+        android_block = upload_block(source, "Generate Android SBOM")
+        self.assertIn(
+            'syft packages dir:. --output "cyclonedx-json=$GITHUB_WORKSPACE/android-bom.json"',
+            android_block,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
