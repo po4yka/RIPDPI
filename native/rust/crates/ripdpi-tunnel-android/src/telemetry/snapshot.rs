@@ -1,11 +1,11 @@
 use std::sync::atomic::Ordering;
 
 use android_support::drain_tunnel_events;
-use ripdpi_telemetry::LatencyDistributions;
 use ripdpi_tunnel_core::DnsStatsSnapshot;
 
+use super::latency::{snapshot_latency, snapshot_tunnel_stats};
 use super::state::TunnelTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION, TunnelStatsSnapshot};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION};
 
 impl TunnelTelemetryState {
     pub(crate) fn snapshot(
@@ -72,18 +72,9 @@ impl TunnelTelemetryState {
             last_split_dns_coverage_reason: dns_stats.last_split_dns_coverage_reason,
             last_dns_host: dns_stats.last_dns_host,
             last_dns_error: dns_stats.last_dns_error,
-            tunnel_stats: TunnelStatsSnapshot {
-                tx_packets: traffic_stats.0,
-                tx_bytes: traffic_stats.1,
-                rx_packets: traffic_stats.2,
-                rx_bytes: traffic_stats.3,
-            },
+            tunnel_stats: snapshot_tunnel_stats(traffic_stats),
             native_events: drain_tunnel_events().into_iter().map(NativeRuntimeEvent::from).collect(),
-            latency_distributions: LatencyDistributions {
-                dns_resolution: self.dns_histogram.snapshot(),
-                ..Default::default()
-            }
-            .into_option(),
+            latency_distributions: snapshot_latency(self),
             connection_quality: self.quality_window.snapshot(),
             captured_at: super::time::now_ms(),
         }

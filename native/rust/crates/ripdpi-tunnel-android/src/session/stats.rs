@@ -7,7 +7,7 @@ use ripdpi_tunnel_core::DnsStatsSnapshot;
 use super::registry::{TunnelSessionState, lookup_tunnel_session};
 
 /// Saturate a `u64` to `i64::MAX` so JNI `jlong` values never wrap negative.
-fn saturate_u64_to_i64(v: u64) -> i64 {
+pub(super) fn saturate_u64_to_i64(v: u64) -> i64 {
     if v > i64::MAX as u64 { i64::MAX } else { v as i64 }
 }
 
@@ -38,18 +38,6 @@ pub(crate) fn stats_session(env: &mut Env<'_>, handle: jlong) -> jlongArray {
         }
         Err(_) => std::ptr::null_mut(),
     }
-}
-
-pub(crate) fn icmp_ingress_packets_session(env: &mut Env<'_>, handle: jlong) -> jlong {
-    let session = match lookup_tunnel_session(handle) {
-        Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument_env(env, message);
-            return 0;
-        }
-    };
-    let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    saturate_u64_to_i64(icmp_ingress_packets_for_state(&state))
 }
 
 pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {

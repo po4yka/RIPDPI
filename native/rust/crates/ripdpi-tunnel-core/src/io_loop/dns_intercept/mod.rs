@@ -1,8 +1,13 @@
 mod config;
 mod direct_dns;
+mod generation;
 mod mapping;
+mod parsed;
 mod protect_hooks;
+mod resolution;
+mod response_processing;
 mod responses;
+mod route;
 mod types;
 mod wire;
 mod worker;
@@ -12,14 +17,18 @@ use std::net::SocketAddr;
 #[cfg(test)]
 pub(super) use self::config::mapdns_resolver_transport;
 pub(super) use self::config::{build_encrypted_dns_resolver, parse_dns_cache, parse_mapdns_runtime};
+pub(super) use self::generation::sync_direct_dns_mapping_generation;
+pub(super) use self::mapping::ResolvedMappedTarget;
 #[cfg(test)]
 pub(super) use self::mapping::resolve_mapped_target;
-pub(super) use self::mapping::{ResolvedMappedTarget, resolve_mapped_destination, sync_direct_dns_mapping_generation};
+pub(super) use self::resolution::resolve_mapped_destination;
+pub(super) use self::response_processing::{drain_dns_responses, handle_dns_response};
 pub(super) use self::responses::handle_dns_result;
+pub(super) use self::route::route_dns_packet;
 pub(super) use self::types::{DirectDnsRequest, DnsRequest, DnsResponse};
 pub(super) use self::wire::dns_query_name;
 pub(crate) use self::wire::parse_dns_query;
-pub(super) use self::worker::{drain_dns_responses, handle_dns_response, route_dns_packet, spawn_dns_worker};
+pub(super) use self::worker::spawn_dns_worker;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct MapDnsRuntime {

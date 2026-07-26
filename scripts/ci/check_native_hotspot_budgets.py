@@ -73,7 +73,8 @@ def measure_hotspot(repo_root: Path, budget: HotspotBudget) -> HotspotMeasuremen
         raise FileNotFoundError(f"Native hotspot source not found: {budget.path}")
 
     source_text = source_path.read_text(encoding="utf-8")
-    measured = 0 if source_path.stem.endswith("_tests") else count_code_lines(production_source(source_text), "rust")
+    is_test_only_module = source_path.stem.endswith(("_tests", "test_fixtures"))
+    measured = 0 if is_test_only_module else count_code_lines(production_source(source_text), "rust")
     return HotspotMeasurement(
         path=budget.path,
         measured_production_loc=measured,

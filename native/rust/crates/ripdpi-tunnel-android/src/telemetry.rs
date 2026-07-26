@@ -1,4 +1,5 @@
 mod event;
+mod latency;
 mod logging;
 mod snapshot;
 mod state;

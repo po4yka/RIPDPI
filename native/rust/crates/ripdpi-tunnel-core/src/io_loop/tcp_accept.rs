@@ -14,6 +14,7 @@ mod admission;
 mod duplex;
 mod eviction;
 mod listener;
+mod pin;
 mod target;
 mod unresolved;
 
