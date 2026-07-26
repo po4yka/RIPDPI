@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.testsupport.ControllableNetworkHandoverMonitor
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -1164,92 +1165,130 @@ private class MutableDiagnosticsTimelineSource : DiagnosticsTimelineSource {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DiagnosticsHomeCompositeRunServiceVpnHaltTest {
+class HomeCompositeStageExecutorVpnHaltTest {
     @Test
-    fun `vpn service halting during audit stage marks stage failed and completes run`() =
+    fun `raw path stage ignores the expected vpn halt and waits for its session`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-
-            // Scan controller starts the audit but never emits a terminal session status,
-            // simulating a stuck engine because the VPN tunnel died.
-            val scanController =
-                RecordingHomeCompositeScanController(
-                    onStart = { _, profileId, sessionId ->
-                        // Only record the session as "running" — never transition to completed/failed.
-                        timelineSource.sessions.value =
-                            timelineSource.sessions.value +
-                            DiagnosticScanSession(
-                                id = sessionId,
-                                profileId = requireNotNull(profileId),
-                                pathMode = ScanPathMode.RAW_PATH.name,
-                                serviceMode = "VPN",
-                                status = "running",
-                                summary = "Running",
-                                startedAt = 10L,
-                                finishedAt = null,
-                            )
-                        // Immediately signal VPN halt to unblock the session-wait.
-                        serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
-                    },
-                )
-            val workflowService =
-                object : DiagnosticsHomeWorkflowService {
-                    override suspend fun currentFingerprintHash(): String = "fp-halt"
-
-                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
-                        error("should not be called when VPN halted")
-
-                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
-                        error("unused")
-                }
-            val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = NoopHomeDetectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
-                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+            val spec = stageSpec(ScanPathMode.RAW_PATH)
+            val progressState = stageProgress(spec)
+            timelineSource.sessions.value = listOf(stageSession(spec, status = "running"))
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = unusedScanController(),
+                    diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
-                    probeResultCache = NoOpProbeResultCache(),
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                        ),
-                    json = diagnosticsTestJson(),
-                    scope = backgroundScope,
                 )
 
-            val started = service.startHomeAnalysis()
-            advanceUntilIdle()
-            val outcome = service.finalizeHomeRun(started.runId)
+            val result =
+                async {
+                    executor.awaitStageSignal(
+                        runId = RunId,
+                        stageIndex = 0,
+                        spec = spec,
+                        stageSessionId = SessionId,
+                        progressState = progressState,
+                    )
+                }
+            runCurrent()
 
-            // Audit stage should be FAILED, remaining stages SKIPPED, run completed.
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            assertFalse(result.isCompleted)
+
+            timelineSource.sessions.value = listOf(stageSession(spec, status = "completed"))
+            assertEquals(SessionId, result.await()?.first)
+        }
+
+    @Test
+    fun `in path stage fails when vpn halts before its session completes`() =
+        runTest {
+            val timelineSource = MutableDiagnosticsTimelineSource()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val spec = stageSpec(ScanPathMode.IN_PATH)
+            val progressState = stageProgress(spec)
+            timelineSource.sessions.value = listOf(stageSession(spec, status = "running"))
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = unusedScanController(),
+                    diagnosticsTimelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                )
+
+            val result =
+                async {
+                    executor.awaitStageSignal(
+                        runId = RunId,
+                        stageIndex = 0,
+                        spec = spec,
+                        stageSessionId = SessionId,
+                        progressState = progressState,
+                    )
+                }
+            runCurrent()
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertEquals(null, result.await())
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.FAILED,
-                outcome.stageSummaries.first { it.profileId == "automatic-audit" }.status,
+                progressState.value
+                    .getValue(RunId)
+                    .stages
+                    .single()
+                    .status,
             )
-            assertEquals(
-                DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                outcome.stageSummaries.first { it.profileId == "default" }.status,
-            )
-            assertEquals(
-                DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                outcome.stageSummaries.first { it.profileId == "ru-dpi-full" }.status,
-            )
-            assertEquals(
-                DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                outcome.stageSummaries.first { it.profileId == "ru-dpi-strategy" }.status,
-            )
-            assertEquals(0, outcome.completedStageCount)
-            // 7 remaining stages (detection_signals + 5 middle profile scans + dpi_strategy) were skipped.
-            assertEquals(7, outcome.skippedStageCount)
         }
+
+    private fun stageSpec(pathMode: ScanPathMode) =
+        HomeCompositeStageSpec(
+            key = "test-stage",
+            label = "Test stage",
+            profileId = "test-profile",
+            pathMode = pathMode,
+        )
+
+    private fun stageProgress(spec: HomeCompositeStageSpec) =
+        MutableStateFlow(
+            mapOf(
+                RunId to
+                    DiagnosticsHomeCompositeProgress(
+                        runId = RunId,
+                        stages =
+                            listOf(
+                                DiagnosticsHomeCompositeStageSummary(
+                                    stageKey = spec.key,
+                                    stageLabel = spec.label,
+                                    profileId = spec.profileId,
+                                    pathMode = spec.pathMode,
+                                    sessionId = SessionId,
+                                    status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                                    headline = "Running",
+                                    summary = "Running",
+                                ),
+                            ),
+                    ),
+            ),
+        )
+
+    private fun stageSession(
+        spec: HomeCompositeStageSpec,
+        status: String,
+    ) = DiagnosticScanSession(
+        id = SessionId,
+        profileId = spec.profileId,
+        pathMode = spec.pathMode.name,
+        serviceMode = "VPN",
+        status = status,
+        summary = status,
+        startedAt = 10L,
+        finishedAt = if (status == "running") null else 20L,
+    )
+
+    private fun unusedScanController() = RecordingHomeCompositeScanController { _, _, _ -> error("unused") }
+
+    private companion object {
+        const val RunId = "run"
+        const val SessionId = "session"
+    }
 }

@@ -211,7 +211,14 @@ internal class HomeCompositeStageExecutor
                     .filter { pair -> pair.first == AppStatus.Halted }
                     .map { StageSessionSignal.VpnHalted }
 
-            return when (val signal = merge(sessionFinished, vpnHalted).first()) {
+            val signal =
+                if (spec.pathMode == ScanPathMode.RAW_PATH) {
+                    sessionFinished.first()
+                } else {
+                    merge(sessionFinished, vpnHalted).first()
+                }
+
+            return when (signal) {
                 is StageSessionSignal.Finished -> {
                     log.i { "stage ${spec.key} completed status=${signal.session.status}" }
                     stageSessionId to signal.session
