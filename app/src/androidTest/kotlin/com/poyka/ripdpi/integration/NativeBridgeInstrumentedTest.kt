@@ -145,6 +145,7 @@ class NativeBridgeInstrumentedTest {
             tunnelBindings.create(
                 """
                 {
+                  "schemaVersion":3,
                   "tunnelName":"tun0",
                   "tunnelMtu":8500,
                   "multiQueue":false,
@@ -193,6 +194,7 @@ class NativeBridgeInstrumentedTest {
             tunnelBindings.create(
                 """
                 {
+                  "schemaVersion":3,
                   "tunnelName":"tun0",
                   "socks5Address":"127.0.0.1",
                   "socks5Port":1080,
