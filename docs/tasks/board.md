@@ -34,11 +34,10 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 | medium | ui | [Disable Simple disconnect controls under Android lockdown](issues/disable-simple-disconnect-under-android-lockdown.md) | Codex Simple lockdown lane | 2026-07-18 |
 
-## Review (7)
+## Review (6)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
-| critical | dns | [Bind direct DNS to a validated Android underlay](issues/bind-direct-dns-to-validated-android-underlay.md) | DNS direct-underlay serialized lane | 2026-07-26 |
 | high | diagnostics | [Add connection-concurrency as an independent evidence axis](issues/add-connection-concurrency-evidence-axis.md) | Codex | 2026-07-10 |
 | high | testing | [Produce Android ordinary release-gate results locally](issues/produce-android-ordinary-release-gate-results.md) | Android ordinary gate producer lane | 2026-07-22 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
