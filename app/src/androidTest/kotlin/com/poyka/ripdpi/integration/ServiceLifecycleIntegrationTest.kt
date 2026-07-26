@@ -132,7 +132,7 @@ class ServiceLifecycleIntegrationTest {
     var destinationRoutingPolicySource: DestinationRoutingPolicySource =
         DestinationRoutingPolicySource {
             DestinationRoutingPolicySnapshot.Available(
-                DestinationRoutingPolicy(canonicalDigest = "integration-test"),
+                DestinationRoutingPolicy(canonicalDigest = ""),
             )
         }
 
