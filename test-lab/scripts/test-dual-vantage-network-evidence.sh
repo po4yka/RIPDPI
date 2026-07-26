@@ -132,6 +132,7 @@ PY
 export PATH="$fake_bin:$PATH"
 export RIPDPI_TEST_INSTALLED_APK="$client_artifact"
 export RIPDPI_TEST_INSTALLED_TEST_APK="$test_artifact"
+export RIPDPI_TEST_ALLOW_UNREADY_ACTIONS=1
 local_execution_args=(
   --test-artifact "$test_artifact"
   --execution-kind local

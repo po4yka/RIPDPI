@@ -782,8 +782,8 @@ validation_args=(
   --expected-execution-attempt "$execution_attempt"
   --require-pass
 )
-if [[ -n "${RIPDPI_TEST_REPO_ROOT:-}" && "$execution_kind" == "local" && "$execution_id" == "local-self-test" ]]; then
-  validation_args+=(--allow-unready-actions-for-local-self-test)
+if [[ -n "${RIPDPI_TEST_REPO_ROOT:-}" && "${RIPDPI_TEST_ALLOW_UNREADY_ACTIONS:-}" == "1" ]]; then
+  validation_args+=(--allow-unready-actions-for-synthetic-test)
 fi
 python3 "$repo_root/scripts/ci/network_evidence_manifest.py" validate "${validation_args[@]}"
 

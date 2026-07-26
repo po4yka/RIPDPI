@@ -1033,22 +1033,9 @@ fi
                 require_pass=True,
             )
 
-    def test_unready_action_override_is_limited_to_local_self_test(self) -> None:
+    def test_unready_action_override_allows_synthetic_test_bundle(self) -> None:
         manifest = self.assemble()
 
-        with self.assertRaisesRegex(ValueError, "reserved for the local-self-test"):
-            evidence.validate_manifest(
-                manifest,
-                artifact_root=self.root,
-                expected_source_sha=self.source_sha,
-                applies_to="android-client-release",
-                current_epoch=self.finished_at + 4,
-                max_age_seconds=300,
-                require_pass=True,
-                allow_unready_actions_for_local_self_test=True,
-            )
-
-        manifest["provenance"]["executionId"] = "local-self-test"
         self.assertEqual(
             evidence.validate_manifest(
                 manifest,
@@ -1058,7 +1045,7 @@ fi
                 current_epoch=self.finished_at + 4,
                 max_age_seconds=300,
                 require_pass=True,
-                allow_unready_actions_for_local_self_test=True,
+                allow_unready_actions_for_synthetic_test=True,
             )["scenarioCount"],
             10,
         )
