@@ -424,7 +424,9 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             )
         val finished = now()
         assertTrue(
-            "AAAA probe failed: ${result.failureKind} ${result.errorClass} ${result.errorMessage}",
+            "AAAA probe failed: kind=${result.failureKind} stage=${result.failureStage} " +
+                "errno=${result.errno} bound=${result.boundDevice} " +
+                "class=${result.errorClass} message=${result.errorMessage}",
             result.ok,
         )
         assertTrue("AAAA probe returned rcode ${result.rcode}", result.rcode == 0)
