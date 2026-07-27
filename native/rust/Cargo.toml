@@ -311,7 +311,7 @@ io-uring = "=0.7.13"
 flume = "0.12"
 crossbeam-queue = "0.3"
 waker-fn = "1"
-x25519-dalek = { version = "2", features = ["static_secrets", "getrandom"] }
+x25519-dalek = { version = "3", features = ["static_secrets", "getrandom"] }
 h3 = "0.0.8"
 h3-quinn = "0.0.10"
 hyper = { version = "1", features = ["client", "server", "http1", "http2"] }
