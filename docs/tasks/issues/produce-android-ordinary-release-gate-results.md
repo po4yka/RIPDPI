@@ -41,6 +41,11 @@ evidence.
 
 ## Work log
 
+- 2026-07-27: A third integration review found two cross-record false
+  positives. Address facts are now scoped to the declared VPN interface block,
+  so an empty `tun0` cannot borrow addresses from `wlan0`. Tunnel endpoint and
+  port must now match on the same packet direction. Multi-interface and crossed
+  endpoint/port adversarial fixtures cover both cases.
 - 2026-07-27: A second integration review rejected an incomplete transition
   chain and weak active-interface evidence. Wi-Fi/LTE and sleep/wake now require
   transition/blocked observations before tunnel traffic, a re-established route

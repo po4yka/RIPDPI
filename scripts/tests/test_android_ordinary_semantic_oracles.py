@@ -823,6 +823,32 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
 
         self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
 
+    def test_vpn_interface_cannot_borrow_addresses_from_another_interface(self) -> None:
+        def mutation(manifest_path, manifest):
+            def rewrite(value):
+                commands = value["phases"][0]["commands"]
+                commands["ipAddressShow"] = (
+                    "7: tun0: <POINTOPOINT,UP> mtu 1500\n"
+                    "8: wlan0: <BROADCAST,UP> mtu 1500\n"
+                    "    inet 192.0.2.44/24 scope global wlan0\n"
+                    "    inet6 fd00:1234::2/128 scope global\n"
+                )
+                commands["ip6AddressShow"] = (
+                    "7: tun0: <POINTOPOINT,UP> mtu 1500\n"
+                    "8: wlan0: <BROADCAST,UP> mtu 1500\n"
+                    "    inet6 fd00:1234::2/128 scope global\n"
+                )
+
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "dual-stack",
+                "route-snapshot",
+                rewrite,
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
+
     def test_transition_actions_require_full_reestablishment_chain(self) -> None:
         def early_post_tunnel_probe(manifest_path, manifest):
             def mutation(value):
@@ -897,6 +923,53 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             tunnel_activity_after_reestablishment,
             "SEMANTIC_CAUSAL_ORDER_INVALID",
         )
+
+    def test_tunnel_endpoint_and_port_must_match_the_same_direction(self) -> None:
+        def mutation(manifest_path, manifest):
+            action = self.action(manifest, "dual-stack")
+            started = action["windowStartedAtEpochMs"]
+            correlation = action["correlationId"]
+            records = [
+                (
+                    started + 100,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        fixtures.FIXTURE["markerAddress"],
+                        42000,
+                        fixtures.FIXTURE["markerPort"],
+                        oracles._marker("dual-stack", correlation, "action"),
+                    ),
+                ),
+                (
+                    started + 600,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        fixtures.FIXTURE["tunnelEndpoints"][0],
+                        fixtures.FIXTURE["tunnelPort"],
+                        9443,
+                        b"crossed-endpoint-port",
+                    ),
+                ),
+                (
+                    started + 900,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        fixtures.FIXTURE["markerAddress"],
+                        42000,
+                        fixtures.FIXTURE["markerPort"],
+                        oracles._marker("dual-stack", correlation, "outcome"),
+                    ),
+                ),
+            ]
+            self.replace_artifact(
+                manifest_path,
+                manifest,
+                "dual-stack",
+                "packet-capture",
+                fixtures._pcap(records),
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_TUNNEL_CONTROL_MISSING")
 
     def test_stale_correlation_in_route_snapshot_is_rejected(self) -> None:
         def mutation(manifest_path, manifest):

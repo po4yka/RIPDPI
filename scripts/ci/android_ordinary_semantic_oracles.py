@@ -698,10 +698,19 @@ def _global_ipv6_addresses(raw: str) -> tuple[str, ...]:
     return tuple(sorted(set(result)))
 
 
-def _interface_header(raw: str, interface: str) -> str | None:
-    escaped = re.escape(interface)
-    match = re.search(rf"^\d+:\s+{escaped}(?:@[^:]+)?:[^\n]*", raw, flags=re.MULTILINE)
-    return match.group(0) if match is not None else None
+def _interface_block(raw: str, interface: str) -> str | None:
+    block: list[str] = []
+    collecting = False
+    for line in raw.splitlines(keepends=True):
+        header = re.match(r"^\d+:\s+([^:]+):", line)
+        if header is not None:
+            name = header.group(1).split("@", 1)[0]
+            if collecting:
+                break
+            collecting = name == interface
+        if collecting:
+            block.append(line)
+    return "".join(block) if block else None
 
 
 def _interface_is_up(header: str) -> bool:
@@ -754,23 +763,25 @@ def _route_facts(interface: str, commands: dict[str, str]) -> dict[str, Any]:
             "SEMANTIC_ROUTE_MISMATCH",
             "connectivity must expose exact VPN and lockdown states",
         )
-    combined_header = _interface_header(commands["ipAddressShow"], interface)
-    ipv6_header = _interface_header(commands["ip6AddressShow"], interface)
-    if combined_header is None or ipv6_header is None:
+    combined_block = _interface_block(commands["ipAddressShow"], interface)
+    ipv6_block = _interface_block(commands["ip6AddressShow"], interface)
+    if combined_block is None or ipv6_block is None:
         raise OracleError(
             "SEMANTIC_ROUTE_MISMATCH",
             "address command outputs do not identify the declared VPN interface",
         )
+    combined_header = combined_block.splitlines()[0]
+    ipv6_header = ipv6_block.splitlines()[0]
     vpn_active = connectivity["vpn_active"] == "true"
     interface_up = _interface_is_up(combined_header) and _interface_is_up(ipv6_header)
-    global_ipv4 = _global_ipv4_addresses(commands["ipAddressShow"])
+    global_ipv4 = _global_ipv4_addresses(combined_block)
     if vpn_active and (not interface_up or not global_ipv4):
         raise OracleError(
             "SEMANTIC_ROUTE_MISMATCH",
             "active VPN interface must be UP and expose an IPv4 address",
         )
-    combined_global_ipv6 = _global_ipv6_addresses(commands["ipAddressShow"])
-    ipv6_global_ipv6 = _global_ipv6_addresses(commands["ip6AddressShow"])
+    combined_global_ipv6 = _global_ipv6_addresses(combined_block)
+    ipv6_global_ipv6 = _global_ipv6_addresses(ipv6_block)
     if combined_global_ipv6 != ipv6_global_ipv6:
         raise OracleError(
             "SEMANTIC_ROUTE_MISMATCH",
@@ -1120,11 +1131,11 @@ def evaluate_pcap(
         for packet in scoped
         if (
             packet.source in fixture["tunnelEndpoints"]
-            or packet.destination in fixture["tunnelEndpoints"]
+            and packet.source_port == fixture["tunnelPort"]
         )
-        and (
-            packet.source_port == fixture["tunnelPort"]
-            or packet.destination_port == fixture["tunnelPort"]
+        or (
+            packet.destination in fixture["tunnelEndpoints"]
+            and packet.destination_port == fixture["tunnelPort"]
         )
     ]
     outcome_tunnel_packets = [
