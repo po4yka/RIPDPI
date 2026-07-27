@@ -464,9 +464,17 @@ def parse_receipt(context: ActionContext) -> tuple[dict[str, Any], dict[str, Any
     if not isinstance(event, dict):
         raise OracleError("SEMANTIC_SCHEMA_INVALID", "receipt.event must be an object")
     event_at = _event_time(event, context.action_id)
-    if not context.window_started_at_ms <= event_at <= context.window_finished_at_ms:
+    event_started_at = (
+        event["sleepAtEpochMs"] if context.action_id == "sleep-wake" else event_at
+    )
+    if not (
+        context.window_started_at_ms
+        <= event_started_at
+        <= event_at
+        <= context.window_finished_at_ms
+    ):
         raise OracleError(
-            "SEMANTIC_WINDOW_MISMATCH", "event is outside the action window"
+            "SEMANTIC_WINDOW_MISMATCH", "event interval is outside the action window"
         )
     probes = receipt["probes"]
     expected_probes = EXPECTED_PROBES[context.action_id]
@@ -536,6 +544,7 @@ def parse_receipt(context: ActionContext) -> tuple[dict[str, Any], dict[str, Any
     return receipt, {
         "fixture": fixture,
         "eventAt": event_at,
+        "eventStartedAt": event_started_at,
         "probes": validated_probes,
     }
 
@@ -689,6 +698,14 @@ def _global_ipv6_addresses(raw: str) -> tuple[str, ...]:
     return tuple(sorted(set(result)))
 
 
+def _mentions_interface(raw: str, interface: str) -> bool:
+    escaped = re.escape(interface)
+    return (
+        re.search(rf"^\d+:\s+{escaped}(?:@[^:]+)?:", raw, flags=re.MULTILINE)
+        is not None
+    )
+
+
 def _dns_addresses(raw: str) -> tuple[str, ...]:
     result: list[str] = []
     for token in re.split(r"[\s,;\[\]()]+", raw):
@@ -714,13 +731,27 @@ def _route_facts(interface: str, commands: dict[str, str]) -> dict[str, Any]:
             "SEMANTIC_ROUTE_MISMATCH",
             "connectivity must expose exact VPN and lockdown states",
         )
+    if not _mentions_interface(
+        commands["ipAddressShow"], interface
+    ) or not _mentions_interface(commands["ip6AddressShow"], interface):
+        raise OracleError(
+            "SEMANTIC_ROUTE_MISMATCH",
+            "address command outputs do not identify the declared VPN interface",
+        )
+    combined_global_ipv6 = _global_ipv6_addresses(commands["ipAddressShow"])
+    ipv6_global_ipv6 = _global_ipv6_addresses(commands["ip6AddressShow"])
+    if combined_global_ipv6 != ipv6_global_ipv6:
+        raise OracleError(
+            "SEMANTIC_ROUTE_MISMATCH",
+            "combined and IPv6-specific address outputs contradict each other",
+        )
     return {
         "interface": interface,
         "vpnActive": connectivity["vpn_active"] == "true",
         "lockdownActive": connectivity["lockdown_active"] == "true",
         "ipv4Default": _default_route(commands["ipRouteShow"], interface, ipv6=False),
         "ipv6Default": _default_route(commands["ip6RouteShow"], interface, ipv6=True),
-        "globalIpv6": _global_ipv6_addresses(commands["ip6AddressShow"]),
+        "globalIpv6": ipv6_global_ipv6,
         "dnsAddresses": _dns_addresses(commands["dnsServers"]),
         "settings": settings,
     }
@@ -996,7 +1027,9 @@ def _marker(action_id: str, correlation_id: str, phase: str) -> bytes:
     return f"{MARKER_PREFIX}:{action_id}:{correlation_id}:{phase}".encode("ascii")
 
 
-def evaluate_pcap(context: ActionContext, *, fixture: dict[str, Any]) -> dict[str, Any]:
+def evaluate_pcap(
+    context: ActionContext, *, fixture: dict[str, Any], event_at: int
+) -> dict[str, Any]:
     packets = parse_classic_pcap(context.artifacts["packet-capture"].payload)
     marker_packets: dict[str, list[Packet]] = {"action": [], "outcome": []}
     for packet in packets:
@@ -1025,7 +1058,11 @@ def evaluate_pcap(context: ActionContext, *, fixture: dict[str, Any]) -> dict[st
     ):
         raise OracleError("SEMANTIC_WINDOW_MISMATCH", "PCAP marker window is invalid")
     scoped = [
-        packet for packet in packets if action_at <= packet.timestamp_ms <= outcome_at
+        packet
+        for packet in packets
+        if context.window_started_at_ms
+        <= packet.timestamp_ms
+        <= context.window_finished_at_ms
     ]
     targets = {fixture["controlIpv4"], fixture["controlIpv6"]}
     direct = [
@@ -1057,10 +1094,15 @@ def evaluate_pcap(context: ActionContext, *, fixture: dict[str, Any]) -> dict[st
             or packet.destination_port == fixture["tunnelPort"]
         )
     ]
-    if context.action_id in TUNNEL_ACTIVITY_ACTIONS and not tunnel_packets:
+    outcome_tunnel_packets = [
+        packet
+        for packet in tunnel_packets
+        if event_at <= packet.timestamp_ms <= outcome_at
+    ]
+    if context.action_id in TUNNEL_ACTIVITY_ACTIONS and not outcome_tunnel_packets:
         raise OracleError(
             "SEMANTIC_TUNNEL_CONTROL_MISSING",
-            f"{context.action_id} lacks packet-derived tunnel activity",
+            f"{context.action_id} lacks causally ordered packet-derived tunnel activity",
         )
     marker_values = marker_packets["action"] + marker_packets["outcome"]
     unexpected = [
@@ -1077,8 +1119,63 @@ def evaluate_pcap(context: ActionContext, *, fixture: dict[str, Any]) -> dict[st
         "actionMarkerAtEpochMs": action_at,
         "outcomeMarkerAtEpochMs": outcome_at,
         "parsedPacketCount": len(packets),
-        "tunnelPacketCount": len(tunnel_packets),
+        "tunnelPacketCount": len(outcome_tunnel_packets),
+        "windowPacketCount": len(scoped),
     }
+
+
+def _validate_causal_order(
+    context: ActionContext,
+    *,
+    receipt: dict[str, Any],
+    receipt_facts: dict[str, Any],
+    route_facts: list[dict[str, Any]],
+    pcap_facts: dict[str, Any],
+) -> None:
+    action_at = pcap_facts["actionMarkerAtEpochMs"]
+    outcome_at = pcap_facts["outcomeMarkerAtEpochMs"]
+    event_at = receipt_facts["eventAt"]
+    if context.action_id == "sleep-wake":
+        if not receipt_facts["eventStartedAt"] <= action_at <= event_at:
+            raise OracleError(
+                "SEMANTIC_CAUSAL_ORDER_INVALID",
+                "sleep/action/wake evidence is not causally ordered",
+            )
+    elif action_at > event_at:
+        raise OracleError(
+            "SEMANTIC_CAUSAL_ORDER_INVALID",
+            "action marker must not follow the source-owned event",
+        )
+
+    probes = receipt_facts["probes"]
+    previous_finished = event_at
+    for probe in probes:
+        if probe["startedAtEpochMs"] < previous_finished:
+            raise OracleError(
+                "SEMANTIC_CAUSAL_ORDER_INVALID",
+                "probe observations overlap or precede their source-owned event",
+            )
+        previous_finished = probe["finishedAtEpochMs"]
+
+    observations_started = [
+        *(probe["startedAtEpochMs"] for probe in probes),
+        *(phase["capturedAt"] for phase in route_facts),
+    ]
+    observations_finished = [
+        *(probe["finishedAtEpochMs"] for probe in probes),
+        *(phase["capturedAt"] for phase in route_facts),
+    ]
+    dns = receipt["dnsObservation"]
+    if isinstance(dns, dict):
+        observations_started.append(dns["startedAtEpochMs"])
+        observations_finished.append(dns["finishedAtEpochMs"])
+    if any(started < event_at for started in observations_started) or any(
+        finished > outcome_at for finished in observations_finished
+    ):
+        raise OracleError(
+            "SEMANTIC_CAUSAL_ORDER_INVALID",
+            "observations must follow the event and finish before the outcome marker",
+        )
 
 
 def evaluate_action(context: ActionContext) -> dict[str, Any]:
@@ -1096,7 +1193,18 @@ def evaluate_action(context: ActionContext) -> dict[str, Any]:
     _digest(context.test_apk_sha256, SHA256_RE, "testApkSha256")
     receipt, receipt_facts = parse_receipt(context)
     route_facts = parse_route_snapshot(context, receipt=receipt)
-    pcap_facts = evaluate_pcap(context, fixture=receipt_facts["fixture"])
+    pcap_facts = evaluate_pcap(
+        context,
+        fixture=receipt_facts["fixture"],
+        event_at=receipt_facts["eventAt"],
+    )
+    _validate_causal_order(
+        context,
+        receipt=receipt,
+        receipt_facts=receipt_facts,
+        route_facts=route_facts,
+        pcap_facts=pcap_facts,
+    )
     facts = {
         "actionId": context.action_id,
         "eventAtEpochMs": receipt_facts["eventAt"],

@@ -330,14 +330,18 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
         self,
     ) -> None:
         def route_address(manifest_path, manifest):
+            def mutation(value):
+                commands = value["phases"][0]["commands"]
+                address = "    inet6 fd00:1234::2/128 scope global\n"
+                commands["ipAddressShow"] += address
+                commands["ip6AddressShow"] += address
+
             self.mutate_json_artifact(
                 manifest_path,
                 manifest,
                 "ipv4-only",
                 "route-snapshot",
-                lambda value: value["phases"][0]["commands"].update(
-                    {"ip6AddressShow": "inet6 fd00:1234::2/128 scope global\n"}
-                ),
+                mutation,
             )
 
         def route_dns(manifest_path, manifest):
@@ -602,6 +606,192 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
 
         self.assert_semantic_failure(mutation, "SEMANTIC_UNEXPECTED_UNDERLAY_TRAFFIC")
+
+    def test_leaks_before_action_or_after_outcome_marker_are_still_in_scope(
+        self,
+    ) -> None:
+        for leak_offset in (50, 950):
+            with self.subTest(leak_offset=leak_offset):
+
+                def mutation(manifest_path, manifest, offset=leak_offset):
+                    action = self.action(manifest, "core-fault")
+                    started = action["windowStartedAtEpochMs"]
+                    correlation = action["correlationId"]
+                    records = [
+                        (
+                            started + 100,
+                            fixtures._udp_ipv4(
+                                "192.0.2.201",
+                                fixtures.FIXTURE["markerAddress"],
+                                42000,
+                                fixtures.FIXTURE["markerPort"],
+                                oracles._marker("core-fault", correlation, "action"),
+                            ),
+                        ),
+                        (
+                            started + offset,
+                            fixtures._udp_ipv4(
+                                "192.0.2.201",
+                                fixtures.FIXTURE["controlIpv4"],
+                                43000,
+                                fixtures.FIXTURE["probePort"],
+                                b"direct-leak",
+                            ),
+                        ),
+                        (
+                            started + 900,
+                            fixtures._udp_ipv4(
+                                "192.0.2.201",
+                                fixtures.FIXTURE["markerAddress"],
+                                42000,
+                                fixtures.FIXTURE["markerPort"],
+                                oracles._marker("core-fault", correlation, "outcome"),
+                            ),
+                        ),
+                    ]
+                    self.replace_artifact(
+                        manifest_path,
+                        manifest,
+                        "core-fault",
+                        "packet-capture",
+                        fixtures._pcap(records),
+                    )
+
+                self.assert_semantic_failure(mutation, "SEMANTIC_DIRECT_TRAFFIC_LEAK")
+
+    def test_receipt_routes_and_markers_must_follow_causal_action_order(self) -> None:
+        def early_probe(manifest_path, manifest):
+            action = self.action(manifest, "core-fault")
+            started = action["windowStartedAtEpochMs"]
+
+            def mutation(value):
+                value["probes"][0]["startedAtEpochMs"] = started + 90
+                value["probes"][0]["finishedAtEpochMs"] = started + 100
+
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "core-fault",
+                "action-receipt",
+                mutation,
+            )
+
+        def early_route(manifest_path, manifest):
+            action = self.action(manifest, "core-fault")
+            started = action["windowStartedAtEpochMs"]
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "core-fault",
+                "route-snapshot",
+                lambda value: value["phases"][0].update(
+                    {"capturedAtEpochMs": started + 110}
+                ),
+            )
+
+        def early_outcome_marker(manifest_path, manifest):
+            action = self.action(manifest, "core-fault")
+            started = action["windowStartedAtEpochMs"]
+            correlation = action["correlationId"]
+            records = [
+                (
+                    started + offset,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        fixtures.FIXTURE["markerAddress"],
+                        42000,
+                        fixtures.FIXTURE["markerPort"],
+                        oracles._marker("core-fault", correlation, phase),
+                    ),
+                )
+                for offset, phase in ((100, "action"), (150, "outcome"))
+            ]
+            self.replace_artifact(
+                manifest_path,
+                manifest,
+                "core-fault",
+                "packet-capture",
+                fixtures._pcap(records),
+            )
+
+        def tunnel_activity_precedes_event(manifest_path, manifest):
+            action = self.action(manifest, "dual-stack")
+            started = action["windowStartedAtEpochMs"]
+            correlation = action["correlationId"]
+            records = [
+                (
+                    started + offset,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        destination,
+                        43000 if phase == "tunnel" else 42000,
+                        (
+                            fixtures.FIXTURE["tunnelPort"]
+                            if phase == "tunnel"
+                            else fixtures.FIXTURE["markerPort"]
+                        ),
+                        (
+                            b"early-tunnel"
+                            if phase == "tunnel"
+                            else oracles._marker("dual-stack", correlation, phase)
+                        ),
+                    ),
+                )
+                for offset, destination, phase in (
+                    (100, fixtures.FIXTURE["markerAddress"], "action"),
+                    (110, fixtures.FIXTURE["tunnelEndpoints"][0], "tunnel"),
+                    (900, fixtures.FIXTURE["markerAddress"], "outcome"),
+                )
+            ]
+            self.replace_artifact(
+                manifest_path,
+                manifest,
+                "dual-stack",
+                "packet-capture",
+                fixtures._pcap(records),
+            )
+
+        def sleep_starts_outside_window(manifest_path, manifest):
+            action = self.action(manifest, "sleep-wake")
+            started = action["windowStartedAtEpochMs"]
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "sleep-wake",
+                "action-receipt",
+                lambda value: value["event"].update({"sleepAtEpochMs": started - 1}),
+            )
+
+        self.assert_semantic_failure(early_probe, "SEMANTIC_CAUSAL_ORDER_INVALID")
+        self.assert_semantic_failure(early_route, "SEMANTIC_CAUSAL_ORDER_INVALID")
+        self.assert_semantic_failure(
+            early_outcome_marker, "SEMANTIC_CAUSAL_ORDER_INVALID"
+        )
+        self.assert_semantic_failure(
+            tunnel_activity_precedes_event, "SEMANTIC_TUNNEL_CONTROL_MISSING"
+        )
+        self.assert_semantic_failure(
+            sleep_starts_outside_window, "SEMANTIC_WINDOW_MISMATCH"
+        )
+
+    def test_combined_and_ipv6_specific_address_outputs_must_agree(self) -> None:
+        def mutation(manifest_path, manifest):
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "ipv4-only",
+                "route-snapshot",
+                lambda value: value["phases"][0]["commands"].update(
+                    {
+                        "ipAddressShow": (
+                            value["phases"][0]["commands"]["ipAddressShow"]
+                            + "    inet6 fd00:1234::99/128 scope global\n"
+                        )
+                    }
+                ),
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
 
     def test_stale_correlation_in_route_snapshot_is_rejected(self) -> None:
         def mutation(manifest_path, manifest):

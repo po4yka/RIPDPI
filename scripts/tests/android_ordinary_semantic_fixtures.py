@@ -150,6 +150,11 @@ def _commands(
     global_ipv6: bool,
     secure_settings: str = "",
 ) -> dict[str, str]:
+    combined_addresses = (
+        "7: tun0: <POINTOPOINT,UP> mtu 1500\n    inet 10.0.0.2/32 scope global tun0\n"
+    )
+    if global_ipv6:
+        combined_addresses += "    inet6 fd00:1234::2/128 scope global\n"
     return {
         "connectivity": (
             f"vpn_active={'true' if vpn_active else 'false'}\n"
@@ -163,7 +168,7 @@ def _commands(
             else "7: tun0: <POINTOPOINT,UP> mtu 1500\n"
         ),
         "ip6RouteShow": "default dev tun0 metric 1024\n" if ipv6_default else "",
-        "ipAddressShow": "7: tun0: <POINTOPOINT,UP> mtu 1500\n    inet 10.0.0.2/32 scope global tun0\n",
+        "ipAddressShow": combined_addresses,
         "ipRouteShow": "default dev tun0 scope link\n" if ipv4_default else "",
         "secureSettings": secure_settings,
     }

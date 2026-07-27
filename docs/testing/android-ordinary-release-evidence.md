@@ -67,18 +67,23 @@ manifest action window and must match the exact source-owned action inventory.
 The packet artifact is bounded classic PCAP. The verifier parses Ethernet, raw
 IP, Linux SLL, and Linux SLL2 frames, rejects truncated records, and locates one
 action and one outcome marker derived from the action ID and correlation ID.
-Inside that marker window it rejects direct fixture traffic, IPv6 traffic in
-IPv4-only mode, and every packet outside the approved marker or tunnel
-endpoints. Actions that require an established tunnel must contain parsed
-tunnel activity.
+Across the complete manifest action window it rejects direct fixture traffic,
+IPv6 traffic in IPv4-only mode, and every packet outside the approved marker or
+tunnel endpoints. The action event must follow the action marker, all probes,
+DNS observations, and route captures must follow that event, and every
+observation must finish before the outcome marker. Sleep/wake additionally
+binds the action marker between its sleep and wake timestamps. Actions that
+require an established tunnel must contain parsed tunnel activity after the
+event and before the outcome marker.
 
 The `android_ordinary_route_snapshot_v1` artifact carries raw `ip address`,
 `ip route`, IPv6 route/address, resolver, connectivity, and secure-settings
 outputs for source-owned phases. The verifier derives tunnel addresses and
 default routes, transition lockdown state, re-establishment, and Android
-Always-on settings from those outputs. Copied, cross-action, stale, partial, or
-contradictory artifacts remain an explicit FAIL blocker even when the manifest
-is rehashed.
+Always-on settings from those outputs. Combined and IPv6-specific address views
+must identify the declared VPN interface and expose the same global IPv6 set.
+Copied, cross-action, stale, partial, causally reordered, or contradictory
+artifacts remain an explicit FAIL blocker even when the manifest is rehashed.
 
 ## Current local command
 

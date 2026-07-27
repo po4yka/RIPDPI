@@ -41,6 +41,13 @@ evidence.
 
 ## Work log
 
+- 2026-07-27: The independent integration review found and blocked three
+  semantic gaps before merge: packets outside the marker interval were ignored,
+  action artifacts were not causally ordered, and the combined address output
+  was not cross-checked. The follow-up now evaluates the entire action window,
+  binds event/probe/DNS/route/marker order, validates the full sleep interval,
+  and requires combined and IPv6-specific address views to agree. Dedicated
+  adversarial cases reproduce every rejected bypass.
 - 2026-07-27: Implemented all seven source-owned semantic action oracles. They
   strictly parse canonical action receipts, raw route-command snapshots, and
   bounded classic PCAP; bind every artifact to the action window, correlation
