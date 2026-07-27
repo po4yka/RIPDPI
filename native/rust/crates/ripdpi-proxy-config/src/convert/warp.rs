@@ -61,3 +61,28 @@ pub(crate) fn append_routed_group(
     groups.push(warp_group);
     Ok(())
 }
+
+pub(crate) fn attach_all_traffic_upstream(
+    groups: &mut [DesyncGroup],
+    warp: &ProxyUiWarpConfig,
+) -> Result<(), ProxyConfigError> {
+    if !warp.enabled
+        || warp.route_mode != WARP_ROUTE_MODE_RULES
+        || warp.route_hosts.trim() != AMNEZIAWG_ALL_TRAFFIC_ROUTE_HOSTS
+    {
+        return Ok(());
+    }
+
+    let local_socks_ip = warp.local_socks_host.trim().parse::<IpAddr>().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let local_socks_port = u16::try_from(warp.local_socks_port)
+        .map_err(|_| ProxyConfigError::InvalidConfig("Invalid warp.localSocksPort".to_string()))?;
+    if local_socks_port == 0 {
+        return Err(ProxyConfigError::InvalidConfig("Invalid warp.localSocksPort".to_string()));
+    }
+    let upstream = UpstreamSocksConfig { addr: SocketAddr::new(local_socks_ip, local_socks_port) };
+
+    for group in groups {
+        group.policy.ext_socks = Some(upstream);
+    }
+    Ok(())
+}

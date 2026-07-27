@@ -172,6 +172,10 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     // relay pass. Fill only missing upstreams so WARP/AWG routing keeps its
     // explicitly configured SOCKS endpoint.
     relay::attach_upstream_to_existing_groups(&mut groups, relay_upstream);
+    // The internal AmneziaWG marker means every route must use the AWG
+    // loopback egress. Apply it after all synthesized groups so no earlier
+    // TCP/UDP/adaptive match can fall through to a direct socket.
+    warp::attach_all_traffic_upstream(&mut groups, &warp)?;
 
     adaptive_runtime_context::finalize_ui_config(
         config,

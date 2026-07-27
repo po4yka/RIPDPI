@@ -295,6 +295,28 @@ fn amneziawg_route_marker_creates_all_traffic_upstream_group() {
 }
 
 #[test]
+fn amneziawg_route_marker_covers_all_generated_groups() {
+    let mut ui = minimal_ui();
+    ui.warp.enabled = true;
+    ui.warp.route_mode = "rules".to_string();
+    ui.warp.route_hosts = "__ripdpi_awg_all_traffic__".to_string();
+    ui.warp.local_socks_port = 10_809;
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    let awg = std::net::SocketAddr::from(([127, 0, 0, 1], 10_809));
+
+    assert!(config.groups.len() >= 5, "fixture must include TCP, UDP, and adaptive groups");
+    for group in &config.groups {
+        assert_eq!(
+            group.policy.ext_socks.map(|upstream| upstream.addr),
+            Some(awg),
+            "group {} must not bypass the configured AmneziaWG egress",
+            group.id,
+        );
+    }
+}
+
+#[test]
 fn ui_http_strategy_enables_delay_connect() {
     let mut ui = minimal_ui();
     ui.protocols.desync_http = true;
