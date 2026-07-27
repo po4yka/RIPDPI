@@ -4,7 +4,7 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: Codex release gate remediation
+owner: Codex release evidence completion
 parent: null
 blocks: []
 blocked_by: []
@@ -40,6 +40,12 @@ evidence.
 
 ## Work log
 
+- 2026-07-27: Release evidence completion lane now owns all seven ordinary
+  action oracles for `v0.1.4`. Completion requires source-owned parsing of each
+  private action receipt, packet capture, and route snapshot; adversarial tests
+  for forged, partial, stale, cross-action, and contradictory bundles; and a
+  real exact-SHA physical run. The lane may enable PASS only from those parsed
+  facts and may not accept caller-authored verdicts or counters.
 - 2026-07-27: Reopened for the `0.1.4` release. The remediation lane owns the
   seven source-owned semantic action oracles, adversarial fixtures, physical
   capture integration, and exact-SHA release-workflow handoff without weakening
