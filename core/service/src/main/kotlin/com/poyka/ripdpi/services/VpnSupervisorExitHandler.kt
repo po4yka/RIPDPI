@@ -128,12 +128,33 @@ internal class VpnSupervisorExitHandler(
             return
         }
 
-        // The foreign relay died after connecting. The base VPN runtime is intentionally
-        // kept alive (traffic now egresses DIRECT), so we do NOT stop the service — instead
-        // we raise a sticky signal that flips the Home actuator from Locked to Degraded.
-        logRelayExit(cause)
+        val failureReason =
+            when (cause) {
+                is SupervisorExitCause.Crash -> {
+                    Logger.e { "Relay stopped with code ${cause.code}; stopping VPN fail-closed" }
+                    FailureReason.NativeError("Relay exited with code ${cause.code}")
+                }
+
+                is SupervisorExitCause.StartupFailure -> {
+                    val error = cause.throwable
+                    Logger.e(error) { "Relay failed after startup; stopping VPN fail-closed" }
+                    classifyFailureReason(error, isTunnelContext = true)
+                }
+
+                SupervisorExitCause.Cancellation -> {
+                    Logger.e { "Relay runtime was cancelled unexpectedly; stopping VPN fail-closed" }
+                    FailureReason.NativeError("Relay runtime was cancelled unexpectedly")
+                }
+
+                SupervisorExitCause.ExpectedStop -> {
+                    null
+                }
+            }
+
+        reportFailure(failureReason)
         markForeignRelayFailed()
         upstreamRelaySupervisor.detach()
+        stopSkippingRuntimeShutdown()
     }
 
     private fun reportFailure(failureReason: FailureReason?) {
@@ -144,23 +165,5 @@ internal class VpnSupervisorExitHandler(
 
     private fun stopSkippingRuntimeShutdown() {
         host.serviceScope.launch(ioDispatcher) { stopService(true) }
-    }
-
-    private fun logRelayExit(cause: SupervisorExitCause) {
-        when (cause) {
-            is SupervisorExitCause.Crash -> {
-                Logger.e { "Relay stopped with code ${cause.code}; keeping base VPN runtime active" }
-            }
-
-            is SupervisorExitCause.StartupFailure -> {
-                Logger.e(cause.throwable) { "Relay failed after startup; keeping base VPN runtime active" }
-            }
-
-            SupervisorExitCause.Cancellation -> {
-                Logger.e { "Relay runtime was cancelled unexpectedly; keeping base VPN runtime active" }
-            }
-
-            SupervisorExitCause.ExpectedStop -> {}
-        }
     }
 }

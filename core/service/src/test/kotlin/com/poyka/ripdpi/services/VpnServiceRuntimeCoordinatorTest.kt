@@ -166,7 +166,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun relayExitDetachesRelayWithoutHaltingVpnService() =
+    fun relayExitFailsClosedAndHaltsVpnService() =
         runTest {
             val env =
                 newEnv(
@@ -192,11 +192,12 @@ class VpnServiceRuntimeCoordinatorTest {
             env.relayFactory.lastRuntime.complete(17)
             repeat(3) { runCurrent() }
 
-            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
-            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
-            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertTrue(env.tunnelProvider.session.closed)
             assertEquals(0, env.factory.lastRuntime.stopCount)
-            assertEquals(0, env.bridgeFactory.bridge.stopCount)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
         }
 
     @Test
