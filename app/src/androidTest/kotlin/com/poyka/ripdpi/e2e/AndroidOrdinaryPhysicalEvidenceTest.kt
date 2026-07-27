@@ -112,8 +112,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
 
     private lateinit var fixture: FixtureManifestDto
     private lateinit var settingsBefore: AppSettings
-    private lateinit var alwaysOnBefore: String
-    private lateinit var lockdownBefore: String
     private lateinit var sourceSha: String
     private lateinit var appApkSha256: String
     private lateinit var testApkSha256: String
@@ -144,11 +142,13 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         require(appApkSha256 != testApkSha256)
         appContext.deleteFile(OrdinaryObservationFile)
         File(appContext.filesDir, "$OrdinaryObservationFile.tmp").delete()
-        alwaysOnBefore = shell("settings get secure always_on_vpn_app").trim()
-        lockdownBefore = shell("settings get secure always_on_vpn_lockdown").trim()
+        require(shell("settings get secure always_on_vpn_app").trim() == appContext.packageName) {
+            "Host runner did not activate the exact app as Android always-on VPN"
+        }
+        require(shell("settings get secure always_on_vpn_lockdown").trim() == "1") {
+            "Host runner did not activate Android lockdown"
+        }
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
-        shell("settings put secure always_on_vpn_app ${appContext.packageName}")
-        shell("settings put secure always_on_vpn_lockdown 1")
         ensureVpnConsentGranted(appContext)
         tunnelFactory.routeThrough(fixture.androidHost, fixture.socks5Port)
         stopVpn()
@@ -160,10 +160,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         runCatching { shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow") }
         runCatching { shell("svc wifi enable") }
         runCatching { shell("input keyevent KEYCODE_WAKEUP") }
-        if (this::alwaysOnBefore.isInitialized) {
-            restoreSetting("always_on_vpn_app", alwaysOnBefore)
-            restoreSetting("always_on_vpn_lockdown", lockdownBefore)
-        }
         if (this::settingsBefore.isInitialized) {
             runBlocking { appSettingsRepository.replace(settingsBefore) }
         }
@@ -708,19 +704,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     private fun shell(command: String): String {
         val descriptor: ParcelFileDescriptor = instrumentation.uiAutomation.executeShellCommand(command)
         return descriptor.use { ParcelFileDescriptor.AutoCloseInputStream(it).bufferedReader().readText() }
-    }
-
-    private fun restoreSetting(
-        name: String,
-        value: String,
-    ) {
-        if (value == "null" ||
-            value.isBlank()
-        ) {
-            shell("settings delete secure $name")
-        } else {
-            shell("settings put secure $name $value")
-        }
     }
 
     private fun publishPrivate(value: JSONObject) {

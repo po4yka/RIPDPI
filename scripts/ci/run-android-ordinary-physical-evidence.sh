@@ -64,6 +64,20 @@ test_preinstalled=0
 wifi_before=""
 always_on_before=""
 lockdown_before=""
+vpn_manager_rebooted=0
+
+wait_for_device_boot() {
+    local attempt
+    "${adb[@]}" wait-for-device
+    for ((attempt = 0; attempt < 90; attempt++)); do
+        if [[ "$("${adb[@]}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+            return 0
+        fi
+        sleep 2
+    done
+    echo "Physical device did not finish booting within 180 seconds." >&2
+    return 1
+}
 
 cleanup_remote() {
     if ((remote_started)); then
@@ -111,6 +125,12 @@ cleanup_device() {
     fi
     if ((target_preinstalled == 0)); then
         "${adb[@]}" uninstall com.poyka.ripdpi >/dev/null 2>&1 || true
+    fi
+    if ((vpn_manager_rebooted)); then
+        "${adb[@]}" reboot >/dev/null 2>&1 || true
+        wait_for_device_boot >/dev/null 2>&1 || true
+        "${adb[@]}" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+        "${adb[@]}" shell wm dismiss-keyguard >/dev/null 2>&1 || true
     fi
 }
 
@@ -198,6 +218,17 @@ if [[ "$installed_app_sha" != "$app_sha" || "$installed_test_sha" != "$test_sha"
     echo "Installed APK readback differs from the exact build outputs." >&2
     exit 2
 fi
+"${adb[@]}" shell cmd appops set com.poyka.ripdpi ACTIVATE_VPN allow
+"${adb[@]}" shell settings put secure always_on_vpn_app com.poyka.ripdpi
+"${adb[@]}" shell settings put secure always_on_vpn_lockdown 1
+vpn_manager_rebooted=1
+"${adb[@]}" reboot
+wait_for_device_boot
+"${adb[@]}" shell input keyevent KEYCODE_WAKEUP >/dev/null
+"${adb[@]}" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+"${adb[@]}" shell am force-stop com.poyka.ripdpi
+test "$("${adb[@]}" shell settings get secure always_on_vpn_app | tr -d '\r')" = "com.poyka.ripdpi"
+test "$("${adb[@]}" shell settings get secure always_on_vpn_lockdown | tr -d '\r')" = "1"
 
 set +e
 "${adb[@]}" shell am instrument -w -r \

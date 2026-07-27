@@ -140,6 +140,10 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("collect_failure_diagnostics", runner)
         self.assertIn("failed-fixture-observer.pcap", runner)
         self.assertIn("failed-fixture-journal.txt", runner)
+        self.assertIn("settings put secure always_on_vpn_app com.poyka.ripdpi", runner)
+        self.assertIn("settings put secure always_on_vpn_lockdown 1", runner)
+        self.assertGreaterEqual(runner.count('"${adb[@]}" reboot'), 2)
+        self.assertIn("wait_for_device_boot", runner)
 
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
