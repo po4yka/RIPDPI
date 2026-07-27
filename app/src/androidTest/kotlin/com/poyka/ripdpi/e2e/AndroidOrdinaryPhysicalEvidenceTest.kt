@@ -387,9 +387,10 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     private fun awaitTestProcessLockdown() {
         var lastIpv4: AppProcessTcpProbeResult? = null
         var lastIpv6: AppProcessTcpProbeResult? = null
-        awaitUntil(
+        awaitStable(
             timeoutMs = OrdinaryTimeoutMs,
             pollMs = 100,
+            stablePollCount = 3,
             failureMessage = {
                 "Test-process sockets remained reachable under Android lockdown: " +
                     "ipv4=$lastIpv4 ipv6=$lastIpv6"
