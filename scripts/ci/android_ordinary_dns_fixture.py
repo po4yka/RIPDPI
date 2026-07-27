@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Serve the two source-owned AAAA observations used by the physical oracle."""
+
+from __future__ import annotations
+
+import argparse
+import ipaddress
+import socket
+import struct
+
+
+IPV4_ONLY_NAME = "ipv4-only.ordinary.fixture.test"
+DUAL_STACK_NAME = "dual-stack.ordinary.fixture.test"
+
+
+def parse_question(packet: bytes) -> tuple[int, str, int, int, int]:
+    if len(packet) < 17:
+        raise ValueError("DNS question is truncated")
+    query_id, flags, questions, answers, authorities, additional = struct.unpack(
+        "!HHHHHH", packet[:12]
+    )
+    if flags & 0x8000 or (questions, answers, authorities, additional) != (1, 0, 0, 0):
+        raise ValueError("DNS packet is not one ordinary question")
+    offset = 12
+    labels: list[str] = []
+    while True:
+        if offset >= len(packet):
+            raise ValueError("DNS name is truncated")
+        length = packet[offset]
+        offset += 1
+        if length == 0:
+            break
+        if length > 63 or offset + length > len(packet):
+            raise ValueError("DNS label is malformed")
+        labels.append(packet[offset : offset + length].decode("ascii"))
+        offset += length
+    if offset + 4 != len(packet):
+        raise ValueError("DNS question has trailing bytes")
+    query_type, query_class = struct.unpack("!HH", packet[offset : offset + 4])
+    return query_id, ".".join(labels).lower(), query_type, query_class, offset + 4
+
+
+def build_response(packet: bytes, *, dual_stack_ipv6: str) -> bytes:
+    query_id, name, query_type, query_class, question_end = parse_question(packet)
+    if (
+        query_type != 28
+        or query_class != 1
+        or name not in {IPV4_ONLY_NAME, DUAL_STACK_NAME}
+    ):
+        return (
+            struct.pack("!HHHHHH", query_id, 0x8183, 1, 0, 0, 0)
+            + packet[12:question_end]
+        )
+    answer = b""
+    answer_count = 0
+    if name == DUAL_STACK_NAME:
+        encoded = ipaddress.IPv6Address(dual_stack_ipv6).packed
+        answer = b"\xc0\x0c" + struct.pack("!HHIH", 28, 1, 30, len(encoded)) + encoded
+        answer_count = 1
+    return (
+        struct.pack("!HHHHHH", query_id, 0x8180, 1, answer_count, 0, 0)
+        + packet[12:question_end]
+        + answer
+    )
+
+
+def serve(port: int, dual_stack_ipv6: str) -> None:
+    ipaddress.IPv6Address(dual_stack_ipv6)
+    with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as server:
+        server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        server.bind(("::", port))
+        while True:
+            packet, peer = server.recvfrom(2048)
+            try:
+                response = build_response(packet, dual_stack_ipv6=dual_stack_ipv6)
+            except (UnicodeDecodeError, ValueError):
+                continue
+            server.sendto(response, peer)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--dual-stack-ipv6", required=True)
+    args = parser.parse_args()
+    if not 1 <= args.port <= 65535:
+        parser.error("--port must be between 1 and 65535")
+    serve(args.port, args.dual_stack_ipv6)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

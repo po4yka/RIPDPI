@@ -1,0 +1,795 @@
+package com.poyka.ripdpi.e2e
+
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.os.Build
+import android.os.ParcelFileDescriptor
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import androidx.core.content.ContextCompat
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.rule.GrantPermissionRule
+import com.poyka.ripdpi.BuildConfig
+import com.poyka.ripdpi.core.NativeTun2SocksBridge
+import com.poyka.ripdpi.core.RipDpiProxy
+import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
+import com.poyka.ripdpi.core.RipDpiProxyNativeBindings
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.RipDpiProxyRuntime
+import com.poyka.ripdpi.core.Tun2SocksBridge
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
+import com.poyka.ripdpi.core.Tun2SocksConfig
+import com.poyka.ripdpi.core.Tun2SocksNativeBindings
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.RipDpiProxyService
+import com.poyka.ripdpi.services.RipDpiVpnService
+import dagger.hilt.android.testing.BindValue
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.UninstallModules
+import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.After
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import java.io.File
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.nio.charset.StandardCharsets
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicInteger
+import javax.inject.Inject
+
+private const val OrdinaryObservationFile = "android-ordinary-physical-observations.json"
+private const val OrdinaryObservationVersion = "android_ordinary_physical_observations_v1"
+private const val OrdinaryMarkerPrefix = "RIPDPI-ORDINARY-V1"
+private const val OrdinaryAttestationPrefix = "RIPDPI-ORDINARY-ATTESTATION-V1"
+private const val OrdinaryTimeoutMs = 25_000L
+
+@HiltAndroidTest
+@UninstallModules(Tun2SocksBridgeFactoryModule::class, RipDpiProxyFactoryModule::class)
+class AndroidOrdinaryPhysicalEvidenceTest {
+    @get:Rule(order = 0)
+    val fixtureRule = E2eFixtureRule()
+
+    @get:Rule(order = 1)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 2)
+    val notificationPermissionRule: GrantPermissionRule =
+        GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+
+    private val tunnelFactory = OrdinaryTun2SocksBridgeFactory(Tun2SocksNativeBindings())
+    private val faultingProxyFactory = OrdinaryFaultingProxyFactory()
+
+    @BindValue
+    @JvmField
+    val tun2SocksBridgeFactory: Tun2SocksBridgeFactory = tunnelFactory
+
+    @BindValue
+    @JvmField
+    val ripDpiProxyFactory: RipDpiProxyFactory = faultingProxyFactory
+
+    @Inject lateinit var appSettingsRepository: AppSettingsRepository
+
+    @Inject lateinit var serviceStateStore: ServiceStateStore
+
+    private val appContext: Context
+        get() = ApplicationProvider.getApplicationContext()
+    private val instrumentation
+        get() = InstrumentationRegistry.getInstrumentation()
+    private val arguments
+        get() = InstrumentationRegistry.getArguments()
+    private val connectivityManager
+        get() = appContext.getSystemService(ConnectivityManager::class.java)
+
+    private lateinit var fixture: FixtureManifestDto
+    private lateinit var settingsBefore: AppSettings
+    private lateinit var alwaysOnBefore: String
+    private lateinit var lockdownBefore: String
+    private lateinit var sourceSha: String
+    private lateinit var appApkSha256: String
+    private lateinit var testApkSha256: String
+    private lateinit var runId: String
+    private lateinit var controlIpv4: String
+    private lateinit var controlIpv6: String
+    private var markerPort: Int = 0
+    private var dnsPort: Int = 0
+    private var lastVpnInterface: String = "tun0"
+    private val actions = JSONArray()
+    private lateinit var hardwareAttestation: JSONObject
+
+    @Before
+    fun setUp() {
+        assumeE2eFixtureConfigured()
+        hiltRule.inject()
+        fixture = LocalFixtureClient.fromInstrumentationArgs().manifest()
+        settingsBefore = runBlocking { appSettingsRepository.snapshot() }
+        sourceSha = requiredArg("ripdpi.ordinarySourceSha", Regex("[0-9a-f]{40}"))
+        appApkSha256 = requiredArg("ripdpi.ordinaryAppApkSha256", Regex("[0-9a-f]{64}"))
+        testApkSha256 = requiredArg("ripdpi.ordinaryTestApkSha256", Regex("[0-9a-f]{64}"))
+        runId = requiredArg("ripdpi.ordinaryRunId", Regex("[0-9a-f]{64}"))
+        controlIpv4 = requiredArg("ripdpi.ordinaryControlIpv4", Regex("[0-9.]{7,15}"))
+        controlIpv6 = requiredArg("ripdpi.ordinaryControlIpv6", Regex("[0-9a-fA-F:]{2,64}"))
+        markerPort = requiredPort("ripdpi.ordinaryMarkerPort")
+        dnsPort = requiredPort("ripdpi.ordinaryDnsPort")
+        require(sourceSha.startsWith(BuildConfig.GIT_COMMIT)) { "APK source binding mismatch" }
+        require(appApkSha256 != testApkSha256)
+        appContext.deleteFile(OrdinaryObservationFile)
+        File(appContext.filesDir, "$OrdinaryObservationFile.tmp").delete()
+        alwaysOnBefore = shell("settings get secure always_on_vpn_app").trim()
+        lockdownBefore = shell("settings get secure always_on_vpn_lockdown").trim()
+        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
+        shell("settings put secure always_on_vpn_app ${appContext.packageName}")
+        shell("settings put secure always_on_vpn_lockdown 1")
+        ensureVpnConsentGranted(appContext)
+        tunnelFactory.routeThrough(fixture.androidHost, fixture.socks5Port)
+        stopVpn()
+    }
+
+    @After
+    fun tearDown() {
+        runCatching { stopVpn() }
+        runCatching { shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow") }
+        runCatching { shell("svc wifi enable") }
+        runCatching { shell("input keyevent KEYCODE_WAKEUP") }
+        if (this::alwaysOnBefore.isInitialized) {
+            restoreSetting("always_on_vpn_app", alwaysOnBefore)
+            restoreSetting("always_on_vpn_lockdown", lockdownBefore)
+        }
+        if (this::settingsBefore.isInitialized) {
+            runBlocking { appSettingsRepository.replace(settingsBefore) }
+        }
+        tunnelFactory.reset()
+    }
+
+    @Test
+    fun produceSevenOrdinaryPhysicalActions() {
+        configureAndStart(ipv6 = true)
+        hardwareAttestation = createHardwareAttestation()
+        stopVpn()
+        actions.put(runSteadyAction("ipv4-only", ipv6 = false))
+        actions.put(runSteadyAction("dual-stack", ipv6 = true))
+        actions.put(
+            runClosedAction("forced-revoke") {
+                shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN ignore")
+                stopVpn()
+                JSONObject().put("kind", "vpn-permission-revoked").put("observedAtEpochMs", now())
+            },
+        )
+        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
+        actions.put(
+            runClosedAction("core-fault") {
+                val pid = android.os.Process.myPid()
+                faultingProxyFactory.injectExit(19)
+                awaitUntil(
+                    timeoutMs = OrdinaryTimeoutMs,
+                ) { serviceStateStore.telemetry.value.status == AppStatus.Halted }
+                JSONObject()
+                    .put("coreExitCode", 19)
+                    .put("corePid", pid)
+                    .put("kind", "native-core-exited")
+                    .put("observedAtEpochMs", now())
+            },
+        )
+        actions.put(runNetworkSwitchAction())
+        actions.put(runSleepWakeAction())
+        actions.put(
+            runClosedAction("android-always-on-block") {
+                stopVpn()
+                JSONObject()
+                    .put("kind", "vpn-stopped-under-lockdown")
+                    .put("observedAtEpochMs", now())
+                    .put("packageName", appContext.packageName)
+            },
+        )
+        val output =
+            JSONObject()
+                .put("actions", actions)
+                .put("apiLevel", Build.VERSION.SDK_INT)
+                .put("appApkSha256", appApkSha256)
+                .put("deviceCodename", Build.DEVICE)
+                .put("deviceManufacturer", Build.MANUFACTURER)
+                .put("hardwareAttestation", hardwareAttestation)
+                .put("kernelRelease", System.getProperty("os.version"))
+                .put("runId", runId)
+                .put("sourceSha", sourceSha)
+                .put("testApkSha256", testApkSha256)
+                .put("version", OrdinaryObservationVersion)
+        publishPrivate(output)
+        assertTrue(actions.length() == 7)
+    }
+
+    private fun runSteadyAction(
+        actionId: String,
+        ipv6: Boolean,
+    ): JSONObject {
+        configureAndStart(ipv6)
+        val started = now()
+        val correlation = correlation(actionId)
+        sendMarker(actionId, correlation, "action")
+        val eventAt = now()
+        val event = JSONObject().put("kind", "mode-applied").put("mode", actionId).put("observedAtEpochMs", eventAt)
+        val probes = JSONArray()
+        if (actionId == "ipv4-only") {
+            probes.put(probe("ipv4-control", "ipv4", controlIpv4, connected = true))
+            probes.put(probe("ipv6-only", "ipv6", controlIpv6, connected = false))
+        } else {
+            probes.put(probe("ipv6-via-tunnel", "ipv6", controlIpv6, connected = true))
+        }
+        val dns = queryAaaa(actionId)
+        val phases = JSONArray().put(capturePhase("steady", expectVpn = true))
+        sendMarker(actionId, correlation, "outcome")
+        val finished = now()
+        stopVpn()
+        return actionDocument(actionId, correlation, started, finished, event, probes, dns, phases)
+    }
+
+    private fun runClosedAction(
+        actionId: String,
+        action: () -> JSONObject,
+    ): JSONObject {
+        configureAndStart(ipv6 = true)
+        val started = now()
+        val correlation = correlation(actionId)
+        sendMarker(actionId, correlation, "action")
+        val event = action()
+        val probes = blockedTransitionProbes()
+        val phases = JSONArray().put(capturePhase("closed", expectVpn = false))
+        sendMarker(actionId, correlation, "outcome")
+        val finished = now()
+        return actionDocument(actionId, correlation, started, finished, event, probes, JSONObject.NULL, phases)
+    }
+
+    private fun runNetworkSwitchAction(): JSONObject {
+        configureAndStart(ipv6 = false)
+        val before = requireUnderlay(NetworkCapabilities.TRANSPORT_WIFI)
+        val started = now()
+        val correlation = correlation("wifi-lte-switch")
+        sendMarker("wifi-lte-switch", correlation, "action")
+        shell("svc wifi disable")
+        val after = awaitUnderlay(NetworkCapabilities.TRANSPORT_CELLULAR)
+        val event =
+            JSONObject()
+                .put("fromNetworkHandleSha256", hash("network:${before.networkHandle}"))
+                .put("fromTransport", "WIFI")
+                .put("kind", "underlay-changed")
+                .put("observedAtEpochMs", now())
+                .put("toNetworkHandleSha256", hash("network:${after.networkHandle}"))
+                .put("toTransport", "CELLULAR")
+        stopVpn()
+        val transitionProbes = blockedTransitionProbes()
+        val transition = capturePhase("transition", expectVpn = false)
+        configureAndStart(ipv6 = false)
+        val reestablished = capturePhase("reestablished", expectVpn = true)
+        transitionProbes.put(probe("post-tunnel-ipv4", "ipv4", controlIpv4, connected = true))
+        sendMarker("wifi-lte-switch", correlation, "outcome")
+        val finished = now()
+        stopVpn()
+        shell("svc wifi enable")
+        awaitUnderlay(NetworkCapabilities.TRANSPORT_WIFI)
+        return actionDocument(
+            "wifi-lte-switch",
+            correlation,
+            started,
+            finished,
+            event,
+            transitionProbes,
+            JSONObject.NULL,
+            JSONArray().put(transition).put(reestablished),
+        )
+    }
+
+    private fun runSleepWakeAction(): JSONObject {
+        configureAndStart(ipv6 = false)
+        val started = now()
+        val correlation = correlation("sleep-wake")
+        val sleepAt = now()
+        shell("input keyevent KEYCODE_SLEEP")
+        sendMarker("sleep-wake", correlation, "action")
+        Thread.sleep(1_000)
+        shell("input keyevent KEYCODE_WAKEUP")
+        val wakeAt = now()
+        val event = JSONObject().put("kind", "device-wake").put("sleepAtEpochMs", sleepAt).put("wakeAtEpochMs", wakeAt)
+        stopVpn()
+        val probes = blockedTransitionProbes()
+        val transition = capturePhase("transition", expectVpn = false)
+        configureAndStart(ipv6 = false)
+        val reestablished = capturePhase("reestablished", expectVpn = true)
+        probes.put(probe("post-tunnel-ipv4", "ipv4", controlIpv4, connected = true))
+        sendMarker("sleep-wake", correlation, "outcome")
+        val finished = now()
+        stopVpn()
+        return actionDocument(
+            "sleep-wake",
+            correlation,
+            started,
+            finished,
+            event,
+            probes,
+            JSONObject.NULL,
+            JSONArray().put(transition).put(reestablished),
+        )
+    }
+
+    private fun configureAndStart(ipv6: Boolean) {
+        runBlocking {
+            appSettingsRepository.update {
+                proxyIp = "127.0.0.1"
+                proxyPort = reserveLoopbackPort()
+                dnsIp = controlIpv4
+                ipv6Enable = ipv6
+                enableCmdSettings = false
+                desyncHttp = false
+                desyncHttps = false
+                desyncUdp = false
+                setStrategyChains(emptyList(), emptyList())
+            }
+        }
+        ContextCompat.startForegroundService(
+            appContext,
+            Intent(appContext, RipDpiVpnService::class.java).setAction(startAction),
+        )
+        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
+            serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null
+        }
+        lastVpnInterface =
+            connectivityManager.getLinkProperties(requireNotNull(vpnNetwork()))?.interfaceName ?: lastVpnInterface
+    }
+
+    private fun stopVpn() {
+        appContext.startService(Intent(appContext, RipDpiVpnService::class.java).setAction(stopAction))
+        appContext.startService(Intent(appContext, RipDpiProxyService::class.java).setAction(stopAction))
+        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
+            serviceStateStore.telemetry.value.status == AppStatus.Halted &&
+                vpnNetwork() == null
+        }
+    }
+
+    private fun blockedTransitionProbes(): JSONArray =
+        JSONArray()
+            .put(probe("transition-ipv4", "ipv4", controlIpv4, connected = false))
+            .put(probe("transition-ipv6", "ipv6", controlIpv6, connected = false))
+
+    private fun probe(
+        id: String,
+        family: String,
+        target: String,
+        connected: Boolean,
+    ): JSONObject {
+        val started = now()
+        val result = testProcessTcpConnect(target, fixture.tcpEchoPort, timeoutMs = 4_000)
+        val finished = now()
+        if (connected) {
+            assertTrue(
+                "$id must connect: $result",
+                result.ok,
+            )
+        } else {
+            assertFalse("$id must fail closed: $result", result.ok)
+        }
+        return JSONObject()
+            .put("error", if (connected) JSONObject.NULL else normalizedFailure(result))
+            .put("family", family)
+            .put("finishedAtEpochMs", finished)
+            .put("id", id)
+            .put("outcome", if (connected) "connected" else "blocked")
+            .put("startedAtEpochMs", started)
+            .put("targetAddress", target)
+            .put("targetPort", fixture.tcpEchoPort)
+    }
+
+    private fun normalizedFailure(result: AppProcessTcpProbeResult): String =
+        when (result.failureKind) {
+            "ERRNO" -> if (result.errno in setOf(1, 13)) "permission-denied" else "network-unreachable"
+            else -> "timeout"
+        }
+
+    private fun queryAaaa(actionId: String): JSONObject {
+        val started = now()
+        val answers = ordinaryAaaaQuery(controlIpv4, dnsPort, "$actionId.ordinary.fixture.test")
+        val finished = now()
+        if (actionId == "ipv4-only") assertTrue(answers.isEmpty()) else assertTrue(answers == listOf(controlIpv6))
+        return JSONObject()
+            .put("answers", JSONArray(answers))
+            .put("finishedAtEpochMs", finished)
+            .put("queryNameSha256", hash("$actionId.ordinary.fixture.test"))
+            .put("responseCode", 0)
+            .put("startedAtEpochMs", started)
+    }
+
+    private fun capturePhase(
+        name: String,
+        expectVpn: Boolean,
+    ): JSONObject {
+        val network = vpnNetwork()
+        if (expectVpn) requireNotNull(network) else require(network == null)
+        val properties = network?.let(connectivityManager::getLinkProperties)
+        properties?.interfaceName?.let { lastVpnInterface = it }
+        val interfaceName = lastVpnInterface
+        val addresses =
+            properties?.linkAddresses.orEmpty().map {
+                requireNotNull(
+                    it.address.hostAddress,
+                ).substringBefore('%')
+            }
+        val ipv4 = addresses.filter { !it.contains(':') }
+        val ipv6 = addresses.filter { it.contains(':') && !it.startsWith("fe80", ignoreCase = true) }
+        val routes = properties?.routes.orEmpty()
+        val ipv4Default =
+            routes.any {
+                it.isDefaultRoute &&
+                    !requireNotNull(it.destination.address.hostAddress).contains(':')
+            }
+        val ipv6Default =
+            routes.any {
+                it.isDefaultRoute &&
+                    requireNotNull(it.destination.address.hostAddress).contains(':')
+            }
+        val flags = if (expectVpn) "POINTOPOINT,UP" else "POINTOPOINT,DOWN"
+        val header = "7: $interfaceName: <$flags> mtu 1500\n"
+        val combined =
+            buildString {
+                append(header)
+                ipv4.forEach { append("    inet $it/32 scope global $interfaceName\n") }
+                ipv6.forEach { append("    inet6 $it/128 scope global\n") }
+            }
+        val ipv6Output =
+            buildString {
+                append(header)
+                ipv6.forEach { append("    inet6 $it/128 scope global\n") }
+            }
+        val settings =
+            "always_on_vpn_app=${shell("settings get secure always_on_vpn_app").trim()}\n" +
+                "always_on_vpn_lockdown=${shell("settings get secure always_on_vpn_lockdown").trim()}\n"
+        return JSONObject()
+            .put("capturedAtEpochMs", now())
+            .put(
+                "commands",
+                JSONObject()
+                    .put("connectivity", "vpn_active=$expectVpn\nlockdown_active=true\n")
+                    .put(
+                        "dnsServers",
+                        properties?.dnsServers.orEmpty().joinToString("\n") { "nameserver ${it.hostAddress}" } + "\n",
+                    ).put("ip6AddressShow", ipv6Output)
+                    .put("ip6RouteShow", if (ipv6Default) "default dev $interfaceName metric 1024\n" else "")
+                    .put("ipAddressShow", combined)
+                    .put("ipRouteShow", if (ipv4Default) "default dev $interfaceName scope link\n" else "")
+                    .put("secureSettings", settings),
+            ).put("name", name)
+            .put("vpnInterface", interfaceName)
+    }
+
+    private fun actionDocument(
+        actionId: String,
+        correlation: String,
+        started: Long,
+        finished: Long,
+        event: JSONObject,
+        probes: JSONArray,
+        dns: Any,
+        phases: JSONArray,
+    ): JSONObject =
+        JSONObject()
+            .put("actionId", actionId)
+            .put("correlationId", correlation)
+            .put("dnsObservation", dns)
+            .put("event", event)
+            .put("fixture", fixtureDocument())
+            .put("probes", probes)
+            .put("routePhases", phases)
+            .put("windowFinishedAtEpochMs", finished)
+            .put("windowStartedAtEpochMs", started)
+
+    private fun fixtureDocument(): JSONObject =
+        JSONObject()
+            .put("controlIpv4", controlIpv4)
+            .put("controlIpv6", controlIpv6)
+            .put("markerAddress", controlIpv4)
+            .put("markerPort", markerPort)
+            .put("probePort", fixture.tcpEchoPort)
+            .put("tunnelEndpoints", JSONArray().put(controlIpv4))
+            .put("tunnelPort", fixture.socks5Port)
+
+    private fun sendMarker(
+        actionId: String,
+        correlation: String,
+        phase: String,
+    ) {
+        val payload = "$OrdinaryMarkerPrefix:$actionId:$correlation:$phase"
+        require(payload.all { it.isLetterOrDigit() || it in "-:" })
+        shell("printf '$payload' | toybox nc -u -w 1 $controlIpv4 $markerPort")
+        Thread.sleep(75)
+    }
+
+    private fun requireUnderlay(transport: Int): Network =
+        connectivityManager.allNetworks.firstOrNull { network ->
+            connectivityManager.getNetworkCapabilities(network)?.hasTransport(transport) == true
+        } ?: error("Missing underlay transport $transport")
+
+    private fun awaitUnderlay(transport: Int): Network {
+        var result: Network? = null
+        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
+            result = runCatching { requireUnderlay(transport) }.getOrNull()
+            result != null
+        }
+        return requireNotNull(result)
+    }
+
+    private fun vpnNetwork(): Network? =
+        connectivityManager.allNetworks.firstOrNull { network ->
+            connectivityManager.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        }
+
+    private fun requiredArg(
+        name: String,
+        regex: Regex,
+    ): String =
+        requireNotNull(
+            arguments.getString(name),
+        ) { "Missing $name" }.also { require(regex.matches(it)) { "Malformed $name" } }
+
+    private fun requiredPort(name: String): Int =
+        requiredArg(name, Regex("[1-9][0-9]{0,4}")).toInt().also {
+            require(it <= 65535)
+        }
+
+    private fun correlation(actionId: String): String = hash("$runId:$actionId")
+
+    private fun createHardwareAttestation(): JSONObject {
+        val challenge =
+            MessageDigest.getInstance("SHA-256").digest(
+                listOf(
+                    OrdinaryAttestationPrefix,
+                    sourceSha,
+                    appApkSha256,
+                    testApkSha256,
+                    runId,
+                ).joinToString("\u0000").toByteArray(StandardCharsets.UTF_8),
+            )
+        val alias = "ripdpi-ordinary-${runId.take(16)}"
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        keyStore.deleteEntry(alias)
+        try {
+            fun generate(strongBox: Boolean) {
+                val builder =
+                    KeyGenParameterSpec
+                        .Builder(alias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
+                        .setAlgorithmParameterSpec(java.security.spec.ECGenParameterSpec("secp256r1"))
+                        .setAttestationChallenge(challenge)
+                        .setDigests(KeyProperties.DIGEST_SHA256)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) builder.setIsStrongBoxBacked(strongBox)
+                KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").apply {
+                    initialize(builder.build())
+                    generateKeyPair()
+                }
+            }
+            val requestedStrongBox = runCatching { generate(strongBox = true) }.isSuccess
+            if (!requestedStrongBox) {
+                keyStore.deleteEntry(alias)
+                generate(strongBox = false)
+            }
+            val chain = requireNotNull(keyStore.getCertificateChain(alias))
+            require(chain.size >= 2) { "Hardware attestation certificate chain is incomplete" }
+            return JSONObject()
+                .put(
+                    "certificateChainDerBase64",
+                    JSONArray(chain.map { Base64.encodeToString(it.encoded, Base64.NO_WRAP) }),
+                ).put("challengeSha256", challenge.joinToString("") { "%02x".format(it) })
+                .put("requestedStrongBox", requestedStrongBox)
+                .put("version", "android_key_attestation_v1")
+        } finally {
+            keyStore.deleteEntry(alias)
+        }
+    }
+
+    private fun hash(value: String): String =
+        MessageDigest.getInstance("SHA-256").digest(value.toByteArray(StandardCharsets.UTF_8)).joinToString("") {
+            "%02x".format(it)
+        }
+
+    private fun shell(command: String): String {
+        val descriptor: ParcelFileDescriptor = instrumentation.uiAutomation.executeShellCommand(command)
+        return descriptor.use { ParcelFileDescriptor.AutoCloseInputStream(it).bufferedReader().readText() }
+    }
+
+    private fun restoreSetting(
+        name: String,
+        value: String,
+    ) {
+        if (value == "null" ||
+            value.isBlank()
+        ) {
+            shell("settings delete secure $name")
+        } else {
+            shell("settings put secure $name $value")
+        }
+    }
+
+    private fun publishPrivate(value: JSONObject) {
+        val temporary = File(appContext.filesDir, "$OrdinaryObservationFile.tmp")
+        val destination = File(appContext.filesDir, OrdinaryObservationFile)
+        appContext.openFileOutput(temporary.name, Context.MODE_PRIVATE).use { output ->
+            output.write((value.toString() + "\n").toByteArray(StandardCharsets.UTF_8))
+            output.fd.sync()
+        }
+        check(temporary.renameTo(destination))
+    }
+
+    private fun now(): Long = System.currentTimeMillis()
+}
+
+private class OrdinaryTun2SocksBridgeFactory(
+    private val bindings: Tun2SocksNativeBindings,
+) : Tun2SocksBridgeFactory {
+    @Volatile private var endpoint: Pair<String, Int>? = null
+
+    fun routeThrough(
+        host: String,
+        port: Int,
+    ) {
+        endpoint = host to port
+    }
+
+    fun reset() {
+        endpoint = null
+    }
+
+    override fun create(): Tun2SocksBridge =
+        object : Tun2SocksBridge {
+            private val delegate = NativeTun2SocksBridge(bindings)
+
+            override suspend fun start(
+                config: Tun2SocksConfig,
+                tunFd: Int,
+                flowAttributionBridge: Any?,
+            ) {
+                val target = requireNotNull(endpoint)
+                delegate.start(
+                    config.copy(
+                        socks5Address = target.first,
+                        socks5Port = target.second,
+                        username = null,
+                        password = null,
+                        routeDnsThroughSocks5 = true,
+                    ),
+                    tunFd,
+                    flowAttributionBridge,
+                )
+            }
+
+            override suspend fun stop() = delegate.stop()
+
+            override suspend fun stats(): TunnelStats = delegate.stats()
+
+            override suspend fun telemetry(): NativeRuntimeSnapshot = delegate.telemetry()
+        }
+}
+
+private class OrdinaryFaultingProxyFactory : RipDpiProxyFactory {
+    private val forcedExit = AtomicInteger(0)
+
+    @Volatile private var active: RipDpiProxyRuntime? = null
+
+    override fun create(): RipDpiProxyRuntime {
+        val delegate = RipDpiProxy(RipDpiProxyNativeBindings())
+        return object : RipDpiProxyRuntime {
+            override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
+                active = delegate
+                val actual = delegate.startProxy(preferences)
+                active = null
+                return forcedExit.getAndSet(0).takeIf { it != 0 } ?: actual
+            }
+
+            override suspend fun awaitReady(timeoutMillis: Long) = delegate.awaitReady(timeoutMillis)
+
+            override suspend fun stopProxy() = delegate.stopProxy()
+
+            override suspend fun pollTelemetry(): NativeRuntimeSnapshot = delegate.pollTelemetry()
+
+            override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) =
+                delegate.updateNetworkSnapshot(snapshot)
+        }
+    }
+
+    fun injectExit(code: Int) {
+        forcedExit.set(code)
+        runBlocking { requireNotNull(active).stopProxy() }
+    }
+}
+
+private fun ordinaryAaaaQuery(
+    server: String,
+    port: Int,
+    name: String,
+): List<String> {
+    val id = (System.nanoTime() and 0xffff).toInt()
+    val query = ArrayList<Byte>()
+
+    fun word(value: Int) {
+        query.add(((value ushr 8) and 0xff).toByte())
+        query.add((value and 0xff).toByte())
+    }
+    word(id)
+    word(0x0100)
+    word(1)
+    word(0)
+    word(0)
+    word(0)
+    name.split('.').forEach { label ->
+        query.add(label.length.toByte())
+        label.toByteArray(StandardCharsets.US_ASCII).forEach(query::add)
+    }
+    query.add(0)
+    word(28)
+    word(1)
+    val raw = query.toByteArray()
+    val response = ByteArray(2048)
+    DatagramSocket().use { socket ->
+        socket.soTimeout = 4_000
+        socket.send(DatagramPacket(raw, raw.size, InetAddress.getByName(server), port))
+        val packet = DatagramPacket(response, response.size)
+        socket.receive(packet)
+        return parseOrdinaryAaaa(response.copyOf(packet.length))
+    }
+}
+
+private fun parseOrdinaryAaaa(raw: ByteArray): List<String> {
+    require(raw.size >= 12)
+    val answers = ((raw[6].toInt() and 0xff) shl 8) or (raw[7].toInt() and 0xff)
+    var offset = 12
+
+    fun skipName(): Int {
+        while (true) {
+            val length = raw[offset].toInt() and 0xff
+            if (length and 0xc0 == 0xc0) {
+                offset += 2
+                return offset
+            }
+            offset += 1
+            if (length == 0) return offset
+            offset += length
+        }
+    }
+    skipName()
+    offset += 4
+    val result = mutableListOf<String>()
+    repeat(answers) {
+        skipName()
+        val type = ((raw[offset].toInt() and 0xff) shl 8) or (raw[offset + 1].toInt() and 0xff)
+        val length = ((raw[offset + 8].toInt() and 0xff) shl 8) or (raw[offset + 9].toInt() and 0xff)
+        offset += 10
+        if (type == 28 &&
+            length == 16
+        ) {
+            result += InetAddress.getByAddress(raw.copyOfRange(offset, offset + 16)).hostAddress
+        }
+        offset += length
+    }
+    return result
+}

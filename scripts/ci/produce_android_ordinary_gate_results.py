@@ -3,13 +3,14 @@
 
 There is intentionally no pluggable collector. The checked-in verifier binds
 private raw packet/route artifacts to source and APK provenance and evaluates
-all seven source-owned semantic action oracles. Public PASS remains forbidden
-until a source-owned physical producer and attestation path are implemented.
+all seven source-owned semantic action oracles. PASS additionally requires the
+checked-in physical producer's off-device hardware-attestation verification.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,8 @@ if str(CI_DIR) not in sys.path:
     sys.path.insert(0, str(CI_DIR))
 
 import android_ordinary_raw_evidence  # noqa: E402
+import android_ordinary_physical_attestation  # noqa: E402
+import produce_android_ordinary_physical_evidence  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,13 +37,13 @@ SHA1_RE = re.compile(r"[0-9a-f]{40}")
 # Reserved sentinel: no Git object can be trusted when HEAD lookup itself fails.
 UNKNOWN_SOURCE_SHA = "0" * 40
 SOURCE_OWNED_VERIFIER_AVAILABLE = True
-SOURCE_OWNED_PHYSICAL_PRODUCER_AVAILABLE = False
+SOURCE_OWNED_PHYSICAL_PRODUCER_AVAILABLE = True
 UNEVALUATED_CODE = "SEMANTIC_EVIDENCE_REQUIRED"
 UNEVALUATED_REASON = "all seven source-owned semantic action oracles must pass"
-PRODUCER_ATTESTATION_CODE = "SOURCE_OWNED_PHYSICAL_PRODUCER_UNAVAILABLE"
+PRODUCER_ATTESTATION_CODE = "SOURCE_OWNED_PHYSICAL_ATTESTATION_REQUIRED"
 PRODUCER_ATTESTATION_REASON = (
-    "semantic verification passed, but source-owned physical collection and "
-    "attestation are not implemented; ordinary release PASS remains forbidden"
+    "semantic verification passed, but a valid source-owned physical producer "
+    "attestation was not supplied; ordinary release PASS remains forbidden"
 )
 
 ORDINARY_GATE_IDS = (
@@ -481,30 +484,128 @@ def semantic_verification_results(
     source_sha: str,
     provenance: dict[str, Any],
     evaluation: dict[str, Any],
+    physical_document: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if set(evaluation.get("gateResults", {})) != set(ORDINARY_GATE_IDS):
         raise EvidenceError(
             "INVENTORY_MISMATCH", "semantic result inventory does not cover all gates"
         )
     results = all_failure_results(
-        source_sha,
-        code=PRODUCER_ATTESTATION_CODE,
-        reason=PRODUCER_ATTESTATION_REASON,
+        source_sha, code=PRODUCER_ATTESTATION_CODE, reason=PRODUCER_ATTESTATION_REASON
     )
     results["rawBundleProvenance"] = {
         "actionCount": provenance["actionCount"],
         "actionProofs": evaluation["actionProofs"],
+        "appApkSha256": provenance["appApkSha256"],
         "artifactCount": provenance["artifactCount"],
         "manifestSha256": provenance["manifestSha256"],
         "productionReady": False,
         "semanticVerified": True,
+        "testApkSha256": provenance["testApkSha256"],
         "verifier": provenance["semanticVerifier"],
     }
+    if physical_document is not None:
+        results["producerAttestation"] = physical_document
+        results["rawBundleProvenance"]["productionReady"] = True
+        results["gateResults"] = {
+            gate_id: {"state": "PASS"} for gate_id in ORDINARY_GATE_IDS
+        }
+        validate_pass_results(results)
     return results
 
 
-def validate_pass_results(_results: dict[str, Any]) -> None:
-    raise EvidenceError(PRODUCER_ATTESTATION_CODE, PRODUCER_ATTESTATION_REASON)
+def validate_pass_results(results: dict[str, Any]) -> None:
+    try:
+        provenance = results["rawBundleProvenance"]
+        document = results["producerAttestation"]
+        if (
+            set(results["gateResults"]) != set(ORDINARY_GATE_IDS)
+            or any(
+                value != {"state": "PASS"} for value in results["gateResults"].values()
+            )
+            or not isinstance(provenance, dict)
+            or provenance.get("actionCount") != 7
+            or provenance.get("artifactCount") != 21
+            or provenance.get("semanticVerified") is not True
+            or provenance.get("productionReady") is not True
+            or provenance.get("verifier")
+            != android_ordinary_raw_evidence.android_ordinary_semantic_oracles.VERIFIER_VERSION
+        ):
+            raise EvidenceError(PRODUCER_ATTESTATION_CODE, PRODUCER_ATTESTATION_REASON)
+        proof = android_ordinary_physical_attestation.validate_physical_attestation(
+            document,
+            source_sha=results["sourceSha"],
+            app_apk_sha256=provenance["appApkSha256"],
+            test_apk_sha256=provenance["testApkSha256"],
+            manifest_sha256=provenance["manifestSha256"],
+            capture_sha256=document["captureSha256"],
+        )
+        expected_producer_sha = hashlib.sha256(
+            Path(produce_android_ordinary_physical_evidence.__file__).read_bytes()
+        ).hexdigest()
+        if proof["producerSha256"] != expected_producer_sha:
+            raise EvidenceError(
+                "PHYSICAL_PRODUCER_MISMATCH",
+                "attestation was produced by different source",
+            )
+        expected_documents = (
+            produce_android_ordinary_physical_evidence.expected_raw_documents(
+                document["observations"]
+            )
+        )
+        action_proofs = provenance.get("actionProofs")
+        if not isinstance(action_proofs, dict) or set(action_proofs) != set(
+            expected_documents
+        ):
+            raise EvidenceError(
+                "PHYSICAL_ATTESTATION_MISMATCH", "action proof inventory differs"
+            )
+        for action_id, (receipt, route) in expected_documents.items():
+            artifacts = action_proofs[action_id].get("artifacts")
+            expected_artifacts = {
+                "action-receipt": hashlib.sha256(
+                    canonical_json_bytes(receipt)
+                ).hexdigest(),
+                "packet-capture": document["captureSha256"],
+                "route-snapshot": hashlib.sha256(
+                    canonical_json_bytes(route)
+                ).hexdigest(),
+            }
+            if artifacts != expected_artifacts:
+                raise EvidenceError(
+                    "PHYSICAL_ATTESTATION_MISMATCH",
+                    f"{action_id} artifacts differ from attested observations",
+                )
+    except EvidenceError:
+        raise
+    except android_ordinary_physical_attestation.AttestationError as error:
+        raise EvidenceError(error.code, error.message) from error
+    except (KeyError, TypeError, ValueError) as error:
+        raise EvidenceError(
+            PRODUCER_ATTESTATION_CODE, PRODUCER_ATTESTATION_REASON
+        ) from error
+
+
+def load_physical_attestation(pinned: PinnedPath) -> dict[str, Any]:
+    if (
+        stat.S_IMODE(pinned.metadata.st_mode) != 0o600
+        or pinned.metadata.st_size > 512 * 1024
+    ):
+        raise EvidenceError(
+            "PHYSICAL_ATTESTATION_INVALID", "attestation must be private and bounded"
+        )
+    raw = os.pread(pinned.fd, pinned.metadata.st_size, 0)
+    try:
+        value = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise EvidenceError(
+            "PHYSICAL_ATTESTATION_INVALID", "attestation is malformed"
+        ) from error
+    if not isinstance(value, dict) or raw != canonical_json_bytes(value):
+        raise EvidenceError(
+            "PHYSICAL_ATTESTATION_INVALID", "attestation must be canonical JSON"
+        )
+    return value
 
 
 def _produce_results(
@@ -517,6 +618,7 @@ def _produce_results(
     artifact_root_guard: PinnedDirectory | None = None
     manifest: dict[str, Any] | None = None
     manifest_raw: bytes | None = None
+    physical_document: dict[str, Any] | None = None
     try:
         artifact_root = None
         if args.raw_manifest is not None:
@@ -557,6 +659,8 @@ def _produce_results(
                 root_descriptor=artifact_root_guard.fd,
             )
             raw_bundle_guards.append(raw_validation)
+            if args.physical_attestation is not None:
+                physical_document = load_physical_attestation(pinned_inputs[3])
         destination = open_output_destination(
             args.output,
             forbidden_root=artifact_root,
@@ -664,7 +768,7 @@ def _produce_results(
                 )
             evaluation = raw_validation.evaluate_semantics()
             results = semantic_verification_results(
-                source_sha, raw_validation.provenance, evaluation
+                source_sha, raw_validation.provenance, evaluation, physical_document
             )
     except Exception as error:  # noqa: BLE001 - finalize every provenance failure
         if isinstance(error, EvidenceError):
@@ -712,6 +816,9 @@ def _produce_results(
             destination.close()
             return 2
     destination.close()
+    if all(value == {"state": "PASS"} for value in results["gateResults"].values()):
+        print("Android ordinary release evidence is PASS.")
+        return 0
     print("Android ordinary release evidence is NO-SHIP:", file=sys.stderr)
     for gate_id in ORDINARY_GATE_IDS:
         print(
@@ -743,6 +850,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--raw-manifest", type=Path)
     parser.add_argument("--app-apk", type=Path)
     parser.add_argument("--test-apk", type=Path)
+    parser.add_argument("--physical-attestation", type=Path)
     args = parser.parse_args(argv)
 
     raw_arguments = (args.raw_manifest, args.app_apk, args.test_apk)
@@ -752,10 +860,14 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(
             "--raw-manifest, --app-apk, and --test-apk must be supplied together"
         )
+    if args.physical_attestation is not None and args.raw_manifest is None:
+        parser.error("--physical-attestation requires the complete raw evidence inputs")
+
+    pinned_arguments = (*raw_arguments, args.physical_attestation)
 
     pinned_inputs: list[PinnedPath] = []
     try:
-        for value in raw_arguments:
+        for value in pinned_arguments:
             if value is not None:
                 pinned_inputs.append(pin_input(value))
         return produce_results(args, tuple(pinned_inputs))

@@ -33,7 +33,7 @@ MAX_BUNDLE_BYTES = 256 * 1024 * 1024
 ARTIFACT_KINDS = ("action-receipt", "packet-capture", "route-snapshot")
 ARTIFACT_VANTAGES = {
     "action-receipt": "android-client",
-    "packet-capture": "client-underlay",
+    "packet-capture": "owner-fixture-observer",
     "route-snapshot": "android-client",
 }
 MAX_EVIDENCE_AGE_MS = 24 * 60 * 60 * 1000
@@ -746,10 +746,12 @@ def validate_raw_bundle_pinned(
     root_metadata = os.fstat(root_descriptor)
     return ValidatedRawBundle(
         provenance={
+            "appApkSha256": app_digest,
             "manifestSha256": hashlib.sha256(manifest_raw).hexdigest(),
             "artifactCount": len(ACTION_SPECS) * len(ARTIFACT_KINDS),
             "actionCount": len(ACTION_SPECS),
             "semanticVerifier": android_ordinary_semantic_oracles.VERIFIER_VERSION,
+            "testApkSha256": test_digest,
         },
         root_descriptor=root_descriptor,
         root_identity=(root_metadata.st_dev, root_metadata.st_ino),

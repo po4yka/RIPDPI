@@ -205,7 +205,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
             self.assertEqual(status, 1)
             self.assertTrue(producer.SOURCE_OWNED_VERIFIER_AVAILABLE)
-            self.assertFalse(producer.SOURCE_OWNED_PHYSICAL_PRODUCER_AVAILABLE)
+            self.assertTrue(producer.SOURCE_OWNED_PHYSICAL_PRODUCER_AVAILABLE)
             self.assertEqual(
                 set(results["gateResults"]), set(producer.ORDINARY_GATE_IDS)
             )
@@ -336,6 +336,48 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
         for action_id, (mutation, code) in cases.items():
             with self.subTest(action=action_id):
                 self.assert_semantic_failure(mutation, code)
+
+    def test_one_dual_stack_fixture_host_with_distinct_ports_is_accepted(self) -> None:
+        same_host = copy.deepcopy(fixtures.FIXTURE)
+        same_host.update(
+            {
+                "markerAddress": same_host["controlIpv4"],
+                "tunnelEndpoints": [same_host["controlIpv4"]],
+            }
+        )
+        with (
+            mock.patch.dict(fixtures.FIXTURE, same_host, clear=True),
+            tempfile.TemporaryDirectory() as temporary,
+        ):
+            directory = Path(temporary)
+            manifest_path, app_apk, test_apk, _ = self.create_bundle(directory)
+            status, results = self.run_producer(
+                directory, manifest_path, app_apk, test_apk
+            )
+            self.assertEqual(status, 1)
+            self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
+
+    def test_same_host_probe_port_packet_remains_a_direct_leak(self) -> None:
+        def mutation(manifest_path, manifest):
+            action = self.action(manifest, "dual-stack")
+            started = action["windowStartedAtEpochMs"]
+            correlation = action["correlationId"]
+            payload = fixtures.packet_capture(
+                "dual-stack", correlation_id=correlation, started_at=started
+            )
+            leak = fixtures._udp_ipv4(
+                "192.0.2.201",
+                fixtures.FIXTURE["controlIpv4"],
+                43100,
+                fixtures.FIXTURE["probePort"],
+                b"direct-control-leak",
+            )
+            leaked = payload + fixtures._pcap([(started + 650, leak)])[24:]
+            self.replace_artifact(
+                manifest_path, manifest, "dual-stack", "packet-capture", leaked
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_DIRECT_TRAFFIC_LEAK")
 
     def test_ipv4_only_oracle_rejects_ipv6_address_dns_connect_and_aaaa_leaks(
         self,

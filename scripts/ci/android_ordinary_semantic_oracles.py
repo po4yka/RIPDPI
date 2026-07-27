@@ -3,8 +3,8 @@
 
 The private receipt records individual device events and probe outcomes.  It is
 not a verdict.  This module independently parses that receipt, the classic PCAP
-captured at the client underlay, and raw route-command output before deriving a
-gate result.
+captured at the owner-controlled fixture's public interface, and raw
+route-command output before deriving a gate result.
 """
 
 from __future__ import annotations
@@ -260,15 +260,16 @@ def _validate_fixture(value: Any, *, action_id: str) -> dict[str, Any]:
         _ip(endpoint, f"fixture.tunnelEndpoints[{index}]")
         for index, endpoint in enumerate(endpoints)
     ]
-    literals = [
-        str(marker),
-        str(ipv4),
-        str(ipv6),
-        *(str(item) for item in parsed_endpoints),
+    endpoints = [
+        (str(marker), marker_port),
+        (str(ipv4), probe_port),
+        (str(ipv6), probe_port),
+        *((str(item), tunnel_port) for item in parsed_endpoints),
     ]
-    if len(literals) != len(set(literals)):
+    if len(endpoints) != len(set(endpoints)):
         raise OracleError(
-            "SEMANTIC_SCHEMA_INVALID", "fixture addresses must be distinct"
+            "SEMANTIC_SCHEMA_INVALID",
+            "fixture address-and-port endpoints must be distinct",
         )
     if action_id == "ipv4-only" and any(item.version != 4 for item in parsed_endpoints):
         raise OracleError(
@@ -1117,11 +1118,17 @@ def evaluate_pcap(
         <= packet.timestamp_ms
         <= context.window_finished_at_ms
     ]
-    targets = {fixture["controlIpv4"], fixture["controlIpv6"]}
     direct = [
         packet
         for packet in scoped
-        if packet.source in targets or packet.destination in targets
+        if (
+            packet.source in {fixture["controlIpv4"], fixture["controlIpv6"]}
+            and packet.source_port == fixture["probePort"]
+        )
+        or (
+            packet.destination in {fixture["controlIpv4"], fixture["controlIpv6"]}
+            and packet.destination_port == fixture["probePort"]
+        )
     ]
     if direct:
         raise OracleError(
