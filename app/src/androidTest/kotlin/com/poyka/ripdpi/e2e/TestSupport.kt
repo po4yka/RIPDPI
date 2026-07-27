@@ -493,6 +493,7 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
                 ""
             },
         )
+        setDetectionCheckDnsRouteThroughProxy(false)
     }
 }
 
