@@ -171,8 +171,8 @@ nc -6 -z -w5 "$fixture_ipv6" "$tcp_echo_port"
 "${adb[@]}" install -r -t "$test_apk" >/dev/null
 installed_app_path="$("${adb[@]}" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r' | head -n1)"
 installed_test_path="$("${adb[@]}" shell pm path com.poyka.ripdpi.test | sed -n 's/^package://p' | tr -d '\r' | head -n1)"
-installed_app_sha="$("${adb[@]}" exec-out "dd if='$installed_app_path' bs=1048576 2>/dev/null" | shasum -a 256 | awk '{print $1}')"
-installed_test_sha="$("${adb[@]}" exec-out "dd if='$installed_test_path' bs=1048576 2>/dev/null" | shasum -a 256 | awk '{print $1}')"
+installed_app_sha="$("${adb[@]}" shell run-as com.poyka.ripdpi toybox sha256sum "$installed_app_path" | awk '{print $1}' | tr -d '\r')"
+installed_test_sha="$("${adb[@]}" shell run-as com.poyka.ripdpi.test toybox sha256sum "$installed_test_path" | awk '{print $1}' | tr -d '\r')"
 if [[ "$installed_app_sha" != "$app_sha" || "$installed_test_sha" != "$test_sha" ]]; then
     echo "Installed APK readback differs from the exact build outputs." >&2
     exit 2
