@@ -1,16 +1,18 @@
 # Local Android ordinary release evidence
 
 The Android release target has 11 DNS, IPv6, and kill-switch gates that are not
-supplied by the dual-vantage manifest. They currently fail closed.
+supplied by the dual-vantage manifest. The checked-in semantic verifier
+evaluates those gates from seven action artifact bundles and fails closed when
+any action, artifact, or source binding is missing or contradictory.
 
 ## Trust boundary
 
-Ordinary PASS is forbidden until the repository contains audited, source-owned
-semantic oracles that derive every result directly from raw packet and route
-artifacts. The checked-in preflight now validates the private bundle's source,
-APK, structural run/window/vantage metadata, inventory, size, and digest
-bindings, but it does not interpret those artifacts as gate success. In
-particular, the checker does not
+Ordinary PASS remains forbidden even after
+`android_ordinary_semantic_oracles_v1` succeeds because the repository does not
+yet contain a source-owned physical producer and attestation path. The verifier
+validates the private bundle's source, APK, structural run/window/vantage
+metadata, inventory, size, and digest bindings, then parses each action receipt,
+classic PCAP, and route snapshot itself. In particular, the checker does not
 accept:
 
 - operator-authored PASS or counter fields;
@@ -19,11 +21,10 @@ accept:
   proof that a physical capture ran;
 - JVM or host-only tests as physical packet-path release evidence.
 
-This deliberately leaves no configurable allowlist or generic collector
-execution path. The seven gate-specific packet/route oracles and their
-adversarial fixtures must land before the checker can enable PASS. The local
-contract suite is `just test-android-ordinary-release-gates`; it does not require
-a hosted runner.
+This deliberately leaves no configurable verifier plugin or generic collector
+execution path. The local contract suite is
+`just test-android-ordinary-release-gates`; its deterministic fixtures exercise
+the parser and are not physical release evidence.
 
 ## Private raw bundle
 
@@ -57,9 +58,27 @@ content that resembles an older results document is not output provenance and
 may itself be a raw artifact. Such a file is not accepted as release evidence
 because the command failed and caller-authored PASS remains forbidden.
 
-Binding the packet/route contents themselves to the manifest run fields is part
-of the seven missing semantic oracles; copied or relabelled bytes therefore
-remain an explicit FAIL blocker and cannot produce PASS.
+The `android_ordinary_action_receipt_v1` artifact contains only source-bound
+events, per-probe outcomes, DNS observations, and private fixture endpoints. It
+must not contain caller-authored `status`, `state`, `verdict`, `pass`, `success`,
+or aggregate `count` fields. Every event and probe is ordered within the
+manifest action window and must match the exact source-owned action inventory.
+
+The packet artifact is bounded classic PCAP. The verifier parses Ethernet, raw
+IP, Linux SLL, and Linux SLL2 frames, rejects truncated records, and locates one
+action and one outcome marker derived from the action ID and correlation ID.
+Inside that marker window it rejects direct fixture traffic, IPv6 traffic in
+IPv4-only mode, and every packet outside the approved marker or tunnel
+endpoints. Actions that require an established tunnel must contain parsed
+tunnel activity.
+
+The `android_ordinary_route_snapshot_v1` artifact carries raw `ip address`,
+`ip route`, IPv6 route/address, resolver, connectivity, and secure-settings
+outputs for source-owned phases. The verifier derives tunnel addresses and
+default routes, transition lockdown state, re-establishment, and Android
+Always-on settings from those outputs. Copied, cross-action, stale, partial, or
+contradictory artifacts remain an explicit FAIL blocker even when the manifest
+is rehashed.
 
 ## Current local command
 
@@ -74,11 +93,15 @@ python3 scripts/ci/produce_android_ordinary_gate_results.py \
 ```
 
 Without all three raw inputs the command emits `RAW_EVIDENCE_REQUIRED`. With a
-valid preflight bundle it still emits all exact 11 gates as structured FAIL,
-using the gate-specific `SEMANTIC_*_ORACLE_UNAVAILABLE` blockers, and exits
-non-zero. `SOURCE_OWNED_VERIFIER_AVAILABLE` remains false. The result is a valid
-checker input, so the release report preserves the concrete blocker rather than
-failing schema validation:
+complete bundle, all seven semantic action oracles must pass before the command
+records source-owned action proof digests and `semanticVerified: true`.
+Nevertheless, it keeps the exact 11 public gate objects at structured FAIL,
+sets `productionReady: false`, reports
+`SOURCE_OWNED_PHYSICAL_PRODUCER_UNAVAILABLE`, and exits non-zero.
+`SOURCE_OWNED_VERIFIER_AVAILABLE` is true for the checked-in parser, while
+`SOURCE_OWNED_PHYSICAL_PRODUCER_AVAILABLE` remains false. Test fixtures, copied
+artifacts, or a locally authored manifest are not release evidence. The result
+is then combined with the disjoint dual-vantage evidence through:
 
 ```bash
 python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
@@ -91,4 +114,5 @@ python3 scripts/ci/check_dns_ipv6_killswitch_gates.py \
   --expected-execution-attempt 1
 ```
 
-Do not turn a missing verifier or physical capability into PASS or N/A.
+Do not turn a missing physical action, collector capability, or approved
+exact-SHA artifact into PASS or N/A.

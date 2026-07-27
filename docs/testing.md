@@ -445,13 +445,17 @@ The ordinary results file must omit the DNS and startup direct-window gates;
 those results are derived exclusively from the dual-vantage observations. The
 local command is not evidence unless the configured hooks perform real captures
 from distinct networks and the APK path identifies the exact installed client.
-The checked-in ordinary producer intentionally emits 11 structured no-ship
-failures until source-owned raw-artifact verifiers exist; it cannot self-attest
-a PASS. The local acceptance entrypoint derives the exact clean `HEAD`, requires
-local execution provenance, snapshots the ordinary results and dual-vantage
-manifest into a private
-directory, and runs the checker extracted from that exact commit. GitHub Actions
-is not an acceptance prerequisite. The optional
+The checked-in ordinary producer parses seven source-bound action receipts,
+classic PCAP captures, and route snapshots to derive the 11 ordinary gate
+semantics. It rejects caller-authored verdicts and counters, cross-action
+copies, unexpected underlay packets, contradictory routes/probes, and forged
+PASS provenance. Deterministic fixtures test that contract but are not physical
+release evidence. Until a source-owned physical producer and attestation path
+exist, the producer records semantic proofs but keeps all 11 public results at
+structured FAIL. The local acceptance entrypoint derives the exact clean
+`HEAD`, requires local execution provenance, snapshots the ordinary results and
+dual-vantage manifest into a private directory, and runs the checker extracted
+from that exact commit. GitHub Actions is not an acceptance prerequisite. The optional
 compatibility release workflow still requires
 `RIPDPI_DNS_IPV6_KILLSWITCH_RESULTS` to identify a real exact-SHA artifact and
 fails closed when it is absent; it never synthesizes PASS results.

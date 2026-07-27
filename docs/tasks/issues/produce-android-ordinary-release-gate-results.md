@@ -34,12 +34,26 @@ evidence.
   incomplete results, legacy and structured forged PASS, stale-output
   replacement, and checker-compatible no-ship reasons.
 - The local command binds the exact clean source commit and cannot emit PASS
-  until a checked-in raw-artifact verifier exists.
+  until both the checked-in semantic verifier and a source-owned physical
+  producer with an attestation path exist.
 - Gates without a real approved oracle emit a structured FAIL and make the
   command fail closed.
 
 ## Work log
 
+- 2026-07-27: Implemented all seven source-owned semantic action oracles. They
+  strictly parse canonical action receipts, raw route-command snapshots, and
+  bounded classic PCAP; bind every artifact to the action window, correlation
+  ID, source SHA, and app/test APKs; and derive the 11 ordinary gate semantics.
+  Negative and adversarial fixtures cover each action boundary, caller-authored
+  verdicts/counters, cross-action copies, stale correlations, contradictory
+  probes and packets, IPv6 leaks, unexpected underlay traffic, missing tunnel
+  activity, duplicate/missing markers, truncation, and forged PASS provenance.
+- 2026-07-27: Kept public results fail-closed after semantic success. The
+  verifier records action proof digests with `semanticVerified: true`, but the
+  producer returns all 11 gates as structured FAIL with
+  `SOURCE_OWNED_PHYSICAL_PRODUCER_UNAVAILABLE` and `productionReady: false`
+  until source-owned physical collection and attestation are implemented.
 - 2026-07-27: Started the isolated `codex/release-014-ordinary-oracles`
   worktree from `origin/main` at `519ec5183fd416e35898c55b19149ee117d06980`.
   This lane owns the seven source-owned action oracles, their exact raw receipt,
