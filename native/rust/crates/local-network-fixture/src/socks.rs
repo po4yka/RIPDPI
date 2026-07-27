@@ -21,7 +21,8 @@ pub(crate) fn start_socks5_server(
     let local_port = listener.local_addr()?.port();
     let udp_socket = UdpSocket::bind((config.bind_host.as_str(), 0))?;
     udp_socket.set_read_timeout(Some(IO_TIMEOUT))?;
-    let udp_local = udp_socket.local_addr().ok();
+    let udp_local = udp_socket.local_addr()?;
+    let advertised_udp_relay = advertised_udp_relay_addr(udp_local, &config.android_host)?;
     let udp_shared = Arc::new(udp_socket);
     Ok((
         thread::spawn(move || {
@@ -41,7 +42,7 @@ pub(crate) fn start_socks5_server(
                                         "socks5_relay",
                                         "udp",
                                         peer,
-                                        udp_local,
+                                        Some(udp_local),
                                         &mapped.to_string(),
                                         payload.len(),
                                         None,
@@ -69,7 +70,6 @@ pub(crate) fn start_socks5_server(
                     Ok((mut stream, peer)) => {
                         let config = config.clone();
                         let events = events.clone();
-                        let udp_shared = udp_shared.clone();
                         let faults = faults.clone();
                         thread::spawn(move || {
                             let _ = stream.set_nonblocking(false);
@@ -187,9 +187,7 @@ pub(crate) fn start_socks5_server(
                                         return;
                                     }
                                     events.record(event("socks5_relay", "udp", peer, local, "udp_associate", 0, None));
-                                    if let Ok(udp_local) = udp_shared.local_addr() {
-                                        let _ = stream.write_all(&encode_socks_reply(udp_local));
-                                    }
+                                    let _ = stream.write_all(&encode_socks_reply(advertised_udp_relay));
                                     let mut buf = [0u8; 16];
                                     loop {
                                         match stream.read(&mut buf) {
@@ -220,6 +218,19 @@ pub(crate) fn start_socks5_server(
         }),
         local_port,
     ))
+}
+
+fn advertised_udp_relay_addr(bound: SocketAddr, android_host: &str) -> io::Result<SocketAddr> {
+    if !bound.ip().is_unspecified() {
+        return Ok(bound);
+    }
+    let host = android_host.parse::<IpAddr>().map_err(|_| {
+        io::Error::new(
+            ErrorKind::InvalidInput,
+            "android_host must be an IP literal when the SOCKS UDP relay uses a wildcard bind",
+        )
+    })?;
+    Ok(SocketAddr::new(host, bound.port()))
 }
 
 fn udp_forward_bind_address(destination: SocketAddr) -> SocketAddr {
@@ -444,5 +455,31 @@ mod tests {
         let destination = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 2)), 53);
 
         assert_eq!(udp_forward_bind_address(destination), SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),);
+    }
+
+    #[test]
+    fn wildcard_udp_relay_advertises_the_android_reachable_host() {
+        let bound = SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 43210);
+
+        assert_eq!(
+            advertised_udp_relay_addr(bound, "192.0.2.8").expect("advertised relay"),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 8)), 43210),
+        );
+    }
+
+    #[test]
+    fn concrete_udp_relay_keeps_its_bound_address() {
+        let bound = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 43210);
+
+        assert_eq!(advertised_udp_relay_addr(bound, "not-an-ip").expect("bound relay"), bound);
+    }
+
+    #[test]
+    fn wildcard_udp_relay_rejects_a_non_literal_android_host() {
+        let bound = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 43210);
+
+        let error = advertised_udp_relay_addr(bound, "fixture.invalid").expect_err("invalid relay host");
+
+        assert_eq!(error.kind(), ErrorKind::InvalidInput);
     }
 }
