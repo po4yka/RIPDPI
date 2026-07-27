@@ -47,6 +47,18 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
     test_sha = hashlib.sha256(b"test").hexdigest()
     run_id = hashlib.sha256(b"physical-run").hexdigest()
 
+    def test_runner_does_not_require_coordinator_ipv6_for_fixture_preflight(
+        self,
+    ) -> None:
+        runner = Path(
+            "scripts/ci/run-android-ordinary-physical-evidence.sh"
+        ).read_text()
+        self.assertNotRegex(runner, r"(?m)^nc -6 ")
+        self.assertRegex(
+            runner,
+            r'ssh_remote\[@\].*socket\.create_connection\(\(\\"::1\\"',
+        )
+
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
     ) -> None:
