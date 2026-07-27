@@ -384,11 +384,21 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             .put(probe("transition-ipv6", "ipv6", controlIpv6, connected = false))
 
     private fun awaitTestProcessLockdown() {
-        bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
-            assertTrue(
-                "Test-process default network remained available under Android lockdown",
-                probeService.awaitNoDefaultNetwork(OrdinaryTimeoutMs),
-            )
+        var lastIpv4: AppProcessTcpProbeResult? = null
+        var lastIpv6: AppProcessTcpProbeResult? = null
+        awaitUntil(
+            timeoutMs = OrdinaryTimeoutMs,
+            pollMs = 100,
+            failureMessage = {
+                "Test-process sockets remained reachable under Android lockdown: " +
+                    "ipv4=$lastIpv4 ipv6=$lastIpv6"
+            },
+        ) {
+            val ipv4 = testProcessTcpConnect(controlIpv4, fixture.tcpEchoPort, timeoutMs = 1_000)
+            val ipv6 = testProcessTcpConnect(controlIpv6, fixture.tcpEchoPort, timeoutMs = 1_000)
+            lastIpv4 = ipv4
+            lastIpv6 = ipv6
+            !ipv4.ok && !ipv6.ok
         }
     }
 

@@ -101,6 +101,17 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("setSplitTunnelMode(SplitTunnelMode.Off)", configure)
         self.assertIn("clearSplitTunnelPackages()", configure)
 
+    def test_lockdown_convergence_uses_socket_outcomes_not_network_visibility(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        lockdown = producer[producer.index("private fun awaitTestProcessLockdown") :]
+        lockdown = lockdown[: lockdown.index("private fun probe")]
+        self.assertEqual(lockdown.count("testProcessTcpConnect("), 2)
+        self.assertIn("!ipv4.ok && !ipv6.ok", lockdown)
+        self.assertNotIn("awaitNoDefaultNetwork", lockdown)
+
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
