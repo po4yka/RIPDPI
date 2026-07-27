@@ -59,6 +59,21 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             r'ssh_remote\[@\].*socket\.create_connection\(\(\\"::1\\"',
         )
 
+    def test_runner_suspends_and_restores_the_existing_always_on_vpn(self) -> None:
+        runner = Path(
+            "scripts/ci/run-android-ordinary-physical-evidence.sh"
+        ).read_text()
+        saved = runner.index('always_on_before=""')
+        suspended = runner.rindex("settings delete secure always_on_vpn_app")
+        instrumented = runner.index("shell am instrument")
+        restored = runner.index(
+            'settings put secure always_on_vpn_app "$always_on_before"'
+        )
+        self.assertLess(saved, suspended)
+        self.assertLess(suspended, instrumented)
+        self.assertLess(restored, suspended)
+        self.assertIn('am force-stop "$always_on_before"', runner)
+
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
     ) -> None:

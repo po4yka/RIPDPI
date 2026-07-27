@@ -130,6 +130,15 @@ fi
 if "${adb[@]}" shell pm path com.poyka.ripdpi.test 2>/dev/null | grep -q '^package:'; then
     test_preinstalled=1
 fi
+if [[ "$always_on_before" != "null" && ! "$always_on_before" =~ ^[A-Za-z0-9._]+$ ]]; then
+    echo "The saved always-on VPN package name is invalid." >&2
+    exit 2
+fi
+"${adb[@]}" shell settings put secure always_on_vpn_lockdown 0
+"${adb[@]}" shell settings delete secure always_on_vpn_app >/dev/null
+if [[ "$always_on_before" != "null" ]]; then
+    "${adb[@]}" shell am force-stop "$always_on_before"
+fi
 
 mkdir -p "$output_dir"
 chmod 0700 "$output_dir"
