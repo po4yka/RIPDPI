@@ -85,7 +85,9 @@ private class FakeServiceController(
     private val stateStore: FakeServiceStateStore? = null,
 ) : ServiceController {
     val startCalls = mutableListOf<Mode>()
+    val transportRestartCalls = mutableListOf<Mode>()
     val stopCalls = mutableListOf<Unit>()
+    val actualStopCalls = mutableListOf<Unit>()
 
     override fun start(mode: Mode): ServiceStartResult {
         startCalls += mode
@@ -93,8 +95,17 @@ private class FakeServiceController(
     }
 
     override fun stop() {
-        stopCalls += Unit
+        actualStopCalls += Unit
         stateStore?.setStatus(AppStatus.Halted, Mode.VPN)
+    }
+
+    override fun restartVpnForTransportFailover(): ServiceStartResult {
+        transportRestartCalls += Mode.VPN
+        // Keep the legacy counters populated so the existing switch-budget tests
+        // remain focused on how many replacements were requested.
+        stopCalls += Unit
+        startCalls += Mode.VPN
+        return ServiceStartResult.Accepted(Mode.VPN)
     }
 }
 
@@ -527,7 +538,7 @@ class FailoverCoordinatorTest {
         }
 
     @Test
-    fun restartWaitsForHaltedStatusBeforeStartingReplacement() =
+    fun transportSwitchRequestsInSessionRestartWithoutStoppingService() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val controller = FakeServiceController()
@@ -547,12 +558,11 @@ class FailoverCoordinatorTest {
             clock.advance(21_000L)
             stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
 
-            assertEquals(1, controller.stopCalls.size)
-            assertEquals(0, controller.startCalls.size)
-
-            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
-
-            assertEquals(1, controller.startCalls.size)
+            assertEquals(listOf(Mode.VPN), controller.transportRestartCalls)
+            assertEquals(0, controller.actualStopCalls.size)
+            assertEquals(AppStatus.Running to Mode.VPN, stateStore.status.value)
+            assertTrue(coordinator.shouldSkipInitialRelayRace())
+            assertFalse(coordinator.shouldSkipInitialRelayRace())
             coordinator.stopObserving()
         }
 
@@ -994,17 +1004,13 @@ class FailoverCoordinatorTest {
     }
 
     /**
-     * A self-induced restart (stopObserving + startObserving with the same candidate set)
-     * preserves activeCandidateIndex, switchesInCycle, and lastSwitchAt in memory.
-     *
-     * Without this: every session restart resets index to 0, so Reality→Hysteria2
-     * would loop forever and never advance to AWG or back off.
+     * An in-session restart preserves activeCandidateIndex, switchesInCycle, and
+     * lastSwitchAt because observation never leaves the Running VPN session.
      *
      * Sequence:
      *   1. startObserving → Reality active (index 0, switchesInCycle=0)
      *   2. sustained failure → SWITCH 1: Reality→Hysteria2 (switchesInCycle=1)
-     *   3. self-restart: stopObserving + startObserving (same candidates)
-     *      → index preserved at 1 (Hysteria2), switchesInCycle=1, lastSwitchAt preserved
+     *   3. in-session restart keeps index 1, switchesInCycle=1, lastSwitchAt preserved
      *   4. continuous failure (no healthy) → need debounce AND min-interval
      *      → SWITCH 2: Hysteria2→AWG (switchesInCycle=2)
      *   5. continuous failure → switchesInCycle=2 >= candidates.size-1=2 → BACKOFF
@@ -1012,13 +1018,12 @@ class FailoverCoordinatorTest {
      *
      * Timing (debounce=20 000 ms, min-interval=30 000 ms):
      *   t=22 000  SWITCH 1; lastSwitchAt=22 000, switchesInCycle=1
-     *   t=22 500  stopObserving + startObserving (same candidates, preserved)
      *   t=23 500  failed → failingsSince=23 500
      *   t=54 500  failed → elapsed=31 000 >= 20 000, 54 500-22 000=32 500 >= 30 000 → SWITCH 2
      *   t=86 500  failed → switchesInCycle=2 >= 2 → BACKOFF, no switch 3
      */
     @Test
-    fun budgetSurvivesSelfRestart() =
+    fun budgetSurvivesInSessionRestart() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val clock = FakeFailoverClock(now = 0L)
@@ -1054,12 +1059,10 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
             assertEquals("Switch 1 expected", 1, controller.stopCalls.size)
 
-            // Self-induced restart at t≈22500ms.
+            // The service recomposes in-session; the observer and budget stay active.
             clock.advance(500L)
-            coordinator.stopObserving()
-            coordinator.startObserving(observeScope)
 
-            // activeCandidate must be Hysteria2 (index preserved, NOT reset to Reality).
+            // activeCandidate remains Hysteria2 (index preserved, NOT reset to Reality).
             val afterRestart = coordinator.activeCandidate.value
             assertNotNull("activeCandidate must be non-null after self-restart", afterRestart)
             check(afterRestart is FailoverCandidate.Relay) {
@@ -1361,35 +1364,7 @@ class FailoverCoordinatorTest {
             coordinator.stopObserving()
         }
 
-    /**
-     * REGRESSION GUARD for the selfInducedRestart fix.
-     *
-     * A genuine user stop (where selfInducedRestart is false) MUST reset the
-     * back-off budget. Contrast with [budgetSurvivesSelfRestart] where the budget
-     * persists across a self-induced restart.
-     *
-     * The key subtlety: [performSwitch] sets selfInducedRestart=true before calling
-     * serviceController.stop(). That marker is consumed (cleared) by the NEXT
-     * [startObserving] call (the self-induced restart leg). Only AFTER that
-     * consumption is the marker false again, so the subsequent genuine stop resets
-     * the budget.
-     *
-     * Sequence:
-     *   1. startObserving → Reality active.
-     *   2. Sustained failure → SWITCH 1: Reality→Hysteria2 (selfInducedRestart=true set).
-     *   3. Self-induced startObserving: consumes marker → selfInducedRestart=false,
-     *      budget preserved (switchesInCycle=1, lastSwitchAt=22 000).
-     *   4. Genuine stopObserving (selfInducedRestart=false) → budget RESET.
-     *   5. startObserving again → fresh from Reality (index=0, switchesInCycle=0).
-     *   6. Fresh sustained failure burst → switch fires proving budget was reset.
-     *
-     * Timing:
-     *   t=22 000  SWITCH 1 (Reality→Hysteria2); selfInducedRestart=true
-     *   t=22 500  Self-induced startObserving (consumes marker); selfInducedRestart=false
-     *   t=23 000  Genuine stopObserving → budget reset
-     *   t=23 000  startObserving fresh (lastSwitchAt=0, switchesInCycle=0)
-     *   t=44 000  Fresh burst → SWITCH (treated as switch 1 of fresh cycle)
-     */
+    /** A genuine user stop resets the budget retained by in-session transport failover. */
     @Test
     fun `genuine user restart resets back-off budget`() =
         runTest {
@@ -1413,7 +1388,6 @@ class FailoverCoordinatorTest {
             coordinator.startObserving(observeScope)
 
             // ── Switch 1: Reality → Hysteria2 at t=22 000 ────────────────────
-            // This sets selfInducedRestart=true inside performSwitch.
             clock.advance(1_000L)
             stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
             clock.advance(7_000L)
@@ -1425,30 +1399,11 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
             assertEquals("Switch 1 expected", 1, controller.stopCalls.size)
 
-            // ── Self-induced restart at t=22 500 ──────────────────────────────
-            // Simulates what bind() would do after the self-induced Halted+Running cycle.
-            // startObserving consumes selfInducedRestart=true → clears to false,
-            // preserves budget (switchesInCycle=1, lastSwitchAt=22 000).
-            clock.advance(500L) // t=22 500
-            coordinator.startObserving(observeScope)
-            advanceUntilIdle()
-
-            val afterSelfRestart = coordinator.activeCandidate.value
-            assertNotNull("activeCandidate must be non-null after self-induced restart", afterSelfRestart)
-            check(afterSelfRestart is FailoverCandidate.Relay)
-            assertEquals(
-                "Self-induced restart must preserve Hysteria2 (budget survived)",
-                RelayKindHysteria2,
-                afterSelfRestart.relayKind,
-            )
-
-            // ── Genuine user stop at t=23 000 (selfInducedRestart=false) ─────
-            // selfInducedRestart was consumed by startObserving above → now false.
-            // stopObserving sees it false → resets budget.
-            clock.advance(500L) // t=23 000
+            // ── Genuine user stop at t=23 000 ────────────────────────────────
+            clock.advance(1_000L) // t=23 000
             coordinator.stopObserving()
 
-            // ── Fresh startObserving: budget reset (initialized=false path) ───
+            // ── Fresh startObserving: budget reset ───────────────────────────
             coordinator.startObserving(observeScope)
             advanceUntilIdle()
 
@@ -1559,19 +1514,15 @@ class FailoverCoordinatorTest {
      *
      * Sequence:
      *   1. Drive to backedOff (exhaust all 3 candidates).
-     *   2. Consume the selfInducedRestart marker via a self-induced startObserving
-     *      (this mirrors the bind() behaviour after switch 2's stop+start).
-     *   3. Genuine stopObserving (selfInducedRestart=false) → budget reset.
-     *   4. startObserving → fresh cycle (switchesInCycle=0, lastSwitchAt=0).
-     *   5. Sustained failure burst → switch fires, proving back-off was cleared.
+     *   2. Genuine stopObserving resets the budget.
+     *   3. startObserving opens a fresh cycle (switchesInCycle=0, lastSwitchAt=0).
+     *   4. Sustained failure burst triggers a switch, proving back-off was cleared.
      *
      * Timing (debounce=20 000 ms, min-interval=30 000 ms):
-     *   t=22 000  SWITCH 1 (Reality→Hysteria2); selfInducedRestart=true set
-     *   t=22 500  Self-induced startObserving → consumes marker, budget preserved
-     *   t=54 500  SWITCH 2 (Hysteria2→AWG); selfInducedRestart=true set again
-     *   t=55 000  Self-induced startObserving → consumes marker, budget preserved
+     *   t=22 000  SWITCH 1 (Reality→Hysteria2)
+     *   t=54 500  SWITCH 2 (Hysteria2→AWG)
      *   t=87 000  Back-off attempt (switchesInCycle=2 >= 2) → backedOff=true, no stop
-     *   t=87 500  Genuine stopObserving (selfInducedRestart=false) → budget reset
+     *   t=87 500  Genuine stopObserving → budget reset
      *   t=87 500  startObserving fresh → switchesInCycle=0, lastSwitchAt=0
      *   t=108 500 Fresh burst → SWITCH fires
      */
@@ -1611,14 +1562,12 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
             assertEquals("Switch 1 expected", 1, controller.stopCalls.size)
 
-            // Self-induced restart at t=22 500: consumes selfInducedRestart marker,
-            // preserving budget (switchesInCycle=1, lastSwitchAt=22 000).
+            // In-session restart preserves budget; a fresh failure starts the next debounce.
             clock.advance(500L) // t=22 500
-            coordinator.startObserving(observeScope)
-            advanceUntilIdle()
+            stateStore.emitTelemetry(bothFailed())
 
             // ── Switch 2: Hysteria2 → AWG at t=54 500 ─────────────────────────
-            // failingsSince set by the current StateFlow value on startObserving (t=22 500).
+            // failingsSince was set by the t=22 500 failure.
             // Advance to t=54 500: elapsed = 54 500-22 500 = 32 000 >= 20 000
             // AND 54 500-22 000 = 32 500 >= 30 000 → SWITCH 2.
             clock.advance(32_000L) // t=54 500
@@ -1626,10 +1575,9 @@ class FailoverCoordinatorTest {
             advanceUntilIdle()
             assertEquals("Switch 2 expected", 2, controller.stopCalls.size)
 
-            // Self-induced restart at t=55 000: consumes selfInducedRestart marker again.
+            // The next in-session candidate starts a fresh debounce window.
             clock.advance(500L) // t=55 000
-            coordinator.startObserving(observeScope)
-            advanceUntilIdle()
+            stateStore.emitTelemetry(bothFailed())
 
             // ── Back-off at t=87 000 ───────────────────────────────────────────
             // switchesInCycle=2 >= candidates.size-1=2 → performSwitch sets backedOff=true.
@@ -1641,8 +1589,7 @@ class FailoverCoordinatorTest {
             assertEquals("No switch 3 — coordinator must back off", 2, controller.stopCalls.size)
 
             // ── Genuine stop at t=87 500 ──────────────────────────────────────
-            // selfInducedRestart was consumed by the last startObserving → now false.
-            // stopObserving with selfInducedRestart=false → budget RESET.
+            // A genuine session stop resets the budget.
             clock.advance(500L) // t=87 500
             coordinator.stopObserving()
 

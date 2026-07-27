@@ -67,6 +67,7 @@ internal class VpnServiceSessionLifecycle(
                     )
                 },
                 onStop = runtimeCoordinator::stop,
+                onTransportFailoverRestart = runtimeCoordinator::restartAfterTransportFailover,
                 isStopAllowed = service::isUserStopAllowed,
                 onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
                 onAcceptedStop = acceptedUserStopRecorder::record,

@@ -381,6 +381,31 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun transportFailoverRecomposesBehindTunWithoutStoppingVpnService() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(mode = Mode.VPN, policySignature = "transport-failover"),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            env.coordinator.restartAfterTransportFailover()
+            runCurrent()
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+            assertEquals(2, env.factory.runtimes.size)
+            assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertTrue(env.events.indexOf("proxy:stop") < env.events.lastIndexOf("vpn:establish"))
+        }
+
+    @Test
     fun dnsRefreshReusesCurrentProxyEndpointAndCredentials() =
         runTest {
             val env =

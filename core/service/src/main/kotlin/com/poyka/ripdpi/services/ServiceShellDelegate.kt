@@ -15,6 +15,7 @@ internal const val notificationStopAction = "notification_stop"
 internal const val diagnosticsStopAction = "diagnostics_stop"
 internal const val diagnosticsStartAction = "diagnostics_start"
 internal const val diagnosticsCompensatingStopAction = "diagnostics_compensating_stop"
+internal const val transportFailoverRestartAction = "transport_failover_restart"
 
 internal fun isServiceRecoveryStartAction(action: String?): Boolean =
     action == null || action == VpnService.SERVICE_INTERFACE
@@ -25,6 +26,7 @@ internal class ServiceShellDelegate(
     private val onStart: suspend () -> Unit,
     private val onRecoveryStart: suspend () -> Unit = onStart,
     private val onStop: suspend (Int?) -> Unit,
+    private val onTransportFailoverRestart: suspend () -> Unit = onStart,
     private val isStopAllowed: (String) -> Boolean = { true },
     private val onAcceptedStart: () -> Unit = {},
     private val onAcceptedStop: () -> Unit = {},
@@ -62,6 +64,11 @@ internal class ServiceShellDelegate(
 
             diagnosticsStartAction -> {
                 enqueue(onStart)
+                android.app.Service.START_STICKY
+            }
+
+            transportFailoverRestartAction -> {
+                enqueue(onTransportFailoverRestart)
                 android.app.Service.START_STICKY
             }
 

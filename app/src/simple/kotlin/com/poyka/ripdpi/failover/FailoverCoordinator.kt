@@ -23,15 +23,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URI
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -50,9 +47,6 @@ internal const val FAILOVER_DEBOUNCE_MS = 20_000L
  * rapid oscillation (flapping) when all candidates are degraded.
  */
 internal const val FAILOVER_MIN_INTERVAL_MS = 30_000L
-
-/** Maximum time to wait for the old VPN session to halt before attempting recovery. */
-internal const val FAILOVER_STOP_TIMEOUT_MS = 15_000L
 
 /**
  * Opaque clock interface so tests can inject a fake without calling
@@ -185,22 +179,8 @@ class FailoverCoordinator
         /** Switches performed since the last healthy observation; drives back-off. */
         private var switchesInCycle: Int = 0
 
-        /**
-         * `true` once candidate state has been initialised for the current candidate set.
-         * Lets [startObserving] preserve the in-memory index and back-off budget across a
-         * self-induced session restart (stop+start) instead of resetting them, which would
-         * otherwise make failover loop forever and never back off.
-         */
-        private var initialized: Boolean = false
-
-        /**
-         * `true` while a [performSwitch]-issued restart is in flight. Distinguishes a
-         * self-induced stop+start (which must PRESERVE the back-off budget) from a genuine
-         * user-initiated session end (which must RESET it). Set in [performSwitch] before
-         * the restart, consumed by [startObserving], and the only thing that lets
-         * [stopObserving] tell the two cases apart — both arrive as [AppStatus.Halted].
-         */
-        private var selfInducedRestart: Boolean = false
+        /** One-shot guard so an in-session failover starts the selected candidate directly. */
+        private var skipNextInitialRelayRace: Boolean = false
 
         private var initialRaceSelection: FailoverCandidate.Relay? = null
 
@@ -216,7 +196,10 @@ class FailoverCoordinator
             autoFailoverEnabled.value = enabled
         }
 
-        override fun shouldSkipInitialRelayRace(): Boolean = selfInducedRestart
+        override fun shouldSkipInitialRelayRace(): Boolean =
+            skipNextInitialRelayRace.also { shouldSkip ->
+                if (shouldSkip) skipNextInitialRelayRace = false
+            }
 
         override fun recordInitialRelaySelection(
             profileId: String,
@@ -248,35 +231,23 @@ class FailoverCoordinator
                     val rebuilt = buildCandidates()
                     if (rebuilt.size < 2) {
                         candidates = rebuilt
-                        initialized = false
                         Logger.i { "FailoverCoordinator: fewer than 2 candidates — staying inert" }
                         return@launch
                     }
-                    // Only a self-induced restart (same candidate set, marker set by
-                    // performSwitch) preserves the budget. A genuine fresh user start —
-                    // even with an unchanged candidate set — re-initialises.
-                    val resumed = initialized && selfInducedRestart && rebuilt == candidates
-                    selfInducedRestart = false
                     candidates = rebuilt
-                    if (!resumed) {
-                        // Fresh session or the candidate set changed: initialise from the
-                        // persisted transport. A self-induced restart (same set, already
-                        // initialised) instead preserves the index and back-off budget.
-                        val racedIndex =
-                            initialRaceSelection?.let { selection ->
-                                rebuilt
-                                    .indexOfFirst { candidate ->
-                                        candidate is FailoverCandidate.Relay &&
-                                            candidate.profileId == selection.profileId &&
-                                            candidate.relayKind == selection.relayKind
-                                    }.takeIf { it >= 0 }
-                            }
-                        activeCandidateIndex = racedIndex ?: resumeIndex()
-                        switchesInCycle = 0
-                        backedOff = false
-                        lastSwitchAt = 0L
-                        initialized = true
-                    }
+                    val racedIndex =
+                        initialRaceSelection?.let { selection ->
+                            rebuilt
+                                .indexOfFirst { candidate ->
+                                    candidate is FailoverCandidate.Relay &&
+                                        candidate.profileId == selection.profileId &&
+                                        candidate.relayKind == selection.relayKind
+                                }.takeIf { it >= 0 }
+                        }
+                    activeCandidateIndex = racedIndex ?: resumeIndex()
+                    switchesInCycle = 0
+                    backedOff = false
+                    lastSwitchAt = 0L
                     initialRaceSelection = null
                     // The debounce window always restarts for a new session.
                     failingsSince = null
@@ -285,7 +256,7 @@ class FailoverCoordinator
                     setActiveCandidate(candidates[activeCandidateIndex])
                     Logger.i {
                         "FailoverCoordinator: watching ${candidates.size} candidates, " +
-                            "active=${candidates[activeCandidateIndex]} (resumed=$resumed)"
+                            "active=${candidates[activeCandidateIndex]}"
                     }
                     observeLoop()
                 }.also { job ->
@@ -296,9 +267,8 @@ class FailoverCoordinator
         /**
          * Stop observing and clear the active candidate. Safe to call from any context.
          *
-         * On a genuine session end (not a [performSwitch] self-restart) this also clears
-         * the back-off budget so the next fresh start re-evaluates from a clean slate;
-         * a self-induced restart preserves it via [selfInducedRestart].
+         * A session end also clears the back-off budget so the next fresh start
+         * re-evaluates from a clean slate.
          *
          * // cancel-safe: cancels the child job only
          */
@@ -309,14 +279,11 @@ class FailoverCoordinator
             failingsSince = null
             observedProxyTotalErrors = null
             suspectedRelayFailure = false
-            if (!selfInducedRestart) {
-                awgEgressSelection.clear()
-                initialized = false
-                backedOff = false
-                switchesInCycle = 0
-                lastSwitchAt = 0L
-                activeCandidateIndex = 0
-            }
+            awgEgressSelection.clear()
+            backedOff = false
+            switchesInCycle = 0
+            lastSwitchAt = 0L
+            activeCandidateIndex = 0
         }
 
         /** Updates [_activeCandidate] and the derived [_activeTransport] together. */
@@ -474,14 +441,9 @@ class FailoverCoordinator
          * If advancing would wrap back to index 0 we have exhausted all candidates;
          * set [backedOff] and stop switching until a healthy emission resets state.
          *
-         * // NOT cancel-safe: waits for service state and suspends in [settingsRepository.update].
-         * The stop→halted→start restart runs inside [NonCancellable] so it completes
-         * atomically: the self-induced [AppStatus.Halted] makes [bind] cancel [observeJob]
-         * (which is running this very function), but the restart must still reach
-         * [serviceController.start] or the session is stranded in [AppStatus.Halted] with
-         * no recovery path. The cooperative cancellation is observed after the restart,
-         * cleanly terminating the old observe loop while [bind]'s next (Running, VPN)
-         * emission relaunches [startObserving].
+         * // NOT cancel-safe: suspends while persisting the next candidate. The accepted
+         * restart is an in-session recompose: the existing TUN remains a fail-closed barrier
+         * and Android lockdown does not have to permit a user-style service Stop.
          */
         private suspend fun performSwitch(now: Long) {
             if (switchesInCycle >= candidates.size - 1) {
@@ -512,34 +474,10 @@ class FailoverCoordinator
             switchesInCycle++
             setActiveCandidate(nextCandidate)
 
-            // Mark the restart as self-induced BEFORE stopping so the bind collector, which
-            // sees the resulting Halted and calls stopObserving, preserves the budget instead
-            // of treating it as a user-initiated session end.
-            selfInducedRestart = true
-
-            // Session restart: wait for the asynchronous service stop to complete before
-            // starting the replacement. VPN consent is already granted; start(Mode.VPN)
-            // reuses it without prompting. Wrapped in NonCancellable so the self-induced
-            // Halted (which makes bind cancel this job) cannot abort the restart mid-way.
-            val result =
-                withContext(NonCancellable) {
-                    serviceController.stop()
-                    val halted =
-                        withTimeoutOrNull(FAILOVER_STOP_TIMEOUT_MS) {
-                            serviceStateStore.status.first { (status, mode) ->
-                                status == AppStatus.Halted && mode == Mode.VPN
-                            }
-                        } != null
-                    if (!halted) {
-                        Logger.w { "FailoverCoordinator: timed out waiting for the previous VPN session to halt" }
-                    }
-                    serviceController.start(Mode.VPN)
-                }
+            skipNextInitialRelayRace = true
+            val result = serviceController.restartVpnForTransportFailover()
             if (result is ServiceStartResult.Rejected) {
-                // No (Running, VPN) emission will follow, so bind never relaunches
-                // startObserving to consume the marker — clear it here so a later genuine
-                // user start is treated as fresh and resets the back-off budget.
-                selfInducedRestart = false
+                skipNextInitialRelayRace = false
                 Logger.w { "FailoverCoordinator: restart rejected — ${result.reason}" }
             }
         }

@@ -95,6 +95,32 @@ class ServiceShellDelegateTest {
         }
 
     @Test
+    fun `transport failover recomposes without a stop while lockdown forbids disconnect`() =
+        runTest {
+            var startCalls = 0
+            var restartCalls = 0
+            val stopIds = mutableListOf<Int?>()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { startCalls += 1 },
+                    onStop = { stopIds += it },
+                    onTransportFailoverRestart = { restartCalls += 1 },
+                    isStopAllowed = { false },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            val result = delegate.onStartCommand(transportFailoverRestartAction, 8)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(1, restartCalls)
+            assertEquals(0, startCalls)
+            assertEquals(emptyList<Int?>(), stopIds)
+        }
+
+    @Test
     fun `stop action checks current policy for stale notification intent`() =
         runTest {
             var stopAllowed = true

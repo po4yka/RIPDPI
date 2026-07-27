@@ -75,6 +75,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -368,6 +369,40 @@ internal class VpnServiceRuntimeCoordinator(
         appliedAt: Long,
     ) {
         runtimeCompositionCoordinator.restartAfterHandover(session, resolution, appliedAt)
+    }
+
+    /**
+     * Applies a Simple-flavor transport failover inside the active VPN session.
+     *
+     * The installed TUN remains the fail-closed barrier while the proxy/relay stack is
+     * replaced, so Android lockdown never has to permit a user-style service Stop.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun restartAfterTransportFailover() {
+        mutex.withLock {
+            val session = runtimeSession
+            if (status != ServiceStatus.Connected || stopping || session == null) {
+                Logger.w { "Ignoring transport failover restart while VPN runtime is not connected" }
+                return
+            }
+            handoverRestarting = true
+            try {
+                val resolution = resolveInitialConnectionPolicy()
+                withContext(NonCancellable) {
+                    runtimeCompositionCoordinator.restartAfterPolicyChange(
+                        session = session,
+                        resolution = resolution,
+                        appliedAt = clock.nowMillis(),
+                        restartReason = "transport_failover",
+                    )
+                }
+            } catch (error: Exception) {
+                updateStatus(ServiceStatus.Failed, classifyFailureReason(error, isTunnelContext = true))
+                throw error
+            } finally {
+                handoverRestarting = false
+            }
+        }
     }
 
     private fun updateStatus(

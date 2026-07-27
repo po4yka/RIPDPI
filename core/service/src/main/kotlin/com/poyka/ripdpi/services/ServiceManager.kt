@@ -31,6 +31,9 @@ interface ServiceController {
 
     fun stop()
 
+    /** Recompose the active VPN transport without accepting a user Stop or releasing the TUN barrier. */
+    fun restartVpnForTransportFailover(): ServiceStartResult = start(Mode.VPN)
+
     /** Internal diagnostics resume that must not replace explicit user intent. */
     fun startForDiagnostics(mode: Mode): ServiceStartResult = start(mode)
 
@@ -242,6 +245,9 @@ class DefaultServiceController
                 stopInternal(action = stopAction)
             }
         }
+
+        override fun restartVpnForTransportFailover(): ServiceStartResult =
+            startInternal(Mode.VPN, transportFailoverRestartAction)
 
         override fun stopForDiagnostics() {
             stopInternal(action = diagnosticsStopAction)

@@ -150,6 +150,31 @@ class ServiceControllerForegroundDenialTest {
     }
 
     @Test
+    fun transportFailoverUsesInternalVpnRestartAction() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = ServiceIntentArbiter(),
+            )
+
+        val result = controller.restartVpnForTransportFailover()
+
+        assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
+        assertEquals(transportFailoverRestartAction, starter.lastIntent?.action)
+        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+    }
+
+    @Test
     fun explicitStopRequestPreservesRunningMarkerUntilServiceAcceptsIt() {
         val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
         val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
