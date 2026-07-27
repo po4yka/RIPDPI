@@ -9,12 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  capture-validate-publish:
-    runs-on: [self-hosted, linux, ripdpi-network-evidence, physical-android]
-    timeout-minutes: 90
-    env:
-      EVIDENCE_CONFIG: /etc/ripdpi/network-evidence-runner.json
-      EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+  build-evidence-apks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -23,6 +20,51 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "true"
+          gradle-cache-read-only: "false"
+
+      - name: Build exact-SHA arm64 evidence APKs
+        run: |
+          ./gradlew --no-daemon :app:assembleGithubFullDebug \
+            :app:assembleGithubFullDebugAndroidTest \
+            -Pripdpi.nativeAbisOverride=arm64-v8a \
+            -Pripdpi.enableAbiSplits=false
+          mapfile -t apks < <(find app/build/outputs/apk -type f -name '*.apk' ! -name '*androidTest*')
+          test "${#apks[@]}" -eq 1
+          mapfile -t test_apks < <(find app/build/outputs/apk/androidTest -type f -name '*.apk')
+          test "${#test_apks[@]}" -eq 1
+          mkdir -p "$RUNNER_TEMP/evidence-apks"
+          cp "${apks[0]}" "$RUNNER_TEMP/evidence-apks/client.apk"
+          cp "${test_apks[0]}" "$RUNNER_TEMP/evidence-apks/test.apk"
+
+      - name: Upload exact-SHA evidence APKs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dns-ipv6-killswitch-evidence-apks
+          path: ${{ runner.temp }}/evidence-apks
+          if-no-files-found: error
+          retention-days: 3
+
+  capture-validate-publish:
+    needs: build-evidence-apks
+    runs-on: [self-hosted, linux, ripdpi-network-evidence, physical-android]
+    timeout-minutes: 90
+    env:
+      EVIDENCE_CONFIG: /etc/ripdpi/network-evidence-runner.json
+      EVIDENCE_OUTPUT_NAME: dns-ipv6-killswitch-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Download exact-SHA evidence APKs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dns-ipv6-killswitch-evidence-apks
+          path: ${{ runner.temp }}/evidence-apks
 
       - name: Require physical dual-vantage runner
         run: |
@@ -37,25 +79,15 @@ jobs:
           test "${device_serial#emulator-}" = "$device_serial"
           test "$(adb -s "$device_serial" shell getprop ro.kernel.qemu | tr -d '\r')" != "1"
 
-      - name: Build, install, and measure the exact-SHA client
+      - name: Install and measure the exact-SHA client
         run: |
           device_serial="$(adb devices | awk '$2 == "device" { print $1 }')"
           device_abi="$(adb -s "$device_serial" shell getprop ro.product.cpu.abi | tr -d '\r')"
-          case "$device_abi" in
-            arm64-v8a|armeabi-v7a|x86|x86_64) ;;
-            *) echo "unsupported physical device ABI" >&2; exit 1 ;;
-          esac
-          rm -rf app/build/outputs/apk
-          ./gradlew --no-daemon :app:assembleGithubFullDebug \
-            :app:assembleGithubFullDebugAndroidTest \
-            "-Pripdpi.nativeAbisOverride=$device_abi" \
-            -Pripdpi.enableAbiSplits=false
-          mapfile -t apks < <(find app/build/outputs/apk -type f -name '*.apk' ! -name '*androidTest*')
-          test "${#apks[@]}" -eq 1
-          apk="${apks[0]}"
-          mapfile -t test_apks < <(find app/build/outputs/apk/androidTest -type f -name '*.apk')
-          test "${#test_apks[@]}" -eq 1
-          test_apk="${test_apks[0]}"
+          test "$device_abi" = arm64-v8a
+          apk="$RUNNER_TEMP/evidence-apks/client.apk"
+          test_apk="$RUNNER_TEMP/evidence-apks/test.apk"
+          test -f "$apk"
+          test -f "$test_apk"
           adb -s "$device_serial" install -r -d "$apk"
           adb -s "$device_serial" install -r -d "$test_apk"
           remote_apk="$(adb -s "$device_serial" shell pm path com.poyka.ripdpi | sed -n 's/^package://p' | tr -d '\r')"
