@@ -488,6 +488,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b25655df2c3cdd83c5e5b293b88acd880332b2ddadd7c30ac43144fdc0033da9"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -704,7 +710,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15dd6a8a89cbe8997f37ca0cf035e6ea4d64cd2ecea4aed83ffb9f99f7126939"
 dependencies = [
  "aead 0.5.2",
- "base64",
+ "base64 0.22.1",
  "blake2 0.10.6",
  "chacha20poly1305 0.10.1",
  "hex",
@@ -1612,7 +1618,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "sha3 0.11.0",
+ "sha3 0.12.0",
  "strum",
  "syn 2.0.119",
  "unicode-ident",
@@ -2661,7 +2667,7 @@ version = "7.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f49d1053f4708f0af3cf9fc5bffc7e68a914a3c45becb231c80068c9c3f78bea"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "byteorder",
  "crossbeam-channel",
  "flate2",
@@ -2949,7 +2955,7 @@ version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96547c2556ec9d12fb1578c4eaf448b04993e7fb79cbaad930a656880a6bdfa0"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "bytes",
  "futures-channel",
  "futures-util",
@@ -3527,7 +3533,7 @@ checksum = "23fb14cb19457329c82206317a5663005a4d404783dc74f4252769b0d5f42856"
 name = "local-network-fixture"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "boring",
  "bytes",
  "crypto_box",
@@ -4363,7 +4369,7 @@ version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d30c53c26bc5b31a98cd02d20f25a7c8567146caf63ed593a9d87b2775291be"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "serde_core",
 ]
 
@@ -5163,7 +5169,7 @@ version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "219c5811de6525e5416c7d5d53bb656d3afdbc6c5af816e0802bcfa42dbdc1c3"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "bytes",
  "futures-core",
  "h2",
@@ -5324,7 +5330,7 @@ name = "ripdpi-android-fetch-adapter"
 version = "0.1.0"
 dependencies = [
  "android-support",
- "base64",
+ "base64 0.23.0",
  "bytes",
  "golden-test-support",
  "http",
@@ -5353,7 +5359,7 @@ dependencies = [
 name = "ripdpi-android-platform-adapter"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "jni",
  "ripdpi-diagnostics-dns",
  "ripdpi-dns-resolver",
@@ -5436,7 +5442,7 @@ dependencies = [
 name = "ripdpi-apps-script-core"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "flate2",
  "rcgen",
  "ripdpi-packets",
@@ -5980,7 +5986,7 @@ dependencies = [
 name = "ripdpi-naiveproxy"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "bytes",
  "golden-test-support",
  "http",
@@ -6086,7 +6092,7 @@ name = "ripdpi-proxy-runtime"
 version = "0.1.0"
 dependencies = [
  "aes 0.9.1",
- "base64",
+ "base64 0.23.0",
  "ctr 0.10.1",
  "libc",
  "local-network-fixture",
@@ -6113,7 +6119,7 @@ dependencies = [
 name = "ripdpi-proxy-runtime-adapter"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "daemonize",
  "libc",
  "metrics",
@@ -6403,7 +6409,7 @@ version = "0.1.0"
 dependencies = [
  "aes 0.9.1",
  "aes-gcm 0.11.0",
- "base64",
+ "base64 0.23.0",
  "blake3",
  "bytes",
  "chacha20poly1305 0.11.0",
@@ -6435,7 +6441,7 @@ dependencies = [
 name = "ripdpi-shared-priors"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "rand 0.10.2",
  "ring",
  "serde",
@@ -6459,7 +6465,7 @@ dependencies = [
 name = "ripdpi-ssh"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "ripdpi-native-protect",
  "russh",
  "thiserror 2.0.19",
@@ -6766,7 +6772,7 @@ name = "ripdpi-vless"
 version = "0.1.0"
 dependencies = [
  "aes 0.9.1",
- "base64",
+ "base64 0.23.0",
  "boring",
  "foreign-types-shared",
  "futures",
@@ -6821,7 +6827,7 @@ name = "ripdpi-warp-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64",
+ "base64 0.23.0",
  "blake2 0.10.6",
  "boringtun",
  "bytes",
@@ -7502,7 +7508,7 @@ version = "3.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76a5c54c7310e7b8b9577c286d7e399ddd876c3e12b3ed917a8aabc4b96e9e8c"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "bs58",
  "chrono",
  "hex",

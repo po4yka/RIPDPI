@@ -318,7 +318,7 @@ hyper = { version = "1", features = ["client", "server", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 bytes = "1"
 http = "1"
-base64 = "0.22"
+base64 = "0.23"
 http-body-util = "0.1"
 blake2 = "0.10"
 futures = "0.3"
