@@ -55,10 +55,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
-import java.net.DatagramPacket
-import java.net.DatagramSocket
 import java.net.InetAddress
-import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.security.KeyPairGenerator
 import java.security.KeyStore
@@ -416,8 +413,18 @@ class AndroidOrdinaryPhysicalEvidenceTest {
 
     private fun queryAaaa(actionId: String): JSONObject {
         val started = now()
-        val answers = ordinaryAaaaQuery(controlIpv4, dnsPort, "$actionId.ordinary.fixture.test")
+        val result =
+            testProcessDnsProbe(
+                queryHost = "$actionId.ordinary.fixture.test",
+                serverHost = controlIpv4,
+                serverPort = dnsPort,
+                queryType = DnsQueryTypeAaaa,
+                timeoutMs = 4_000,
+            )
         val finished = now()
+        assertTrue("AAAA probe failed: ${result.failureKind}", result.ok)
+        assertTrue("AAAA probe returned rcode ${result.rcode}", result.rcode == 0)
+        val answers = result.answers
         val recordedAnswers =
             if (actionId == "ipv4-only") {
                 assertTrue(answers.isEmpty())
@@ -734,75 +741,4 @@ private class OrdinaryFaultingProxyFactory : RipDpiProxyFactory {
         forcedExit.set(code)
         runBlocking { requireNotNull(active).stopProxy() }
     }
-}
-
-private fun ordinaryAaaaQuery(
-    server: String,
-    port: Int,
-    name: String,
-): List<String> {
-    val id = (System.nanoTime() and 0xffff).toInt()
-    val query = ArrayList<Byte>()
-
-    fun word(value: Int) {
-        query.add(((value ushr 8) and 0xff).toByte())
-        query.add((value and 0xff).toByte())
-    }
-    word(id)
-    word(0x0100)
-    word(1)
-    word(0)
-    word(0)
-    word(0)
-    name.split('.').forEach { label ->
-        query.add(label.length.toByte())
-        label.toByteArray(StandardCharsets.US_ASCII).forEach(query::add)
-    }
-    query.add(0)
-    word(28)
-    word(1)
-    val raw = query.toByteArray()
-    val response = ByteArray(2048)
-    DatagramSocket().use { socket ->
-        socket.soTimeout = 4_000
-        socket.send(DatagramPacket(raw, raw.size, InetAddress.getByName(server), port))
-        val packet = DatagramPacket(response, response.size)
-        socket.receive(packet)
-        return parseOrdinaryAaaa(response.copyOf(packet.length))
-    }
-}
-
-private fun parseOrdinaryAaaa(raw: ByteArray): List<String> {
-    require(raw.size >= 12)
-    val answers = ((raw[6].toInt() and 0xff) shl 8) or (raw[7].toInt() and 0xff)
-    var offset = 12
-
-    fun skipName(): Int {
-        while (true) {
-            val length = raw[offset].toInt() and 0xff
-            if (length and 0xc0 == 0xc0) {
-                offset += 2
-                return offset
-            }
-            offset += 1
-            if (length == 0) return offset
-            offset += length
-        }
-    }
-    skipName()
-    offset += 4
-    val result = mutableListOf<String>()
-    repeat(answers) {
-        skipName()
-        val type = ((raw[offset].toInt() and 0xff) shl 8) or (raw[offset + 1].toInt() and 0xff)
-        val length = ((raw[offset + 8].toInt() and 0xff) shl 8) or (raw[offset + 9].toInt() and 0xff)
-        offset += 10
-        if (type == 28 &&
-            length == 16
-        ) {
-            result += InetAddress.getByAddress(raw.copyOfRange(offset, offset + 16)).hostAddress
-        }
-        offset += length
-    }
-    return result
 }

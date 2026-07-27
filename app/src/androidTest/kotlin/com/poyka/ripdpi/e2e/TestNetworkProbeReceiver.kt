@@ -38,6 +38,7 @@ internal const val ExtraReadTimeoutMs = "read_timeout_ms"
 private const val ExtraPayload = "payload"
 internal const val ExtraBindDevice = "bind_device"
 internal const val ExtraQueryHost = "query_host"
+internal const val ExtraDnsQueryType = "query_type"
 internal const val ExtraProbeSignalId = "probe_signal_id"
 internal const val ExtraProbeSignalBinder = "probe_signal_binder"
 internal const val ProbeSignalDnsDatagramSentCode = 1
@@ -69,10 +70,10 @@ private const val DnsMaxLabelBytes = 63
 private const val DnsPointerMask = 0xC0
 private const val DnsPointerValue = 0xC0
 private const val DnsPointerOffsetMask = 0x3F
-private const val DnsTypeA = 1
+internal const val DnsQueryTypeA = 1
 private const val DnsTypeCname = 5
 private const val DnsTypePtr = 12
-private const val DnsTypeAaaa = 28
+internal const val DnsQueryTypeAaaa = 28
 private const val DnsRcodeMask = 0x000F
 private const val Ipv4ByteCount = 4
 private const val Ipv6ByteCount = 16
@@ -283,6 +284,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val serverPort = intent.getIntExtra(ExtraPort, -1)
         val timeoutMs = intent.getIntExtra(ExtraReadTimeoutMs, DefaultReadTimeoutMs)
         val queryHost = intent.getStringExtra(ExtraQueryHost)
+        val queryType = intent.getIntExtra(ExtraDnsQueryType, DnsQueryTypeA)
         val requestedBindDevice = intent.getStringExtra(ExtraBindDevice)
         val bindDevice =
             if (
@@ -297,9 +299,12 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         requireProbeHost(serverHost, "Missing host extra")
         requireProbePort(serverPort, "Invalid port extra: $serverPort")
         requireProbeHost(queryHost, "Missing query host extra")
+        require(queryType == DnsQueryTypeA || queryType == DnsQueryTypeAaaa) {
+            "Unsupported DNS query type: $queryType"
+        }
         val checkedQueryHost = queryHost ?: throw IllegalArgumentException("Missing query host extra")
         val requestId = Random().nextInt(0x1_0000)
-        val query = buildDnsQuery(checkedQueryHost, requestId)
+        val query = buildDnsQuery(checkedQueryHost, requestId, queryType)
         val startedAt = SystemClock.elapsedRealtime()
         if (bindDevice != null) {
             TestSocketBinder.dnsRoundTrip(
@@ -443,6 +448,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     private fun buildDnsQuery(
         hostname: String,
         requestId: Int,
+        queryType: Int,
     ): ByteArray {
         val output = ByteArrayOutputStream()
         writeU16(output, requestId)
@@ -453,7 +459,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         writeU16(output, 0)
         writeDnsHostname(output, hostname)
         output.write(0)
-        writeU16(output, 1)
+        writeU16(output, queryType)
         writeU16(output, 1)
         return output.toByteArray()
     }
@@ -549,9 +555,9 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             val dataLength = readU16(packet, offset + DnsDataLengthOffset)
             offset += DnsAnswerHeaderBytes
             requireAvailable(packet, offset, dataLength, "DNS rdata section truncated")
-            if (type == DnsTypeA && dataLength == Ipv4ByteCount) {
+            if (type == DnsQueryTypeA && dataLength == Ipv4ByteCount) {
                 addAddressAnswer(answers, packet, offset, dataLength)
-            } else if (type == DnsTypeAaaa && dataLength == Ipv6ByteCount) {
+            } else if (type == DnsQueryTypeAaaa && dataLength == Ipv6ByteCount) {
                 addAddressAnswer(answers, packet, offset, dataLength)
             } else if (type == DnsTypeCname || type == DnsTypePtr) {
                 answers.add(readName(packet, offset))

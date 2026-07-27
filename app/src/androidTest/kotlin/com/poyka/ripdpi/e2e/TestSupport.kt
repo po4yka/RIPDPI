@@ -1422,6 +1422,7 @@ fun testProcessDnsProbe(
     queryHost: String,
     serverHost: String = PacketSmokeMapDnsAddress,
     serverPort: Int = PacketSmokeMapDnsPort,
+    queryType: Int = DnsQueryTypeA,
     timeoutMs: Long = DebugNetworkProbeTimeoutMs,
     bindDevice: String? = null,
 ): AppProcessDnsProbeResult {
@@ -1436,6 +1437,7 @@ fun testProcessDnsProbe(
             putExtra(DebugNetworkProbeExtraPort, serverPort)
             putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
             putExtra(DebugNetworkProbeExtraQueryHost, queryHost)
+            putExtra(ExtraDnsQueryType, queryType)
             bindDevice?.let { putExtra(DebugNetworkProbeExtraBindDevice, it) }
         }
     context.sendOrderedBroadcast(

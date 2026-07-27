@@ -106,6 +106,19 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("observed?.contentEquals(expected) == true", producer)
         self.assertIn('.put("answers", JSONArray(recordedAnswers))', producer)
 
+    def test_aaaa_probe_runs_outside_the_vpn_owner_and_captures_direct_leaks(
+        self,
+    ) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        runner = Path("scripts/ci/run-android-ordinary-physical-evidence.sh").read_text()
+        self.assertIn("testProcessDnsProbe(", producer)
+        self.assertIn("queryType = DnsQueryTypeAaaa", producer)
+        self.assertNotIn("private fun ordinaryAaaaQuery", producer)
+        self.assertIn('(udp port $dns_port)', runner)
+
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
     ) -> None:
