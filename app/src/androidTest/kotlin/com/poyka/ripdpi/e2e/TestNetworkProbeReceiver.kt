@@ -316,7 +316,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
                 extras,
             )
             if (extras.getBoolean(ExtraOk, false)) {
-                val responseHex = extras.getString(ExtraResponse).orEmpty()
+                val responseHex = extras.getString(ExtraResponse) ?: ""
                 val answers = ArrayList<String>()
                 val rcode = decodeDnsResponse(decodeHex(responseHex), requestId, answers)
                 extras.putInt(ExtraDnsRcode, rcode)
@@ -713,22 +713,84 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
 
     private fun classifyProbeFailure(error: Throwable): String {
         val root = error.rootProbeCause()
-        val rootMessage = root.message.orEmpty()
+        val rootMessage = root.message ?: ""
         return when {
-            root is ErrnoException && root.errno == OsConstants.ECONNRESET -> "CONNECTION_RESET"
-            root is ErrnoException && root.errno == OsConstants.EPIPE -> "BROKEN_PIPE"
-            root is ErrnoException && root.errno == OsConstants.ETIMEDOUT -> "TIMEOUT"
-            root is ErrnoException && root.errno == OsConstants.EAGAIN -> "TIMEOUT"
-            root is ErrnoException -> "ERRNO"
-            root is SocketTimeoutException -> "TIMEOUT"
-            root is SocketException && rootMessage.contains("reset", ignoreCase = true) -> "CONNECTION_RESET"
-            root is SocketException && rootMessage.contains("broken pipe", ignoreCase = true) -> "BROKEN_PIPE"
-            root is SocketException && rootMessage.contains("closed", ignoreCase = true) -> "SOCKET_CLOSED"
-            root is SocketException -> "SOCKET_ERROR"
-            root is IOException -> "IO_ERROR"
-            root is IllegalArgumentException -> "INVALID_REQUEST"
-            else -> "UNEXPECTED_ERROR"
+            root is ErrnoException && root.errno == OsConstants.ECONNRESET -> {
+                "CONNECTION_RESET"
+            }
+
+            root is ErrnoException && root.errno == OsConstants.EPIPE -> {
+                "BROKEN_PIPE"
+            }
+
+            root is ErrnoException && root.errno == OsConstants.ETIMEDOUT -> {
+                "TIMEOUT"
+            }
+
+            root is ErrnoException && root.errno == OsConstants.EAGAIN -> {
+                "TIMEOUT"
+            }
+
+            root is ErrnoException -> {
+                "ERRNO"
+            }
+
+            root is SocketTimeoutException -> {
+                "TIMEOUT"
+            }
+
+            root is SocketException && containsAsciiIgnoreCase(rootMessage, "reset") -> {
+                "CONNECTION_RESET"
+            }
+
+            root is SocketException && containsAsciiIgnoreCase(rootMessage, "broken pipe") -> {
+                "BROKEN_PIPE"
+            }
+
+            root is SocketException && containsAsciiIgnoreCase(rootMessage, "closed") -> {
+                "SOCKET_CLOSED"
+            }
+
+            root is SocketException -> {
+                "SOCKET_ERROR"
+            }
+
+            root is IOException -> {
+                "IO_ERROR"
+            }
+
+            root is IllegalArgumentException -> {
+                "INVALID_REQUEST"
+            }
+
+            else -> {
+                "UNEXPECTED_ERROR"
+            }
         }
+    }
+
+    private fun containsAsciiIgnoreCase(
+        value: String,
+        needle: String,
+    ): Boolean {
+        if (needle.length > value.length) {
+            return false
+        }
+        var start = 0
+        while (start <= value.length - needle.length) {
+            var offset = 0
+            while (
+                offset < needle.length &&
+                Character.toLowerCase(value[start + offset]) == Character.toLowerCase(needle[offset])
+            ) {
+                offset += 1
+            }
+            if (offset == needle.length) {
+                return true
+            }
+            start += 1
+        }
+        return false
     }
 
     private fun errnoFor(error: Throwable): Int? = (error.rootProbeCause() as? ErrnoException)?.errno
@@ -736,7 +798,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     private fun Throwable.rootProbeCause(): Throwable {
         var current = this
         while (current.cause != null && current.cause !== current) {
-            current = requireNotNull(current.cause)
+            current = current.cause ?: break
         }
         return current
     }

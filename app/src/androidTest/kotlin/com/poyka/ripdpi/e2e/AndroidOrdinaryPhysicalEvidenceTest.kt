@@ -420,9 +420,13 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 serverPort = dnsPort,
                 queryType = DnsQueryTypeAaaa,
                 timeoutMs = 4_000,
+                bindDevice = lastVpnInterface,
             )
         val finished = now()
-        assertTrue("AAAA probe failed: ${result.failureKind}", result.ok)
+        assertTrue(
+            "AAAA probe failed: ${result.failureKind} ${result.errorClass} ${result.errorMessage}",
+            result.ok,
+        )
         assertTrue("AAAA probe returned rcode ${result.rcode}", result.rcode == 0)
         val answers = result.answers
         val recordedAnswers =
