@@ -7,6 +7,7 @@ import argparse
 import ipaddress
 import socket
 import struct
+import sys
 import threading
 
 
@@ -112,7 +113,13 @@ def handle_tcp_connection(connection: socket.socket, dual_stack_ipv6: str) -> No
                 dual_stack_ipv6=dual_stack_ipv6,
             )
             connection.sendall(response)
-        except (OSError, UnicodeDecodeError, ValueError):
+            print("dns_tcp_response_sent", flush=True)
+        except (OSError, UnicodeDecodeError, ValueError) as error:
+            print(
+                f"dns_tcp_error={error.__class__.__name__}",
+                file=sys.stderr,
+                flush=True,
+            )
             return
 
 

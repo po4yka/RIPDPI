@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import io
 import json
 import socket
 import struct
@@ -123,6 +124,9 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertNotIn("private fun ordinaryAaaaQuery", producer)
         self.assertIn('(udp port $dns_port)', runner)
         self.assertIn('(tcp port $dns_port)', runner)
+        self.assertIn("collect_failure_diagnostics", runner)
+        self.assertIn("failed-fixture-observer.pcap", runner)
+        self.assertIn("failed-fixture-journal.txt", runner)
 
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
@@ -158,15 +162,16 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
                 args=(listener, ipv6),
                 daemon=True,
             ).start()
-            with socket.create_connection(listener.getsockname(), timeout=1):
-                with socket.create_connection(listener.getsockname(), timeout=1) as valid:
-                    query = dns_query(dns_fixture.DUAL_STACK_NAME)
-                    valid.sendall(struct.pack("!H", len(query)) + query)
-                    valid.settimeout(1)
-                    response_size = struct.unpack(
-                        "!H", dns_fixture.receive_exact(valid, 2)
-                    )[0]
-                    response = dns_fixture.receive_exact(valid, response_size)
+            with mock.patch("sys.stdout", new=io.StringIO()):
+                with socket.create_connection(listener.getsockname(), timeout=1):
+                    with socket.create_connection(listener.getsockname(), timeout=1) as valid:
+                        query = dns_query(dns_fixture.DUAL_STACK_NAME)
+                        valid.sendall(struct.pack("!H", len(query)) + query)
+                        valid.settimeout(1)
+                        response_size = struct.unpack(
+                            "!H", dns_fixture.receive_exact(valid, 2)
+                        )[0]
+                        response = dns_fixture.receive_exact(valid, response_size)
 
         self.assertEqual(len(response), response_size)
         self.assertEqual(response[6:8], b"\0\x01")

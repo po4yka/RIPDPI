@@ -71,6 +71,18 @@ cleanup_remote() {
     fi
 }
 
+collect_failure_diagnostics() {
+    local failed_capture="$output_dir/failed-fixture-observer.pcap"
+    local failed_journal="$output_dir/failed-fixture-journal.txt"
+    if ((remote_started)); then
+        "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service'; sudo journalctl --no-pager --output=short-monotonic -u '$dns_unit.service' -u '$fixture_unit.service' >'$remote_dir/failure-journal.txt'; sudo chmod 0600 '$remote_dir/capture.pcap' '$remote_dir/failure-journal.txt'; sudo chown \"\$(id -u):\$(id -g)\" '$remote_dir/capture.pcap' '$remote_dir/failure-journal.txt'" >/dev/null 2>&1 || true
+        "${scp_remote[@]}" "$fixture_ssh:$remote_dir/capture.pcap" "$failed_capture" >/dev/null 2>&1 || true
+        "${scp_remote[@]}" "$fixture_ssh:$remote_dir/failure-journal.txt" "$failed_journal" >/dev/null 2>&1 || true
+        [[ ! -f "$failed_capture" ]] || chmod 0600 "$failed_capture"
+        [[ ! -f "$failed_journal" ]] || chmod 0600 "$failed_journal"
+    fi
+}
+
 cleanup_device() {
     if [[ "$wifi_before" == "1" ]]; then
         "${adb[@]}" shell svc wifi enable >/dev/null 2>&1 || true
@@ -205,6 +217,7 @@ instrumentation_status=$?
 set -e
 chmod 0600 "$transcript"
 if ((instrumentation_status != 0)) || [[ "$(grep -c '^OK (1 test)$' "$transcript")" != "1" ]] || grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|AssumptionViolated' "$transcript"; then
+    collect_failure_diagnostics
     echo "Exact physical instrumentation did not finish as OK (1 test)." >&2
     exit 1
 fi
