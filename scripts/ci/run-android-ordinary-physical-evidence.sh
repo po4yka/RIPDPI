@@ -57,7 +57,7 @@ remote_dir="/tmp/ripdpi-ordinary-$run_short"
 fixture_unit="ripdpi-ordinary-fixture-$run_short"
 dns_unit="ripdpi-ordinary-dns-$run_short"
 capture_unit="ripdpi-ordinary-capture-$run_short"
-ufw_comment="ripdpi-ordinary-$run_short"
+nft_comment="ripdpi-ordinary-$run_short"
 remote_started=0
 target_preinstalled=0
 test_preinstalled=0
@@ -67,7 +67,7 @@ lockdown_before=""
 
 cleanup_remote() {
     if ((remote_started)); then
-        "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service' '$dns_unit.service' '$fixture_unit.service' >/dev/null 2>&1; sudo ufw --force delete allow proto tcp to any port '$tcp_echo_port' comment '$ufw_comment' >/dev/null 2>&1; sudo ufw --force delete allow proto tcp to any port '$socks_port' comment '$ufw_comment' >/dev/null 2>&1; sudo ufw --force delete allow proto tcp to any port '$control_port' comment '$ufw_comment' >/dev/null 2>&1; sudo ufw --force delete allow proto udp to any port '$marker_port' comment '$ufw_comment' >/dev/null 2>&1; sudo ufw --force delete allow proto udp to any port '$dns_port' comment '$ufw_comment' >/dev/null 2>&1; sudo rm -rf -- '$remote_dir'" >/dev/null 2>&1 || true
+        "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service' '$dns_unit.service' '$fixture_unit.service' >/dev/null 2>&1; for handle in \$(sudo nft -a list chain inet filter input | awk -v marker='$nft_comment' 'index(\$0, marker) {print \$NF}'); do sudo nft delete rule inet filter input handle \"\$handle\"; done; sudo rm -rf -- '$remote_dir'" >/dev/null 2>&1 || true
     fi
 }
 
@@ -168,10 +168,10 @@ if file "$fixture_binary" | grep -q 'Mach-O'; then
     exit 2
 fi
 
-"${ssh_remote[@]}" "set -e; test ! -e '$remote_dir'; install -d -m 0700 '$remote_dir'; test \"\$(id -u)\" != 0; sudo -n true; command -v tcpdump >/dev/null; command -v python3 >/dev/null; command -v systemd-run >/dev/null"
 remote_started=1
+"${ssh_remote[@]}" "set -e; test ! -e '$remote_dir'; install -d -m 0700 '$remote_dir'; test \"\$(id -u)\" != 0; sudo -n true; command -v tcpdump >/dev/null; command -v python3 >/dev/null; command -v systemd-run >/dev/null; command -v nft >/dev/null; sudo nft list chain inet filter input >/dev/null"
 "${scp_remote[@]}" "$fixture_binary" "$repo_root/scripts/ci/android_ordinary_dns_fixture.py" "$fixture_ssh:$remote_dir/" >/dev/null
-"${ssh_remote[@]}" "set -e; chmod 0500 '$remote_dir/local-network-fixture' '$remote_dir/android_ordinary_dns_fixture.py'; sudo ufw allow proto tcp to any port '$tcp_echo_port' comment '$ufw_comment' >/dev/null; sudo ufw allow proto tcp to any port '$socks_port' comment '$ufw_comment' >/dev/null; sudo ufw allow proto tcp to any port '$control_port' comment '$ufw_comment' >/dev/null; sudo ufw allow proto udp to any port '$marker_port' comment '$ufw_comment' >/dev/null; sudo ufw allow proto udp to any port '$dns_port' comment '$ufw_comment' >/dev/null; iface=\$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if(\$i==\"dev\") {print \$(i+1); exit}}'); test -n \"\$iface\"; sudo systemd-run --quiet --unit='$fixture_unit' --property=RuntimeMaxSec=1800 --setenv=RIPDPI_FIXTURE_BIND_HOST=:: --setenv=RIPDPI_FIXTURE_ANDROID_HOST='$fixture_ipv4' '$remote_dir/local-network-fixture'; sudo systemd-run --quiet --unit='$dns_unit' --property=RuntimeMaxSec=1800 '$remote_dir/android_ordinary_dns_fixture.py' --port '$dns_port' --dual-stack-ipv6 '$fixture_ipv6'; sudo systemd-run --quiet --unit='$capture_unit' --property=RuntimeMaxSec=1800 /usr/bin/tcpdump -i \"\$iface\" -U -n -s 0 -w '$remote_dir/capture.pcap' \"(udp dst port $marker_port) or (tcp port $socks_port) or (tcp port $tcp_echo_port)\"; sleep 2; systemctl is-active --quiet '$fixture_unit.service'; systemctl is-active --quiet '$dns_unit.service'; systemctl is-active --quiet '$capture_unit.service'"
+"${ssh_remote[@]}" "set -e; chmod 0500 '$remote_dir/local-network-fixture' '$remote_dir/android_ordinary_dns_fixture.py'; sudo nft insert rule inet filter input tcp dport { $tcp_echo_port, $socks_port, $control_port } accept comment '$nft_comment'; sudo nft insert rule inet filter input udp dport { $marker_port, $dns_port } accept comment '$nft_comment'; iface=\$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if(\$i==\"dev\") {print \$(i+1); exit}}'); test -n \"\$iface\"; sudo systemd-run --quiet --unit='$fixture_unit' --property=RuntimeMaxSec=1800 --setenv=RIPDPI_FIXTURE_BIND_HOST=:: --setenv=RIPDPI_FIXTURE_ANDROID_HOST='$fixture_ipv4' '$remote_dir/local-network-fixture'; sudo systemd-run --quiet --unit='$dns_unit' --property=RuntimeMaxSec=1800 '$remote_dir/android_ordinary_dns_fixture.py' --port '$dns_port' --dual-stack-ipv6 '$fixture_ipv6'; sudo systemd-run --quiet --unit='$capture_unit' --property=RuntimeMaxSec=1800 /usr/bin/tcpdump -i \"\$iface\" -U -n -s 0 -w '$remote_dir/capture.pcap' \"(udp dst port $marker_port) or (tcp port $socks_port) or (tcp port $tcp_echo_port)\"; sleep 2; systemctl is-active --quiet '$fixture_unit.service'; systemctl is-active --quiet '$dns_unit.service'; systemctl is-active --quiet '$capture_unit.service'"
 
 "${ssh_remote[@]}" "python3 -c 'import socket; sock = socket.create_connection((\"::1\", $control_port), timeout=5); sock.close()'"
 "${ssh_remote[@]}" "python3 -c 'import socket; sock = socket.create_connection((\"::1\", $tcp_echo_port), timeout=5); sock.close()'"

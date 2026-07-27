@@ -74,6 +74,18 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertLess(restored, suspended)
         self.assertIn('am force-stop "$always_on_before"', runner)
 
+    def test_runner_opens_only_runtime_nftables_rules_and_removes_by_marker(
+        self,
+    ) -> None:
+        runner = Path(
+            "scripts/ci/run-android-ordinary-physical-evidence.sh"
+        ).read_text()
+        self.assertNotIn("sudo ufw", runner)
+        self.assertIn("nft insert rule inet filter input tcp dport", runner)
+        self.assertIn("nft insert rule inet filter input udp dport", runner)
+        self.assertIn("nft delete rule inet filter input handle", runner)
+        self.assertIn("awk -v marker='$nft_comment'", runner)
+
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
     ) -> None:
