@@ -339,6 +339,56 @@ mod tests {
     }
 
     #[test]
+    fn turmoil_socks5_uses_bootstrap_ips_and_retries_failed_targets() -> turmoil::Result {
+        let first_bootstrap = IpAddr::V4(Ipv4Addr::new(198, 18, 0, 30));
+        let second_bootstrap = IpAddr::V4(Ipv4Addr::new(198, 18, 0, 31));
+        let mut sim = turmoil::Builder::new().build();
+
+        sim.host("proxy", move || async move {
+            let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1080)).await?;
+            for (expected_ip, reply) in [(first_bootstrap, 4), (second_bootstrap, 0)] {
+                let (mut stream, _) = listener.accept().await?;
+
+                let mut greeting = [0u8; 3];
+                stream.read_exact(&mut greeting).await?;
+                assert_eq!(greeting, [5, 1, 0]);
+                stream.write_all(&[5, 0]).await?;
+
+                let mut request = [0u8; 10];
+                stream.read_exact(&mut request).await?;
+                assert_eq!(&request[..4], &[5, 1, 0, 1]);
+                let expected_octets = match expected_ip {
+                    IpAddr::V4(ip) => ip.octets(),
+                    IpAddr::V6(_) => unreachable!("test bootstrap addresses are IPv4"),
+                };
+                assert_eq!(&request[4..8], &expected_octets);
+                assert_eq!(u16::from_be_bytes([request[8], request[9]]), 853);
+
+                stream.write_all(&[5, reply, 0, 1, 127, 0, 0, 1, 0, 0]).await?;
+            }
+            Ok(())
+        });
+
+        sim.client("client", async move {
+            let proxy_ip = turmoil::lookup("proxy");
+            let resolver = EncryptedDnsResolver::with_timeout(
+                turmoil_test_endpoint("fixture.test", 853, vec![first_bootstrap, second_bootstrap]),
+                EncryptedDnsTransport::Socks5 { host: proxy_ip.to_string(), port: 1080, credentials: None },
+                Duration::from_millis(250),
+            )
+            .expect("resolver builds");
+
+            resolver
+                .connect_socks5_tcp_with(SocketAddr::new(proxy_ip, 1080), turmoil::net::TcpStream::connect)
+                .await
+                .expect("second bootstrap target should connect");
+            Ok(())
+        });
+
+        sim.run()
+    }
+
+    #[test]
     fn turmoil_socks5_connection_authenticates_with_configured_credentials() -> turmoil::Result {
         const USERNAME: &str = "resolver-fixture";
         const PASSWORD: &str = "resolver-secret";
