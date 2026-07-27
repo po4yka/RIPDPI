@@ -3,6 +3,9 @@ package com.poyka.ripdpi.services
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -22,6 +25,22 @@ import kotlin.concurrent.thread
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class VpnUnderlyingNetworkBinderTest {
+    @Test
+    fun `authority readiness waits for a validated non vpn network with dns`() =
+        runTest {
+            val authority = DirectDnsUnderlayAuthority()
+            val network = testNetwork(100)
+            val epoch = authority.beginCallbackEpoch()
+            val ready = async(start = CoroutineStart.UNDISPATCHED) { authority.awaitEligible(epoch) }
+
+            authority.onAvailable(epoch, network)
+            authority.onLinkPropertiesChanged(epoch, network, linkProperties("1.1.1.1"))
+            assertFalse(ready.isCompleted)
+
+            authority.onCapabilitiesChanged(epoch, network, eligibleCapabilities())
+            ready.await()
+        }
+
     @Test
     fun `authority token is exact monotonic and ignores stale callback interleavings`() {
         val authority = DirectDnsUnderlayAuthority()

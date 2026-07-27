@@ -98,6 +98,7 @@ class RipDpiVpnService :
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
                 recoverProfileMutations = profileMutationCoordinator::recover,
+                awaitRecoveryUnderlay = underlyingNetworkBinder::awaitEligibleUnderlay,
             )
         shellDelegate = sessionLifecycle.createShellDelegate()
         // Start the selector-runtime loops (member hot-reload + latency failover)

@@ -15,144 +15,6 @@ import androidx.core.content.ContextCompat
 import java.io.FileDescriptor
 import java.net.Inet6Address
 import java.net.InetAddress
-import javax.inject.Inject
-import javax.inject.Singleton
-
-internal data class DirectDnsUnderlaySnapshot(
-    val network: Network,
-    val generation: Long,
-    val dnsServers: Set<InetAddress>,
-)
-
-private data class DirectDnsCapabilitySnapshot(
-    val hasInternet: Boolean,
-    val validated: Boolean,
-    val notVpn: Boolean,
-    val captivePortal: Boolean,
-) {
-    val eligible: Boolean
-        get() = isDirectDnsUnderlayEligible(hasInternet, validated, notVpn, captivePortal)
-}
-
-@Singleton
-internal class DirectDnsUnderlayAuthority
-    @Inject
-    constructor() {
-        private var epochCounter = 0L
-        private var activeEpoch: Long? = null
-        private var generation = 0L
-        private var network: Network? = null
-        private var capabilities: DirectDnsCapabilitySnapshot? = null
-        private var dnsServers: Set<InetAddress>? = null
-
-        @Synchronized
-        fun beginCallbackEpoch(): Long {
-            epochCounter += 1
-            activeEpoch = epochCounter
-            clearSnapshot()
-            return epochCounter
-        }
-
-        @Synchronized
-        fun onAvailable(
-            epoch: Long,
-            candidate: Network,
-        ) {
-            if (activeEpoch != epoch || network == candidate) return
-            network = candidate
-            capabilities = null
-            dnsServers = null
-            generation += 1
-        }
-
-        @Synchronized
-        fun onCapabilitiesChanged(
-            epoch: Long,
-            candidate: Network,
-            value: NetworkCapabilities,
-        ) {
-            if (activeEpoch != epoch || network != candidate) return
-            val next = value.toDirectDnsSnapshot()
-            if (capabilities == next) return
-            capabilities = next
-            generation += 1
-        }
-
-        @Synchronized
-        fun onLinkPropertiesChanged(
-            epoch: Long,
-            candidate: Network,
-            value: LinkProperties,
-        ) {
-            if (activeEpoch != epoch || network != candidate) return
-            val next = value.dnsServers.toSet()
-            if (dnsServers == next) return
-            dnsServers = next
-            generation += 1
-        }
-
-        @Synchronized
-        fun onLost(
-            epoch: Long,
-            candidate: Network,
-        ) {
-            if (activeEpoch != epoch || network != candidate) return
-            clearSnapshot()
-        }
-
-        @Synchronized
-        fun endCallbackEpoch(epoch: Long) {
-            if (activeEpoch != epoch) return
-            activeEpoch = null
-            clearSnapshot()
-        }
-
-        @Synchronized
-        fun snapshot(epoch: Long): DirectDnsUnderlaySnapshot? {
-            val currentNetwork = network
-            val currentDns = dnsServers
-            val eligible = activeEpoch == epoch && capabilities?.eligible == true
-            return currentNetwork?.takeIf { eligible }?.let { selected ->
-                currentDns?.takeIf(Set<InetAddress>::isNotEmpty)?.let { dns ->
-                    DirectDnsUnderlaySnapshot(selected, generation, dns)
-                }
-            }
-        }
-
-        @Synchronized
-        fun observation(epoch: Long): Pair<Long, DirectDnsUnderlaySnapshot?>? =
-            if (activeEpoch == epoch) generation to snapshot(epoch) else null
-
-        @Synchronized
-        fun generationFor(
-            candidate: Network,
-            capabilities: NetworkCapabilities?,
-            linkProperties: LinkProperties?,
-        ): Long? {
-            val current = activeEpoch?.let(::snapshot)
-            val exactMatch =
-                current?.network == candidate &&
-                    this.capabilities == capabilities?.toDirectDnsSnapshot() &&
-                    current.dnsServers == linkProperties?.dnsServers?.toSet()
-            return current?.generation?.takeIf { exactMatch }
-        }
-
-        private fun clearSnapshot() {
-            if (network == null && capabilities == null && dnsServers == null) return
-            network = null
-            capabilities = null
-            dnsServers = null
-            generation += 1
-        }
-    }
-
-private fun NetworkCapabilities.toDirectDnsSnapshot(): DirectDnsCapabilitySnapshot =
-    DirectDnsCapabilitySnapshot(
-        hasInternet = hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
-        validated = hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-        notVpn = hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN),
-        captivePortal = hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
-    )
 
 internal data class DirectDnsUnderlayLease<T>(
     val network: T,
@@ -469,7 +331,7 @@ internal class VpnUnderlyingNetworkBinder(
 
     @android.annotation.SuppressLint("MissingPermission")
     fun start() {
-        if (!hasPermission()) return
+        if (!hasPermission) return
         registerPublishedCallback(
             lock = publicationLock,
             prepare = {
@@ -539,6 +401,20 @@ internal class VpnUnderlyingNetworkBinder(
             publish(vpnUnderlay<Network>(null, directUnderlayRequired)?.toTypedArray())
         }
         registeredCallback?.let { runCatching { connectivityManager.unregisterNetworkCallback(it) } }
+    }
+
+    suspend fun awaitEligibleUnderlay() {
+        val epoch =
+            synchronized(publicationLock) { callbackEpoch }
+                ?: error("VPN underlay observer is unavailable")
+        while (true) {
+            authority.awaitEligible(epoch)
+            val stillEligible =
+                synchronized(publicationLock) {
+                    callbackEpoch == epoch && authority.snapshot(epoch) != null
+                }
+            if (stillEligible) return
+        }
     }
 
     fun preparePolicy(
@@ -712,9 +588,10 @@ internal class VpnUnderlyingNetworkBinder(
             service.setUnderlyingNetworks(networks)
         }.getOrDefault(false)
 
-    private fun hasPermission(): Boolean =
-        ContextCompat.checkSelfPermission(service, Manifest.permission.ACCESS_NETWORK_STATE) ==
-            PackageManager.PERMISSION_GRANTED
+    private val hasPermission: Boolean
+        get() =
+            ContextCompat.checkSelfPermission(service, Manifest.permission.ACCESS_NETWORK_STATE) ==
+                PackageManager.PERMISSION_GRANTED
 }
 
 private const val Ipv4OctetCount = 4

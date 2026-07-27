@@ -20,6 +20,7 @@ internal class VpnServiceSessionLifecycle(
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
     private val recoverProfileMutations: suspend () -> Unit = {},
+    private val awaitRecoveryUnderlay: suspend () -> Unit = {},
     private val hardKillSwitchRefreshBroadcastLifecycle: HardKillSwitchRefreshLifecycle =
         HardKillSwitchRefreshBroadcastLifecycle(
             context = service,
@@ -59,8 +60,9 @@ internal class VpnServiceSessionLifecycle(
                 serviceLabel = "vpn",
                 onStart = runtimeCoordinator::start,
                 onRecoveryStart = {
-                    recoverProfileMutationsThenStart(
+                    recoverProfileMutationsAndAwaitUnderlayThenStart(
                         recoverProfileMutations = recoverProfileMutations,
+                        awaitRecoveryUnderlay = awaitRecoveryUnderlay,
                         startRuntime = runtimeCoordinator::start,
                     )
                 },
@@ -138,11 +140,13 @@ internal class VpnServiceSessionLifecycle(
     }
 }
 
-internal suspend inline fun recoverProfileMutationsThenStart(
+internal suspend inline fun recoverProfileMutationsAndAwaitUnderlayThenStart(
     crossinline recoverProfileMutations: suspend () -> Unit,
+    crossinline awaitRecoveryUnderlay: suspend () -> Unit,
     crossinline startRuntime: suspend () -> Unit,
 ) {
     recoverProfileMutations()
+    awaitRecoveryUnderlay()
     startRuntime()
 }
 

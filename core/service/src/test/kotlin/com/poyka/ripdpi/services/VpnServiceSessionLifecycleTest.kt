@@ -45,20 +45,23 @@ class VpnServiceSessionLifecycleTest {
 
         data object ProfileRecover : Event
 
+        data object UnderlayReady : Event
+
         data object RuntimeStart : Event
     }
 
     private val events = mutableListOf<Event>()
 
     @Test
-    fun `recovery start replays profile mutations before starting runtime`() =
+    fun `recovery start waits for profile recovery and underlay before runtime`() =
         runTest {
-            recoverProfileMutationsThenStart(
+            recoverProfileMutationsAndAwaitUnderlayThenStart(
                 recoverProfileMutations = { events += Event.ProfileRecover },
+                awaitRecoveryUnderlay = { events += Event.UnderlayReady },
                 startRuntime = { events += Event.RuntimeStart },
             )
 
-            assertEquals(listOf(Event.ProfileRecover, Event.RuntimeStart), events)
+            assertEquals(listOf(Event.ProfileRecover, Event.UnderlayReady, Event.RuntimeStart), events)
         }
 
     @Test
@@ -68,9 +71,31 @@ class VpnServiceSessionLifecycleTest {
 
             val thrown =
                 runCatching {
-                    recoverProfileMutationsThenStart(
+                    recoverProfileMutationsAndAwaitUnderlayThenStart(
                         recoverProfileMutations = {
                             events += Event.ProfileRecover
+                            throw failure
+                        },
+                        awaitRecoveryUnderlay = { events += Event.UnderlayReady },
+                        startRuntime = { events += Event.RuntimeStart },
+                    )
+                }.exceptionOrNull()
+
+            assertSame(failure, thrown)
+            assertEquals(listOf(Event.ProfileRecover), events)
+        }
+
+    @Test
+    fun `underlay failure prevents runtime start`() =
+        runTest {
+            val failure = IllegalStateException("underlay unavailable")
+
+            val thrown =
+                runCatching {
+                    recoverProfileMutationsAndAwaitUnderlayThenStart(
+                        recoverProfileMutations = { events += Event.ProfileRecover },
+                        awaitRecoveryUnderlay = {
+                            events += Event.UnderlayReady
                             throw failure
                         },
                         startRuntime = { events += Event.RuntimeStart },
@@ -78,7 +103,7 @@ class VpnServiceSessionLifecycleTest {
                 }.exceptionOrNull()
 
             assertSame(failure, thrown)
-            assertEquals(listOf(Event.ProfileRecover), events)
+            assertEquals(listOf(Event.ProfileRecover, Event.UnderlayReady), events)
         }
 
     /**
