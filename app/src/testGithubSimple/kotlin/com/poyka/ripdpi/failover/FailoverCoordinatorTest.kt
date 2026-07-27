@@ -64,6 +64,10 @@ private class FakeServiceStateStore(
         _telemetry.value = snapshot
     }
 
+    fun emitFailure(reason: FailureReason) {
+        check(_events.tryEmit(ServiceEvent.Failed(Sender.VPN, reason)))
+    }
+
     override fun setStatus(
         status: AppStatus,
         mode: Mode,
@@ -1183,6 +1187,51 @@ class FailoverCoordinatorTest {
                 "activeCandidate must stay null for Running,Proxy",
                 coordinator.activeCandidate.value,
             )
+        }
+
+    @Test
+    fun `startup transport failure advances persisted candidate before retry`() =
+        runTest {
+            val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Reconnecting)
+            val settings = FakeAppSettingsRepository()
+            val awgEntity =
+                AwgProfileEntity(
+                    id = "awg-startup-failure",
+                    name = "Startup failure AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            settings.update {
+                setRelayEnabled(false)
+                setSimpleFailoverAwgProfileId(awgEntity.id)
+            }
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    settings = settings,
+                    awgProfiles = listOf(awgEntity),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.bind(observeScope)
+            stateStore.emitFailure(FailureReason.NativeError("transport readiness timed out"))
+            advanceUntilIdle()
+            assertEquals("Retry must wait until failed startup is fully halted", 0, controller.startCalls.size)
+
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), controller.startCalls)
+            assertEquals(0, controller.actualStopCalls.size)
+            assertEquals(0, controller.transportRestartCalls.size)
+            assertTrue("Startup recovery must select a relay candidate", settings.relayEnabled())
+            assertEquals("reality-1", settings.relayProfileId())
+            assertEquals(
+                "Startup retry must bypass a second initial race",
+                true,
+                coordinator.shouldSkipInitialRelayRace(),
+            )
+            assertEquals("Initial-race bypass must be one-shot", false, coordinator.shouldSkipInitialRelayRace())
         }
 
     /**

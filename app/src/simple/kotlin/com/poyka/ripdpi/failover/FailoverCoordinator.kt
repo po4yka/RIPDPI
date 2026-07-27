@@ -3,12 +3,15 @@ package com.poyka.ripdpi.failover
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
@@ -27,6 +30,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.net.URI
@@ -35,6 +39,23 @@ import javax.inject.Singleton
 
 /** Health values the native runtime emits that signal an unusable egress. */
 private val FAILING_HEALTH_VALUES = setOf("degraded", "failed")
+
+private fun FailureReason.isRecoverableTransportFailure(): Boolean =
+    when (this) {
+        is FailureReason.NativeError,
+        FailureReason.TunnelEstablishmentFailed,
+        is FailureReason.WarpEndpointUnavailable,
+        is FailureReason.WarpRuntimeFailed,
+        is FailureReason.InitialTransportSelectionFailed,
+        -> true
+
+        is FailureReason.PermissionLost,
+        is FailureReason.RelayConfigRejected,
+        is FailureReason.RelayFingerprintPolicyRejected,
+        is FailureReason.Unexpected,
+        is FailureReason.WarpProvisioningFailed,
+        -> false
+    }
 
 /**
  * Debounce window: the active egress must be continuously failing for this
@@ -182,6 +203,12 @@ class FailoverCoordinator
         /** One-shot guard so an in-session failover starts the selected candidate directly. */
         private var skipNextInitialRelayRace: Boolean = false
 
+        /** Failed startup replacements attempted since a candidate last reached Running. */
+        private var startupFailureSwitchesInCycle: Int = 0
+
+        /** Candidate set associated with [startupFailureSwitchesInCycle]. */
+        private var startupFailureCandidates: List<FailoverCandidate> = emptyList()
+
         private var initialRaceSelection: FailoverCandidate.Relay? = null
 
         // ── Public API ──────────────────────────────────────────────────────
@@ -304,11 +331,66 @@ class FailoverCoordinator
             scope.launch {
                 serviceStateStore.status.collect { (status, mode) ->
                     if (status == AppStatus.Running && mode == Mode.VPN) {
+                        startupFailureSwitchesInCycle = 0
+                        startupFailureCandidates = emptyList()
                         startObserving(scope)
                     } else {
                         stopObserving()
                     }
                 }
+            }
+            scope.launch {
+                serviceStateStore.events
+                    .filterIsInstance<ServiceEvent.Failed>()
+                    .collect { event ->
+                        if (event.sender == Sender.VPN && event.reason.isRecoverableTransportFailure()) {
+                            recoverFromStartupFailure()
+                        }
+                    }
+            }
+        }
+
+        /**
+         * Advances a persisted candidate whose VPN runtime failed before reaching Running.
+         *
+         * // NOT cancel-safe: waits for the failed service to halt, persists the replacement,
+         * then requests a new service start. A cancellation after persistence is fail-closed:
+         * the next Android/user recovery start reads the already-selected replacement.
+         */
+        private suspend fun recoverFromStartupFailure() {
+            if (!autoFailoverEnabled.value) return
+            serviceStateStore.status.first { (status, mode) ->
+                status == AppStatus.Halted && mode == Mode.VPN
+            }
+
+            val rebuilt = buildCandidates()
+            if (rebuilt.size < 2) return
+            if (rebuilt != startupFailureCandidates) {
+                startupFailureCandidates = rebuilt
+                startupFailureSwitchesInCycle = 0
+            }
+            candidates = rebuilt
+            activeCandidateIndex = resumeIndex()
+            if (startupFailureSwitchesInCycle >= candidates.size - 1) {
+                Logger.w { "FailoverCoordinator: startup candidates exhausted, remaining fail-closed" }
+                return
+            }
+
+            val nextIndex = (activeCandidateIndex + 1) % candidates.size
+            val nextCandidate = candidates[nextIndex]
+            Logger.i {
+                "FailoverCoordinator: startup transport failed; selecting candidate " +
+                    "${nextIndex + 1}/${candidates.size}"
+            }
+            writeConfig(nextCandidate)
+            activeCandidateIndex = nextIndex
+            startupFailureSwitchesInCycle++
+            setActiveCandidate(nextCandidate)
+            skipNextInitialRelayRace = true
+            val result = serviceController.start(Mode.VPN)
+            if (result is ServiceStartResult.Rejected) {
+                skipNextInitialRelayRace = false
+                Logger.w { "FailoverCoordinator: startup recovery rejected — ${result.reason}" }
             }
         }
 
