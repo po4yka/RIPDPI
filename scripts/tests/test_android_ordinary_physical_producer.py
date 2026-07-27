@@ -97,6 +97,14 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("setSplitTunnelMode(SplitTunnelMode.Off)", configure)
         self.assertIn("clearSplitTunnelPackages()", configure)
 
+    def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        self.assertIn("observed?.contentEquals(expected) == true", producer)
+        self.assertIn('.put("answers", JSONArray(recordedAnswers))', producer)
+
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
     ) -> None:

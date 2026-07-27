@@ -418,9 +418,18 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val started = now()
         val answers = ordinaryAaaaQuery(controlIpv4, dnsPort, "$actionId.ordinary.fixture.test")
         val finished = now()
-        if (actionId == "ipv4-only") assertTrue(answers.isEmpty()) else assertTrue(answers == listOf(controlIpv6))
+        val recordedAnswers =
+            if (actionId == "ipv4-only") {
+                assertTrue(answers.isEmpty())
+                emptyList()
+            } else {
+                val expected = InetAddress.getByName(controlIpv6).address
+                val observed = answers.singleOrNull()?.let(InetAddress::getByName)?.address
+                assertTrue(observed?.contentEquals(expected) == true)
+                listOf(controlIpv6)
+            }
         return JSONObject()
-            .put("answers", JSONArray(answers))
+            .put("answers", JSONArray(recordedAnswers))
             .put("finishedAtEpochMs", finished)
             .put("queryNameSha256", hash("$actionId.ordinary.fixture.test"))
             .put("responseCode", 0)
