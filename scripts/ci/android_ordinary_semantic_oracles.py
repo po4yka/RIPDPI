@@ -699,18 +699,27 @@ def _global_ipv6_addresses(raw: str) -> tuple[str, ...]:
 
 
 def _interface_block(raw: str, interface: str) -> str | None:
+    blocks: list[str] = []
     block: list[str] = []
-    collecting = False
+    current_name: str | None = None
     for line in raw.splitlines(keepends=True):
         header = re.match(r"^\d+:\s+([^:]+):", line)
         if header is not None:
+            if current_name == interface and block:
+                blocks.append("".join(block))
+            block = []
             name = header.group(1).split("@", 1)[0]
-            if collecting:
-                break
-            collecting = name == interface
-        if collecting:
+            current_name = name
+        if current_name == interface:
             block.append(line)
-    return "".join(block) if block else None
+    if current_name == interface and block:
+        blocks.append("".join(block))
+    if len(blocks) > 1:
+        raise OracleError(
+            "SEMANTIC_ROUTE_MISMATCH",
+            "address command output duplicates the declared VPN interface",
+        )
+    return blocks[0] if blocks else None
 
 
 def _interface_is_up(header: str) -> bool:

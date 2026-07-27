@@ -87,8 +87,9 @@ default routes, transition lockdown state, re-establishment, and Android
 Always-on settings from those outputs. Combined and IPv6-specific address views
 must identify the declared VPN interface and expose the same global IPv6 set.
 Addresses are parsed only from that interface's block, never from a following
-underlay interface. An active VPN interface must also be UP and expose an IPv4
-address.
+underlay interface, and each command output must contain exactly one block for
+the declared VPN interface. An active VPN interface must also be UP and expose
+an IPv4 address.
 Copied, cross-action, stale, partial, causally reordered, or contradictory
 artifacts remain an explicit FAIL blocker even when the manifest is rehashed.
 

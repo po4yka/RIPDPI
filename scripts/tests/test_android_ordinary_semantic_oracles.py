@@ -849,6 +849,26 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
 
         self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
 
+    def test_duplicate_vpn_interface_blocks_are_rejected(self) -> None:
+        def mutation(manifest_path, manifest):
+            def rewrite(value):
+                commands = value["phases"][0]["commands"]
+                commands["ipAddressShow"] += (
+                    "8: wlan0: <BROADCAST,UP> mtu 1500\n"
+                    "    inet 192.0.2.44/24 scope global wlan0\n"
+                    "9: tun0: <POINTOPOINT,DOWN> mtu 1500 state DOWN\n"
+                )
+
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "dual-stack",
+                "route-snapshot",
+                rewrite,
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
+
     def test_transition_actions_require_full_reestablishment_chain(self) -> None:
         def early_post_tunnel_probe(manifest_path, manifest):
             def mutation(value):

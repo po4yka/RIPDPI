@@ -41,6 +41,10 @@ evidence.
 
 ## Work log
 
+- 2026-07-27: A fourth integration review found that a later duplicate `tun0`
+  block could contradict the first accepted block. Address outputs now require
+  exactly one block for the declared VPN interface; a dedicated adversarial
+  fixture rejects `tun0 → wlan0 → tun0` ambiguity.
 - 2026-07-27: A third integration review found two cross-record false
   positives. Address facts are now scoped to the declared VPN interface block,
   so an empty `tun0` cannot borrow addresses from `wlan0`. Tunnel endpoint and
