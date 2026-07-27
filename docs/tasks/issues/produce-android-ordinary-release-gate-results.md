@@ -1,15 +1,15 @@
 ---
 title: Produce Android ordinary release-gate results locally
 type: task
-status: review
+status: doing
 area: testing
 priority: high
-owner: Android ordinary gate producer lane
+owner: Codex release gate remediation
 parent: null
 blocks: []
 blocked_by: []
 created: 2026-07-22
-updated: 2026-07-22
+updated: 2026-07-27
 ---
 
 ## Goal
@@ -40,6 +40,10 @@ evidence.
 
 ## Work log
 
+- 2026-07-27: Reopened for the `0.1.4` release. The remediation lane owns the
+  seven source-owned semantic action oracles, adversarial fixtures, physical
+  capture integration, and exact-SHA release-workflow handoff without weakening
+  the existing fail-closed checker.
 - Added a deterministic producer for the exact 11 Android ordinary gates. It
   emits canonical structured no-ship results from an exact clean commit.
 - Removed the arbitrary collector/plugin and self-attested hash design after
