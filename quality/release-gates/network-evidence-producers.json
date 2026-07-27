@@ -1,8 +1,6 @@
 {
-  "version": "network_evidence_producers_v2",
+  "version": "network_evidence_producers_v3",
   "clientCollectorSha256": [],
   "observerCollectorSha256": [],
-  "workloadSha256": [],
-  "clientArtifactSha256": [],
-  "testArtifactSha256": []
+  "workloadSha256": []
 }

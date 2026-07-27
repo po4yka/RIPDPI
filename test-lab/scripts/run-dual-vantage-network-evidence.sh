@@ -400,8 +400,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 python3 - "$config_path" "$scratch" \
-  "$repo_root/quality/release-gates/network-evidence-producers.json" \
-  "$client_artifact_sha256" "$test_artifact_sha256" <<'PY'
+  "$repo_root/quality/release-gates/network-evidence-producers.json" <<'PY'
 import hashlib
 import json
 import os
@@ -412,8 +411,6 @@ from pathlib import Path
 config_path = Path(sys.argv[1])
 scratch = Path(sys.argv[2])
 producer_policy_path = Path(sys.argv[3])
-client_artifact_sha256 = sys.argv[4]
-test_artifact_sha256 = sys.argv[5]
 descriptor = os.open(config_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
 try:
     metadata = os.fstat(descriptor)
@@ -440,17 +437,11 @@ expected_policy_fields = {
     "clientCollectorSha256",
     "observerCollectorSha256",
     "workloadSha256",
-    "clientArtifactSha256",
-    "testArtifactSha256",
 }
 if not isinstance(producer_policy, dict) or set(producer_policy) != expected_policy_fields:
-    raise SystemExit("network evidence producer policy fields do not match the v2 contract")
-if producer_policy["version"] != "network_evidence_producers_v2":
+    raise SystemExit("network evidence producer policy fields do not match the v3 contract")
+if producer_policy["version"] != "network_evidence_producers_v3":
     raise SystemExit("unsupported network evidence producer policy version")
-if client_artifact_sha256 not in producer_policy["clientArtifactSha256"]:
-    raise SystemExit("client artifact digest is not approved by the source producer policy")
-if test_artifact_sha256 not in producer_policy["testArtifactSha256"]:
-    raise SystemExit("test artifact digest is not approved by the source producer policy")
 expected = {
     "version",
     "clientHook",

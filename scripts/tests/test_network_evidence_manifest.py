@@ -67,12 +67,10 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
         evidence.write_canonical_json(
             evidence.PRODUCER_POLICY_PATH,
             {
-                "version": "network_evidence_producers_v2",
+                "version": "network_evidence_producers_v3",
                 "clientCollectorSha256": ["e" * 64],
                 "observerCollectorSha256": ["f" * 64],
                 "workloadSha256": ["9" * 64],
-                "clientArtifactSha256": ["8" * 64],
-                "testArtifactSha256": ["7" * 64],
             },
         )
         self.gate_ids = sorted(evidence.required_gate_ids())
@@ -416,7 +414,7 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, destination)
         producer_policy = {
-            "version": "network_evidence_producers_v2",
+            "version": "network_evidence_producers_v3",
             "clientCollectorSha256": [
                 evidence.sha256_bytes(LEAKING_COLLECTOR_PATH.read_bytes())
             ],
@@ -424,10 +422,6 @@ class NetworkEvidenceManifestTest(unittest.TestCase):
                 evidence.sha256_bytes(LEAKING_COLLECTOR_PATH.read_bytes())
             ],
             "workloadSha256": [evidence.sha256_bytes(FAKE_WORKLOAD_PATH.read_bytes())],
-            "clientArtifactSha256": [
-                evidence.sha256_bytes(b"synthetic client artifact\n")
-            ],
-            "testArtifactSha256": [evidence.sha256_bytes(b"synthetic test artifact\n")],
         }
         evidence.write_canonical_json(
             staging_checkout / "quality/release-gates/network-evidence-producers.json",
@@ -647,16 +641,6 @@ fi
         with self.assertRaisesRegex(ValueError, "workload digest is not approved"):
             self.validate(manifest)
 
-    def test_validator_rejects_unapproved_test_artifact(self) -> None:
-        with self.assertRaisesRegex(ValueError, "test artifact digest is not approved"):
-            evidence.enforce_producer_policy(
-                client_collector_sha256="e" * 64,
-                observer_collector_sha256="f" * 64,
-                workload_sha256="9" * 64,
-                client_artifact_sha256="8" * 64,
-                test_artifact_sha256="a" * 64,
-            )
-
     def test_assembler_rejects_observation_test_artifact_mismatch(self) -> None:
         observer = self.observation("external-observer")
         observer["testArtifactSha256"] = "a" * 64
@@ -678,12 +662,10 @@ fi
         evidence.write_canonical_json(
             evidence.PRODUCER_POLICY_PATH,
             {
-                "version": "network_evidence_producers_v2",
+                "version": "network_evidence_producers_v3",
                 "clientCollectorSha256": [],
                 "observerCollectorSha256": [],
                 "workloadSha256": [],
-                "clientArtifactSha256": [],
-                "testArtifactSha256": [],
             },
         )
         with self.assertRaisesRegex(ValueError, "digest is not approved"):

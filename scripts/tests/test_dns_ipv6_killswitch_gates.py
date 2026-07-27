@@ -46,12 +46,10 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         gates.network_evidence_manifest.write_canonical_json(
             producer_policy_path,
             {
-                "version": "network_evidence_producers_v2",
+                "version": "network_evidence_producers_v3",
                 "clientCollectorSha256": ["3" * 64],
                 "observerCollectorSha256": ["4" * 64],
                 "workloadSha256": ["9" * 64],
-                "clientArtifactSha256": ["8" * 64],
-                "testArtifactSha256": ["7" * 64],
             },
         )
         gates.network_evidence_manifest.PRODUCER_POLICY_PATH = producer_policy_path
@@ -672,12 +670,10 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         manifest_path = self.evidence_bundle(root)
         results_path = self.write_ordinary_results(root)
         empty_policy = {
-            "version": "network_evidence_producers_v2",
+            "version": "network_evidence_producers_v3",
             "clientCollectorSha256": [],
             "observerCollectorSha256": [],
             "workloadSha256": [],
-            "clientArtifactSha256": [],
-            "testArtifactSha256": [],
         }
         gates.network_evidence_manifest.write_canonical_json(
             gates.network_evidence_manifest.PRODUCER_POLICY_PATH, empty_policy

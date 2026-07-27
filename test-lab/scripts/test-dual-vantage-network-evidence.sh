@@ -64,16 +64,10 @@ digest = lambda path: hashlib.sha256(open(path, "rb").read()).hexdigest()
 with open(policy_path, "w", encoding="utf-8") as handle:
     json.dump(
         {
-            "version": "network_evidence_producers_v2",
+            "version": "network_evidence_producers_v3",
             "clientCollectorSha256": [digest(collector_path)],
             "observerCollectorSha256": [digest(collector_path)],
             "workloadSha256": [digest(workload_path), digest(mutating_workload_path)],
-            "clientArtifactSha256": [
-                hashlib.sha256(b"synthetic client artifact\n").hexdigest()
-            ],
-            "testArtifactSha256": [
-                hashlib.sha256(b"synthetic test artifact\n").hexdigest()
-            ],
         },
         handle,
         sort_keys=True,

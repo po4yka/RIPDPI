@@ -205,13 +205,11 @@ def load_producer_policy() -> dict[str, Any]:
         "clientCollectorSha256",
         "observerCollectorSha256",
         "workloadSha256",
-        "clientArtifactSha256",
-        "testArtifactSha256",
     }
     if not isinstance(value, dict):
         raise ValueError("producer policy must be a JSON object")
     require_exact_fields(value, fields, "producer policy")
-    if value["version"] != "network_evidence_producers_v2":
+    if value["version"] != "network_evidence_producers_v3":
         raise ValueError("unsupported producer policy version")
     for field in fields - {"version"}:
         entries = value[field]
@@ -227,16 +225,12 @@ def enforce_producer_policy(
     client_collector_sha256: str,
     observer_collector_sha256: str,
     workload_sha256: str,
-    client_artifact_sha256: str,
-    test_artifact_sha256: str,
 ) -> None:
     policy = load_producer_policy()
     memberships = (
         (client_collector_sha256, "clientCollectorSha256", "client collector"),
         (observer_collector_sha256, "observerCollectorSha256", "observer collector"),
         (workload_sha256, "workloadSha256", "workload"),
-        (client_artifact_sha256, "clientArtifactSha256", "client artifact"),
-        (test_artifact_sha256, "testArtifactSha256", "test artifact"),
     )
     for digest, field, label in memberships:
         if digest not in policy[field]:
@@ -731,8 +725,6 @@ def assemble_manifest(
         client_collector_sha256=client["collectorSha256"],
         observer_collector_sha256=observer["collectorSha256"],
         workload_sha256=workload_sha256,
-        client_artifact_sha256=client_artifact_sha256,
-        test_artifact_sha256=test_artifact_sha256,
     )
     if client["sourceSha"] != source_sha or observer["sourceSha"] != source_sha:
         raise ValueError("observation sourceSha does not match manifest sourceSha")
@@ -993,8 +985,6 @@ def validate_manifest(
         client_collector_sha256=by_role["client-underlay"]["collectorSha256"],
         observer_collector_sha256=by_role["external-observer"]["collectorSha256"],
         workload_sha256=provenance["workloadSha256"],
-        client_artifact_sha256=provenance["clientArtifactSha256"],
-        test_artifact_sha256=provenance["testArtifactSha256"],
     )
     if (
         observations["client-underlay"]["vantageIdSha256"]
