@@ -1,113 +1,127 @@
 ---
 name: release-changelog
-description: Release prep, changelog generation, version bumps, Play Store notes, tags, and release notes.
+description: Collect a read-only, exact-range evidence pack and draft curated RIPDPI release notes from Git history, changed files, source, tests, and merged pull requests. Use when preparing a changelog, GitHub Release description, Play/F-Droid notes, or an audit of changes between a stable tag and a candidate SHA. Never tag, push, edit a release, or publish from this skill.
 ---
 
-# Release Changelog (RIPDPI)
+# RIPDPI Release Changelog
 
-## Release Workflow
+Build release notes from verifiable repository evidence. Treat commit subjects as leads, not proof of shipped behavior. Keep this skill read-only with respect to Git, GitHub, and release state.
 
-The release pipeline lives in `.github/workflows/release.yml`.
+## Establish the exact range
 
-**Triggers:**
-- Push a tag matching `v*` (e.g., `v0.1.0`) -- automatic release
-- Manual dispatch via `workflow_dispatch` with optional `create_release` boolean
+1. Confirm the repository root, branch/worktree, and status.
+2. Fetch tags when network access is available. Do not modify branches.
+3. Resolve the base stable tag and target commit to immutable object IDs.
+4. Require the base commit to be an ancestor of the target. Stop on a divergent range.
+5. Record both IDs in every draft so later edits cannot silently change scope.
 
-**Steps (read the current `release` job before use):**
-1. Sets up Java 17, Rust stable, Android SDK, NDK (version from `gradle.properties`)
-2. Decodes release keystore from `KEYSTORE_BASE64` secret
-3. Builds `bundlePlayFullRelease`, `assembleFdroidFullRelease`, and `assembleGithubFullRelease` with signing env vars
-4. Uploads AAB, APK, R8 mapping, native symbols (90-day retention)
-5. Creates GitHub Release via the exact pinned `softprops/action-gh-release` SHA (v3.0.1 at this review) with
-   `generate_release_notes: true`
+For the planned `0.1.4` release, use `v0.1.3` as the base and the eventual release-candidate SHA as the target. Do not assume `HEAD` is still that candidate after a resume.
 
-**Artifacts:** Play AAB under `app/build/outputs/bundle/playFullRelease/` and
-Fdroid/Github APKs under their flavor-qualified `app/build/outputs/apk/*/release/` directories,
-APK, R8 mappings at `app/build/outputs/mapping/*Release/mapping.txt`, and the
-packaged `release-native-symbols.zip` plus manifest.
+Generate the local evidence pack:
 
-**Required secrets:** `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
-
-## Version Management
-
-Version code and name are defined in `app/build.gradle.kts`:
-
-```kotlin
-defaultConfig {
-    versionCode = 11        // current snapshot; read live before changing
-    versionName = "0.1.3"  // current snapshot; read live before changing
-}
+```bash
+python3 .agents/skills/release-changelog/scripts/collect_release_changes.py \
+  --base v0.1.3 \
+  --target <candidate-sha> \
+  --output <temporary-directory>/v0.1.4-evidence.md
 ```
 
-The convention plugin at `build-logic/convention/.../ripdpi.android.application.gradle.kts`
-names universal artifacts as `RIPDPI-$versionName-$versionCode-$buildTypeName-universal`. `BuildConfig.VERSION_NAME`
-appends `-debug` or `-bench` suffixes for non-release builds.
+The script only reads Git data. It reports the exact range, commit taxonomy, changed components, diff totals, changelog candidates, and the complete commit inventory. Run without `--base` only when the latest reachable stable tag is the intended base.
 
-**How to bump:** Edit `app/build.gradle.kts` (the only location), increment `versionCode`,
-update `versionName`, and commit as `chore: bump version to X.Y.Z`. Creating or
-pushing a tag is an external write and requires the user's explicit approval.
+## Add GitHub context
 
-## Changelog Generation
+When authenticated GitHub access is available, inspect rather than mutate:
 
-The project uses conventional commits (see `git log --oneline`). Parse commits
-between the previous tag and HEAD to generate a changelog.
-
-**Commit prefix categories:**
-
-| Prefix | Changelog Section |
-|--------|-------------------|
-| `feat` | New Features |
-| `fix` | Bug Fixes |
-| `perf` | Performance |
-| `refactor` | Refactoring |
-| `test` | Tests |
-| `docs` | Documentation |
-| `chore` | Maintenance |
-
-**Steps to generate:**
-1. Find previous tag: `git tag -l 'v*' --sort=-creatordate | head -1`
-2. List commits: `git log "$(git tag -l 'v*' --sort=-creatordate | head -1)"..HEAD --oneline`
-3. Group by prefix, omit `chore`/`test` from user-facing notes
-4. Keep scope when it adds clarity: `fix(security): ...`
-
-**Example:**
-```
-## v0.1.0
-### New Features
-- Integrate real biometric API, hardware detection, and app re-lock
-### Bug Fixes
-- Harden PIN lock with 7 defense-in-depth improvements
-- Move read timeout after handshake in ws-tunnel
-### Performance
-- Optimize CI pipeline -- reduce wall-clock by ~10min
+```bash
+gh release view <base-tag> --repo po4yka/RIPDPI --json tagName,name,publishedAt,body,assets
+gh pr list --repo po4yka/RIPDPI --state merged --base main --limit 1000 \
+  --json number,title,mergedAt,mergeCommit,labels,author,url
 ```
 
-## Play Store Release Notes
+Keep only PRs whose `mergeCommit.oid` belongs to `base..target`, or whose squash commit can otherwise be proven to belong to the range. Do not include a PR merely because its merge date overlaps the release window. If GitHub data is partial or unavailable, state that gap and rely on the complete local commit inventory.
 
-The project does not currently have a `whatsnew/` directory or
-`app/src/main/play/` listing files. When adding Play Store release notes:
+## Verify user-facing claims
 
-**Directory structure (Triple-T Gradle Play Publisher convention):**
-`app/src/main/play/release-notes/{en-US,ru-RU}/default.txt`
+For every proposed highlight:
 
-**Constraints:**
-- Max 500 characters per locale file (Google Play rejects longer text)
-- Plain text only, no markdown or HTML
-- Write in the locale's language
-- Focus on user-visible changes: new features, important fixes
-- Skip internal changes (CI, refactoring, test updates)
+1. Identify the implementing commit or commits.
+2. Inspect the final source at the target SHA, not only the patch or task note.
+3. Locate the relevant test, contract fixture, migration, or UI evidence.
+4. Determine whether the behavior is enabled and user-reachable in a published `FullRelease` variant.
+5. Record compatibility, migration, security, privacy, distribution, and root/non-root implications.
+6. Omit or qualify any claim that lacks final-tree evidence.
 
-**Tone:** Direct, concise, no marketing fluff. State what changed and why
-it matters to the user.
+Check these sources when relevant:
 
-## Pre-Release Checklist
+- `app/build.gradle.kts` for version name/code and variants;
+- `.github/workflows/release.yml` for published artifacts and gates;
+- `docs/distribution.md` for channel and identity contracts;
+- `docs/architecture/` plus current Kotlin/Rust registries for protocol claims;
+- tests and golden fixtures for behavioral proof;
+- `git diff --check <base>..<target>` and the evidence pack for scope.
 
-1. All CI checks pass on `main` (`.github/workflows/ci.yml`)
-2. Version bumped in `app/build.gradle.kts` (both `versionCode` and `versionName`)
-3. Changelog reviewed -- no sensitive information in commit messages
-4. Play Store release notes written for each supported locale (under 500 chars)
-5. Signing secrets configured in GitHub repository settings
-6. Tag created and pushed: `git tag vX.Y.Z && git push origin vX.Y.Z`
-7. Verify the Release workflow completes and artifacts are uploaded
-8. Download APK from GitHub Release, smoke-test on a physical device
-9. If publishing to Play Store: upload AAB from release artifacts
+Never infer release readiness from the changelog. CI, exact-SHA network evidence, signed artifacts, physical-device checks, and a successful release run are separate claims.
+
+## Curate the GitHub Release description
+
+Follow the style established by `v0.1.0` through `v0.1.3`:
+
+- lead with the release theme and user impact;
+- place 4–8 strongest verified changes in `Highlights`;
+- group the rest by user-facing domain such as security/privacy, connectivity, diagnostics/UX, stability, and performance;
+- add distribution or upgrade notes only when behavior actually changed;
+- summarize build/CI maintenance briefly;
+- end with artifacts and an exact compare link;
+- include commit or PR links for unusually specific or high-risk claims;
+- avoid dumping every conventional commit into the curated portion.
+
+Use this structure unless the evidence suggests a smaller release:
+
+```markdown
+# RIPDPI vX.Y.Z
+
+`versionCode N` · M commits since [vA.B.C](compare-url)
+
+One concise release-theme paragraph.
+
+## Highlights
+- Verified user-facing change.
+
+## Security & privacy
+- Verified security or privacy change.
+
+## Connectivity, diagnostics & UX
+- Verified behavior change.
+
+## Stability & performance
+- Verified fix or measured improvement.
+
+## Build & internal
+- Short maintenance summary.
+
+## Artifacts
+Describe only artifacts produced by the live release workflow.
+
+**Full changelog:** exact compare URL
+```
+
+Do not repeat promotional circumvention claims. Describe concrete reliability, privacy, interoperability, and user-control changes. Do not expose secrets, private infrastructure, unpublished vulnerabilities, or sensitive evidence details.
+
+## Produce store notes
+
+Derive store notes from the approved curated description, not directly from commit subjects. Keep them plain text and user-visible. Before creating any new Play metadata path, re-check the repository for an existing convention; do not introduce a new publishing layout merely to hold a draft.
+
+## Handoff
+
+Return:
+
+- base tag and resolved commit;
+- target ref and resolved commit;
+- total commit and diff counts;
+- verified highlights with source/test evidence;
+- omitted or uncertain claims;
+- GitHub Release draft;
+- store-note drafts if requested;
+- remaining evidence or review gaps.
+
+Do not create tags, push refs, dispatch workflows, edit GitHub Releases, or upload artifacts. Hand the approved notes and exact target SHA to `$ripdpi-release`.
