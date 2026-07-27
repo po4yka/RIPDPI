@@ -646,12 +646,20 @@ private fun networkEvidenceCanonicalJson(value: Any?): String =
         }
     }
 
-private fun networkEvidenceQuerySetSha256(
+internal fun networkEvidenceQuerySetSha256(
     gateId: String,
     querySha256: String,
 ): String {
     require(Sha256Regex.matches(querySha256))
-    val canonical = "{\"gateId\":\"$gateId\",\"queries\":[[\"dnsQuerySha256\",\"$querySha256\"]]}"
+    val queryField =
+        when (gateId) {
+            NetworkEvidenceStartupGateId -> "dnsQuerySha256"
+            "dns-virtual-vpn-resolver" -> "virtualQuerySha256"
+            "dns-proxied-through-tunnelled-resolver" -> "proxiedQuerySha256"
+            "dns-no-isp-fallback-on-encrypted-resolver-outage" -> "outageQuerySha256"
+            else -> error("Unsupported network evidence query-set gate $gateId")
+        }
+    val canonical = "{\"gateId\":\"$gateId\",\"queries\":[[\"$queryField\",\"$querySha256\"]]}"
     return MessageDigest
         .getInstance("SHA-256")
         .digest("ripdpi:network-evidence-query-set:v1:$canonical".toByteArray(StandardCharsets.US_ASCII))
