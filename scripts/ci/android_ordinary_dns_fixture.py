@@ -98,28 +98,44 @@ def build_tcp_response(frame: bytes, *, dual_stack_ipv6: str) -> bytes:
     return struct.pack("!H", len(response)) + response
 
 
+def handle_tcp_connection(connection: socket.socket, dual_stack_ipv6: str) -> None:
+    with connection:
+        connection.settimeout(5)
+        try:
+            header = receive_exact(connection, 2)
+            declared = struct.unpack("!H", header)[0]
+            if not 1 <= declared <= 2048:
+                raise ValueError("DNS-over-TCP question length is invalid")
+            packet = receive_exact(connection, declared)
+            response = build_tcp_response(
+                header + packet,
+                dual_stack_ipv6=dual_stack_ipv6,
+            )
+            connection.sendall(response)
+        except (OSError, UnicodeDecodeError, ValueError):
+            return
+
+
+def serve_tcp_connections(server: socket.socket, dual_stack_ipv6: str) -> None:
+    while True:
+        try:
+            connection, _ = server.accept()
+        except OSError:
+            return
+        threading.Thread(
+            target=handle_tcp_connection,
+            args=(connection, dual_stack_ipv6),
+            daemon=True,
+        ).start()
+
+
 def serve_tcp(port: int, dual_stack_ipv6: str) -> None:
     with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
         server.bind(("::", port))
         server.listen(16)
-        while True:
-            connection, _ = server.accept()
-            with connection:
-                try:
-                    header = receive_exact(connection, 2)
-                    declared = struct.unpack("!H", header)[0]
-                    if not 1 <= declared <= 2048:
-                        raise ValueError("DNS-over-TCP question length is invalid")
-                    packet = receive_exact(connection, declared)
-                    response = build_tcp_response(
-                        header + packet,
-                        dual_stack_ipv6=dual_stack_ipv6,
-                    )
-                except (UnicodeDecodeError, ValueError):
-                    continue
-                connection.sendall(response)
+        serve_tcp_connections(server, dual_stack_ipv6)
 
 
 def serve(port: int, dual_stack_ipv6: str) -> None:

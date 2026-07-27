@@ -6,7 +6,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import socket
 import struct
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -145,6 +147,29 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertEqual(response[-16:], __import__("ipaddress").IPv6Address(ipv6).packed)
         with self.assertRaisesRegex(ValueError, "length is invalid"):
             dns_fixture.build_tcp_response(b"\0\x01bad", dual_stack_ipv6=ipv6)
+
+    def test_stalled_tcp_dns_client_does_not_starve_valid_query(self) -> None:
+        ipv6 = "2001:db8::44"
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(4)
+            threading.Thread(
+                target=dns_fixture.serve_tcp_connections,
+                args=(listener, ipv6),
+                daemon=True,
+            ).start()
+            with socket.create_connection(listener.getsockname(), timeout=1):
+                with socket.create_connection(listener.getsockname(), timeout=1) as valid:
+                    query = dns_query(dns_fixture.DUAL_STACK_NAME)
+                    valid.sendall(struct.pack("!H", len(query)) + query)
+                    valid.settimeout(1)
+                    response_size = struct.unpack(
+                        "!H", dns_fixture.receive_exact(valid, 2)
+                    )[0]
+                    response = dns_fixture.receive_exact(valid, response_size)
+
+        self.assertEqual(len(response), response_size)
+        self.assertEqual(response[6:8], b"\0\x01")
 
     def test_dns_fixture_refuses_unknown_and_malformed_questions(self) -> None:
         nxdomain = dns_fixture.build_response(
