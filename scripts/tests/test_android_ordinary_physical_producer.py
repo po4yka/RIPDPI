@@ -86,6 +86,17 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("nft delete rule inet filter input handle", runner)
         self.assertIn("awk -v marker='$nft_comment'", runner)
 
+    def test_physical_producer_forces_the_test_process_into_the_vpn(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        configure = producer[producer.index("private fun configureAndStart") :]
+        configure = configure[: configure.index("private fun stopVpn")]
+        self.assertIn("fullTunnelMode = true", configure)
+        self.assertIn("setSplitTunnelMode(SplitTunnelMode.Off)", configure)
+        self.assertIn("clearSplitTunnelPackages()", configure)
+
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
     ) -> None:

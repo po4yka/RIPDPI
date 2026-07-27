@@ -40,6 +40,7 @@ import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.SplitTunnelMode
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -344,6 +345,9 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 proxyPort = reserveLoopbackPort()
                 dnsIp = controlIpv4
                 ipv6Enable = ipv6
+                fullTunnelMode = true
+                setSplitTunnelMode(SplitTunnelMode.Off)
+                clearSplitTunnelPackages()
                 enableCmdSettings = false
                 desyncHttp = false
                 desyncHttps = false
