@@ -47,13 +47,13 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
     test_sha = hashlib.sha256(b"test").hexdigest()
     run_id = hashlib.sha256(b"physical-run").hexdigest()
 
-    def test_runner_does_not_require_coordinator_ipv6_for_fixture_preflight(
+    def test_runner_does_not_require_coordinator_network_for_fixture_preflight(
         self,
     ) -> None:
         runner = Path(
             "scripts/ci/run-android-ordinary-physical-evidence.sh"
         ).read_text()
-        self.assertNotRegex(runner, r"(?m)^nc -6 ")
+        self.assertNotRegex(runner, r"(?m)^nc -[46] ")
         self.assertRegex(
             runner,
             r'ssh_remote\[@\].*socket\.create_connection\(\(\\"::1\\"',
