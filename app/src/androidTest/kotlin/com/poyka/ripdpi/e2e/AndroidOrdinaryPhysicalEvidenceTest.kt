@@ -6,7 +6,10 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Binder
 import android.os.Build
+import android.os.IBinder
+import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -413,15 +416,23 @@ class AndroidOrdinaryPhysicalEvidenceTest {
 
     private fun queryAaaa(actionId: String): JSONObject {
         val started = now()
+        val signalId = "ordinary-dns-${hash("$runId:$actionId").take(16)}"
         val result =
-            testProcessDnsProbe(
-                queryHost = "$actionId.ordinary.fixture.test",
-                serverHost = controlIpv4,
-                serverPort = dnsPort,
-                queryType = DnsQueryTypeAaaa,
-                timeoutMs = 4_000,
-                bindDevice = lastVpnInterface,
-            )
+            bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
+                assertTrue(
+                    "Test-process default network did not converge to the physical VPN",
+                    probeService.awaitVpnDefaultNetwork(OrdinaryTimeoutMs),
+                )
+                probeService.dnsProbe(
+                    queryHost = "$actionId.ordinary.fixture.test",
+                    serverHost = controlIpv4,
+                    serverPort = dnsPort,
+                    queryType = DnsQueryTypeAaaa,
+                    timeoutMs = 4_000,
+                    signalId = signalId,
+                    probeSignalBinder = acceptingDnsSignalBinder(signalId),
+                )
+            }
         val finished = now()
         assertTrue(
             "AAAA probe failed: kind=${result.failureKind} stage=${result.failureStage} " +
@@ -448,6 +459,23 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             .put("responseCode", 0)
             .put("startedAtEpochMs", started)
     }
+
+    private fun acceptingDnsSignalBinder(signalId: String): IBinder =
+        object : Binder() {
+            override fun onTransact(
+                code: Int,
+                data: Parcel,
+                reply: Parcel?,
+                flags: Int,
+            ): Boolean {
+                if (code != ProbeSignalDnsDatagramSentCode || data.readString() != signalId) {
+                    reply?.writeInt(0)
+                } else {
+                    reply?.writeInt(1)
+                }
+                return true
+            }
+        }
 
     private fun capturePhase(
         name: String,

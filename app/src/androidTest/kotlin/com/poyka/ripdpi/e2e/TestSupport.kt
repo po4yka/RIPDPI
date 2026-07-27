@@ -1584,6 +1584,7 @@ class TestProcessDnsProbeServiceHandle internal constructor(
         queryHost: String,
         serverHost: String = PacketSmokeMapDnsAddress,
         serverPort: Int = PacketSmokeMapDnsPort,
+        queryType: Int = DnsQueryTypeA,
         timeoutMs: Long = DebugNetworkProbeTimeoutMs,
         signalId: String,
         probeSignalBinder: IBinder,
@@ -1598,6 +1599,7 @@ class TestProcessDnsProbeServiceHandle internal constructor(
             data.writeInt(serverPort)
             data.writeInt(timeoutMs.toInt())
             data.writeString(queryHost)
+            data.writeInt(queryType)
             data.writeString(signalId)
             data.writeStrongBinder(probeSignalBinder)
             check(binder.transact(TestNetworkProbeDnsTransactionCode, data, reply, 0)) {
