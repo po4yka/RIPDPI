@@ -79,6 +79,24 @@ wait_for_device_boot() {
     return 1
 }
 
+wait_for_user_unlock() {
+    local elapsed=0
+    local timeout_seconds=300
+    if "${adb[@]}" shell dumpsys user | grep -q 'State: RUNNING_UNLOCKED'; then
+        return
+    fi
+    echo "Unlock the physical Android device to continue release evidence collection." >&2
+    while ((elapsed < timeout_seconds)); do
+        sleep 2
+        elapsed=$((elapsed + 2))
+        if "${adb[@]}" shell dumpsys user | grep -q 'State: RUNNING_UNLOCKED'; then
+            return
+        fi
+    done
+    echo "The physical Android device was not unlocked within ${timeout_seconds}s." >&2
+    return 1
+}
+
 cleanup_remote() {
     if ((remote_started)); then
         "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service' '$dns_unit.service' '$fixture_unit.service' >/dev/null 2>&1; for handle in \$(sudo nft -a list chain inet filter input | awk -v marker='$nft_comment' 'index(\$0, marker) {print \$NF}'); do sudo nft delete rule inet filter input handle \"\$handle\"; done; sudo rm -rf -- '$remote_dir'" >/dev/null 2>&1 || true
@@ -149,6 +167,7 @@ if [[ "$device_state" != "device" || "$device_qemu" == "1" || "$device_product" 
     echo "The selected serial is not an approved physical Google Android device." >&2
     exit 2
 fi
+wait_for_user_unlock
 wifi_before="$("${adb[@]}" shell settings get global wifi_on | tr -d '\r')"
 always_on_before="$("${adb[@]}" shell settings get secure always_on_vpn_app | tr -d '\r')"
 lockdown_before="$("${adb[@]}" shell settings get secure always_on_vpn_lockdown | tr -d '\r')"
@@ -226,6 +245,7 @@ vpn_manager_rebooted=1
 wait_for_device_boot
 "${adb[@]}" shell input keyevent KEYCODE_WAKEUP >/dev/null
 "${adb[@]}" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+wait_for_user_unlock
 "${adb[@]}" shell am force-stop com.poyka.ripdpi
 test "$("${adb[@]}" shell settings get secure always_on_vpn_app | tr -d '\r')" = "com.poyka.ripdpi"
 test "$("${adb[@]}" shell settings get secure always_on_vpn_lockdown | tr -d '\r')" = "1"

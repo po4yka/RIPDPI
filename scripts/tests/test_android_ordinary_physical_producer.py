@@ -144,6 +144,14 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("settings put secure always_on_vpn_lockdown 1", runner)
         self.assertGreaterEqual(runner.count('"${adb[@]}" reboot'), 2)
         self.assertIn("wait_for_device_boot", runner)
+        self.assertIn("State: RUNNING_UNLOCKED", runner)
+        target_reboot = runner.index(
+            '"${adb[@]}" reboot', runner.index("vpn_manager_rebooted=1")
+        )
+        target_unlock = runner.index("wait_for_user_unlock", target_reboot)
+        instrumentation = runner.index("shell am instrument", target_reboot)
+        self.assertLess(target_reboot, target_unlock)
+        self.assertLess(target_unlock, instrumentation)
 
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
