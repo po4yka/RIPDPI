@@ -112,7 +112,8 @@ device_state="$("${adb[@]}" get-state)"
 device_product="$("${adb[@]}" shell getprop ro.build.product | tr -d '\r')"
 device_qemu="$("${adb[@]}" shell getprop ro.kernel.qemu | tr -d '\r')"
 device_manufacturer="$("${adb[@]}" shell getprop ro.product.manufacturer | tr -d '\r')"
-if [[ "$device_state" != "device" || "$device_qemu" == "1" || "$device_product" =~ ^(generic|ranchu|goldfish)$ || "${device_manufacturer,,}" != "google" ]]; then
+device_abi="$("${adb[@]}" shell getprop ro.product.cpu.abi | tr -d '\r')"
+if [[ "$device_state" != "device" || "$device_qemu" == "1" || "$device_product" =~ ^(generic|ranchu|goldfish)$ || "${device_manufacturer,,}" != "google" || ! "$device_abi" =~ ^[A-Za-z0-9_-]+$ ]]; then
     echo "The selected serial is not an approved physical Google Android device." >&2
     exit 2
 fi
@@ -141,7 +142,7 @@ attestation="$output_dir/physical-attestation.json"
 results="$output_dir/ordinary-results.json"
 
 ./gradlew :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest
-app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk"
+app_apk="$repo_root/app/build/outputs/apk/githubFull/debug/app-github-full-${device_abi}-debug.apk"
 test_apk="$repo_root/app/build/outputs/apk/androidTest/githubFull/debug/app-github-full-debug-androidTest.apk"
 test -f "$app_apk" -a -f "$test_apk"
 app_sha="$(shasum -a 256 "$app_apk" | awk '{print $1}')"
