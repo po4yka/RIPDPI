@@ -19,7 +19,7 @@ pub(crate) fn start_socks5_server(
     let listener = TcpListener::bind((config.bind_host.as_str(), config.socks5_port))?;
     listener.set_nonblocking(true)?;
     let local_port = listener.local_addr()?.port();
-    let udp_socket = UdpSocket::bind((config.bind_host.as_str(), 0))?;
+    let udp_socket = UdpSocket::bind((config.bind_host.as_str(), local_port))?;
     udp_socket.set_read_timeout(Some(IO_TIMEOUT))?;
     let udp_local = udp_socket.local_addr()?;
     let advertised_udp_relay = advertised_udp_relay_addr(udp_local, &config.android_host)?;

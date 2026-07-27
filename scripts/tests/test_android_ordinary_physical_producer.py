@@ -83,6 +83,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertNotIn("sudo ufw", runner)
         self.assertIn("nft insert rule inet filter input tcp dport", runner)
         self.assertIn("nft insert rule inet filter input udp dport", runner)
+        self.assertIn("$marker_port, $dns_port, $socks_port", runner)
         self.assertIn("nft delete rule inet filter input handle", runner)
         self.assertIn("awk -v marker='$nft_comment'", runner)
 
