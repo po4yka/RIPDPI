@@ -74,7 +74,9 @@ DNS observations, and route captures must follow that event, and every
 observation must finish before the outcome marker. Sleep/wake additionally
 binds the action marker between its sleep and wake timestamps. Actions that
 require an established tunnel must contain parsed tunnel activity after the
-event and before the outcome marker.
+event and before the outcome marker. Wi-Fi/LTE and sleep/wake actions enforce
+the complete chain: transition snapshot and blocked probes, tunnel activity,
+re-established route, post-tunnel connected probe, then outcome marker.
 
 The `android_ordinary_route_snapshot_v1` artifact carries raw `ip address`,
 `ip route`, IPv6 route/address, resolver, connectivity, and secure-settings
@@ -82,6 +84,7 @@ outputs for source-owned phases. The verifier derives tunnel addresses and
 default routes, transition lockdown state, re-establishment, and Android
 Always-on settings from those outputs. Combined and IPv6-specific address views
 must identify the declared VPN interface and expose the same global IPv6 set.
+An active VPN interface must also be UP and expose an IPv4 address.
 Copied, cross-action, stale, partial, causally reordered, or contradictory
 artifacts remain an explicit FAIL blocker even when the manifest is rehashed.
 

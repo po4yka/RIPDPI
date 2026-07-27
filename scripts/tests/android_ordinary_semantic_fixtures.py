@@ -95,15 +95,22 @@ def action_receipt(
     started_at: int,
     finished_at: int,
 ) -> bytes:
+    probe_offsets = (
+        (200, 280, 800)
+        if action_id in {"wifi-lte-switch", "sleep-wake"}
+        else tuple(
+            200 + index * 80 for index in range(len(oracles.EXPECTED_PROBES[action_id]))
+        )
+    )
     probes = [
         _probe(
             probe_id,
             family,
             outcome,
-            started_at=started_at + 200 + index * 80,
+            started_at=started_at + offset,
         )
-        for index, (probe_id, family, outcome) in enumerate(
-            oracles.EXPECTED_PROBES[action_id]
+        for offset, (probe_id, family, outcome) in zip(
+            probe_offsets, oracles.EXPECTED_PROBES[action_id], strict=True
         )
     ]
     dns: dict[str, Any] | None = None
@@ -150,9 +157,10 @@ def _commands(
     global_ipv6: bool,
     secure_settings: str = "",
 ) -> dict[str, str]:
-    combined_addresses = (
-        "7: tun0: <POINTOPOINT,UP> mtu 1500\n    inet 10.0.0.2/32 scope global tun0\n"
-    )
+    flags = "POINTOPOINT,UP" if vpn_active else "POINTOPOINT,DOWN"
+    combined_addresses = f"7: tun0: <{flags}> mtu 1500\n"
+    if vpn_active:
+        combined_addresses += "    inet 10.0.0.2/32 scope global tun0\n"
     if global_ipv6:
         combined_addresses += "    inet6 fd00:1234::2/128 scope global\n"
     return {
@@ -162,10 +170,9 @@ def _commands(
         ),
         "dnsServers": "nameserver 10.0.0.53\n",
         "ip6AddressShow": (
-            "7: tun0: <POINTOPOINT,UP> mtu 1500\n"
-            "    inet6 fd00:1234::2/128 scope global\n"
+            f"7: tun0: <{flags}> mtu 1500\n    inet6 fd00:1234::2/128 scope global\n"
             if global_ipv6
-            else "7: tun0: <POINTOPOINT,UP> mtu 1500\n"
+            else f"7: tun0: <{flags}> mtu 1500\n"
         ),
         "ip6RouteShow": "default dev tun0 metric 1024\n" if ipv6_default else "",
         "ipAddressShow": combined_addresses,
@@ -216,7 +223,7 @@ def route_snapshot(
     elif action_id in {"wifi-lte-switch", "sleep-wake"}:
         phases = [
             {
-                "capturedAtEpochMs": started_at + 300,
+                "capturedAtEpochMs": started_at + 400,
                 "commands": _commands(
                     vpn_active=False,
                     lockdown_active=True,

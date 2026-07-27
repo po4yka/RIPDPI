@@ -698,12 +698,35 @@ def _global_ipv6_addresses(raw: str) -> tuple[str, ...]:
     return tuple(sorted(set(result)))
 
 
-def _mentions_interface(raw: str, interface: str) -> bool:
+def _interface_header(raw: str, interface: str) -> str | None:
     escaped = re.escape(interface)
-    return (
-        re.search(rf"^\d+:\s+{escaped}(?:@[^:]+)?:", raw, flags=re.MULTILINE)
-        is not None
-    )
+    match = re.search(rf"^\d+:\s+{escaped}(?:@[^:]+)?:[^\n]*", raw, flags=re.MULTILINE)
+    return match.group(0) if match is not None else None
+
+
+def _interface_is_up(header: str) -> bool:
+    flags_match = re.search(r"<([^>]*)>", header)
+    flags = set(flags_match.group(1).split(",")) if flags_match is not None else set()
+    state_match = re.search(r"\bstate\s+(\S+)", header)
+    state = state_match.group(1) if state_match is not None else None
+    return "UP" in flags and state not in {"DOWN", "DORMANT", "LOWERLAYERDOWN"}
+
+
+def _global_ipv4_addresses(raw: str) -> tuple[str, ...]:
+    result: list[str] = []
+    for match in re.finditer(r"(?:^|\s)inet\s+([^/\s]+)/\d+", raw, flags=re.MULTILINE):
+        try:
+            address = ipaddress.ip_address(match.group(1))
+        except ValueError:
+            continue
+        if address.version == 4 and not (
+            address.is_unspecified
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_multicast
+        ):
+            result.append(str(address))
+    return tuple(sorted(set(result)))
 
 
 def _dns_addresses(raw: str) -> tuple[str, ...]:
@@ -731,12 +754,20 @@ def _route_facts(interface: str, commands: dict[str, str]) -> dict[str, Any]:
             "SEMANTIC_ROUTE_MISMATCH",
             "connectivity must expose exact VPN and lockdown states",
         )
-    if not _mentions_interface(
-        commands["ipAddressShow"], interface
-    ) or not _mentions_interface(commands["ip6AddressShow"], interface):
+    combined_header = _interface_header(commands["ipAddressShow"], interface)
+    ipv6_header = _interface_header(commands["ip6AddressShow"], interface)
+    if combined_header is None or ipv6_header is None:
         raise OracleError(
             "SEMANTIC_ROUTE_MISMATCH",
             "address command outputs do not identify the declared VPN interface",
+        )
+    vpn_active = connectivity["vpn_active"] == "true"
+    interface_up = _interface_is_up(combined_header) and _interface_is_up(ipv6_header)
+    global_ipv4 = _global_ipv4_addresses(commands["ipAddressShow"])
+    if vpn_active and (not interface_up or not global_ipv4):
+        raise OracleError(
+            "SEMANTIC_ROUTE_MISMATCH",
+            "active VPN interface must be UP and expose an IPv4 address",
         )
     combined_global_ipv6 = _global_ipv6_addresses(commands["ipAddressShow"])
     ipv6_global_ipv6 = _global_ipv6_addresses(commands["ip6AddressShow"])
@@ -747,7 +778,9 @@ def _route_facts(interface: str, commands: dict[str, str]) -> dict[str, Any]:
         )
     return {
         "interface": interface,
-        "vpnActive": connectivity["vpn_active"] == "true",
+        "interfaceUp": interface_up,
+        "globalIpv4": global_ipv4,
+        "vpnActive": vpn_active,
         "lockdownActive": connectivity["lockdown_active"] == "true",
         "ipv4Default": _default_route(commands["ipRouteShow"], interface, ipv6=False),
         "ipv6Default": _default_route(commands["ip6RouteShow"], interface, ipv6=True),
@@ -1120,6 +1153,9 @@ def evaluate_pcap(
         "outcomeMarkerAtEpochMs": outcome_at,
         "parsedPacketCount": len(packets),
         "tunnelPacketCount": len(outcome_tunnel_packets),
+        "tunnelPacketTimesEpochMs": [
+            packet.timestamp_ms for packet in outcome_tunnel_packets
+        ],
         "windowPacketCount": len(scoped),
     }
 
@@ -1176,6 +1212,26 @@ def _validate_causal_order(
             "SEMANTIC_CAUSAL_ORDER_INVALID",
             "observations must follow the event and finish before the outcome marker",
         )
+    if context.action_id in {"wifi-lte-switch", "sleep-wake"}:
+        transition, reestablished = route_facts
+        blocked_probes = probes[:-1]
+        post_tunnel_probe = probes[-1]
+        tunnel_lower_bound = max(
+            transition["capturedAt"],
+            *(probe["finishedAtEpochMs"] for probe in blocked_probes),
+        )
+        causal_tunnel = any(
+            tunnel_lower_bound <= observed_at <= reestablished["capturedAt"]
+            for observed_at in pcap_facts["tunnelPacketTimesEpochMs"]
+        )
+        if (
+            not causal_tunnel
+            or post_tunnel_probe["startedAtEpochMs"] < reestablished["capturedAt"]
+        ):
+            raise OracleError(
+                "SEMANTIC_CAUSAL_ORDER_INVALID",
+                "transition evidence must precede tunnel activity, re-establishment, and post-tunnel probe",
+            )
 
 
 def evaluate_action(context: ActionContext) -> dict[str, Any]:
@@ -1213,7 +1269,9 @@ def evaluate_action(context: ActionContext) -> dict[str, Any]:
         "routePhases": [
             {
                 "capturedAtEpochMs": phase["capturedAt"],
+                "globalIpv4": list(phase["globalIpv4"]),
                 "globalIpv6": list(phase["globalIpv6"]),
+                "interfaceUp": phase["interfaceUp"],
                 "ipv4Default": phase["ipv4Default"],
                 "ipv6Default": phase["ipv6Default"],
                 "lockdownActive": phase["lockdownActive"],

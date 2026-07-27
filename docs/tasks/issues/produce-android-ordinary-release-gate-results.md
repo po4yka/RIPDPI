@@ -41,6 +41,12 @@ evidence.
 
 ## Work log
 
+- 2026-07-27: A second integration review rejected an incomplete transition
+  chain and weak active-interface evidence. Wi-Fi/LTE and sleep/wake now require
+  transition/blocked observations before tunnel traffic, a re-established route
+  before the post-tunnel probe, and the outcome marker last. Active VPN phases
+  also require the declared interface to be UP with an IPv4 address. New tests
+  reject each reordered chain and a DOWN/addressless active TUN.
 - 2026-07-27: The independent integration review found and blocked three
   semantic gaps before merge: packets outside the marker interval were ignored,
   action artifacts were not causally ordered, and the combined address output

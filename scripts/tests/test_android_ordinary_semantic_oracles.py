@@ -276,14 +276,25 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
 
         def switch_route(manifest_path, manifest):
+            def mutation(value):
+                commands = value["phases"][0]["commands"]
+                commands.update(
+                    {
+                        "connectivity": "vpn_active=true\nlockdown_active=true\n",
+                        "ipAddressShow": (
+                            "7: tun0: <POINTOPOINT,UP> mtu 1500\n"
+                            "    inet 10.0.0.2/32 scope global tun0\n"
+                        ),
+                        "ip6AddressShow": "7: tun0: <POINTOPOINT,UP> mtu 1500\n",
+                    }
+                )
+
             self.mutate_json_artifact(
                 manifest_path,
                 manifest,
                 "wifi-lte-switch",
                 "route-snapshot",
-                lambda value: value["phases"][0]["commands"].update(
-                    {"connectivity": "vpn_active=true\nlockdown_active=true\n"}
-                ),
+                mutation,
             )
 
         def sleep_event(manifest_path, manifest):
@@ -792,6 +803,100 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
 
         self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
+
+    def test_active_tunnel_interface_must_be_up_with_an_ipv4_address(self) -> None:
+        def mutation(manifest_path, manifest):
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "dual-stack",
+                "route-snapshot",
+                lambda value: value["phases"][0]["commands"].update(
+                    {
+                        "ipAddressShow": (
+                            "7: tun0: <POINTOPOINT,DOWN> mtu 1500 state DOWN\n"
+                            "    inet6 fd00:1234::2/128 scope global\n"
+                        )
+                    }
+                ),
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
+
+    def test_transition_actions_require_full_reestablishment_chain(self) -> None:
+        def early_post_tunnel_probe(manifest_path, manifest):
+            def mutation(value):
+                probe = value["probes"][2]
+                probe["startedAtEpochMs"] = value["windowStartedAtEpochMs"] + 650
+                probe["finishedAtEpochMs"] = value["windowStartedAtEpochMs"] + 675
+
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "wifi-lte-switch",
+                "action-receipt",
+                mutation,
+            )
+
+        def transition_snapshot_after_tunnel(manifest_path, manifest):
+            started = self.action(manifest, "sleep-wake")["windowStartedAtEpochMs"]
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "sleep-wake",
+                "route-snapshot",
+                lambda value: value["phases"][0].update(
+                    {"capturedAtEpochMs": started + 650}
+                ),
+            )
+
+        def tunnel_activity_after_reestablishment(manifest_path, manifest):
+            action = self.action(manifest, "wifi-lte-switch")
+            started = action["windowStartedAtEpochMs"]
+            correlation = action["correlationId"]
+            records = [
+                (
+                    started + offset,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        destination,
+                        43000 if phase == "tunnel" else 42000,
+                        (
+                            fixtures.FIXTURE["tunnelPort"]
+                            if phase == "tunnel"
+                            else fixtures.FIXTURE["markerPort"]
+                        ),
+                        (
+                            b"late-tunnel"
+                            if phase == "tunnel"
+                            else oracles._marker("wifi-lte-switch", correlation, phase)
+                        ),
+                    ),
+                )
+                for offset, destination, phase in (
+                    (100, fixtures.FIXTURE["markerAddress"], "action"),
+                    (750, fixtures.FIXTURE["tunnelEndpoints"][0], "tunnel"),
+                    (900, fixtures.FIXTURE["markerAddress"], "outcome"),
+                )
+            ]
+            self.replace_artifact(
+                manifest_path,
+                manifest,
+                "wifi-lte-switch",
+                "packet-capture",
+                fixtures._pcap(records),
+            )
+
+        self.assert_semantic_failure(
+            early_post_tunnel_probe, "SEMANTIC_CAUSAL_ORDER_INVALID"
+        )
+        self.assert_semantic_failure(
+            transition_snapshot_after_tunnel, "SEMANTIC_CAUSAL_ORDER_INVALID"
+        )
+        self.assert_semantic_failure(
+            tunnel_activity_after_reestablishment,
+            "SEMANTIC_CAUSAL_ORDER_INVALID",
+        )
 
     def test_stale_correlation_in_route_snapshot_is_rejected(self) -> None:
         def mutation(manifest_path, manifest):
