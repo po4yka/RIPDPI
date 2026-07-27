@@ -37,7 +37,7 @@ jobs:
       run_matrix: ${{ steps.emit.outputs.run_matrix }}
       skip_reason: ${{ steps.emit.outputs.skip_reason }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate Phase 16 lab matrix fixture
         run: python3 scripts/ci/phase16_matrix.py validate
@@ -93,7 +93,7 @@ jobs:
       RIPDPI_PHASE16_PREPARE_HOOK: ${{ inputs.prepare_hook || '' }}
       ANDROID_SERIAL: ${{ inputs.android_serial || '' }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-android-rust
         if: matrix.executionKind != 'l7_adversarial_emulator'
