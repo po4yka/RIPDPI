@@ -2,6 +2,7 @@ package com.poyka.ripdpi.e2e
 
 import android.content.Context
 import android.os.Bundle
+import android.system.Os
 import com.poyka.ripdpi.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
@@ -356,6 +357,7 @@ internal fun writeNetworkEvidenceFixtureTranscript(
         output.write(bytes)
         output.fd.sync()
     }
+    enforceOwnerOnlyMode(temporary)
     check(temporary.renameTo(destination)) { "Could not atomically publish fixture transcript" }
     return MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
 }
@@ -491,7 +493,12 @@ private fun publishPrivateJson(
         output.write((value.toString() + "\n").toByteArray(StandardCharsets.UTF_8))
         output.fd.sync()
     }
+    enforceOwnerOnlyMode(temporary)
     check(temporary.renameTo(destination)) { "Could not atomically publish network evidence output" }
+}
+
+private fun enforceOwnerOnlyMode(file: File) {
+    Os.chmod(file.absolutePath, 0x180)
 }
 
 internal fun writeNetworkEvidenceStartupPassReceipt(
@@ -565,6 +572,7 @@ internal fun writeNetworkEvidenceStartupPassReceipt(
         output.write((receipt.toString() + "\n").toByteArray(StandardCharsets.UTF_8))
         output.fd.sync()
     }
+    enforceOwnerOnlyMode(temporary)
     check(temporary.renameTo(destination)) { "Could not atomically publish network evidence action receipt" }
 }
 
