@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Validate the private raw bundle for Android ordinary release gates.
 
-This module owns only artifact provenance and inventory. It deliberately does
-not interpret packet captures, route snapshots, or action receipts as proof of
-a gate result; those source-owned semantic oracles have not been implemented.
+This module pins artifact provenance and inventory before handing immutable
+descriptors to the source-owned semantic oracles.
 """
 
 from __future__ import annotations
@@ -17,6 +16,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+
+try:
+    from . import android_ordinary_semantic_oracles
+except ImportError:  # Direct script/module loading through the CI directory.
+    import android_ordinary_semantic_oracles
 
 
 BUNDLE_VERSION = "android_ordinary_raw_bundle_v1"
@@ -40,7 +44,15 @@ MAX_CLOCK_SKEW_MS = 5 * 60 * 1000
 class ActionSpec:
     action_id: str
     gate_ids: tuple[str, ...]
-    blocker_code: str
+
+
+@dataclass(frozen=True)
+class ValidatedAction:
+    spec: ActionSpec
+    correlation_id: str
+    window_started_at_ms: int
+    window_finished_at_ms: int
+    artifacts: dict[str, "PinnedArtifact"]
 
 
 @dataclass
@@ -50,6 +62,9 @@ class PinnedArtifact:
     metadata: os.stat_result
     digest: str
     label: str
+
+    def read(self) -> bytes:
+        return _read_descriptor(self.descriptor, self.metadata, label=self.label)
 
     def revalidate(self, root_descriptor: int) -> None:
         try:
@@ -93,6 +108,10 @@ class ValidatedRawBundle:
     root_identity: tuple[int, int]
     expected_filenames: frozenset[str]
     artifacts: list[PinnedArtifact]
+    actions: tuple[ValidatedAction, ...]
+    source_sha: str
+    app_apk_sha256: str
+    test_apk_sha256: str
     expires_at_epoch_ms: int
     current_time_ms: Callable[[], int]
 
@@ -133,6 +152,41 @@ class ValidatedRawBundle:
             artifact.close()
         self.artifacts.clear()
 
+    def evaluate_semantics(self) -> dict[str, Any]:
+        self.revalidate()
+        action_proofs: dict[str, Any] = {}
+        gate_results: dict[str, dict[str, str]] = {}
+        try:
+            for action in self.actions:
+                artifacts = {
+                    kind: android_ordinary_semantic_oracles.ArtifactBytes(
+                        kind=kind,
+                        payload=artifact.read(),
+                        sha256=artifact.digest,
+                    )
+                    for kind, artifact in action.artifacts.items()
+                }
+                proof = android_ordinary_semantic_oracles.evaluate_action(
+                    android_ordinary_semantic_oracles.ActionContext(
+                        action_id=action.spec.action_id,
+                        gate_ids=action.spec.gate_ids,
+                        correlation_id=action.correlation_id,
+                        source_sha=self.source_sha,
+                        app_apk_sha256=self.app_apk_sha256,
+                        test_apk_sha256=self.test_apk_sha256,
+                        window_started_at_ms=action.window_started_at_ms,
+                        window_finished_at_ms=action.window_finished_at_ms,
+                        artifacts=artifacts,
+                    )
+                )
+                action_proofs[action.spec.action_id] = proof
+                for gate_id in action.spec.gate_ids:
+                    gate_results[gate_id] = {"state": "PASS"}
+        except android_ordinary_semantic_oracles.OracleError as error:
+            raise RawEvidenceError(error.code, error.message) from error
+        self.revalidate()
+        return {"actionProofs": action_proofs, "gateResults": gate_results}
+
 
 ACTION_SPECS = (
     ActionSpec(
@@ -143,7 +197,6 @@ ACTION_SPECS = (
             "ipv4only-blocked-ipv6-only-connect",
             "ipv4only-empty-or-blocked-aaaa",
         ),
-        "SEMANTIC_IPV4_ONLY_ORACLE_UNAVAILABLE",
     ),
     ActionSpec(
         "dual-stack",
@@ -151,32 +204,26 @@ ACTION_SPECS = (
             "dualstack-default-route-through-tunnel",
             "dualstack-aaaa-through-tunnel",
         ),
-        "SEMANTIC_DUAL_STACK_ORACLE_UNAVAILABLE",
     ),
     ActionSpec(
         "forced-revoke",
         ("killswitch-forced-disconnect",),
-        "SEMANTIC_FORCED_REVOKE_ORACLE_UNAVAILABLE",
     ),
     ActionSpec(
         "core-fault",
         ("killswitch-core-crash",),
-        "SEMANTIC_CORE_FAULT_ORACLE_UNAVAILABLE",
     ),
     ActionSpec(
         "wifi-lte-switch",
         ("killswitch-wifi-lte-switch",),
-        "SEMANTIC_WIFI_LTE_SWITCH_ORACLE_UNAVAILABLE",
     ),
     ActionSpec(
         "sleep-wake",
         ("killswitch-sleep-wake",),
-        "SEMANTIC_SLEEP_WAKE_ORACLE_UNAVAILABLE",
     ),
     ActionSpec(
         "android-always-on-block",
         ("killswitch-android-always-on-block",),
-        "SEMANTIC_ANDROID_ALWAYS_ON_BLOCK_ORACLE_UNAVAILABLE",
     ),
 )
 
@@ -494,12 +541,6 @@ def _read_private_artifact(
     return PinnedArtifact(relative, descriptor, metadata, expected_digest, label)
 
 
-def semantic_blockers_by_gate() -> dict[str, str]:
-    return {
-        gate_id: spec.blocker_code for spec in ACTION_SPECS for gate_id in spec.gate_ids
-    }
-
-
 def current_epoch_ms() -> int:
     return int(time.time() * 1000)
 
@@ -559,6 +600,7 @@ def validate_raw_bundle_pinned(
     if not isinstance(manifest["artifactRoot"], str):
         raise RawEvidenceError("MANIFEST_INVALID", "artifactRoot must be a string")
     pinned_artifacts: list[PinnedArtifact] = []
+    validated_actions: list[ValidatedAction] = []
     try:
         actions = manifest["actions"]
         if not isinstance(actions, list) or len(actions) != len(ACTION_SPECS):
@@ -624,6 +666,7 @@ def validate_raw_bundle_pinned(
                     "INVENTORY_MISMATCH",
                     f"{label}.artifacts must cover exact raw artifact kinds",
                 )
+            action_artifacts: dict[str, PinnedArtifact] = {}
             for artifact_index, (artifact, expected_kind) in enumerate(
                 zip(artifacts, ARTIFACT_KINDS, strict=True)
             ):
@@ -658,12 +701,22 @@ def validate_raw_bundle_pinned(
                     root_descriptor, artifact, label=artifact_label
                 )
                 pinned_artifacts.append(pinned_artifact)
+                action_artifacts[expected_kind] = pinned_artifact
                 expected_filenames.add(relative)
                 total_bytes += pinned_artifact.metadata.st_size
                 if total_bytes > MAX_BUNDLE_BYTES:
                     raise RawEvidenceError(
                         "SIZE_INVALID", "raw artifact bundle exceeds its size bound"
                     )
+            validated_actions.append(
+                ValidatedAction(
+                    spec=spec,
+                    correlation_id=correlation,
+                    window_started_at_ms=window_started,
+                    window_finished_at_ms=window_finished,
+                    artifacts=action_artifacts,
+                )
+            )
         actual_filenames = set(os.listdir(root_descriptor))
         if actual_filenames != expected_filenames:
             raise RawEvidenceError(
@@ -696,12 +749,16 @@ def validate_raw_bundle_pinned(
             "manifestSha256": hashlib.sha256(manifest_raw).hexdigest(),
             "artifactCount": len(ACTION_SPECS) * len(ARTIFACT_KINDS),
             "actionCount": len(ACTION_SPECS),
-            "semanticBlockers": semantic_blockers_by_gate(),
+            "semanticVerifier": android_ordinary_semantic_oracles.VERIFIER_VERSION,
         },
         root_descriptor=root_descriptor,
         root_identity=(root_metadata.st_dev, root_metadata.st_ino),
         expected_filenames=frozenset(expected_filenames),
         artifacts=pinned_artifacts,
+        actions=tuple(validated_actions),
+        source_sha=source_sha,
+        app_apk_sha256=app_digest,
+        test_apk_sha256=test_digest,
         expires_at_epoch_ms=expires_at_epoch_ms,
         current_time_ms=time_source,
     )

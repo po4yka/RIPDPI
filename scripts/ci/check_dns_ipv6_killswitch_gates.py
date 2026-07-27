@@ -360,16 +360,23 @@ def validate_results_document(
     ):
         android_ordinary_results.validate_pass_results(results)
     if applies_to == "android-client-release" and actual_gate_ids == ordinary_gate_ids:
-        if not all(
+        structured = all(
             isinstance(value, dict)
-            and value.get("state") == "FAIL"
-            and isinstance(value.get("reason"), str)
-            and value["reason"].strip()
+            and (
+                value == {"state": "PASS"}
+                or (
+                    value.get("state") == "FAIL"
+                    and set(value) == {"reason", "state"}
+                    and isinstance(value.get("reason"), str)
+                    and value["reason"].strip()
+                )
+            )
             for value in results["gateResults"].values()
-        ):
+        )
+        if not structured:
             raise ValueError(
-                "Android ordinary results must be structured all-FAIL until the "
-                "checked-in raw-artifact verifier is implemented"
+                "Android ordinary results must be structured verifier-owned PASS "
+                "or reasoned FAIL objects"
             )
     return results
 

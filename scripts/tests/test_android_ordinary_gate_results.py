@@ -14,6 +14,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from scripts.tests import android_ordinary_semantic_fixtures as semantic_fixtures
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -59,15 +61,29 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         test_apk = directory / "test.apk"
         app_apk.write_bytes(b"app-apk")
         test_apk.write_bytes(b"test-apk")
+        app_digest = hashlib.sha256(app_apk.read_bytes()).hexdigest()
+        test_digest = hashlib.sha256(test_apk.read_bytes()).hexdigest()
         actions = []
         now_epoch_ms = int(time.time() * 1000)
         for action_index, spec in enumerate(raw_evidence.ACTION_SPECS):
             window_started = now_epoch_ms - 20_000 + action_index * 2_000
             window_finished = window_started + 1_000
+            correlation = hashlib.sha256(
+                f"correlation:{spec.action_id}".encode()
+            ).hexdigest()
+            semantic_payloads = semantic_fixtures.semantic_artifacts(
+                spec.action_id,
+                correlation_id=correlation,
+                source_sha=self.source_sha,
+                app_sha256=app_digest,
+                test_sha256=test_digest,
+                started_at=window_started,
+                finished_at=window_finished,
+            )
             artifacts = []
             for kind in raw_evidence.ARTIFACT_KINDS:
                 name = f"{spec.action_id}.{kind}.raw"
-                payload = f"{spec.action_id}:{kind}\n".encode()
+                payload = semantic_payloads[kind]
                 path = artifact_root / name
                 path.write_bytes(payload)
                 path.chmod(0o600)
@@ -86,9 +102,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
                 {
                     "actionId": spec.action_id,
                     "artifacts": artifacts,
-                    "correlationId": hashlib.sha256(
-                        f"correlation:{spec.action_id}".encode()
-                    ).hexdigest(),
+                    "correlationId": correlation,
                     "gateIds": list(spec.gate_ids),
                     "windowFinishedAtEpochMs": window_finished,
                     "windowStartedAtEpochMs": window_started,
@@ -96,12 +110,12 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             )
         manifest = {
             "actions": actions,
-            "appApkSha256": hashlib.sha256(app_apk.read_bytes()).hexdigest(),
+            "appApkSha256": app_digest,
             "artifactRoot": str(artifact_root),
             "createdAtEpochMs": now_epoch_ms,
             "runId": hashlib.sha256(b"ordinary-raw-run").hexdigest(),
             "sourceSha": self.source_sha,
-            "testApkSha256": hashlib.sha256(test_apk.read_bytes()).hexdigest(),
+            "testApkSha256": test_digest,
             "version": raw_evidence.BUNDLE_VERSION,
         }
         manifest_path = directory / "manifest.json"
@@ -227,11 +241,11 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertEqual(artifact.read_bytes(), mimicking_payload)
 
-    def test_producer_has_no_pluggable_or_false_green_path(self) -> None:
-        self.assertFalse(producer.SOURCE_OWNED_VERIFIER_AVAILABLE)
+    def test_producer_has_no_pluggable_or_unproven_green_path(self) -> None:
+        self.assertTrue(producer.SOURCE_OWNED_VERIFIER_AVAILABLE)
         self.assertFalse(hasattr(producer, "APPROVED_COLLECTORS"))
         self.assertFalse(hasattr(producer, "run_approved_collector"))
-        with self.assertRaisesRegex(ValueError, producer.UNAVAILABLE_CODE):
+        with self.assertRaisesRegex(ValueError, producer.PRODUCER_ATTESTATION_CODE):
             producer.validate_pass_results({})
 
     def test_complete_structured_failure_is_checker_compatible(self) -> None:
@@ -248,7 +262,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         )
         self.assertTrue(
             any(
-                producer.UNAVAILABLE_CODE in violation
+                producer.UNEVALUATED_CODE in violation
                 for violation in evaluation["violations"]
             )
         )
@@ -265,7 +279,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(output.read_bytes(), producer.canonical_json_bytes(first))
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
 
-    def test_private_raw_bundle_preflight_stops_at_semantic_blockers(self) -> None:
+    def test_private_raw_bundle_preflight_exposes_source_owned_verifier(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             directory = Path(directory_name)
             manifest_path, app_apk, test_apk, _ = self.create_raw_bundle(directory)
@@ -278,19 +292,11 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(provenance["actionCount"], 7)
             self.assertEqual(provenance["artifactCount"], 21)
             self.assertEqual(
-                set(provenance["semanticBlockers"]), set(producer.ORDINARY_GATE_IDS)
-            )
-            results = producer.semantic_failure_results(self.source_sha, provenance)
-            self.assertEqual(self.validate(results), results)
-            self.assertFalse(results["rawBundleProvenance"]["productionReady"])
-            self.assertTrue(
-                all(
-                    value["state"] == "FAIL" and value["reason"].startswith("SEMANTIC_")
-                    for value in results["gateResults"].values()
-                )
+                provenance["semanticVerifier"],
+                raw_evidence.android_ordinary_semantic_oracles.VERIFIER_VERSION,
             )
 
-    def test_cli_emits_verifier_owned_semantic_failures_for_valid_raw_bundle(
+    def test_cli_emits_semantic_proofs_but_remains_no_ship_without_attestation(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
@@ -320,6 +326,15 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             self.assertEqual(status, 1)
             results = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(self.validate(results), results)
+            self.assertTrue(
+                all(
+                    value["state"] == "FAIL"
+                    and producer.PRODUCER_ATTESTATION_CODE in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+            self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
+            self.assertFalse(results["rawBundleProvenance"]["productionReady"])
             self.assertEqual(
                 output.read_bytes(), producer.canonical_json_bytes(results)
             )
@@ -1672,7 +1687,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         results["producerAttestation"] = {
             "forged": "all public hashes and arbitrary artifacts"
         }
-        with self.assertRaisesRegex(ValueError, producer.UNAVAILABLE_CODE):
+        with self.assertRaisesRegex(ValueError, producer.PRODUCER_ATTESTATION_CODE):
             self.validate(results)
 
     def test_checker_rejects_legacy_string_pass(self) -> None:
@@ -1680,7 +1695,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
         results["gateResults"] = {
             gate_id: "PASS" for gate_id in producer.ORDINARY_GATE_IDS
         }
-        with self.assertRaisesRegex(ValueError, producer.UNAVAILABLE_CODE):
+        with self.assertRaisesRegex(ValueError, producer.PRODUCER_ATTESTATION_CODE):
             self.validate(results)
 
     def test_checker_rejects_ordinary_pass_inside_full_policy_document(self) -> None:
@@ -1691,7 +1706,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
             "sourceSha": self.source_sha,
             "version": producer.RESULTS_VERSION,
         }
-        with self.assertRaisesRegex(ValueError, producer.UNAVAILABLE_CODE):
+        with self.assertRaisesRegex(ValueError, producer.PRODUCER_ATTESTATION_CODE):
             self.validate(results)
 
         results = self.results()
@@ -1711,7 +1726,7 @@ class AndroidOrdinaryGateResultsTest(unittest.TestCase):
 
         results = self.results()
         results["gateResults"][producer.ORDINARY_GATE_IDS[0]] = "FAIL"
-        with self.assertRaisesRegex(ValueError, "structured all-FAIL"):
+        with self.assertRaisesRegex(ValueError, "structured verifier-owned"):
             self.validate(results)
 
     def test_current_source_rejects_untracked_files(self) -> None:

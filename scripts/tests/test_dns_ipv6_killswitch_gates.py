@@ -626,7 +626,8 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
             manifest_path = self.evidence_bundle(root)
             results_path = self.write_ordinary_results(root)
             with self.assertRaisesRegex(
-                ValueError, "SOURCE_OWNED_VERIFIER_UNAVAILABLE"
+                ValueError,
+                gates.android_ordinary_results.PRODUCER_ATTESTATION_CODE,
             ):
                 gates.main(
                     [

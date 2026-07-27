@@ -232,6 +232,7 @@ jobs:
             scripts.tests.test_network_evidence_manifest \
             scripts.tests.test_network_evidence_pcap_oracle \
             scripts.tests.test_android_ordinary_gate_results \
+            scripts.tests.test_android_ordinary_semantic_oracles \
             scripts.tests.test_local_android_release_acceptance \
             scripts.tests.test_so_bindtodevice_evidence \
             scripts.tests.test_so_bindtodevice_lane

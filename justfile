@@ -90,7 +90,7 @@ test-pmtud-local-evidence output_dir="":
 # Run the local Android ordinary release-evidence contract suites
 [group('test')]
 test-android-ordinary-release-gates:
-    python3 -m unittest scripts.tests.test_android_ordinary_gate_results scripts.tests.test_dns_ipv6_killswitch_gates scripts.tests.test_local_android_release_acceptance
+    python3 -m unittest scripts.tests.test_android_ordinary_gate_results scripts.tests.test_android_ordinary_semantic_oracles scripts.tests.test_dns_ipv6_killswitch_gates scripts.tests.test_local_android_release_acceptance
 
 # Verify Roborazzi screenshot baselines
 [group('test')]

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Emit fail-closed local results for Android ordinary release gates.
+"""Evaluate Android ordinary release-gate semantics from private raw evidence.
 
-There is intentionally no pluggable collector. The checked-in preflight binds
-private raw packet/route artifacts to source and APK provenance, but PASS
-remains impossible until source-owned semantic oracles interpret all seven
-physical actions. This prevents hand-authored counters, summaries, or JUnit
-state from becoming release evidence.
+There is intentionally no pluggable collector. The checked-in verifier binds
+private raw packet/route artifacts to source and APK provenance and evaluates
+all seven source-owned semantic action oracles. Public PASS remains forbidden
+until a source-owned physical producer and attestation path are implemented.
 """
 
 from __future__ import annotations
@@ -34,10 +33,14 @@ APPLIES_TO = "android-client-release"
 SHA1_RE = re.compile(r"[0-9a-f]{40}")
 # Reserved sentinel: no Git object can be trusted when HEAD lookup itself fails.
 UNKNOWN_SOURCE_SHA = "0" * 40
-SOURCE_OWNED_VERIFIER_AVAILABLE = False
-UNAVAILABLE_CODE = "SOURCE_OWNED_VERIFIER_UNAVAILABLE"
-UNAVAILABLE_REASON = (
-    "source-owned semantic oracles are not implemented; ordinary PASS is forbidden"
+SOURCE_OWNED_VERIFIER_AVAILABLE = True
+SOURCE_OWNED_PHYSICAL_PRODUCER_AVAILABLE = False
+UNEVALUATED_CODE = "SEMANTIC_EVIDENCE_REQUIRED"
+UNEVALUATED_REASON = "all seven source-owned semantic action oracles must pass"
+PRODUCER_ATTESTATION_CODE = "SOURCE_OWNED_PHYSICAL_PRODUCER_UNAVAILABLE"
+PRODUCER_ATTESTATION_REASON = (
+    "semantic verification passed, but source-owned physical collection and "
+    "attestation are not implemented; ordinary release PASS remains forbidden"
 )
 
 ORDINARY_GATE_IDS = (
@@ -462,8 +465,8 @@ def current_head_sha(root: Path = ROOT) -> str:
 def all_failure_results(
     source_sha: str,
     *,
-    code: str = UNAVAILABLE_CODE,
-    reason: str = UNAVAILABLE_REASON,
+    code: str = UNEVALUATED_CODE,
+    reason: str = UNEVALUATED_REASON,
 ) -> dict[str, Any]:
     failure = {"reason": f"{code}: {reason}", "state": "FAIL"}
     return {
@@ -474,40 +477,34 @@ def all_failure_results(
     }
 
 
-def semantic_failure_results(
-    source_sha: str, provenance: dict[str, Any]
+def semantic_verification_results(
+    source_sha: str,
+    provenance: dict[str, Any],
+    evaluation: dict[str, Any],
 ) -> dict[str, Any]:
-    blockers = android_ordinary_raw_evidence.semantic_blockers_by_gate()
-    if set(blockers) != set(ORDINARY_GATE_IDS):
+    if set(evaluation.get("gateResults", {})) != set(ORDINARY_GATE_IDS):
         raise EvidenceError(
-            "INVENTORY_MISMATCH", "semantic blocker inventory does not cover all gates"
+            "INVENTORY_MISMATCH", "semantic result inventory does not cover all gates"
         )
-    return {
-        "appliesTo": APPLIES_TO,
-        "gateResults": {
-            gate_id: {
-                "reason": (
-                    f"{blockers[gate_id]}: raw artifact provenance passed, but the "
-                    "source-owned packet/route semantic oracle is not implemented"
-                ),
-                "state": "FAIL",
-            }
-            for gate_id in ORDINARY_GATE_IDS
-        },
-        "rawBundleProvenance": {
-            "actionCount": provenance["actionCount"],
-            "artifactCount": provenance["artifactCount"],
-            "manifestSha256": provenance["manifestSha256"],
-            "productionReady": False,
-            "verifier": "android_ordinary_raw_evidence_v1",
-        },
-        "sourceSha": source_sha,
-        "version": RESULTS_VERSION,
+    results = all_failure_results(
+        source_sha,
+        code=PRODUCER_ATTESTATION_CODE,
+        reason=PRODUCER_ATTESTATION_REASON,
+    )
+    results["rawBundleProvenance"] = {
+        "actionCount": provenance["actionCount"],
+        "actionProofs": evaluation["actionProofs"],
+        "artifactCount": provenance["artifactCount"],
+        "manifestSha256": provenance["manifestSha256"],
+        "productionReady": False,
+        "semanticVerified": True,
+        "verifier": provenance["semanticVerifier"],
     }
+    return results
 
 
-def validate_pass_results(*_args: Any, **_kwargs: Any) -> None:
-    raise EvidenceError(UNAVAILABLE_CODE, UNAVAILABLE_REASON)
+def validate_pass_results(_results: dict[str, Any]) -> None:
+    raise EvidenceError(PRODUCER_ATTESTATION_CODE, PRODUCER_ATTESTATION_REASON)
 
 
 def _produce_results(
@@ -665,7 +662,10 @@ def _produce_results(
                 raise EvidenceError(
                     "SOURCE_CHANGED", "source changed during raw bundle verification"
                 )
-            results = semantic_failure_results(source_sha, raw_validation.provenance)
+            evaluation = raw_validation.evaluate_semantics()
+            results = semantic_verification_results(
+                source_sha, raw_validation.provenance, evaluation
+            )
     except Exception as error:  # noqa: BLE001 - finalize every provenance failure
         if isinstance(error, EvidenceError):
             results = all_failure_results(
