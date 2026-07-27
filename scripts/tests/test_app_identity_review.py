@@ -59,8 +59,8 @@ class AppIdentityReviewTest(unittest.TestCase):
 
     def test_current_review_is_valid(self) -> None:
         summary = self.validate()
-        self.assertEqual("0.1.3", summary["versionName"])
-        self.assertEqual(11, summary["versionCode"])
+        self.assertEqual("0.1.4", summary["versionName"])
+        self.assertEqual(12, summary["versionCode"])
         self.assertEqual(6, summary["variantCount"])
         self.assertEqual(3, summary["publishedVariantCount"])
         self.assertEqual([], summary["exactMatches"])
