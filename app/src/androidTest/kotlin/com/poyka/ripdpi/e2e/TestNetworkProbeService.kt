@@ -64,6 +64,7 @@ class TestNetworkProbeService : Service() {
                         putExtra(ExtraReadTimeoutMs, data.readInt())
                         putExtra(ExtraQueryHost, data.readString())
                         putExtra(ExtraDnsQueryType, data.readInt())
+                        putExtra(ExtraDnsTransport, data.readString())
                         putExtra(ExtraProbeSignalId, data.readString())
                         putExtras(
                             Bundle().apply {

@@ -39,6 +39,9 @@ private const val ExtraPayload = "payload"
 internal const val ExtraBindDevice = "bind_device"
 internal const val ExtraQueryHost = "query_host"
 internal const val ExtraDnsQueryType = "query_type"
+internal const val ExtraDnsTransport = "dns_transport"
+internal const val DnsTransportTcp = "tcp"
+internal const val DnsTransportUdp = "udp"
 internal const val ExtraProbeSignalId = "probe_signal_id"
 internal const val ExtraProbeSignalBinder = "probe_signal_binder"
 internal const val ProbeSignalDnsDatagramSentCode = 1
@@ -285,6 +288,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val timeoutMs = intent.getIntExtra(ExtraReadTimeoutMs, DefaultReadTimeoutMs)
         val queryHost = intent.getStringExtra(ExtraQueryHost)
         val queryType = intent.getIntExtra(ExtraDnsQueryType, DnsQueryTypeA)
+        val transport = intent.getStringExtra(ExtraDnsTransport)
         val requestedBindDevice = intent.getStringExtra(ExtraBindDevice)
         val bindDevice =
             if (
@@ -306,6 +310,13 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val requestId = Random().nextInt(0x1_0000)
         val query = buildDnsQuery(checkedQueryHost, requestId, queryType)
         val startedAt = SystemClock.elapsedRealtime()
+        if (DnsTransportTcp.equals(transport)) {
+            runDnsTcpProbe(intent, extras, serverHost, serverPort, query, requestId, timeoutMs, startedAt)
+            return
+        }
+        if (transport != null && !DnsTransportUdp.equals(transport)) {
+            throw IllegalArgumentException("Unsupported DNS transport")
+        }
         if (bindDevice != null) {
             TestSocketBinder.dnsRoundTrip(
                 serverHost ?: throw IllegalArgumentException("Missing host extra"),
@@ -347,6 +358,62 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             extras.putLong(ExtraDnsLatencyMs, SystemClock.elapsedRealtime() - startedAt)
         } finally {
             socket.close()
+        }
+    }
+
+    private fun runDnsTcpProbe(
+        intent: Intent,
+        extras: Bundle,
+        serverHost: String?,
+        serverPort: Int,
+        query: ByteArray,
+        requestId: Int,
+        timeoutMs: Int,
+        startedAt: Long,
+    ) {
+        val socket = Socket()
+        try {
+            socket.connect(InetSocketAddress(serverHost, serverPort), timeoutMs)
+            socket.soTimeout = timeoutMs
+            putLocalSocket(extras, socket)
+            val framedQuery = ByteArray(query.size + 2)
+            framedQuery[0] = (query.size ushr 8).toByte()
+            framedQuery[1] = query.size.toByte()
+            System.arraycopy(query, 0, framedQuery, 2, query.size)
+            socket.outputStream.write(framedQuery)
+            socket.outputStream.flush()
+            sendProbeSignal(intent)
+
+            val header = ByteArray(2)
+            readExactly(socket.inputStream, header)
+            val responseSize = readU16(header, 0)
+            if (responseSize <= 0 || responseSize > DnsPacketMaxBytes) {
+                throw IOException("DNS-over-TCP response length is invalid")
+            }
+            val response = ByteArray(responseSize)
+            readExactly(socket.inputStream, response)
+            val answers = ArrayList<String>()
+            val rcode = decodeDnsResponse(response, requestId, answers)
+            extras.putBoolean(ExtraOk, true)
+            extras.putInt(ExtraDnsRcode, rcode)
+            extras.putStringArrayList(ExtraDnsAnswers, answers)
+            extras.putLong(ExtraDnsLatencyMs, SystemClock.elapsedRealtime() - startedAt)
+        } finally {
+            socket.close()
+        }
+    }
+
+    private fun readExactly(
+        input: InputStream,
+        destination: ByteArray,
+    ) {
+        var offset = 0
+        while (offset < destination.size) {
+            val read = input.read(destination, offset, destination.size - offset)
+            if (read <= 0) {
+                throw IOException("DNS-over-TCP response is truncated")
+            }
+            offset += read
         }
     }
 

@@ -114,10 +114,13 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "AndroidOrdinaryPhysicalEvidenceTest.kt"
         ).read_text()
         runner = Path("scripts/ci/run-android-ordinary-physical-evidence.sh").read_text()
-        self.assertIn("testProcessDnsProbe(", producer)
+        self.assertIn("bindTestProcessDnsProbeService(", producer)
+        self.assertIn("probeService.dnsProbe(", producer)
         self.assertIn("queryType = DnsQueryTypeAaaa", producer)
+        self.assertIn("transport = DnsTransportTcp", producer)
         self.assertNotIn("private fun ordinaryAaaaQuery", producer)
         self.assertIn('(udp port $dns_port)', runner)
+        self.assertIn('(tcp port $dns_port)', runner)
 
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
@@ -132,6 +135,16 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertEqual(struct.unpack("!H", empty[6:8])[0], 0)
         self.assertEqual(struct.unpack("!H", dual[6:8])[0], 1)
         self.assertEqual(dual[-16:], __import__("ipaddress").IPv6Address(ipv6).packed)
+
+    def test_dns_fixture_frames_exact_tcp_aaaa_response(self) -> None:
+        ipv6 = "2001:db8::44"
+        query = dns_query(dns_fixture.DUAL_STACK_NAME)
+        framed = struct.pack("!H", len(query)) + query
+        response = dns_fixture.build_tcp_response(framed, dual_stack_ipv6=ipv6)
+        self.assertEqual(struct.unpack("!H", response[:2])[0], len(response) - 2)
+        self.assertEqual(response[-16:], __import__("ipaddress").IPv6Address(ipv6).packed)
+        with self.assertRaisesRegex(ValueError, "length is invalid"):
+            dns_fixture.build_tcp_response(b"\0\x01bad", dual_stack_ipv6=ipv6)
 
     def test_dns_fixture_refuses_unknown_and_malformed_questions(self) -> None:
         nxdomain = dns_fixture.build_response(

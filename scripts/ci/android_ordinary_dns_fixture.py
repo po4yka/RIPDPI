@@ -7,6 +7,7 @@ import argparse
 import ipaddress
 import socket
 import struct
+import threading
 
 
 IPV4_ONLY_NAME = "ipv4-only.ordinary.fixture.test"
@@ -64,8 +65,7 @@ def build_response(packet: bytes, *, dual_stack_ipv6: str) -> bytes:
     )
 
 
-def serve(port: int, dual_stack_ipv6: str) -> None:
-    ipaddress.IPv6Address(dual_stack_ipv6)
+def serve_udp(port: int, dual_stack_ipv6: str) -> None:
     with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as server:
         server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
         server.bind(("::", port))
@@ -76,6 +76,61 @@ def serve(port: int, dual_stack_ipv6: str) -> None:
             except (UnicodeDecodeError, ValueError):
                 continue
             server.sendto(response, peer)
+
+
+def receive_exact(connection: socket.socket, size: int) -> bytes:
+    payload = bytearray()
+    while len(payload) < size:
+        chunk = connection.recv(size - len(payload))
+        if not chunk:
+            raise ValueError("DNS-over-TCP request is truncated")
+        payload.extend(chunk)
+    return bytes(payload)
+
+
+def build_tcp_response(frame: bytes, *, dual_stack_ipv6: str) -> bytes:
+    if len(frame) < 2:
+        raise ValueError("DNS-over-TCP frame is truncated")
+    declared = struct.unpack("!H", frame[:2])[0]
+    if declared == 0 or declared != len(frame) - 2:
+        raise ValueError("DNS-over-TCP frame length is invalid")
+    response = build_response(frame[2:], dual_stack_ipv6=dual_stack_ipv6)
+    return struct.pack("!H", len(response)) + response
+
+
+def serve_tcp(port: int, dual_stack_ipv6: str) -> None:
+    with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        server.bind(("::", port))
+        server.listen(16)
+        while True:
+            connection, _ = server.accept()
+            with connection:
+                try:
+                    header = receive_exact(connection, 2)
+                    declared = struct.unpack("!H", header)[0]
+                    if not 1 <= declared <= 2048:
+                        raise ValueError("DNS-over-TCP question length is invalid")
+                    packet = receive_exact(connection, declared)
+                    response = build_tcp_response(
+                        header + packet,
+                        dual_stack_ipv6=dual_stack_ipv6,
+                    )
+                except (UnicodeDecodeError, ValueError):
+                    continue
+                connection.sendall(response)
+
+
+def serve(port: int, dual_stack_ipv6: str) -> None:
+    ipaddress.IPv6Address(dual_stack_ipv6)
+    udp = threading.Thread(
+        target=serve_udp,
+        args=(port, dual_stack_ipv6),
+        daemon=True,
+    )
+    udp.start()
+    serve_tcp(port, dual_stack_ipv6)
 
 
 def main() -> int:

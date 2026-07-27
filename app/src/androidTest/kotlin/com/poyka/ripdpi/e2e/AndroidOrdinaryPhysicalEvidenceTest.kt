@@ -428,6 +428,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                     serverHost = controlIpv4,
                     serverPort = dnsPort,
                     queryType = DnsQueryTypeAaaa,
+                    transport = DnsTransportTcp,
                     timeoutMs = 4_000,
                     signalId = signalId,
                     probeSignalBinder = acceptingDnsSignalBinder(signalId),
