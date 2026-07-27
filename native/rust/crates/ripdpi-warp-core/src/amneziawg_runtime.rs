@@ -26,7 +26,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, timeout};
 
@@ -41,6 +42,30 @@ use crate::wireguard::{WgCarrier, WireGuardTunnel, WireGuardTunnelParams, connec
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MIN_MTU: i32 = 1280;
 const TELEMETRY_SOURCE: &str = "amneziawg";
+
+enum RuntimePoll {
+    Client(TcpStream),
+    ListenerError(io::Error),
+    CriticalFailure(String),
+    Idle,
+}
+
+/// Wait for one SOCKS listener event or a critical virtual-interface failure.
+///
+/// # Cancel safety
+/// Cancel-safe: both `TcpListener::accept` and `UnboundedReceiver::recv` leave
+/// their queues unchanged when cancelled, and this function mutates no state
+/// before returning an outcome.
+async fn poll_runtime(listener: &TcpListener, failures: &mut UnboundedReceiver<String>) -> RuntimePoll {
+    tokio::select! {
+        failure = failures.recv() => failure.map_or(RuntimePoll::Idle, RuntimePoll::CriticalFailure),
+        accepted = timeout(ACCEPT_POLL_INTERVAL, listener.accept()) => match accepted {
+            Ok(Ok((stream, _))) => RuntimePoll::Client(stream),
+            Ok(Err(error)) => RuntimePoll::ListenerError(error),
+            Err(_) => RuntimePoll::Idle,
+        },
+    }
+}
 
 /// Resolved, self-contained configuration for a generic AmneziaWG tunnel.
 ///
@@ -408,6 +433,7 @@ impl AmneziaWgRuntime {
 
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
+        let (failure_tx, mut failure_rx) = unbounded_channel::<String>();
         let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));
         let udp_pool = Arc::new(UdpAssociationPool::new());
         crate::socks::ensure_loopback_socks_host(&self.config.local_socks_host)?;
@@ -431,20 +457,27 @@ impl AmneziaWgRuntime {
         }
         {
             let interface = DynamicTcpInterface::new(bus.clone(), source_peer_ip, mtu);
+            let failure_tx = failure_tx.clone();
             tasks.push(tokio::spawn(async move {
                 if let Err(error) = interface.run().await {
-                    tracing::warn!("AmneziaWG TCP virtual interface stopped: {error}");
+                    let message = format!("AmneziaWG TCP virtual interface stopped: {error}");
+                    tracing::warn!("{message}");
+                    let _ = failure_tx.send(message);
                 }
             }));
         }
         {
             let interface = DynamicUdpInterface::new(bus.clone(), source_peer_ip, mtu);
+            let failure_tx = failure_tx.clone();
             tasks.push(tokio::spawn(async move {
                 if let Err(error) = interface.run().await {
-                    tracing::warn!("AmneziaWG UDP virtual interface stopped: {error}");
+                    let message = format!("AmneziaWG UDP virtual interface stopped: {error}");
+                    tracing::warn!("{message}");
+                    let _ = failure_tx.send(message);
                 }
             }));
         }
+        drop(failure_tx);
 
         // Arm the receive side first, then emit the AmneziaWG prelude and an
         // explicit handshake initiation. Readiness stays idle until boringtun
@@ -469,9 +502,10 @@ impl AmneziaWgRuntime {
             self.notify_ready();
         }
 
+        let mut runtime_failure = None;
         while self.running.load(Ordering::SeqCst) && !self.stop_requested.load(Ordering::SeqCst) {
-            match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
-                Ok(Ok((stream, _))) => {
+            match poll_runtime(&listener, &mut failure_rx).await {
+                RuntimePoll::Client(stream) => {
                     self.active_sessions.fetch_add(1, Ordering::SeqCst);
                     self.total_sessions.fetch_add(1, Ordering::SeqCst);
                     let runtime = Arc::clone(&self);
@@ -485,17 +519,22 @@ impl AmneziaWgRuntime {
                         runtime.active_sessions.fetch_sub(1, Ordering::SeqCst);
                     });
                 }
-                Ok(Err(error)) => {
+                RuntimePoll::ListenerError(error) => {
                     *self.last_error.lock().expect("last error") = Some(error.to_string());
                 }
-                Err(_) => {}
+                RuntimePoll::CriticalFailure(message) => {
+                    *self.last_error.lock().expect("last error") = Some(message.clone());
+                    runtime_failure = Some(message);
+                    break;
+                }
+                RuntimePoll::Idle => {}
             }
         }
 
         self.running.store(false, Ordering::SeqCst);
         shutdown_runtime_tasks(&bus, tasks).await;
         emit_runtime_stopped();
-        Ok(())
+        runtime_failure.map_or(Ok(()), |message| Err(io::Error::other(message)))
     }
 
     fn endpoint_descriptor(&self) -> ResolvedWarpRuntimeEndpoint {
@@ -691,6 +730,20 @@ mod tests {
             .expect("stopped runtime must unwind")
             .expect("runtime task must join")
             .expect("stop before readiness is a clean shutdown");
+    }
+
+    #[tokio::test]
+    async fn critical_virtual_interface_failure_preempts_listener_poll() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind listener");
+        let (failure_tx, mut failure_rx) = unbounded_channel();
+        failure_tx.send("TCP virtual connect failed".to_string()).expect("send failure");
+
+        let outcome = poll_runtime(&listener, &mut failure_rx).await;
+
+        match outcome {
+            RuntimePoll::CriticalFailure(message) => assert_eq!(message, "TCP virtual connect failed"),
+            _ => panic!("critical interface failure must terminate the runtime poll"),
+        }
     }
 
     #[test]
