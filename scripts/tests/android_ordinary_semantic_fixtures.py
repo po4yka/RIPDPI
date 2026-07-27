@@ -117,6 +117,7 @@ def action_receipt(
     if action_id == "ipv4-only":
         dns = {
             "answers": [],
+            "attemptCount": 1,
             "finishedAtEpochMs": started_at + 575,
             "queryNameSha256": digest(f"{action_id}:query"),
             "responseCode": 0,
@@ -125,6 +126,7 @@ def action_receipt(
     elif action_id == "dual-stack":
         dns = {
             "answers": [FIXTURE["controlIpv6"]],
+            "attemptCount": 1,
             "finishedAtEpochMs": started_at + 575,
             "queryNameSha256": digest(f"{action_id}:query"),
             "responseCode": 0,

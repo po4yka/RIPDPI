@@ -500,6 +500,7 @@ def parse_receipt(context: ActionContext) -> tuple[dict[str, Any], dict[str, Any
             dns,
             {
                 "answers",
+                "attemptCount",
                 "finishedAtEpochMs",
                 "queryNameSha256",
                 "responseCode",
@@ -508,6 +509,11 @@ def parse_receipt(context: ActionContext) -> tuple[dict[str, Any], dict[str, Any
             "receipt.dnsObservation",
         )
         _digest(dns["queryNameSha256"], SHA256_RE, "dnsObservation.queryNameSha256")
+        attempt_count = _positive_int(dns["attemptCount"], "DNS attempt count")
+        if attempt_count > 3:
+            raise OracleError(
+                "SEMANTIC_DNS_MISMATCH", "DNS attempt count exceeds the producer limit"
+            )
         dns_started = _positive_int(dns["startedAtEpochMs"], "DNS start")
         dns_finished = _positive_int(dns["finishedAtEpochMs"], "DNS finish")
         if (

@@ -428,11 +428,21 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 ),
             )
 
+        def excessive_dns_retries(manifest_path, manifest):
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "ipv4-only",
+                "action-receipt",
+                lambda value: value["dnsObservation"].update({"attemptCount": 4}),
+            )
+
         for name, mutation, code in (
             ("address", route_address, "SEMANTIC_IPV4_ONLY_ROUTE_LEAK"),
             ("dns", route_dns, "SEMANTIC_IPV4_ONLY_ROUTE_LEAK"),
             ("connect", connected_ipv6, "SEMANTIC_PROBE_MISMATCH"),
             ("aaaa", aaaa_answer, "SEMANTIC_IPV4_ONLY_DNS_LEAK"),
+            ("dns-retries", excessive_dns_retries, "SEMANTIC_DNS_MISMATCH"),
         ):
             with self.subTest(boundary=name):
                 self.assert_semantic_failure(mutation, code)

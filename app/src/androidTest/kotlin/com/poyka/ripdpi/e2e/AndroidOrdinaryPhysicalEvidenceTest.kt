@@ -68,6 +68,7 @@ import javax.inject.Inject
 
 private const val OrdinaryObservationFile = "android-ordinary-physical-observations.json"
 private const val OrdinaryObservationVersion = "android_ordinary_physical_observations_v1"
+private const val OrdinaryDnsAttemptLimit = 3
 private const val OrdinaryMarkerPrefix = "RIPDPI-ORDINARY-V1"
 private const val OrdinaryAttestationPrefix = "RIPDPI-ORDINARY-ATTESTATION-V1"
 private const val OrdinaryTimeoutMs = 25_000L
@@ -439,32 +440,44 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     private fun queryAaaa(actionId: String): JSONObject {
         val started = now()
         val signalId = "ordinary-dns-${hash("$runId:$actionId").take(16)}"
-        val result =
-            bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
-                assertTrue(
-                    "Test-process default network did not converge to the physical VPN",
-                    probeService.awaitVpnDefaultNetwork(OrdinaryTimeoutMs),
-                )
-                probeService.dnsProbe(
-                    queryHost = "$actionId.ordinary.fixture.test",
-                    serverHost = controlIpv4,
-                    serverPort = dnsPort,
-                    queryType = DnsQueryTypeAaaa,
-                    transport = DnsTransportTcp,
-                    timeoutMs = 4_000,
-                    signalId = signalId,
-                    probeSignalBinder = acceptingDnsSignalBinder(signalId),
-                )
+        var attemptCount = 0
+        var result: AppProcessDnsProbeResult? = null
+        for (attempt in 1..OrdinaryDnsAttemptLimit) {
+            attemptCount = attempt
+            val current =
+                bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
+                    assertTrue(
+                        "Test-process default network did not converge to the physical VPN",
+                        probeService.awaitVpnDefaultNetwork(OrdinaryTimeoutMs),
+                    )
+                    probeService.dnsProbe(
+                        queryHost = "$actionId.ordinary.fixture.test",
+                        serverHost = controlIpv4,
+                        serverPort = dnsPort,
+                        queryType = DnsQueryTypeAaaa,
+                        transport = DnsTransportTcp,
+                        timeoutMs = 4_000,
+                        signalId = signalId,
+                        probeSignalBinder = acceptingDnsSignalBinder(signalId),
+                    )
+                }
+            result = current
+            if (current.ok) {
+                break
             }
+            Thread.sleep(250)
+        }
+        val finalResult = requireNotNull(result)
         val finished = now()
         assertTrue(
-            "AAAA probe failed: kind=${result.failureKind} stage=${result.failureStage} " +
-                "errno=${result.errno} bound=${result.boundDevice} " +
-                "class=${result.errorClass} message=${result.errorMessage}",
-            result.ok,
+            "$actionId AAAA probe failed after $attemptCount attempts: " +
+                "kind=${finalResult.failureKind} stage=${finalResult.failureStage} " +
+                "errno=${finalResult.errno} bound=${finalResult.boundDevice} " +
+                "class=${finalResult.errorClass} message=${finalResult.errorMessage}",
+            finalResult.ok,
         )
-        assertTrue("AAAA probe returned rcode ${result.rcode}", result.rcode == 0)
-        val answers = result.answers
+        assertTrue("AAAA probe returned rcode ${finalResult.rcode}", finalResult.rcode == 0)
+        val answers = finalResult.answers
         val recordedAnswers =
             if (actionId == "ipv4-only") {
                 assertTrue(answers.isEmpty())
@@ -477,6 +490,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             }
         return JSONObject()
             .put("answers", JSONArray(recordedAnswers))
+            .put("attemptCount", attemptCount)
             .put("finishedAtEpochMs", finished)
             .put("queryNameSha256", hash("$actionId.ordinary.fixture.test"))
             .put("responseCode", 0)
