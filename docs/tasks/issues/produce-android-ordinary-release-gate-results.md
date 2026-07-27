@@ -4,7 +4,7 @@ type: task
 status: doing
 area: testing
 priority: high
-owner: Codex release evidence completion
+owner: Codex ordinary semantic oracle lane
 parent: null
 blocks: []
 blocked_by: []
@@ -40,6 +40,12 @@ evidence.
 
 ## Work log
 
+- 2026-07-27: Started the isolated `codex/release-014-ordinary-oracles`
+  worktree from `origin/main` at `519ec5183fd416e35898c55b19149ee117d06980`.
+  This lane owns the seven source-owned action oracles, their exact raw receipt,
+  PCAP, and route-snapshot contracts, plus negative and adversarial tests. It
+  does not own physical capture execution, producer allowlisting, release
+  integration, or tag publication.
 - 2026-07-27: Release evidence completion lane now owns all seven ordinary
   action oracles for `v0.1.4`. Completion requires source-owned parsing of each
   private action receipt, packet capture, and route snapshot; adversarial tests
