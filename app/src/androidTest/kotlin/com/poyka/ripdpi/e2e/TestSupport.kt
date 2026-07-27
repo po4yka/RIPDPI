@@ -1562,6 +1562,25 @@ class TestProcessDnsProbeServiceHandle internal constructor(
         }
     }
 
+    fun awaitNoDefaultNetwork(timeoutMs: Long): Boolean {
+        require(timeoutMs in 1..Int.MAX_VALUE.toLong()) { "Invalid no-network timeout: $timeoutMs" }
+        check(!closed.get()) { "Test-process network probe service is closed" }
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(TestNetworkProbeServiceDescriptor)
+            data.writeInt(timeoutMs.toInt())
+            check(binder.transact(TestNetworkProbeAwaitNoNetworkTransactionCode, data, reply, 0)) {
+                "Test-process network probe service rejected the no-network await transaction"
+            }
+            reply.readException()
+            return reply.readInt() == 1
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
     private fun transactForBoolean(code: Int): Boolean {
         check(!closed.get()) { "Test-process network probe service is closed" }
         val data = Parcel.obtain()

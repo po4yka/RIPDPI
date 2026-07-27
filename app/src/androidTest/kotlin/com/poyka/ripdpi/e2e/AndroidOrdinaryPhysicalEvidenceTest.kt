@@ -260,6 +260,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val correlation = correlation(actionId)
         sendMarker(actionId, correlation, "action")
         val event = action()
+        awaitTestProcessLockdown()
         val probes = blockedTransitionProbes()
         val phases = JSONArray().put(capturePhase("closed", expectVpn = false))
         sendMarker(actionId, correlation, "outcome")
@@ -284,6 +285,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 .put("toNetworkHandleSha256", hash("network:${after.networkHandle}"))
                 .put("toTransport", "CELLULAR")
         stopVpn()
+        awaitTestProcessLockdown()
         val transitionProbes = blockedTransitionProbes()
         val transition = capturePhase("transition", expectVpn = false)
         configureAndStart(ipv6 = false)
@@ -318,6 +320,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val wakeAt = now()
         val event = JSONObject().put("kind", "device-wake").put("sleepAtEpochMs", sleepAt).put("wakeAtEpochMs", wakeAt)
         stopVpn()
+        awaitTestProcessLockdown()
         val probes = blockedTransitionProbes()
         val transition = capturePhase("transition", expectVpn = false)
         configureAndStart(ipv6 = false)
@@ -379,6 +382,15 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         JSONArray()
             .put(probe("transition-ipv4", "ipv4", controlIpv4, connected = false))
             .put(probe("transition-ipv6", "ipv6", controlIpv6, connected = false))
+
+    private fun awaitTestProcessLockdown() {
+        bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
+            assertTrue(
+                "Test-process default network remained available under Android lockdown",
+                probeService.awaitNoDefaultNetwork(OrdinaryTimeoutMs),
+            )
+        }
+    }
 
     private fun probe(
         id: String,
