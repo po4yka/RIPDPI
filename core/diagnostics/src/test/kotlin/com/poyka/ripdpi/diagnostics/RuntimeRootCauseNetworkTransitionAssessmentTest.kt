@@ -22,7 +22,7 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
                         ),
                         transition(
                             "kind=capabilities_changed;path=non_vpn;generation=1;" +
-                                "internet=present;validated=absent",
+                                "internet=present;validated=absent;sequence=1",
                             11L,
                         ),
                     ),
@@ -158,6 +158,29 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
 
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
+    fun `transition without monotonic sequence cannot override canonical evidence`() {
+        val assessment =
+            assess(
+                events =
+                    listOf(
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=absent;generation=3;sequence=1",
+                            1L,
+                        ),
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=present;generation=3",
+                            2L,
+                        ),
+                    ),
+                sealed = true,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.UNDERLAY_LOST, assessment.verdict)
     }
 
     private fun assess(

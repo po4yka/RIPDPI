@@ -209,6 +209,43 @@ class NetworkTransitionTimelineTest {
         }
 
     @Test
+    fun `timed out barrier cannot acknowledge failures from a restored epoch retry`() =
+        runTest {
+            val gate = NetworkTransitionSessionGate()
+            val releaseFirstPersist = CompletableDeferred<Unit>()
+            val timeline =
+                NetworkTransitionTimeline(
+                    scope = backgroundScope,
+                    clock = { NetworkTransitionTimestamp(elapsedRealtimeMs = 5L, epochMs = 10_005L) },
+                    withSessionAdmission = gate::withAdmission,
+                    persist = { event ->
+                        if (event.sequence == 1L) releaseFirstPersist.await()
+                    },
+                )
+            val admission = gate.activate("session-a")
+            val networkKey = Any()
+            timeline.recordAvailable(networkKey)
+            assertEquals(admission, gate.deactivate())
+            val timedOutSeal = async { timeline.flush(admission, timeoutMillis = 10L) }
+            runCurrent()
+            advanceTimeBy(11L)
+            runCurrent()
+            assertFalse(timedOutSeal.await())
+
+            gate.restore(admission)
+            repeat(MaxPersistedNetworkTransitionsPerSession + 2) {
+                timeline.recordCapabilities(networkKey, vpnCapabilities())
+            }
+            assertEquals(admission, gate.deactivate())
+            releaseFirstPersist.complete(Unit)
+            runCurrent()
+            val retrySeal = async { timeline.flush(admission) }
+            runCurrent()
+
+            assertFalse(retrySeal.await())
+        }
+
+    @Test
     fun `timeline keeps ordered redacted callback facts and rotates generation after loss`() =
         runTest {
             val events = mutableListOf<NetworkTransitionEvent>()

@@ -75,7 +75,7 @@ internal object RuntimeRootCauseClassifier {
         connectionSessionId: String,
         events: List<NativeSessionEventEntity>,
         terminalAtMillis: Long = events.maxOfOrNull(NativeSessionEventEntity::createdAt) ?: 0L,
-        terminalEvidenceSealed: Boolean = true,
+        terminalEvidenceSealed: Boolean = false,
     ): RuntimeRootCauseAssessment {
         val lowerBoundMillis = terminalAtMillis - RuntimeRootCauseWindowMillis
         val scopedEvents =
@@ -142,8 +142,9 @@ private fun collectNetworkTransitionEvidence(
     events
         .asSequence()
         .filter { event -> event.subsystem == "network_transition" }
+        .filter { event -> event.transitionSequenceOrNull() != null }
         .sortedWith(
-            compareBy<NativeSessionEventEntity> { event -> event.transitionSequenceOrNull() ?: Long.MAX_VALUE }
+            compareBy<NativeSessionEventEntity> { event -> requireNotNull(event.transitionSequenceOrNull()) }
                 .thenBy(NativeSessionEventEntity::createdAt),
         ).forEach(reducer::accept)
     reducer.unresolvedFailure?.let { event ->

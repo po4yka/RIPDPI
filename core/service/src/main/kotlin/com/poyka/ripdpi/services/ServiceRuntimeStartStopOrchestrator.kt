@@ -7,7 +7,9 @@ import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal class ServiceRuntimeStartStopOrchestrator<TSession>(
@@ -65,28 +67,36 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
         dependencies.handoverProcessor.cancel()
 
+        var terminalTelemetryCancellation: CancellationException? = null
         dependencies.lifecycleRunner.stop {
             dependencies.loopOwner.cancelPermissionWatchdog()
-            captureFinalTelemetryWithRetry()
-            runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
-                .onFailure { failure ->
-                    Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
-                }
-
-            val session = callbacks.currentSession()
-            callbacks.updateStatus(ServiceStatus.Disconnected, null)
-            dependencies.loopOwner.cancelTelemetry()
-            callbacks.onAfterStopCleanup(session)
-            session?.clearActiveConnectionPolicy()
-            session?.let {
-                dependencies.serviceRuntimeRegistry.unregister(
-                    mode = dependencies.mode,
-                    runtimeId = it.runtimeId,
-                )
+            try {
+                captureFinalTelemetryWithRetry()
+            } catch (failure: CancellationException) {
+                terminalTelemetryCancellation = failure
             }
-            callbacks.setRuntimeSession(null)
-            dependencies.host.requestStopSelf(stopSelfStartId)
+            withContext(NonCancellable) {
+                runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
+                    .onFailure { failure ->
+                        Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
+                    }
+
+                val session = callbacks.currentSession()
+                callbacks.updateStatus(ServiceStatus.Disconnected, null)
+                dependencies.loopOwner.cancelTelemetry()
+                callbacks.onAfterStopCleanup(session)
+                session?.clearActiveConnectionPolicy()
+                session?.let {
+                    dependencies.serviceRuntimeRegistry.unregister(
+                        mode = dependencies.mode,
+                        runtimeId = it.runtimeId,
+                    )
+                }
+                callbacks.setRuntimeSession(null)
+                dependencies.host.requestStopSelf(stopSelfStartId)
+            }
         }
+        terminalTelemetryCancellation?.let { throw it }
     }
 
     private suspend fun captureFinalTelemetryWithRetry() {

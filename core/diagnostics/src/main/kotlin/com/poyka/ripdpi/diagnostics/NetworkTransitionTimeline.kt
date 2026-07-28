@@ -10,6 +10,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.LinkedHashMap
+import java.util.LinkedHashSet
 import java.util.concurrent.atomic.AtomicLong
 
 internal enum class NetworkTransitionKind(
@@ -134,13 +135,13 @@ internal class NetworkTransitionTimeline(
 ) {
     private val generations = NetworkTransitionGenerationTracker()
     private val sequence = AtomicLong()
-    private val captureUnhealthyEpochs = mutableSetOf<Long>()
+    private val captureUnhealthyEpochs = LinkedHashSet<Long>()
     private val sessionEventCounts = LinkedHashMap<String, Int>()
     private val queue = Channel<NetworkTransitionCommand>(capacity = MaxBufferedNetworkTransitions)
 
     init {
         scope.launch {
-            val persistenceUnhealthyEpochs = mutableSetOf<Long>()
+            val persistenceUnhealthyEpochs = LinkedHashSet<Long>()
             for (command in queue) {
                 when (command) {
                     is NetworkTransitionCommand.Persist -> {
@@ -151,7 +152,7 @@ internal class NetworkTransitionTimeline(
                             }
 
                             is Exception -> {
-                                persistenceUnhealthyEpochs.add(command.admission.epoch)
+                                persistenceUnhealthyEpochs.addBounded(command.admission.epoch)
                                 Logger.e(failure) { "Network transition persistence failed" }
                             }
 
@@ -162,9 +163,17 @@ internal class NetworkTransitionTimeline(
                     }
 
                     is NetworkTransitionCommand.Barrier -> {
-                        val captureWasHealthy = clearCaptureFailure(command.admission.epoch)
-                        val persistenceWasHealthy = persistenceUnhealthyEpochs.remove(command.admission.epoch).not()
-                        command.result.complete(captureWasHealthy && persistenceWasHealthy)
+                        synchronized(command) {
+                            if (command.active) {
+                                command.active = false
+                                val captureWasHealthy = clearCaptureFailure(command.admission.epoch)
+                                val persistenceWasHealthy =
+                                    persistenceUnhealthyEpochs.remove(command.admission.epoch).not()
+                                command.result.complete(captureWasHealthy && persistenceWasHealthy)
+                            } else {
+                                command.result.complete(false)
+                            }
+                        }
                     }
                 }
             }
@@ -176,11 +185,19 @@ internal class NetworkTransitionTimeline(
         timeoutMillis: Long = NetworkTransitionFlushTimeoutMillis,
     ): Boolean {
         val result = CompletableDeferred<Boolean>()
+        val barrier = NetworkTransitionCommand.Barrier(admission, result)
         val boundedTimeout = timeoutMillis.coerceIn(1L, NetworkTransitionFlushTimeoutMillis)
-        return withTimeoutOrNull(boundedTimeout) {
-            queue.send(NetworkTransitionCommand.Barrier(admission, result))
-            result.await()
-        } ?: false
+        var completed = false
+        return try {
+            withTimeoutOrNull(boundedTimeout) {
+                queue.send(barrier)
+                result.await().also { completed = true }
+            } ?: false
+        } finally {
+            if (!completed) {
+                synchronized(barrier) { barrier.active = false }
+            }
+        }
     }
 
     fun recordAvailable(networkKey: Any) {
@@ -305,7 +322,7 @@ internal class NetworkTransitionTimeline(
 
     @Synchronized
     private fun markCaptureFailure(epoch: Long) {
-        captureUnhealthyEpochs.add(epoch)
+        captureUnhealthyEpochs.addBounded(epoch)
     }
 
     @Synchronized
@@ -333,10 +350,22 @@ private sealed interface NetworkTransitionCommand {
         val event: NetworkTransitionEvent,
     ) : NetworkTransitionCommand
 
-    data class Barrier(
+    class Barrier(
         val admission: NetworkTransitionAdmission,
         val result: CompletableDeferred<Boolean>,
+        var active: Boolean = true,
     ) : NetworkTransitionCommand
+}
+
+private fun LinkedHashSet<Long>.addBounded(epoch: Long) {
+    add(epoch)
+    while (size > MaxTrackedNetworkKeys) {
+        val iterator = iterator()
+        if (iterator.hasNext()) {
+            iterator.next()
+            iterator.remove()
+        }
+    }
 }
 
 private class NetworkTransitionGenerationTracker {

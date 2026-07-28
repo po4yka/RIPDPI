@@ -126,7 +126,7 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun `production stop rethrows final telemetry cancellation before teardown`() =
+    fun `production stop rethrows final telemetry cancellation after mandatory teardown`() =
         runTest {
             val env = newEnv().also { it.coordinator.cancelFinalTelemetry = true }
             env.coordinator.start()
@@ -136,8 +136,10 @@ class BaseServiceRuntimeCoordinatorTest {
 
             assertTrue(failure is CancellationException)
             assertEquals(1, env.coordinator.finalTelemetryCalls)
-            assertEquals(0, env.coordinator.stopCalls)
-            assertEquals(listOf("final_telemetry"), env.coordinator.stopLifecycleEvents)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(listOf(null), env.host.stopRequests)
         }
 
     @Test

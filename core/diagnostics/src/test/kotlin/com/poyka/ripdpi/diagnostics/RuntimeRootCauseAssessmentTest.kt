@@ -11,7 +11,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `dns and relay text stay fail closed without producer event kinds`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -163,7 +163,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `missing and foreign session evidence stays inconclusive`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -184,7 +184,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `device state constraints alone do not emit oem process kill`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -206,7 +206,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `raw event values are not copied into assessment json`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -232,7 +232,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `unsealed terminal rejects competing data plane and pmtu verdicts`() {
         val dataPlaneAssessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -246,7 +246,7 @@ class RuntimeRootCauseAssessmentTest {
                 terminalEvidenceSealed = false,
             )
         val pmtuAssessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -288,7 +288,7 @@ class RuntimeRootCauseAssessmentTest {
                 )
 
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events = events,
             )
@@ -304,7 +304,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `free form relay text does not classify without canonical tokens`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -325,7 +325,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `data plane without terminal generation stays inconclusive`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -345,7 +345,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `stale data plane generation is excluded when terminal generation is known`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -374,7 +374,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `newer benign final blocks stale failing data plane final`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -400,7 +400,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `data plane final requires persisted event kind provenance`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -421,7 +421,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `mtu blackhole requires typed pmtu proof`() {
         val weakAssessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -434,7 +434,7 @@ class RuntimeRootCauseAssessmentTest {
                     ),
             )
         val explicitAssessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -457,7 +457,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `mtu blackhole rejects missing ptb observation`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -479,7 +479,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `internal data plane conflict blocks direct root verdict`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -516,7 +516,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `dns source and subsystem event stays fail closed without event kind`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -629,7 +629,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `process exit events stay inconclusive without safe session correlation`() {
         val sessionlessAssessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -644,7 +644,7 @@ class RuntimeRootCauseAssessmentTest {
                     ),
             )
         val correlatedAssessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -664,6 +664,19 @@ class RuntimeRootCauseAssessmentTest {
         assertTrue(sessionlessAssessment.evidenceRefs.isEmpty())
         assertTrue(correlatedAssessment.evidenceRefs.isEmpty())
     }
+
+    private fun assess(
+        connectionSessionId: String,
+        events: List<NativeSessionEventEntity>,
+        terminalAtMillis: Long = events.maxOfOrNull(NativeSessionEventEntity::createdAt) ?: 0L,
+        terminalEvidenceSealed: Boolean = true,
+    ): RuntimeRootCauseAssessment =
+        RuntimeRootCauseClassifier.assess(
+            connectionSessionId = connectionSessionId,
+            events = events,
+            terminalAtMillis = terminalAtMillis,
+            terminalEvidenceSealed = terminalEvidenceSealed,
+        )
 
     private fun event(
         connectionSessionId: String?,
