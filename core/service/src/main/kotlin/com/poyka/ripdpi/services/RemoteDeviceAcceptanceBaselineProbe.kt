@@ -17,19 +17,25 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     private val serviceStateStore: ServiceStateStore,
     private val relayCapabilityProbe: RelayCapabilityProbe,
     private val deviceProvider: () -> RemoteDeviceAcceptanceDevice,
+    private val monotonicClock: () -> Long,
 ) {
     @Inject
     constructor(
         serviceStateStore: ServiceStateStore,
         relayCapabilityProbe: RelayCapabilityProbe,
-    ) : this(serviceStateStore, relayCapabilityProbe, ::captureRemoteDeviceAcceptanceDevice)
+    ) : this(
+        serviceStateStore,
+        relayCapabilityProbe,
+        ::captureRemoteDeviceAcceptanceDevice,
+        SystemClock::elapsedRealtime,
+    )
 
     /**
      * Uses only the local relay listener, so own-app VPN exclusion cannot bypass the tested egress.
      * cancel-safe: every network operation is bounded and propagates cancellation.
      */
     suspend fun capture(snapshot: ServiceTelemetrySnapshot): RemoteDeviceAcceptanceReport {
-        val startedAt = SystemClock.elapsedRealtime()
+        val startedAt = monotonicClock()
         val running =
             serviceStateStore.status.value.let { (status, mode) ->
                 status == AppStatus.Running && mode == Mode.VPN
@@ -48,7 +54,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     ipv4Probe = probeEvidence.ipv4,
                     ipv6Probe = probeEvidence.ipv6,
                     directEgressObserved = snapshot.relayFailed,
-                    durationMs = elapsedSince(startedAt),
+                    durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
                 ),
         )
     }
@@ -115,8 +121,6 @@ private fun parseLocalRelayEndpoint(listenerAddress: String?): RelayProbeEndpoin
                 }
             }.getOrNull()
         }
-
-private fun elapsedSince(startedAt: Long): Long = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
 
 internal const val RemoteAcceptanceConnectivityProbeUrl = "https://connectivitycheck.gstatic.com/generate_204"
 internal const val RemoteAcceptanceIpv4ProbeUrl = "https://ipv4.google.com/generate_204"

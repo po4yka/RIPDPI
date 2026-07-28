@@ -36,6 +36,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     serviceStateStore = TestServiceStateStore(AppStatus.Running to Mode.VPN),
                     relayCapabilityProbe = capabilityProbe,
                     deviceProvider = { Device },
+                    monotonicClock = { 1_000L },
                 )
 
             val report = probe.capture(runningRealitySnapshot())
