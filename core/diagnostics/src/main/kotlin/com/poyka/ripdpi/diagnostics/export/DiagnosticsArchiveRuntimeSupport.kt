@@ -264,11 +264,23 @@ private fun String.containsDiagnosticFailureToken(): Boolean = ArchiveFailureTok
 private fun String.hasDiagnosticValue(): Boolean = isNotBlank() && lowercase() !in ArchiveEmptyDiagnosticValues
 
 private fun DiagnosticsArchiveSelection.archiveSnapshotSource(): String? {
-    val snapshot = latestSnapshotModel ?: return null
-    return if (latestPassiveSnapshot?.capturedAt == snapshot.capturedAt) {
-        ArchivePassiveSnapshotSource
-    } else {
-        ArchiveSessionSnapshotSource
+    return when (latestSnapshotSource) {
+        DiagnosticsArchiveSnapshotSource.SESSION -> {
+            ArchiveSessionSnapshotSource
+        }
+
+        DiagnosticsArchiveSnapshotSource.PASSIVE -> {
+            ArchivePassiveSnapshotSource
+        }
+
+        null -> {
+            val snapshot = latestSnapshotModel ?: return null
+            if (latestPassiveSnapshot?.capturedAt == snapshot.capturedAt) {
+                ArchivePassiveSnapshotSource
+            } else {
+                ArchiveSessionSnapshotSource
+            }
+        }
     }
 }
 

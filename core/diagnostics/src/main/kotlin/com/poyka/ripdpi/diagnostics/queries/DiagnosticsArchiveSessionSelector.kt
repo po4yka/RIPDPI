@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRunType
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSessionSelectionStatus
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotSource
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceCounts
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
 import kotlinx.serialization.json.Json
@@ -112,6 +113,7 @@ class DiagnosticsArchiveSessionSelector
                 globalEvents = primary.globalEvents,
                 selectedApproachSummary = primary.selectedApproachSummary,
                 latestSnapshotModel = primary.latestSnapshotModel,
+                latestSnapshotSource = primary.latestSnapshotSource,
                 latestContextModel = primary.latestContextModel,
                 sessionContextModel = primary.sessionContextModel,
                 buildProvenance = sourceData.buildProvenance,
@@ -176,8 +178,14 @@ class DiagnosticsArchiveSessionSelector
                 }
             val latestPrimarySnapshotModel =
                 snapshots.maxByOrNull { it.capturedAt }?.let(redactor::decodeNetworkSnapshot)
-            val latestSnapshotModel =
-                redactor.decodeNetworkSnapshot(latestPassiveSnapshot) ?: latestPrimarySnapshotModel
+            val latestPassiveSnapshotModel = redactor.decodeNetworkSnapshot(latestPassiveSnapshot)
+            val latestSnapshotModel = latestPrimarySnapshotModel ?: latestPassiveSnapshotModel
+            val latestSnapshotSource =
+                when {
+                    latestPrimarySnapshotModel != null -> DiagnosticsArchiveSnapshotSource.SESSION
+                    latestPassiveSnapshotModel != null -> DiagnosticsArchiveSnapshotSource.PASSIVE
+                    else -> null
+                }
             val latestContextModel = redactor.decodeDiagnosticContext(latestPassiveContext)
             val sessionContextModel =
                 contexts.maxByOrNull(DiagnosticContextEntity::capturedAt)?.let(redactor::decodeDiagnosticContext)
@@ -205,6 +213,7 @@ class DiagnosticsArchiveSessionSelector
                 globalEvents = globalEvents,
                 selectedApproachSummary = selectedApproachSummary,
                 latestSnapshotModel = latestSnapshotModel,
+                latestSnapshotSource = latestSnapshotSource,
                 latestContextModel = latestContextModel,
                 sessionContextModel = sessionContextModel,
                 effectiveStrategySignature = effectiveStrategySignature,
@@ -295,6 +304,7 @@ class DiagnosticsArchiveSessionSelector
             val globalEvents: List<NativeSessionEventEntity>,
             val selectedApproachSummary: BypassApproachSummary?,
             val latestSnapshotModel: NetworkSnapshotModel?,
+            val latestSnapshotSource: DiagnosticsArchiveSnapshotSource?,
             val latestContextModel: DiagnosticContextModel?,
             val sessionContextModel: DiagnosticContextModel?,
             val effectiveStrategySignature: BypassStrategySignature?,

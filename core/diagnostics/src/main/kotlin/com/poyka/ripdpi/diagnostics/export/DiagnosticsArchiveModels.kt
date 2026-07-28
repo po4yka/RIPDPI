@@ -147,6 +147,7 @@ internal data class DiagnosticsArchiveSelection(
     val globalEvents: List<NativeSessionEventEntity>,
     val selectedApproachSummary: BypassApproachSummary?,
     val latestSnapshotModel: NetworkSnapshotModel?,
+    val latestSnapshotSource: DiagnosticsArchiveSnapshotSource? = null,
     val latestContextModel: DiagnosticContextModel?,
     val sessionContextModel: DiagnosticContextModel?,
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
@@ -164,6 +165,11 @@ internal data class DiagnosticsArchiveSelection(
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: String?,
 )
+
+internal enum class DiagnosticsArchiveSnapshotSource {
+    SESSION,
+    PASSIVE,
+}
 
 @Serializable
 internal enum class DiagnosticsArchiveRunType {

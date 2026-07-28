@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSnapshotSource
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
@@ -183,6 +184,7 @@ class DiagnosticsArchiveComponentsTest {
             assertEquals(1, selection.primaryEvents.size)
             assertNotNull(selection.latestPassiveSnapshot)
             assertNotNull(selection.latestPassiveContext)
+            assertEquals(DiagnosticsArchiveSnapshotSource.SESSION, selection.latestSnapshotSource)
             assertEquals(listOf("ev-global"), selection.globalEvents.map { it.id })
             assertEquals("strategy-fast", selection.selectedApproachSummary?.approachId?.value)
             assertEquals(
