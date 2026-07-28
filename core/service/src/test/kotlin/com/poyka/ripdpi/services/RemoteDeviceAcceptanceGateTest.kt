@@ -69,7 +69,7 @@ class RemoteDeviceAcceptanceGateTest {
                     successfulProbe().copy(
                         udpAssociationOpened = true,
                         udpSucceeded = false,
-                        udpFailure = RelayProbeFailure.UdpAssociateOpen.wireValue,
+                        udpFailure = RelayProbeFailure.UdpIo.wireValue,
                     ),
             )
 

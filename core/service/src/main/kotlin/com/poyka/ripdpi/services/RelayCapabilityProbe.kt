@@ -97,6 +97,9 @@ internal data class RelayUdpProbeResult(
     }
 }
 
+internal fun classifyUdpAssociationIoFailure(associationOpened: Boolean): RelayProbeFailure =
+    if (associationOpened) RelayProbeFailure.UdpIo else RelayProbeFailure.UdpAssociateOpen
+
 internal fun interface RelayUdpAssociateProbe {
     suspend fun probe(endpoint: RelayProbeEndpoint): RelayUdpProbeResult
 }
@@ -304,11 +307,20 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
                     }
                 }
             } catch (_: ProtocolException) {
-                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen, associationOpened)
+                return RelayUdpProbeResult.failure(
+                    classifyUdpAssociationIoFailure(associationOpened),
+                    associationOpened,
+                )
             } catch (_: SocketTimeoutException) {
-                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen, associationOpened)
+                return RelayUdpProbeResult.failure(
+                    classifyUdpAssociationIoFailure(associationOpened),
+                    associationOpened,
+                )
             } catch (_: IOException) {
-                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen, associationOpened)
+                return RelayUdpProbeResult.failure(
+                    classifyUdpAssociationIoFailure(associationOpened),
+                    associationOpened,
+                )
             }
         }
     }

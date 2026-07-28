@@ -19,6 +19,12 @@ import kotlin.concurrent.thread
 
 class RelayCapabilityProbeTest {
     @Test
+    fun `post-association IO is not reported as association-open failure`() {
+        assertEquals(RelayProbeFailure.UdpAssociateOpen, classifyUdpAssociationIoFailure(false))
+        assertEquals(RelayProbeFailure.UdpIo, classifyUdpAssociationIoFailure(true))
+    }
+
+    @Test
     fun `udp requirement rejects relay whose tcp probe succeeds but udp probe fails`() =
         runBlocking {
             val probe =
