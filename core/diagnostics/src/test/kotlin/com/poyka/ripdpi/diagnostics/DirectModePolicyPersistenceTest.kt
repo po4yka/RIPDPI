@@ -45,7 +45,11 @@ class DirectModePolicyPersistenceTest {
                                     probeType = "strategy_https",
                                     target = "example.org",
                                     outcome = "tls_ok",
-                                    details = listOf(ProbeDetail("targetHost", "example.org")),
+                                    details =
+                                        listOf(
+                                            ProbeDetail("candidateId", "baseline_current"),
+                                            ProbeDetail("targetHost", "example.org"),
+                                        ),
                                 ),
                             ),
                     ),
@@ -56,6 +60,40 @@ class DirectModePolicyPersistenceTest {
         assertEquals(DirectModeOutcome.TRANSPARENT_OK, persisted.transportPolicy?.outcome)
         assertEquals(200L, persisted.policyConfirmedAt)
         assertEquals(0, persisted.policyFailureCount)
+    }
+
+    @Test
+    fun `non baseline strategy success does not persist transparent policy`() {
+        val persisted =
+            buildPersistableDirectPathObservations(
+                report =
+                    ScanReport(
+                        sessionId = "session",
+                        profileId = "profile",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        startedAt = 10L,
+                        finishedAt = 200L,
+                        summary = "summary",
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "strategy_quic",
+                                    target = "Candidate · example.org",
+                                    outcome = "quic_response",
+                                    details =
+                                        listOf(
+                                            ProbeDetail("candidateId", "quic_sni_split"),
+                                            ProbeDetail("targetHost", "example.org"),
+                                        ),
+                                ),
+                            ),
+                    ),
+                existingRecords = emptyList(),
+            ).single()
+                .second
+
+        assertNull(persisted.transportPolicy)
+        assertNull(persisted.policyConfirmedAt)
     }
 
     @Test
@@ -76,7 +114,11 @@ class DirectModePolicyPersistenceTest {
                                     probeType = "strategy_https",
                                     target = "example.org",
                                     outcome = "tls_handshake_failed",
-                                    details = listOf(ProbeDetail("targetHost", "example.org")),
+                                    details =
+                                        listOf(
+                                            ProbeDetail("candidateId", "baseline_current"),
+                                            ProbeDetail("targetHost", "example.org"),
+                                        ),
                                 ),
                             ),
                     ),
@@ -132,7 +174,11 @@ class DirectModePolicyPersistenceTest {
                                     probeType = "strategy_https",
                                     target = "example.org",
                                     outcome = "tls_handshake_failed",
-                                    details = listOf(ProbeDetail("targetHost", "example.org")),
+                                    details =
+                                        listOf(
+                                            ProbeDetail("candidateId", "baseline_current"),
+                                            ProbeDetail("targetHost", "example.org"),
+                                        ),
                                 ),
                                 ProbeResult(
                                     probeType = "service_gateway",

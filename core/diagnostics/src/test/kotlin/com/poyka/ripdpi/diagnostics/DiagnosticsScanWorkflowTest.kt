@@ -152,6 +152,50 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
+    fun `unreliable strategy audit cannot report transparent direct mode`() {
+        val unreliableAssessment =
+            auditAssessment().copy(
+                coverage = auditAssessment().coverage.copy(winnerCoveragePercent = 0),
+                confidence =
+                    auditAssessment().confidence.copy(
+                        level = StrategyProbeAuditConfidenceLevel.LOW,
+                    ),
+            )
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment = unreliableAssessment,
+                pilotBucketLabels = emptyList(),
+            ).copy(
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "strategy_https",
+                            target = "Current strategy · example.org",
+                            outcome = "tls_ok",
+                            details =
+                                listOf(
+                                    ProbeDetail("candidateId", "baseline_current"),
+                                    ProbeDetail("targetHost", "example.org"),
+                                ),
+                        ),
+                    ),
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        assertNull(enriched.directModeVerdict)
+        assertFalse(enriched.displaySummary().contains("transparent", ignoreCase = true))
+    }
+
+    @Test
     fun `legacy recommended proxy config leaves derived metadata null`() {
         val report =
             scanReportWithStrategyProbe(

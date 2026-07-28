@@ -72,7 +72,11 @@ class DirectModePolicySupportTest {
                     probeType = "strategy_https",
                     target = "example.org",
                     outcome = "tls_handshake_failed",
-                    details = listOf(ProbeDetail("targetHost", "example.org")),
+                    details =
+                        listOf(
+                            ProbeDetail("candidateId", "baseline_current"),
+                            ProbeDetail("targetHost", "example.org"),
+                        ),
                 ),
             )
 
@@ -89,6 +93,44 @@ class DirectModePolicySupportTest {
     }
 
     @Test
+    fun `non baseline strategy success cannot override baseline failure`() {
+        val report =
+            reportWithResults(
+                strategyHttpsProbe(
+                    candidateId = "baseline_current",
+                    outcome = "tls_handshake_failed",
+                ),
+                strategyHttpsProbe(
+                    candidateId = "tlsrec_split",
+                    outcome = "tls_ok",
+                ),
+            )
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+        val verdict = deriveDirectModeVerdict(report)
+
+        assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, observation.transportPolicy?.outcome)
+        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
+    }
+
+    @Test
+    fun `baseline strategy success can establish transparent direct mode`() {
+        val report =
+            reportWithResults(
+                strategyHttpsProbe(
+                    candidateId = "baseline_current",
+                    outcome = "tls_ok",
+                ),
+            )
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+        val verdict = deriveDirectModeVerdict(report)
+
+        assertEquals(DirectModeOutcome.TRANSPARENT_OK, observation.transportPolicy?.outcome)
+        assertEquals(DirectModeVerdictResult.TRANSPARENT_WORKS, verdict?.result)
+    }
+
+    @Test
     fun `all failed quic authority returns honest no direct solution verdict`() {
         val report =
             reportWithResults(
@@ -96,7 +138,11 @@ class DirectModePolicySupportTest {
                     probeType = "strategy_quic",
                     target = "example.org",
                     outcome = "quic_error",
-                    details = listOf(ProbeDetail("targetHost", "example.org")),
+                    details =
+                        listOf(
+                            ProbeDetail("candidateId", "baseline_current"),
+                            ProbeDetail("targetHost", "example.org"),
+                        ),
                 ),
             )
 
@@ -182,6 +228,21 @@ class DirectModePolicySupportTest {
             target = target,
             outcome = "tls_ok",
             details = listOf(ProbeDetail("targetHost", target)),
+        )
+
+    private fun strategyHttpsProbe(
+        candidateId: String,
+        outcome: String,
+    ): ProbeResult =
+        ProbeResult(
+            probeType = "strategy_https",
+            target = "Candidate · example.org",
+            outcome = outcome,
+            details =
+                listOf(
+                    ProbeDetail("candidateId", candidateId),
+                    ProbeDetail("targetHost", "example.org"),
+                ),
         )
 
     private fun fatHeaderProbe(

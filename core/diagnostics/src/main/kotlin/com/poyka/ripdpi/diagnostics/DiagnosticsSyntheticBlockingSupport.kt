@@ -91,11 +91,18 @@ internal fun ScanReport.directPathHealthState(): DirectPathHealthState {
 }
 
 internal fun ScanReport.resultsForDirectModePolicy(): List<ProbeResult> =
-    if (hasFatHeaderOnlySyntheticBlocking()) {
-        results.filterNot(ProbeResult::isTcpFatHeaderProbe)
-    } else {
-        results
-    }
+    results
+        .filter(ProbeResult::isDirectModePolicyEvidence)
+        .let { policyResults ->
+            if (hasFatHeaderOnlySyntheticBlocking()) {
+                policyResults.filterNot(ProbeResult::isTcpFatHeaderProbe)
+            } else {
+                policyResults
+            }
+        }
+
+internal fun ProbeResult.isDirectModePolicyEvidence(): Boolean =
+    !probeType.startsWith("strategy_") || detailValue("candidateId")?.trim() == "baseline_current"
 
 private fun ProbeResult.isTcpFatHeaderProbe(): Boolean = probeType == ProbeTypeTcpFatHeader
 

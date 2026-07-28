@@ -110,9 +110,11 @@ private fun List<ServerCapabilityRecord>.bestMatchingRecord(
 
 private fun ScanReport.persistenceSignalsFor(authority: String): DirectModePersistenceSignals {
     val matchingResults =
-        results.filter { result ->
-            result.directPathPersistenceAuthority()?.normalizePersistedAuthority() == authority
-        }
+        results
+            .filter(ProbeResult::isDirectModePolicyEvidence)
+            .filter { result ->
+                result.directPathPersistenceAuthority()?.normalizePersistedAuthority() == authority
+            }
     val activeResults = matchingResults.filter { it.probeType != "dns_integrity" }
     return DirectModePersistenceSignals(
         hasDnsSignal = matchingResults.any { it.probeType == "dns_integrity" },
