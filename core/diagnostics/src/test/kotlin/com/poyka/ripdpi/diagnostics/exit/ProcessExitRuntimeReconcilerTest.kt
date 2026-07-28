@@ -62,6 +62,7 @@ class ProcessExitRuntimeReconcilerTest {
                 assertFalse(correlation.message.contains(secret))
             }
             assertEquals(RuntimeRootCauseVerdict.OEM_PROCESS_KILL, assessment.verdict)
+            assertTrue(assessment.terminalEvidenceSealed)
             assertEquals(130L, finalized.finishedAt)
             assertEquals("process_exit:oem_process_kill", finalized.endedReason)
         }

@@ -40,7 +40,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `typed dns runtime state classifies dns failure with medium confidence`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -60,12 +60,33 @@ class RuntimeRootCauseAssessmentTest {
         assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
         assertEquals(RuntimeRootCauseConfidence.MEDIUM, assessment.confidence)
         assertEquals(listOf("dns_failure"), assessment.evidenceRefs.map { it.category })
+        assertTrue(assessment.terminalEvidenceSealed)
+    }
+
+    @Test
+    fun `unsealed typed dns runtime state stays inconclusive`() {
+        val assessment =
+            assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedDnsRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            state = "failure_threshold",
+                            createdAt = 1L,
+                        ),
+                    ),
+                terminalEvidenceSealed = false,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertFalse(assessment.terminalEvidenceSealed)
     }
 
     @Test
     fun `recovered typed dns runtime state stays inconclusive`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -538,7 +559,7 @@ class RuntimeRootCauseAssessmentTest {
     @Test
     fun `canonical correlated process exit classifies oem kill with medium confidence`() {
         val assessment =
-            RuntimeRootCauseClassifier.assess(
+            assess(
                 connectionSessionId = "conn-a",
                 events =
                     listOf(
@@ -552,6 +573,26 @@ class RuntimeRootCauseAssessmentTest {
         assertEquals(RuntimeRootCauseVerdict.OEM_PROCESS_KILL, assessment.verdict)
         assertEquals(RuntimeRootCauseConfidence.MEDIUM, assessment.confidence)
         assertEquals(listOf("oem_process_kill"), assessment.evidenceRefs.map { it.category })
+        assertTrue(assessment.terminalEvidenceSealed)
+    }
+
+    @Test
+    fun `unsealed correlated process exit stays inconclusive`() {
+        val assessment =
+            assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedProcessExitCorrelationEvent(
+                            connectionSessionId = "conn-a",
+                            createdAt = 1L,
+                        ),
+                    ),
+                terminalEvidenceSealed = false,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertFalse(assessment.terminalEvidenceSealed)
     }
 
     @Test

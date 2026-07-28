@@ -49,6 +49,7 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
         runtimeArtifactPersister.persistTerminalRootCauseAssessment(
             connectionSessionId = session.id,
             createdAt = exitEvent.createdAt,
+            terminalEvidenceSealed = true,
         )
         finalizeStaleSession(session, exitEvent.createdAt)
     }

@@ -315,7 +315,11 @@ class RuntimeHistoryMonitorPersistenceTest {
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 3L), "conn-a")
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-a")
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-b")
-            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 5L)
+            persister.persistTerminalRootCauseAssessment(
+                connectionSessionId = "conn-a",
+                createdAt = 5L,
+                terminalEvidenceSealed = true,
+            )
 
             val typedEvent = typedRuntimeEvents(stores, "dns").single()
             val assessment =
@@ -333,7 +337,28 @@ class RuntimeHistoryMonitorPersistenceTest {
             )
             assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
             assertEquals(RuntimeRootCauseConfidence.MEDIUM, assessment.confidence)
+            assertTrue(assessment.terminalEvidenceSealed)
             assertTrue(stores.nativeEventsState.value.none { event -> event.id == "typed_runtime_state:dns:conn-b" })
+        }
+
+    @Test
+    fun `dns runtime health threshold remains inconclusive before terminal seal`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 0, failures = 0, updatedAt = 1L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 1, failures = 1, updatedAt = 2L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 3L), "conn-a")
+            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 5L)
+
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertFalse(assessment.terminalEvidenceSealed)
         }
 
     @Test
