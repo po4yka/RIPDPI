@@ -240,8 +240,6 @@ private fun DiagnosticContextModel.diagnosticRank(): Int {
             components.any { component ->
                 component.activeSessions > 0 || component.state.lowercase() in ArchiveActiveComponentStates
             }
-    if (isActive) return ArchiveActiveContextRank
-
     val hasNonIdleComponent =
         components.any { component ->
             component.state.lowercase() !in ArchiveIdleComponentStates ||

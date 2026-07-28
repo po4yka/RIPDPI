@@ -123,6 +123,67 @@ class DiagnosticsArchiveRendererTest {
         assertMixedRuntimeContext(entries)
     }
 
+    @Test
+    fun `renderer keeps active failure context when a newer active context is healthy`() {
+        val base = buildFullRendererSelection()
+        val activeHealthyContext =
+            rendererDiagnosticContextModel().copy(
+                service =
+                    rendererDiagnosticContextModel().service.copy(
+                        serviceStatus = "Running",
+                        lastNativeErrorHeadline = "none",
+                        relay = RuntimeComponentSummary(state = "running", health = "healthy"),
+                    ),
+            )
+        val activeFailureContext =
+            activeHealthyContext.copy(
+                service =
+                    activeHealthyContext.service.copy(
+                        lastNativeErrorHeadline = "relay transport failed",
+                        relay =
+                            RuntimeComponentSummary(
+                                state = "failed",
+                                health = "degraded",
+                                lastFailureClass = "protocol_unsupported",
+                            ),
+                    ),
+            )
+        val sessionContextEntity =
+            rendererDiagnosticContextEntity(sessionId = "session-1", capturedAt = 40L).copy(
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), activeHealthyContext),
+            )
+        val passiveContextEntity =
+            rendererDiagnosticContextEntity(id = "ctx-passive", sessionId = null, capturedAt = 30L).copy(
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), activeFailureContext),
+            )
+        val selection =
+            base.copy(
+                primaryContexts = listOf(sessionContextEntity),
+                latestPassiveContext = passiveContextEntity,
+                latestContextModel = activeFailureContext,
+                sessionContextModel = activeHealthyContext,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-active-failure", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-active-failure.zip",
+                createdAt = 50L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val runtimeConfig =
+            json.decodeFromString(
+                DiagnosticsArchiveRuntimeConfigPayload.serializer(),
+                entries.getValue("runtime-config.json").bytes.decodeToString(),
+            )
+
+        assertEquals("latest_passive_context", runtimeConfig.runtimeContextSource)
+        assertEquals(30L, runtimeConfig.runtimeContextCapturedAt)
+        assertEquals("degraded", runtimeConfig.relayRuntime?.health)
+        assertEquals("session_context", runtimeConfig.terminalContextSource)
+        assertEquals(40L, runtimeConfig.terminalContextCapturedAt)
+    }
+
     private fun assertMixedRuntimeContext(entries: Map<String, DiagnosticsArchiveEntry>) {
         val runtimeConfig =
             json.decodeFromString(
