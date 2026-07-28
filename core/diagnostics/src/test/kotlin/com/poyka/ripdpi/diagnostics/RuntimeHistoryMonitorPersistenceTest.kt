@@ -342,6 +342,123 @@ class RuntimeHistoryMonitorPersistenceTest {
         }
 
     @Test
+    fun `dns runtime health source switch does not synthesize failure threshold`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    proxyQueries = 1,
+                    proxyFailures = 0,
+                    tunnelQueries = 0,
+                    tunnelFailures = 0,
+                    updatedAt = 1L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    proxyQueries = 2,
+                    proxyFailures = 1,
+                    tunnelQueries = 0,
+                    tunnelFailures = 0,
+                    updatedAt = 2L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    proxyQueries = 2,
+                    proxyFailures = 1,
+                    tunnelQueries = 3,
+                    tunnelFailures = 2,
+                    updatedAt = 3L,
+                ),
+                "conn-a",
+            )
+
+            assertTrue(typedRuntimeEvents(stores, "dns").isEmpty())
+        }
+
+    @Test
+    fun `dns runtime health runtime switch does not synthesize failure threshold`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(
+                dnsTelemetry(queries = 1, failures = 0, updatedAt = 1L, serviceStartedAt = 100L),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(queries = 2, failures = 1, updatedAt = 2L, serviceStartedAt = 100L),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(queries = 3, failures = 2, updatedAt = 3L, serviceStartedAt = 200L),
+                "conn-a",
+            )
+
+            assertTrue(typedRuntimeEvents(stores, "dns").isEmpty())
+        }
+
+    @Test
+    fun `dns runtime health source switch does not synthesize recovery`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    proxyQueries = 1,
+                    proxyFailures = 0,
+                    tunnelQueries = 0,
+                    tunnelFailures = 0,
+                    updatedAt = 1L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    proxyQueries = 2,
+                    proxyFailures = 1,
+                    tunnelQueries = 0,
+                    tunnelFailures = 0,
+                    updatedAt = 2L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    proxyQueries = 3,
+                    proxyFailures = 2,
+                    tunnelQueries = 0,
+                    tunnelFailures = 0,
+                    updatedAt = 3L,
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                dnsTelemetry(
+                    proxyQueries = 3,
+                    proxyFailures = 2,
+                    tunnelQueries = 4,
+                    tunnelFailures = 2,
+                    updatedAt = 4L,
+                ),
+                "conn-a",
+            )
+
+            val typedEvent = typedRuntimeEvents(stores, "dns").single()
+            assertEquals("warn", typedEvent.level)
+            assertEquals(
+                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=failure_threshold",
+                typedEvent.message,
+            )
+        }
+
+    @Test
     fun `dns runtime health threshold remains inconclusive before terminal seal`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -794,6 +911,8 @@ class RuntimeHistoryMonitorPersistenceTest {
         queries: Long,
         failures: Long,
         updatedAt: Long,
+        serviceStartedAt: Long? = null,
+        restartCount: Int = 0,
     ): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(
             tunnelTelemetry =
@@ -802,6 +921,35 @@ class RuntimeHistoryMonitorPersistenceTest {
                     dnsQueriesTotal = queries,
                     dnsFailuresTotal = failures,
                 ),
+            serviceStartedAt = serviceStartedAt,
+            restartCount = restartCount,
+            updatedAt = updatedAt,
+        )
+
+    private fun dnsTelemetry(
+        proxyQueries: Long,
+        proxyFailures: Long,
+        tunnelQueries: Long,
+        tunnelFailures: Long,
+        updatedAt: Long,
+        serviceStartedAt: Long? = null,
+        restartCount: Int = 0,
+    ): ServiceTelemetrySnapshot =
+        ServiceTelemetrySnapshot(
+            proxyTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    dnsQueriesTotal = proxyQueries,
+                    dnsFailuresTotal = proxyFailures,
+                ),
+            tunnelTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    dnsQueriesTotal = tunnelQueries,
+                    dnsFailuresTotal = tunnelFailures,
+                ),
+            serviceStartedAt = serviceStartedAt,
+            restartCount = restartCount,
             updatedAt = updatedAt,
         )
 

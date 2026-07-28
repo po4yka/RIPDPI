@@ -410,7 +410,13 @@ private class TypedRuntimeHealthState {
         createdAt: Long,
     ): NativeSessionEventEntity? {
         val baseline = dnsBaseline
-        if (baseline == null || counters.hasRollbackFrom(baseline)) {
+        if (baseline == null || counters.hasDifferentProducerThan(baseline)) {
+            dnsBaseline = counters
+            dnsFailureStreak = 0
+            dnsFailureActive = false
+            return null
+        }
+        if (counters.hasRollbackFrom(baseline)) {
             val wasFailureActive = dnsFailureActive
             dnsBaseline = counters
             dnsFailureStreak = 0
@@ -498,18 +504,33 @@ private class TypedRuntimeHealthState {
 }
 
 private data class DnsCounterSnapshot(
+    val producer: DnsCounterProducer,
     val queriesTotal: Long,
     val failuresTotal: Long,
 ) {
+    fun hasDifferentProducerThan(previous: DnsCounterSnapshot): Boolean = producer != previous.producer
+
     fun hasRollbackFrom(previous: DnsCounterSnapshot): Boolean =
         queriesTotal < previous.queriesTotal || failuresTotal < previous.failuresTotal
 }
+
+private data class DnsCounterProducer(
+    val source: String,
+    val serviceStartedAt: Long?,
+    val restartCount: Int,
+)
 
 private fun selectDnsCounterSource(telemetry: ServiceTelemetrySnapshot): DnsCounterSnapshot {
     val proxy = telemetry.proxyTelemetry
     val tunnel = telemetry.tunnelTelemetry
     val source = if (tunnel.dnsQueriesTotal >= proxy.dnsQueriesTotal) tunnel else proxy
     return DnsCounterSnapshot(
+        producer =
+            DnsCounterProducer(
+                source = source.source,
+                serviceStartedAt = telemetry.serviceStartedAt,
+                restartCount = telemetry.restartCount,
+            ),
         queriesTotal = source.dnsQueriesTotal.coerceAtLeast(0),
         failuresTotal = source.dnsFailuresTotal.coerceAtLeast(0),
     )
