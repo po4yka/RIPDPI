@@ -1361,7 +1361,7 @@ class FailoverCoordinatorTest {
         }
 
     @Test
-    fun `exhausted UDP relay preflight advances directly to AWG`() =
+    fun `initial relay selection failure advances directly to AWG`() =
         runTest {
             val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Reconnecting)
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
@@ -1385,7 +1385,6 @@ class FailoverCoordinatorTest {
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
             coordinator.bind(observeScope)
-            coordinator.recordInitialRelayRaceExhausted()
 
             stateStore.emitFailure(FailureReason.InitialTransportSelectionFailed("preflight failed"))
             stateStore.setStatus(AppStatus.Halted, Mode.VPN)

@@ -405,7 +405,6 @@ private class RecordingInitialRaceFailoverCoordinator : InitialRaceFailoverCoord
     var skip = false
     var profileId: String? = null
     var relayKind: String? = null
-    var exhausted = false
 
     override fun shouldSkipInitialRelayRace(): Boolean = skip
 
@@ -415,10 +414,6 @@ private class RecordingInitialRaceFailoverCoordinator : InitialRaceFailoverCoord
     ) {
         this.profileId = profileId
         this.relayKind = relayKind
-    }
-
-    override fun recordInitialRelayRaceExhausted() {
-        exhausted = true
     }
 }
 

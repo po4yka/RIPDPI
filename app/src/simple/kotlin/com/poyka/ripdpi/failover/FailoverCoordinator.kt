@@ -88,8 +88,6 @@ internal interface InitialRaceFailoverCoordinator {
         profileId: String,
         relayKind: String,
     )
-
-    fun recordInitialRelayRaceExhausted()
 }
 
 /** Production clock backed by [System.currentTimeMillis]. */
@@ -218,8 +216,6 @@ class FailoverCoordinator
 
         private var initialRaceSelection: FailoverCandidate.Relay? = null
 
-        private var initialRaceExhausted: Boolean = false
-
         // ── Public API ──────────────────────────────────────────────────────
 
         /**
@@ -248,11 +244,6 @@ class FailoverCoordinator
                     relayKind = relayKind,
                 )
             setActiveCandidate(initialRaceSelection)
-            initialRaceExhausted = false
-        }
-
-        override fun recordInitialRelayRaceExhausted() {
-            initialRaceExhausted = true
         }
 
         /**
@@ -360,7 +351,9 @@ class FailoverCoordinator
                     .filterIsInstance<ServiceEvent.Failed>()
                     .collect { event ->
                         if (event.sender == Sender.VPN && event.reason.isRecoverableTransportFailure()) {
-                            recoverFromStartupFailure()
+                            recoverFromStartupFailure(
+                                initialRaceFailed = event.reason is FailureReason.InitialTransportSelectionFailed,
+                            )
                         }
                     }
             }
@@ -373,7 +366,7 @@ class FailoverCoordinator
          * then requests a new service start. A cancellation after persistence is fail-closed:
          * the next Android/user recovery start reads the already-selected replacement.
          */
-        private suspend fun recoverFromStartupFailure() {
+        private suspend fun recoverFromStartupFailure(initialRaceFailed: Boolean) {
             if (!autoFailoverEnabled.value) return
             serviceStateStore.status.first { (status, mode) ->
                 status == AppStatus.Halted && mode == Mode.VPN
@@ -386,7 +379,7 @@ class FailoverCoordinator
             }
             val persistedIndex = findPersistedCandidateIndex(rebuilt)
             val exhaustedRaceFallbackIndex =
-                if (initialRaceExhausted) {
+                if (initialRaceFailed) {
                     rebuilt
                         .indexOfFirst {
                             it is FailoverCandidate.Awg
@@ -394,9 +387,8 @@ class FailoverCoordinator
                 } else {
                     null
                 }
-            if (initialRaceExhausted && exhaustedRaceFallbackIndex == null) {
+            if (initialRaceFailed && exhaustedRaceFallbackIndex == null) {
                 Logger.w { "FailoverCoordinator: initial relay preflight exhausted without AWG fallback" }
-                initialRaceExhausted = false
                 return
             }
             if (rebuilt != startupFailureCandidates) {
@@ -417,7 +409,6 @@ class FailoverCoordinator
                 exhaustedRaceFallbackIndex
                     ?: if (persistedIndex == null) 0 else (activeCandidateIndex + 1) % candidates.size
             val nextCandidate = candidates[nextIndex]
-            initialRaceExhausted = false
             Logger.i {
                 "FailoverCoordinator: startup transport failed; selecting candidate " +
                     "${nextIndex + 1}/${candidates.size} kind=${nextCandidate.transportKind()}"

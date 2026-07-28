@@ -202,9 +202,6 @@ internal class SimpleInitialRelayRacePolicy
         }
 
         override fun onStateChanged(state: InitialTransportRaceSnapshot) {
-            if (state.state == RaceStateExhausted) {
-                failoverCoordinator.recordInitialRelayRaceExhausted()
-            }
             serviceStateStore.updateTelemetry(
                 serviceStateStore.telemetry.value.copy(initialTransportRaceSnapshot = state),
             )
@@ -280,7 +277,6 @@ internal class SimpleInitialRelayRacePolicy
             const val CachePreferencesName = "simple_initial_relay_race"
             const val CacheTtlMillis = 24L * 60L * 60L * 1_000L
             const val RaceStateDisabled = "disabled"
-            const val RaceStateExhausted = "exhausted"
             val SeededRelayKinds = setOf(RelayKindVlessReality, RelayKindHysteria2)
         }
     }
