@@ -70,8 +70,7 @@ if ((fixture_tailscale_proxy)); then
         -o StrictHostKeyChecking=yes
     )
 fi
-ssh_base=(ssh -p "$fixture_ssh_port" "${ssh_options[@]}")
-ssh_remote=("${ssh_base[@]}" "$fixture_ssh")
+ssh_remote=(ssh -p "$fixture_ssh_port" "${ssh_options[@]}" "$fixture_ssh")
 scp_remote=(scp -P "$fixture_ssh_port" "${ssh_options[@]}")
 marker_port=39001
 marker_relay_port=39005
@@ -85,10 +84,9 @@ remote_dir="/tmp/ripdpi-ordinary-$run_short"
 fixture_unit="ripdpi-ordinary-fixture-$run_short"
 dns_unit="ripdpi-ordinary-dns-$run_short"
 capture_unit="ripdpi-ordinary-capture-$run_short"
-marker_unit="ripdpi-ordinary-marker-$run_short"
 nft_comment="ripdpi-ordinary-$run_short"
 remote_started=0
-marker_tunnel_pid=0
+marker_relay_pid=0
 marker_reverse_started=0
 target_preinstalled=0
 test_preinstalled=0
@@ -130,7 +128,7 @@ wait_for_user_unlock() {
 
 cleanup_remote() {
     if ((remote_started)); then
-        "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service' '$marker_unit.service' '$dns_unit.service' '$fixture_unit.service' >/dev/null 2>&1; for handle in \$(sudo nft -a list chain inet filter input | awk -v marker='$nft_comment' 'index(\$0, marker) {print \$NF}'); do sudo nft delete rule inet filter input handle \"\$handle\"; done; sudo rm -rf -- '$remote_dir'" >/dev/null 2>&1 || true
+        "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service' '$dns_unit.service' '$fixture_unit.service' >/dev/null 2>&1; for handle in \$(sudo nft -a list chain inet filter input | awk -v marker='$nft_comment' 'index(\$0, marker) {print \$NF}'); do sudo nft delete rule inet filter input handle \"\$handle\"; done; sudo rm -rf -- '$remote_dir'" >/dev/null 2>&1 || true
     fi
 }
 
@@ -138,7 +136,7 @@ collect_failure_diagnostics() {
     local failed_capture="$output_dir/failed-fixture-observer.pcap"
     local failed_journal="$output_dir/failed-fixture-journal.txt"
     if ((remote_started)); then
-        "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service'; sudo journalctl --no-pager --output=short-monotonic -u '$marker_unit.service' -u '$dns_unit.service' -u '$fixture_unit.service' >'$remote_dir/failure-journal.txt'; sudo chmod 0600 '$remote_dir/capture.pcap' '$remote_dir/failure-journal.txt'; sudo chown \"\$(id -u):\$(id -g)\" '$remote_dir/capture.pcap' '$remote_dir/failure-journal.txt'" >/dev/null 2>&1 || true
+        "${ssh_remote[@]}" "set +e; sudo systemctl stop '$capture_unit.service'; sudo journalctl --no-pager --output=short-monotonic -u '$dns_unit.service' -u '$fixture_unit.service' >'$remote_dir/failure-journal.txt'; sudo chmod 0600 '$remote_dir/capture.pcap' '$remote_dir/failure-journal.txt'; sudo chown \"\$(id -u):\$(id -g)\" '$remote_dir/capture.pcap' '$remote_dir/failure-journal.txt'" >/dev/null 2>&1 || true
         "${scp_remote[@]}" "$fixture_ssh:$remote_dir/capture.pcap" "$failed_capture" >/dev/null 2>&1 || true
         "${scp_remote[@]}" "$fixture_ssh:$remote_dir/failure-journal.txt" "$failed_journal" >/dev/null 2>&1 || true
         [[ ! -f "$failed_capture" ]] || chmod 0600 "$failed_capture"
@@ -150,9 +148,9 @@ cleanup_marker_transport() {
     if ((marker_reverse_started)); then
         "${adb[@]}" reverse --remove "tcp:$marker_relay_port" >/dev/null 2>&1 || true
     fi
-    if ((marker_tunnel_pid)); then
-        kill "$marker_tunnel_pid" >/dev/null 2>&1 || true
-        wait "$marker_tunnel_pid" >/dev/null 2>&1 || true
+    if ((marker_relay_pid)); then
+        kill "$marker_relay_pid" >/dev/null 2>&1 || true
+        wait "$marker_relay_pid" >/dev/null 2>&1 || true
     fi
 }
 
@@ -286,19 +284,22 @@ test "$("${adb[@]}" shell settings get secure always_on_vpn_lockdown | tr -d '\r
 
 remote_started=1
 "${ssh_remote[@]}" "set -e; test ! -e '$remote_dir'; install -d -m 0700 '$remote_dir'; test \"\$(id -u)\" != 0; sudo -n true; command -v tcpdump >/dev/null; command -v python3 >/dev/null; command -v systemd-run >/dev/null; command -v nft >/dev/null; sudo nft list chain inet filter input >/dev/null"
-"${scp_remote[@]}" "$fixture_binary" "$repo_root/scripts/ci/android_ordinary_dns_fixture.py" "$repo_root/scripts/ci/android_ordinary_marker_relay.py" "$fixture_ssh:$remote_dir/" >/dev/null
-"${ssh_remote[@]}" "set -e; chmod 0500 '$remote_dir/local-network-fixture' '$remote_dir/android_ordinary_dns_fixture.py' '$remote_dir/android_ordinary_marker_relay.py'; sudo nft insert rule inet filter input tcp dport { $dns_port, $tcp_echo_port, $socks_port, $control_port } accept comment '$nft_comment'; sudo nft insert rule inet filter input udp dport { $marker_port, $dns_port, $socks_port } accept comment '$nft_comment'; sudo systemd-run --quiet --unit='$fixture_unit' --property=RuntimeMaxSec=1800 --setenv=RIPDPI_FIXTURE_BIND_HOST=:: --setenv=RIPDPI_FIXTURE_ANDROID_HOST='$fixture_ipv4' '$remote_dir/local-network-fixture'; sudo systemd-run --quiet --unit='$dns_unit' --property=RuntimeMaxSec=1800 '$remote_dir/android_ordinary_dns_fixture.py' --port '$dns_port' --dual-stack-ipv6 '$fixture_ipv6'; sudo systemd-run --quiet --unit='$marker_unit' --property=RuntimeMaxSec=1800 '$remote_dir/android_ordinary_marker_relay.py' --listen-port '$marker_relay_port' --destination-host '$fixture_ipv4' --destination-port '$marker_port'; sudo systemd-run --quiet --unit='$capture_unit' --property=RuntimeMaxSec=1800 /usr/bin/tcpdump -i any -U -n -s 0 -w '$remote_dir/capture.pcap' \"(udp dst port $marker_port) or (udp port $dns_port) or (tcp port $dns_port) or (tcp port $socks_port) or (tcp port $tcp_echo_port)\"; sleep 2; systemctl is-active --quiet '$fixture_unit.service'; systemctl is-active --quiet '$dns_unit.service'; systemctl is-active --quiet '$marker_unit.service'; systemctl is-active --quiet '$capture_unit.service'"
+"${scp_remote[@]}" "$fixture_binary" "$repo_root/scripts/ci/android_ordinary_dns_fixture.py" "$fixture_ssh:$remote_dir/" >/dev/null
+"${ssh_remote[@]}" "set -e; chmod 0500 '$remote_dir/local-network-fixture' '$remote_dir/android_ordinary_dns_fixture.py'; sudo nft insert rule inet filter input tcp dport { $dns_port, $tcp_echo_port, $socks_port, $control_port } accept comment '$nft_comment'; sudo nft insert rule inet filter input udp dport { $marker_port, $dns_port, $socks_port } accept comment '$nft_comment'; sudo systemd-run --quiet --unit='$fixture_unit' --property=RuntimeMaxSec=1800 --setenv=RIPDPI_FIXTURE_BIND_HOST=:: --setenv=RIPDPI_FIXTURE_ANDROID_HOST='$fixture_ipv4' '$remote_dir/local-network-fixture'; sudo systemd-run --quiet --unit='$dns_unit' --property=RuntimeMaxSec=1800 '$remote_dir/android_ordinary_dns_fixture.py' --port '$dns_port' --dual-stack-ipv6 '$fixture_ipv6'; sudo systemd-run --quiet --unit='$capture_unit' --property=RuntimeMaxSec=1800 /usr/bin/tcpdump -i any -U -n -s 0 -w '$remote_dir/capture.pcap' \"(udp dst port $marker_port) or (udp port $dns_port) or (tcp port $dns_port) or (tcp port $socks_port) or (tcp port $tcp_echo_port)\"; sleep 2; systemctl is-active --quiet '$fixture_unit.service'; systemctl is-active --quiet '$dns_unit.service'; systemctl is-active --quiet '$capture_unit.service'"
 
 "${ssh_remote[@]}" "python3 -c 'import socket; sock = socket.create_connection((\"::1\", $control_port), timeout=5); sock.close()'"
 "${ssh_remote[@]}" "python3 -c 'import socket; sock = socket.create_connection((\"::1\", $tcp_echo_port), timeout=5); sock.close()'"
-"${ssh_base[@]}" -N -L "127.0.0.1:$marker_relay_port:127.0.0.1:$marker_relay_port" "$fixture_ssh" &
-marker_tunnel_pid=$!
+python3 "$repo_root/scripts/ci/android_ordinary_marker_relay.py" \
+    --listen-port "$marker_relay_port" \
+    --destination-host "$fixture_ipv4" \
+    --destination-port "$marker_port" &
+marker_relay_pid=$!
 for _ in {1..20}; do
     if python3 -c "import socket; socket.create_connection(('127.0.0.1', $marker_relay_port), timeout=1).close()" 2>/dev/null; then
         break
     fi
-    if ! kill -0 "$marker_tunnel_pid" 2>/dev/null; then
-        echo "Fixture marker SSH tunnel exited before becoming ready." >&2
+    if ! kill -0 "$marker_relay_pid" 2>/dev/null; then
+        echo "Local fixture marker relay exited before becoming ready." >&2
         exit 1
     fi
     sleep 0.25

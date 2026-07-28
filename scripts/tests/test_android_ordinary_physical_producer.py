@@ -245,6 +245,8 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn('(tcp port $dns_port)', runner)
         self.assertIn("/usr/bin/tcpdump -i any", runner)
         self.assertIn("android_ordinary_marker_relay.py", runner)
+        self.assertIn('--destination-host "$fixture_ipv4"', runner)
+        self.assertNotIn('-L "127.0.0.1:$marker_relay_port', runner)
         self.assertIn('reverse "tcp:$marker_relay_port"', runner)
         self.assertIn('reverse --remove "tcp:$marker_relay_port"', runner)
         self.assertIn('requiredPort("ripdpi.ordinaryMarkerRelayPort")', producer)
