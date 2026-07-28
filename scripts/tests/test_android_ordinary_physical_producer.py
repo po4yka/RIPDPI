@@ -123,8 +123,41 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         configure = configure[: configure.index("private fun requestVpnStop")]
         self.assertIn("OrdinaryProtectedRestartAction", configure)
         self.assertIn("transport_failover_restart", producer)
+        self.assertIn(
+            "wasIpv6Enabled == ipv6 -> OrdinaryProtectedRestartAction", configure
+        )
+        self.assertIn("else -> null", configure)
+        self.assertIn("requestedAction?.let", configure)
         self.assertIn("hasIpv6 == ipv6", configure)
+        self.assertIn(
+            "val completedStartCount = tunnelFactory.completedStartCount()", configure
+        )
+        self.assertIn(
+            "tunnelFactory.completedStartAfter(completedStartCount, ipv6)",
+            configure,
+        )
         self.assertNotIn("ACTIVATE_VPN ignore", configure)
+
+    def test_action_boundary_waits_for_the_matching_native_bridge_generation(
+        self,
+    ) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        bridge = producer[
+            producer.index("private class OrdinaryTun2SocksBridgeFactory") :
+        ]
+        bridge = bridge[: bridge.index("private class OrdinaryFaultingProxyFactory")]
+        self.assertIn("completedStarts.get() > previousCount", bridge)
+        self.assertIn("lastCompletedIpv6 == ipv6", bridge)
+        start = bridge[bridge.index("override suspend fun start") :]
+        completed_increment = start.index("completedStarts.incrementAndGet()")
+        self.assertLess(start.index("delegate.start("), completed_increment)
+        self.assertLess(
+            start.index("lastCompletedIpv6 = config.tunnelIpv6 != null"),
+            completed_increment,
+        )
 
     def test_always_on_transitions_require_continuous_tunnel_protection(self) -> None:
         producer = Path(

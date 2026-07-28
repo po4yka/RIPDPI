@@ -348,6 +348,9 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     }
 
     private fun configureAndStart(ipv6: Boolean) {
+        val completedStartCount = tunnelFactory.completedStartCount()
+        val wasRunning = serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null
+        val wasIpv6Enabled = runBlocking { appSettingsRepository.snapshot().ipv6Enable }
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
         runBlocking {
             appSettingsRepository.update {
@@ -366,15 +369,17 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             }
         }
         val requestedAction =
-            if (serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null) {
-                OrdinaryProtectedRestartAction
-            } else {
-                startAction
+            when {
+                !wasRunning -> startAction
+                wasIpv6Enabled == ipv6 -> OrdinaryProtectedRestartAction
+                else -> null
             }
-        ContextCompat.startForegroundService(
-            appContext,
-            Intent(appContext, RipDpiVpnService::class.java).setAction(requestedAction),
-        )
+        requestedAction?.let { action ->
+            ContextCompat.startForegroundService(
+                appContext,
+                Intent(appContext, RipDpiVpnService::class.java).setAction(action),
+            )
+        }
         awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
             val network = vpnNetwork()
             val hasIpv6 =
@@ -384,7 +389,8 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                     ?.any { it.address.address.size == 16 } == true
             serviceStateStore.telemetry.value.status == AppStatus.Running &&
                 network != null &&
-                hasIpv6 == ipv6
+                hasIpv6 == ipv6 &&
+                tunnelFactory.completedStartAfter(completedStartCount, ipv6)
         }
         lastVpnInterface =
             connectivityManager.getLinkProperties(requireNotNull(vpnNetwork()))?.interfaceName ?: lastVpnInterface
@@ -756,6 +762,10 @@ private class OrdinaryTun2SocksBridgeFactory(
 ) : Tun2SocksBridgeFactory {
     @Volatile private var endpoint: Pair<String, Int>? = null
 
+    @Volatile private var lastCompletedIpv6: Boolean? = null
+
+    private val completedStarts = AtomicInteger(0)
+
     fun routeThrough(
         host: String,
         port: Int,
@@ -766,6 +776,13 @@ private class OrdinaryTun2SocksBridgeFactory(
     fun reset() {
         endpoint = null
     }
+
+    fun completedStartCount(): Int = completedStarts.get()
+
+    fun completedStartAfter(
+        previousCount: Int,
+        ipv6: Boolean,
+    ): Boolean = completedStarts.get() > previousCount && lastCompletedIpv6 == ipv6
 
     override fun create(): Tun2SocksBridge =
         object : Tun2SocksBridge {
@@ -788,6 +805,8 @@ private class OrdinaryTun2SocksBridgeFactory(
                     tunFd,
                     flowAttributionBridge,
                 )
+                lastCompletedIpv6 = config.tunnelIpv6 != null
+                completedStarts.incrementAndGet()
             }
 
             override suspend fun stop() = delegate.stop()
