@@ -20,7 +20,6 @@ pub const MAX_XUDP_PAYLOAD: usize = 8192 - 666;
 const READER_CHANNEL_CAPACITY: usize = 32;
 const WRITER_CHANNEL_CAPACITY: usize = 32;
 const DEFAULT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
-const DEFAULT_READ_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 const DEFAULT_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
 const DEFAULT_RECENT_ACTIVITY_WINDOW: Duration = Duration::from_secs(180);
 const SESSION_ID: u16 = 0;
@@ -112,7 +111,7 @@ impl VlessXudpSession {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        Self::new_with_timeouts(stream, allow_udp_443, DEFAULT_WRITE_TIMEOUT, DEFAULT_READ_IDLE_TIMEOUT)
+        Self::new_with_liveness(stream, allow_udp_443, DEFAULT_WRITE_TIMEOUT, DEFAULT_LIVENESS)
     }
 
     #[cfg(test)]
@@ -120,26 +119,13 @@ impl VlessXudpSession {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        Self::new_with_timeouts(stream, allow_udp_443, write_timeout, DEFAULT_READ_IDLE_TIMEOUT)
-    }
-
-    fn new_with_timeouts<S>(
-        stream: S,
-        allow_udp_443: bool,
-        write_timeout: Duration,
-        read_idle_timeout: Duration,
-    ) -> io::Result<Self>
-    where
-        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-    {
-        Self::new_with_liveness(stream, allow_udp_443, write_timeout, read_idle_timeout, DEFAULT_LIVENESS)
+        Self::new_with_liveness(stream, allow_udp_443, write_timeout, DEFAULT_LIVENESS)
     }
 
     fn new_with_liveness<S>(
         stream: S,
         allow_udp_443: bool,
         write_timeout: Duration,
-        read_idle_timeout: Duration,
         liveness: XudpLivenessConfig,
     ) -> io::Result<Self>
     where
@@ -153,8 +139,7 @@ impl VlessXudpSession {
         let (reader_abort_sender, reader_abort_receiver) = oneshot::channel();
         let writer_task =
             tokio::spawn(run_writer(writer, writer_receiver, write_timeout, liveness, reader_abort_receiver));
-        let reader_task =
-            tokio::spawn(run_reader(reader, reader_sender, read_idle_timeout, writer_task.abort_handle()));
+        let reader_task = tokio::spawn(run_reader(reader, reader_sender, writer_task.abort_handle()));
         reader_abort_sender
             .send(reader_task.abort_handle())
             .map_err(|_| io::Error::other("start XUDP carrier tasks"))?;
@@ -490,23 +475,18 @@ where
 /// # Cancel safety
 ///
 /// NOT cancel-safe: this task owns the carrier read half for its complete
-/// lifetime. Its idle deadline and external abort are terminal: both make a
-/// partially consumed carrier unusable and stop its paired writer task.
+/// lifetime. External abort is terminal because a partially consumed carrier
+/// is unusable and its paired writer must stop with it.
 async fn run_reader<R>(
     mut reader: R,
     sender: mpsc::Sender<io::Result<(String, Vec<u8>)>>,
-    read_idle_timeout: Duration,
     writer_abort: tokio::task::AbortHandle,
 ) where
     R: AsyncRead + Unpin,
 {
     let mut last_target = None;
     loop {
-        let result = match timeout(read_idle_timeout, read_frame(&mut reader, &mut last_target)).await {
-            Ok(result) => result,
-            Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "XUDP carrier read timed out")),
-        };
-        match result {
+        match read_frame(&mut reader, &mut last_target).await {
             Ok(DecodedFrame::KeepAlive) => {}
             Ok(DecodedFrame::Datagram(target, payload)) => {
                 if sender.send(Ok((target, payload))).await.is_err() {
@@ -753,45 +733,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stalled_reader_times_out_and_closes_the_write_queue() {
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: the fixture uses full-frame reads, but no read is
+    /// externally raced or reused after cancellation.
+    async fn reader_accepts_downlink_after_uplink_only_period() {
         let (stream, mut peer) = tokio::io::duplex(128);
-        let mut session = VlessXudpSession::new_with_timeouts(
-            stream,
-            false,
-            std::time::Duration::from_secs(1),
-            std::time::Duration::from_millis(20),
-        )
-        .expect("session");
-        peer.write_all(&16_u16.to_be_bytes()).await.expect("partial metadata header");
-
-        assert_eq!(session.recv_from().await.expect_err("stalled read must time out").kind(), io::ErrorKind::TimedOut);
-        assert_eq!(
-            session.send_to("example.com:53", b"next").await.expect_err("closed writer must reject reuse").kind(),
-            io::ErrorKind::BrokenPipe,
-        );
-        assert_eq!(session.recv_from().await.expect_err("reader closed").kind(), io::ErrorKind::UnexpectedEof);
-    }
-
-    #[tokio::test]
-    async fn keep_alive_frames_reset_the_reader_idle_deadline() {
-        let (stream, mut peer) = tokio::io::duplex(128);
-        let mut session = VlessXudpSession::new_with_timeouts(
-            stream,
-            false,
-            std::time::Duration::from_secs(1),
-            std::time::Duration::from_millis(20),
-        )
-        .expect("session");
+        let mut session = VlessXudpSession::new_with_liveness(stream, false, Duration::from_secs(1), test_liveness())
+            .expect("session");
         let peer_task = tokio::spawn(async move {
-            peer.write_all(&keep_alive_frame()).await.expect("first keepalive");
-            tokio::time::sleep(std::time::Duration::from_millis(15)).await;
-            peer.write_all(&keep_alive_frame()).await.expect("second keepalive");
-            tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+            let _ = read_encoded_frame(&mut peer).await;
+            for _ in 0..4 {
+                assert_eq!(read_encoded_frame(&mut peer).await, encode_keep_alive());
+            }
             peer.write_all(&keep_frame(Some("1.2.3.4:53"), b"alive")).await.expect("datagram");
         });
 
+        session.send_to("1.2.3.4:53", b"query").await.expect("uplink");
+
         assert_eq!(
-            session.recv_from().await.expect("datagram after keepalives"),
+            session.recv_from().await.expect("downlink after uplink-only period"),
             ("1.2.3.4:53".into(), b"alive".to_vec())
         );
         peer_task.await.expect("peer task");
@@ -804,14 +765,8 @@ mod tests {
     /// partially consume a larger protocol unit.
     async fn writer_does_not_probe_an_unused_association() {
         let (stream, mut peer) = tokio::io::duplex(128);
-        let _session = VlessXudpSession::new_with_liveness(
-            stream,
-            false,
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-            test_liveness(),
-        )
-        .expect("session");
+        let _session = VlessXudpSession::new_with_liveness(stream, false, Duration::from_secs(1), test_liveness())
+            .expect("session");
 
         let mut byte = [0_u8; 1];
         assert!(tokio::time::timeout(Duration::from_millis(35), peer.read(&mut byte)).await.is_err());
@@ -824,14 +779,8 @@ mod tests {
     /// races or externally cancels them.
     async fn discard_only_peer_does_not_make_xudp_keepalives_fatal() {
         let (stream, mut peer) = tokio::io::duplex(256);
-        let mut session = VlessXudpSession::new_with_liveness(
-            stream,
-            false,
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-            test_liveness(),
-        )
-        .expect("session");
+        let mut session = VlessXudpSession::new_with_liveness(stream, false, Duration::from_secs(1), test_liveness())
+            .expect("session");
 
         session.send_to("1.2.3.4:53", b"query").await.expect("uplink");
         let _ = read_encoded_frame(&mut peer).await;
