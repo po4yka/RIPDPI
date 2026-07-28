@@ -204,6 +204,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertNotIn("private fun ordinaryAaaaQuery", producer)
         self.assertIn('(udp port $dns_port)', runner)
         self.assertIn('(tcp port $dns_port)', runner)
+        self.assertIn("/usr/bin/tcpdump -i any", runner)
         self.assertIn("collect_failure_diagnostics", runner)
         self.assertIn("failed-fixture-observer.pcap", runner)
         self.assertIn("failed-fixture-journal.txt", runner)

@@ -1141,10 +1141,13 @@ def evaluate_pcap(
         if (
             packet.source in {fixture["controlIpv4"], fixture["controlIpv6"]}
             and packet.source_port == fixture["probePort"]
+            and packet.destination
+            not in {fixture["controlIpv4"], fixture["controlIpv6"]}
         )
         or (
             packet.destination in {fixture["controlIpv4"], fixture["controlIpv6"]}
             and packet.destination_port == fixture["probePort"]
+            and packet.source not in {fixture["controlIpv4"], fixture["controlIpv6"]}
         )
     ]
     if direct:
@@ -1159,6 +1162,12 @@ def evaluate_pcap(
             "SEMANTIC_IPV4_ONLY_PACKET_LEAK",
             "IPv4-only underlay window contains IPv6 traffic",
         )
+    fixture_local = [
+        packet
+        for packet in scoped
+        if packet.source == packet.destination
+        and packet.source in {fixture["controlIpv4"], fixture["controlIpv6"]}
+    ]
     tunnel_packets = [
         packet
         for packet in scoped
@@ -1185,7 +1194,9 @@ def evaluate_pcap(
     unexpected = [
         packet
         for packet in scoped
-        if packet not in marker_values and packet not in tunnel_packets
+        if packet not in marker_values
+        and packet not in fixture_local
+        and packet not in tunnel_packets
     ]
     if unexpected:
         raise OracleError(

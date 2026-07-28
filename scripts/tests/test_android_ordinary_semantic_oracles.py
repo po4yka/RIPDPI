@@ -470,6 +470,38 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
 
         self.assert_semantic_failure(mutation, "SEMANTIC_DIRECT_TRAFFIC_LEAK")
 
+    def test_fixture_local_post_tunnel_packet_is_not_an_underlay_leak(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            manifest_path, app_apk, test_apk, manifest = self.create_bundle(directory)
+            action = self.action(manifest, "dual-stack")
+            started = action["windowStartedAtEpochMs"]
+            correlation = action["correlationId"]
+            payload = fixtures.packet_capture(
+                "dual-stack", correlation_id=correlation, started_at=started
+            )
+            local_egress = fixtures._udp_ipv4(
+                fixtures.FIXTURE["controlIpv4"],
+                fixtures.FIXTURE["controlIpv4"],
+                43100,
+                fixtures.FIXTURE["probePort"],
+                b"fixture-local-post-tunnel-egress",
+            )
+            captured = payload + fixtures._pcap([(started + 650, local_egress)])[24:]
+            self.replace_artifact(
+                manifest_path,
+                manifest,
+                "dual-stack",
+                "packet-capture",
+                captured,
+            )
+            status, results = self.run_producer(
+                directory, manifest_path, app_apk, test_apk
+            )
+
+            self.assertEqual(status, 1)
+            self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
+
     def test_ipv4_only_oracle_rejects_ipv6_address_dns_connect_and_aaaa_leaks(
         self,
     ) -> None:
