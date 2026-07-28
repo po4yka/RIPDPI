@@ -10,6 +10,7 @@ interface DiagnosticsDao :
     DiagnosticsScanDao,
     DiagnosticsSnapshotDao,
     DiagnosticsTelemetryDao,
+    DiagnosticsNativeEventDao,
     DiagnosticsExportDao,
     DiagnosticsBypassUsageDao,
     DiagnosticsRememberedPolicyDao,
