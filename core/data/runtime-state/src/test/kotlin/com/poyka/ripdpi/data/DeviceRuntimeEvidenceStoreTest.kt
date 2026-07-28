@@ -30,4 +30,34 @@ class DeviceRuntimeEvidenceStoreTest {
                 events.map { it.observedAtMillis },
             )
         }
+
+    @Test
+    fun `data-plane delta is positive-only and identifies forwarding`() {
+        val before =
+            DeviceRuntimeDataPlaneCounters(
+                tunnelTxPackets = 1L,
+                tunnelTxBytes = 10L,
+                tunnelRxPackets = 2L,
+                tunnelRxBytes = 20L,
+                nativeTxPackets = 3L,
+                nativeTxBytes = 30L,
+                nativeRxPackets = 4L,
+                nativeRxBytes = 40L,
+            )
+        val after =
+            before.copy(
+                tunnelTxPackets = 3L,
+                tunnelTxBytes = 31L,
+                nativeRxPackets = 1L,
+                nativeRxBytes = 1L,
+            )
+
+        val delta = after.deltaFrom(before)
+
+        assertEquals(2L, delta.tunnelPackets)
+        assertEquals(21L, delta.tunnelBytes)
+        assertEquals(0L, delta.nativePackets)
+        assertEquals(0L, delta.nativeBytes)
+        assertEquals(true, delta.hasForwarding)
+    }
 }

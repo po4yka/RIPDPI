@@ -50,6 +50,66 @@ enum class DeviceRuntimeMemoryPressure {
     Unknown,
 }
 
+enum class DeviceRuntimeBackgroundSurvivalPhase {
+    ScreenOffStarted,
+    ScreenOffProbe,
+    AfterWake,
+}
+
+enum class DeviceRuntimeBackgroundSurvivalOutcome {
+    Pending,
+    Passed,
+    Failed,
+    Inconclusive,
+}
+
+enum class DeviceRuntimeBackgroundSurvivalReason {
+    TooShort,
+    ServiceStopped,
+    ServiceRestarted,
+    ScreenOffProbeMissing,
+    NoDataPlaneDelta,
+    PostActionProbeFailed,
+    Cancelled,
+}
+
+data class DeviceRuntimeDataPlaneCounters(
+    val tunnelTxPackets: Long = 0,
+    val tunnelTxBytes: Long = 0,
+    val tunnelRxPackets: Long = 0,
+    val tunnelRxBytes: Long = 0,
+    val nativeTxPackets: Long = 0,
+    val nativeTxBytes: Long = 0,
+    val nativeRxPackets: Long = 0,
+    val nativeRxBytes: Long = 0,
+)
+
+data class DeviceRuntimeDataPlaneDelta(
+    val tunnelPackets: Long = 0,
+    val tunnelBytes: Long = 0,
+    val nativePackets: Long = 0,
+    val nativeBytes: Long = 0,
+) {
+    val hasForwarding: Boolean
+        get() = tunnelPackets > 0L || tunnelBytes > 0L || nativePackets > 0L || nativeBytes > 0L
+}
+
+fun DeviceRuntimeDataPlaneCounters.deltaFrom(before: DeviceRuntimeDataPlaneCounters): DeviceRuntimeDataPlaneDelta =
+    DeviceRuntimeDataPlaneDelta(
+        tunnelPackets =
+            positiveDelta(tunnelTxPackets, before.tunnelTxPackets) +
+                positiveDelta(tunnelRxPackets, before.tunnelRxPackets),
+        tunnelBytes =
+            positiveDelta(tunnelTxBytes, before.tunnelTxBytes) +
+                positiveDelta(tunnelRxBytes, before.tunnelRxBytes),
+        nativePackets =
+            positiveDelta(nativeTxPackets, before.nativeTxPackets) +
+                positiveDelta(nativeRxPackets, before.nativeRxPackets),
+        nativeBytes =
+            positiveDelta(nativeTxBytes, before.nativeTxBytes) +
+                positiveDelta(nativeRxBytes, before.nativeRxBytes),
+    )
+
 sealed interface DeviceRuntimeEvidence {
     val observedAtMillis: Long
 
@@ -77,7 +137,24 @@ sealed interface DeviceRuntimeEvidence {
         val pressure: DeviceRuntimeMemoryPressure,
         override val observedAtMillis: Long,
     ) : DeviceRuntimeEvidence
+
+    data class BackgroundSurvival(
+        val mode: Mode,
+        val phase: DeviceRuntimeBackgroundSurvivalPhase,
+        val outcome: DeviceRuntimeBackgroundSurvivalOutcome,
+        val reason: DeviceRuntimeBackgroundSurvivalReason? = null,
+        val screenOffDurationMs: Long? = null,
+        val countersBefore: DeviceRuntimeDataPlaneCounters,
+        val countersAfter: DeviceRuntimeDataPlaneCounters? = null,
+        val counterDelta: DeviceRuntimeDataPlaneDelta? = null,
+        override val observedAtMillis: Long,
+    ) : DeviceRuntimeEvidence
 }
+
+private fun positiveDelta(
+    after: Long,
+    before: Long,
+): Long = (after - before).coerceAtLeast(0L)
 
 /** Process-local, bounded hand-off from Android callbacks to diagnostics. Exactly one collector is supported. */
 interface DeviceRuntimeEvidenceStore {

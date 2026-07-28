@@ -4,6 +4,10 @@ import android.app.usage.UsageStatsManager
 import android.content.ComponentCallbacks2
 import android.os.Build
 import android.os.PowerManager
+import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalOutcome
+import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalPhase
+import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneCounters
+import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneDelta
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
@@ -117,6 +121,53 @@ class DeviceStateEventRecorderTest {
             assertTrue(events.any { it.message.contains("foreground_outcome=returned") })
             assertTrue(events.any { it.message.contains("vpn_lockdown=enabled") })
             assertTrue(events.any { it.message.contains("memory_trim_callback=background") })
+        }
+
+    @Test
+    fun `correlates remote acceptance background survival evidence with running session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val recorder = recorder(FakeDeviceStateProvider(), stores)
+            recorder.beginServiceStart(Mode.VPN)
+            recorder.attachRunningSession("connection-background", Mode.VPN)
+
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.BackgroundSurvival(
+                    mode = Mode.VPN,
+                    phase = DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted,
+                    outcome = DeviceRuntimeBackgroundSurvivalOutcome.Pending,
+                    countersBefore = DeviceRuntimeDataPlaneCounters(tunnelTxBytes = 10L),
+                    observedAtMillis = 20L,
+                ),
+            )
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.BackgroundSurvival(
+                    mode = Mode.VPN,
+                    phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
+                    outcome = DeviceRuntimeBackgroundSurvivalOutcome.Passed,
+                    screenOffDurationMs = 300_000L,
+                    countersBefore = DeviceRuntimeDataPlaneCounters(tunnelTxBytes = 10L),
+                    countersAfter = DeviceRuntimeDataPlaneCounters(tunnelTxBytes = 42L),
+                    counterDelta = DeviceRuntimeDataPlaneDelta(tunnelBytes = 32L),
+                    observedAtMillis = 21L,
+                ),
+            )
+
+            val backgroundEvents =
+                stores.nativeEventsState.value.filter {
+                    it.message.contains("trigger=remote_acceptance_background")
+                }
+            assertEquals(2, backgroundEvents.size)
+            assertTrue(backgroundEvents.all { it.connectionSessionId == "connection-background" })
+            assertTrue(backgroundEvents[0].message.contains("remote_acceptance_background_phase=screen_off_started"))
+            assertTrue(backgroundEvents[0].message.contains("remote_acceptance_background_outcome=pending"))
+            assertTrue(backgroundEvents[1].message.contains("remote_acceptance_background_phase=after_wake"))
+            assertTrue(backgroundEvents[1].message.contains("remote_acceptance_background_outcome=passed"))
+            assertTrue(backgroundEvents[1].message.contains("remote_acceptance_screen_off_ms=300000"))
+            assertTrue(backgroundEvents[1].message.contains("remote_acceptance_delta_tunnel_bytes=32"))
+            listOf("ssid", "bssid", "serial", "endpoint", "profile", "uuid").forEach { forbidden ->
+                assertFalse(backgroundEvents.any { it.message.contains(forbidden, ignoreCase = true) })
+            }
         }
 
     @Test

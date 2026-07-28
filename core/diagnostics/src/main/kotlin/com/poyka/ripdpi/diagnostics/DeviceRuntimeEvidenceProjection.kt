@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalOutcome
+import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalPhase
+import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
+import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneDelta
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
@@ -26,6 +30,7 @@ internal enum class DeviceStateTrigger(
     ForegroundCall("foreground_call", false),
     VpnPolicy("vpn_policy", false),
     MemoryTrim("memory_trim", false),
+    RemoteAcceptanceBackground("remote_acceptance_background", false),
     ServiceDestroyed("service_destroyed", true),
     ;
 
@@ -73,6 +78,14 @@ private fun StringBuilder.appendRuntimeEvidence(event: DeviceRuntimeEvidence?) {
     append(" vpn_lockdown=").append(event.vpnLockdownValue())
     append(" vpn_kill_switch=").append(event.vpnKillSwitchValue())
     append(" memory_trim_callback=").append(event.memoryTrimValue())
+    append(" remote_acceptance_background_phase=").append(event.backgroundSurvivalPhaseValue())
+    append(" remote_acceptance_background_outcome=").append(event.backgroundSurvivalOutcomeValue())
+    append(" remote_acceptance_background_reason=").append(event.backgroundSurvivalReasonValue())
+    append(" remote_acceptance_screen_off_ms=").append(event.backgroundSurvivalDurationValue())
+    append(" remote_acceptance_delta_tunnel_packets=").append(event.backgroundSurvivalTunnelPacketDeltaValue())
+    append(" remote_acceptance_delta_tunnel_bytes=").append(event.backgroundSurvivalTunnelByteDeltaValue())
+    append(" remote_acceptance_delta_native_packets=").append(event.backgroundSurvivalNativePacketDeltaValue())
+    append(" remote_acceptance_delta_native_bytes=").append(event.backgroundSurvivalNativeByteDeltaValue())
 }
 
 internal fun DeviceRuntimeEvidence.toTrigger(): DeviceStateTrigger =
@@ -96,6 +109,10 @@ internal fun DeviceRuntimeEvidence.toTrigger(): DeviceStateTrigger =
         is DeviceRuntimeEvidence.MemoryTrim -> {
             DeviceStateTrigger.MemoryTrim
         }
+
+        is DeviceRuntimeEvidence.BackgroundSurvival -> {
+            DeviceStateTrigger.RemoteAcceptanceBackground
+        }
     }
 
 internal fun DeviceRuntimeEvidence.modeOrNull(): Mode? =
@@ -104,11 +121,13 @@ internal fun DeviceRuntimeEvidence.modeOrNull(): Mode? =
         is DeviceRuntimeEvidence.ForegroundCall -> mode
         is DeviceRuntimeEvidence.VpnPolicy -> Mode.VPN
         is DeviceRuntimeEvidence.MemoryTrim -> null
+        is DeviceRuntimeEvidence.BackgroundSurvival -> mode
     }
 
 internal fun DeviceRuntimeEvidence.startsServiceContext(): Boolean =
     (this is DeviceRuntimeEvidence.ServiceLifecycle && phase != DeviceRuntimeLifecyclePhase.Destroyed) ||
-        this is DeviceRuntimeEvidence.ForegroundCall
+        this is DeviceRuntimeEvidence.ForegroundCall ||
+        this is DeviceRuntimeEvidence.BackgroundSurvival
 
 internal fun DeviceRuntimeEvidence.flushesWithoutSession(): Boolean =
     (this is DeviceRuntimeEvidence.ServiceLifecycle && phase == DeviceRuntimeLifecyclePhase.Destroyed) ||
@@ -170,3 +189,61 @@ private fun DeviceRuntimeEvidence?.memoryTrimValue(): String =
         DeviceRuntimeMemoryPressure.Unknown -> "unknown"
         null -> "unchanged"
     }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalPhaseValue(): String =
+    when ((this as? DeviceRuntimeEvidence.BackgroundSurvival)?.phase) {
+        DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted -> "screen_off_started"
+        DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe -> "screen_off_probe"
+        DeviceRuntimeBackgroundSurvivalPhase.AfterWake -> "after_wake"
+        null -> "unchanged"
+    }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalOutcomeValue(): String =
+    when ((this as? DeviceRuntimeEvidence.BackgroundSurvival)?.outcome) {
+        DeviceRuntimeBackgroundSurvivalOutcome.Pending -> "pending"
+        DeviceRuntimeBackgroundSurvivalOutcome.Passed -> "passed"
+        DeviceRuntimeBackgroundSurvivalOutcome.Failed -> "failed"
+        DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive -> "inconclusive"
+        null -> "unchanged"
+    }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalReasonValue(): String =
+    when ((this as? DeviceRuntimeEvidence.BackgroundSurvival)?.reason) {
+        DeviceRuntimeBackgroundSurvivalReason.TooShort -> "too_short"
+        DeviceRuntimeBackgroundSurvivalReason.ServiceStopped -> "service_stopped"
+        DeviceRuntimeBackgroundSurvivalReason.ServiceRestarted -> "service_restarted"
+        DeviceRuntimeBackgroundSurvivalReason.ScreenOffProbeMissing -> "screen_off_probe_missing"
+        DeviceRuntimeBackgroundSurvivalReason.NoDataPlaneDelta -> "no_data_plane_delta"
+        DeviceRuntimeBackgroundSurvivalReason.PostActionProbeFailed -> "post_action_probe_failed"
+        DeviceRuntimeBackgroundSurvivalReason.Cancelled -> "cancelled"
+        null -> "unchanged"
+    }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalDurationValue(): String =
+    (this as? DeviceRuntimeEvidence.BackgroundSurvival)
+        ?.screenOffDurationMs
+        ?.coerceAtLeast(0L)
+        ?.toString()
+        ?: "unchanged"
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalTunnelPacketDeltaValue(): String =
+    backgroundSurvivalDeltaValue { tunnelPackets }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalTunnelByteDeltaValue(): String =
+    backgroundSurvivalDeltaValue { tunnelBytes }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalNativePacketDeltaValue(): String =
+    backgroundSurvivalDeltaValue { nativePackets }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalNativeByteDeltaValue(): String =
+    backgroundSurvivalDeltaValue { nativeBytes }
+
+private fun DeviceRuntimeEvidence?.backgroundSurvivalDeltaValue(
+    selector: DeviceRuntimeDataPlaneDelta.() -> Long,
+): String =
+    (this as? DeviceRuntimeEvidence.BackgroundSurvival)
+        ?.counterDelta
+        ?.selector()
+        ?.coerceAtLeast(0L)
+        ?.toString()
+        ?: "unchanged"

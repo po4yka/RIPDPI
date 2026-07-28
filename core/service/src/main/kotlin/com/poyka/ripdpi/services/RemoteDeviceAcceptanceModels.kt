@@ -266,6 +266,9 @@ internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlaneStatus(): RemoteDev
     }
 }
 
+internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlanePassed(): Boolean =
+    acceptanceDataPlaneStatus() == RemoteDeviceAcceptanceStatus.Pass
+
 internal fun deriveAcceptanceStatus(steps: List<RemoteDeviceAcceptanceStep>): RemoteDeviceAcceptanceStatus =
     when {
         steps.any { it.status == RemoteDeviceAcceptanceStatus.Fail } -> RemoteDeviceAcceptanceStatus.Fail
@@ -388,7 +391,7 @@ private fun RemoteDeviceAcceptanceUnderlay.toRedacted(): RedactedAcceptanceUnder
 internal fun captureRemoteDeviceAcceptanceDevice(): RemoteDeviceAcceptanceDevice =
     RemoteDeviceAcceptanceDevice(
         model = sanitizeDeviceField(Build.MODEL),
-        csc = readSalesCode(),
+        csc = UnavailableVendorPolicyMembership,
         api = Build.VERSION.SDK_INT,
         abi = sanitizeDeviceField(Build.SUPPORTED_ABIS.firstOrNull()),
     )
@@ -404,23 +407,6 @@ private fun sanitizeDeviceField(value: String?): String =
                 it.all { char -> char.isLetterOrDigit() || char in " -_." }
         }
         ?: "unknown"
-
-private fun readSalesCode(): String {
-    val getter =
-        runCatching {
-            Class
-                .forName("android.os.SystemProperties")
-                .getMethod("get", String::class.java, String::class.java)
-        }.getOrNull() ?: return "unknown"
-    return SalesCodeProperties
-        .firstNotNullOfOrNull { property ->
-            runCatching { getter.invoke(null, property, "") as? String }
-                .getOrNull()
-                ?.trim()
-                ?.uppercase()
-                ?.takeIf { it.matches(Regex("[A-Z0-9]{3}")) }
-        } ?: "unknown"
-}
 
 private val RemoteDeviceAcceptanceReportJson =
     Json(RipDpiPrettyContractJson) {
@@ -449,7 +435,7 @@ internal const val ErrorPostActionProbe = "post_action_probe_failed"
 internal const val ErrorPostActionProbeInconclusive = "post_action_probe_inconclusive"
 internal const val RelayPathKind = "relay_path"
 private const val MaxDeviceFieldLength = 64
-private val SalesCodeProperties = listOf("ro.boot.sales_code", "ril.sales_code", "ro.csc.sales_code")
+private const val UnavailableVendorPolicyMembership = "unavailable"
 private val acceptanceStepIds =
     listOf(
         StepRealityTcp,
