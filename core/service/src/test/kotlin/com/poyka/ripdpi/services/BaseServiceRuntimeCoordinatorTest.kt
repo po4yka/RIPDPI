@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -100,6 +101,43 @@ class BaseServiceRuntimeCoordinatorTest {
             env.coordinator.stop()
 
             assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
+        }
+
+    @Test
+    fun `production stop retries final telemetry before runtime teardown`() =
+        runTest {
+            val env = newEnv().also { it.coordinator.finalTelemetryFailuresRemaining = 1 }
+            env.coordinator.start()
+            runCurrent()
+
+            backgroundScope.launch { env.coordinator.stop() }
+            runCurrent()
+            assertEquals(1, env.coordinator.finalTelemetryCalls)
+            assertEquals(listOf("final_telemetry"), env.coordinator.stopLifecycleEvents)
+
+            advanceTimeBy(TerminalTelemetryRetryDelayMillis)
+            runCurrent()
+
+            assertEquals(2, env.coordinator.finalTelemetryCalls)
+            assertEquals(
+                listOf("final_telemetry", "final_telemetry", "runtime_stop"),
+                env.coordinator.stopLifecycleEvents,
+            )
+        }
+
+    @Test
+    fun `production stop rethrows final telemetry cancellation before teardown`() =
+        runTest {
+            val env = newEnv().also { it.coordinator.cancelFinalTelemetry = true }
+            env.coordinator.start()
+            runCurrent()
+
+            val failure = runCatching { env.coordinator.stop() }.exceptionOrNull()
+
+            assertTrue(failure is CancellationException)
+            assertEquals(1, env.coordinator.finalTelemetryCalls)
+            assertEquals(0, env.coordinator.stopCalls)
+            assertEquals(listOf("final_telemetry"), env.coordinator.stopLifecycleEvents)
         }
 
     @Test
@@ -614,6 +652,9 @@ private class TestCoordinator(
     var handoverFailuresRemaining: Int = 0
     var handoverTimeoutsRemaining: Int = 0
     var handoverRestartGate: CompletableDeferred<Unit>? = null
+    var finalTelemetryFailuresRemaining: Int = 0
+    var finalTelemetryCalls: Int = 0
+    var cancelFinalTelemetry: Boolean = false
     val handoverResolutionGates = mutableMapOf<String, CompletableDeferred<Unit>>()
     val statusTransitions = mutableListOf<ServiceStatus>()
     val stopLifecycleEvents = mutableListOf<String>()
@@ -703,7 +744,13 @@ private class TestCoordinator(
     }
 
     private suspend fun captureFinalTelemetry() {
+        finalTelemetryCalls += 1
         stopLifecycleEvents += "final_telemetry"
+        if (cancelFinalTelemetry) throw CancellationException("cancel final telemetry")
+        if (finalTelemetryFailuresRemaining > 0) {
+            finalTelemetryFailuresRemaining -= 1
+            error("final telemetry failed")
+        }
     }
 
     @Suppress("UnusedParameter")

@@ -351,7 +351,7 @@ internal fun createRuntimeHistoryMonitor(
             override val evidence =
                 MutableStateFlow(NetworkPathValidationEvidence(captureStatus = "test_unavailable"))
         },
-    networkTransitionFlush: (suspend () -> Boolean)? = null,
+    networkTransitionFlush: (suspend (NetworkTransitionAdmission) -> Boolean)? = null,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1)),
 ): RuntimeHistoryStartup {
     val rememberedPolicySessionTracker =

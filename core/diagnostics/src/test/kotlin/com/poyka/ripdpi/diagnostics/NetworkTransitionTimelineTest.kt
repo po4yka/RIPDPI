@@ -18,6 +18,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -33,11 +34,11 @@ class NetworkTransitionTimelineTest {
 
         try {
             val capture =
-                executor.submit<Boolean?> {
-                    gate.capture {
+                executor.submit<Unit> {
+                    gate.withAdmission { admission ->
+                        assertEquals("session-a", admission?.connectionSessionId)
                         callbackEntered.countDown()
                         releaseCallback.await()
-                        true
                     }
                 }
             assertTrue(callbackEntered.await(1, TimeUnit.SECONDS))
@@ -47,14 +48,67 @@ class NetworkTransitionTimelineTest {
             assertTrue(timeout is TimeoutException)
             releaseCallback.countDown()
 
-            assertEquals(true, capture.get(1, TimeUnit.SECONDS))
+            capture.get(1, TimeUnit.SECONDS)
             deactivate.get(1, TimeUnit.SECONDS)
-            assertEquals(null, gate.capture { true })
+            gate.withAdmission { admission -> assertEquals(null, admission) }
         } finally {
             releaseCallback.countDown()
             executor.shutdownNow()
         }
     }
+
+    @Test
+    fun `deactivation cannot overtake generation recovery admitted by a public callback`() =
+        runTest {
+            val gate = NetworkTransitionSessionGate()
+            val callbackEntered = CountDownLatch(1)
+            val releaseCallback = CountDownLatch(1)
+            val blockClock = AtomicBoolean(false)
+            val events = mutableListOf<NetworkTransitionEvent>()
+            val executor = Executors.newFixedThreadPool(2)
+            val timeline =
+                NetworkTransitionTimeline(
+                    scope = backgroundScope,
+                    clock = {
+                        if (blockClock.get()) {
+                            callbackEntered.countDown()
+                            releaseCallback.await()
+                        }
+                        NetworkTransitionTimestamp(elapsedRealtimeMs = 5L, epochMs = 10_005L)
+                    },
+                    withSessionAdmission = gate::withAdmission,
+                    persist = { events += it },
+                )
+            val networkKey = Any()
+            gate.activate("session-a")
+            timeline.recordAvailable(networkKey)
+            timeline.recordCapabilities(networkKey, nonVpnCapabilities(validated = false))
+            runCurrent()
+            blockClock.set(true)
+
+            try {
+                val recovery =
+                    executor.submit {
+                        timeline.recordCapabilities(networkKey, nonVpnCapabilities(validated = true))
+                    }
+                assertTrue(callbackEntered.await(1, TimeUnit.SECONDS))
+                val deactivate = executor.submit<NetworkTransitionAdmission?>(gate::deactivate)
+
+                val timeout = runCatching { deactivate.get(50, TimeUnit.MILLISECONDS) }.exceptionOrNull()
+                assertTrue(timeout is TimeoutException)
+                releaseCallback.countDown()
+                recovery.get(1, TimeUnit.SECONDS)
+                val admission = requireNotNull(deactivate.get(1, TimeUnit.SECONDS))
+                val seal = async { timeline.flush(admission) }
+                runCurrent()
+
+                assertTrue(seal.await())
+                assertEquals(NetworkTransitionState.Present, events.last().validated)
+            } finally {
+                releaseCallback.countDown()
+                executor.shutdownNow()
+            }
+        }
 
     @Test
     fun `flush persists preceding callbacks before reporting a healthy seal`() =
@@ -65,7 +119,7 @@ class NetworkTransitionTimelineTest {
 
             timeline.recordAvailable(networkKey)
             timeline.recordCapabilities(networkKey, vpnCapabilities())
-            val seal = async { timeline.flush() }
+            val seal = async { timeline.flush(TestAdmission) }
             runCurrent()
 
             assertTrue(seal.await())
@@ -88,9 +142,9 @@ class NetworkTransitionTimelineTest {
                 }
 
             timeline.recordAvailable(Any())
-            val failedSeal = async { timeline.flush() }
+            val failedSeal = async { timeline.flush(TestAdmission) }
             runCurrent()
-            val recoveredSeal = async { timeline.flush() }
+            val recoveredSeal = async { timeline.flush(TestAdmission) }
             runCurrent()
 
             assertFalse(failedSeal.await())
@@ -104,7 +158,7 @@ class NetworkTransitionTimelineTest {
             val timeline = timeline { releasePersist.await() }
 
             timeline.recordAvailable(Any())
-            val seal = async { timeline.flush(timeoutMillis = 10L) }
+            val seal = async { timeline.flush(TestAdmission, timeoutMillis = 10L) }
             runCurrent()
             advanceTimeBy(11L)
             runCurrent()
@@ -115,11 +169,51 @@ class NetworkTransitionTimelineTest {
         }
 
     @Test
+    fun `timed out barrier cannot clear capture failure from a later session epoch`() =
+        runTest {
+            val gate = NetworkTransitionSessionGate()
+            val releaseFirstPersist = CompletableDeferred<Unit>()
+            val timeline =
+                NetworkTransitionTimeline(
+                    scope = backgroundScope,
+                    clock = { NetworkTransitionTimestamp(elapsedRealtimeMs = 5L, epochMs = 10_005L) },
+                    withSessionAdmission = gate::withAdmission,
+                    persist = { event ->
+                        if (event.connectionSessionId == "session-a") releaseFirstPersist.await()
+                    },
+                )
+            val firstKey = Any()
+            gate.activate("session-a")
+            timeline.recordAvailable(firstKey)
+            val firstAdmission = requireNotNull(gate.deactivate())
+            val firstSeal = async { timeline.flush(firstAdmission, timeoutMillis = 10L) }
+            runCurrent()
+            advanceTimeBy(11L)
+            runCurrent()
+            assertFalse(firstSeal.await())
+
+            val secondAdmission = gate.activate("session-b")
+            val secondKey = Any()
+            timeline.recordAvailable(secondKey)
+            repeat(MaxPersistedNetworkTransitionsPerSession + 2) {
+                timeline.recordCapabilities(secondKey, vpnCapabilities())
+            }
+            assertEquals(secondAdmission, gate.deactivate())
+
+            releaseFirstPersist.complete(Unit)
+            runCurrent()
+            val secondSeal = async { timeline.flush(secondAdmission) }
+            runCurrent()
+
+            assertFalse(secondSeal.await())
+        }
+
+    @Test
     fun `timeline keeps ordered redacted callback facts and rotates generation after loss`() =
         runTest {
             val events = mutableListOf<NetworkTransitionEvent>()
             var tick = 0L
-            var connectionSessionId: String? = "session-a"
+            var admission: NetworkTransitionAdmission? = TestAdmission
             val timeline =
                 NetworkTransitionTimeline(
                     scope = backgroundScope,
@@ -127,7 +221,7 @@ class NetworkTransitionTimelineTest {
                         tick += 1
                         NetworkTransitionTimestamp(elapsedRealtimeMs = tick, epochMs = 10_000L + tick)
                     },
-                    enqueueForActiveSession = { enqueue -> connectionSessionId?.let(enqueue) },
+                    withSessionAdmission = { block -> block(admission) },
                     persist = { events += it },
                 )
             val hostileKey =
@@ -142,7 +236,7 @@ class NetworkTransitionTimelineTest {
             timeline.recordLost(hostileKey)
             timeline.recordLost(hostileKey)
             timeline.recordAvailable(hostileKey)
-            connectionSessionId = "session-b"
+            admission = NetworkTransitionAdmission("session-b", 2L)
             runCurrent()
 
             assertEquals((1L..6L).toList(), events.map(NetworkTransitionEvent::sequence))
@@ -164,20 +258,20 @@ class NetworkTransitionTimelineTest {
     fun `capture-time correlation follows the active session for every callback and stays bounded`() =
         runTest {
             val events = mutableListOf<NetworkTransitionEvent>()
-            var connectionSessionId: String? = null
+            var admission: NetworkTransitionAdmission? = null
             val timeline =
                 NetworkTransitionTimeline(
                     scope = backgroundScope,
                     clock = { NetworkTransitionTimestamp(elapsedRealtimeMs = 5L, epochMs = 10_005L) },
-                    enqueueForActiveSession = { enqueue -> connectionSessionId?.let(enqueue) },
+                    withSessionAdmission = { block -> block(admission) },
                     persist = { events += it },
                 )
             val networkKey = Any()
 
             timeline.recordAvailable(networkKey)
-            connectionSessionId = "session-a"
+            admission = TestAdmission
             timeline.recordCapabilities(networkKey, vpnCapabilities())
-            connectionSessionId = "session-b"
+            admission = NetworkTransitionAdmission("session-b", 2L)
             runCurrent()
             assertEquals(1, events.size)
             assertEquals("session-a", events.single().connectionSessionId)
@@ -190,7 +284,7 @@ class NetworkTransitionTimelineTest {
             repeat(MaxPersistedNetworkTransitionsPerSession + 10) {
                 timeline.recordCapabilities(networkKey, vpnCapabilities())
             }
-            val seal = async { timeline.flush() }
+            val seal = async { timeline.flush(requireNotNull(admission)) }
             runCurrent()
 
             assertFalse(seal.await())
@@ -219,15 +313,25 @@ class NetworkTransitionTimelineTest {
             addTransport(capabilities, NetworkCapabilities.TRANSPORT_VPN)
         }
 
+    private fun nonVpnCapabilities(validated: Boolean): NetworkCapabilities =
+        NetworkCapabilities().also { capabilities ->
+            addCapability(capabilities, NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            if (validated) addCapability(capabilities, NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }
+
     private fun kotlinx.coroutines.test.TestScope.timeline(
         persist: suspend (NetworkTransitionEvent) -> Unit,
     ): NetworkTransitionTimeline =
         NetworkTransitionTimeline(
             scope = backgroundScope,
             clock = { NetworkTransitionTimestamp(elapsedRealtimeMs = 5L, epochMs = 10_005L) },
-            enqueueForActiveSession = { enqueue -> enqueue("session-a") },
+            withSessionAdmission = { block -> block(TestAdmission) },
             persist = persist,
         )
+
+    private companion object {
+        val TestAdmission = NetworkTransitionAdmission("session-a", 1L)
+    }
 
     private fun addCapability(
         capabilities: NetworkCapabilities,

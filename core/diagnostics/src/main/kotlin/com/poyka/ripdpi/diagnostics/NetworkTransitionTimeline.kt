@@ -10,7 +10,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.LinkedHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 internal enum class NetworkTransitionKind(
@@ -89,27 +88,37 @@ private object AndroidNetworkTransitionClock : NetworkTransitionClock {
         )
 }
 
-/** Serializes callback capture with terminal deactivation so a barrier cannot overtake a callback. */
+internal data class NetworkTransitionAdmission(
+    val connectionSessionId: String,
+    val epoch: Long,
+)
+
+/** Serializes complete callback admission with terminal deactivation. */
 internal class NetworkTransitionSessionGate {
     private val lock = Any()
-    private var connectionSessionId: String? = null
+    private var nextEpoch = 0L
+    private var admission: NetworkTransitionAdmission? = null
 
-    fun activate(connectionSessionId: String) {
+    fun activate(connectionSessionId: String): NetworkTransitionAdmission =
         synchronized(lock) {
-            this.connectionSessionId = connectionSessionId
+            NetworkTransitionAdmission(connectionSessionId, ++nextEpoch).also { admission = it }
+        }
+
+    fun deactivate(): NetworkTransitionAdmission? =
+        synchronized(lock) {
+            admission.also { admission = null }
+        }
+
+    fun restore(admission: NetworkTransitionAdmission) {
+        synchronized(lock) {
+            check(this.admission == null) { "network transition session already active" }
+            this.admission = admission
         }
     }
 
-    fun deactivate() {
-        synchronized(lock) {
-            connectionSessionId = null
-        }
+    fun withAdmission(block: (NetworkTransitionAdmission?) -> Unit) {
+        synchronized(lock) { block(admission) }
     }
-
-    fun capture(enqueue: (String) -> Boolean): Boolean? =
-        synchronized(lock) {
-            connectionSessionId?.let(enqueue)
-        }
 }
 
 /**
@@ -120,18 +129,18 @@ internal class NetworkTransitionSessionGate {
 internal class NetworkTransitionTimeline(
     scope: CoroutineScope,
     private val clock: NetworkTransitionClock = AndroidNetworkTransitionClock,
-    private val enqueueForActiveSession: (((String) -> Boolean) -> Boolean?),
+    private val withSessionAdmission: (((NetworkTransitionAdmission?) -> Unit) -> Unit),
     private val persist: suspend (NetworkTransitionEvent) -> Unit,
 ) {
     private val generations = NetworkTransitionGenerationTracker()
     private val sequence = AtomicLong()
-    private val captureHealthy = AtomicBoolean(true)
+    private val captureUnhealthyEpochs = mutableSetOf<Long>()
     private val sessionEventCounts = LinkedHashMap<String, Int>()
     private val queue = Channel<NetworkTransitionCommand>(capacity = MaxBufferedNetworkTransitions)
 
     init {
         scope.launch {
-            var persistenceHealthy = true
+            val persistenceUnhealthyEpochs = mutableSetOf<Long>()
             for (command in queue) {
                 when (command) {
                     is NetworkTransitionCommand.Persist -> {
@@ -142,7 +151,7 @@ internal class NetworkTransitionTimeline(
                             }
 
                             is Exception -> {
-                                persistenceHealthy = false
+                                persistenceUnhealthyEpochs.add(command.admission.epoch)
                                 Logger.e(failure) { "Network transition persistence failed" }
                             }
 
@@ -153,71 +162,86 @@ internal class NetworkTransitionTimeline(
                     }
 
                     is NetworkTransitionCommand.Barrier -> {
-                        val captureWasHealthy = captureHealthy.getAndSet(true)
-                        command.result.complete(persistenceHealthy && captureWasHealthy)
-                        persistenceHealthy = true
+                        val captureWasHealthy = clearCaptureFailure(command.admission.epoch)
+                        val persistenceWasHealthy = persistenceUnhealthyEpochs.remove(command.admission.epoch).not()
+                        command.result.complete(captureWasHealthy && persistenceWasHealthy)
                     }
                 }
             }
         }
     }
 
-    internal suspend fun flush(timeoutMillis: Long = NetworkTransitionFlushTimeoutMillis): Boolean {
+    internal suspend fun flush(
+        admission: NetworkTransitionAdmission,
+        timeoutMillis: Long = NetworkTransitionFlushTimeoutMillis,
+    ): Boolean {
         val result = CompletableDeferred<Boolean>()
         val boundedTimeout = timeoutMillis.coerceIn(1L, NetworkTransitionFlushTimeoutMillis)
         return withTimeoutOrNull(boundedTimeout) {
-            queue.send(NetworkTransitionCommand.Barrier(result))
+            queue.send(NetworkTransitionCommand.Barrier(admission, result))
             result.await()
         } ?: false
     }
 
     fun recordAvailable(networkKey: Any) {
-        val generation = generations.replaceGeneration(networkKey)
-        recordGeneration(generation, NetworkTransitionKind.Available)
+        withSessionAdmission { admission ->
+            val generation = generations.replaceGeneration(networkKey)
+            recordGeneration(admission, generation, NetworkTransitionKind.Available)
+        }
     }
 
     fun recordLosing(
         networkKey: Any,
         maxMsToLive: Int,
     ) {
-        val band =
-            when {
-                maxMsToLive <= ImminentLosingDeadlineMs -> NetworkLosingDeadlineBand.Imminent
-                maxMsToLive <= NearLosingDeadlineMs -> NetworkLosingDeadlineBand.Near
-                else -> NetworkLosingDeadlineBand.Later
-            }
-        recordKnown(networkKey, NetworkTransitionKind.Losing, losingDeadlineBand = band)
+        withSessionAdmission { admission ->
+            val band =
+                when {
+                    maxMsToLive <= ImminentLosingDeadlineMs -> NetworkLosingDeadlineBand.Imminent
+                    maxMsToLive <= NearLosingDeadlineMs -> NetworkLosingDeadlineBand.Near
+                    else -> NetworkLosingDeadlineBand.Later
+                }
+            recordKnown(admission, networkKey, NetworkTransitionKind.Losing, losingDeadlineBand = band)
+        }
     }
 
     fun recordLost(networkKey: Any) {
-        val generation = generations.removeGeneration(networkKey) ?: return
-        recordGeneration(generation, NetworkTransitionKind.Lost)
+        withSessionAdmission { admission ->
+            val generation = generations.removeGeneration(networkKey) ?: return@withSessionAdmission
+            recordGeneration(admission, generation, NetworkTransitionKind.Lost)
+        }
     }
 
     fun recordCapabilities(
         networkKey: Any,
         capabilities: NetworkCapabilities,
     ) {
-        recordKnown(
-            networkKey = networkKey,
-            kind = NetworkTransitionKind.CapabilitiesChanged,
-            path =
-                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                    NetworkTransitionPath.Vpn
-                } else {
-                    NetworkTransitionPath.NonVpn
-                },
-            internet = capabilities.stateOf(NetworkCapabilities.NET_CAPABILITY_INTERNET),
-            validated = capabilities.stateOf(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-            captivePortal = capabilities.stateOf(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
-        )
+        withSessionAdmission { admission ->
+            recordKnown(
+                admission = admission,
+                networkKey = networkKey,
+                kind = NetworkTransitionKind.CapabilitiesChanged,
+                path =
+                    if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                        NetworkTransitionPath.Vpn
+                    } else {
+                        NetworkTransitionPath.NonVpn
+                    },
+                internet = capabilities.stateOf(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                validated = capabilities.stateOf(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                captivePortal = capabilities.stateOf(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+            )
+        }
     }
 
     fun recordLinkProperties(networkKey: Any) {
-        recordKnown(networkKey, NetworkTransitionKind.LinkPropertiesChanged)
+        withSessionAdmission { admission ->
+            recordKnown(admission, networkKey, NetworkTransitionKind.LinkPropertiesChanged)
+        }
     }
 
     private fun recordKnown(
+        admission: NetworkTransitionAdmission?,
         networkKey: Any,
         kind: NetworkTransitionKind,
         path: NetworkTransitionPath? = null,
@@ -228,6 +252,7 @@ internal class NetworkTransitionTimeline(
     ) {
         val generation = generations.existingGeneration(networkKey) ?: return
         recordGeneration(
+            admission = admission,
             generation = generation,
             kind = kind,
             path = path,
@@ -239,6 +264,7 @@ internal class NetworkTransitionTimeline(
     }
 
     private fun recordGeneration(
+        admission: NetworkTransitionAdmission?,
         generation: Long,
         kind: NetworkTransitionKind,
         path: NetworkTransitionPath? = null,
@@ -247,17 +273,19 @@ internal class NetworkTransitionTimeline(
         captivePortal: NetworkTransitionState? = null,
         losingDeadlineBand: NetworkLosingDeadlineBand? = null,
     ) {
+        admission ?: return
         val captured =
-            enqueueForActiveSession { connectionSessionId ->
-                if (!reserveSessionEvent(connectionSessionId)) {
-                    false
-                } else {
-                    val timestamp = clock.capture()
-                    queue
-                        .trySend(
-                            NetworkTransitionCommand.Persist(
+            if (!reserveSessionEvent(admission.connectionSessionId)) {
+                false
+            } else {
+                val timestamp = clock.capture()
+                queue
+                    .trySend(
+                        NetworkTransitionCommand.Persist(
+                            admission = admission,
+                            event =
                                 NetworkTransitionEvent(
-                                    connectionSessionId = connectionSessionId,
+                                    connectionSessionId = admission.connectionSessionId,
                                     generation = generation,
                                     sequence = sequence.incrementAndGet(),
                                     elapsedRealtimeMs = timestamp.elapsedRealtimeMs,
@@ -269,12 +297,19 @@ internal class NetworkTransitionTimeline(
                                     captivePortal = captivePortal,
                                     losingDeadlineBand = losingDeadlineBand,
                                 ),
-                            ),
-                        ).isSuccess
-                }
+                        ),
+                    ).isSuccess
             }
-        if (captured == false) captureHealthy.set(false)
+        if (!captured) markCaptureFailure(admission.epoch)
     }
+
+    @Synchronized
+    private fun markCaptureFailure(epoch: Long) {
+        captureUnhealthyEpochs.add(epoch)
+    }
+
+    @Synchronized
+    private fun clearCaptureFailure(epoch: Long): Boolean = captureUnhealthyEpochs.remove(epoch).not()
 
     @Synchronized
     private fun reserveSessionEvent(connectionSessionId: String): Boolean {
@@ -294,10 +329,12 @@ internal class NetworkTransitionTimeline(
 
 private sealed interface NetworkTransitionCommand {
     data class Persist(
+        val admission: NetworkTransitionAdmission,
         val event: NetworkTransitionEvent,
     ) : NetworkTransitionCommand
 
     data class Barrier(
+        val admission: NetworkTransitionAdmission,
         val result: CompletableDeferred<Boolean>,
     ) : NetworkTransitionCommand
 }

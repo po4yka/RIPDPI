@@ -48,7 +48,7 @@ class RuntimeSessionCoordinator
         private var activeUsageSession: BypassUsageSessionEntity? = null
 
         @Volatile
-        private var networkTransitionFlush: (suspend () -> Boolean)? = null
+        private var networkTransitionFlush: (suspend (NetworkTransitionAdmission) -> Boolean)? = null
         private var samplingJob: Job? = null
         private var reconnectInProgress = false
         private var lastRecordedNetworkHandoverState: String? = null
@@ -128,10 +128,11 @@ class RuntimeSessionCoordinator
             artifactPersister.persistNetworkTransition(event, event.connectionSessionId)
         }
 
-        internal fun captureNetworkTransition(enqueue: (String) -> Boolean): Boolean? =
-            networkTransitionSessionGate.capture(enqueue)
+        internal fun withNetworkTransitionAdmission(block: (NetworkTransitionAdmission?) -> Unit) {
+            networkTransitionSessionGate.withAdmission(block)
+        }
 
-        internal fun registerNetworkTransitionFlush(flush: suspend () -> Boolean) {
+        internal fun registerNetworkTransitionFlush(flush: suspend (NetworkTransitionAdmission) -> Boolean) {
             networkTransitionFlush = flush
         }
 
@@ -352,11 +353,11 @@ class RuntimeSessionCoordinator
 
         private suspend fun finalizeActiveUsageSession(telemetry: ServiceTelemetrySnapshot) {
             val current = activeUsageSession ?: return
-            networkTransitionSessionGate.deactivate()
+            val terminalAdmission = networkTransitionSessionGate.deactivate()
             val finalizedAt = maxOf(System.currentTimeMillis(), telemetry.updatedAt)
             var finalized = false
             try {
-                val terminalEvidenceSealed = sealNetworkTransitions()
+                val terminalEvidenceSealed = terminalAdmission?.let { sealNetworkTransitions(it) } ?: false
                 artifactPersister.persistRuntimeEvents(
                     serviceTelemetry = telemetry,
                     connectionSessionId = current.id,
@@ -389,14 +390,14 @@ class RuntimeSessionCoordinator
                 rememberedPolicySessionTracker.clear()
                 finalized = true
             } finally {
-                if (!finalized) {
-                    networkTransitionSessionGate.activate(current.id)
+                if (!finalized && terminalAdmission != null) {
+                    networkTransitionSessionGate.restore(terminalAdmission)
                 }
             }
         }
 
-        private suspend fun sealNetworkTransitions(): Boolean {
-            val result = runCatching { networkTransitionFlush?.invoke() ?: false }
+        private suspend fun sealNetworkTransitions(admission: NetworkTransitionAdmission): Boolean {
+            val result = runCatching { networkTransitionFlush?.invoke(admission) ?: false }
             val failure = result.exceptionOrNull() ?: return result.getOrThrow()
             if (failure is CancellationException) throw failure
             if (failure is Exception) return false

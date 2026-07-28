@@ -135,6 +135,31 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
         assertTrue(assessment.evidenceRefs.isEmpty())
     }
 
+    @Test
+    fun `monotonic transition sequence survives wall clock reversal`() {
+        val assessment =
+            assess(
+                events =
+                    listOf(
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=present;generation=3;sequence=1",
+                            300L,
+                        ),
+                        transition("kind=lost;generation=3;sequence=2", 200L),
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=present;generation=4;sequence=3",
+                            100L,
+                        ),
+                    ),
+                sealed = true,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
     private fun assess(
         events: List<NativeSessionEventEntity>,
         sealed: Boolean = false,

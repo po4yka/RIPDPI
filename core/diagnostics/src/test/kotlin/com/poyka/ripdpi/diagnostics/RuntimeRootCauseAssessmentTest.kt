@@ -230,6 +230,46 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
+    fun `unsealed terminal rejects competing data plane and pmtu verdicts`() {
+        val dataPlaneAssessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "data_plane",
+                            message = "state=outbound_only mode=vpn generation=1 final=true",
+                            createdAt = 1L,
+                        ),
+                    ),
+                terminalEvidenceSealed = false,
+            )
+        val pmtuAssessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "pmtu",
+                            message =
+                                "verdict=mtu_blackhole provenance=pmtu_probe_v1 " +
+                                    "small_control=success larger_failures=2 " +
+                                    "post_control_recovery=success ptb_observation=not_observed_in_run",
+                            createdAt = 2L,
+                        ),
+                    ),
+                terminalEvidenceSealed = false,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, dataPlaneAssessment.verdict)
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, pmtuAssessment.verdict)
+        assertFalse(dataPlaneAssessment.terminalEvidenceSealed)
+        assertFalse(pmtuAssessment.terminalEvidenceSealed)
+    }
+
+    @Test
     fun `assessment evidence is bounded to recent scoped events`() {
         val events =
             (1L..80L).map { index ->

@@ -48,7 +48,7 @@ internal class AndroidNetworkPathValidationSource
         private val transitionTimeline =
             NetworkTransitionTimeline(
                 scope = scope,
-                enqueueForActiveSession = sessionCoordinator::captureNetworkTransition,
+                withSessionAdmission = sessionCoordinator::withNetworkTransitionAdmission,
                 persist = sessionCoordinator::handleNetworkTransition,
             )
 

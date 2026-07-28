@@ -75,7 +75,7 @@ internal object RuntimeRootCauseClassifier {
         connectionSessionId: String,
         events: List<NativeSessionEventEntity>,
         terminalAtMillis: Long = events.maxOfOrNull(NativeSessionEventEntity::createdAt) ?: 0L,
-        terminalEvidenceSealed: Boolean = false,
+        terminalEvidenceSealed: Boolean = true,
     ): RuntimeRootCauseAssessment {
         val lowerBoundMillis = terminalAtMillis - RuntimeRootCauseWindowMillis
         val scopedEvents =
@@ -142,7 +142,10 @@ private fun collectNetworkTransitionEvidence(
     events
         .asSequence()
         .filter { event -> event.subsystem == "network_transition" }
-        .forEach(reducer::accept)
+        .sortedWith(
+            compareBy<NativeSessionEventEntity> { event -> event.transitionSequenceOrNull() ?: Long.MAX_VALUE }
+                .thenBy(NativeSessionEventEntity::createdAt),
+        ).forEach(reducer::accept)
     reducer.unresolvedFailure?.let { event ->
         evidence.add(RuntimeEvidenceCategory.UnderlayLost, event)
     }
@@ -287,8 +290,9 @@ private fun collectExplicitMtuEvidence(
 private fun selectVerdict(
     evidence: RuntimeEvidenceAccumulator,
     terminalEvidenceSealed: Boolean,
-): RuntimeRootCauseVerdict =
-    when {
+): RuntimeRootCauseVerdict {
+    if (!terminalEvidenceSealed) return RuntimeRootCauseVerdict.INCONCLUSIVE
+    return when {
         evidence.has(RuntimeEvidenceCategory.DataPlaneForwardingHealthy) -> {
             RuntimeRootCauseVerdict.INCONCLUSIVE
         }
@@ -298,10 +302,6 @@ private fun selectVerdict(
         }
 
         evidence.has(RuntimeEvidenceCategory.RelayRuntimeFailure) -> {
-            RuntimeRootCauseVerdict.INCONCLUSIVE
-        }
-
-        evidence.has(RuntimeEvidenceCategory.UnderlayLost) && !terminalEvidenceSealed -> {
             RuntimeRootCauseVerdict.INCONCLUSIVE
         }
 
@@ -320,6 +320,7 @@ private fun selectVerdict(
             candidateVerdicts.singleOrNull() ?: RuntimeRootCauseVerdict.INCONCLUSIVE
         }
     }
+}
 
 private fun selectDirectVerdicts(evidence: RuntimeEvidenceAccumulator): List<RuntimeRootCauseVerdict> =
     listOfNotNull(
@@ -505,11 +506,13 @@ internal fun String.toKeyValueTokens(): Map<String, String> =
 
 internal fun NativeSessionEventEntity.toKeyValueTokens(): Map<String, String> = message.toKeyValueTokens()
 
-private fun NativeSessionEventEntity.transitionSequence(): Long =
+private fun NativeSessionEventEntity.transitionSequence(): Long = transitionSequenceOrNull() ?: Long.MIN_VALUE
+
+private fun NativeSessionEventEntity.transitionSequenceOrNull(): Long? =
     if (subsystem == "network_transition") {
-        message.toKeyValueTokens()["sequence"]?.toLongOrNull() ?: Long.MIN_VALUE
+        message.toKeyValueTokens()["sequence"]?.toLongOrNull()
     } else {
-        Long.MIN_VALUE
+        null
     }
 
 private fun networkCapabilityMissing(

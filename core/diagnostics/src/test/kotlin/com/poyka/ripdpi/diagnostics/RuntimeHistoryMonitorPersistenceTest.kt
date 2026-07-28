@@ -127,7 +127,13 @@ class RuntimeHistoryMonitorPersistenceTest {
             val stores = FakeDiagnosticsHistoryStores()
             val serviceStateStore = DefaultServiceStateStore()
             val monitorScope = monitorScope()
-            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+            val monitor =
+                createMonitor(
+                    stores,
+                    serviceStateStore,
+                    monitorScope,
+                    networkTransitionFlush = { true },
+                )
 
             monitor.start()
             runCurrent()
@@ -175,7 +181,7 @@ class RuntimeHistoryMonitorPersistenceTest {
                     stores = stores,
                     serviceStateStore = serviceStateStore,
                     scope = monitorScope,
-                    networkTransitionFlush = {
+                    networkTransitionFlush = { _ ->
                         flushCalls += 1
                         true
                     },
@@ -204,7 +210,13 @@ class RuntimeHistoryMonitorPersistenceTest {
             val stores = FakeDiagnosticsHistoryStores()
             val serviceStateStore = DefaultServiceStateStore()
             val monitorScope = monitorScope()
-            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+            val monitor =
+                createMonitor(
+                    stores,
+                    serviceStateStore,
+                    monitorScope,
+                    networkTransitionFlush = { true },
+                )
 
             monitor.start()
             runCurrent()
@@ -676,7 +688,7 @@ class RuntimeHistoryMonitorPersistenceTest {
         serviceStateStore: DefaultServiceStateStore,
         scope: CoroutineScope,
         deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
-        networkTransitionFlush: (suspend () -> Boolean)? = null,
+        networkTransitionFlush: (suspend (NetworkTransitionAdmission) -> Boolean)? = null,
     ): RuntimeHistoryStartup =
         createRuntimeHistoryMonitor(
             appSettingsRepository = FakeAppSettingsRepository(),

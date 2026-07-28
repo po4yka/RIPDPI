@@ -6,6 +6,9 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     private val dependencies: ServiceRuntimeStartStopDependencies<TSession>,
@@ -64,10 +67,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
 
         dependencies.lifecycleRunner.stop {
             dependencies.loopOwner.cancelPermissionWatchdog()
-            runCatching { callbacks.captureFinalTelemetry() }
-                .onFailure { failure ->
-                    Logger.e(failure) { "Failed to capture final ${dependencies.serviceLabel()} telemetry" }
-                }
+            captureFinalTelemetryWithRetry()
             runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
                 .onFailure { failure ->
                     Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
@@ -88,7 +88,38 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
             dependencies.host.requestStopSelf(stopSelfStartId)
         }
     }
+
+    private suspend fun captureFinalTelemetryWithRetry() {
+        repeat(TerminalTelemetryCaptureAttempts) { attempt ->
+            try {
+                val completed =
+                    withTimeoutOrNull(TerminalTelemetryAttemptTimeoutMillis) {
+                        callbacks.captureFinalTelemetry()
+                        true
+                    } == true
+                if (completed) return
+                Logger.e {
+                    "Timed out capturing final ${dependencies.serviceLabel()} telemetry " +
+                        "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
+                }
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                Logger.e(failure) {
+                    "Failed to capture final ${dependencies.serviceLabel()} telemetry " +
+                        "(attempt ${attempt + 1}/$TerminalTelemetryCaptureAttempts)"
+                }
+            }
+            if (attempt + 1 < TerminalTelemetryCaptureAttempts) {
+                delay(TerminalTelemetryRetryDelayMillis)
+            }
+        }
+    }
 }
+
+internal const val TerminalTelemetryCaptureAttempts = 2
+internal const val TerminalTelemetryAttemptTimeoutMillis = 2_000L
+internal const val TerminalTelemetryRetryDelayMillis = 50L
 
 internal class ServiceRuntimeStartStopDependencies<TSession>(
     val mode: Mode,
