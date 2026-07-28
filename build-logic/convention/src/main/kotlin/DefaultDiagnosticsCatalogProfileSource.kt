@@ -12,7 +12,9 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             ruMessagingProfile(index),
             ruCircumventionProfile(index),
             ruThrottlingProfile(index),
+            pathComparisonProfile(),
             ruDpiFullProfile(index),
+            ruDpiStrategyProfile(index),
         )
 
     private fun defaultProfile(): DiagnosticsProfileDefinition =
@@ -218,6 +220,17 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         )
     }
 
+    private fun pathComparisonProfile(): DiagnosticsProfileDefinition =
+        DiagnosticsProfileDefinition(
+            id = "path-comparison",
+            name = "VPN vs direct path",
+            version = 1,
+            family = CatalogDiagnosticProfileFamily.GENERAL,
+            intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
+            legalSafety = CatalogLegalSafety.SENSITIVE,
+            executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
+        )
+
     private fun ruDpiFullProfile(index: DiagnosticsCatalogIndex): DiagnosticsProfileDefinition {
         val independentMedia = index.requirePack("ru-independent-media")
         val globalPlatforms = index.requirePack("ru-global-platforms")
@@ -273,6 +286,42 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             throughputTargets = listOf(throttling.throughputTargets.single(), neutralControl.throughputTargets.first()),
             whitelistSni = control.whitelistSni,
             telegramTarget = DiagnosticsCatalogSharedData.dpiTelegramTarget,
+        )
+    }
+
+    private fun ruDpiStrategyProfile(index: DiagnosticsCatalogIndex): DiagnosticsProfileDefinition {
+        val independentMedia = index.requirePack("ru-independent-media")
+        val globalPlatforms = index.requirePack("ru-global-platforms")
+        val messaging = index.requirePack("ru-messaging")
+        val circumvention = index.requirePack("ru-circumvention")
+        return DiagnosticsProfileDefinition(
+            id = "ru-dpi-strategy",
+            name = "Russia DPI Strategy Probe",
+            version = 1,
+            kind = CatalogScanKind.STRATEGY_PROBE,
+            family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
+            intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
+            legalSafety = CatalogLegalSafety.SENSITIVE,
+            regionTag = "ru",
+            executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = true),
+            packRefs =
+                listOf(
+                    packRef("ru-independent-media", 1),
+                    packRef("ru-global-platforms", 1),
+                    packRef("ru-messaging", 2),
+                    packRef("ru-circumvention", 1),
+                ),
+            domainTargets =
+                (
+                    independentMedia.domainTargets +
+                        globalPlatforms.domainTargets +
+                        messaging.domainTargets +
+                        circumvention.domainTargets
+                ).distinctBy { it.host.lowercase() },
+            quicTargets =
+                (globalPlatforms.quicTargets + messaging.quicTargets)
+                    .distinctBy { it.host.lowercase() },
+            strategyProbe = StrategyProbeDefinition(suiteId = "full_matrix_v1"),
         )
     }
 }

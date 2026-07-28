@@ -66,6 +66,25 @@ class DiagnosticsContractGovernanceTest {
     }
 
     @Test
+    fun `home composite profile scan stages resolve from bundled catalog`() {
+        val catalog =
+            json.decodeFromString(
+                BundledDiagnosticsCatalogWire.serializer(),
+                repoFixture("core/diagnostics/src/main/assets/diagnostics/default_profiles.json").readText(),
+            )
+        val catalogProfileIds = catalog.profiles.mapTo(mutableSetOf()) { it.id }
+        val compositeProfileIds =
+            (HomeCompositeStageSpecs + QuickScanStageSpecs)
+                .filter { it.kind == HomeCompositeStageKind.PROFILE_SCAN }
+                .mapTo(sortedSetOf()) { it.profileId }
+
+        assertTrue(
+            "Composite profile ids missing from bundled catalog: ${compositeProfileIds - catalogProfileIds}",
+            catalogProfileIds.containsAll(compositeProfileIds),
+        )
+    }
+
+    @Test
     fun `engine schema version matches rust contract constant`() {
         val rustWire = repoFixture("native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs").readText()
         val match =

@@ -179,6 +179,56 @@ class DiagnosticsCatalogLegalSafetyTest {
     }
 
     @Test
+    fun `composite-only profiles preserve catalog execution contracts`() {
+        val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
+        val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)
+
+        val pathComparison = profiles.single { it.id == "path-comparison" }
+        assertEquals(CatalogScanKind.CONNECTIVITY, pathComparison.kind)
+        assertEquals(CatalogProfileIntentBucket.MANUAL_SENSITIVE, pathComparison.intentBucket)
+        assertTrue(pathComparison.executionPolicy.manualOnly)
+        assertTrue(!pathComparison.executionPolicy.allowBackground)
+        assertTrue(!pathComparison.executionPolicy.requiresRawPath)
+        assertTrue(pathComparison.domainTargets.isEmpty())
+
+        val strategy = profiles.single { it.id == "ru-dpi-strategy" }
+        assertEquals(CatalogScanKind.STRATEGY_PROBE, strategy.kind)
+        assertEquals(CatalogProfileIntentBucket.MANUAL_SENSITIVE, strategy.intentBucket)
+        assertEquals(CatalogLegalSafety.SENSITIVE, strategy.legalSafety)
+        assertEquals("ru", strategy.regionTag)
+        assertTrue(strategy.executionPolicy.manualOnly)
+        assertTrue(!strategy.executionPolicy.allowBackground)
+        assertTrue(strategy.executionPolicy.requiresRawPath)
+        assertEquals("full_matrix_v1", strategy.strategyProbe?.suiteId)
+        assertEquals(
+            listOf(
+                "ru-independent-media@1",
+                "ru-global-platforms@1",
+                "ru-messaging@2",
+                "ru-circumvention@1",
+            ),
+            strategy.packRefs,
+        )
+        assertEquals(
+            setOf(
+                "cloudflare.com",
+                "www.google.com",
+                "www.youtube.com",
+                "discord.com",
+                "proton.me",
+                "telegram.org",
+                "signal.org",
+                "www.whatsapp.com",
+            ),
+            strategy.domainTargets.mapTo(mutableSetOf()) { it.host },
+        )
+        assertEquals(
+            setOf("www.youtube.com", "discord.com", "www.whatsapp.com"),
+            strategy.quicTargets.mapTo(mutableSetOf()) { it.host },
+        )
+    }
+
+    @Test
     fun `default diagnostics stays lightweight and resolver audit keeps full matrix expansion`() {
         val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
         val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)

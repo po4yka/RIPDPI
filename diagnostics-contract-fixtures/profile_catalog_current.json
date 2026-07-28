@@ -1722,6 +1722,34 @@
       }
     },
     {
+      "id": "path-comparison",
+      "name": "VPN vs direct path",
+      "version": 1,
+      "request": {
+        "profileId": "path-comparison",
+        "displayName": "VPN vs direct path",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "MANUAL_SENSITIVE",
+        "legalSafety": "SENSITIVE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": []
+      }
+    },
+    {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
       "version": 6,
@@ -1912,6 +1940,81 @@
           "stallTimeoutMs": 3000,
           "totalTimeoutMs": 10000,
           "uploadSizeBytes": 10485760
+        }
+      }
+    },
+    {
+      "id": "ru-dpi-strategy",
+      "name": "Russia DPI Strategy Probe",
+      "version": 1,
+      "request": {
+        "profileId": "ru-dpi-strategy",
+        "displayName": "Russia DPI Strategy Probe",
+        "kind": "STRATEGY_PROBE",
+        "family": "AUTOMATIC_AUDIT",
+        "intentBucket": "MANUAL_SENSITIVE",
+        "legalSafety": "SENSITIVE",
+        "regionTag": "ru",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [
+          "ru-independent-media@1",
+          "ru-global-platforms@1",
+          "ru-messaging@2",
+          "ru-circumvention@1"
+        ],
+        "domainTargets": [
+          {
+            "host": "cloudflare.com"
+          },
+          {
+            "host": "www.google.com"
+          },
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "proton.me"
+          },
+          {
+            "host": "telegram.org"
+          },
+          {
+            "host": "signal.org"
+          },
+          {
+            "host": "www.whatsapp.com"
+          }
+        ],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [
+          {
+            "host": "www.youtube.com",
+            "port": 443
+          },
+          {
+            "host": "discord.com",
+            "port": 443
+          },
+          {
+            "host": "www.whatsapp.com",
+            "port": 443
+          }
+        ],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "strategyProbe": {
+          "suiteId": "full_matrix_v1"
         }
       }
     }
