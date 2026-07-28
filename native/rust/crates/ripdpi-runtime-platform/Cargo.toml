@@ -24,3 +24,7 @@ ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]
 io-uring = ["dep:ripdpi-io-uring"]
+
+[dev-dependencies]
+android-support = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -12,6 +12,8 @@ use std::io;
 use std::os::fd::AsRawFd;
 
 const PROTECT_SUBSYSTEM: &str = "protect";
+const PROTECT_EVENT_KIND: &str = "vpn_protect";
+const PROTECT_EVENT_SOURCE: &str = "vpn_protect";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ProtectBackend {
@@ -59,41 +61,83 @@ fn classify_outcome(result: &io::Result<()>) -> ProtectOutcome {
     }
 }
 
-fn run_with_outcome(backend: ProtectBackend, protect: impl FnOnce() -> io::Result<()>) -> io::Result<()> {
+fn protect_event_ring(path: Option<&str>) -> &'static str {
+    if path.is_some() { "proxy" } else { "diagnostics" }
+}
+
+fn run_with_outcome(
+    backend: ProtectBackend,
+    ring: &'static str,
+    protect: impl FnOnce() -> io::Result<()>,
+) -> io::Result<()> {
     let backend = backend.as_str();
-    tracing::debug!(subsystem = PROTECT_SUBSYSTEM, backend, outcome = "attempt", "vpn protect");
+    tracing::debug!(
+        ring,
+        source = PROTECT_EVENT_SOURCE,
+        kind = PROTECT_EVENT_KIND,
+        subsystem = PROTECT_SUBSYSTEM,
+        backend,
+        outcome = "attempt",
+        "vpn protect backend={} outcome=attempt",
+        backend
+    );
 
     let result = protect();
     let outcome = classify_outcome(&result).as_str();
-    tracing::debug!(subsystem = PROTECT_SUBSYSTEM, backend, outcome, "vpn protect");
+    tracing::debug!(
+        ring,
+        source = PROTECT_EVENT_SOURCE,
+        kind = PROTECT_EVENT_KIND,
+        subsystem = PROTECT_SUBSYSTEM,
+        backend,
+        outcome,
+        "vpn protect backend={} outcome={}",
+        backend,
+        outcome
+    );
     result
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
+    let ring = protect_event_ring(path);
     if crate::protect::has_protect_callback() {
-        return run_with_outcome(ProtectBackend::Jni, || {
+        return run_with_outcome(ProtectBackend::Jni, ring, || {
             crate::protect::protect_socket_via_callback(socket.as_raw_fd())
         });
     }
 
-    run_with_outcome(ProtectBackend::Uds, || ripdpi_privileged_ops::protect_socket(socket, path))
+    run_with_outcome(ProtectBackend::Uds, ring, || ripdpi_privileged_ops::protect_socket(socket, path))
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub fn protect_socket<T: AsRawFd>(socket: &T, _path: Option<&str>) -> io::Result<()> {
+pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
+    let ring = protect_event_ring(path);
     if crate::protect::has_protect_callback() {
-        return run_with_outcome(ProtectBackend::Jni, || {
+        return run_with_outcome(ProtectBackend::Jni, ring, || {
             crate::protect::protect_socket_via_callback(socket.as_raw_fd())
         });
     }
 
-    run_with_outcome(ProtectBackend::Noop, || Ok(()))
+    run_with_outcome(ProtectBackend::Noop, ring, || Ok(()))
 }
 
 #[cfg(test)]
 mod tests {
+    use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
+    use tracing_subscriber::prelude::*;
+
     use super::*;
+
+    fn ring_buffers() -> EventRingBuffers {
+        EventRingBuffers::new(RingConfig {
+            proxy_capacity: 8,
+            relay_capacity: 8,
+            warp_capacity: 8,
+            tunnel_capacity: 8,
+            diagnostics_capacity: 8,
+        })
+    }
 
     #[test]
     fn classifies_successful_protection() {
@@ -110,5 +154,31 @@ mod tests {
     fn classifies_operational_failure_without_error_details() {
         let result = Err(io::Error::new(io::ErrorKind::ConnectionRefused, "sensitive detail"));
         assert_eq!(classify_outcome(&result), ProtectOutcome::Error);
+    }
+
+    #[test]
+    fn routes_proxy_and_diagnostics_protect_events_without_identifiers() {
+        assert_eq!(protect_event_ring(Some("/ignored/protect.sock")), "proxy");
+        assert_eq!(protect_event_ring(None), "diagnostics");
+    }
+
+    #[test]
+    fn records_redacted_protect_outcome_in_selected_ring() {
+        let buffers = ring_buffers();
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+
+        let result = tracing::subscriber::with_default(subscriber, || {
+            run_with_outcome(ProtectBackend::Jni, "diagnostics", || Ok(()))
+        });
+
+        assert!(result.is_ok());
+        assert!(buffers.drain_proxy().is_empty());
+        let events = buffers.drain_diagnostics();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].source, PROTECT_EVENT_SOURCE);
+        assert_eq!(events[0].kind.as_deref(), Some(PROTECT_EVENT_KIND));
+        assert_eq!(events[0].message, "vpn protect backend=jni outcome=attempt");
+        assert_eq!(events[1].message, "vpn protect backend=jni outcome=success");
+        assert!(!events[1].message.contains("fd="));
     }
 }

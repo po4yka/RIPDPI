@@ -6333,6 +6333,7 @@ dependencies = [
 name = "ripdpi-runtime-platform"
 version = "0.1.0"
 dependencies = [
+ "android-support",
  "libc",
  "nix 0.31.3",
  "ripdpi-capabilities",
@@ -6346,6 +6347,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
