@@ -32,6 +32,7 @@ class RemoteDeviceAcceptanceGateTest {
         val report = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence())
 
         assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.status)
+        assertEquals(RemoteDeviceAcceptanceStatus.Pass, report.acceptanceDataPlaneStatus())
         assertTrue(report.steps.take(6).all { it.status == RemoteDeviceAcceptanceStatus.Pass })
         assertTrue(
             report.steps
@@ -139,10 +140,51 @@ class RemoteDeviceAcceptanceGateTest {
 
         assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, unavailable.step(StepRelayUdpPayload).status)
         assertEquals(ErrorPayloadHealthUnavailable, unavailable.step(StepRelayUdpPayload).errorClass)
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, unavailable.acceptanceDataPlaneStatus())
         assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, controlFailed.step(StepRelayUdpPayload).status)
         assertEquals(
             RelayUdpPayloadHealthVerdict.InconclusiveControlFailed.wireValue,
             controlFailed.step(StepRelayUdpPayload).errorClass,
+        )
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, controlFailed.acceptanceDataPlaneStatus())
+    }
+
+    @Test
+    fun `data plane status preserves fail incomplete and pass`() {
+        val failed =
+            buildRemoteDeviceAcceptanceBaseline(
+                Device,
+                successfulEvidence().copy(
+                    probe =
+                        successfulProbe().copy(
+                            udpSucceeded = false,
+                            udpFailure = RelayProbeFailure.DnsResponse.wireValue,
+                        ),
+                ),
+            )
+        val incomplete = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence().copy(payloadHealth = null))
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Fail, failed.acceptanceDataPlaneStatus())
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, incomplete.acceptanceDataPlaneStatus())
+        assertEquals(
+            RemoteDeviceAcceptanceStatus.Pass,
+            buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence()).acceptanceDataPlaneStatus(),
+        )
+    }
+
+    @Test
+    fun `guided result keeps inconclusive post action probe incomplete`() {
+        assertEquals(
+            GuidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Pass, null),
+            guidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Pass),
+        )
+        assertEquals(
+            GuidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Incomplete, ErrorPostActionProbeInconclusive),
+            guidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Incomplete),
+        )
+        assertEquals(
+            GuidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Fail, ErrorPostActionProbe),
+            guidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Fail),
         )
     }
 

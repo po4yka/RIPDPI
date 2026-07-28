@@ -71,6 +71,7 @@ internal data class AcceptanceBaselineEvidence(
     val ipv6Probe: RelayCapabilityProbeEvidence?,
     val payloadHealth: RelayUdpPayloadHealthEvidence?,
     val payloadHealthError: String? = null,
+    val contextError: String? = null,
     val underlay: RemoteDeviceAcceptanceUnderlay,
     val directEgressObserved: Boolean,
     val durationMs: Long,
@@ -92,24 +93,30 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
     val udpAssociationSucceeded = probe?.udpAssociationOpened == true
     val steps =
         listOf(
-            resultStep(
+            networkEvidenceStep(
                 StepRealityTcp,
-                acceptedAfterPreflight(preflightError, probe?.tcpSucceeded == true),
-                preflightError ?: probe?.tcpFailure,
+                preflightError = preflightError,
+                contextError = evidence.contextError,
+                succeeded = probe?.tcpSucceeded == true,
+                failure = probe?.tcpFailure,
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
-            resultStep(
+            networkEvidenceStep(
                 StepUdpAssociate,
-                acceptedAfterPreflight(preflightError, udpAssociationSucceeded),
-                preflightError ?: probe?.udpFailure,
+                preflightError = preflightError,
+                contextError = evidence.contextError,
+                succeeded = udpAssociationSucceeded,
+                failure = probe?.udpFailure,
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
-            resultStep(
+            networkEvidenceStep(
                 StepDnsUdp,
-                acceptedAfterPreflight(preflightError, probe?.udpSucceeded == true),
-                preflightError ?: probe?.udpFailure,
+                preflightError = preflightError,
+                contextError = evidence.contextError,
+                succeeded = probe?.udpSucceeded == true,
+                failure = probe?.udpFailure,
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
@@ -117,21 +124,25 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
                 StepRelayUdpPayload,
                 preflightError = preflightError,
                 payloadHealth = evidence.payloadHealth,
-                payloadHealthError = evidence.payloadHealthError,
+                payloadHealthError = evidence.contextError ?: evidence.payloadHealthError,
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
-            resultStep(
+            networkEvidenceStep(
                 StepIpv4,
-                acceptedAfterPreflight(preflightError, evidence.ipv4Probe?.tcpSucceeded == true),
-                preflightError ?: evidence.ipv4Probe?.tcpFailure ?: ErrorIpv4Egress,
+                preflightError = preflightError,
+                contextError = evidence.contextError,
+                succeeded = evidence.ipv4Probe?.tcpSucceeded == true,
+                failure = evidence.ipv4Probe?.tcpFailure ?: ErrorIpv4Egress,
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
-            resultStep(
+            networkEvidenceStep(
                 StepIpv6,
-                acceptedAfterPreflight(preflightError, evidence.ipv6Probe?.tcpSucceeded == true),
-                preflightError ?: evidence.ipv6Probe?.tcpFailure ?: ErrorIpv6Egress,
+                preflightError = preflightError,
+                contextError = evidence.contextError,
+                succeeded = evidence.ipv6Probe?.tcpSucceeded == true,
+                failure = evidence.ipv6Probe?.tcpFailure ?: ErrorIpv6Egress,
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
@@ -246,10 +257,14 @@ private data class RedactedAcceptanceUnderlay(
     val nat64Reachability: String,
 )
 
-internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlanePassed(): Boolean =
-    steps
-        .filter { it.id in acceptanceDataPlaneStepIds }
-        .all { it.status == RemoteDeviceAcceptanceStatus.Pass }
+internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlaneStatus(): RemoteDeviceAcceptanceStatus {
+    val dataPlaneSteps = steps.filter { it.id in acceptanceDataPlaneStepIds }
+    return when {
+        dataPlaneSteps.any { it.status == RemoteDeviceAcceptanceStatus.Fail } -> RemoteDeviceAcceptanceStatus.Fail
+        dataPlaneSteps.all { it.status == RemoteDeviceAcceptanceStatus.Pass } -> RemoteDeviceAcceptanceStatus.Pass
+        else -> RemoteDeviceAcceptanceStatus.Incomplete
+    }
+}
 
 internal fun deriveAcceptanceStatus(steps: List<RemoteDeviceAcceptanceStep>): RemoteDeviceAcceptanceStatus =
     when {
@@ -260,11 +275,6 @@ internal fun deriveAcceptanceStatus(steps: List<RemoteDeviceAcceptanceStep>): Re
 
 private fun pendingStep(id: String): RemoteDeviceAcceptanceStep =
     RemoteDeviceAcceptanceStep(id = id, status = RemoteDeviceAcceptanceStatus.Incomplete)
-
-private fun acceptedAfterPreflight(
-    preflightError: String?,
-    probeSucceeded: Boolean,
-): Boolean = preflightError == null && probeSucceeded
 
 private fun resultStep(
     id: String,
@@ -280,6 +290,36 @@ private fun resultStep(
         errorClass = if (succeeded) null else failure,
         pathKind = pathKind,
     )
+
+private fun networkEvidenceStep(
+    id: String,
+    preflightError: String?,
+    contextError: String?,
+    succeeded: Boolean,
+    failure: String?,
+    durationMs: Long,
+    pathKind: String? = null,
+): RemoteDeviceAcceptanceStep {
+    val status =
+        when {
+            preflightError != null -> RemoteDeviceAcceptanceStatus.Fail
+            contextError != null -> RemoteDeviceAcceptanceStatus.Incomplete
+            succeeded -> RemoteDeviceAcceptanceStatus.Pass
+            else -> RemoteDeviceAcceptanceStatus.Fail
+        }
+    return RemoteDeviceAcceptanceStep(
+        id = id,
+        status = status,
+        durationMs = durationMs,
+        errorClass =
+            when (status) {
+                RemoteDeviceAcceptanceStatus.Pass -> null
+                RemoteDeviceAcceptanceStatus.Incomplete -> contextError
+                else -> preflightError ?: failure
+            },
+        pathKind = pathKind,
+    )
+}
 
 private fun payloadHealthStep(
     id: String,
@@ -406,6 +446,7 @@ internal const val ErrorPayloadHealthUnavailable = "payload_health_unavailable"
 internal const val ErrorPayloadHealthContextDrift = "payload_health_context_drift"
 internal const val ErrorDirectEgress = "direct_egress_observed"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
+internal const val ErrorPostActionProbeInconclusive = "post_action_probe_inconclusive"
 internal const val RelayPathKind = "relay_path"
 private const val MaxDeviceFieldLength = 64
 private val SalesCodeProperties = listOf("ro.boot.sales_code", "ril.sales_code", "ro.csc.sales_code")

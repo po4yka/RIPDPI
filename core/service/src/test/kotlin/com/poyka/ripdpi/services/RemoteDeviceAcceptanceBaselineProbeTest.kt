@@ -7,6 +7,10 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
@@ -208,6 +212,11 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
 
             val report = probe.capture(initial)
 
+            listOf(StepRealityTcp, StepUdpAssociate, StepDnsUdp, StepRelayUdpPayload, StepIpv4, StepIpv6)
+                .forEach { stepId ->
+                    assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.step(stepId).status)
+                    assertEquals(ErrorPayloadHealthContextDrift, report.step(stepId).errorClass)
+                }
             assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.step(StepRelayUdpPayload).status)
             assertEquals(ErrorPayloadHealthContextDrift, report.step(StepRelayUdpPayload).errorClass)
             assertEquals(null, report.pathHealth)
@@ -245,6 +254,144 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
             assertEquals(1, payloadCalls)
         }
 
+    @Test
+    fun `payload health cache key includes service start`() =
+        runTest {
+            var payloadCalls = 0
+            val firstSnapshot = runningRealitySnapshot(serviceStartedAt = 100L)
+            val secondSnapshot = runningRealitySnapshot(serviceStartedAt = 200L)
+            val serviceStateStore = TestServiceStateStore(AppStatus.Running to Mode.VPN)
+            serviceStateStore.updateTelemetry(firstSnapshot)
+            val capabilityProbe =
+                RelayCapabilityProbe(
+                    tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
+                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    payloadHealthProbe =
+                        RelayUdpPayloadHealthProbe { _, families ->
+                            payloadCalls += 1
+                            successfulPayloadHealth(families)
+                        },
+                )
+            val probe =
+                RemoteDeviceAcceptanceBaselineProbe(
+                    serviceStateStore = serviceStateStore,
+                    relayCapabilityProbe = capabilityProbe,
+                    underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
+                    deviceProvider = { Device },
+                    monotonicClock = { 1_000L },
+                )
+
+            probe.capture(firstSnapshot)
+            serviceStateStore.updateTelemetry(secondSnapshot)
+            probe.capture(secondSnapshot)
+
+            assertEquals(2, payloadCalls)
+        }
+
+    @Test
+    fun `payload health cache is bypassed when underlay generation is unknown`() =
+        runTest {
+            var payloadCalls = 0
+            val snapshot = runningRealitySnapshot()
+            val serviceStateStore = TestServiceStateStore(AppStatus.Running to Mode.VPN)
+            serviceStateStore.updateTelemetry(snapshot)
+            val capabilityProbe =
+                RelayCapabilityProbe(
+                    tcpProbe = RelayTcpProbe { _, _ -> RelayTcpProbeResult(succeeded = true, statusCode = 204) },
+                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    payloadHealthProbe =
+                        RelayUdpPayloadHealthProbe { _, families ->
+                            payloadCalls += 1
+                            successfulPayloadHealth(families)
+                        },
+                )
+            val probe =
+                RemoteDeviceAcceptanceBaselineProbe(
+                    serviceStateStore = serviceStateStore,
+                    relayCapabilityProbe = capabilityProbe,
+                    underlayObservationProvider =
+                        TestUnderlayObservationProvider(
+                            DualStackUnderlay.copy(generation = null),
+                        ),
+                    deviceProvider = { Device },
+                    monotonicClock = { 1_000L },
+                )
+
+            probe.capture(snapshot)
+            probe.capture(snapshot)
+
+            assertEquals(2, payloadCalls)
+        }
+
+    @Test
+    fun `payload health cache shares concurrent same key loaders`() =
+        runTest {
+            val cache = RelayUdpPayloadHealthCache()
+            val key = payloadCacheKey()
+            val started = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            var payloadCalls = 0
+            val first =
+                async {
+                    cache.getOrPut(key, nowMs = 1_000L) {
+                        payloadCalls += 1
+                        started.complete(Unit)
+                        release.await()
+                        successfulPayloadHealth(setOf(RelayUdpPayloadFamily.Ipv4))
+                    }
+                }
+            val second =
+                async {
+                    started.await()
+                    cache.getOrPut(key, nowMs = 1_000L) {
+                        payloadCalls += 1
+                        successfulPayloadHealth(setOf(RelayUdpPayloadFamily.Ipv4))
+                    }
+                }
+
+            started.await()
+            release.complete(Unit)
+
+            assertEquals(1, payloadCalls)
+            assertEquals(RelayUdpPayloadHealthVerdict.Acknowledged.wireValue, first.await()?.overallVerdict)
+            assertEquals(RelayUdpPayloadHealthVerdict.Acknowledged.wireValue, second.await()?.overallVerdict)
+        }
+
+    @Test
+    fun `payload health cache retries after cancelled loader`() =
+        runTest {
+            val cache = RelayUdpPayloadHealthCache()
+            val key = payloadCacheKey()
+            val started = CompletableDeferred<Unit>()
+            val cancelled =
+                async {
+                    cache.getOrPut(key, nowMs = 1_000L) {
+                        started.complete(Unit)
+                        awaitCancellation()
+                    }
+                }
+
+            started.await()
+            cancelled.cancelAndJoin()
+            var retryCalls = 0
+            val result =
+                cache.getOrPut(key, nowMs = 1_000L) {
+                    retryCalls += 1
+                    successfulPayloadHealth(setOf(RelayUdpPayloadFamily.Ipv4))
+                }
+
+            assertEquals(1, retryCalls)
+            assertEquals(RelayUdpPayloadHealthVerdict.Acknowledged.wireValue, result?.overallVerdict)
+        }
+
+    private fun payloadCacheKey(): RelayUdpPayloadHealthCacheKey =
+        RelayUdpPayloadHealthCacheKey(
+            endpoint = RelayProbeEndpoint("127.0.0.1", 1080),
+            underlayGeneration = 1L,
+            serviceStartedAt = 100L,
+            families = setOf(RelayUdpPayloadFamily.Ipv4),
+        )
+
     private fun successfulCapabilityProbe(
         observedFamilies: MutableList<Set<RelayUdpPayloadFamily>>,
     ): RelayCapabilityProbe =
@@ -261,11 +408,12 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
     private fun runningRealitySnapshot(
         listenerAddress: String? = "127.0.0.1:1080",
         protocolKind: String? = RelayKindVlessReality,
+        serviceStartedAt: Long = 100L,
     ): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(
             status = AppStatus.Running,
             mode = Mode.VPN,
-            serviceStartedAt = 100L,
+            serviceStartedAt = serviceStartedAt,
             relayTelemetry =
                 NativeRuntimeSnapshot(
                     source = "relay",
@@ -282,6 +430,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
         val Device = RemoteDeviceAcceptanceDevice("SM-S928B", "XSG", 35, "arm64-v8a")
         val DualStackUnderlay =
             NetworkPathObservation(
+                generation = 1L,
                 mtuBand = "standard",
                 addressFamilies = listOf("ipv4", "ipv6"),
                 defaultRouteFamilies = listOf("ipv4", "ipv6"),

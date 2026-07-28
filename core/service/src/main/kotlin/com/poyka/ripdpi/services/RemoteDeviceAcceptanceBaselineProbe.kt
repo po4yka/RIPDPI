@@ -9,8 +9,11 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.net.InetSocketAddress
 import java.net.URI
 import javax.inject.Inject
@@ -45,7 +48,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         val before = captureContext(snapshot)
         val probeEvidence = captureRelayEvidence(before)
         val after = captureContext(serviceStateStore.telemetry.value)
-        val payloadHealthError = before.driftError(after)
+        val contextError = before.driftError(after)
         val underlay = before.underlayObservation.toRemoteDeviceAcceptanceUnderlay()
         return buildRemoteDeviceAcceptanceBaseline(
             device = deviceProvider(),
@@ -57,8 +60,8 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     probe = probeEvidence.connectivity,
                     ipv4Probe = probeEvidence.ipv4,
                     ipv6Probe = probeEvidence.ipv6,
-                    payloadHealth = probeEvidence.payloadHealth.takeIf { payloadHealthError == null },
-                    payloadHealthError = payloadHealthError,
+                    payloadHealth = probeEvidence.payloadHealth.takeIf { contextError == null },
+                    contextError = contextError,
                     underlay = underlay,
                     directEgressObserved = snapshot.relayFailed,
                     durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
@@ -101,6 +104,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                         endpoint = endpoint,
                         families = families,
                         underlayGeneration = context.underlayObservation.generation,
+                        serviceStartedAt = context.serviceStartedAt,
                     )
                 }
             AcceptanceRelayEvidence(connectivity.await(), ipv4.await(), ipv6.await(), payloadHealth.await())
@@ -128,18 +132,29 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
         underlayGeneration: Long?,
+        serviceStartedAt: Long?,
     ): RelayUdpPayloadHealthEvidence? =
-        payloadHealthCache.getOrPut(
-            key = RelayUdpPayloadHealthCacheKey(endpoint, underlayGeneration, families),
-            nowMs = monotonicClock(),
-        ) {
-            try {
-                relayCapabilityProbe.probePayloadHealth(endpoint, families)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                null
+        if (underlayGeneration == null) {
+            loadPayloadHealth(endpoint, families)
+        } else {
+            payloadHealthCache.getOrPut(
+                key = RelayUdpPayloadHealthCacheKey(endpoint, underlayGeneration, serviceStartedAt, families),
+                nowMs = monotonicClock(),
+            ) {
+                loadPayloadHealth(endpoint, families)
             }
+        }
+
+    private suspend fun loadPayloadHealth(
+        endpoint: RelayProbeEndpoint,
+        families: Set<RelayUdpPayloadFamily>,
+    ): RelayUdpPayloadHealthEvidence? =
+        try {
+            relayCapabilityProbe.probePayloadHealth(endpoint, families)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
         }
 }
 
@@ -181,6 +196,7 @@ private data class AcceptanceCaptureContext(
 internal data class RelayUdpPayloadHealthCacheKey(
     val endpoint: RelayProbeEndpoint,
     val underlayGeneration: Long?,
+    val serviceStartedAt: Long?,
     val families: Set<RelayUdpPayloadFamily>,
 )
 
@@ -194,46 +210,62 @@ internal class RelayUdpPayloadHealthCache(
     private val cooldownMs: Long = PayloadHealthCacheCooldownMs,
 ) {
     private val entries = LinkedHashMap<RelayUdpPayloadHealthCacheKey, CachedRelayUdpPayloadHealth>()
-
-    @Synchronized
-    fun get(
-        key: RelayUdpPayloadHealthCacheKey,
-        nowMs: Long,
-    ): RelayUdpPayloadHealthEvidence? {
-        val cached = entries[key] ?: return null
-        return cached.evidence.takeIf { nowMs - cached.capturedAtMs in 0..cooldownMs }
-    }
-
-    @Synchronized
-    fun put(
-        key: RelayUdpPayloadHealthCacheKey,
-        nowMs: Long,
-        evidence: RelayUdpPayloadHealthEvidence?,
-    ) {
-        entries[key] = CachedRelayUdpPayloadHealth(nowMs, evidence)
-        while (entries.size > maxEntries) {
-            entries.remove(entries.keys.first())
-        }
-    }
+    private val inFlight =
+        mutableMapOf<RelayUdpPayloadHealthCacheKey, CompletableDeferred<RelayUdpPayloadHealthEvidence?>>()
+    private val mutex = Mutex()
 
     suspend fun getOrPut(
         key: RelayUdpPayloadHealthCacheKey,
         nowMs: Long,
         loader: suspend () -> RelayUdpPayloadHealthEvidence?,
     ): RelayUdpPayloadHealthEvidence? {
-        if (hasFreshEntry(key, nowMs)) return get(key, nowMs)
-        val loaded = loader()
-        put(key, nowMs, loaded)
-        return loaded
+        var leader = false
+        val deferred =
+            mutex.withLock {
+                freshEntry(key, nowMs)?.let { cached ->
+                    return cached.evidence
+                }
+                inFlight[key]
+                    ?: CompletableDeferred<RelayUdpPayloadHealthEvidence?>()
+                        .also { pending ->
+                            inFlight[key] = pending
+                            leader = true
+                        }
+            }
+        if (!leader) return deferred.await()
+
+        return try {
+            val loaded = loader()
+            mutex.withLock {
+                entries[key] = CachedRelayUdpPayloadHealth(nowMs, loaded)
+                trimLocked()
+                inFlight.remove(key)
+            }
+            deferred.complete(loaded)
+            loaded
+        } catch (cancelled: CancellationException) {
+            mutex.withLock { inFlight.remove(key) }
+            deferred.completeExceptionally(cancelled)
+            throw cancelled
+        } catch (throwable: Throwable) {
+            mutex.withLock { inFlight.remove(key) }
+            deferred.completeExceptionally(throwable)
+            throw throwable
+        }
     }
 
-    @Synchronized
-    private fun hasFreshEntry(
+    private fun freshEntry(
         key: RelayUdpPayloadHealthCacheKey,
         nowMs: Long,
-    ): Boolean {
-        val cached = entries[key] ?: return false
-        return nowMs - cached.capturedAtMs in 0..cooldownMs
+    ): CachedRelayUdpPayloadHealth? {
+        val cached = entries[key] ?: return null
+        return cached.takeIf { nowMs - it.capturedAtMs in 0..cooldownMs }
+    }
+
+    private fun trimLocked() {
+        while (entries.size > maxEntries) {
+            entries.remove(entries.keys.first())
+        }
     }
 }
 

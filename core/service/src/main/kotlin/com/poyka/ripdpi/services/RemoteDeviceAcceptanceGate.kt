@@ -98,10 +98,11 @@ internal class DefaultRemoteDeviceAcceptanceGate
             state.lastHandoverState = observation.telemetry.networkHandoverState
             if (!triggers.any) return
 
-            val verified = baselineProbe.capture(observation.telemetry).acceptanceDataPlanePassed()
-            val status = if (verified) RemoteDeviceAcceptanceStatus.Pass else RemoteDeviceAcceptanceStatus.Fail
-            val errorClass = if (verified) null else ErrorPostActionProbe
-            applyGuidedResult(startedAt, state, observation, triggers, status, errorClass)
+            val result =
+                guidedDataPlaneResult(
+                    baselineProbe.capture(observation.telemetry).acceptanceDataPlaneStatus(),
+                )
+            applyGuidedResult(startedAt, state, observation, triggers, result.status, result.errorClass)
         }
 
         private fun recordDirectFallback(
@@ -190,6 +191,26 @@ internal class DefaultRemoteDeviceAcceptanceGate
             _report.value.steps
                 .first { it.id == stepId }
                 .status
+    }
+
+internal data class GuidedDataPlaneResult(
+    val status: RemoteDeviceAcceptanceStatus,
+    val errorClass: String?,
+)
+
+internal fun guidedDataPlaneResult(status: RemoteDeviceAcceptanceStatus): GuidedDataPlaneResult =
+    when (status) {
+        RemoteDeviceAcceptanceStatus.Pass -> {
+            GuidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Pass, null)
+        }
+
+        RemoteDeviceAcceptanceStatus.Incomplete -> {
+            GuidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Incomplete, ErrorPostActionProbeInconclusive)
+        }
+
+        else -> {
+            GuidedDataPlaneResult(RemoteDeviceAcceptanceStatus.Fail, ErrorPostActionProbe)
+        }
     }
 
 private data class GuidedObservation(
