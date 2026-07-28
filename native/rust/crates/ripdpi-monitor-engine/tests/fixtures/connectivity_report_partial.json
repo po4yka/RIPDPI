@@ -1,5 +1,6 @@
 {
   "classifierVersion": null,
+  "completionKind": "PARTIAL_RESULTS",
   "confirmGoodDpiVerdict": null,
   "diagnoses": [],
   "engineAnalysisVersion": "observations_v1",
@@ -156,5 +157,6 @@
   "sessionId": "connectivity-partial-contract",
   "startedAt": 1700000000000,
   "strategyProbeReport": null,
-  "summary": "Scan completed with partial results"
+  "summary": "Scan completed with partial results",
+  "terminationReason": "USER_CANCELLED"
 }
