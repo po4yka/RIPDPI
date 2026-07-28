@@ -3,6 +3,7 @@ package com.poyka.ripdpi.failover
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -13,6 +14,7 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -237,6 +239,9 @@ private fun runningTelemetry(
     proxyTotalErrors: Long = 0,
     proxyLastFailureClass: String? = null,
     xudpConsecutiveFailures: Long = 0,
+    networkScopeKey: String? = null,
+    networkHandoverState: String? = null,
+    failureClass: FailureClass? = null,
 ): ServiceTelemetrySnapshot =
     ServiceTelemetrySnapshot(
         status = AppStatus.Running,
@@ -262,6 +267,12 @@ private fun runningTelemetry(
                     ),
             ),
         awgTelemetry = NativeRuntimeSnapshot(source = "awg", state = "running", health = awgHealth),
+        networkHandoverState = networkHandoverState,
+        runtimeFieldTelemetry =
+            RuntimeFieldTelemetry(
+                failureClass = failureClass,
+                telemetryNetworkFingerprintHash = networkScopeKey,
+            ),
         updatedAt = ++telemetrySeq,
     )
 
@@ -285,6 +296,7 @@ private fun buildCoordinator(
     settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
     egressProbe: FailoverEgressProbe =
         FailoverEgressProbe { _, _ -> FailoverEgressProbeResult(succeeded = false) },
+    egressHealthMemory: SimpleEgressHealthMemory = RecordingSimpleEgressHealthMemory(),
 ): CoordinatorFixture {
     val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
     val awgSelection = SimpleAwgEgressSelection(awgRepo, settings)
@@ -297,9 +309,49 @@ private fun buildCoordinator(
             settingsRepository = settings,
             awgEgressSelection = awgSelection,
             egressProbe = egressProbe,
+            egressHealthCache = egressHealthMemory,
             clock = clock,
         )
     return CoordinatorFixture(coordinator, controller, clock, awgSelection)
+}
+
+private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
+    data class Failure(
+        val networkScopeKey: String?,
+        val proof: EgressProof,
+        val relayKind: String,
+        val profileId: String,
+    )
+
+    val failures = mutableListOf<Failure>()
+
+    override fun isCoolingDown(
+        networkScopeKey: String?,
+        proof: EgressProof,
+        candidate: com.poyka.ripdpi.services.InitialRelayCandidate,
+    ): Boolean = false
+
+    override fun readWinner(
+        networkScopeKey: String?,
+        signature: String,
+        proof: EgressProof,
+    ): String? = null
+
+    override fun writeWinner(
+        networkScopeKey: String?,
+        signature: String,
+        proof: EgressProof,
+        profileId: String,
+    ) = Unit
+
+    override fun recordConfirmedFailure(
+        networkScopeKey: String?,
+        proof: EgressProof,
+        relayKind: String,
+        profileId: String,
+    ) {
+        failures += Failure(networkScopeKey, proof, relayKind, profileId)
+    }
 }
 
 private data class CoordinatorFixture(
@@ -586,6 +638,104 @@ class FailoverCoordinatorTest {
             assertEquals(2, probeCalls)
             assertEquals(1, controller.transportRestartCalls.size)
 
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun confirmedXudpFailureRecordsNetworkScopedUdpPenalty() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val memory = RecordingSimpleEgressHealthMemory()
+            val coordinator =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    settings = FakeAppSettingsRepository(udpAssociateEnabled = null),
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = "reality-1",
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                            ),
+                            RelayProfileRecord(
+                                id = "hysteria-1",
+                                kind = RelayKindHysteria2,
+                                udpEnabled = true,
+                            ),
+                        ),
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            FailoverEgressProbeResult(succeeded = false, failure = "udp_read_timeout")
+                        },
+                    egressHealthMemory = memory,
+                ).coordinator
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 3,
+                    networkScopeKey = "network-hash-a",
+                ),
+            )
+
+            assertEquals(
+                listOf(
+                    RecordingSimpleEgressHealthMemory.Failure(
+                        networkScopeKey = "network-hash-a",
+                        proof = EgressProof.TcpUdp,
+                        relayKind = RelayKindVlessReality,
+                        profileId = "reality-1",
+                    ),
+                ),
+                memory.failures,
+            )
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun networkHandoverDoesNotPenalizeReality() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val memory = RecordingSimpleEgressHealthMemory()
+            val coordinator =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    settings = FakeAppSettingsRepository(udpAssociateEnabled = null),
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = "reality-1",
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                            ),
+                            RelayProfileRecord(
+                                id = "hysteria-1",
+                                kind = RelayKindHysteria2,
+                                udpEnabled = true,
+                            ),
+                        ),
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            FailoverEgressProbeResult(succeeded = false, failure = "udp_read_timeout")
+                        },
+                    egressHealthMemory = memory,
+                ).coordinator
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 3,
+                    networkScopeKey = "network-hash-a",
+                    networkHandoverState = "restarting",
+                    failureClass = FailureClass.NetworkHandover,
+                ),
+            )
+
+            assertTrue(memory.failures.isEmpty())
             coordinator.stopObserving()
         }
 

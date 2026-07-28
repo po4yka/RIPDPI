@@ -59,15 +59,13 @@ internal class AssetSimpleRelayBundleSource
 internal class SimpleInitialRelayRacePolicy
     @Inject
     constructor(
-        @ApplicationContext context: Context,
         private val bundleSource: SimpleRelayBundleSource,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
         private val serviceStateStore: ServiceStateStore,
         private val failoverCoordinator: InitialRaceFailoverCoordinator,
-        private val clock: FailoverClock,
+        private val egressHealthCache: SimpleEgressHealthMemory,
     ) : InitialRelayRacePolicy {
-        private val preferences = context.getSharedPreferences(CachePreferencesName, Context.MODE_PRIVATE)
         private var pendingCacheContext: PendingCacheContext? = null
 
         internal suspend fun plan(
@@ -195,18 +193,31 @@ internal class SimpleInitialRelayRacePolicy
                         null
                     }
                 }
-            val candidates = listOfNotNull(realityCandidate, hysteriaCandidate)
+            val proof = EgressProof.from(requirements)
+            val candidates =
+                listOfNotNull(realityCandidate, hysteriaCandidate).filterNot { candidate ->
+                    egressHealthCache.isCoolingDown(networkScopeKey, proof, candidate)
+                }
             if (candidates.isEmpty() || (!requirements.udpAssociate && candidates.size != 2)) {
                 publishDisabledSnapshot()
                 return null
             }
             val signature = candidateSignature(normalizedProbeUrl, requirements, candidates)
-            val cacheKey = networkScopeKey?.takeIf(String::isNotBlank)?.let { cacheKey(it, signature) }
             val cachedWinner =
-                cacheKey?.takeIf { candidates.size > 1 }?.let(::readUnexpiredWinner)?.takeIf { winner ->
-                    candidates.any { it.profileId == winner }
+                networkScopeKey
+                    ?.takeIf { candidates.size > 1 }
+                    ?.let { egressHealthCache.readWinner(it, signature, proof) }
+                    ?.takeIf { winner ->
+                        candidates.any { it.profileId == winner }
+                    }
+            pendingCacheContext =
+                networkScopeKey?.let {
+                    PendingCacheContext(
+                        networkScopeKey = it,
+                        signature = signature,
+                        proof = proof,
+                    )
                 }
-            pendingCacheContext = cacheKey?.let { PendingCacheContext(it) }
             return InitialRelayRacePlan(
                 probeUrl = normalizedProbeUrl,
                 candidates = candidates,
@@ -228,12 +239,12 @@ internal class SimpleInitialRelayRacePolicy
             )
             if (!result.usedCachedFallback) {
                 pendingCacheContext?.let { cacheContext ->
-                    preferences
-                        .edit()
-                        .putString(
-                            cacheContext.key,
-                            "${clock.nowMillis()}|${result.selectedCandidate.profileId}",
-                        ).apply()
+                    egressHealthCache.writeWinner(
+                        networkScopeKey = cacheContext.networkScopeKey,
+                        signature = cacheContext.signature,
+                        proof = cacheContext.proof,
+                        profileId = result.selectedCandidate.profileId,
+                    )
                 }
             }
             pendingCacheContext = null
@@ -241,18 +252,6 @@ internal class SimpleInitialRelayRacePolicy
 
         private fun publishDisabledSnapshot() {
             onStateChanged(InitialTransportRaceSnapshot(state = RaceStateDisabled))
-        }
-
-        private fun readUnexpiredWinner(key: String): String? {
-            val stored = preferences.getString(key, null) ?: return null
-            val separator = stored.indexOf('|')
-            if (separator <= 0 || separator == stored.lastIndex) return null
-            val confirmedAt = stored.substring(0, separator).toLongOrNull() ?: return null
-            if (clock.nowMillis() - confirmedAt !in 0..CacheTtlMillis) {
-                preferences.edit().remove(key).apply()
-                return null
-            }
-            return stored.substring(separator + 1)
         }
 
         private fun candidateSignature(
@@ -278,18 +277,13 @@ internal class SimpleInitialRelayRacePolicy
                 },
             )
 
-        private fun cacheKey(
-            networkScopeKey: String,
-            signature: String,
-        ): String = "winner.${sha256(networkScopeKey)}.$signature"
-
         private data class PendingCacheContext(
-            val key: String,
+            val networkScopeKey: String,
+            val signature: String,
+            val proof: EgressProof,
         )
 
         private companion object {
-            const val CachePreferencesName = "simple_initial_relay_race"
-            const val CacheTtlMillis = 24L * 60L * 60L * 1_000L
             const val RaceStateDisabled = "disabled"
             val SeededRelayKinds = setOf(RelayKindVlessReality, RelayKindHysteria2)
         }

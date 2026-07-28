@@ -3,6 +3,7 @@ package com.poyka.ripdpi.failover
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -18,6 +19,8 @@ import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.EgressRequirements
+import com.poyka.ripdpi.services.InitialRelayCandidate
+import com.poyka.ripdpi.services.InitialRelayTransportClass
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
@@ -150,6 +153,7 @@ class FailoverCoordinator
         private val settingsRepository: AppSettingsRepository,
         private val awgEgressSelection: SimpleAwgEgressSelection,
         private val egressProbe: FailoverEgressProbe,
+        private val egressHealthCache: SimpleEgressHealthMemory,
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
         ActiveTransportProvider,
@@ -477,7 +481,8 @@ class FailoverCoordinator
             if (observeFreshProxyFailure(snapshot)) {
                 suspectedRelayFailure = true
             }
-            if (hasSustainedXudpFailures(snapshot)) {
+            val sustainedXudpFailure = hasSustainedXudpFailures(snapshot)
+            if (sustainedXudpFailure) {
                 suspectedRelayFailure = true
             }
 
@@ -502,6 +507,18 @@ class FailoverCoordinator
                 backedOff = false
                 switchesInCycle = 0
                 return
+            }
+
+            if (sustainedXudpFailure && !snapshot.isNetworkHandover()) {
+                val activeRelay = candidates.getOrNull(activeCandidateIndex) as? FailoverCandidate.Relay
+                if (activeRelay?.relayKind == RelayKindVlessReality) {
+                    egressHealthCache.recordConfirmedFailure(
+                        networkScopeKey = snapshot.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                        proof = EgressProof.TcpUdp,
+                        relayKind = activeRelay.relayKind,
+                        profileId = activeRelay.profileId,
+                    )
+                }
             }
 
             // Still failing. If every candidate was already tried this cycle with none healthy,
@@ -750,6 +767,9 @@ class FailoverCoordinator
                 )
             activeRequirements = requirements
 
+            val proof = EgressProof.from(requirements)
+            val networkScopeKey =
+                serviceStateStore.telemetry.value.runtimeFieldTelemetry.telemetryNetworkFingerprintHash
             val relayProfiles = relayProfileStore.list()
 
             relayProfiles
@@ -772,14 +792,27 @@ class FailoverCoordinator
                         { it.id },
                     ),
                 ).forEach { profile ->
-                    result.add(
-                        FailoverCandidate.Relay(
-                            priority = result.size,
+                    val initialCandidate =
+                        InitialRelayCandidate(
+                            transportClass =
+                                if (profile.kind == RelayKindHysteria2) {
+                                    InitialRelayTransportClass.UdpObfuscation
+                                } else {
+                                    InitialRelayTransportClass.TlsMimicry
+                                },
                             profileId = profile.id,
                             relayKind = profile.kind,
-                            vlessTransport = profile.vlessTransport.takeIf { profile.kind == RelayKindVless },
-                        ),
-                    )
+                        )
+                    if (!egressHealthCache.isCoolingDown(networkScopeKey, proof, initialCandidate)) {
+                        result.add(
+                            FailoverCandidate.Relay(
+                                priority = result.size,
+                                profileId = profile.id,
+                                relayKind = profile.kind,
+                                vlessTransport = profile.vlessTransport.takeIf { profile.kind == RelayKindVless },
+                            ),
+                        )
+                    }
                 }
 
             // One-shot read: take the first emission from the profiles flow.
@@ -829,6 +862,9 @@ class FailoverCoordinator
                 )
         }
     }
+
+private fun ServiceTelemetrySnapshot.isNetworkHandover(): Boolean =
+    networkHandoverState != null || runtimeFieldTelemetry.failureClass == FailureClass.NetworkHandover
 
 internal fun parseFailoverProxyEndpoint(listenerAddress: String?): FailoverProxyEndpoint? {
     val raw = listenerAddress?.trim()?.takeIf(String::isNotEmpty) ?: return null

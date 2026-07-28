@@ -30,6 +30,7 @@ import org.robolectric.RuntimeEnvironment
 class SimpleInitialRelayRacePolicyTest {
     private lateinit var application: Application
     private lateinit var clock: MutableFailoverClock
+    private lateinit var healthCache: SimpleEgressHealthCache
     private lateinit var failoverBridge: RecordingInitialRaceFailoverCoordinator
     private lateinit var policy: SimpleInitialRelayRacePolicy
 
@@ -42,16 +43,16 @@ class SimpleInitialRelayRacePolicyTest {
             .clear()
             .commit()
         clock = MutableFailoverClock(1_000L)
+        healthCache = SimpleEgressHealthCache(application, clock)
         failoverBridge = RecordingInitialRaceFailoverCoordinator()
         policy =
             SimpleInitialRelayRacePolicy(
-                context = application,
                 bundleSource = SimpleRelayBundleSource { validBundle() },
                 relayProfileStore = seededProfileStore(),
                 relayCredentialStore = seededCredentialStore(),
                 serviceStateStore = DefaultServiceStateStore(),
                 failoverCoordinator = failoverBridge,
-                clock = clock,
+                egressHealthCache = healthCache,
             )
     }
 
@@ -76,26 +77,24 @@ class SimpleInitialRelayRacePolicyTest {
 
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { validBundle("https://probe.example/changed") },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
             assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")?.cachedFallbackProfileId)
 
             clock.now = 23L * HourMillis
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { validBundle() },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
             val cached = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")!!
             policy.onSelected(
@@ -135,13 +134,12 @@ class SimpleInitialRelayRacePolicyTest {
         runTest {
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { validBundle() },
                     relayProfileStore = seededProfileStore(realityUdpEnabled = true),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
 
             val plan =
@@ -156,6 +154,52 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
+    fun `confirmed XUDP failure invalidates Reality and cooldown is network scoped`() =
+        runTest {
+            val requirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
+            policy = udpEnabledRealityPolicy()
+            val initial = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a", requirements)!!
+            policy.onSelected(InitialRelayRaceResult(initial.candidates.first(), false, 20L))
+
+            healthCache.recordConfirmedFailure(
+                networkScopeKey = "network-a",
+                proof = EgressProof.TcpUdp,
+                relayKind = RelayKindVlessReality,
+                profileId = RealityProfileId,
+            )
+
+            val cooling = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a", requirements)
+            val otherNetwork = policy.plan(RealityProfileId, RelayKindVlessReality, "network-b", requirements)
+            assertEquals(listOf(RelayKindHysteria2), cooling?.candidates?.map { it.relayKind })
+            assertNull(cooling?.cachedFallbackProfileId)
+            assertEquals(
+                listOf(RelayKindVlessReality, RelayKindHysteria2),
+                otherNetwork?.candidates?.map { it.relayKind },
+            )
+        }
+
+    @Test
+    fun `Reality returns first after XUDP cooldown without affecting TCP proof`() =
+        runTest {
+            val udpRequirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
+            policy = udpEnabledRealityPolicy()
+            healthCache.recordConfirmedFailure(
+                networkScopeKey = "network-a",
+                proof = EgressProof.TcpUdp,
+                relayKind = RelayKindVlessReality,
+                profileId = RealityProfileId,
+            )
+
+            val tcpPlan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
+            assertEquals(RelayKindVlessReality, tcpPlan?.candidates?.first()?.relayKind)
+
+            clock.now += SimpleEgressHealthCache.NegativeCooldownMillis
+            val retried = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a", udpRequirements)
+            assertEquals(RelayKindVlessReality, retried?.candidates?.first()?.relayKind)
+            assertNull(retried?.cachedFallbackProfileId)
+        }
+
+    @Test
     fun `xhttp and flowless reality stay out of UDP race`() =
         runTest {
             suspend fun candidateKinds(
@@ -164,7 +208,6 @@ class SimpleInitialRelayRacePolicyTest {
             ): List<String>? {
                 policy =
                     SimpleInitialRelayRacePolicy(
-                        context = application,
                         bundleSource = SimpleRelayBundleSource { validBundle() },
                         relayProfileStore =
                             seededProfileStore(
@@ -175,7 +218,7 @@ class SimpleInitialRelayRacePolicyTest {
                         relayCredentialStore = seededCredentialStore(),
                         serviceStateStore = DefaultServiceStateStore(),
                         failoverCoordinator = failoverBridge,
-                        clock = clock,
+                        egressHealthCache = healthCache,
                     )
                 return policy
                     .plan(
@@ -224,13 +267,12 @@ class SimpleInitialRelayRacePolicyTest {
 
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { validBundle() },
                     relayProfileStore = seededProfileStore(realityUdpEnabled = true),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
             val xudpPlan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a", requirements)
 
@@ -243,7 +285,6 @@ class SimpleInitialRelayRacePolicyTest {
         runTest {
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { validBundleWithoutObfs() },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore =
@@ -255,7 +296,7 @@ class SimpleInitialRelayRacePolicyTest {
                         ),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
 
             val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
@@ -269,7 +310,6 @@ class SimpleInitialRelayRacePolicyTest {
         runTest {
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { validBundle() },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore =
@@ -281,7 +321,7 @@ class SimpleInitialRelayRacePolicyTest {
                         ),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
 
             assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
@@ -292,13 +332,12 @@ class SimpleInitialRelayRacePolicyTest {
         runTest {
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { multiRealityBundle() },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
 
             val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")
@@ -313,13 +352,12 @@ class SimpleInitialRelayRacePolicyTest {
         runTest {
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { multiRealityBundle() },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
 
             val plan = policy.plan(FallbackRealityProfileId, RelayKindVlessReality, "network-a")
@@ -333,13 +371,12 @@ class SimpleInitialRelayRacePolicyTest {
         runTest {
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { multiRealityBundle() },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
 
             assertNull(
@@ -360,13 +397,12 @@ class SimpleInitialRelayRacePolicyTest {
             failoverBridge.skip = false
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource = SimpleRelayBundleSource { validBundle(probeUrl = "file:///not-http") },
                     relayProfileStore = seededProfileStore(),
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
             assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
         }
@@ -378,7 +414,6 @@ class SimpleInitialRelayRacePolicyTest {
 
             policy =
                 SimpleInitialRelayRacePolicy(
-                    context = application,
                     bundleSource =
                         SimpleRelayBundleSource {
                             validBundle().replace(
@@ -390,7 +425,7 @@ class SimpleInitialRelayRacePolicyTest {
                     relayCredentialStore = seededCredentialStore(),
                     serviceStateStore = DefaultServiceStateStore(),
                     failoverCoordinator = failoverBridge,
-                    clock = clock,
+                    egressHealthCache = healthCache,
                 )
             assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
         }
@@ -422,6 +457,16 @@ class SimpleInitialRelayRacePolicyTest {
             ),
             RelayProfileRecord(id = FallbackRealityProfileId, kind = RelayKindVlessReality),
             RelayProfileRecord(id = HysteriaProfileId, kind = RelayKindHysteria2, udpEnabled = true),
+        )
+
+    private fun udpEnabledRealityPolicy(): SimpleInitialRelayRacePolicy =
+        SimpleInitialRelayRacePolicy(
+            bundleSource = SimpleRelayBundleSource { validBundle() },
+            relayProfileStore = seededProfileStore(realityUdpEnabled = true),
+            relayCredentialStore = seededCredentialStore(),
+            serviceStateStore = DefaultServiceStateStore(),
+            failoverCoordinator = failoverBridge,
+            egressHealthCache = healthCache,
         )
 
     private fun seededCredentialStore(): RelayCredentialStore =
