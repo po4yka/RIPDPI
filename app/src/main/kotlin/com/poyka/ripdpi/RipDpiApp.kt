@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.BreadcrumbLogWriter
 import com.poyka.ripdpi.diagnostics.FileLogWriter
 import com.poyka.ripdpi.diagnostics.crash.CrashReportWriter
 import com.poyka.ripdpi.platform.MemoryTrimCoordinator
+import com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -30,6 +31,9 @@ class RipDpiApp :
 
     @Inject
     lateinit var memoryTrimCoordinator: MemoryTrimCoordinator
+
+    @Inject
+    lateinit var runtimeEvidenceReporter: AndroidRuntimeEvidenceReporter
 
     // Hilt-WorkManager integration: WorkManager queries this provider when
     // it needs to instantiate a `@HiltWorker`-annotated worker so the
@@ -66,11 +70,24 @@ class RipDpiApp :
     // deprecated no-ops.
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
-            level == ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
-        ) {
-            memoryTrimCoordinator.onAppBackgrounded()
-        }
+        handleTrimMemoryCallback(
+            level = level,
+            recordEvidence = runtimeEvidenceReporter::recordMemoryTrim,
+            trimBackgroundCaches = memoryTrimCoordinator::onAppBackgrounded,
+        )
+    }
+}
+
+internal fun handleTrimMemoryCallback(
+    level: Int,
+    recordEvidence: (Int) -> Unit,
+    trimBackgroundCaches: () -> Unit,
+) {
+    recordEvidence(level)
+    if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
+        level == ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+    ) {
+        trimBackgroundCaches()
     }
 }
 

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
@@ -106,6 +107,10 @@ class RuntimeSessionCoordinator
                 serviceTelemetry = telemetry,
                 connectionSessionId = connectionSessionId,
             )
+        }
+
+        suspend fun handleDeviceRuntimeEvidence(event: DeviceRuntimeEvidence) {
+            deviceStateEventRecorder.recordRuntimeEvidence(event)
         }
 
         suspend fun handleFailure(

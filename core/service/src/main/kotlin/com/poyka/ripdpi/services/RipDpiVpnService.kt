@@ -12,6 +12,8 @@ import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
+import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
@@ -54,6 +56,9 @@ class RipDpiVpnService :
     lateinit var hardKillSwitchStateStore: AndroidHardKillSwitchStateStore
 
     @Inject
+    lateinit var runtimeEvidenceReporter: AndroidRuntimeEvidenceReporter
+
+    @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>
 
     @Inject
@@ -85,6 +90,7 @@ class RipDpiVpnService :
 
     override fun onCreate() {
         super.onCreate()
+        runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created)
         notificationController = VpnForegroundNotificationController(serviceStateStore)
         notificationController.registerChannel(this)
         underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this, directDnsUnderlayAuthority)
@@ -108,6 +114,7 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
+        runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
         selectorRuntimeLifecycleListeners.forEach { it.stop() }
         sessionLifecycle.destroy()
         underlyingNetworkBinder.stop()
@@ -121,7 +128,10 @@ class RipDpiVpnService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
-        notificationController.startForeground(this)
+        runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.StartCommand)
+        runtimeEvidenceReporter.runForegroundCall(Mode.VPN, DeviceRuntimeForegroundCallKind.Initial) {
+            notificationController.startForeground(this)
+        }
         refreshHardKillSwitchState()
         // A null action is Android re-delivering a START_STICKY intent after the
         // process was killed (LMK / memory limiter). Publish Reconnecting ONLY from
@@ -149,7 +159,9 @@ class RipDpiVpnService :
     ) = notificationController.update(this, tunnelStats, proxyTelemetry)
 
     internal fun refreshForegroundNotification() {
-        notificationController.startForeground(this)
+        runtimeEvidenceReporter.runForegroundCall(Mode.VPN, DeviceRuntimeForegroundCallKind.Refresh) {
+            notificationController.startForeground(this)
+        }
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
@@ -301,6 +313,7 @@ class RipDpiVpnService :
     internal fun refreshHardKillSwitchState(): AndroidHardKillSwitchSnapshot {
         val snapshot = AndroidHardKillSwitchStateReader.read(this)
         hardKillSwitchStateStore.update(snapshot)
+        runtimeEvidenceReporter.recordVpnPolicy(snapshot)
         return snapshot
     }
 

@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.DeviceRuntimeEvidence
+import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
+import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
@@ -153,6 +157,37 @@ class RuntimeHistoryMonitorPersistenceTest {
             monitorScope.cancel()
         }
 
+    @Test
+    fun `device runtime ingress preserves pre running service lifecycle evidence`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val evidenceStore = DefaultDeviceRuntimeEvidenceStore()
+            val monitorScope = monitorScope()
+            val monitor = createMonitor(stores, serviceStateStore, monitorScope, evidenceStore)
+
+            evidenceStore.record(
+                DeviceRuntimeEvidence.ServiceLifecycle(
+                    mode = Mode.VPN,
+                    phase = DeviceRuntimeLifecyclePhase.Created,
+                    observedAtMillis = 10L,
+                ),
+            )
+            monitor.start()
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+
+            val event = stores.nativeEventsState.value.single { it.message.contains("trigger=service_created") }
+            assertEquals(
+                stores.usageSessionsState.value
+                    .single()
+                    .id,
+                event.connectionSessionId,
+            )
+            monitorScope.cancel()
+        }
+
     private fun kotlinx.coroutines.test.TestScope.monitorScope(): CoroutineScope =
         CoroutineScope(
             SupervisorJob() +
@@ -164,6 +199,7 @@ class RuntimeHistoryMonitorPersistenceTest {
         stores: FakeDiagnosticsHistoryStores,
         serviceStateStore: DefaultServiceStateStore,
         scope: CoroutineScope,
+        deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
     ): RuntimeHistoryStartup =
         createRuntimeHistoryMonitor(
             appSettingsRepository = FakeAppSettingsRepository(),
@@ -171,6 +207,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             networkMetadataProvider = FakeNetworkMetadataProvider(),
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
             serviceStateStore = serviceStateStore,
+            deviceRuntimeEvidenceStore = deviceRuntimeEvidenceStore,
             scope = scope,
         )
 

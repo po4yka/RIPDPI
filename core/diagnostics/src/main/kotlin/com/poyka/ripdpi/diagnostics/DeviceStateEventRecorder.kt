@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.DeviceRuntimeEvidence
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
+import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -39,6 +42,8 @@ interface DeviceStateEventRecorder {
     suspend fun recordHandover()
 
     suspend fun recordStop()
+
+    suspend fun recordRuntimeEvidence(event: DeviceRuntimeEvidence)
 }
 
 internal enum class DeviceStateValue(
@@ -177,6 +182,8 @@ internal class DefaultDeviceStateEventRecorder
         private var observation: DeviceStateObservation? = null
         private var lastSnapshot: DeviceStateSnapshot? = null
         private var persistedEventCount = 0
+        private var lastEventCreatedAt = 0L
+        private val terminalConnectionSessionIds = mutableMapOf<Mode, String>()
 
         override suspend fun beginServiceStart(mode: Mode) {
             mutex.withLock {
@@ -203,7 +210,7 @@ internal class DefaultDeviceStateEventRecorder
                 }
                 activeConnectionSessionId = connectionSessionId
                 activeMode = mode
-                flushPendingLocked()
+                flushPendingLocked(connectionSessionId)
                 recordLocked(DeviceStateTrigger.RunningReady, provider.capture())
             }
         }
@@ -228,10 +235,10 @@ internal class DefaultDeviceStateEventRecorder
                     }
                     activeConnectionSessionId = connectionSessionId
                     activeMode = mode
-                    flushPendingLocked()
+                    flushPendingLocked(connectionSessionId)
                     recordLocked(DeviceStateTrigger.Failure, provider.capture())
                 } finally {
-                    closeObservationAndClearState()
+                    closeObservationAndClearState(retainTerminalState = true)
                 }
             }
         }
@@ -251,8 +258,45 @@ internal class DefaultDeviceStateEventRecorder
                 }
                 try {
                     recordLocked(DeviceStateTrigger.Stop, provider.capture())
+                    if (activeConnectionSessionId == null) {
+                        flushPendingLocked(connectionSessionId = null)
+                    }
                 } finally {
+                    closeObservationAndClearState(retainTerminalState = true)
+                }
+            }
+        }
+
+        override suspend fun recordRuntimeEvidence(event: DeviceRuntimeEvidence) {
+            mutex.withLock {
+                val trigger = event.toTrigger()
+                val mode = event.modeOrNull()
+                if (event.startsServiceContext() && observation == null && activeConnectionSessionId == null) {
+                    resetSessionState(checkNotNull(mode))
+                    observation = provider.observeChanges(::scheduleSystemStateCapture)
+                }
+                val hasContext = observation != null || activeConnectionSessionId != null || pendingEvents.isNotEmpty()
+                val hasTerminalContext = mode != null && terminalConnectionSessionIds.containsKey(mode)
+                if (!hasContext && !hasTerminalContext && !event.flushesWithoutSession()) return
+
+                recordLocked(
+                    trigger = trigger,
+                    snapshot = provider.capture(),
+                    runtimeEvidence = event,
+                    createdAt = event.observedAtMillis,
+                )
+                val destroyedMode =
+                    (event as? DeviceRuntimeEvidence.ServiceLifecycle)
+                        ?.takeIf { lifecycle -> lifecycle.phase == DeviceRuntimeLifecyclePhase.Destroyed }
+                        ?.mode
+                if (event.flushesWithoutSession() && activeConnectionSessionId == null) {
+                    if (!hasTerminalContext) {
+                        flushPendingLocked(connectionSessionId = null)
+                    }
+                    destroyedMode?.let(terminalConnectionSessionIds::remove)
                     closeObservationAndClearState()
+                } else if (destroyedMode != null) {
+                    terminalConnectionSessionIds.remove(destroyedMode)
                 }
             }
         }
@@ -280,19 +324,35 @@ internal class DefaultDeviceStateEventRecorder
         private suspend fun recordLocked(
             trigger: DeviceStateTrigger,
             snapshot: DeviceStateSnapshot,
+            runtimeEvidence: DeviceRuntimeEvidence? = null,
+            createdAt: Long = clock.now(),
         ) {
-            if ((trigger.singleton && trigger in recordedSingletonTriggers) || !hasCapacityFor(trigger)) return
+            if (
+                (trigger.singleton && trigger in recordedSingletonTriggers) ||
+                !hasCapacityFor(trigger, runtimeEvidence)
+            ) {
+                return
+            }
+
+            val normalizedCreatedAt = maxOf(createdAt.coerceAtLeast(0L), lastEventCreatedAt + 1L)
+            lastEventCreatedAt = normalizedCreatedAt
 
             val event =
                 PendingDeviceStateEvent(
                     trigger = trigger,
                     snapshot = snapshot,
-                    mode = activeMode,
-                    createdAt = clock.now(),
+                    mode = runtimeEvidence?.modeOrNull() ?: activeMode,
+                    createdAt = normalizedCreatedAt,
+                    runtimeEvidence = runtimeEvidence,
                 )
-            val connectionSessionId = activeConnectionSessionId
+            val evidenceMode = runtimeEvidence?.modeOrNull()
+            val connectionSessionId =
+                activeConnectionSessionId.takeIf { evidenceMode == null || evidenceMode == activeMode }
+                    ?: evidenceMode?.let { mode -> terminalConnectionSessionIds[mode] }.takeIf {
+                        trigger.isTerminalRuntime
+                    }
             val accepted =
-                if (connectionSessionId == null) {
+                if (connectionSessionId == null && !trigger.isTerminalRuntime) {
                     addPendingEvent(event)
                 } else {
                     persistLocked(event, connectionSessionId)
@@ -306,8 +366,7 @@ internal class DefaultDeviceStateEventRecorder
             }
         }
 
-        private suspend fun flushPendingLocked() {
-            val connectionSessionId = activeConnectionSessionId ?: return
+        private suspend fun flushPendingLocked(connectionSessionId: String?) {
             while (pendingEvents.isNotEmpty()) {
                 persistLocked(pendingEvents.first(), connectionSessionId)
                 pendingEvents.removeAt(0)
@@ -316,9 +375,9 @@ internal class DefaultDeviceStateEventRecorder
 
         private suspend fun persistLocked(
             event: PendingDeviceStateEvent,
-            connectionSessionId: String,
+            connectionSessionId: String?,
         ) {
-            if (!hasCapacityFor(event.trigger)) return
+            if (!hasCapacityFor(event.trigger, event.runtimeEvidence)) return
             artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
                     id = UUID.randomUUID().toString(),
@@ -337,7 +396,11 @@ internal class DefaultDeviceStateEventRecorder
 
         private fun addPendingEvent(event: PendingDeviceStateEvent): Boolean {
             if (pendingEvents.size >= MaxPendingDeviceStateEvents) {
-                val removableIndex = pendingEvents.indexOfFirst { it.trigger == DeviceStateTrigger.SystemStateChanged }
+                val removableIndex =
+                    pendingEvents.indexOfFirst {
+                        it.trigger == DeviceStateTrigger.SystemStateChanged ||
+                            it.trigger == DeviceStateTrigger.ServiceStartCommand
+                    }
                 if (removableIndex >= 0) {
                     pendingEvents.removeAt(removableIndex)
                 } else {
@@ -348,11 +411,36 @@ internal class DefaultDeviceStateEventRecorder
             return true
         }
 
-        private fun hasCapacityFor(trigger: DeviceStateTrigger): Boolean =
+        private fun hasCapacityFor(
+            trigger: DeviceStateTrigger,
+            runtimeEvidence: DeviceRuntimeEvidence?,
+        ): Boolean =
             when (trigger) {
-                DeviceStateTrigger.Failure -> persistedEventCount < MaxDeviceStateEvents - 1
-                DeviceStateTrigger.Stop -> persistedEventCount < MaxDeviceStateEvents
-                else -> persistedEventCount < MaxDeviceStateEvents - ReservedTerminalEvents
+                DeviceStateTrigger.ServiceDestroyed -> {
+                    persistedEventCount < MaxDeviceStateEvents
+                }
+
+                DeviceStateTrigger.Stop -> {
+                    persistedEventCount < MaxDeviceStateEvents - 1
+                }
+
+                DeviceStateTrigger.Failure -> {
+                    persistedEventCount < MaxDeviceStateEvents - 2
+                }
+
+                DeviceStateTrigger.ForegroundCall -> {
+                    if ((runtimeEvidence as? DeviceRuntimeEvidence.ForegroundCall)?.outcome !=
+                        DeviceRuntimeForegroundOutcome.Returned
+                    ) {
+                        persistedEventCount < MaxDeviceStateEvents - ForegroundFailureTerminalReserve
+                    } else {
+                        persistedEventCount < MaxDeviceStateEvents - ReservedTerminalEvents
+                    }
+                }
+
+                else -> {
+                    persistedEventCount < MaxDeviceStateEvents - ReservedTerminalEvents
+                }
             }
 
         private fun resetSessionState(mode: Mode) {
@@ -360,13 +448,28 @@ internal class DefaultDeviceStateEventRecorder
             activeMode = mode
         }
 
-        private fun closeObservationAndClearState() {
+        private fun closeObservationAndClearState(retainTerminalState: Boolean = false) {
+            if (retainTerminalState) {
+                val mode = activeMode
+                val connectionSessionId = activeConnectionSessionId
+                if (mode != null && connectionSessionId != null) {
+                    terminalConnectionSessionIds[mode] = connectionSessionId
+                }
+            }
             val activeObservation = observation
             observation = null
             try {
                 activeObservation?.close()
             } finally {
-                clearSessionState()
+                if (retainTerminalState) {
+                    activeConnectionSessionId = null
+                    activeMode = null
+                    pendingEvents.clear()
+                    recordedSingletonTriggers.clear()
+                    lastSnapshot = null
+                } else {
+                    clearSessionState()
+                }
             }
         }
 
@@ -377,52 +480,9 @@ internal class DefaultDeviceStateEventRecorder
             recordedSingletonTriggers.clear()
             lastSnapshot = null
             persistedEventCount = 0
+            lastEventCreatedAt = 0L
         }
     }
-
-private enum class DeviceStateTrigger(
-    val wireValue: String,
-    val singleton: Boolean,
-) {
-    ServiceStart("service_start", true),
-    RunningReady("running_ready", true),
-    SystemStateChanged("system_state_changed", false),
-    ReconnectStart("reconnect_start", false),
-    Failure("failure", true),
-    Recovery("recovery", false),
-    Handover("handover", false),
-    Stop("stop", true),
-}
-
-private data class PendingDeviceStateEvent(
-    val trigger: DeviceStateTrigger,
-    val snapshot: DeviceStateSnapshot,
-    val mode: Mode?,
-    val createdAt: Long,
-) {
-    fun toCanonicalMessage(): String =
-        buildString {
-            append("event=device_state")
-            append(" trigger=").append(trigger.wireValue)
-            append(" screen_interactive=").append(snapshot.screenInteractive.wireValue)
-            append(" device_idle=").append(snapshot.deviceIdle.wireValue)
-            append(" power_saver=").append(snapshot.powerSaver.wireValue)
-            append(" background_restricted=").append(snapshot.backgroundRestricted.wireValue)
-            append(" battery_optimization_exempt=").append(snapshot.batteryOptimizationExempt.wireValue)
-            append(" low_power_standby=").append(snapshot.lowPowerStandby.wireValue)
-            append(" low_power_standby_exempt=").append(snapshot.lowPowerStandbyExempt.wireValue)
-            append(" battery_level=").append(snapshot.batteryLevel.wireValue)
-            append(" charging=").append(snapshot.charging.wireValue)
-            append(" standby_bucket=").append(snapshot.standbyBucket.wireValue)
-            append(" notification_permission=").append(snapshot.notificationPermission.wireValue)
-            append(" notifications_allowed=").append(snapshot.notificationsAllowed.wireValue)
-            append(" foreground_notification_channels=").append(snapshot.foregroundNotificationChannels.wireValue)
-            append(" memory_pressure=").append(snapshot.memoryPressure.wireValue)
-            append(" thermal_status=").append(snapshot.thermalStatus.wireValue)
-            append(" manufacturer_family=").append(snapshot.manufacturerFamily.wireValue)
-            append(" vendor_policy_visibility=unavailable")
-        }
-}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -444,4 +504,5 @@ private const val DeviceStateEventSource = "android_device_state"
 private const val DeviceStateEventSubsystem = "device_state"
 private const val MaxPendingDeviceStateEvents = 16
 private const val MaxDeviceStateEvents = 64
-private const val ReservedTerminalEvents = 2
+private const val ReservedTerminalEvents = 4
+private const val ForegroundFailureTerminalReserve = 3

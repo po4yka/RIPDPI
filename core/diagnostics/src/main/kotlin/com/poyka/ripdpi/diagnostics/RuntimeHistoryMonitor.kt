@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
@@ -28,6 +29,7 @@ class RuntimeHistoryMonitor
     constructor(
         private val serviceStateStore: ServiceStateStore,
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
+        private val deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore,
         private val sessionCoordinator: RuntimeSessionCoordinator,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
@@ -69,6 +71,14 @@ class RuntimeHistoryMonitor
                                 is ServiceEvent.Failed -> sessionCoordinator.handleFailure(event.sender, event.reason)
                                 is ServiceEvent.PermissionRevoked -> Unit
                             }
+                        }
+                    }
+                }
+
+                launch {
+                    deviceRuntimeEvidenceStore.events.collect { event ->
+                        persistSafely("device-runtime") {
+                            sessionCoordinator.handleDeviceRuntimeEvidence(event)
                         }
                     }
                 }

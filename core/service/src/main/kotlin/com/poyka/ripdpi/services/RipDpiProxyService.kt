@@ -13,6 +13,8 @@ import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
+import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -65,6 +67,9 @@ class RipDpiProxyService :
     @Inject
     lateinit var acceptedUserStopRecorder: AcceptedUserStopRecorder
 
+    @Inject
+    lateinit var runtimeEvidenceReporter: AndroidRuntimeEvidenceReporter
+
     private var sessionComponent: ProxyServiceSessionComponent? = null
     private lateinit var coordinator: ProxyServiceRuntimeCoordinator
     private lateinit var shellDelegate: ServiceShellDelegate
@@ -73,6 +78,7 @@ class RipDpiProxyService :
 
     override fun onCreate() {
         super.onCreate()
+        runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Created)
         registerNotificationChannel(
             this,
             NOTIFICATION_CHANNEL_ID,
@@ -98,6 +104,7 @@ class RipDpiProxyService :
     }
 
     override fun onDestroy() {
+        runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed)
         coordinator.onDestroy()
         rootHelperManager.stop()
         sessionComponent = null
@@ -110,7 +117,10 @@ class RipDpiProxyService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
-        startForegroundService()
+        runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.StartCommand)
+        runtimeEvidenceReporter.runForegroundCall(Mode.Proxy, DeviceRuntimeForegroundCallKind.Initial) {
+            startForegroundService()
+        }
         if (stickyRestartDecision(
                 intentIsNull = intent == null,
                 sdkAtLeastTiramisu = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,

@@ -3,6 +3,8 @@ package com.poyka.ripdpi.diagnostics
 import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore
+import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -77,6 +79,7 @@ internal fun createDiagnosticsServices(
     runtimeCoordinator: DiagnosticsRuntimeCoordinator,
     serviceStateStore: ServiceStateStore,
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
+    deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
     logcatSnapshotCollector: LogcatSnapshotCollector = LogcatSnapshotCollector(),
     diagnosticsHistoryClock: DiagnosticsHistoryClock = TestDiagnosticsHistoryClock(),
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
@@ -273,6 +276,7 @@ internal fun createDiagnosticsServices(
             diagnosticsHistoryClock = diagnosticsHistoryClock,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
             activeConnectionPolicyStore = activeConnectionPolicyStore,
+            deviceRuntimeEvidenceStore = deviceRuntimeEvidenceStore,
             scope = scope,
         )
     scanController =
@@ -340,6 +344,7 @@ internal fun createRuntimeHistoryMonitor(
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
         DefaultRememberedNetworkPolicyStore(stores, diagnosticsHistoryClock),
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
+    deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
     policyHandoverEventStore: PolicyHandoverEventStore = FakePolicyHandoverEventStore(),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1)),
 ): RuntimeHistoryStartup {
@@ -377,6 +382,7 @@ internal fun createRuntimeHistoryMonitor(
     return RuntimeHistoryMonitor(
         serviceStateStore = serviceStateStore,
         activeConnectionPolicyStore = activeConnectionPolicyStore,
+        deviceRuntimeEvidenceStore = deviceRuntimeEvidenceStore,
         sessionCoordinator = sessionCoordinator,
         scope = scope,
     )

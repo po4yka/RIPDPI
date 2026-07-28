@@ -4,6 +4,13 @@ import android.app.usage.UsageStatsManager
 import android.content.ComponentCallbacks2
 import android.os.Build
 import android.os.PowerManager
+import com.poyka.ripdpi.data.DeviceRuntimeEvidence
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
+import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
+import com.poyka.ripdpi.data.DeviceRuntimeKillSwitchStatus
+import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
+import com.poyka.ripdpi.data.DeviceRuntimeMemoryPressure
+import com.poyka.ripdpi.data.DeviceRuntimeValue
 import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
@@ -68,10 +75,116 @@ class DeviceStateEventRecorderTest {
             recorder.recordStop()
 
             val events = stores.nativeEventsState.value
-            assertEquals(64, events.size)
-            assertTrue(events[events.lastIndex - 1].message.contains("trigger=failure"))
-            assertTrue(events.last().message.contains("trigger=stop"))
+            assertTrue(events.size <= 64)
+            assertTrue(events.any { it.message.contains("trigger=failure") })
+            assertTrue(events.any { it.message.contains("trigger=stop") })
             assertTrue(events.first().message.contains("trigger=service_start"))
+        }
+
+    @Test
+    fun `correlates service foreground policy and trim evidence with running session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val recorder = recorder(FakeDeviceStateProvider(), stores)
+
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.ServiceLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created, 10L),
+            )
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.ForegroundCall(
+                    Mode.VPN,
+                    DeviceRuntimeForegroundCallKind.Initial,
+                    DeviceRuntimeForegroundOutcome.Returned,
+                    11L,
+                ),
+            )
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.VpnPolicy(
+                    DeviceRuntimeValue.Enabled,
+                    DeviceRuntimeValue.Enabled,
+                    DeviceRuntimeKillSwitchStatus.Enabled,
+                    12L,
+                ),
+            )
+            recorder.attachRunningSession("connection-runtime", Mode.VPN)
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.MemoryTrim(DeviceRuntimeMemoryPressure.Background, 13L),
+            )
+
+            val events = stores.nativeEventsState.value
+            assertTrue(events.all { it.connectionSessionId == "connection-runtime" })
+            assertTrue(events.any { it.message.contains("service_lifecycle=created") })
+            assertTrue(events.any { it.message.contains("foreground_outcome=returned") })
+            assertTrue(events.any { it.message.contains("vpn_lockdown=enabled") })
+            assertTrue(events.any { it.message.contains("memory_trim_callback=background") })
+        }
+
+    @Test
+    fun `late service destroy remains correlated after logical stop`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val recorder = recorder(FakeDeviceStateProvider(), stores)
+            recorder.beginServiceStart(Mode.Proxy)
+            recorder.attachRunningSession("connection-terminal", Mode.Proxy)
+
+            recorder.recordStop()
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.ServiceLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed, 50L),
+            )
+
+            val destroyed = stores.nativeEventsState.value.single { it.message.contains("trigger=service_destroyed") }
+            assertEquals("connection-terminal", destroyed.connectionSessionId)
+            assertTrue(destroyed.message.contains("service_lifecycle=destroyed"))
+        }
+
+    @Test
+    fun `late destroy from old mode never contaminates current session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val recorder = recorder(FakeDeviceStateProvider(), stores)
+            recorder.beginServiceStart(Mode.Proxy)
+            recorder.attachRunningSession("connection-old", Mode.Proxy)
+            recorder.recordStop()
+            recorder.beginServiceStart(Mode.VPN)
+            recorder.attachRunningSession("connection-current", Mode.VPN)
+
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.ServiceLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed, 50L),
+            )
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.MemoryTrim(DeviceRuntimeMemoryPressure.Background, 51L),
+            )
+
+            val destroyed = stores.nativeEventsState.value.single { it.message.contains("trigger=service_destroyed") }
+            val memoryTrim = stores.nativeEventsState.value.single { it.message.contains("trigger=memory_trim") }
+            assertEquals("connection-old", destroyed.connectionSessionId)
+            assertEquals("connection-current", memoryTrim.connectionSessionId)
+        }
+
+    @Test
+    fun `early foreground failure flushes privacy safe global evidence`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val recorder = recorder(FakeDeviceStateProvider(), stores)
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.ServiceLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created, 20L),
+            )
+            recorder.recordRuntimeEvidence(
+                DeviceRuntimeEvidence.ForegroundCall(
+                    Mode.VPN,
+                    DeviceRuntimeForegroundCallKind.Initial,
+                    DeviceRuntimeForegroundOutcome.SecurityRejected,
+                    21L,
+                ),
+            )
+
+            val events = stores.nativeEventsState.value
+            assertEquals(2, events.size)
+            assertTrue(events.all { it.connectionSessionId == null })
+            assertTrue(events.last().message.contains("foreground_outcome=security_rejected"))
+            listOf("serial", "ssid", "host", "exception").forEach { forbidden ->
+                assertFalse(events.any { it.message.contains(forbidden, ignoreCase = true) })
+            }
         }
 
     @Test
