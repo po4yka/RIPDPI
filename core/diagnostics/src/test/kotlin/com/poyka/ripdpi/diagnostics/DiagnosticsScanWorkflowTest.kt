@@ -154,10 +154,10 @@ class DiagnosticsScanWorkflowTest {
     @Test
     fun `unreliable strategy audit cannot report transparent direct mode`() {
         val unreliableAssessment =
-            auditAssessment().copy(
-                coverage = auditAssessment().coverage.copy(winnerCoveragePercent = 0),
+            scanWorkflowAuditAssessment().copy(
+                coverage = scanWorkflowAuditAssessment().coverage.copy(winnerCoveragePercent = 0),
                 confidence =
-                    auditAssessment().confidence.copy(
+                    scanWorkflowAuditAssessment().confidence.copy(
                         level = StrategyProbeAuditConfidenceLevel.LOW,
                     ),
             )
@@ -210,7 +210,7 @@ class DiagnosticsScanWorkflowTest {
                     """.trimIndent(),
                 tcpFamily = "split",
                 quicFamily = "quic_burst",
-                auditAssessment = auditAssessment(),
+                auditAssessment = scanWorkflowAuditAssessment(),
             )
 
         val enriched =
@@ -292,233 +292,6 @@ class DiagnosticsScanWorkflowTest {
             )
 
         assertNull(rememberedPolicy)
-    }
-
-    @Test
-    fun `background auto persist eligibility accepts high confidence strong coverage`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment = auditAssessment(),
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible, eligibility)
-    }
-
-    @Test
-    fun `background auto persist eligibility rejects high confidence without control evidence`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment = auditAssessment(),
-                        pilotBucketLabels = emptyList(),
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_CONTROL_EVIDENCE,
-            ),
-            eligibility,
-        )
-    }
-
-    @Test
-    fun `background auto persist eligibility accepts strong coverage with not applicable candidates`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment =
-                            auditAssessment().copy(
-                                coverage =
-                                    auditAssessment().coverage.copy(
-                                        tcpCandidatesPlanned = 4,
-                                        tcpCandidatesExecuted = 2,
-                                        tcpCandidatesNotApplicable = 2,
-                                        quicCandidatesPlanned = 3,
-                                        quicCandidatesExecuted = 2,
-                                        quicCandidatesNotApplicable = 1,
-                                        matrixCoveragePercent = 100,
-                                    ),
-                            ),
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible, eligibility)
-    }
-
-    @Test
-    fun `background auto persist eligibility rejects missing audit assessment`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment = null,
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_AUDIT_ASSESSMENT,
-            ),
-            eligibility,
-        )
-    }
-
-    @Test
-    fun `background auto persist eligibility rejects medium confidence`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment =
-                            auditAssessment().copy(
-                                confidence =
-                                    auditAssessment().confidence.copy(
-                                        level = StrategyProbeAuditConfidenceLevel.MEDIUM,
-                                    ),
-                            ),
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.LOW_CONFIDENCE,
-            ),
-            eligibility,
-        )
-    }
-
-    @Test
-    fun `background auto persist eligibility rejects low confidence`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment =
-                            auditAssessment().copy(
-                                confidence =
-                                    auditAssessment().confidence.copy(
-                                        level = StrategyProbeAuditConfidenceLevel.LOW,
-                                    ),
-                            ),
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.LOW_CONFIDENCE,
-            ),
-            eligibility,
-        )
-    }
-
-    @Test
-    fun `background auto persist eligibility rejects insufficient matrix coverage`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment =
-                            auditAssessment().copy(
-                                coverage =
-                                    auditAssessment().coverage.copy(
-                                        matrixCoveragePercent = 74,
-                                    ),
-                            ),
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.INSUFFICIENT_MATRIX_COVERAGE,
-            ),
-            eligibility,
-        )
-    }
-
-    @Test
-    fun `background auto persist eligibility rejects insufficient winner coverage`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment =
-                            auditAssessment().copy(
-                                coverage =
-                                    auditAssessment().coverage.copy(
-                                        winnerCoveragePercent = 49,
-                                    ),
-                            ),
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.INSUFFICIENT_WINNER_COVERAGE,
-            ),
-            eligibility,
-        )
-    }
-
-    @Test
-    fun `background auto persist eligibility rejects missing winner target success`() {
-        val eligibility =
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(
-                    scanReportWithStrategyProbe(
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
-                        tcpFamily = "hostfake",
-                        quicFamily = "quic_realistic_burst",
-                        auditAssessment = auditAssessment(),
-                        tcpSucceededTargets = 0,
-                        quicSucceededTargets = 0,
-                    ).strategyProbeReport,
-                ),
-            )
-
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.NO_WINNER_TARGET_SUCCESS,
-            ),
-            eligibility,
-        )
     }
 
     @Test
@@ -929,7 +702,7 @@ private fun validSeqovlRecommendedProxyConfigJson(): String =
         quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
     ).toNativeConfigJson()
 
-private fun auditAssessment(): StrategyProbeAuditAssessment =
+internal fun scanWorkflowAuditAssessment(): StrategyProbeAuditAssessment =
     StrategyProbeAuditAssessment(
         dnsShortCircuited = false,
         coverage =

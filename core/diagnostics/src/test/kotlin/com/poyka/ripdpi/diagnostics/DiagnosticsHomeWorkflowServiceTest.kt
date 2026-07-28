@@ -524,34 +524,37 @@ class DiagnosticsHomeWorkflowServiceTest {
                             rationale = "Best combined result",
                             recommendedProxyConfigJson = recommendedProxyConfigJson,
                         ),
-                    auditAssessment =
-                        StrategyProbeAuditAssessment(
-                            coverage =
-                                StrategyProbeAuditCoverage(
-                                    tcpCandidatesPlanned = 1,
-                                    tcpCandidatesExecuted = 1,
-                                    tcpCandidatesSkipped = 0,
-                                    tcpCandidatesNotApplicable = 0,
-                                    quicCandidatesPlanned = 1,
-                                    quicCandidatesExecuted = 1,
-                                    quicCandidatesSkipped = 0,
-                                    quicCandidatesNotApplicable = 0,
-                                    tcpWinnerSucceededTargets = 3,
-                                    tcpWinnerTotalTargets = 4,
-                                    quicWinnerSucceededTargets = 2,
-                                    quicWinnerTotalTargets = 3,
-                                    matrixCoveragePercent = 90,
-                                    winnerCoveragePercent = 80,
-                                    tcpWinnerCoveragePercent = 75,
-                                    quicWinnerCoveragePercent = 66,
-                                ),
-                            confidence =
-                                StrategyProbeAuditConfidence(
-                                    level = confidenceLevel,
-                                    score = if (confidenceLevel == StrategyProbeAuditConfidenceLevel.HIGH) 92 else 65,
-                                    rationale = "Sufficient evidence",
-                                ),
-                        ),
+                    auditAssessment = strategyAuditAssessment(confidenceLevel),
+                    pilotBucketLabels = listOf("control:neutral:success"),
+                ),
+        )
+
+    private fun strategyAuditAssessment(confidenceLevel: StrategyProbeAuditConfidenceLevel) =
+        StrategyProbeAuditAssessment(
+            coverage =
+                StrategyProbeAuditCoverage(
+                    tcpCandidatesPlanned = 1,
+                    tcpCandidatesExecuted = 1,
+                    tcpCandidatesSkipped = 0,
+                    tcpCandidatesNotApplicable = 0,
+                    quicCandidatesPlanned = 1,
+                    quicCandidatesExecuted = 1,
+                    quicCandidatesSkipped = 0,
+                    quicCandidatesNotApplicable = 0,
+                    tcpWinnerSucceededTargets = 3,
+                    tcpWinnerTotalTargets = 4,
+                    quicWinnerSucceededTargets = 2,
+                    quicWinnerTotalTargets = 3,
+                    matrixCoveragePercent = 90,
+                    winnerCoveragePercent = 80,
+                    tcpWinnerCoveragePercent = 75,
+                    quicWinnerCoveragePercent = 66,
+                ),
+            confidence =
+                StrategyProbeAuditConfidence(
+                    level = confidenceLevel,
+                    score = if (confidenceLevel == StrategyProbeAuditConfidenceLevel.HIGH) 92 else 65,
+                    rationale = "Sufficient evidence",
                 ),
         )
 

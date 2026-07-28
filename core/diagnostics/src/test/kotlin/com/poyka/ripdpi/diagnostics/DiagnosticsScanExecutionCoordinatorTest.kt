@@ -1002,6 +1002,7 @@ internal fun scanReportWithStrategyProbe(
     tcpSucceededTargets: Int = 1,
     quicSucceededTargets: Int = 1,
     resolverRecommendation: ResolverRecommendation? = null,
+    pilotBucketLabels: List<String> = listOf("control:neutral:success"),
 ): ScanReport =
     ScanReport(
         sessionId = sessionId,
@@ -1063,6 +1064,7 @@ internal fun scanReportWithStrategyProbe(
                     ),
                 completionKind = completionKind,
                 auditAssessment = auditAssessment,
+                pilotBucketLabels = pilotBucketLabels,
             ),
     )
 

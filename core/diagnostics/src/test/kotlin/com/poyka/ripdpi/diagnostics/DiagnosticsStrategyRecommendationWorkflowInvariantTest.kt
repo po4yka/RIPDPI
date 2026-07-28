@@ -416,6 +416,7 @@ private fun invariantScanReportWithStrategyProbe(
                         recommendedProxyConfigJson = proxyConfigJson,
                     ),
                 auditAssessment = auditAssessment,
+                pilotBucketLabels = listOf("control:neutral:success"),
             ),
     )
 

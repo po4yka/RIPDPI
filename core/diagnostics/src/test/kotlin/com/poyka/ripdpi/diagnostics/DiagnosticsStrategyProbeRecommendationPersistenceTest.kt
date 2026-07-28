@@ -493,6 +493,7 @@ private fun strategyProbeReport(
                     ),
                 auditAssessment = auditAssessment,
                 connectionConcurrencyAssessment = connectionConcurrencyAssessment,
+                pilotBucketLabels = listOf("control:neutral:success"),
             ),
     )
 
