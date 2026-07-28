@@ -269,6 +269,28 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn('probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = true)', revoke)
         self.assertIn('probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = true)', revoke)
 
+    def test_network_switch_waits_for_the_new_native_bridge_generation(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        network = producer[producer.index("private fun runNetworkSwitchAction") :]
+        network = network[: network.index("private fun runSleepWakeAction")]
+
+        generation = network.index(
+            "val completedStartCount = tunnelFactory.completedStartCount()"
+        )
+        switch = network.index('shell("svc wifi disable")')
+        completed = network.index(
+            "tunnelFactory.completedStartAfter(completedStartCount, ipv6 = false)"
+        )
+        probe = network.index('probe("post-switch-ipv4"')
+
+        self.assertLess(generation, switch)
+        self.assertLess(switch, completed)
+        self.assertLess(completed, probe)
+        self.assertIn("awaitUntil(timeoutMs = OrdinaryTimeoutMs)", network)
+
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"

@@ -292,6 +292,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
 
     private fun runNetworkSwitchAction(): JSONObject {
         configureAndStart(ipv6 = false)
+        val completedStartCount = tunnelFactory.completedStartCount()
         val before = requireUnderlay(NetworkCapabilities.TRANSPORT_WIFI)
         val started = now()
         val correlation = correlation("wifi-lte-switch")
@@ -306,6 +307,11 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 .put("observedAtEpochMs", now())
                 .put("toNetworkHandleSha256", hash("network:${after.networkHandle}"))
                 .put("toTransport", "CELLULAR")
+        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
+            serviceStateStore.telemetry.value.status == AppStatus.Running &&
+                vpnNetwork() != null &&
+                tunnelFactory.completedStartAfter(completedStartCount, ipv6 = false)
+        }
         val transitionProbes = JSONArray().put(probe("post-switch-ipv4", "ipv4", controlIpv4, connected = true))
         val protected = capturePhase("protected", expectVpn = true)
         sendMarker("wifi-lte-switch", correlation, "outcome")
