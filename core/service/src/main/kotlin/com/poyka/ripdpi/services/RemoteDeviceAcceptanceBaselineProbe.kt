@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.os.SystemClock
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -16,6 +17,7 @@ import javax.inject.Inject
 internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     private val serviceStateStore: ServiceStateStore,
     private val relayCapabilityProbe: RelayCapabilityProbe,
+    private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
     private val deviceProvider: () -> RemoteDeviceAcceptanceDevice,
     private val monotonicClock: () -> Long,
 ) {
@@ -23,9 +25,11 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     constructor(
         serviceStateStore: ServiceStateStore,
         relayCapabilityProbe: RelayCapabilityProbe,
+        underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
     ) : this(
         serviceStateStore,
         relayCapabilityProbe,
+        underlayObservationProvider,
         ::captureRemoteDeviceAcceptanceDevice,
         SystemClock::elapsedRealtime,
     )
@@ -42,7 +46,8 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             }
         val transportKind = sanitizeTransportKind(snapshot.relayTelemetry.protocolKind)
         val endpoint = parseLocalRelayEndpoint(snapshot.relayTelemetry.listenerAddress)
-        val probeEvidence = captureRelayEvidence(running, transportKind, endpoint)
+        val underlay = underlayObservationProvider.capture().toRemoteDeviceAcceptanceUnderlay()
+        val probeEvidence = captureRelayEvidence(running, transportKind, endpoint, underlay)
         return buildRemoteDeviceAcceptanceBaseline(
             device = deviceProvider(),
             evidence =
@@ -53,6 +58,8 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     probe = probeEvidence.connectivity,
                     ipv4Probe = probeEvidence.ipv4,
                     ipv6Probe = probeEvidence.ipv6,
+                    payloadHealth = probeEvidence.payloadHealth,
+                    underlay = underlay,
                     directEgressObserved = snapshot.relayFailed,
                     durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
                 ),
@@ -63,6 +70,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         running: Boolean,
         transportKind: String,
         endpoint: RelayProbeEndpoint?,
+        underlay: RemoteDeviceAcceptanceUnderlay,
     ): AcceptanceRelayEvidence {
         if (!running || transportKind != RelayKindVlessReality || endpoint == null) {
             return AcceptanceRelayEvidence()
@@ -78,7 +86,8 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                 }
             val ipv4 = async { probeOrNull(endpoint, RemoteAcceptanceIpv4ProbeUrl, TcpOnlyRequirements) }
             val ipv6 = async { probeOrNull(endpoint, RemoteAcceptanceIpv6ProbeUrl, TcpOnlyRequirements) }
-            AcceptanceRelayEvidence(connectivity.await(), ipv4.await(), ipv6.await())
+            val payloadHealth = async { payloadHealthOrNull(endpoint, underlay.relayUdpPayloadFamilies()) }
+            AcceptanceRelayEvidence(connectivity.await(), ipv4.await(), ipv6.await(), payloadHealth.await())
         }
     }
 
@@ -98,12 +107,25 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         } catch (_: Exception) {
             null
         }
+
+    private suspend fun payloadHealthOrNull(
+        endpoint: RelayProbeEndpoint,
+        families: Set<RelayUdpPayloadFamily>,
+    ): RelayUdpPayloadHealthEvidence? =
+        try {
+            relayCapabilityProbe.probePayloadHealth(endpoint, families)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
 }
 
 private data class AcceptanceRelayEvidence(
     val connectivity: RelayCapabilityProbeEvidence? = null,
     val ipv4: RelayCapabilityProbeEvidence? = null,
     val ipv6: RelayCapabilityProbeEvidence? = null,
+    val payloadHealth: RelayUdpPayloadHealthEvidence? = null,
 )
 
 private fun parseLocalRelayEndpoint(listenerAddress: String?): RelayProbeEndpoint? =

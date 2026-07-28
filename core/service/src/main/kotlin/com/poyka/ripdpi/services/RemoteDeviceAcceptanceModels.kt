@@ -22,6 +22,7 @@ data class RemoteDeviceAcceptanceStep(
     val status: RemoteDeviceAcceptanceStatus,
     val durationMs: Long? = null,
     val errorClass: String? = null,
+    val pathKind: String? = null,
 )
 
 data class RemoteDeviceAcceptanceDevice(
@@ -36,6 +37,20 @@ data class RemoteDeviceAcceptanceReport(
     val device: RemoteDeviceAcceptanceDevice = captureRemoteDeviceAcceptanceDevice(),
     val transportKind: String = "unknown",
     val steps: List<RemoteDeviceAcceptanceStep> = acceptanceStepIds.map(::pendingStep),
+    val pathHealth: RelayUdpPayloadHealthEvidence? = null,
+    val underlay: RemoteDeviceAcceptanceUnderlay = RemoteDeviceAcceptanceUnderlay(),
+)
+
+data class RemoteDeviceAcceptanceUnderlay(
+    val mtuBand: String = "unknown",
+    val hasIpv4Address: Boolean = false,
+    val hasIpv6Address: Boolean = false,
+    val hasIpv4DefaultRoute: Boolean = false,
+    val hasIpv6DefaultRoute: Boolean = false,
+    val hasIpv4Dns: Boolean = false,
+    val hasIpv6Dns: Boolean = false,
+    val nat64Advertised: Boolean? = null,
+    val nat64Reachability: String = "unknown",
 )
 
 interface RemoteDeviceAcceptanceGate {
@@ -53,6 +68,8 @@ internal data class AcceptanceBaselineEvidence(
     val probe: RelayCapabilityProbeEvidence?,
     val ipv4Probe: RelayCapabilityProbeEvidence?,
     val ipv6Probe: RelayCapabilityProbeEvidence?,
+    val payloadHealth: RelayUdpPayloadHealthEvidence?,
+    val underlay: RemoteDeviceAcceptanceUnderlay,
     val directEgressObserved: Boolean,
     val durationMs: Long,
 )
@@ -75,33 +92,45 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
         listOf(
             resultStep(
                 StepRealityTcp,
-                preflightError == null && probe?.tcpSucceeded == true,
+                acceptedAfterPreflight(preflightError, probe?.tcpSucceeded == true),
                 preflightError ?: probe?.tcpFailure,
                 evidence.durationMs,
+                pathKind = RelayPathKind,
             ),
             resultStep(
                 StepUdpAssociate,
-                preflightError == null && udpAssociationSucceeded,
+                acceptedAfterPreflight(preflightError, udpAssociationSucceeded),
                 preflightError ?: probe?.udpFailure,
                 evidence.durationMs,
+                pathKind = RelayPathKind,
             ),
             resultStep(
                 StepDnsUdp,
-                preflightError == null && probe?.udpSucceeded == true,
+                acceptedAfterPreflight(preflightError, probe?.udpSucceeded == true),
                 preflightError ?: probe?.udpFailure,
                 evidence.durationMs,
+                pathKind = RelayPathKind,
+            ),
+            resultStep(
+                StepRelayUdpPayload,
+                acceptedAfterPreflight(preflightError, evidence.payloadHealth?.passed == true),
+                preflightError ?: evidence.payloadHealth?.failureClass ?: ErrorPayloadHealthUnavailable,
+                evidence.durationMs,
+                pathKind = RelayPathKind,
             ),
             resultStep(
                 StepIpv4,
-                preflightError == null && evidence.ipv4Probe?.tcpSucceeded == true,
+                acceptedAfterPreflight(preflightError, evidence.ipv4Probe?.tcpSucceeded == true),
                 preflightError ?: evidence.ipv4Probe?.tcpFailure ?: ErrorIpv4Egress,
                 evidence.durationMs,
+                pathKind = RelayPathKind,
             ),
             resultStep(
                 StepIpv6,
-                preflightError == null && evidence.ipv6Probe?.tcpSucceeded == true,
+                acceptedAfterPreflight(preflightError, evidence.ipv6Probe?.tcpSucceeded == true),
                 preflightError ?: evidence.ipv6Probe?.tcpFailure ?: ErrorIpv6Egress,
                 evidence.durationMs,
+                pathKind = RelayPathKind,
             ),
             pendingStep(StepReconnect),
             pendingStep(StepHandover),
@@ -118,6 +147,8 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
         device = device,
         transportKind = evidence.transportKind,
         steps = steps,
+        pathHealth = evidence.payloadHealth,
+        underlay = evidence.underlay,
     )
 }
 
@@ -140,8 +171,11 @@ internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceRe
                         status = step.status.wireValue,
                         durationMs = step.durationMs,
                         errorClass = step.errorClass,
+                        pathKind = step.pathKind,
                     )
                 },
+            pathHealth = report.pathHealth?.toRedacted(),
+            underlay = report.underlay.toRedacted(),
         ),
     )
 
@@ -152,6 +186,8 @@ private data class RedactedAcceptanceReport(
     val transportKind: String,
     val result: String,
     val steps: List<RedactedAcceptanceStep>,
+    val underlay: RedactedAcceptanceUnderlay,
+    val pathHealth: RedactedRelayUdpPayloadHealth? = null,
 )
 
 @Serializable
@@ -168,6 +204,41 @@ private data class RedactedAcceptanceStep(
     val status: String,
     val durationMs: Long? = null,
     val errorClass: String? = null,
+    val pathKind: String? = null,
+)
+
+@Serializable
+private data class RedactedRelayUdpPayloadHealth(
+    val measurementKind: String,
+    val ceilingLabel: String,
+    val overallVerdict: String,
+    val families: List<RedactedRelayUdpPayloadFamilyHealth>,
+)
+
+@Serializable
+private data class RedactedRelayUdpPayloadFamilyHealth(
+    val family: String,
+    val controlBefore: String,
+    val controlAfter: String,
+    val maxAcknowledgedPayloadBytes: Int? = null,
+    val firstRepeatedFailedPayloadBytes: Int? = null,
+    val attemptCount: Int,
+    val verdict: String,
+    val ptbObservation: String,
+    val fragmentationReassembly: String,
+)
+
+@Serializable
+private data class RedactedAcceptanceUnderlay(
+    val mtuBand: String,
+    val hasIpv4Address: Boolean,
+    val hasIpv6Address: Boolean,
+    val hasIpv4DefaultRoute: Boolean,
+    val hasIpv6DefaultRoute: Boolean,
+    val hasIpv4Dns: Boolean,
+    val hasIpv6Dns: Boolean,
+    val nat64Advertised: Boolean? = null,
+    val nat64Reachability: String,
 )
 
 internal fun RemoteDeviceAcceptanceReport.acceptanceDataPlanePassed(): Boolean =
@@ -185,17 +256,58 @@ internal fun deriveAcceptanceStatus(steps: List<RemoteDeviceAcceptanceStep>): Re
 private fun pendingStep(id: String): RemoteDeviceAcceptanceStep =
     RemoteDeviceAcceptanceStep(id = id, status = RemoteDeviceAcceptanceStatus.Incomplete)
 
+private fun acceptedAfterPreflight(
+    preflightError: String?,
+    probeSucceeded: Boolean,
+): Boolean = preflightError == null && probeSucceeded
+
 private fun resultStep(
     id: String,
     succeeded: Boolean,
     failure: String?,
     durationMs: Long,
+    pathKind: String? = null,
 ): RemoteDeviceAcceptanceStep =
     RemoteDeviceAcceptanceStep(
         id = id,
         status = if (succeeded) RemoteDeviceAcceptanceStatus.Pass else RemoteDeviceAcceptanceStatus.Fail,
         durationMs = durationMs,
         errorClass = if (succeeded) null else failure,
+        pathKind = pathKind,
+    )
+
+private fun RelayUdpPayloadHealthEvidence.toRedacted(): RedactedRelayUdpPayloadHealth =
+    RedactedRelayUdpPayloadHealth(
+        measurementKind = measurementKind,
+        ceilingLabel = ceilingLabel,
+        overallVerdict = overallVerdict,
+        families =
+            families.map { family ->
+                RedactedRelayUdpPayloadFamilyHealth(
+                    family = family.family,
+                    controlBefore = family.controlBefore,
+                    controlAfter = family.controlAfter,
+                    maxAcknowledgedPayloadBytes = family.maxAcknowledgedPayloadBytes,
+                    firstRepeatedFailedPayloadBytes = family.firstRepeatedFailedPayloadBytes,
+                    attemptCount = family.attemptCount,
+                    verdict = family.verdict,
+                    ptbObservation = family.ptbObservation,
+                    fragmentationReassembly = family.fragmentationReassembly,
+                )
+            },
+    )
+
+private fun RemoteDeviceAcceptanceUnderlay.toRedacted(): RedactedAcceptanceUnderlay =
+    RedactedAcceptanceUnderlay(
+        mtuBand = mtuBand,
+        hasIpv4Address = hasIpv4Address,
+        hasIpv6Address = hasIpv6Address,
+        hasIpv4DefaultRoute = hasIpv4DefaultRoute,
+        hasIpv6DefaultRoute = hasIpv6DefaultRoute,
+        hasIpv4Dns = hasIpv4Dns,
+        hasIpv6Dns = hasIpv6Dns,
+        nat64Advertised = nat64Advertised,
+        nat64Reachability = nat64Reachability,
     )
 
 internal fun captureRemoteDeviceAcceptanceDevice(): RemoteDeviceAcceptanceDevice =
@@ -238,6 +350,7 @@ private fun readSalesCode(): String {
 internal const val StepRealityTcp = "reality_tcp"
 internal const val StepUdpAssociate = "socks_udp_associate"
 internal const val StepDnsUdp = "dns_udp"
+internal const val StepRelayUdpPayload = "relay_egress_udp_payload"
 internal const val StepIpv4 = "ipv4_reality_egress"
 internal const val StepIpv6 = "ipv6_reality_egress"
 internal const val StepReconnect = "reconnect"
@@ -249,8 +362,10 @@ internal const val ErrorListenerUnavailable = "local_listener_unavailable"
 internal const val ErrorProbe = "probe_error"
 internal const val ErrorIpv4Egress = "ipv4_egress_failed"
 internal const val ErrorIpv6Egress = "ipv6_egress_failed"
+internal const val ErrorPayloadHealthUnavailable = "payload_health_unavailable"
 internal const val ErrorDirectEgress = "direct_egress_observed"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
+internal const val RelayPathKind = "relay_path"
 private const val MaxDeviceFieldLength = 64
 private val SalesCodeProperties = listOf("ro.boot.sales_code", "ril.sales_code", "ro.csc.sales_code")
 private val acceptanceStepIds =
@@ -258,6 +373,7 @@ private val acceptanceStepIds =
         StepRealityTcp,
         StepUdpAssociate,
         StepDnsUdp,
+        StepRelayUdpPayload,
         StepIpv4,
         StepIpv6,
         StepReconnect,
@@ -266,4 +382,12 @@ private val acceptanceStepIds =
         StepNoDirectEgress,
     )
 private val acceptanceDataPlaneStepIds =
-    setOf(StepRealityTcp, StepUdpAssociate, StepDnsUdp, StepIpv4, StepIpv6, StepNoDirectEgress)
+    setOf(
+        StepRealityTcp,
+        StepUdpAssociate,
+        StepDnsUdp,
+        StepRelayUdpPayload,
+        StepIpv4,
+        StepIpv6,
+        StepNoDirectEgress,
+    )

@@ -32,10 +32,10 @@ class RemoteDeviceAcceptanceGateTest {
         val report = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence())
 
         assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.status)
-        assertTrue(report.steps.take(5).all { it.status == RemoteDeviceAcceptanceStatus.Pass })
+        assertTrue(report.steps.take(6).all { it.status == RemoteDeviceAcceptanceStatus.Pass })
         assertTrue(
             report.steps
-                .drop(5)
+                .drop(6)
                 .take(3)
                 .all { it.status == RemoteDeviceAcceptanceStatus.Incomplete },
         )
@@ -80,6 +80,38 @@ class RemoteDeviceAcceptanceGateTest {
     }
 
     @Test
+    fun `payload floor passes while higher size loss remains inconclusive evidence`() {
+        val evidence =
+            successfulEvidence().copy(
+                payloadHealth =
+                    RelayUdpPayloadHealthEvidence(
+                        overallVerdict = RelayUdpPayloadHealthVerdict.InconclusiveSizeCorrelatedLoss.wireValue,
+                        families =
+                            listOf(
+                                RelayUdpPayloadFamilyHealthEvidence(
+                                    family = "ipv4",
+                                    controlBefore = RelayUdpPayloadControlOutcome.Acknowledged.wireValue,
+                                    controlAfter = RelayUdpPayloadControlOutcome.Acknowledged.wireValue,
+                                    maxAcknowledgedPayloadBytes = 1_232,
+                                    firstRepeatedFailedPayloadBytes = 1_400,
+                                    attemptCount = 8,
+                                    verdict = RelayUdpPayloadHealthVerdict.InconclusiveSizeCorrelatedLoss.wireValue,
+                                ),
+                            ),
+                    ),
+            )
+
+        val report = buildRemoteDeviceAcceptanceBaseline(Device, evidence)
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Pass, report.step(StepRelayUdpPayload).status)
+        assertNull(report.step(StepRelayUdpPayload).errorClass)
+        assertEquals(
+            RelayUdpPayloadHealthVerdict.InconclusiveSizeCorrelatedLoss.wireValue,
+            report.pathHealth?.overallVerdict,
+        )
+    }
+
+    @Test
     fun `wrong transport fails closed without probe details`() {
         val report =
             buildRemoteDeviceAcceptanceBaseline(
@@ -103,12 +135,20 @@ class RemoteDeviceAcceptanceGateTest {
         assertTrue(rendered.contains("SM-S928B"))
         assertTrue(rendered.contains("XSG"))
         assertTrue(rendered.contains(RelayKindVlessReality))
+        assertTrue(rendered.contains("relay_egress_udp_payload"))
+        assertTrue(rendered.contains("acknowledged_application_payload_ceiling"))
+        assertTrue(rendered.contains("mtuBand"))
+        assertTrue(rendered.contains("nat64Reachability"))
+        assertTrue(rendered.contains("unknown"))
         assertTrue(rendered.contains("durationMs"))
         assertFalse(rendered.contains("profile", ignoreCase = true))
         assertFalse(rendered.contains("credential", ignoreCase = true))
         assertFalse(rendered.contains("endpoint", ignoreCase = true))
         assertFalse(rendered.contains("uuid", ignoreCase = true))
         assertFalse(rendered.contains("network-hash", ignoreCase = true))
+        assertFalse(rendered.contains("2001:db8", ignoreCase = true))
+        assertFalse(rendered.contains("nat64Prefix", ignoreCase = true))
+        assertFalse(rendered.contains("networkHandle", ignoreCase = true))
         assertNull(report.step("reality_tcp").errorClass)
     }
 
@@ -122,6 +162,18 @@ class RemoteDeviceAcceptanceGateTest {
             probe = successfulProbe(),
             ipv4Probe = successfulProbe(),
             ipv6Probe = successfulProbe(),
+            payloadHealth = successfulPayloadHealth(),
+            underlay =
+                RemoteDeviceAcceptanceUnderlay(
+                    mtuBand = "standard",
+                    hasIpv4Address = true,
+                    hasIpv6Address = true,
+                    hasIpv4DefaultRoute = true,
+                    hasIpv6DefaultRoute = true,
+                    hasIpv4Dns = true,
+                    hasIpv6Dns = true,
+                    nat64Advertised = true,
+                ),
             directEgressObserved = false,
             durationMs = 42L,
         )
@@ -135,6 +187,23 @@ class RemoteDeviceAcceptanceGateTest {
             udpSucceeded = true,
             udpFailure = null,
             latencyMs = 42L,
+        )
+
+    private fun successfulPayloadHealth(): RelayUdpPayloadHealthEvidence =
+        RelayUdpPayloadHealthEvidence(
+            overallVerdict = RelayUdpPayloadHealthVerdict.Acknowledged.wireValue,
+            families =
+                listOf(
+                    RelayUdpPayloadFamilyHealthEvidence(
+                        family = "ipv4",
+                        controlBefore = RelayUdpPayloadControlOutcome.Acknowledged.wireValue,
+                        controlAfter = RelayUdpPayloadControlOutcome.Acknowledged.wireValue,
+                        maxAcknowledgedPayloadBytes = 1_232,
+                        firstRepeatedFailedPayloadBytes = null,
+                        attemptCount = 7,
+                        verdict = RelayUdpPayloadHealthVerdict.Acknowledged.wireValue,
+                    ),
+                ),
         )
 
     private companion object {
