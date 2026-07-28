@@ -170,13 +170,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         hardwareAttestation = createHardwareAttestation()
         actions.put(runSteadyAction("ipv4-only", ipv6 = false))
         actions.put(runSteadyAction("dual-stack", ipv6 = true))
-        actions.put(
-            runClosedAction("forced-revoke") {
-                shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN ignore")
-                awaitVpnDefaultNetworkAbsent()
-                JSONObject().put("kind", "vpn-permission-revoked").put("observedAtEpochMs", now())
-            },
-        )
+        actions.put(runPermissionRevokeProtectedAction())
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
         actions.put(
             runClosedAction("core-fault") {
@@ -253,6 +247,41 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         sendMarker(actionId, correlation, "outcome")
         val finished = now()
         return actionDocument(actionId, correlation, started, finished, event, probes, JSONObject.NULL, phases)
+    }
+
+    private fun runPermissionRevokeProtectedAction(): JSONObject {
+        configureAndStart(ipv6 = true)
+        val started = now()
+        val correlation = correlation("forced-revoke")
+        sendMarker("forced-revoke", correlation, "action")
+        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN ignore")
+        val appOpState = shell("cmd appops get ${appContext.packageName} ACTIVATE_VPN")
+        assertTrue("ACTIVATE_VPN was not revoked: $appOpState", appOpState.contains("ignore"))
+        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
+            serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null
+        }
+        val event =
+            JSONObject()
+                .put("appOpMode", "ignore")
+                .put("kind", "vpn-permission-revoke-absorbed-under-lockdown")
+                .put("observedAtEpochMs", now())
+        val probes =
+            JSONArray()
+                .put(probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = true))
+                .put(probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = true))
+        val protected = capturePhase("protected", expectVpn = true)
+        sendMarker("forced-revoke", correlation, "outcome")
+        val finished = now()
+        return actionDocument(
+            "forced-revoke",
+            correlation,
+            started,
+            finished,
+            event,
+            probes,
+            JSONObject.NULL,
+            JSONArray().put(protected),
+        )
     }
 
     private fun runNetworkSwitchAction(): JSONObject {
@@ -399,18 +428,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     private fun requestVpnStop() {
         appContext.startService(Intent(appContext, RipDpiVpnService::class.java).setAction(stopAction))
         appContext.startService(Intent(appContext, RipDpiProxyService::class.java).setAction(stopAction))
-    }
-
-    private fun awaitVpnDefaultNetworkAbsent() {
-        bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
-            awaitUntil(
-                timeoutMs = OrdinaryTimeoutMs,
-                pollMs = 10,
-                failureMessage = { "Test UID never observed the VPN default network disappear" },
-            ) {
-                !probeService.isVpnDefaultNetwork()
-            }
-        }
     }
 
     private fun blockedTransitionProbes(): JSONArray =

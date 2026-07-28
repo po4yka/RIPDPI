@@ -53,7 +53,11 @@ def _event(action_id: str, *, started_at: int) -> dict[str, Any]:
             "observedAtEpochMs": observed_at,
         }
     if action_id == "forced-revoke":
-        return {"kind": "vpn-permission-revoked", "observedAtEpochMs": observed_at}
+        return {
+            "appOpMode": "ignore",
+            "kind": "vpn-permission-revoke-absorbed-under-lockdown",
+            "observedAtEpochMs": observed_at,
+        }
     if action_id == "core-fault":
         return {
             "coreExitCode": 19,
@@ -218,7 +222,7 @@ def route_snapshot(
                 "vpnInterface": "tun0",
             }
         ]
-    elif action_id in {"wifi-lte-switch", "sleep-wake", "android-always-on-block"}:
+    elif action_id in {"forced-revoke", "wifi-lte-switch", "sleep-wake", "android-always-on-block"}:
         secure_settings = (
             "always_on_vpn_app=com.poyka.ripdpi\nalways_on_vpn_lockdown=1\n"
             if action_id == "android-always-on-block"
@@ -231,8 +235,8 @@ def route_snapshot(
                     vpn_active=True,
                     lockdown_active=True,
                     ipv4_default=True,
-                    ipv6_default=False,
-                    global_ipv6=False,
+                    ipv6_default=action_id == "forced-revoke",
+                    global_ipv6=action_id == "forced-revoke",
                     secure_settings=secure_settings,
                 ),
                 "name": "protected",

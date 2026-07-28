@@ -259,8 +259,8 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
 
         def forced_probe(manifest_path, manifest):
             def mutate(value):
-                value["probes"][0]["outcome"] = "connected"
-                value["probes"][0]["error"] = None
+                value["probes"][0]["outcome"] = "blocked"
+                value["probes"][0]["error"] = "network-unreachable"
 
             self.mutate_json_artifact(
                 manifest_path, manifest, "forced-revoke", "action-receipt", mutate
@@ -351,6 +351,62 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
             self.assertEqual(status, 1)
             self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
+
+    def test_permission_revoke_requires_ignore_mode_dual_stack_and_tunnel_activity(self) -> None:
+        def wrong_appop_mode(manifest_path, manifest):
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "forced-revoke",
+                "action-receipt",
+                lambda value: value["event"].update({"appOpMode": "allow"}),
+            )
+
+        def missing_ipv6_route(manifest_path, manifest):
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "forced-revoke",
+                "route-snapshot",
+                lambda value: value["phases"][0]["commands"].update(
+                    {"ip6RouteShow": ""}
+                ),
+            )
+
+        def missing_tunnel_activity(manifest_path, manifest):
+            action = self.action(manifest, "forced-revoke")
+            started = action["windowStartedAtEpochMs"]
+            correlation = action["correlationId"]
+            records = [
+                (
+                    started + offset,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        fixtures.FIXTURE["markerAddress"],
+                        42000,
+                        fixtures.FIXTURE["markerPort"],
+                        oracles._marker("forced-revoke", correlation, phase),
+                    ),
+                )
+                for offset, phase in ((100, "action"), (900, "outcome"))
+            ]
+            self.replace_artifact(
+                manifest_path,
+                manifest,
+                "forced-revoke",
+                "packet-capture",
+                fixtures._pcap(records),
+            )
+
+        self.assert_semantic_failure(
+            wrong_appop_mode, "SEMANTIC_PERMISSION_REVOKE_INVALID"
+        )
+        self.assert_semantic_failure(
+            missing_ipv6_route, "SEMANTIC_PERMISSION_REVOKE_INVALID"
+        )
+        self.assert_semantic_failure(
+            missing_tunnel_activity, "SEMANTIC_TUNNEL_CONTROL_MISSING"
+        )
 
     def test_same_host_probe_port_packet_remains_a_direct_leak(self) -> None:
         def mutation(manifest_path, manifest):

@@ -170,10 +170,16 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         sleep = sleep[: sleep.index("private fun runAlwaysOnProtectedAction")]
         always_on = producer[producer.index("private fun runAlwaysOnProtectedAction") :]
         always_on = always_on[: always_on.index("private fun configureAndStart")]
-        for action in (network, sleep, always_on):
+        revoke = producer[producer.index("private fun runPermissionRevokeProtectedAction") :]
+        revoke = revoke[: revoke.index("private fun runNetworkSwitchAction")]
+        for action in (network, sleep, always_on, revoke):
             self.assertIn('capturePhase("protected", expectVpn = true)', action)
             self.assertNotIn("blockedTransitionProbes", action)
             self.assertNotIn("awaitTestProcessLockdown", action)
+        self.assertIn("ACTIVATE_VPN ignore", revoke)
+        self.assertIn('appOpState.contains("ignore")', revoke)
+        self.assertIn('probe("post-revoke-ipv4", "ipv4", controlIpv4, connected = true)', revoke)
+        self.assertIn('probe("post-revoke-ipv6", "ipv6", controlIpv6, connected = true)', revoke)
 
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(
