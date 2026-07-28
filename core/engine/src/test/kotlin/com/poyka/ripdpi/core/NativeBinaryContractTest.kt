@@ -40,6 +40,10 @@ class NativeBinaryContractTest {
             // list-typed fields with "[]".
             "chainIntermediateHops[]",
             "ptRuntimeVersion",
+            // Emitted by relay-core telemetry rather than the proxy/tunnel
+            // adapter manifests. The nested aggregate is privacy-safe and
+            // absent from snapshots for other native runtime sources.
+            "xudpTelemetry",
             // Emitted by the ripdpi-amneziawg-android native runtime's
             // jniPollTelemetry snapshot (flattened AmneziaWgTelemetry, camelCase
             // wire JSON) but absent from the proxy/tunnel adapter manifest

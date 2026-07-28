@@ -170,6 +170,7 @@ data class NativeRuntimeSnapshot(
     val protocolKind: String? = null,
     val tcpCapable: Boolean? = null,
     val udpCapable: Boolean? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val xudpTelemetry: XudpTelemetrySnapshot? = null,
     val fallbackMode: String? = null,
     val lastHandshakeError: String? = null,
