@@ -695,6 +695,45 @@ class FailoverCoordinatorTest {
         }
 
     @Test
+    fun singleRealityCandidateStillRecordsConfirmedXudpFailure() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val memory = RecordingSimpleEgressHealthMemory()
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    settings = FakeAppSettingsRepository(udpAssociateEnabled = null),
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = "reality-only",
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                            ),
+                        ),
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            FailoverEgressProbeResult(succeeded = false, failure = "udp_read_timeout")
+                        },
+                    egressHealthMemory = memory,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 3,
+                    networkScopeKey = "network-hash-a",
+                ),
+            )
+
+            assertEquals(1, memory.failures.size)
+            assertTrue(controller.transportRestartCalls.isEmpty())
+            coordinator.stopObserving()
+        }
+
+    @Test
     fun networkHandoverDoesNotPenalizeReality() =
         runTest {
             val stateStore = FakeServiceStateStore()

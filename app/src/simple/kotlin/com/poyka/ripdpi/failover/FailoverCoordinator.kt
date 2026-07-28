@@ -299,7 +299,6 @@ class FailoverCoordinator
                         "FailoverCoordinator: watching ${candidates.size} candidates, " +
                             "active=${candidates[activeCandidateIndex].transportKind()}"
                     }
-                    if (candidates.size < 2) return@launch
                     observeLoop()
                 }.also { job ->
                     observeJob = job
