@@ -9,6 +9,9 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessFlowVision
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.InitialRelayRaceResult
@@ -128,6 +131,73 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
+    fun `xudp-enabled reality precedes hysteria for UDP requirements`() =
+        runTest {
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(realityUdpEnabled = true),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+
+            val plan =
+                policy.plan(
+                    RealityProfileId,
+                    RelayKindVlessReality,
+                    "network-a",
+                    EgressRequirements(tcpConnect = true, udpAssociate = true),
+                )
+
+            assertEquals(listOf(RelayKindVlessReality, RelayKindHysteria2), plan?.candidates?.map { it.relayKind })
+        }
+
+    @Test
+    fun `xhttp and flowless reality stay out of UDP race`() =
+        runTest {
+            suspend fun candidateKinds(
+                transport: String,
+                flow: String,
+            ): List<String>? {
+                policy =
+                    SimpleInitialRelayRacePolicy(
+                        context = application,
+                        bundleSource = SimpleRelayBundleSource { validBundle() },
+                        relayProfileStore =
+                            seededProfileStore(
+                                realityUdpEnabled = true,
+                                realityTransport = transport,
+                                realityFlow = flow,
+                            ),
+                        relayCredentialStore = seededCredentialStore(),
+                        serviceStateStore = DefaultServiceStateStore(),
+                        failoverCoordinator = failoverBridge,
+                        clock = clock,
+                    )
+                return policy
+                    .plan(
+                        RealityProfileId,
+                        RelayKindVlessReality,
+                        "network-a",
+                        EgressRequirements(tcpConnect = true, udpAssociate = true),
+                    )?.candidates
+                    ?.map { it.relayKind }
+            }
+
+            assertEquals(
+                listOf(RelayKindHysteria2),
+                candidateKinds(RelayVlessTransportXhttp, RelayVlessFlowVision),
+            )
+            assertEquals(
+                listOf(RelayKindHysteria2),
+                candidateKinds(RelayVlessTransportRealityTcp, ""),
+            )
+        }
+
+    @Test
     fun `reality cache is ignored when UDP becomes required`() =
         runTest {
             val tcpPlan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")!!
@@ -143,6 +213,29 @@ class SimpleInitialRelayRacePolicyTest {
 
             assertEquals(listOf(RelayKindHysteria2), udpPlan?.candidates?.map { it.relayKind })
             assertNull(udpPlan?.cachedFallbackProfileId)
+        }
+
+    @Test
+    fun `cached hysteria does not replace newly compatible Reality candidate set`() =
+        runTest {
+            val requirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
+            val hysteriaOnly = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a", requirements)!!
+            policy.onSelected(InitialRelayRaceResult(hysteriaOnly.candidates.single(), false, 30L))
+
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(realityUdpEnabled = true),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+            val xudpPlan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a", requirements)
+
+            assertEquals(listOf(RelayKindVlessReality, RelayKindHysteria2), xudpPlan?.candidates?.map { it.relayKind })
+            assertNull(xudpPlan?.cachedFallbackProfileId)
         }
 
     @Test
@@ -314,9 +407,19 @@ class SimpleInitialRelayRacePolicyTest {
             assertFalse(failoverBridge.skip)
         }
 
-    private fun seededProfileStore(): RelayProfileStore =
+    private fun seededProfileStore(
+        realityUdpEnabled: Boolean = false,
+        realityTransport: String = RelayVlessTransportRealityTcp,
+        realityFlow: String = RelayVlessFlowVision,
+    ): RelayProfileStore =
         InMemoryRelayProfileStore(
-            RelayProfileRecord(id = RealityProfileId, kind = RelayKindVlessReality),
+            RelayProfileRecord(
+                id = RealityProfileId,
+                kind = RelayKindVlessReality,
+                udpEnabled = realityUdpEnabled,
+                vlessTransport = realityTransport,
+                vlessFlow = realityFlow,
+            ),
             RelayProfileRecord(id = FallbackRealityProfileId, kind = RelayKindVlessReality),
             RelayProfileRecord(id = HysteriaProfileId, kind = RelayKindHysteria2, udpEnabled = true),
         )

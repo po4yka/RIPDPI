@@ -4,13 +4,13 @@ This crate's wire format (VLESS, REALITY, XTLS-Vision) is pinned against the fol
 
 - **Upstream repo:** https://github.com/XTLS/Xray-core
 - **Upstream tag:** v1.260206.0
-- **Upstream commit:** unverified-as-of-2026-05-15
-- **Last reviewed:** 2026-05-15
-- **Owner:** unassigned
+- **Upstream commit:** `12ee51e4bb1d02ece4ef4b7114efa2bcdc130995`
+- **Last reviewed:** 2026-07-28
+- **Owner:** RIPDPI native transport maintainers
 
 ## Scope
 
-This crate implements the VLESS client wire protocol, the REALITY TLS handshake (X25519 + HKDF-SHA256 session_id), the XTLS-Vision flow addon, and the SagerNet sing-mux version-0 carrier with yamux inner sessions. The xHTTP transport that layers on top of this is implemented in `ripdpi-xhttp`.
+This crate implements the VLESS client wire protocol, the REALITY TLS handshake (X25519 + HKDF-SHA256 session_id), the XTLS-Vision flow addon, Xray-compatible XUDP over a destination-less VLESS Mux request, and the separate SagerNet sing-mux version-0 carrier with yamux inner sessions. The xHTTP transport that layers on top of this is implemented in `ripdpi-xhttp`.
 
 ## Drift policy
 

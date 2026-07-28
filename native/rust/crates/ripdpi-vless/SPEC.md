@@ -2,7 +2,7 @@
 
 ## Scope
 
-Client implementation of the VLESS application protocol, the REALITY TLS handshake, and the XTLS-Vision flow addon. Used both standalone (TCP → REALITY → VLESS) and chained (over an existing transport via `connect_over`).
+Client implementation of the VLESS application protocol, the REALITY TLS handshake, the XTLS-Vision flow addon, and XUDP datagrams over a VLESS Mux carrier. TCP is used standalone (TCP → REALITY → VLESS) and chained (over an existing transport via `connect_over`); each SOCKS5 UDP association owns one dedicated Reality/TCP XUDP carrier.
 
 ## Upstream
 
@@ -17,10 +17,10 @@ Client implementation of the VLESS application protocol, the REALITY TLS handsha
 | UUID | 16 bytes | Subscriber ID |
 | AddonsLen | 1 byte | Length of `Addons` blob |
 | Addons | var | Vision flow string, etc. |
-| Command | 1 byte | `0x01` = TCP CONNECT (UDP unsupported) |
-| Port | 2 bytes | Big-endian |
-| AddrType | 1 byte | `0x01` IPv4, `0x02` domain, `0x03` IPv6 |
-| Address | var | IPv4: 4 bytes; IPv6: 16 bytes; domain: 1-byte len + UTF-8 |
+| Command | 1 byte | `0x01` TCP, `0x02` direct UDP, `0x03` Mux |
+| Port | 2 bytes | Big-endian; omitted for Mux |
+| AddrType | 1 byte | `0x01` IPv4, `0x02` domain, `0x03` IPv6; omitted for Mux |
+| Address | var | IPv4: 4 bytes; IPv6: 16 bytes; domain: 1-byte len + UTF-8; omitted for Mux |
 
 See `wire.rs` for the encoder; the response header is one version byte + one addons-length byte + variable addons.
 
@@ -47,13 +47,21 @@ Vision is an addon string carried in the request `Addons` field. It controls TLS
 
 The VLESS response header is validated lazily on the first downlink read because xray-core flushes it with the first outbound payload. When Vision emits or receives `Direct`, subsequent bytes use the transport beneath the outer REALITY TLS stream; `End` stops padding without removing that TLS layer. The outer TLS reader is bounded to one complete record so it cannot consume coalesced post-`Direct` raw bytes before the splice transition.
 
+## XUDP over VLESS Mux
+
+Vision UDP uses VLESS command `0x03` (`Mux`) without a VLESS destination. It does not use the Sager/yamux carrier and never opens a direct UDP egress. The first XUDP datagram carries session ID `0`, status `New`, option `Data`, network `UDP`, destination, and one random 8-byte GlobalID stable for the association. Later datagrams use `Keep` and repeat their destination, allowing one association to reach multiple targets. Downlink `Keep` frames may omit the source only after an earlier frame established it; `KeepAlive` carries no datagram.
+
+XUDP addresses use port-before-address ordering for IPv4, domain, and IPv6. Metadata is limited to 512 bytes and payloads to 7,526 bytes (`8192 - 666`). Empty, oversized, malformed, and truncated datagrams fail explicitly. A single reader task owns the stream read half and publishes complete datagrams through a bounded 32-item channel, so cancelling `recv_from()` cannot desynchronize the carrier.
+
+`xtls-rprx-vision` rejects UDP port 443 locally. `xtls-rprx-vision-udp443` permits it at the client boundary, but deployment policy may still block QUIC independently.
+
 ## Known divergences from upstream
 
 - VLESS mux supports only the SagerNet sing-mux version-0 carrier with the yamux inner protocol. `smux` and `h2mux` are rejected explicitly; they are distinct protocols and must never be coerced to yamux.
-- UDP forwarding (`Command = 0x02`) is not implemented; only TCP CONNECT.
+- Direct VLESS UDP (`Command = 0x02`) is not implemented; UDP ASSOCIATE uses XUDP over Mux.
 - `VlessRealityConfig::flow` supports empty flow, `xtls-rprx-vision`, and `xtls-rprx-vision-udp443`; Android profile UX may expose only a subset.
 
 ## Non-goals
 
 - Server-side VLESS implementation.
-- UDP-over-VLESS until upstream stabilizes the wire.
+- Direct VLESS UDP command `0x02` and split TCP/UDP egress.

@@ -90,7 +90,11 @@ fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) ->
     }
     vless_config.socket_protection = context.socket_protection;
     Ok(RelayBackend::VlessReality(PooledRelayBackend::new(
-        VlessRealitySessionFactory { config: vless_config, outbound_bind_ip: context.outbound_bind_ip },
+        VlessRealitySessionFactory {
+            config: vless_config,
+            outbound_bind_ip: context.outbound_bind_ip,
+            udp_enabled: config.common.udp_enabled,
+        },
         context.pool_config,
         None,
     )))

@@ -17,6 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 const val RelayVlessFlowVision = "xtls-rprx-vision"
+const val RelayVlessFlowVisionUdp443 = "xtls-rprx-vision-udp443"
 const val RelayXhttpModeAuto = "auto"
 const val RelayXhttpModeStreamUp = "stream-up"
 const val RelayXhttpModeStreamOne = "stream-one"

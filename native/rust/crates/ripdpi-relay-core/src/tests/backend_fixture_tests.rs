@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 
 #[tokio::test]
 async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
@@ -57,6 +58,115 @@ async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
         RelayBackend::ShadowTls(_) => {}
         other => panic!("expected ShadowTLS backend, got {:?}", std::mem::discriminant(&other)),
     }
+}
+
+#[tokio::test]
+async fn relay_runtime_round_trips_udp_through_vless_reality_xudp() {
+    const PAYLOAD: &[u8] = b"relay-core VLESS Reality XUDP payload";
+
+    let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality fixture");
+    let mut config = sample_config("vless_reality");
+    config.common.udp_enabled = true;
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    let vless = vless_config_mut(&mut config);
+    vless.reality_public_key = valid_reality_public_key();
+    vless.reality_short_id = String::new();
+
+    let capabilities = planned_backend_capabilities(&config);
+    assert_eq!((true, true), (capabilities.tcp, capabilities.udp));
+    let backend = build_backend(&config).await.expect("VLESS Reality backend");
+    validate_runtime_config(&config, &backend).expect("XUDP-enabled Reality should validate");
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.udp_target_port()));
+    let mut udp = backend.open_udp_session().await.expect("VLESS Reality XUDP session");
+    udp.send_to(&target, PAYLOAD).await.expect("send XUDP payload");
+    let (source, echoed) = udp.recv_from().await.expect("receive XUDP payload");
+    assert_eq!(source, target);
+    assert_eq!(echoed, PAYLOAD);
+}
+
+#[tokio::test]
+async fn socks5_udp_associate_round_trips_through_vless_reality_xudp() {
+    const PAYLOAD: &[u8] = b"SOCKS5 over VLESS Reality XUDP";
+
+    let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality fixture");
+    let mut config = sample_config("vless_reality");
+    config.common.udp_enabled = true;
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    config.common.local_socks_host = "127.0.0.1".to_string();
+    config.common.local_socks_port = 0;
+    let vless = vless_config_mut(&mut config);
+    vless.reality_public_key = valid_reality_public_key();
+    vless.reality_short_id = String::new();
+
+    let runtime = RelayRuntime::new(config);
+    let run_handle = tokio::spawn(Arc::clone(&runtime).run());
+    let listener = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(listener) = runtime.telemetry().listener_address {
+                break listener.parse::<SocketAddr>().expect("SOCKS listener address");
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("SOCKS listener did not start");
+
+    let mut control = tokio::net::TcpStream::connect(listener).await.expect("connect SOCKS control");
+    control.write_all(&[0x05, 0x01, 0x00]).await.expect("write SOCKS greeting");
+    let mut greeting = [0_u8; 2];
+    control.read_exact(&mut greeting).await.expect("read SOCKS greeting");
+    assert_eq!(greeting, [0x05, 0x00]);
+    control.write_all(&[0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await.expect("write UDP ASSOCIATE");
+    let mut reply = [0_u8; 10];
+    control.read_exact(&mut reply).await.expect("read UDP ASSOCIATE reply");
+    assert_eq!(reply[1], 0x00);
+    let udp_relay = SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(reply[4], reply[5], reply[6], reply[7])),
+        u16::from_be_bytes([reply[8], reply[9]]),
+    );
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.udp_target_port()));
+    let frame = crate::socks::encode_udp_frame(&target, PAYLOAD).expect("encode SOCKS UDP frame");
+    let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind SOCKS UDP client");
+    udp.send_to(&frame, udp_relay).await.expect("send SOCKS UDP frame");
+    let mut response = [0_u8; 256];
+    let (read, _) = tokio::time::timeout(Duration::from_secs(5), udp.recv_from(&mut response))
+        .await
+        .expect("SOCKS UDP response timed out")
+        .expect("receive SOCKS UDP response");
+    let (source, echoed) = crate::socks::decode_udp_frame(&response[..read]).expect("decode SOCKS UDP response");
+    assert_eq!(source, target);
+    assert_eq!(echoed, PAYLOAD);
+
+    let dns_query = [
+        0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, b'e', b'x', b'a', b'm', b'p',
+        b'l', b'e', 0x03, b'c', b'o', b'm', 0x00, 0x00, 0x01, 0x00, 0x01,
+    ];
+    let dns_target = RelayTargetAddr::Domain("127.0.0.1".to_string(), fixture.udp_target_port());
+    let dns_frame = crate::socks::encode_udp_frame(&dns_target, &dns_query).expect("encode SOCKS DNS frame");
+    udp.send_to(&dns_frame, udp_relay).await.expect("send SOCKS DNS frame");
+    let (read, _) = tokio::time::timeout(Duration::from_secs(5), udp.recv_from(&mut response))
+        .await
+        .expect("SOCKS DNS response timed out")
+        .expect("receive SOCKS DNS response");
+    let (dns_source, dns_echoed) =
+        crate::socks::decode_udp_frame(&response[..read]).expect("decode SOCKS DNS response");
+    assert_eq!(dns_source, target);
+    assert_eq!(dns_echoed, dns_query);
+    assert!(runtime.telemetry().last_target.is_none(), "XUDP telemetry must not expose datagram targets");
+
+    drop(control);
+    runtime.stop();
+    tokio::time::timeout(Duration::from_secs(10), run_handle)
+        .await
+        .expect("relay runtime stop timed out")
+        .expect("relay runtime task")
+        .expect("relay runtime result");
 }
 
 #[tokio::test]
@@ -273,15 +383,21 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         assert_outbound_bind_ip_support(kind_id, &config, bind_ip);
     }
 
+    let mut xudp_reality = sample_config("vless_reality");
+    xudp_reality.common.udp_enabled = true;
+    let xudp = planned_backend_capabilities(&xudp_reality);
+    assert_eq!((true, true, false), (xudp.tcp, xudp.udp, xudp.reusable));
+
     // VLESS Reality's `xhttp` sub-mode shares the single `vless_reality`
-    // descriptor: its capability profile is identical to `reality_tcp`.
+    // descriptor, but the planned profile capabilities apply the sub-mode
+    // gate without introducing a second kind capability table.
     let mut vless_xhttp = sample_config("vless_reality");
     vless_config_mut(&mut vless_xhttp).vless_transport = "xhttp".to_string();
     let xhttp = planned_backend_capabilities(&vless_xhttp);
     assert_eq!(
         (true, false, false),
         (xhttp.tcp, xhttp.udp, xhttp.reusable),
-        "VLESS xhttp sub-mode must share the vless_reality capability profile",
+        "VLESS xhttp sub-mode must remain TCP-only",
     );
 
     // The `Unsupported` catch-all has no descriptor: it reports the empty

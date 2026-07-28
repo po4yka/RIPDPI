@@ -136,7 +136,13 @@ fn relay_transport_registry_is_consistent() {
         );
         assert!(registered.contains(descriptor.kind_id), "registration kind {} is unreachable", descriptor.kind_id);
 
-        let capabilities = planned_backend_capabilities(&sample_config(descriptor.kind_id));
+        let mut capability_config = sample_config(descriptor.kind_id);
+        if descriptor.kind_id == "vless_reality" {
+            // The descriptor says the kind can carry UDP; the effective
+            // profile capability additionally requires the existing opt-in.
+            capability_config.common.udp_enabled = true;
+        }
+        let capabilities = planned_backend_capabilities(&capability_config);
         assert_eq!(
             (descriptor.tcp, descriptor.udp, descriptor.reusable),
             (capabilities.tcp, capabilities.udp, capabilities.reusable),

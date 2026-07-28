@@ -20,6 +20,9 @@ import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
+import com.poyka.ripdpi.data.RelayVlessFlowVision
+import com.poyka.ripdpi.data.RelayVlessFlowVisionUdp443
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 
 /**
  * Where a relay kind sources the connection parameters it needs to start.
@@ -136,7 +139,7 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindVlessReality,
             label = "VLESS Reality",
             tcp = true,
-            udp = false,
+            udp = true,
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -348,3 +351,23 @@ fun relayTransportCapabilities(kindId: String): RelayTransportCapabilities? =
             udpAssociate = descriptor.udp,
         )
     }
+
+/**
+ * Whether one resolved profile can satisfy SOCKS5 UDP ASSOCIATE.
+ *
+ * The kind-level capability remains sourced from [RelayKindDescriptors]. VLESS
+ * Reality adds its existing profile toggle and transport/flow sub-mode gates;
+ * xHTTP and flow-less Reality therefore stay fail-closed without a second
+ * capability table.
+ */
+fun relayProfileSupportsUdpAssociation(
+    kindId: String,
+    udpEnabled: Boolean,
+    vlessTransport: String,
+    vlessFlow: String,
+): Boolean {
+    if (!udpEnabled || relayKindDescriptor(kindId)?.udp != true) return false
+    if (kindId != RelayKindVlessReality) return true
+    return vlessTransport == RelayVlessTransportRealityTcp &&
+        vlessFlow.trim() in setOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
+}

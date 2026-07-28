@@ -25,6 +25,40 @@ pub enum ProtocolVersion {
     V0,
 }
 
+/// VLESS request command byte.
+///
+/// XUDP uses [`Self::Mux`]: unlike TCP and direct UDP requests, the Mux
+/// command carries no destination bytes in the VLESS request header.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VlessCommand {
+    Tcp,
+    Udp,
+    Mux,
+}
+
+impl VlessCommand {
+    pub const fn wire_byte(self) -> u8 {
+        match self {
+            Self::Tcp => 0x01,
+            Self::Udp => 0x02,
+            Self::Mux => 0x03,
+        }
+    }
+
+    pub const fn from_wire_byte(byte: u8) -> Option<Self> {
+        match byte {
+            0x01 => Some(Self::Tcp),
+            0x02 => Some(Self::Udp),
+            0x03 => Some(Self::Mux),
+            _ => None,
+        }
+    }
+
+    const fn carries_target(self) -> bool {
+        matches!(self, Self::Tcp | Self::Udp)
+    }
+}
+
 impl ProtocolVersion {
     /// All wire-version variants this client can encode.
     pub const SUPPORTED: &'static [Self] = &[Self::V0];
@@ -48,6 +82,7 @@ impl ProtocolVersion {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedRequestHeader {
     pub uuid: [u8; 16],
+    pub command: VlessCommand,
     pub target: String,
     pub consumed_len: usize,
 }
@@ -224,11 +259,31 @@ impl<S: XtlsDirectWrite> XtlsDirectWrite for ResponseHeaderStream<S> {
 ///
 /// `target` is `"host:port"` — the destination the VLESS server should proxy to.
 pub fn encode_request(uuid: &[u8; 16], addons: &[u8], target: &str) -> Result<Vec<u8>, EncodeError> {
-    let (host, port) = parse_target(target)?;
+    encode_command_request(uuid, addons, VlessCommand::Tcp, Some(target))
+}
+
+/// Encode a VLESS request for a typed command.
+///
+/// TCP and direct UDP commands require a target. Mux intentionally omits it,
+/// matching xray-core's `EncodeRequestHeader` behavior for `v1.mux.cool`.
+pub fn encode_command_request(
+    uuid: &[u8; 16],
+    addons: &[u8],
+    command: VlessCommand,
+    target: Option<&str>,
+) -> Result<Vec<u8>, EncodeError> {
     let addons_len = u8::try_from(addons.len())
         .map_err(|_| EncodeError::AddonsTooLong { len: addons.len(), max: usize::from(u8::MAX) })?;
 
-    let mut buf = Vec::with_capacity(1 + 16 + 1 + addons.len() + 1 + 2 + 1 + host.len() + 2);
+    let parsed_target = if command.carries_target() {
+        let target = target.ok_or_else(|| EncodeError::InvalidTarget { target: String::new() })?;
+        Some(parse_target(target)?)
+    } else {
+        None
+    };
+
+    let target_len = parsed_target.as_ref().map_or(0, |(host, _)| 2 + 1 + host.len() + 2);
+    let mut buf = Vec::with_capacity(1 + 16 + 1 + addons.len() + 1 + target_len);
 
     // Version
     buf.push(ProtocolVersion::V0.wire_byte());
@@ -237,9 +292,12 @@ pub fn encode_request(uuid: &[u8; 16], addons: &[u8], target: &str) -> Result<Ve
     // Addons length + addons
     buf.push(addons_len);
     buf.extend_from_slice(addons);
-    // Command: TCP connect
-    buf.push(0x01);
-    // Port (big-endian)
+    buf.push(command.wire_byte());
+
+    let Some((host, port)) = parsed_target else {
+        return Ok(buf);
+    };
+
     buf.extend_from_slice(&port.to_be_bytes());
 
     // Address
@@ -289,18 +347,21 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
 
     let addons_len = usize::from(bytes[17]);
     let mut cursor = VERSION_AND_UUID_LEN + 1;
-    // After addons, the fixed prefix still needs command (1), port (2),
-    // and address type (1). Checking only the first three bytes let a
-    // truncated header reach the address-type read below and panic.
-    if bytes.len() < cursor + addons_len + 4 {
+    if bytes.len() < cursor + addons_len + 1 {
         return Err(ParseRequestError::NeedMoreData);
     }
     cursor += addons_len;
 
-    let command = bytes[cursor];
+    let command_byte = bytes[cursor];
     cursor += 1;
-    if command != 0x01 {
-        return Err(DecodeError::UnsupportedCommand(command));
+    let command = VlessCommand::from_wire_byte(command_byte).ok_or(DecodeError::UnsupportedCommand(command_byte))?;
+    if command == VlessCommand::Mux {
+        return Ok(DecodedRequestHeader { uuid, command, target: String::new(), consumed_len: cursor });
+    }
+
+    // Target-bearing commands still need port (2) and address type (1).
+    if bytes.len() < cursor + 3 {
+        return Err(ParseRequestError::NeedMoreData);
     }
 
     let port = u16::from_be_bytes([bytes[cursor], bytes[cursor + 1]]);
@@ -348,7 +409,7 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
         }
     };
 
-    Ok(DecodedRequestHeader { uuid, target: format_target(&host, port), consumed_len: cursor })
+    Ok(DecodedRequestHeader { uuid, command, target: format_target(&host, port), consumed_len: cursor })
 }
 
 /// Read and consume the VLESS response header from the stream.
@@ -455,6 +516,20 @@ mod tests {
     }
 
     #[test]
+    fn encode_mux_request_omits_destination() {
+        let uuid = [0x24; 16];
+        let addons = &[0x0a, 0x10, b'x'];
+        let encoded = encode_command_request(&uuid, addons, VlessCommand::Mux, None).expect("encode Mux request");
+
+        assert_eq!(encoded.len(), 1 + 16 + 1 + addons.len() + 1);
+        assert_eq!(encoded.last(), Some(&VlessCommand::Mux.wire_byte()));
+        let decoded = parse_request_header(&encoded).expect("parse Mux request");
+        assert_eq!(decoded.command, VlessCommand::Mux);
+        assert!(decoded.target.is_empty());
+        assert_eq!(decoded.consumed_len, encoded.len());
+    }
+
+    #[test]
     fn encode_request_ipv4() {
         let uuid = [0xAA; 16];
         let buf = encode_request(&uuid, &[], "1.2.3.4:80").expect("encode request");
@@ -490,6 +565,7 @@ mod tests {
         let decoded = parse_request_header(&encoded).expect("domain request");
 
         assert_eq!(uuid, decoded.uuid);
+        assert_eq!(decoded.command, VlessCommand::Tcp);
         assert_eq!("example.com:443", decoded.target);
         assert_eq!(encoded.len(), decoded.consumed_len);
     }
@@ -525,9 +601,9 @@ mod tests {
     #[test]
     fn parse_request_header_rejects_unknown_command() {
         let mut encoded = encode_request(&[0x77; 16], &[], "example.com:443").expect("encode request");
-        encoded[18] = 0x02;
+        encoded[18] = 0xff;
 
-        assert_eq!(Err(DecodeError::UnsupportedCommand(2)), parse_request_header(&encoded),);
+        assert_eq!(Err(DecodeError::UnsupportedCommand(0xff)), parse_request_header(&encoded),);
     }
 
     #[test]

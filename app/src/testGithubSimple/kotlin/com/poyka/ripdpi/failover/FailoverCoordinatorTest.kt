@@ -756,6 +756,61 @@ class FailoverCoordinatorTest {
         }
 
     @Test
+    fun `XUDP-enabled Reality fails over through Hysteria to AWG`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
+            val awg =
+                AwgProfileEntity(
+                    id = "awg-after-xudp",
+                    name = "XUDP fallback",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = settings,
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = "reality-xudp",
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                            ),
+                            RelayProfileRecord(id = "hysteria-xudp", kind = RelayKindHysteria2, udpEnabled = true),
+                        ),
+                    awgProfiles = listOf(awg),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            val initial = coordinator.activeCandidate.value
+            check(initial is FailoverCandidate.Relay)
+            assertEquals(RelayKindVlessReality, initial.relayKind)
+
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+            val afterReality = coordinator.activeCandidate.value
+            check(afterReality is FailoverCandidate.Relay)
+            assertEquals(RelayKindHysteria2, afterReality.relayKind)
+
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(31_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+
+            assertTrue(coordinator.activeCandidate.value is FailoverCandidate.Awg)
+            assertEquals(2, controller.startCalls.size)
+            coordinator.stopObserving()
+        }
+
+    @Test
     fun `single AWG is a valid UDP fallback candidate`() =
         runTest {
             val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)

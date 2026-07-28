@@ -22,6 +22,7 @@ import com.poyka.ripdpi.services.InitialRelayRacePlan
 import com.poyka.ripdpi.services.InitialRelayRacePolicy
 import com.poyka.ripdpi.services.InitialRelayRaceResult
 import com.poyka.ripdpi.services.InitialRelayTransportClass
+import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
 import dagger.Module
@@ -137,55 +138,68 @@ internal class SimpleInitialRelayRacePolicy
                     seededMembers.firstOrNull { (profile, _) -> profile is ProxyProfile.Hysteria2 }
                 }
             val hysteria = hysteriaMember?.first as? ProxyProfile.Hysteria2
-            val reality = realityMember?.first as? ProxyProfile.VlessReality
-            if (hysteria == null || (!requirements.udpAssociate && reality == null)) {
-                publishDisabledSnapshot()
-                return null
-            }
-            val hysteriaProfileId = requireNotNull(hysteriaMember).second
-            val storedHysteria = relayProfileStore.load(hysteriaProfileId)
-            val hysteriaCredentials = relayCredentialStore.load(hysteriaProfileId)
-            val hysteriaPassword = hysteriaCredentials?.hysteriaPassword
-            val hysteriaSalamanderKey = hysteriaCredentials?.hysteriaSalamanderKey
-            if (
-                storedHysteria?.kind != RelayKindHysteria2 ||
-                relayTransportCapabilities(RelayKindHysteria2)?.satisfies(requirements) != true ||
-                (requirements.udpAssociate && !storedHysteria.udpEnabled) ||
-                hysteriaPassword.isNullOrBlank() ||
-                (!hysteria.obfsPassword.isNullOrBlank() && hysteriaSalamanderKey.isNullOrBlank())
-            ) {
-                publishDisabledSnapshot()
-                return null
-            }
-
-            val hysteriaCandidate =
-                InitialRelayCandidate(
-                    transportClass = InitialRelayTransportClass.UdpObfuscation,
-                    profileId = hysteriaProfileId,
-                    relayKind = RelayKindHysteria2,
-                )
-            val candidates =
-                if (requirements.udpAssociate) {
-                    listOf(hysteriaCandidate)
-                } else {
-                    val realityProfileId = requireNotNull(realityMember).second
-                    val storedReality = relayProfileStore.load(realityProfileId)
-                    if (
-                        storedReality?.kind != RelayKindVlessReality ||
-                        relayTransportCapabilities(RelayKindVlessReality)?.satisfies(requirements) != true
-                    ) {
-                        publishDisabledSnapshot()
-                        return null
-                    }
-                    listOf(
+            val realityCandidate =
+                realityMember?.let { (_, profileId) ->
+                    val stored = relayProfileStore.load(profileId)
+                    val compatible =
+                        stored?.kind == RelayKindVlessReality &&
+                            relayTransportCapabilities(RelayKindVlessReality)?.satisfies(requirements) == true &&
+                            (
+                                !requirements.udpAssociate ||
+                                    relayProfileSupportsUdpAssociation(
+                                        kindId = stored.kind,
+                                        udpEnabled = stored.udpEnabled,
+                                        vlessTransport = stored.vlessTransport,
+                                        vlessFlow = stored.vlessFlow,
+                                    )
+                            )
+                    if (compatible) {
                         InitialRelayCandidate(
                             transportClass = InitialRelayTransportClass.TlsMimicry,
-                            profileId = realityProfileId,
+                            profileId = profileId,
                             relayKind = RelayKindVlessReality,
-                        ),
-                        hysteriaCandidate,
-                    )
+                        )
+                    } else {
+                        null
+                    }
                 }
+            val hysteriaCandidate =
+                hysteriaMember?.let { (_, profileId) ->
+                    val stored = relayProfileStore.load(profileId)
+                    val credentials = relayCredentialStore.load(profileId)
+                    val compatible =
+                        hysteria != null &&
+                            stored?.kind == RelayKindHysteria2 &&
+                            relayTransportCapabilities(RelayKindHysteria2)?.satisfies(requirements) == true &&
+                            (
+                                !requirements.udpAssociate ||
+                                    relayProfileSupportsUdpAssociation(
+                                        kindId = stored.kind,
+                                        udpEnabled = stored.udpEnabled,
+                                        vlessTransport = stored.vlessTransport,
+                                        vlessFlow = stored.vlessFlow,
+                                    )
+                            ) &&
+                            !credentials?.hysteriaPassword.isNullOrBlank() &&
+                            (
+                                hysteria.obfsPassword.isNullOrBlank() ||
+                                    !credentials.hysteriaSalamanderKey.isNullOrBlank()
+                            )
+                    if (compatible) {
+                        InitialRelayCandidate(
+                            transportClass = InitialRelayTransportClass.UdpObfuscation,
+                            profileId = profileId,
+                            relayKind = RelayKindHysteria2,
+                        )
+                    } else {
+                        null
+                    }
+                }
+            val candidates = listOfNotNull(realityCandidate, hysteriaCandidate)
+            if (candidates.isEmpty() || (!requirements.udpAssociate && candidates.size != 2)) {
+                publishDisabledSnapshot()
+                return null
+            }
             val signature = candidateSignature(normalizedProbeUrl, requirements, candidates)
             val cacheKey = networkScopeKey?.takeIf(String::isNotBlank)?.let { cacheKey(it, signature) }
             val cachedWinner =

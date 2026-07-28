@@ -20,6 +20,7 @@ import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
 import dagger.Module
@@ -100,7 +101,7 @@ object SystemFailoverClock : FailoverClock {
  *
  * Priority is a natural number — lower value = higher priority. In TCP-only sessions, seeded
  * relay profiles retain bundle order inside a protocol family: REALITY endpoints, VLESS/XHTTP,
- * Hysteria2, then AWG. UDP sessions filter the list to Hysteria2, then AWG.
+ * Hysteria2, then AWG. UDP sessions retain XUDP-enabled REALITY endpoints, Hysteria2, then AWG.
  */
 sealed interface FailoverCandidate {
     val priority: Int
@@ -699,9 +700,9 @@ class FailoverCoordinator
         /**
          * Builds the ordered candidate list from what is actually persisted in the stores.
          *
-         * TCP-only priority order is VLESS+Reality, VLESS/XHTTP, Hysteria2, then AWG. When UDP
-         * ASSOCIATE is required, TCP-only relays are excluded and the order is Hysteria2, then
-         * AWG.
+         * Priority order is VLESS+Reality, VLESS/XHTTP, Hysteria2, then AWG. When UDP ASSOCIATE
+         * is required, the same ordering is filtered by each persisted profile's effective
+         * capability, so XUDP-enabled Reality precedes Hysteria2 while xHTTP remains excluded.
          *
          * A candidate is only added when its backing data exists. The list is sorted by
          * [FailoverCandidate.priority] so priority 0 is always index 0.
@@ -724,7 +725,15 @@ class FailoverCoordinator
                 .filter { profile ->
                     profile.kind in supportedRelayKinds &&
                         relayTransportCapabilities(profile.kind)?.satisfies(requirements) == true &&
-                        (!requirements.udpAssociate || profile.udpEnabled)
+                        (
+                            !requirements.udpAssociate ||
+                                relayProfileSupportsUdpAssociation(
+                                    kindId = profile.kind,
+                                    udpEnabled = profile.udpEnabled,
+                                    vlessTransport = profile.vlessTransport,
+                                    vlessFlow = profile.vlessFlow,
+                                )
+                        )
                 }.sortedWith(
                     compareBy(
                         { relayKindPriority.getValue(it.kind) },

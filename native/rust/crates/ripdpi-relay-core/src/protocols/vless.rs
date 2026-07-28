@@ -8,17 +8,19 @@ use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 pub(crate) struct VlessRealitySessionFactory {
     pub(crate) config: ripdpi_vless::config::VlessRealityConfig,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
+    pub(crate) udp_enabled: bool,
 }
 
 pub(crate) struct VlessRealitySession {
     pub(crate) config: ripdpi_vless::config::VlessRealityConfig,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) mux: Option<ripdpi_vless::VlessYamuxSession>,
+    pub(crate) udp_enabled: bool,
 }
 
 impl RelaySession for VlessRealitySession {
     type Stream = Box<dyn ripdpi_vless::AsyncIo>;
-    type Datagram = ();
+    type Datagram = ripdpi_vless::VlessXudpSession;
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
@@ -35,7 +37,10 @@ impl RelaySession for VlessRealitySession {
     }
 
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
-        Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS Reality relay does not support UDP ASSOCIATE"))
+        if !self.udp_enabled || self.config.flow == ripdpi_vless::addons::VlessFlow::None {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS Reality XUDP is disabled for this profile"));
+        }
+        ripdpi_vless::VlessRealityClient::connect_xudp(&self.config, self.outbound_bind_ip).await
     }
 }
 
@@ -44,7 +49,11 @@ impl RelaySessionFactory for VlessRealitySessionFactory {
     type Error = io::Error;
 
     fn capabilities(&self) -> RelayCapabilities {
-        RelayCapabilities { tcp: true, udp: false, reusable: self.config.mux.is_some() }
+        RelayCapabilities {
+            tcp: true,
+            udp: self.udp_enabled && self.config.flow != ripdpi_vless::addons::VlessFlow::None,
+            reusable: self.config.mux.is_some(),
+        }
     }
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
@@ -55,6 +64,6 @@ impl RelaySessionFactory for VlessRealitySessionFactory {
         } else {
             None
         };
-        Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip, mux }))
+        Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip, mux, udp_enabled: self.udp_enabled }))
     }
 }

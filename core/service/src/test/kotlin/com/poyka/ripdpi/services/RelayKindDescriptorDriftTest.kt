@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -156,6 +157,7 @@ class RelayKindDescriptorDriftTest {
             RelayKindShadowsocks,
             RelayKindTrojan,
             RelayKindTuicV5,
+            RelayKindVlessReality,
         ).forEach { kind ->
             validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
         }
@@ -163,10 +165,29 @@ class RelayKindDescriptorDriftTest {
 
     @Test
     fun `udp gate rejects udp for tcp-only kinds through the descriptor`() {
-        listOf(RelayKindVless, RelayKindVlessReality, RelayKindSnowflake, RelayKindTor, RelayKindOff).forEach { kind ->
+        listOf(RelayKindVless, RelayKindSnowflake, RelayKindTor, RelayKindOff).forEach { kind ->
             assertThrows(IllegalArgumentException::class.java) {
                 validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
             }
+        }
+    }
+
+    @Test
+    fun `vless reality udp gate rejects xhttp and flowless profiles`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            validateSharedRelayTransportFeatures(
+                RipDpiRelayConfig(
+                    kind = RelayKindVlessReality,
+                    udpEnabled = true,
+                    vlessTransport = RelayVlessTransportXhttp,
+                    vlessFlow = "",
+                ),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            validateSharedRelayTransportFeatures(
+                RipDpiRelayConfig(kind = RelayKindVlessReality, udpEnabled = true, vlessFlow = ""),
+            )
         }
     }
 

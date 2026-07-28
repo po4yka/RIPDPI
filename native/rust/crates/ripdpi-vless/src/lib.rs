@@ -21,6 +21,7 @@ pub(crate) mod reality_seal;
 pub mod scoped_handle;
 pub mod vision;
 pub mod wire;
+mod xudp;
 mod yamux_session;
 
 pub use mux::{MuxConfigError, VlessMuxConfig, VlessMuxProtocol};
@@ -37,6 +38,9 @@ use crate::config::VlessRealityConfig;
 use crate::reality::RealityTlsStream;
 use crate::vision::VisionStream;
 use crate::wire::ResponseHeaderStream;
+
+type VlessRealityStream = VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>;
+pub type VlessXudpSession = xudp::VlessXudpSession<VlessRealityStream>;
 
 /// Trait alias for an async bidirectional stream that is `Send`.
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -65,10 +69,7 @@ impl VlessRealityClient {
     }
 
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream`.
-    pub async fn connect(
-        config: &VlessRealityConfig,
-        target: &str,
-    ) -> io::Result<VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>> {
+    pub async fn connect(config: &VlessRealityConfig, target: &str) -> io::Result<VlessRealityStream> {
         Self::connect_with_optional_bind(config, None, target).await
     }
 
@@ -78,7 +79,7 @@ impl VlessRealityClient {
         config: &VlessRealityConfig,
         bind_ip: IpAddr,
         target: &str,
-    ) -> io::Result<VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>> {
+    ) -> io::Result<VlessRealityStream> {
         Self::connect_with_optional_bind(config, Some(bind_ip), target).await
     }
 
@@ -86,12 +87,28 @@ impl VlessRealityClient {
         config: &VlessRealityConfig,
         bind_ip: Option<IpAddr>,
         target: &str,
-    ) -> io::Result<VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>> {
+    ) -> io::Result<VlessRealityStream> {
         tracing::debug!("VLESS+Reality: connecting");
 
         let tcp = connect_tcp(config, bind_ip).await?;
         let tls = reality::connect_reality_tls(tcp, config).await?;
         Self::vless_handshake_and_wrap(tls, config, target).await
+    }
+
+    /// Open one Xray-compatible XUDP association over a dedicated protected
+    /// `TCP -> Reality -> VLESS Mux -> Vision` carrier.
+    ///
+    /// NOT cancel-safe: cancellation discards the in-progress TCP/TLS/VLESS
+    /// handshake and its carrier. Retrying always starts a fresh association.
+    pub async fn connect_xudp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<VlessXudpSession> {
+        if config.flow == crate::addons::VlessFlow::None {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS XUDP requires an XTLS Vision flow"));
+        }
+        tracing::debug!("VLESS+Reality: connecting XUDP carrier");
+        let tcp = connect_tcp(config, bind_ip).await?;
+        let tls = reality::connect_reality_tls(tcp, config).await?;
+        let carrier = Self::vless_handshake_and_wrap_command(tls, config, wire::VlessCommand::Mux, None).await?;
+        xudp::VlessXudpSession::new(carrier, config.flow == crate::addons::VlessFlow::VisionUdp443)
     }
 
     /// Perform `Reality TLS -> VLESS handshake` over an existing transport.
@@ -116,9 +133,23 @@ impl VlessRealityClient {
     /// Send the VLESS request and wrap the stream for lazy response-header
     /// validation plus the selected Vision flow.
     async fn vless_handshake_and_wrap<S>(
-        mut tls: S,
+        tls: S,
         config: &VlessRealityConfig,
         target: &str,
+    ) -> io::Result<VisionStream<ResponseHeaderStream<S>>>
+    where
+        S: AsyncIo + 'static,
+    {
+        Self::vless_handshake_and_wrap_command(tls, config, wire::VlessCommand::Tcp, Some(target)).await
+    }
+
+    /// NOT cancel-safe: cancellation may leave a partial request on `tls`,
+    /// which is consumed and dropped with this future rather than reused.
+    async fn vless_handshake_and_wrap_command<S>(
+        mut tls: S,
+        config: &VlessRealityConfig,
+        command: wire::VlessCommand,
+        target: Option<&str>,
     ) -> io::Result<VisionStream<ResponseHeaderStream<S>>>
     where
         S: AsyncIo + 'static,
@@ -127,7 +158,7 @@ impl VlessRealityClient {
         // profile's `flow` field so the engine can honor xray servers
         // that advertise `flow: ""` or `xtls-rprx-vision-udp443`. See
         // [`crate::addons::VlessFlow`] and audit finding C3.
-        let request = wire::encode_request(&config.uuid, config.flow.as_addons_bytes(), target)?;
+        let request = wire::encode_command_request(&config.uuid, config.flow.as_addons_bytes(), command, target)?;
         tls.write_all(&request).await?;
 
         // xray-core buffers its response header until the first outbound
@@ -190,7 +221,7 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
     let stream = socket
         .connect(address)
         .await
-        .map_err(|e| io::Error::new(e.kind(), format!("VLESS TCP connect to {address}: {e}")))?;
+        .map_err(|e| io::Error::new(e.kind(), format!("VLESS TCP connect failed: {e}")))?;
     stream.set_nodelay(true)?;
     Ok(stream)
 }

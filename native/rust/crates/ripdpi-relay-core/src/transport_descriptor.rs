@@ -132,7 +132,7 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
             kind_id: "vless_reality",
             label: "VLESS Reality",
             tcp: true,
-            udp: false,
+            udp: true,
             reusable: false,
             supports_outbound_bind_ip: true,
         },

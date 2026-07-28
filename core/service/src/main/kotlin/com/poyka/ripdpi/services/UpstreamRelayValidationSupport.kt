@@ -143,11 +143,16 @@ internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
     // RelayKindDescriptor table is the source of truth, mirroring the Rust
     // RelayTransportDescriptor `udp` flag. An unrecognised kind has no
     // descriptor row and is treated as UDP-incapable, as before.
-    require(!config.udpEnabled || relayKindDescriptor(config.kind)?.udp == true) {
-        "Relay UDP mode is only available for Hysteria2, AnyTLS, MASQUE, Shadowsocks, Trojan, and TUIC profiles"
-    }
-    require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
-        "xHTTP transport does not support UDP mode"
+    require(
+        !config.udpEnabled ||
+            relayProfileSupportsUdpAssociation(
+                kindId = config.kind,
+                udpEnabled = config.udpEnabled,
+                vlessTransport = config.vlessTransport,
+                vlessFlow = config.vlessFlow,
+            ),
+    ) {
+        "Relay UDP mode requires a UDP-capable kind and profile; VLESS Reality requires direct TCP with XTLS Vision"
     }
 }
 
@@ -161,7 +166,15 @@ internal fun validateRelayEgressRequirements(
             requirements.tcpConnect && capabilities?.tcpConnect != true -> "TCP CONNECT"
 
             requirements.udpAssociate &&
-                (capabilities?.udpAssociate != true || !config.udpEnabled) -> "UDP ASSOCIATE"
+                (
+                    capabilities?.udpAssociate != true ||
+                        !relayProfileSupportsUdpAssociation(
+                            kindId = config.kind,
+                            udpEnabled = config.udpEnabled,
+                            vlessTransport = config.vlessTransport,
+                            vlessFlow = config.vlessFlow,
+                        )
+                ) -> "UDP ASSOCIATE"
 
             else -> null
         }

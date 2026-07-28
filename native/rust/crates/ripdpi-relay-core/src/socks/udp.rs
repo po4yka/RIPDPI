@@ -86,7 +86,13 @@ where
                 }
                 associated_client = Some(source);
                 let (target, payload) = decode_udp_frame(&udp_buffer[..received])?;
-                telemetry.record_target(target.to_string());
+                // XUDP may carry DNS and arbitrary per-datagram destinations.
+                // Keep those endpoints out of the runtime telemetry surface;
+                // the backend kind and aggregate session counters remain enough
+                // to diagnose the transport without exposing user traffic.
+                if config.backend_kind != "vless_reality" {
+                    telemetry.record_target(target.to_string());
+                }
                 if let Err(error) = udp_session.send_to(&target, payload).await {
                     telemetry.record_handshake_error(error.to_string());
                     return Err(error);

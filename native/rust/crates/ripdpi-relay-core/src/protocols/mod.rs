@@ -18,5 +18,5 @@ pub(crate) use ripdpi_relay_tls_transports::{
 pub(crate) use shadowtls::classify_shadowtls_handshake_error;
 pub(crate) use tor::{TorBridgePtRelayConfig, TorPluggableTransportConfig, TorRelayBackend};
 pub(crate) use tuic::{TuicSession, TuicSessionFactory};
-pub(crate) use vless::VlessRealitySessionFactory;
+pub(crate) use vless::{VlessRealitySession, VlessRealitySessionFactory};
 pub(crate) use xhttp::{XhttpSessionFactory, XhttpSessionMode};

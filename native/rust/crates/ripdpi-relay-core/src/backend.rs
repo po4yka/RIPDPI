@@ -139,8 +139,8 @@ impl RelayBackend {
             Self::Trojan(backend) => backend.open_udp_session(RelayUdpSession::Trojan).await,
             Self::AnyTls(backend) => backend.open_udp_session(RelayUdpSession::AnyTls).await,
             Self::Shadowsocks(backend) => backend.open_udp_session(RelayUdpSession::Shadowsocks).await,
-            Self::VlessReality(_)
-            | Self::Mieru(_)
+            Self::VlessReality(backend) => backend.open_udp_session(RelayUdpSession::VlessReality).await,
+            Self::Mieru(_)
             | Self::Ssh(_)
             | Self::Xhttp(_)
             | Self::ChainRelay { .. }

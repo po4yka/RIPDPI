@@ -1457,6 +1457,39 @@ async fn relay_runtime_rejects_udp_without_backend_support() {
 }
 
 #[tokio::test]
+async fn relay_runtime_accepts_xudp_enabled_vless_reality_vision() {
+    let mut config = sample_config("vless_reality");
+    config.common.udp_enabled = true;
+    vless_config_mut(&mut config).reality_public_key = valid_reality_public_key();
+    let backend = build_backend(&config).await.expect("VLESS Reality backend");
+
+    assert!(backend.capabilities().udp, "Vision Reality profile should expose XUDP");
+    validate_runtime_config(&config, &backend).expect("XUDP-enabled Reality should validate");
+}
+
+#[tokio::test]
+async fn relay_runtime_rejects_xudp_for_flowless_reality_and_xhttp() {
+    let mut flowless = sample_config("vless_reality");
+    flowless.common.udp_enabled = true;
+    let flowless_config = vless_config_mut(&mut flowless);
+    flowless_config.reality_public_key = valid_reality_public_key();
+    flowless_config.vless_flow.clear();
+    let flowless_backend = build_backend(&flowless).await.expect("flowless Reality backend");
+    let flowless_error = validate_runtime_config(&flowless, &flowless_backend).expect_err("flowless XUDP must fail");
+    assert_eq!(flowless_error.kind(), io::ErrorKind::Unsupported);
+
+    let mut xhttp = sample_config("vless_reality");
+    xhttp.common.udp_enabled = true;
+    let xhttp_config = vless_config_mut(&mut xhttp);
+    xhttp_config.reality_public_key = valid_reality_public_key();
+    xhttp_config.vless_transport = "xhttp".to_string();
+    xhttp_config.vless_flow.clear();
+    let xhttp_backend = build_backend(&xhttp).await.expect("xHTTP backend");
+    let xhttp_error = validate_runtime_config(&xhttp, &xhttp_backend).expect_err("xHTTP UDP must fail");
+    assert_eq!(xhttp_error.kind(), io::ErrorKind::Unsupported);
+}
+
+#[tokio::test]
 async fn relay_runtime_allows_masque_udp_and_privacy_pass_provider() {
     let mut config = sample_config("masque");
     config.common.udp_enabled = true;

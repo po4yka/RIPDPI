@@ -26,6 +26,7 @@ pub(crate) enum RelayUdpSession {
     Trojan(MuxLease<TrojanUdpSession, TrojanSession>),
     AnyTls(MuxLease<AnyTlsUdpSession, AnyTlsSession>),
     Shadowsocks(MuxLease<ShadowsocksUdpSession, ShadowsocksSession>),
+    VlessReality(MuxLease<ripdpi_vless::VlessXudpSession, crate::protocols::VlessRealitySession>),
 }
 
 impl RelayUdpSession {
@@ -49,6 +50,7 @@ impl RelayUdpSession {
             Self::Trojan(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
             Self::AnyTls(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
             Self::Shadowsocks(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
+            Self::VlessReality(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
         }
     }
 
@@ -78,6 +80,10 @@ impl RelayUdpSession {
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
             Self::Shadowsocks(session) => {
+                let (address, payload) = session.get_mut().recv_from().await?;
+                Ok((RelayTargetAddr::from_authority(&address)?, payload))
+            }
+            Self::VlessReality(session) => {
                 let (address, payload) = session.get_mut().recv_from().await?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }

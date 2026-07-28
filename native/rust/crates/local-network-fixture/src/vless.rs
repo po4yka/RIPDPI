@@ -25,7 +25,9 @@
 
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use std::thread::{self, JoinHandle};
 
 use boring::pkey::{PKey, Private};
@@ -33,12 +35,17 @@ use boring::ssl::{SslAcceptor, SslMethod, SslVerifyMode};
 use boring::x509::X509;
 use futures::future::poll_fn;
 use rcgen::generate_simple_self_signed;
-use ripdpi_vless::wire::{ParseRequestError, encode_response, parse_request_header};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use ripdpi_vless::vision::{VisionStream, XtlsDirectRead, XtlsDirectWrite};
+use ripdpi_vless::wire::{ParseRequestError, VlessCommand, encode_response, parse_request_header};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::sync::oneshot;
 use tokio_boring::SslStream;
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+
+// Independent server-side oracle for the Xray limits pinned by the fixture.
+const MAX_XUDP_METADATA: usize = 512;
+const MAX_XUDP_PAYLOAD: usize = 8192 - 666;
 
 const SERVER_NAME: &str = "vless.fixture.test";
 
@@ -54,6 +61,7 @@ const MAX_REQUEST_HEADER: usize = 1024;
 pub struct VlessRealityLoopback {
     address: SocketAddr,
     target_address: SocketAddr,
+    udp_target_address: SocketAddr,
     certificate_pem: String,
     observed_target: Arc<Mutex<Option<String>>>,
     shutdown: Option<oneshot::Sender<()>>,
@@ -77,23 +85,28 @@ impl VlessRealityLoopback {
             runtime.block_on(async move {
                 let vless_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind vless fixture");
                 let echo_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind vless target echo");
+                let udp_echo = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind vless UDP target echo");
                 let vless_address = vless_listener.local_addr().expect("vless fixture local addr");
                 let target_address = echo_listener.local_addr().expect("vless echo local addr");
-                addr_tx.send((vless_address, target_address)).ok();
+                let udp_target_address = udp_echo.local_addr().expect("vless UDP echo local addr");
+                addr_tx.send((vless_address, target_address, udp_target_address)).ok();
                 let echo_task = tokio::spawn(serve_echo(echo_listener));
+                let udp_echo_task = tokio::spawn(serve_udp_echo(udp_echo));
                 tokio::select! {
                     _ = shutdown_rx => {}
                     _ = serve_vless(vless_listener, acceptor, observed_for_thread) => {}
                 }
                 echo_task.abort();
+                udp_echo_task.abort();
             });
         });
 
-        let (address, target_address) =
+        let (address, target_address, udp_target_address) =
             addr_rx.recv().map_err(|error| io::Error::other(format!("fixture failed to start: {error}")))?;
         Ok(Self {
             address,
             target_address,
+            udp_target_address,
             certificate_pem: tls.certificate_pem,
             observed_target,
             shutdown: Some(shutdown_tx),
@@ -109,6 +122,11 @@ impl VlessRealityLoopback {
     /// Port of the embedded TCP echo upstream (the exit hop's final target).
     pub fn target_port(&self) -> u16 {
         self.target_address.port()
+    }
+
+    /// Port of the embedded UDP echo upstream used by XUDP tests.
+    pub fn udp_target_port(&self) -> u16 {
+        self.udp_target_address.port()
     }
 
     /// The SNI / `server_name` a hop config should carry. Cover-cert only — the
@@ -173,6 +191,15 @@ async fn serve_echo(listener: TcpListener) {
     }
 }
 
+async fn serve_udp_echo(socket: UdpSocket) {
+    let mut payload = vec![0_u8; MAX_XUDP_PAYLOAD];
+    while let Ok((read, peer)) = socket.recv_from(&mut payload).await {
+        if socket.send_to(&payload[..read], peer).await.is_err() {
+            return;
+        }
+    }
+}
+
 async fn serve_vless(listener: TcpListener, acceptor: Arc<SslAcceptor>, observed_target: Arc<Mutex<Option<String>>>) {
     loop {
         let Ok((socket, _)) = listener.accept().await else {
@@ -217,20 +244,30 @@ async fn handle_connection(
 
     *observed_target.lock().expect("fixture observation") = Some(header.target.clone());
 
-    // 2. A VLESS mux carrier has a fixed reserved VLESS destination. It is
+    // 2. XUDP uses the VLESS Mux command without a destination in the VLESS
+    //    header. It is not the Sager/yamux carrier used for TCP streams.
+    if header.command == VlessCommand::Mux {
+        if !buf[header.consumed_len..].is_empty() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "XUDP frame arrived before VLESS response"));
+        }
+        tls.write_all(&encode_response(&[])?).await?;
+        return serve_xudp_carrier(VisionStream::new_vision(FixtureRealityTlsStream(tls), header.uuid)).await;
+    }
+
+    // 3. A Sager mux carrier has a fixed reserved VLESS destination. It is
     // acknowledged before the SagerNet sing-mux/yamux session is driven.
     if header.target == ripdpi_vless::mux::SING_MUX_DESTINATION {
         tls.write_all(&encode_response(&[])?).await?;
         return serve_yamux_carrier(tls, &buf[header.consumed_len..]).await;
     }
 
-    // 3. Connect to the proxy target FIRST; a failure here closes the
+    // 4. Connect to the proxy target FIRST; a failure here closes the
     //    connection without a VLESS response, so the client's `read_response`
     //    surfaces the second-hop failure as a recognizable handshake error
     //    rather than hanging.
     let mut upstream = TcpStream::connect(header.target.as_str()).await?;
 
-    // 4. Acknowledge with the VLESS response header, then splice. Any bytes
+    // 5. Acknowledge with the VLESS response header, then splice. Any bytes
     //    already buffered past the header (e.g. the next hop's ClientHello in a
     //    chained connect) are forwarded before the bidirectional copy.
     tls.write_all(&encode_response(&[])?).await?;
@@ -240,6 +277,171 @@ async fn handle_connection(
     }
     let _ = tokio::io::copy_bidirectional(&mut tls, &mut upstream).await;
     Ok(())
+}
+
+struct FixtureRealityTlsStream(SslStream<TcpStream>);
+
+impl AsyncRead for FixtureRealityTlsStream {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        buffer: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.0).poll_read(context, buffer)
+    }
+}
+
+impl AsyncWrite for FixtureRealityTlsStream {
+    fn poll_write(mut self: Pin<&mut Self>, context: &mut Context<'_>, buffer: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.0).poll_write(context, buffer)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.0).poll_flush(context)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.0).poll_shutdown(context)
+    }
+}
+
+impl XtlsDirectRead for FixtureRealityTlsStream {
+    fn poll_read_direct(
+        mut self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        buffer: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(self.0.get_mut()).poll_read(context, buffer)
+    }
+}
+
+impl XtlsDirectWrite for FixtureRealityTlsStream {
+    fn poll_write_direct(
+        mut self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        buffer: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(self.0.get_mut()).poll_write(context, buffer)
+    }
+
+    fn poll_flush_direct(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.0.get_mut()).poll_flush(context)
+    }
+
+    fn poll_shutdown_direct(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.0.get_mut()).poll_shutdown(context)
+    }
+}
+
+async fn serve_xudp_carrier(mut stream: VisionStream<FixtureRealityTlsStream>) -> io::Result<()> {
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+    let mut response = vec![0_u8; MAX_XUDP_PAYLOAD];
+    loop {
+        let target = read_xudp_datagram(&mut stream).await?;
+        socket.send_to(&target.payload, target.authority.as_str()).await?;
+        let (read, source) = socket.recv_from(&mut response).await?;
+        write_xudp_datagram(&mut stream, &source.to_string(), &response[..read]).await?;
+    }
+}
+
+struct FixtureXudpDatagram {
+    authority: String,
+    payload: Vec<u8>,
+}
+
+async fn read_xudp_datagram<S>(stream: &mut S) -> io::Result<FixtureXudpDatagram>
+where
+    S: tokio::io::AsyncRead + Unpin,
+{
+    let metadata_len = usize::from(stream.read_u16().await?);
+    if !(7..=MAX_XUDP_METADATA).contains(&metadata_len) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid XUDP metadata length"));
+    }
+    let mut metadata = vec![0_u8; metadata_len];
+    stream.read_exact(&mut metadata).await?;
+    if metadata[..2] != [0, 0] || !matches!(metadata[2], 1 | 2) || metadata[3] != 1 || metadata[4] != 2 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported XUDP metadata"));
+    }
+    let mut cursor = 5;
+    let authority = decode_xudp_target(&metadata, &mut cursor)?;
+    if metadata[2] == 1 {
+        cursor = cursor
+            .checked_add(8)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "XUDP metadata overflow"))?;
+    }
+    if cursor != metadata.len() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "unexpected XUDP metadata suffix"));
+    }
+    let payload_len = usize::from(stream.read_u16().await?);
+    if payload_len == 0 || payload_len > MAX_XUDP_PAYLOAD {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid XUDP payload length"));
+    }
+    let mut payload = vec![0_u8; payload_len];
+    stream.read_exact(&mut payload).await?;
+    Ok(FixtureXudpDatagram { authority, payload })
+}
+
+fn decode_xudp_target(metadata: &[u8], cursor: &mut usize) -> io::Result<String> {
+    let port = u16::from_be_bytes(read_xudp_array::<2>(metadata, cursor)?);
+    let address_type = read_xudp_array::<1>(metadata, cursor)?[0];
+    let host = match address_type {
+        1 => std::net::Ipv4Addr::from(read_xudp_array::<4>(metadata, cursor)?).to_string(),
+        2 => {
+            let length = usize::from(read_xudp_array::<1>(metadata, cursor)?[0]);
+            let bytes = metadata
+                .get(*cursor..cursor.saturating_add(length))
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "truncated XUDP domain"))?;
+            *cursor += length;
+            std::str::from_utf8(bytes)
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid XUDP domain"))?
+                .to_owned()
+        }
+        3 => std::net::Ipv6Addr::from(read_xudp_array::<16>(metadata, cursor)?).to_string(),
+        _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported XUDP address type")),
+    };
+    Ok(if host.contains(':') { format!("[{host}]:{port}") } else { format!("{host}:{port}") })
+}
+
+fn read_xudp_array<const N: usize>(metadata: &[u8], cursor: &mut usize) -> io::Result<[u8; N]> {
+    let end =
+        cursor.checked_add(N).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "XUDP metadata overflow"))?;
+    let bytes = metadata
+        .get(*cursor..end)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "truncated XUDP metadata"))?;
+    *cursor = end;
+    bytes.try_into().map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "truncated XUDP metadata"))
+}
+
+async fn write_xudp_datagram<S>(stream: &mut S, source: &str, payload: &[u8]) -> io::Result<()>
+where
+    S: tokio::io::AsyncWrite + Unpin,
+{
+    let source: SocketAddr =
+        source.parse().map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid XUDP fixture source"))?;
+    let mut metadata = vec![0_u8, 0, 0, 0, 2, 1, 2];
+    metadata.extend_from_slice(&source.port().to_be_bytes());
+    match source.ip() {
+        std::net::IpAddr::V4(address) => {
+            metadata.push(1);
+            metadata.extend_from_slice(&address.octets());
+        }
+        std::net::IpAddr::V6(address) => {
+            metadata.push(3);
+            metadata.extend_from_slice(&address.octets());
+        }
+    }
+    let metadata_len = u16::try_from(metadata.len() - 2)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "XUDP metadata too large"))?;
+    metadata[..2].copy_from_slice(&metadata_len.to_be_bytes());
+    stream.write_all(&metadata).await?;
+    stream
+        .write_u16(
+            u16::try_from(payload.len())
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "XUDP payload too large"))?,
+        )
+        .await?;
+    stream.write_all(payload).await?;
+    stream.flush().await
 }
 
 async fn serve_yamux_carrier(mut tls: SslStream<TcpStream>, leftover: &[u8]) -> io::Result<()> {
