@@ -1036,6 +1036,14 @@ internal fun scanReportWithStrategyProbe(
                             weightedSuccessScore = 10,
                             totalWeight = 10,
                             qualityScore = 10,
+                            domainOutcomes =
+                                listOf(
+                                    StrategyProbeDomainOutcome(
+                                        domain = "control.example",
+                                        succeeded = true,
+                                        isControl = true,
+                                    ),
+                                ),
                         ),
                     ),
                 quicCandidates =
@@ -1051,6 +1059,14 @@ internal fun scanReportWithStrategyProbe(
                             weightedSuccessScore = 10,
                             totalWeight = 10,
                             qualityScore = 10,
+                            domainOutcomes =
+                                listOf(
+                                    StrategyProbeDomainOutcome(
+                                        domain = "control.example",
+                                        succeeded = true,
+                                        isControl = true,
+                                    ),
+                                ),
                         ),
                     ),
                 recommendation =
