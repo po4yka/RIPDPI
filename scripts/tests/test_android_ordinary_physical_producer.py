@@ -145,7 +145,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertGreaterEqual(runner.count('"${adb[@]}" reboot'), 2)
         self.assertIn("wait_for_device_boot", runner)
         self.assertIn("State: RUNNING_UNLOCKED", runner)
-        self.assertIn("local timeout_seconds=1800", runner)
+        self.assertIn("local timeout_seconds=86400", runner)
         target_reboot = runner.index(
             '"${adb[@]}" reboot', runner.index("vpn_manager_rebooted=1")
         )
@@ -153,6 +153,9 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         instrumentation = runner.index("shell am instrument", target_reboot)
         self.assertLess(target_reboot, target_unlock)
         self.assertLess(target_unlock, instrumentation)
+        fixture_start = runner.index("remote_started=1")
+        self.assertLess(target_unlock, fixture_start)
+        self.assertLess(fixture_start, instrumentation)
 
     def test_dns_fixture_returns_empty_ipv4_only_and_exact_dual_stack_aaaa(
         self,
