@@ -706,6 +706,7 @@ data class StrategyDomainSeed(
 data class StrategyProbeDomainOutcome(
     val domain: String,
     val succeeded: Boolean,
+    val isControl: Boolean = false,
 )
 
 @Serializable

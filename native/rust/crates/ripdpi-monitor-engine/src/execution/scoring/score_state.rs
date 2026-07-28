@@ -17,12 +17,18 @@ pub struct CandidateScore {
     pub domain_successes: BTreeMap<String, usize>,
     /// Per-domain total probe count for autolearn seeding.
     pub domain_totals: BTreeMap<String, usize>,
+    /// Per-domain control classification copied from the exact scan target.
+    pub domain_controls: BTreeMap<String, bool>,
 }
 
 impl CandidateScore {
     pub fn add(&mut self, sample: ProbeSample) {
         if let Some(ref domain) = sample.domain {
             *self.domain_totals.entry(domain.clone()).or_default() += 1;
+            self.domain_controls
+                .entry(domain.clone())
+                .and_modify(|is_control| *is_control |= sample.is_control)
+                .or_insert(sample.is_control);
             if sample.success {
                 *self.domain_successes.entry(domain.clone()).or_default() += 1;
             }
@@ -56,7 +62,11 @@ impl CandidateScore {
             .iter()
             .map(|(domain, &total)| {
                 let successes = self.domain_successes.get(domain).copied().unwrap_or(0);
-                StrategyProbeDomainOutcome { domain: domain.clone(), succeeded: successes == total && total > 0 }
+                StrategyProbeDomainOutcome {
+                    domain: domain.clone(),
+                    succeeded: successes == total && total > 0,
+                    is_control: self.domain_controls.get(domain).copied().unwrap_or(false),
+                }
             })
             .collect()
     }
@@ -70,4 +80,6 @@ pub struct ProbeSample {
     pub latency_ms: u64,
     /// The domain this sample was probed against, for per-domain outcome tracking.
     pub domain: Option<String>,
+    /// Whether the exact planned domain target is a neutral control.
+    pub is_control: bool,
 }

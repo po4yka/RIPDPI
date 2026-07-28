@@ -258,9 +258,7 @@ internal object DiagnosticsScanWorkflow {
                     BackgroundAutoPersistRejectionReason.INSUFFICIENT_WINNER_COVERAGE
                 }
 
-                strategyProbe.pilotBucketLabels.none { label ->
-                    label.startsWith("control:", ignoreCase = true)
-                } -> {
+                !hasSuccessfulControlEvidence(strategyProbe) -> {
                     BackgroundAutoPersistRejectionReason.MISSING_CONTROL_EVIDENCE
                 }
 
@@ -475,6 +473,19 @@ internal object DiagnosticsScanWorkflow {
             )
         return (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
             candidate.id in recommendedCandidateIds && candidate.succeededTargets > 0
+        }
+    }
+
+    private fun hasSuccessfulControlEvidence(strategyProbe: StrategyProbeReport): Boolean {
+        val recommendedCandidateIds =
+            setOf(
+                strategyProbe.recommendation.tcpCandidateId,
+                strategyProbe.recommendation.quicCandidateId,
+            )
+        return (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
+            candidate.id in recommendedCandidateIds &&
+                !candidate.skipped &&
+                candidate.domainOutcomes.any { outcome -> outcome.isControl && outcome.succeeded }
         }
     }
 

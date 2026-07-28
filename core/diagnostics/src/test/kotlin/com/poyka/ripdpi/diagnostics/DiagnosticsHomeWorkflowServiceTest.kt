@@ -498,6 +498,14 @@ class DiagnosticsHomeWorkflowServiceTest {
                                 weightedSuccessScore = 75,
                                 totalWeight = 100,
                                 qualityScore = 80,
+                                domainOutcomes =
+                                    listOf(
+                                        StrategyProbeDomainOutcome(
+                                            domain = "control.example",
+                                            succeeded = true,
+                                            isControl = true,
+                                        ),
+                                    ),
                             ),
                         ),
                     quicCandidates =

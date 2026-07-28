@@ -23,6 +23,7 @@ pub(super) fn build_https_sample(
         success: matches!(outcome.as_str(), "tls_ok" | "tls_version_split"),
         weight: 2,
         domain: Some(target.host.clone()),
+        is_control: target.is_control,
         quality: match outcome.as_str() {
             "tls_ok" => 4,
             "tls_version_split" => 3,

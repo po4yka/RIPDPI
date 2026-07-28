@@ -598,6 +598,8 @@ internal fun scanReportWithStrategyProbe(
     tcpSucceededTargets: Int = 1,
     quicSucceededTargets: Int = 1,
     pilotBucketLabels: List<String> = listOf("control:cloudflare:ech=yes"),
+    tcpDomainOutcomes: List<StrategyProbeDomainOutcome> =
+        listOf(StrategyProbeDomainOutcome(domain = "control.example", succeeded = true, isControl = true)),
 ): ScanReport =
     ScanReport(
         sessionId = "session-1",
@@ -616,6 +618,7 @@ internal fun scanReportWithStrategyProbe(
                             label = "TCP candidate",
                             family = tcpFamily,
                             succeededTargets = tcpSucceededTargets,
+                            domainOutcomes = tcpDomainOutcomes,
                         ),
                     ),
                 quicCandidates =
@@ -648,6 +651,7 @@ private fun strategyCandidateSummary(
     label: String,
     family: String,
     succeededTargets: Int = 1,
+    domainOutcomes: List<StrategyProbeDomainOutcome> = emptyList(),
 ): StrategyProbeCandidateSummary =
     StrategyProbeCandidateSummary(
         id = id,
@@ -660,6 +664,7 @@ private fun strategyCandidateSummary(
         weightedSuccessScore = 10,
         totalWeight = 10,
         qualityScore = 10,
+        domainOutcomes = domainOutcomes,
     )
 
 internal fun validRecommendedProxyConfigJson(): String =

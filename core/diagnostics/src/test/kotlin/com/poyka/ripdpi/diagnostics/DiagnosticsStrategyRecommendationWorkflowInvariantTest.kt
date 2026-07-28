@@ -446,6 +446,14 @@ private fun invariantStrategyCandidateSummary(
         totalWeight = 10,
         qualityScore = 10,
         skipped = skipped,
+        domainOutcomes =
+            listOf(
+                StrategyProbeDomainOutcome(
+                    domain = "control.example",
+                    succeeded = true,
+                    isControl = true,
+                ),
+            ),
     )
 
 private fun invariantValidRecommendedProxyConfigJson(): String =

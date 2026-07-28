@@ -104,6 +104,7 @@ pub(super) fn run_quic_strategy_probe(
         success: matches!(outcome.as_str(), "quic_initial_response" | "quic_response"),
         weight: 2,
         domain: Some(target.host.clone()),
+        is_control: false,
         quality: match outcome.as_str() {
             "quic_initial_response" => 4,
             "quic_response" => 3,

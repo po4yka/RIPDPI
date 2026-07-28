@@ -28,14 +28,15 @@ class DiagnosticsBackgroundAutoPersistEligibilityTest {
     }
 
     @Test
-    fun `high confidence without control evidence is rejected`() {
+    fun `planned control label without successful control outcome is rejected`() {
         val report =
             scanReportWithStrategyProbe(
                 proxyConfigJson = validRecommendedProxyConfigJson(),
                 tcpFamily = "hostfake",
                 quicFamily = "quic_realistic_burst",
                 auditAssessment = scanWorkflowAuditAssessment(),
-                pilotBucketLabels = emptyList(),
+                pilotBucketLabels = listOf("control:neutral:success"),
+                tcpDomainOutcomes = emptyList(),
             )
 
         val eligibility =
@@ -48,6 +49,58 @@ class DiagnosticsBackgroundAutoPersistEligibilityTest {
                 DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_CONTROL_EVIDENCE,
             ),
             eligibility,
+        )
+    }
+
+    @Test
+    fun `failed control outcome is rejected`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment = scanWorkflowAuditAssessment(),
+                tcpDomainOutcomes =
+                    listOf(
+                        StrategyProbeDomainOutcome(
+                            domain = "control.example",
+                            succeeded = false,
+                            isControl = true,
+                        ),
+                    ),
+            )
+
+        assertRejected(
+            DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_CONTROL_EVIDENCE,
+            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
+                requireNotNull(report.strategyProbeReport),
+            ),
+        )
+    }
+
+    @Test
+    fun `successful non control outcome is rejected`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment = scanWorkflowAuditAssessment(),
+                tcpDomainOutcomes =
+                    listOf(
+                        StrategyProbeDomainOutcome(
+                            domain = "blocked.example",
+                            succeeded = true,
+                            isControl = false,
+                        ),
+                    ),
+            )
+
+        assertRejected(
+            DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_CONTROL_EVIDENCE,
+            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
+                requireNotNull(report.strategyProbeReport),
+            ),
         )
     }
 

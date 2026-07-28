@@ -119,6 +119,8 @@ pub struct StrategyDomainSeed {
 pub struct StrategyProbeDomainOutcome {
     pub domain: String,
     pub succeeded: bool,
+    #[serde(default)]
+    pub is_control: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

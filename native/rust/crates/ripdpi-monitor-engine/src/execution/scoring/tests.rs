@@ -69,6 +69,7 @@ fn candidate_score_add_accumulates_weighted_success() {
         quality: 4,
         latency_ms: 50,
         domain: None,
+        is_control: false,
     });
     score.add(ProbeSample {
         result: ProbeResult {
@@ -82,6 +83,7 @@ fn candidate_score_add_accumulates_weighted_success() {
         quality: 0,
         latency_ms: 100,
         domain: None,
+        is_control: false,
     });
 
     assert_eq!(score.succeeded_targets, 1);
@@ -108,9 +110,35 @@ fn candidate_score_full_success_when_all_targets_succeed() {
         quality: 3,
         latency_ms: 100,
         domain: None,
+        is_control: false,
     });
 
     assert!(score.is_full_success());
+}
+
+#[test]
+fn candidate_score_preserves_control_classification_in_domain_outcome() {
+    let mut score = CandidateScore::default();
+    score.add(ProbeSample {
+        result: ProbeResult {
+            probe_type: "test".to_string(),
+            target: "control.example".to_string(),
+            outcome: "ok".to_string(),
+            details: vec![],
+        },
+        success: true,
+        weight: 1,
+        quality: 3,
+        latency_ms: 25,
+        domain: Some("control.example".to_string()),
+        is_control: true,
+    });
+
+    let outcomes = score.domain_outcomes();
+    assert_eq!(outcomes.len(), 1);
+    assert_eq!(outcomes[0].domain, "control.example");
+    assert!(outcomes[0].succeeded);
+    assert!(outcomes[0].is_control);
 }
 
 #[test]
