@@ -380,6 +380,12 @@ class VpnServiceRuntimeCoordinatorTest {
                 env.bridgeFactory.bridge.startedConfigs[1]
                     .socks5Port,
             )
+            val replacementEstablishedAt = env.events.lastIndexOf("vpn:establish")
+            val oldTunnelRetiredAt = env.events.lastIndexOf("tunnel:stop")
+            assertTrue(
+                "handover must establish the replacement TUN before retiring the old carrier-bound runtime",
+                replacementEstablishedAt in 1..<oldTunnelRetiredAt,
+            )
             assertEquals(2, env.host.underlyingNetworkSyncs)
         }
 

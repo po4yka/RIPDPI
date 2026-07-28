@@ -86,7 +86,7 @@ internal class VpnRuntimeCompositionCoordinator(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
-    ) = restartComposedRuntime(session, resolution, appliedAt, "network_handover")
+    ) = restartAfterPolicyChange(session, resolution, appliedAt, "network_handover")
 
     suspend fun restartAfterPolicyChange(
         session: VpnRuntimeSession,
@@ -119,30 +119,6 @@ internal class VpnRuntimeCompositionCoordinator(
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
         )
         updateRuntimeDnsState(session, resolution)
-    }
-
-    private suspend fun restartComposedRuntime(
-        session: VpnRuntimeSession,
-        resolution: ConnectionPolicyResolution,
-        appliedAt: Long,
-        restartReason: String,
-    ) {
-        if (providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason) == true) {
-            return
-        }
-        session.currentDns = null
-        session.currentDnsSignature = null
-        session.currentNetworkScopeKey = null
-        session.encryptedDnsFailoverState.resetAll()
-        vpnTunnelRuntime.stop()
-        proxyRuntimeStack.stop(skipRuntimeShutdown = false)
-        applyActiveConnectionPolicy(
-            session,
-            resolution,
-            restartReason,
-            appliedAt,
-        )
-        startComposedRuntime(session, resolution)
     }
 
     fun updateRuntimeDnsState(
