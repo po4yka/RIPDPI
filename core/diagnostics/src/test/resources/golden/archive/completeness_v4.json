@@ -6,8 +6,6 @@
         "telemetrySamples": 120
     },
     "collectionWarnings": [
-        "snapshot_decode_failed_count:2",
-        "context_decode_failed_count:2",
         "git_commit_unavailable",
         "native_library_version_unavailable:libripdpi.so",
         "native_library_version_unavailable:libripdpi-tunnel.so"
