@@ -30,9 +30,10 @@ jobs:
 
       - name: Build exact-SHA arm64 evidence APKs
         run: |
+          device_abi=arm64-v8a
           ./gradlew --no-daemon :app:assembleGithubFullDebug \
             :app:assembleGithubFullDebugAndroidTest \
-            -Pripdpi.nativeAbisOverride=arm64-v8a \
+            -Pripdpi.nativeAbisOverride=$device_abi \
             -Pripdpi.enableAbiSplits=false
           mapfile -t apks < <(find app/build/outputs/apk -type f -name '*.apk' ! -name '*androidTest*')
           test "${#apks[@]}" -eq 1
