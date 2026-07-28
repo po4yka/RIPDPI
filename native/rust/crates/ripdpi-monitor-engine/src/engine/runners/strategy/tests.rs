@@ -423,7 +423,7 @@ fn ordered_follow_up_tcp_candidates_keep_normal_order_without_ech_promotable_bas
     let expected = interleave_candidate_families(
         reorder_tcp_candidates_for_failure(&candidates, Some(FailureClass::TlsAlert), true)
             .into_iter()
-            .skip(1)
+            .filter(|candidate| candidate.id != "baseline_plain_direct")
             .collect(),
         7,
     );
@@ -519,7 +519,7 @@ fn ordered_follow_up_tcp_candidates_version_split_never_overrides_transport_fail
     let expected = interleave_candidate_families(
         reorder_tcp_candidates_for_failure(&candidates, Some(FailureClass::TlsAlert), true)
             .into_iter()
-            .skip(1)
+            .filter(|candidate| candidate.id != "baseline_plain_direct")
             .collect(),
         7,
     );
@@ -544,7 +544,10 @@ fn ordered_follow_up_tcp_candidates_keep_normal_order_without_version_split() {
     // unbiased interleave. Guards against the promotion becoming always-on.
     let candidates = build_tcp_candidates(&ProxyUiConfig::default());
     let expected = interleave_candidate_families(
-        reorder_tcp_candidates_for_failure(&candidates, None, true).into_iter().skip(1).collect(),
+        reorder_tcp_candidates_for_failure(&candidates, None, true)
+            .into_iter()
+            .filter(|candidate| candidate.id != "baseline_plain_direct")
+            .collect(),
         7,
     );
 

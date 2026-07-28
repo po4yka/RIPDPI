@@ -74,7 +74,7 @@ class DirectModePolicySupportTest {
                     outcome = "tls_handshake_failed",
                     details =
                         listOf(
-                            ProbeDetail("candidateId", "baseline_current"),
+                            ProbeDetail("candidateId", "baseline_plain_direct"),
                             ProbeDetail("targetHost", "example.org"),
                         ),
                 ),
@@ -97,7 +97,7 @@ class DirectModePolicySupportTest {
         val report =
             reportWithResults(
                 strategyHttpsProbe(
-                    candidateId = "baseline_current",
+                    candidateId = "baseline_plain_direct",
                     outcome = "tls_handshake_failed",
                 ),
                 strategyHttpsProbe(
@@ -114,11 +114,11 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `baseline strategy success can establish transparent direct mode`() {
+    fun `plain direct baseline success can establish transparent direct mode`() {
         val report =
             reportWithResults(
                 strategyHttpsProbe(
-                    candidateId = "baseline_current",
+                    candidateId = "baseline_plain_direct",
                     outcome = "tls_ok",
                 ),
             )
@@ -131,6 +131,20 @@ class DirectModePolicySupportTest {
     }
 
     @Test
+    fun `current configured strategy success is not transparent direct evidence`() {
+        val report =
+            reportWithResults(
+                strategyHttpsProbe(
+                    candidateId = "baseline_current",
+                    outcome = "tls_ok",
+                ),
+            )
+
+        assertTrue(collectDirectPathCapabilityObservations(report).isEmpty())
+        assertNull(deriveDirectModeVerdict(report))
+    }
+
+    @Test
     fun `all failed quic authority returns honest no direct solution verdict`() {
         val report =
             reportWithResults(
@@ -140,7 +154,7 @@ class DirectModePolicySupportTest {
                     outcome = "quic_error",
                     details =
                         listOf(
-                            ProbeDetail("candidateId", "baseline_current"),
+                            ProbeDetail("candidateId", "baseline_plain_direct"),
                             ProbeDetail("targetHost", "example.org"),
                         ),
                 ),

@@ -69,9 +69,10 @@ pub(in crate::engine::runners::strategy) fn ordered_follow_up_tcp_candidates(
     probe_seed: u64,
     fake_ttl_available: bool,
 ) -> Vec<StrategyCandidateSpec> {
+    let baseline_id = tcp_specs.first().map(|candidate| candidate.id);
     let reordered = reorder_tcp_candidates_for_failure(tcp_specs, failure_class, fake_ttl_available)
         .into_iter()
-        .skip(1)
+        .filter(|candidate| Some(candidate.id) != baseline_id)
         .collect::<Vec<_>>();
 
     // Low-confidence L7 bias from split probing: when the HTTPS baseline saw a

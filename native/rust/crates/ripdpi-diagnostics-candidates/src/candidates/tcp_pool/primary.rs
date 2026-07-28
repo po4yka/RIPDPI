@@ -3,6 +3,7 @@ use crate::candidates::prelude::*;
 use super::allows_direct_tfo_candidates;
 
 pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+    let plain_direct = plain_direct_probe_config(base);
     let baseline = sanitize_current_probe_config(base);
     let parser_only = build_parser_only_candidate(base);
     let parser_unixeol = build_parser_unixeol_candidate(base);
@@ -19,6 +20,7 @@ pub fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSp
     let ipfrag_capable = supports_tcp_ip_fragmentation();
 
     let mut candidates = vec![
+        candidate_spec("baseline_plain_direct", "Plain direct", "baseline", plain_direct),
         candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
         candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host.clone()),
         candidate_spec_with_notes(

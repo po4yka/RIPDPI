@@ -41,9 +41,9 @@ pub(in crate::engine::runners::strategy) fn select_safe_or_baseline_candidate_in
 ) -> Option<usize> {
     select_promotable_candidate_index(candidates, specs, fake_ttl_available, tcp_fast_open_available, ipfrag_caps)
         .or_else(|| {
-            candidates
-                .iter()
-                .position(|candidate| matches!(candidate.id.as_str(), "baseline_current" | "quic_disabled"))
+            candidates.iter().position(|candidate| {
+                matches!(candidate.id.as_str(), "baseline_plain_direct" | "baseline_current" | "quic_disabled")
+            })
         })
         .or_else(|| {
             candidates.iter().position(|candidate| {

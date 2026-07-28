@@ -3,7 +3,7 @@ mod parser;
 mod quic;
 mod tcp;
 
-pub use base::{sanitize_current_probe_config, strategy_probe_base};
+pub use base::{plain_direct_probe_config, sanitize_current_probe_config, strategy_probe_base};
 pub use parser::{
     build_parser_host_extra_space_candidate, build_parser_host_tab_candidate, build_parser_hostpad_candidate,
     build_parser_methodeol_candidate, build_parser_methodspace_candidate, build_parser_only_candidate,

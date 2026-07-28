@@ -56,7 +56,8 @@ pub(super) fn candidate_passes_pilot_without_execution(
     spec: &StrategyCandidateSpec,
     capabilities: TcpCapabilities,
 ) -> bool {
-    spec.id == "baseline_current" || candidate_not_applicable(spec, capabilities).is_some()
+    matches!(spec.id, "baseline_plain_direct" | "baseline_current")
+        || candidate_not_applicable(spec, capabilities).is_some()
 }
 
 pub(super) fn candidate_not_applicable(

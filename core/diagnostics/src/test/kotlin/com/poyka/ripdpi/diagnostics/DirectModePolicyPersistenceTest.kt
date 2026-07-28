@@ -47,7 +47,7 @@ class DirectModePolicyPersistenceTest {
                                     outcome = "tls_ok",
                                     details =
                                         listOf(
-                                            ProbeDetail("candidateId", "baseline_current"),
+                                            ProbeDetail("candidateId", "baseline_plain_direct"),
                                             ProbeDetail("targetHost", "example.org"),
                                         ),
                                 ),
@@ -116,7 +116,7 @@ class DirectModePolicyPersistenceTest {
                                     outcome = "tls_handshake_failed",
                                     details =
                                         listOf(
-                                            ProbeDetail("candidateId", "baseline_current"),
+                                            ProbeDetail("candidateId", "baseline_plain_direct"),
                                             ProbeDetail("targetHost", "example.org"),
                                         ),
                                 ),
@@ -176,7 +176,7 @@ class DirectModePolicyPersistenceTest {
                                     outcome = "tls_handshake_failed",
                                     details =
                                         listOf(
-                                            ProbeDetail("candidateId", "baseline_current"),
+                                            ProbeDetail("candidateId", "baseline_plain_direct"),
                                             ProbeDetail("targetHost", "example.org"),
                                         ),
                                 ),

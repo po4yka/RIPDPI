@@ -588,16 +588,17 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
 }
 
 #[test]
-fn tcp_candidate_catalog_keeps_current_strategy_first() {
+fn tcp_candidate_catalog_keeps_plain_oracle_before_current_strategy() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
 
-    assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
+    assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_plain_direct"));
     assert!(candidates.len() >= 25, "expected at least 25 candidates, got {}", candidates.len());
-    assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("tlsrec_split_host"));
-    assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
+    assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("baseline_current"));
+    assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_split_host"));
+    assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
     // tlsrec_hostfake_random is in the primary pool; tlsrec_fake_rich is in
     // the opportunistic pool because it requires TtlWrite.
-    assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_hostfake_random"));
+    assert_eq!(candidates.get(4).map(|candidate| candidate.id), Some("tlsrec_hostfake_random"));
     // tlsrec_fake_rich is still present in the full set (opportunistic pool).
     assert!(candidates.iter().any(|c| c.id == "tlsrec_fake_rich"));
     assert!(candidates.iter().any(|candidate| candidate.id == "ech_split"));
@@ -900,7 +901,10 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
     assert_eq!(report.profile_id, "automatic-probing");
-    assert_eq!(strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()), Some("baseline_current"));
+    assert_eq!(
+        strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()),
+        Some("baseline_plain_direct")
+    );
     assert_strategy_probe_recommendation_matches_winners(&strategy_probe);
     assert!(strategy_probe.audit_assessment.is_none());
 }

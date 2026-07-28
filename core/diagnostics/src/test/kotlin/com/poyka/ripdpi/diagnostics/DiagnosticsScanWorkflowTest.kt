@@ -177,7 +177,7 @@ class DiagnosticsScanWorkflowTest {
                             outcome = "tls_ok",
                             details =
                                 listOf(
-                                    ProbeDetail("candidateId", "baseline_current"),
+                                    ProbeDetail("candidateId", "baseline_plain_direct"),
                                     ProbeDetail("targetHost", "example.org"),
                                 ),
                         ),

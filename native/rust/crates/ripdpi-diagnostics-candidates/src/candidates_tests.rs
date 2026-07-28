@@ -31,6 +31,59 @@ fn build_strategy_probe_suite_quick_v1_returns_candidates() {
 }
 
 #[test]
+fn tcp_candidate_catalog_starts_with_plain_then_current_baselines() {
+    let candidates = build_tcp_candidates(&minimal_ui_config());
+    let ids: Vec<&str> = candidates.iter().take(2).map(|candidate| candidate.id).collect();
+
+    assert_eq!(ids, vec!["baseline_plain_direct", "baseline_current"]);
+}
+
+#[test]
+fn plain_direct_baseline_strips_path_mutations_while_current_baseline_preserves_them() {
+    let mut base = minimal_ui_config();
+    base.protocols.desync_http = true;
+    base.protocols.desync_https = true;
+    base.parser_evasions.host_mixed_case = true;
+    base.adaptive_fallback.strategy_evolution = true;
+    base.quic.fake_profile = "realistic_initial".to_string();
+    base.hosts.mode = "include".to_string();
+    base.hosts.entries = Some("example.org".to_string());
+    base.upstream_relay.enabled = true;
+    base.upstream_relay.kind = "vless_reality".to_string();
+    base.warp.enabled = true;
+    base.ws_tunnel.enabled = true;
+    base.native_log_level = Some("debug".to_string());
+
+    let candidates = build_tcp_candidates(&base);
+    let plain = candidates.iter().find(|candidate| candidate.id == "baseline_plain_direct").expect("plain baseline");
+    let current = candidates.iter().find(|candidate| candidate.id == "baseline_current").expect("current baseline");
+    let defaults = ProxyUiConfig::default();
+
+    assert!(!plain.config.protocols.desync_http);
+    assert!(!plain.config.protocols.desync_https);
+    assert!(!plain.config.protocols.desync_udp);
+    assert!(plain.config.chains.tcp_steps.is_empty());
+    assert!(plain.config.chains.udp_steps.is_empty());
+    assert!(plain.config.chains.tcp_rotation.is_none());
+    assert_eq!(plain.config.parser_evasions, defaults.parser_evasions);
+    assert!(!plain.config.adaptive_fallback.enabled);
+    assert!(!plain.config.adaptive_fallback.strategy_evolution);
+    assert_eq!(plain.config.quic.fake_profile, "disabled");
+    assert_eq!(plain.config.hosts, defaults.hosts);
+    assert_eq!(plain.config.upstream_relay, defaults.upstream_relay);
+    assert_eq!(plain.config.warp, defaults.warp);
+    assert_eq!(plain.config.ws_tunnel, defaults.ws_tunnel);
+    assert_eq!(plain.config.destination_routing, defaults.destination_routing);
+    assert_eq!(plain.config.native_log_level, base.native_log_level);
+
+    assert_eq!(current.config.chains.tcp_steps, base.chains.tcp_steps);
+    assert!(current.config.parser_evasions.host_mixed_case);
+    assert!(current.config.upstream_relay.enabled);
+    assert!(current.config.warp.enabled);
+    assert!(current.config.ws_tunnel.enabled);
+}
+
+#[test]
 fn build_strategy_probe_suite_full_matrix_has_extra_candidates() {
     let base = minimal_ui_config();
     let quick = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");
