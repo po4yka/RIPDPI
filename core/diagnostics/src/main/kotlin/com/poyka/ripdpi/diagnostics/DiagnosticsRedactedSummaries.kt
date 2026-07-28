@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -12,6 +13,8 @@ internal data class RedactedNetworkSummary(
     val localAddresses: String,
     val networkValidated: Boolean,
     val captivePortalDetected: Boolean,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val pathValidation: NetworkPathValidationEvidence? = null,
     val wifiDetails: RedactedWifiSummary? = null,
     val cellularDetails: RedactedCellularSummary? = null,
 )
@@ -100,6 +103,7 @@ internal fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
         localAddresses = if (localAddresses.isEmpty()) "unknown" else "redacted(${localAddresses.size})",
         networkValidated = networkValidated,
         captivePortalDetected = captivePortalDetected,
+        pathValidation = pathValidation,
         wifiDetails =
             wifiDetails?.let {
                 RedactedWifiSummary(

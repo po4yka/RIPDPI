@@ -36,6 +36,42 @@ interface NetworkMetadataProvider {
     suspend fun captureSnapshot(includePublicIp: Boolean = false): NetworkSnapshotModel
 }
 
+internal data class NetworkPathCapabilities(
+    val transport: String,
+    val isVpn: Boolean,
+    val isNotVpn: Boolean,
+    val hasInternet: Boolean,
+    val validated: Boolean,
+    val captivePortal: Boolean,
+)
+
+internal fun resolvePathValidationEvidence(
+    permissionAvailable: Boolean,
+    networks: List<NetworkPathCapabilities>,
+): NetworkPathValidationEvidence {
+    if (!permissionAvailable) {
+        return NetworkPathValidationEvidence(captureStatus = "permission_unavailable")
+    }
+
+    val underlay = networks.filter { it.isNotVpn }.maxWithOrNull(pathEvidenceComparator)
+    val vpn = networks.filter { it.isVpn }.maxWithOrNull(pathEvidenceComparator)
+    return NetworkPathValidationEvidence(
+        captureStatus = "captured",
+        underlayPresent = underlay != null,
+        underlayTransport = underlay?.transport,
+        underlayInternet = underlay?.hasInternet,
+        underlayValidated = underlay?.validated,
+        underlayCaptivePortal = underlay?.captivePortal,
+        vpnPresent = vpn != null,
+        vpnInternet = vpn?.hasInternet,
+        vpnValidated = vpn?.validated,
+        vpnCaptivePortal = vpn?.captivePortal,
+    )
+}
+
+private val pathEvidenceComparator =
+    compareBy<NetworkPathCapabilities>({ it.validated }, { it.hasInternet }, { !it.captivePortal }, { it.transport })
+
 data class PublicIpInfo(
     val ip: String,
     val asn: String?,
@@ -166,10 +202,16 @@ class AndroidNetworkMetadataProvider
 
         @SuppressLint("MissingPermission")
         override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel {
+            val hasNetworkPermission = hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)
             val network = activeNetworkOrNull()
             val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
             val linkProperties = network?.let(connectivityManager::getLinkProperties)
             val publicIpInfo = if (includePublicIp) publicIpInfoResolver.resolve() else null
+            val pathValidation =
+                resolvePathValidationEvidence(
+                    permissionAvailable = hasNetworkPermission,
+                    networks = if (hasNetworkPermission) captureNetworkPaths() else emptyList(),
+                )
 
             return NetworkSnapshotModel(
                 transport = resolveTransport(capabilities),
@@ -186,9 +228,26 @@ class AndroidNetworkMetadataProvider
                 systemPrivateDnsStatus = systemPrivateDnsStatusProvider.detect(linkProperties).wireValue,
                 wifiDetails = resolveWifiDetails(capabilities),
                 cellularDetails = resolveCellularDetails(capabilities),
+                pathValidation = pathValidation,
                 capturedAt = System.currentTimeMillis(),
             )
         }
+
+        @SuppressLint("MissingPermission")
+        private fun captureNetworkPaths(): List<NetworkPathCapabilities> =
+            connectivityManager.allNetworks.mapNotNull { observedNetwork ->
+                connectivityManager.getNetworkCapabilities(observedNetwork)?.let(::toPathCapabilities)
+            }
+
+        private fun toPathCapabilities(capabilities: NetworkCapabilities) =
+            NetworkPathCapabilities(
+                transport = resolveTransport(capabilities),
+                isVpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+                isNotVpn = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN),
+                hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+            )
 
         private fun resolveTransport(capabilities: NetworkCapabilities?): String =
             when {
