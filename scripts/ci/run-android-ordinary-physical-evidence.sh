@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
-    echo "Usage: $0 --device SERIAL --fixture-ssh USER@TAILSCALE_IP --fixture-ssh-port PORT --fixture-ipv4 IP --fixture-ipv6 IP --output-dir ABSOLUTE_DIR" >&2
+    echo "Usage: $0 --device SERIAL --fixture-ssh USER@HOST --fixture-ssh-port PORT --fixture-ipv4 IP --fixture-ipv6 IP --output-dir ABSOLUTE_DIR [--fixture-tailscale-proxy --fixture-host-key-alias HOST]" >&2
 }
 
 device=""
@@ -13,6 +13,8 @@ fixture_ssh_port=""
 fixture_ipv4=""
 fixture_ipv6=""
 output_dir=""
+fixture_tailscale_proxy=0
+fixture_host_key_alias=""
 while (($#)); do
     case "$1" in
         --device) device="$2"; shift 2 ;;
@@ -21,11 +23,22 @@ while (($#)); do
         --fixture-ipv4) fixture_ipv4="$2"; shift 2 ;;
         --fixture-ipv6) fixture_ipv6="$2"; shift 2 ;;
         --output-dir) output_dir="$2"; shift 2 ;;
+        --fixture-tailscale-proxy) fixture_tailscale_proxy=1; shift ;;
+        --fixture-host-key-alias) fixture_host_key_alias="$2"; shift 2 ;;
         *) usage; exit 2 ;;
     esac
 done
 if [[ -z "$device" || -z "$fixture_ssh" || -z "$fixture_ssh_port" || -z "$fixture_ipv4" || -z "$fixture_ipv6" || "$output_dir" != /* ]]; then
     usage
+    exit 2
+fi
+if ((fixture_tailscale_proxy)); then
+    if [[ ! "$fixture_host_key_alias" =~ ^[A-Za-z0-9.:-]+$ ]]; then
+        echo "Tailscale proxy mode requires a safe pinned host-key alias." >&2
+        exit 2
+    fi
+elif [[ -n "$fixture_host_key_alias" ]]; then
+    echo "A host-key alias is only valid with Tailscale proxy mode." >&2
     exit 2
 fi
 
@@ -44,8 +57,21 @@ case "$output_dir/" in
 esac
 
 adb=(adb -s "$device")
-ssh_remote=(ssh -p "$fixture_ssh_port" -o BatchMode=yes -o ConnectTimeout=10 "$fixture_ssh")
-scp_remote=(scp -P "$fixture_ssh_port" -o BatchMode=yes -o ConnectTimeout=10)
+ssh_options=(-o BatchMode=yes -o ConnectTimeout=10)
+if ((fixture_tailscale_proxy)); then
+    tailscale_path="$(command -v tailscale || true)"
+    if [[ -z "$tailscale_path" ]]; then
+        echo "Tailscale proxy mode requires the tailscale CLI." >&2
+        exit 2
+    fi
+    ssh_options+=(
+        -o "ProxyCommand=$tailscale_path nc %h %p"
+        -o "HostKeyAlias=$fixture_host_key_alias"
+        -o StrictHostKeyChecking=yes
+    )
+fi
+ssh_remote=(ssh -p "$fixture_ssh_port" "${ssh_options[@]}" "$fixture_ssh")
+scp_remote=(scp -P "$fixture_ssh_port" "${ssh_options[@]}")
 marker_port=39001
 dns_port=39003
 tcp_echo_port=46001
