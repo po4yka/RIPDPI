@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -111,9 +112,10 @@ class RuntimeHistoryMonitorPersistenceTest {
 
             val finalEvent =
                 stores.nativeEventsState.value.single { event ->
-                    event.message == "state=outbound_only mode=vpn generation=1 final=true"
+                    event.message.startsWith("state=outbound_only mode=vpn generation=1 final=true")
                 }
             assertEquals(connectionSessionId, finalEvent.connectionSessionId)
+            assertTrue(finalEvent.message.endsWith("event_kind=data_plane_final"))
             monitorScope.cancel()
         }
 
@@ -156,6 +158,41 @@ class RuntimeHistoryMonitorPersistenceTest {
                 RuntimeRootCauseVerdict.VPN_PATH_LOSS,
                 assessment.verdict,
             )
+            monitorScope.cancel()
+        }
+
+    @Test
+    fun `terminal assessment records successful network transition seal`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitorScope = monitorScope()
+            var flushCalls = 0
+            val monitor =
+                createMonitor(
+                    stores = stores,
+                    serviceStateStore = serviceStateStore,
+                    scope = monitorScope,
+                    networkTransitionFlush = {
+                        flushCalls += 1
+                        true
+                    },
+                )
+
+            monitor.start()
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertEquals(1, flushCalls)
+            assertTrue(assessment.terminalEvidenceSealed)
             monitorScope.cancel()
         }
 
@@ -211,6 +248,46 @@ class RuntimeHistoryMonitorPersistenceTest {
 
             assertTrue(failed is IllegalStateException)
             assertEquals(1, rootCauseAssessments(stores).size)
+        }
+
+    @Test
+    fun `persistence replaces spoofed event kind only from the allowlisted field`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+            val telemetry =
+                ServiceTelemetrySnapshot(
+                    proxyTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "proxy",
+                            nativeEvents =
+                                listOf(
+                                    NativeRuntimeEvent(
+                                        source = "service",
+                                        level = "info",
+                                        message =
+                                            "state=outbound_only mode=vpn generation=1 final=true " +
+                                                "event_kind=data_plane_final",
+                                        createdAt = 1L,
+                                        kind = "native_warning",
+                                        subsystem = "data_plane",
+                                    ),
+                                ),
+                        ),
+                    updatedAt = 1L,
+                )
+
+            persister.persistRuntimeEvents(telemetry, connectionSessionId = "conn-a")
+            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L)
+
+            val persistedEvidence = stores.nativeEventsState.value.single { it.source == "service" }
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertFalse(persistedEvidence.message.contains("event_kind="))
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         }
 
     @Test
@@ -469,6 +546,7 @@ class RuntimeHistoryMonitorPersistenceTest {
         serviceStateStore: DefaultServiceStateStore,
         scope: CoroutineScope,
         deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
+        networkTransitionFlush: (suspend () -> Boolean)? = null,
     ): RuntimeHistoryStartup =
         createRuntimeHistoryMonitor(
             appSettingsRepository = FakeAppSettingsRepository(),
@@ -477,6 +555,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
             serviceStateStore = serviceStateStore,
             deviceRuntimeEvidenceStore = deviceRuntimeEvidenceStore,
+            networkTransitionFlush = networkTransitionFlush,
             scope = scope,
         )
 
@@ -559,7 +638,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             connectionSessionId = connectionSessionId,
             source = "service",
             level = "info",
-            message = "state=outbound_only mode=vpn generation=1 final=true",
+            message = "state=outbound_only mode=vpn generation=1 final=true event_kind=data_plane_final",
             createdAt = createdAt,
             subsystem = "data_plane",
         )

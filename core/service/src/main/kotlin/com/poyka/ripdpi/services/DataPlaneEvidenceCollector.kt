@@ -7,8 +7,26 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicReference
 
 private const val DataPlaneEventCap = 16
+
+internal suspend fun <T> captureFinalDataPlaneEvidence(
+    activeCollector: AtomicReference<DataPlaneEvidenceCollector?>,
+    capture: suspend (DataPlaneEvidenceCollector) -> T,
+    publish: suspend (T) -> Unit,
+) {
+    val collector = activeCollector.get() ?: return
+    val finalEvidence = capture(collector)
+    if (!activeCollector.compareAndSet(collector, null)) return
+    var published = false
+    try {
+        publish(finalEvidence)
+        published = true
+    } finally {
+        if (!published) activeCollector.compareAndSet(null, collector)
+    }
+}
 
 /**
  * Correlates privacy-safe cumulative forwarding counters on the existing telemetry loop.
@@ -35,8 +53,9 @@ internal class DataPlaneEvidenceCollector(
     suspend fun finalizeAndEnrich(snapshot: VpnTelemetrySnapshot): VpnTelemetrySnapshot =
         pollMutex.withLock {
             if (finalized) return@withLock replayOnto(snapshot)
+            val finalizedSnapshot = pollAndEnrich(snapshot, finalCapture = true)
             finalized = true
-            pollAndEnrich(snapshot, finalCapture = true)
+            finalizedSnapshot
         }
 
     private suspend fun pollAndEnrich(

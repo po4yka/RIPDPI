@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.displayMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -42,11 +43,12 @@ class RuntimeSessionCoordinator
         private val scope: CoroutineScope,
     ) {
         private val stateMutex = Mutex()
+        private val networkTransitionSessionGate = NetworkTransitionSessionGate()
 
         private var activeUsageSession: BypassUsageSessionEntity? = null
 
         @Volatile
-        private var callbackConnectionSessionId: String? = null
+        private var networkTransitionFlush: (suspend () -> Boolean)? = null
         private var samplingJob: Job? = null
         private var reconnectInProgress = false
         private var lastRecordedNetworkHandoverState: String? = null
@@ -126,7 +128,12 @@ class RuntimeSessionCoordinator
             artifactPersister.persistNetworkTransition(event, event.connectionSessionId)
         }
 
-        internal fun currentConnectionSessionIdForNetworkTransition(): String? = callbackConnectionSessionId
+        internal fun captureNetworkTransition(enqueue: (String) -> Boolean): Boolean? =
+            networkTransitionSessionGate.capture(enqueue)
+
+        internal fun registerNetworkTransitionFlush(flush: suspend () -> Boolean) {
+            networkTransitionFlush = flush
+        }
 
         suspend fun handleFailure(
             sender: Sender,
@@ -187,6 +194,7 @@ class RuntimeSessionCoordinator
                 artifactPersister.persistTerminalRootCauseAssessment(
                     connectionSessionId = connectionSessionId,
                     createdAt = timestamp,
+                    terminalEvidenceSealed = false,
                 )
             }
         }
@@ -270,7 +278,7 @@ class RuntimeSessionCoordinator
                     seed = seed,
                 )
             activeUsageSession = session
-            callbackConnectionSessionId = session.id
+            networkTransitionSessionGate.activate(session.id)
             lastRecordedNetworkHandoverState = telemetry.networkHandoverState?.takeIf(String::isNotBlank)
             bypassUsageHistoryStore.upsertBypassUsageSession(session)
             val updatedSession =
@@ -344,37 +352,55 @@ class RuntimeSessionCoordinator
 
         private suspend fun finalizeActiveUsageSession(telemetry: ServiceTelemetrySnapshot) {
             val current = activeUsageSession ?: return
+            networkTransitionSessionGate.deactivate()
             val finalizedAt = maxOf(System.currentTimeMillis(), telemetry.updatedAt)
-            artifactPersister.persistRuntimeEvents(
-                serviceTelemetry = telemetry,
-                connectionSessionId = current.id,
-            )
-            if (current.failureMessage.isNullOrBlank()) {
-                artifactPersister.persistTerminalTelemetrySample(
+            var finalized = false
+            try {
+                val terminalEvidenceSealed = sealNetworkTransitions()
+                artifactPersister.persistRuntimeEvents(
+                    serviceTelemetry = telemetry,
                     connectionSessionId = current.id,
-                    telemetry = telemetry,
+                )
+                if (current.failureMessage.isNullOrBlank()) {
+                    artifactPersister.persistTerminalTelemetrySample(
+                        connectionSessionId = current.id,
+                        telemetry = telemetry,
+                        createdAt = finalizedAt,
+                        networkTypeFallback = current.networkType,
+                        publicIpFallback = current.publicIp,
+                        connectionState = "Stopped",
+                    )
+                }
+                val finishedSession =
+                    RuntimeUsageSessionBuilder.finalizeSession(
+                        current = current,
+                        telemetry = telemetry,
+                        finalizedAt = finalizedAt,
+                    )
+                rememberedPolicySessionTracker.finalize(finishedSession, finalizedAt)
+                bypassUsageHistoryStore.upsertBypassUsageSession(finishedSession)
+                artifactPersister.persistTerminalRootCauseAssessment(
+                    connectionSessionId = current.id,
                     createdAt = finalizedAt,
-                    networkTypeFallback = current.networkType,
-                    publicIpFallback = current.publicIp,
-                    connectionState = "Stopped",
+                    terminalEvidenceSealed = terminalEvidenceSealed,
                 )
+                activeUsageSession = null
+                lastRecordedNetworkHandoverState = null
+                rememberedPolicySessionTracker.clear()
+                finalized = true
+            } finally {
+                if (!finalized) {
+                    networkTransitionSessionGate.activate(current.id)
+                }
             }
-            artifactPersister.persistTerminalRootCauseAssessment(
-                connectionSessionId = current.id,
-                createdAt = finalizedAt,
-            )
-            val finishedSession =
-                RuntimeUsageSessionBuilder.finalizeSession(
-                    current = current,
-                    telemetry = telemetry,
-                    finalizedAt = finalizedAt,
-                )
-            rememberedPolicySessionTracker.finalize(finishedSession, finalizedAt)
-            bypassUsageHistoryStore.upsertBypassUsageSession(finishedSession)
-            activeUsageSession = null
-            callbackConnectionSessionId = null
-            lastRecordedNetworkHandoverState = null
-            rememberedPolicySessionTracker.clear()
+        }
+
+        private suspend fun sealNetworkTransitions(): Boolean {
+            val result = runCatching { networkTransitionFlush?.invoke() ?: false }
+            val failure = result.exceptionOrNull() ?: return result.getOrThrow()
+            if (failure is CancellationException) throw failure
+            if (failure is Exception) return false
+            throw failure
         }
 
         private suspend fun persistSample(connectionSessionId: String) {

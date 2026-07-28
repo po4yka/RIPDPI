@@ -51,12 +51,12 @@ internal class ProxyTelemetryCoordinator(
         }
     }
 
-    suspend fun captureFinalTelemetry() {
-        val evidenceCollector = activeEvidenceCollector.getAndSet(null) ?: return
-        val telemetry = pollCurrentTelemetry(evidenceCollector, finalCapture = true)
-        if (activeEvidenceCollector.get() != null) return
-        reportTelemetry(telemetry)
-    }
+    suspend fun captureFinalTelemetry() =
+        captureFinalDataPlaneEvidence(
+            activeCollector = activeEvidenceCollector,
+            capture = { evidenceCollector -> pollCurrentTelemetry(evidenceCollector, finalCapture = true) },
+            publish = ::reportTelemetry,
+        )
 
     private fun newEvidenceCollector(): DataPlaneEvidenceCollector =
         DataPlaneEvidenceCollector(

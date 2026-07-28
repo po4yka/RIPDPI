@@ -104,12 +104,12 @@ internal class VpnTelemetryCoordinator(
         protectFailureWatcher.stop()
     }
 
-    suspend fun captureFinalTelemetry() {
-        val evidenceCollector = activeEvidenceCollector.getAndSet(null) ?: return
-        val telemetry = pollCurrentTelemetry(evidenceCollector, finalCapture = true)
-        if (activeEvidenceCollector.get() != null) return
-        dependencies.telemetryReporter.report(telemetry, state)
-    }
+    suspend fun captureFinalTelemetry() =
+        captureFinalDataPlaneEvidence(
+            activeCollector = activeEvidenceCollector,
+            capture = { evidenceCollector -> pollCurrentTelemetry(evidenceCollector, finalCapture = true) },
+            publish = { telemetry -> dependencies.telemetryReporter.report(telemetry, state) },
+        )
 
     private fun newEvidenceCollector(): DataPlaneEvidenceCollector =
         DataPlaneEvidenceCollector(

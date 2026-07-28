@@ -9,40 +9,7 @@ import org.junit.Test
 
 class RuntimeRootCauseAssessmentTest {
     @Test
-    fun `cross family underlay and data plane roots are inconclusive`() {
-        val assessment =
-            RuntimeRootCauseClassifier.assess(
-                connectionSessionId = "conn-a",
-                events =
-                    listOf(
-                        event(
-                            connectionSessionId = "conn-a",
-                            subsystem = "data_plane",
-                            message = "state=outbound_only mode=vpn generation=1 final=true host=blocked.example",
-                            createdAt = 10L,
-                        ),
-                        event(
-                            connectionSessionId = "conn-a",
-                            subsystem = "network_transition",
-                            source = "android_network_callback",
-                            message =
-                                "kind=capabilities_changed;path=non_vpn;generation=1;" +
-                                    "internet=present;validated=absent",
-                            createdAt = 11L,
-                        ),
-                    ),
-            )
-
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
-        assertEquals(
-            listOf("data_plane_outbound_no_return", "network_transition_underlay_lost"),
-            assessment.contradictoryCategories,
-        )
-        assertTrue(assessment.evidenceRefs.any { it.category == "network_transition_underlay_lost" })
-    }
-
-    @Test
-    fun `conflicting typed roots are inconclusive`() {
+    fun `dns and relay text stay fail closed without producer event kinds`() {
         val assessment =
             RuntimeRootCauseClassifier.assess(
                 connectionSessionId = "conn-a",
@@ -67,7 +34,7 @@ class RuntimeRootCauseAssessmentTest {
 
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         assertEquals(RuntimeRootCauseConfidence.LOW, assessment.confidence)
-        assertEquals(listOf("dns_failure", "relay_stall"), assessment.contradictoryCategories)
+        assertTrue(assessment.evidenceRefs.isEmpty())
     }
 
     @Test
@@ -88,92 +55,6 @@ class RuntimeRootCauseAssessmentTest {
 
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         assertEquals(0, assessment.evidenceEventCount)
-        assertTrue(assessment.evidenceRefs.isEmpty())
-    }
-
-    @Test
-    fun `underlay lost requires bounded non vpn path generation`() {
-        val assessment =
-            RuntimeRootCauseClassifier.assess(
-                connectionSessionId = "conn-a",
-                events =
-                    listOf(
-                        event(
-                            connectionSessionId = "conn-a",
-                            subsystem = "network_transition",
-                            source = "android_network_callback",
-                            message = "kind=lost;sequence=2",
-                            createdAt = 1L,
-                        ),
-                    ),
-            )
-
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
-        assertTrue(assessment.evidenceRefs.isEmpty())
-    }
-
-    @Test
-    fun `same generation lost after non vpn state remains evidence only without terminal drain`() {
-        val assessment =
-            RuntimeRootCauseClassifier.assess(
-                connectionSessionId = "conn-a",
-                events =
-                    listOf(
-                        event(
-                            connectionSessionId = "conn-a",
-                            subsystem = "network_transition",
-                            source = "android_network_callback",
-                            message =
-                                "kind=capabilities_changed;path=non_vpn;" +
-                                    "internet=present;validated=present;generation=7",
-                            createdAt = 1L,
-                        ),
-                        event(
-                            connectionSessionId = "conn-a",
-                            subsystem = "network_transition",
-                            source = "android_network_callback",
-                            message = "kind=lost;generation=7;sequence=2",
-                            createdAt = 2L,
-                        ),
-                    ),
-            )
-
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
-        assertEquals(
-            listOf("network_transition_underlay_lost"),
-            assessment.evidenceRefs.map { it.category },
-        )
-    }
-
-    @Test
-    fun `later validated non vpn recovery clears transition failure`() {
-        val assessment =
-            RuntimeRootCauseClassifier.assess(
-                connectionSessionId = "conn-a",
-                events =
-                    listOf(
-                        event(
-                            connectionSessionId = "conn-a",
-                            subsystem = "network_transition",
-                            source = "android_network_callback",
-                            message =
-                                "kind=capabilities_changed;path=non_vpn;" +
-                                    "internet=present;validated=absent;generation=3",
-                            createdAt = 1L,
-                        ),
-                        event(
-                            connectionSessionId = "conn-a",
-                            subsystem = "network_transition",
-                            source = "android_network_callback",
-                            message =
-                                "kind=capabilities_changed;path=non_vpn;" +
-                                    "internet=present;validated=present;generation=3",
-                            createdAt = 2L,
-                        ),
-                    ),
-            )
-
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         assertTrue(assessment.evidenceRefs.isEmpty())
     }
 
@@ -328,6 +209,53 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
+    fun `newer benign final blocks stale failing data plane final`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "data_plane",
+                            message = "state=outbound_only mode=vpn generation=1 final=true",
+                            createdAt = 1L,
+                        ),
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "data_plane",
+                            message = "state=evidence_unavailable mode=vpn generation=2 final=true",
+                            createdAt = 1L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
+    fun `data plane final requires persisted event kind provenance`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "data_plane",
+                            message = "state=outbound_only mode=vpn generation=1 final=true",
+                            createdAt = 1L,
+                            preserveMessage = true,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
     fun `mtu blackhole requires typed pmtu proof`() {
         val weakAssessment =
             RuntimeRootCauseClassifier.assess(
@@ -417,13 +345,13 @@ class RuntimeRootCauseAssessmentTest {
 
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         assertEquals(
-            listOf("data_plane_tun_ingress_no_upstream", "dns_failure", "protect_failure"),
+            listOf("data_plane_tun_ingress_no_upstream", "protect_failure"),
             assessment.contradictoryCategories,
         )
     }
 
     @Test
-    fun `dns source and subsystem event is counted once`() {
+    fun `dns source and subsystem event stays fail closed without event kind`() {
         val assessment =
             RuntimeRootCauseClassifier.assess(
                 connectionSessionId = "conn-a",
@@ -440,8 +368,8 @@ class RuntimeRootCauseAssessmentTest {
                     ),
             )
 
-        assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
-        assertEquals(1, assessment.evidenceRefs.single().count)
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
     }
 
     @Test
@@ -490,6 +418,7 @@ class RuntimeRootCauseAssessmentTest {
         createdAt: Long,
         source: String = "service",
         level: String = "info",
+        preserveMessage: Boolean = false,
     ): NativeSessionEventEntity =
         NativeSessionEventEntity(
             id = "${connectionSessionId.orEmpty()}:$subsystem:$createdAt",
@@ -497,7 +426,12 @@ class RuntimeRootCauseAssessmentTest {
             connectionSessionId = connectionSessionId,
             source = source,
             level = level,
-            message = message,
+            message =
+                if (!preserveMessage && subsystem == "data_plane" && "final=true" in message) {
+                    "$message event_kind=data_plane_final"
+                } else {
+                    message
+                },
             createdAt = createdAt,
             subsystem = subsystem,
         )

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -98,7 +99,7 @@ class RuntimeArtifactPersister
                             connectionSessionId = connectionSessionId,
                             source = event.source,
                             level = event.level,
-                            message = event.message,
+                            message = event.message.withPersistedEventKind(event),
                             createdAt = event.createdAt,
                             runtimeId = event.runtimeId,
                             mode = event.mode,
@@ -187,6 +188,7 @@ class RuntimeArtifactPersister
         suspend fun persistTerminalRootCauseAssessment(
             connectionSessionId: String,
             createdAt: Long,
+            terminalEvidenceSealed: Boolean = false,
         ) = rootCauseAssessmentMutex.withLock {
             if (connectionSessionId in persistedRootCauseConnectionSessionIds) return@withLock
 
@@ -205,6 +207,7 @@ class RuntimeArtifactPersister
                     connectionSessionId = connectionSessionId,
                     events = persistedEvents.ifEmpty { fallbackEvents },
                     terminalAtMillis = createdAt,
+                    terminalEvidenceSealed = terminalEvidenceSealed,
                 )
             artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
@@ -346,6 +349,19 @@ class RuntimeArtifactPersister
         }
     }
 
+private fun String.withPersistedEventKind(event: NativeRuntimeEvent): String {
+    val sanitizedMessage = ReservedEventKindToken.replace(this) { match -> match.groupValues[1] }.trim()
+    val kind = event.kind?.takeIf(PersistedRuntimeEventKinds::contains) ?: return sanitizedMessage
+    return "$sanitizedMessage event_kind=$kind"
+}
+
 private const val MaxPersistedEventKeys = 512
 private const val MaxRuntimeRootCauseEventsPerSession = 64
 private const val MaxRuntimeRootCauseTrackedSessions = 64
+private val ReservedEventKindToken = Regex("(?i)(^|[ ;])event_kind=[^ ;]*")
+private val PersistedRuntimeEventKinds =
+    setOf(
+        "data_plane_correlation",
+        "data_plane_counter_reset",
+        "data_plane_final",
+    )

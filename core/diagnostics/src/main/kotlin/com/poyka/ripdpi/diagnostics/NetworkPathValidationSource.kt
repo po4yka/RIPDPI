@@ -48,9 +48,13 @@ internal class AndroidNetworkPathValidationSource
         private val transitionTimeline =
             NetworkTransitionTimeline(
                 scope = scope,
-                connectionSessionIdProvider = sessionCoordinator::currentConnectionSessionIdForNetworkTransition,
+                enqueueForActiveSession = sessionCoordinator::captureNetworkTransition,
                 persist = sessionCoordinator::handleNetworkTransition,
             )
+
+        init {
+            sessionCoordinator.registerNetworkTransitionFlush(transitionTimeline::flush)
+        }
 
         override val evidence: StateFlow<NetworkPathValidationEvidence> =
             observeEvidence().stateIn(

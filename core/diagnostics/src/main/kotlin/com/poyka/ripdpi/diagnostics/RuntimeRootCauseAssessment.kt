@@ -18,6 +18,7 @@ internal data class RuntimeRootCauseAssessment(
     val evidenceEventCount: Int,
     val evidenceRefs: List<RuntimeRootCauseEvidenceRef>,
     val contradictoryCategories: List<String> = emptyList(),
+    val terminalEvidenceSealed: Boolean = false,
     val bounded: Boolean = true,
 )
 
@@ -73,6 +74,7 @@ internal object RuntimeRootCauseClassifier {
         connectionSessionId: String,
         events: List<NativeSessionEventEntity>,
         terminalAtMillis: Long = events.maxOfOrNull(NativeSessionEventEntity::createdAt) ?: 0L,
+        terminalEvidenceSealed: Boolean = false,
     ): RuntimeRootCauseAssessment {
         val lowerBoundMillis = terminalAtMillis - RuntimeRootCauseWindowMillis
         val scopedEvents =
@@ -81,17 +83,20 @@ internal object RuntimeRootCauseClassifier {
                 .filter { event -> event.connectionSessionId == connectionSessionId }
                 .filterNot { event -> event.subsystem == RuntimeRootCauseAssessmentSubsystem }
                 .filter { event -> event.createdAt in lowerBoundMillis..terminalAtMillis }
-                .sortedBy(NativeSessionEventEntity::createdAt)
-                .toList()
+                .sortedWith(
+                    compareBy<NativeSessionEventEntity>(NativeSessionEventEntity::createdAt)
+                        .thenBy { event -> event.transitionSequence() },
+                ).toList()
                 .takeLast(MaxRuntimeRootCauseEvents)
         val evidence = collectEvidence(scopedEvents)
-        val verdict = selectVerdict(evidence)
+        val verdict = selectVerdict(evidence, terminalEvidenceSealed)
         return RuntimeRootCauseAssessment(
             verdict = verdict,
             confidence = confidenceFor(verdict, evidence),
             evidenceEventCount = scopedEvents.size,
             evidenceRefs = evidence.refs(terminalAtMillis),
             contradictoryCategories = evidence.contradictoryCategories(verdict),
+            terminalEvidenceSealed = terminalEvidenceSealed,
         )
     }
 }
@@ -103,7 +108,6 @@ private fun collectEvidence(events: List<NativeSessionEventEntity>): RuntimeEvid
     events.forEach { event ->
         val tokens = event.message.toKeyValueTokens()
         val subsystem = event.subsystem.orEmpty()
-        val source = event.source
         val level = event.level.lowercase(Locale.US)
 
         // Process/device-state events are supporting context until they have session-correlated exit evidence.
@@ -118,8 +122,7 @@ private fun collectEvidence(events: List<NativeSessionEventEntity>): RuntimeEvid
                 }
             }
         }
-        if (subsystem == "dns" || source == "dns") collectDnsEvidence(event, tokens, level, evidence)
-        if (subsystem == "relay" || source == "relay") collectRelayEvidence(event, tokens, level, evidence)
+        // DNS and relay verdicts remain fail-closed until their producers emit an allowlisted kind.
         collectExplicitMtuEvidence(event, tokens, evidence)
     }
     return evidence
@@ -129,32 +132,68 @@ private fun collectNetworkTransitionEvidence(
     events: List<NativeSessionEventEntity>,
     evidence: RuntimeEvidenceAccumulator,
 ) {
-    val authoritativeNonVpnGenerations = mutableSetOf<Long>()
-    val unresolvedFailuresByGeneration = linkedMapOf<Long, NativeSessionEventEntity>()
+    val reducer = NetworkTransitionEvidenceReducer()
     events
         .asSequence()
         .filter { event -> event.subsystem == "network_transition" }
-        .forEach { event ->
-            val tokens = event.message.toKeyValueTokens()
-            val generation = tokens["generation"]?.toLongOrNull() ?: return@forEach
-            val path = tokens["path"]
-            val validated = tokens["validated"]
-            val internet = tokens["internet"]
-            if (path == "non_vpn" && hasAuthoritativeCapabilities(validated, internet)) {
-                authoritativeNonVpnGenerations.add(generation)
-                if (networkCapabilityMissing(validated, internet)) {
-                    unresolvedFailuresByGeneration[generation] = event
-                } else {
-                    unresolvedFailuresByGeneration.remove(generation)
-                }
-                return@forEach
-            }
-            if (tokens["kind"] == "lost" && generation in authoritativeNonVpnGenerations) {
-                unresolvedFailuresByGeneration[generation] = event
-            }
-        }
-    unresolvedFailuresByGeneration.values.forEach { event ->
+        .forEach(reducer::accept)
+    reducer.unresolvedFailure?.let { event ->
         evidence.add(RuntimeEvidenceCategory.UnderlayLost, event)
+    }
+}
+
+private class NetworkTransitionEvidenceReducer {
+    private val authoritativeNonVpnGenerations = mutableSetOf<Long>()
+    private var unresolvedGeneration: Long? = null
+    private var unresolvedFromLost: Boolean = false
+
+    var unresolvedFailure: NativeSessionEventEntity? = null
+        private set
+
+    fun accept(event: NativeSessionEventEntity) {
+        val tokens = event.message.toKeyValueTokens()
+        val generation = tokens["generation"]?.toLongOrNull() ?: return
+        val validated = tokens["validated"]
+        val internet = tokens["internet"]
+        if (tokens["path"] == "non_vpn" && hasAuthoritativeCapabilities(validated, internet)) {
+            authoritativeNonVpnGenerations.add(generation)
+            acceptCapabilities(event, generation, validated, internet)
+        } else if (tokens["kind"] == "lost" && generation in authoritativeNonVpnGenerations) {
+            recordFailure(event, generation, fromLost = true)
+        }
+    }
+
+    private fun acceptCapabilities(
+        event: NativeSessionEventEntity,
+        generation: Long,
+        validated: String?,
+        internet: String?,
+    ) {
+        if (networkCapabilityMissing(validated, internet)) {
+            recordFailure(event, generation, fromLost = false)
+        } else if (canRecoverAt(generation)) {
+            unresolvedGeneration = null
+            unresolvedFromLost = false
+            unresolvedFailure = null
+        }
+    }
+
+    private fun canRecoverAt(generation: Long): Boolean {
+        val failedGeneration = unresolvedGeneration ?: return false
+        return generation > failedGeneration || (generation == failedGeneration && !unresolvedFromLost)
+    }
+
+    private fun recordFailure(
+        event: NativeSessionEventEntity,
+        generation: Long,
+        fromLost: Boolean,
+    ) {
+        val failedGeneration = unresolvedGeneration
+        if (failedGeneration == null || generation >= failedGeneration) {
+            unresolvedGeneration = generation
+            unresolvedFromLost = fromLost
+            unresolvedFailure = event
+        }
     }
 }
 
@@ -164,43 +203,11 @@ private fun collectDataPlaneEvidence(
     terminalEvent: NativeSessionEventEntity?,
     evidence: RuntimeEvidenceAccumulator,
 ) {
-    if (event.id != terminalEvent?.id) return
+    if (event != terminalEvent) return
     when (tokens["state"]) {
         "tun_ingress_no_upstream" -> evidence.add(RuntimeEvidenceCategory.DataPlaneTunIngressNoUpstream, event)
         "outbound_only" -> evidence.add(RuntimeEvidenceCategory.DataPlaneOutboundNoReturn, event)
         "cross_layer_return_observed" -> evidence.add(RuntimeEvidenceCategory.DataPlaneForwardingHealthy, event)
-    }
-}
-
-private fun collectRelayEvidence(
-    event: NativeSessionEventEntity,
-    tokens: Map<String, String>,
-    level: String,
-    evidence: RuntimeEvidenceAccumulator,
-) {
-    if (tokens["state"] in RelayStallStates || tokens["health"] in RelayStallStates) {
-        evidence.add(RuntimeEvidenceCategory.RelayStall, event)
-        return
-    }
-    if (level in WarningLevels && tokens["failure_class"] in RelayStallFailureClasses) {
-        evidence.add(RuntimeEvidenceCategory.RelayStall, event)
-    }
-}
-
-private fun collectDnsEvidence(
-    event: NativeSessionEventEntity,
-    tokens: Map<String, String>,
-    level: String,
-    evidence: RuntimeEvidenceAccumulator,
-) {
-    if (level !in WarningLevels) return
-    val exactDnsFailure =
-        tokens["event"] in DnsFailureEvents ||
-            tokens["failure_class"] == "dns_interference" ||
-            tokens["dns_failure"] == "true" ||
-            tokens["dns_failures_total"]?.toLongOrNull()?.let { it > 0L } == true
-    if (exactDnsFailure) {
-        evidence.add(RuntimeEvidenceCategory.DnsFailure, event)
     }
 }
 
@@ -214,7 +221,10 @@ private fun collectExplicitMtuEvidence(
     }
 }
 
-private fun selectVerdict(evidence: RuntimeEvidenceAccumulator): RuntimeRootCauseVerdict =
+private fun selectVerdict(
+    evidence: RuntimeEvidenceAccumulator,
+    terminalEvidenceSealed: Boolean,
+): RuntimeRootCauseVerdict =
     when {
         evidence.has(RuntimeEvidenceCategory.DataPlaneForwardingHealthy) -> {
             RuntimeRootCauseVerdict.INCONCLUSIVE
@@ -224,14 +234,21 @@ private fun selectVerdict(evidence: RuntimeEvidenceAccumulator): RuntimeRootCaus
             RuntimeRootCauseVerdict.INCONCLUSIVE
         }
 
-        evidence.has(RuntimeEvidenceCategory.UnderlayLost) -> {
+        evidence.has(RuntimeEvidenceCategory.UnderlayLost) && !terminalEvidenceSealed -> {
             RuntimeRootCauseVerdict.INCONCLUSIVE
         }
 
         else -> {
             val candidateVerdicts =
-                (selectDirectVerdicts(evidence) + selectDataPlaneVerdict(evidence))
-                    .filterNot { verdict -> verdict == RuntimeRootCauseVerdict.INCONCLUSIVE }
+                (
+                    selectDirectVerdicts(evidence) +
+                        selectDataPlaneVerdict(evidence) +
+                        listOfNotNull(
+                            RuntimeRootCauseVerdict.UNDERLAY_LOST.takeIf {
+                                evidence.has(RuntimeEvidenceCategory.UnderlayLost)
+                            },
+                        )
+                ).filterNot { verdict -> verdict == RuntimeRootCauseVerdict.INCONCLUSIVE }
                     .distinct()
             candidateVerdicts.singleOrNull() ?: RuntimeRootCauseVerdict.INCONCLUSIVE
         }
@@ -412,6 +429,13 @@ private fun String.toKeyValueTokens(): Map<String, String> =
             key to value
         }.toMap()
 
+private fun NativeSessionEventEntity.transitionSequence(): Long =
+    if (subsystem == "network_transition") {
+        message.toKeyValueTokens()["sequence"]?.toLongOrNull() ?: Long.MIN_VALUE
+    } else {
+        Long.MIN_VALUE
+    }
+
 private fun networkCapabilityMissing(
     validated: String?,
     internet: String?,
@@ -429,11 +453,16 @@ private fun List<NativeSessionEventEntity>.latestCanonicalDataPlaneFinalEvent():
         .filter { event -> event.subsystem == "data_plane" }
         .filter { event ->
             val tokens = event.message.toKeyValueTokens()
-            tokens["final"] == "true" &&
+            tokens["event_kind"] == "data_plane_final" &&
+                tokens["final"] == "true" &&
                 tokens["generation"]?.toLongOrNull() != null &&
                 tokens["mode"] in DataPlaneModes &&
-                tokens["state"] in TerminalDataPlaneStates
-        }.maxWithOrNull(compareBy<NativeSessionEventEntity> { event -> event.createdAt }.thenBy { event -> event.id })
+                tokens["state"] in DataPlaneCorrelationStates
+        }.maxWithOrNull(
+            compareBy<NativeSessionEventEntity> { event -> event.createdAt }
+                .thenBy { event -> event.message.toKeyValueTokens()["generation"]?.toLongOrNull() }
+                .thenBy { event -> event.id },
+        )
 
 private fun Map<String, String>.hasExactPmtuBlackholeEvidence(): Boolean =
     this["verdict"] == "mtu_blackhole" &&
@@ -449,13 +478,20 @@ private const val RuntimeRootCauseWindowMillis = 5 * 60 * 1000L
 private const val MinPmtuLargeFailures = 2
 
 private val WarningLevels = setOf("warn", "error")
-private val DnsFailureEvents = setOf("dns_failure", "dns_resolution_failed", "resolver_failure")
-private val RelayStallStates = setOf("stalled", "frozen")
-private val RelayStallFailureClasses = setOf("relay_stall", "timeout")
 private val PmtuProbeProvenance = setOf("pmtu_probe_v1", "typed_pmtu_probe_v1")
 private val NetworkCapabilityStates = setOf("present", "absent")
 private val DataPlaneModes = setOf("vpn", "proxy")
-private val TerminalDataPlaneStates =
-    setOf("tun_ingress_no_upstream", "outbound_only", "cross_layer_return_observed")
+private val DataPlaneCorrelationStates =
+    setOf(
+        "evidence_unavailable",
+        "evidence_unavailable_partial",
+        "no_flow",
+        "tun_ingress_no_upstream",
+        "upstream_open_no_payload",
+        "outbound_only",
+        "tun_return_without_proxy_outbound",
+        "proxy_outbound_observed",
+        "cross_layer_return_observed",
+    )
 private val DataPlaneSupportedVerdicts =
     setOf(RuntimeRootCauseVerdict.VPN_ROUTE_LOOP, RuntimeRootCauseVerdict.VPN_PATH_LOSS)

@@ -5,15 +5,19 @@ import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 
 class DataPlaneEvidenceCollectorTest {
     @Test
@@ -246,6 +250,85 @@ class DataPlaneEvidenceCollectorTest {
             assertTrue(finalEvent.message.contains("mode=proxy"))
             assertTrue(finalEvent.message.contains("generation=1"))
             assertTrue(finalEvent.message.contains("final=true"))
+        }
+
+    @Test
+    fun cancelledFinalCaptureCanRetryAndSealFreshEvidence() =
+        runTest {
+            var attempts = 0
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.Proxy,
+                    proxyEvidenceProvider = {
+                        attempts += 1
+                        if (attempts == 1) throw CancellationException("injected final capture cancellation")
+                        ProxyForwardingEvidence(upstreamApplicationBytes = 64)
+                    },
+                    clock = TestServiceClock(now = 9L),
+                )
+
+            val cancelled =
+                runCatching {
+                    collector.finalizeAndEnrich(emptyTelemetrySnapshot())
+                }.exceptionOrNull()
+            val finalized = collector.finalizeAndEnrich(emptyTelemetrySnapshot())
+
+            assertTrue(cancelled is CancellationException)
+            assertEquals(2, attempts)
+            assertEquals(
+                1,
+                finalized.proxyTelemetry.nativeEvents.count { event -> event.kind == "data_plane_final" },
+            )
+            assertTrue(
+                finalized.proxyTelemetry.nativeEvents
+                    .last()
+                    .message
+                    .contains("proxy_application_bytes=64"),
+            )
+        }
+
+    @Test
+    fun coordinatorFinalCaptureRetainsCollectorAcrossCaptureAndPublishCancellation() =
+        runTest {
+            var polls = 0
+            var publishAttempts = 0
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.Proxy,
+                    proxyEvidenceProvider = {
+                        polls += 1
+                        if (polls == 1) throw CancellationException("injected capture cancellation")
+                        ProxyForwardingEvidence(upstreamApplicationBytes = 64)
+                    },
+                )
+            val activeCollector = AtomicReference<DataPlaneEvidenceCollector?>(collector)
+            val capture: suspend (DataPlaneEvidenceCollector) -> VpnTelemetrySnapshot = { evidenceCollector ->
+                evidenceCollector.finalizeAndEnrich(emptyTelemetrySnapshot())
+            }
+            val publish: suspend (VpnTelemetrySnapshot) -> Unit = {
+                publishAttempts += 1
+                if (publishAttempts == 1) throw CancellationException("injected publish cancellation")
+            }
+
+            val captureCancellation =
+                runCatching {
+                    captureFinalDataPlaneEvidence(activeCollector, capture, publish)
+                }.exceptionOrNull()
+            assertTrue(captureCancellation is CancellationException)
+            assertSame(collector, activeCollector.get())
+
+            val publishCancellation =
+                runCatching {
+                    captureFinalDataPlaneEvidence(activeCollector, capture, publish)
+                }.exceptionOrNull()
+            assertTrue(publishCancellation is CancellationException)
+            assertSame(collector, activeCollector.get())
+
+            captureFinalDataPlaneEvidence(activeCollector, capture, publish)
+
+            assertEquals(2, polls)
+            assertEquals(2, publishAttempts)
+            assertNull(activeCollector.get())
         }
 
     @Test

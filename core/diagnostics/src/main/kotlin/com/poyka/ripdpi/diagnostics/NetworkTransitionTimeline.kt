@@ -4,11 +4,13 @@ import android.net.NetworkCapabilities
 import android.os.SystemClock
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.LinkedHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 internal enum class NetworkTransitionKind(
@@ -87,36 +89,86 @@ private object AndroidNetworkTransitionClock : NetworkTransitionClock {
         )
 }
 
+/** Serializes callback capture with terminal deactivation so a barrier cannot overtake a callback. */
+internal class NetworkTransitionSessionGate {
+    private val lock = Any()
+    private var connectionSessionId: String? = null
+
+    fun activate(connectionSessionId: String) {
+        synchronized(lock) {
+            this.connectionSessionId = connectionSessionId
+        }
+    }
+
+    fun deactivate() {
+        synchronized(lock) {
+            connectionSessionId = null
+        }
+    }
+
+    fun capture(enqueue: (String) -> Boolean): Boolean? =
+        synchronized(lock) {
+            connectionSessionId?.let(enqueue)
+        }
+}
+
 /**
- * Single-consumer bounded callback lane. DROP_OLDEST preserves the most recent transition context
- * without ever blocking ConnectivityManager's callback thread.
+ * Single-consumer bounded callback lane. Callback producers use [Channel.trySend], so they never
+ * block ConnectivityManager's callback thread. Terminal consumers can enqueue a barrier with a
+ * bounded wait; later callback events cannot displace that barrier.
  */
 internal class NetworkTransitionTimeline(
     scope: CoroutineScope,
     private val clock: NetworkTransitionClock = AndroidNetworkTransitionClock,
-    private val connectionSessionIdProvider: () -> String?,
+    private val enqueueForActiveSession: (((String) -> Boolean) -> Boolean?),
     private val persist: suspend (NetworkTransitionEvent) -> Unit,
 ) {
     private val generations = NetworkTransitionGenerationTracker()
     private val sequence = AtomicLong()
+    private val captureHealthy = AtomicBoolean(true)
     private val sessionEventCounts = LinkedHashMap<String, Int>()
-    private val queue =
-        Channel<NetworkTransitionEvent>(
-            capacity = MaxBufferedNetworkTransitions,
-            onBufferOverflow = BufferOverflow.DROP_OLDEST,
-        )
+    private val queue = Channel<NetworkTransitionCommand>(capacity = MaxBufferedNetworkTransitions)
 
     init {
         scope.launch {
-            for (event in queue) {
-                val failure = runCatching { persist(event) }.exceptionOrNull() ?: continue
-                when (failure) {
-                    is CancellationException -> throw failure
-                    is Exception -> Logger.e(failure) { "Network transition persistence failed" }
-                    else -> throw failure
+            var persistenceHealthy = true
+            for (command in queue) {
+                when (command) {
+                    is NetworkTransitionCommand.Persist -> {
+                        val failure = runCatching { persist(command.event) }.exceptionOrNull() ?: continue
+                        when (failure) {
+                            is CancellationException -> {
+                                throw failure
+                            }
+
+                            is Exception -> {
+                                persistenceHealthy = false
+                                Logger.e(failure) { "Network transition persistence failed" }
+                            }
+
+                            else -> {
+                                throw failure
+                            }
+                        }
+                    }
+
+                    is NetworkTransitionCommand.Barrier -> {
+                        val captureWasHealthy = captureHealthy.getAndSet(true)
+                        command.result.complete(persistenceHealthy && captureWasHealthy)
+                        persistenceHealthy = true
+                    }
                 }
             }
         }
+    }
+
+    internal suspend fun flush(timeoutMillis: Long = NetworkTransitionFlushTimeoutMillis): Boolean {
+        val result = CompletableDeferred<Boolean>()
+        val boundedTimeout = timeoutMillis.coerceIn(1L, NetworkTransitionFlushTimeoutMillis)
+        return withTimeoutOrNull(boundedTimeout) {
+            queue.send(NetworkTransitionCommand.Barrier(result))
+            result.await()
+        } ?: false
     }
 
     fun recordAvailable(networkKey: Any) {
@@ -195,24 +247,33 @@ internal class NetworkTransitionTimeline(
         captivePortal: NetworkTransitionState? = null,
         losingDeadlineBand: NetworkLosingDeadlineBand? = null,
     ) {
-        val connectionSessionId = connectionSessionIdProvider() ?: return
-        if (!reserveSessionEvent(connectionSessionId)) return
-        val timestamp = clock.capture()
-        queue.trySend(
-            NetworkTransitionEvent(
-                connectionSessionId = connectionSessionId,
-                generation = generation,
-                sequence = sequence.incrementAndGet(),
-                elapsedRealtimeMs = timestamp.elapsedRealtimeMs,
-                occurredAtEpochMs = timestamp.epochMs,
-                kind = kind,
-                path = path,
-                internet = internet,
-                validated = validated,
-                captivePortal = captivePortal,
-                losingDeadlineBand = losingDeadlineBand,
-            ),
-        )
+        val captured =
+            enqueueForActiveSession { connectionSessionId ->
+                if (!reserveSessionEvent(connectionSessionId)) {
+                    false
+                } else {
+                    val timestamp = clock.capture()
+                    queue
+                        .trySend(
+                            NetworkTransitionCommand.Persist(
+                                NetworkTransitionEvent(
+                                    connectionSessionId = connectionSessionId,
+                                    generation = generation,
+                                    sequence = sequence.incrementAndGet(),
+                                    elapsedRealtimeMs = timestamp.elapsedRealtimeMs,
+                                    occurredAtEpochMs = timestamp.epochMs,
+                                    kind = kind,
+                                    path = path,
+                                    internet = internet,
+                                    validated = validated,
+                                    captivePortal = captivePortal,
+                                    losingDeadlineBand = losingDeadlineBand,
+                                ),
+                            ),
+                        ).isSuccess
+                }
+            }
+        if (captured == false) captureHealthy.set(false)
     }
 
     @Synchronized
@@ -229,6 +290,16 @@ internal class NetworkTransitionTimeline(
         }
         return true
     }
+}
+
+private sealed interface NetworkTransitionCommand {
+    data class Persist(
+        val event: NetworkTransitionEvent,
+    ) : NetworkTransitionCommand
+
+    data class Barrier(
+        val result: CompletableDeferred<Boolean>,
+    ) : NetworkTransitionCommand
 }
 
 private class NetworkTransitionGenerationTracker {
@@ -260,6 +331,7 @@ private fun NetworkCapabilities.stateOf(capability: Int): NetworkTransitionState
     if (hasCapability(capability)) NetworkTransitionState.Present else NetworkTransitionState.Absent
 
 internal const val MaxBufferedNetworkTransitions = 64
+internal const val NetworkTransitionFlushTimeoutMillis = 2_000L
 private const val MaxTrackedNetworkKeys = 64
 internal const val MaxPersistedNetworkTransitionsPerSession = 64
 private const val ImminentLosingDeadlineMs = 1_000
