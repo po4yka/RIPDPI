@@ -408,6 +408,46 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             missing_tunnel_activity, "SEMANTIC_TUNNEL_CONTROL_MISSING"
         )
 
+    def test_probe_fixture_binding_normalizes_equivalent_ipv6_text(self) -> None:
+        expanded = "2001:0db8:0000:0000:0000:0000:0000:0010"
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            manifest_path, app_apk, test_apk, manifest = self.create_bundle(directory)
+
+            def mutate(value):
+                value["fixture"]["controlIpv6"] = expanded
+                value["probes"][1]["targetAddress"] = expanded
+
+            self.mutate_json_artifact(
+                manifest_path, manifest, "ipv4-only", "action-receipt", mutate
+            )
+            status, results = self.run_producer(
+                directory, manifest_path, app_apk, test_apk
+            )
+
+            self.assertEqual(status, 1)
+            self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
+            self.assertTrue(
+                all(
+                    producer.PRODUCER_ATTESTATION_CODE in value["reason"]
+                    for value in results["gateResults"].values()
+                )
+            )
+
+    def test_probe_fixture_binding_rejects_different_ipv6_address(self) -> None:
+        def mutation(manifest_path, manifest):
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "ipv4-only",
+                "action-receipt",
+                lambda value: value["probes"][1].update(
+                    {"targetAddress": "2001:db8::11"}
+                ),
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_PROBE_MISMATCH")
+
     def test_same_host_probe_port_packet_remains_a_direct_leak(self) -> None:
         def mutation(manifest_path, manifest):
             action = self.action(manifest, "dual-stack")

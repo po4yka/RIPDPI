@@ -392,8 +392,13 @@ def _validate_probe(
             f"probe {expected_id} does not match its source-owned contract",
         )
     target_key = "controlIpv4" if family == "ipv4" else "controlIpv6"
+    target_address = _ip(
+        value["targetAddress"],
+        f"probe {expected_id} targetAddress",
+        version=4 if family == "ipv4" else 6,
+    )
     if (
-        value["targetAddress"] != fixture[target_key]
+        str(target_address) != fixture[target_key]
         or value["targetPort"] != fixture["probePort"]
     ):
         raise OracleError(
