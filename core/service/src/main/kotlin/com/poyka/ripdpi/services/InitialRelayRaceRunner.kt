@@ -56,22 +56,9 @@ internal class InitialRelayRaceRunner(
                         outcomes.replacePendingOutcome(candidate, RaceOutcomeCancelled)
                     }
                     val winningSlot = requireNotNull(winningAttempt.slot)
-                    val result = winningAttempt.toResult()
-                    onState(
-                        raceState(
-                            state = RaceStateSelected,
-                            plan = plan,
-                            outcomes = outcomes,
-                            selectedCandidate = winningAttempt.candidate,
-                        ),
-                    )
-                    promoteCandidate(winningSlot)
+                    val promoted = promoteWinner(winningAttempt, winningSlot, plan, outcomes, onState)
                     retainedSlot = winningSlot
-                    return@coroutineScope PromotedRelayRuntime(
-                        endpoint = requireNotNull(winningSlot.endpoint),
-                        result = result,
-                        udpEnabled = winningSlot.udpEnabled,
-                    )
+                    return@coroutineScope promoted
                 }
 
                 if (!raceCompletion.completedBeforeDeadline) {
@@ -113,6 +100,30 @@ internal class InitialRelayRaceRunner(
                 }
             }
         }
+
+    private suspend fun promoteWinner(
+        winningAttempt: RelayRaceAttempt,
+        winningSlot: RelayRuntimeSlot,
+        plan: InitialRelayRacePlan,
+        outcomes: Map<String, InitialTransportRaceCandidateSnapshot>,
+        onState: (InitialTransportRaceSnapshot) -> Unit,
+    ): PromotedRelayRuntime {
+        val result = winningAttempt.toResult()
+        onState(
+            raceState(
+                state = RaceStateSelected,
+                plan = plan,
+                outcomes = outcomes,
+                selectedCandidate = winningAttempt.candidate,
+            ),
+        )
+        promoteCandidate(winningSlot)
+        return PromotedRelayRuntime(
+            endpoint = requireNotNull(winningSlot.endpoint),
+            result = result,
+            udpEnabled = winningSlot.udpEnabled,
+        )
+    }
 
     private suspend fun runCandidate(
         candidate: InitialRelayCandidate,
