@@ -145,6 +145,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertGreaterEqual(runner.count('"${adb[@]}" reboot'), 2)
         self.assertIn("wait_for_device_boot", runner)
         self.assertIn("State: RUNNING_UNLOCKED", runner)
+        self.assertIn("local timeout_seconds=1800", runner)
         target_reboot = runner.index(
             '"${adb[@]}" reboot', runner.index("vpn_manager_rebooted=1")
         )

@@ -81,7 +81,7 @@ wait_for_device_boot() {
 
 wait_for_user_unlock() {
     local elapsed=0
-    local timeout_seconds=300
+    local timeout_seconds=1800
     if "${adb[@]}" shell dumpsys user | grep -q 'State: RUNNING_UNLOCKED'; then
         return
     fi
