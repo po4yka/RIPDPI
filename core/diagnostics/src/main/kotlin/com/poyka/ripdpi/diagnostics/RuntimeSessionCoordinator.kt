@@ -181,6 +181,10 @@ class RuntimeSessionCoordinator
                 networkTypeFallback = activeUsageSession?.networkType ?: "unknown",
                 publicIpFallback = activeUsageSession?.publicIp,
             )
+            artifactPersister.persistTerminalRootCauseAssessment(
+                connectionSessionId = connectionSessionId,
+                createdAt = timestamp,
+            )
         }
 
         suspend fun handleActiveConnectionPolicyChange(policy: ActiveConnectionPolicy?) {
@@ -351,6 +355,10 @@ class RuntimeSessionCoordinator
                     connectionState = "Stopped",
                 )
             }
+            artifactPersister.persistTerminalRootCauseAssessment(
+                connectionSessionId = current.id,
+                createdAt = finalizedAt,
+            )
             val finishedSession =
                 RuntimeUsageSessionBuilder.finalizeSession(
                     current = current,

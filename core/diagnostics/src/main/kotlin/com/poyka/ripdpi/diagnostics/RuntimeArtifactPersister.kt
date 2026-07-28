@@ -5,14 +5,17 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.LinkedHashMap
 import java.util.LinkedHashSet
 import java.util.Locale
 import java.util.UUID
@@ -23,6 +26,7 @@ import javax.inject.Singleton
 class RuntimeArtifactPersister
     @Inject
     constructor(
+        private val artifactReadStore: DiagnosticsArtifactReadStore,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
         private val historyRetentionStore: DiagnosticsHistoryRetentionStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
@@ -32,6 +36,9 @@ class RuntimeArtifactPersister
     ) {
         private val eventKeysMutex = Mutex()
         private val persistedEventKeys = LinkedHashSet<String>()
+        private val runtimeEvidenceMutex = Mutex()
+        private val runtimeEventsByConnectionSessionId = LinkedHashMap<String, ArrayDeque<NativeSessionEventEntity>>()
+        private val persistedRootCauseConnectionSessionIds = LinkedHashSet<String>()
 
         suspend fun captureSnapshotOrNull(): NetworkSnapshotModel? =
             runCatching {
@@ -176,6 +183,53 @@ class RuntimeArtifactPersister
             )
         }
 
+        suspend fun persistTerminalRootCauseAssessment(
+            connectionSessionId: String,
+            createdAt: Long,
+        ) {
+            runtimeEvidenceMutex.withLock {
+                if (!persistedRootCauseConnectionSessionIds.add(connectionSessionId)) {
+                    return
+                }
+                trimPersistedRootCauseSessionIds()
+            }
+            val persistedEvents =
+                artifactReadStore
+                    .observeConnectionNativeEvents(
+                        connectionSessionId = connectionSessionId,
+                        limit = MaxRuntimeRootCauseEventsPerSession,
+                    ).first()
+            val fallbackEvents =
+                runtimeEvidenceMutex.withLock {
+                    runtimeEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
+                }
+            val assessment =
+                RuntimeRootCauseClassifier.assess(
+                    connectionSessionId = connectionSessionId,
+                    events = persistedEvents.ifEmpty { fallbackEvents },
+                    terminalAtMillis = createdAt,
+                )
+            persistRuntimeEvent(
+                NativeSessionEventEntity(
+                    id = "$RuntimeRootCauseAssessmentSource:$connectionSessionId",
+                    sessionId = null,
+                    connectionSessionId = connectionSessionId,
+                    source = RuntimeRootCauseAssessmentSource,
+                    level =
+                        if (assessment.verdict == RuntimeRootCauseVerdict.INCONCLUSIVE) {
+                            "info"
+                        } else {
+                            "warn"
+                        },
+                    message =
+                        "runtime_root_cause_assessment " +
+                            RuntimeHistoryJson.encodeToString(RuntimeRootCauseAssessment.serializer(), assessment),
+                    createdAt = createdAt,
+                    subsystem = RuntimeRootCauseAssessmentSubsystem,
+                ),
+            )
+        }
+
         suspend fun trimHistory(retentionDays: Int) {
             historyRetentionStore.trimOldData(retentionDays)
         }
@@ -189,6 +243,29 @@ class RuntimeArtifactPersister
                 trimPersistedEventKeys()
             }
             artifactWriteStore.insertNativeSessionEvent(event)
+            recordRuntimeEvidenceEvent(event)
+        }
+
+        private suspend fun recordRuntimeEvidenceEvent(event: NativeSessionEventEntity) {
+            val connectionSessionId = event.connectionSessionId ?: return
+            if (event.subsystem == RuntimeRootCauseAssessmentSubsystem) return
+            runtimeEvidenceMutex.withLock {
+                val events =
+                    runtimeEventsByConnectionSessionId.getOrPut(connectionSessionId) {
+                        ArrayDeque(MaxRuntimeRootCauseEventsPerSession)
+                    }
+                if (events.size >= MaxRuntimeRootCauseEventsPerSession) {
+                    events.removeFirst()
+                }
+                events.addLast(event)
+                while (runtimeEventsByConnectionSessionId.size > MaxRuntimeRootCauseTrackedSessions) {
+                    val iterator = runtimeEventsByConnectionSessionId.entries.iterator()
+                    if (iterator.hasNext()) {
+                        iterator.next()
+                        iterator.remove()
+                    }
+                }
+            }
         }
 
         private fun buildTelemetrySampleEntity(
@@ -255,6 +332,18 @@ class RuntimeArtifactPersister
                 }
             }
         }
+
+        private fun trimPersistedRootCauseSessionIds() {
+            while (persistedRootCauseConnectionSessionIds.size > MaxRuntimeRootCauseTrackedSessions) {
+                val iterator = persistedRootCauseConnectionSessionIds.iterator()
+                if (iterator.hasNext()) {
+                    iterator.next()
+                    iterator.remove()
+                }
+            }
+        }
     }
 
 private const val MaxPersistedEventKeys = 512
+private const val MaxRuntimeRootCauseEventsPerSession = 64
+private const val MaxRuntimeRootCauseTrackedSessions = 64

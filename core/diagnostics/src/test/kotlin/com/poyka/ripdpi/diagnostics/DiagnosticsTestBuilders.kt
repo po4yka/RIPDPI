@@ -357,6 +357,7 @@ internal fun createRuntimeHistoryMonitor(
         RememberedPolicySessionTracker(rememberedNetworkPolicyStore, policyHandoverEventStore)
     val artifactPersister =
         RuntimeArtifactPersister(
+            artifactReadStore = stores,
             artifactWriteStore = stores,
             historyRetentionStore = stores,
             networkMetadataProvider = networkMetadataProvider,

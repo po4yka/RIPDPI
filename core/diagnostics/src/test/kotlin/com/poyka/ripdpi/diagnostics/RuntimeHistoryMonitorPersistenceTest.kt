@@ -100,7 +100,7 @@ class RuntimeHistoryMonitorPersistenceTest {
                     .single()
                     .id
 
-            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry(createdAt = System.currentTimeMillis()))
             serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
             runCurrent()
 
@@ -109,6 +109,48 @@ class RuntimeHistoryMonitorPersistenceTest {
                     event.message == "state=outbound_only final=true"
                 }
             assertEquals(connectionSessionId, finalEvent.connectionSessionId)
+            monitorScope.cancel()
+        }
+
+    @Test
+    fun `terminal session persists one runtime root cause assessment`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitorScope = monitorScope()
+            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+
+            monitor.start()
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            val connectionSessionId =
+                stores.usageSessionsState.value
+                    .single()
+                    .id
+
+            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry(createdAt = System.currentTimeMillis()))
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            val assessments =
+                stores.nativeEventsState.value.filter { event ->
+                    event.source == RuntimeRootCauseAssessmentSource
+                }
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    assessments.single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertEquals(connectionSessionId, assessments.single().connectionSessionId)
+            assertEquals(RuntimeRootCauseAssessmentSubsystem, assessments.single().subsystem)
+            assertEquals(
+                stores.nativeEventsState.value.joinToString { event -> "${event.subsystem}:${event.message}" },
+                RuntimeRootCauseVerdict.VPN_PATH_LOSS,
+                assessment.verdict,
+            )
             monitorScope.cancel()
         }
 
@@ -315,7 +357,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = createdAt,
         )
 
-    private fun finalDataPlaneTelemetry(): ServiceTelemetrySnapshot =
+    private fun finalDataPlaneTelemetry(createdAt: Long = 10L): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(
             proxyTelemetry =
                 NativeRuntimeSnapshot(
@@ -326,13 +368,13 @@ class RuntimeHistoryMonitorPersistenceTest {
                                 source = "service",
                                 level = "info",
                                 message = "state=outbound_only final=true",
-                                createdAt = 10L,
+                                createdAt = createdAt,
                                 kind = "data_plane_final",
                                 subsystem = "data_plane",
                             ),
                         ),
                 ),
-            updatedAt = 10L,
+            updatedAt = createdAt,
         )
 
     private fun handoverTelemetry(
