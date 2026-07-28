@@ -87,9 +87,14 @@ internal class DefaultRemoteDeviceAcceptanceGate
             observation: GuidedObservation,
         ) {
             val running = observation.status == AppStatus.Running && observation.mode == Mode.VPN
-            state.recordLifecycle(running, observation.interactive)
+            val screenOffSurvived =
+                state.recordLifecycle(
+                    running = running,
+                    interactive = observation.interactive,
+                    nowMs = SystemClock.elapsedRealtime(),
+                )
             recordDirectFallback(startedAt, observation)
-            val triggers = guidedTriggers(state, observation, running)
+            val triggers = guidedTriggers(state, observation, running, screenOffSurvived)
             state.lastHandoverState = observation.telemetry.networkHandoverState
             if (!triggers.any) return
 
@@ -116,6 +121,7 @@ internal class DefaultRemoteDeviceAcceptanceGate
             state: GuidedRunState,
             observation: GuidedObservation,
             running: Boolean,
+            screenOffSurvived: Boolean,
         ): GuidedTriggers =
             GuidedTriggers(
                 reconnect =
@@ -130,8 +136,7 @@ internal class DefaultRemoteDeviceAcceptanceGate
                         stepStatus(StepHandover) != RemoteDeviceAcceptanceStatus.Pass,
                 screenOff =
                     running &&
-                        observation.interactive &&
-                        state.sawScreenOff &&
+                        screenOffSurvived &&
                         stepStatus(StepScreenOff) != RemoteDeviceAcceptanceStatus.Pass,
             )
 
@@ -154,7 +159,6 @@ internal class DefaultRemoteDeviceAcceptanceGate
             }
             if (triggers.screenOff) {
                 updateStep(StepScreenOff, status, errorClass, durationMs)
-                state.sawScreenOff = false
             }
         }
 
@@ -200,14 +204,45 @@ private data class GuidedRunState(
     var baselineUnderlay: String?,
     var lastHandoverState: String?,
     var sawDisconnected: Boolean = false,
-    var sawScreenOff: Boolean = false,
+    val screenOffDwellTracker: RemoteScreenOffDwellTracker =
+        RemoteScreenOffDwellTracker(RemoteAcceptanceScreenOffDwellMs),
 ) {
     fun recordLifecycle(
         running: Boolean,
         interactive: Boolean,
-    ) {
+        nowMs: Long,
+    ): Boolean {
         sawDisconnected = sawDisconnected || !running
-        sawScreenOff = sawScreenOff || (running && !interactive)
+        return screenOffDwellTracker.observe(nowMs, running, interactive)
+    }
+}
+
+internal class RemoteScreenOffDwellTracker(
+    private val minimumDwellMs: Long,
+) {
+    private var screenOffStartedAt: Long? = null
+    private var interrupted = false
+
+    fun observe(
+        nowMs: Long,
+        running: Boolean,
+        interactive: Boolean,
+    ): Boolean {
+        if (!interactive) {
+            if (!running) {
+                interrupted = interrupted || screenOffStartedAt != null
+            } else if (screenOffStartedAt == null) {
+                screenOffStartedAt = nowMs
+                interrupted = false
+            }
+            return false
+        }
+
+        val startedAt = screenOffStartedAt ?: return false
+        val survived = running && !interrupted && nowMs - startedAt >= minimumDwellMs
+        screenOffStartedAt = null
+        interrupted = false
+        return survived
     }
 }
 
@@ -238,4 +273,5 @@ internal abstract class RemoteDeviceAcceptanceGateModule {
 
 private const val UnderlayWifi = "wifi"
 private const val UnderlayCellular = "cellular"
+internal const val RemoteAcceptanceScreenOffDwellMs = 300_000L
 internal const val StepNoDirectEgress = "no_direct_fallback"

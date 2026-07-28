@@ -4171,7 +4171,7 @@ Origen: %2$s</string>
     <string name="strategy_config_draft_save_failed_title">El borrador no se guardó</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI está reintentando guardar el borrador localmente. Mantén esta pantalla abierta hasta que desaparezca el aviso.</string>
     <string name="diagnostics_device_gate_title">Validación del dispositivo remoto</string>
-    <string name="diagnostics_device_gate_body">Ejecuta la prueba mientras la VPN usa Reality. Después, vuelve a conectar, cambia entre Wi-Fi y datos móviles y apaga y enciende la pantalla. El informe seguirá incompleto hasta observar todos los eventos.</string>
+    <string name="diagnostics_device_gate_body">Ejecuta la prueba mientras la VPN usa Reality. Después, vuelve a conectar, cambia entre Wi-Fi y datos móviles y mantén la pantalla apagada al menos cinco minutos antes de encenderla. El informe seguirá incompleto hasta observar todos los eventos.</string>
     <string name="diagnostics_device_gate_run">Iniciar validación</string>
     <string name="diagnostics_device_gate_rerun">Reiniciar validación</string>
     <string name="diagnostics_device_gate_share">Compartir informe censurado</string>

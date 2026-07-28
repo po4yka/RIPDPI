@@ -9,6 +9,25 @@ import org.junit.Test
 
 class RemoteDeviceAcceptanceGateTest {
     @Test
+    fun `screen off survival requires the configured dwell`() {
+        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L)
+
+        assertFalse(tracker.observe(nowMs = 1_000L, running = true, interactive = false))
+        assertFalse(tracker.observe(nowMs = 2_000L, running = true, interactive = true))
+        assertFalse(tracker.observe(nowMs = 3_000L, running = true, interactive = false))
+        assertTrue(tracker.observe(nowMs = 303_000L, running = true, interactive = true))
+    }
+
+    @Test
+    fun `screen off survival does not pass when VPN stops during dwell`() {
+        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L)
+
+        assertFalse(tracker.observe(nowMs = 1_000L, running = true, interactive = false))
+        assertFalse(tracker.observe(nowMs = 200_000L, running = false, interactive = false))
+        assertFalse(tracker.observe(nowMs = 400_000L, running = true, interactive = true))
+    }
+
+    @Test
     fun `successful baseline passes data plane and leaves guided checks incomplete`() {
         val report = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence())
 

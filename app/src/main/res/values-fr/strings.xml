@@ -4171,7 +4171,7 @@ Source : %2$s</string>
     <string name="strategy_config_draft_save_failed_title">Brouillon non enregistré</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI réessaie d’enregistrer le brouillon localement. Gardez cet écran ouvert jusqu’à ce que l’avertissement disparaisse.</string>
     <string name="diagnostics_device_gate_title">Validation de l’appareil distant</string>
-    <string name="diagnostics_device_gate_body">Lancez le contrôle pendant que le VPN utilise Reality. Reconnectez-vous ensuite, basculez entre le Wi-Fi et les données mobiles, puis éteignez et rallumez l’écran. Le rapport reste incomplet tant que tous les événements ne sont pas observés.</string>
+    <string name="diagnostics_device_gate_body">Lancez le contrôle pendant que le VPN utilise Reality. Reconnectez-vous ensuite, basculez entre le Wi-Fi et les données mobiles, puis laissez l’écran éteint pendant au moins cinq minutes avant de le rallumer. Le rapport reste incomplet tant que tous les événements ne sont pas observés.</string>
     <string name="diagnostics_device_gate_run">Démarrer la validation</string>
     <string name="diagnostics_device_gate_rerun">Redémarrer la validation</string>
     <string name="diagnostics_device_gate_share">Partager le rapport expurgé</string>

@@ -4171,7 +4171,7 @@ Quelle: %2$s</string>
     <string name="strategy_config_draft_save_failed_title">Entwurf nicht gespeichert</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI versucht erneut, den Entwurf lokal zu speichern. Lass diesen Bildschirm geöffnet, bis die Warnung verschwindet.</string>
     <string name="diagnostics_device_gate_title">Abnahme des entfernten Geräts</string>
-    <string name="diagnostics_device_gate_body">Führe die Prüfung aus, während das VPN Reality verwendet. Stelle danach die Verbindung wieder her, wechsle zwischen WLAN und Mobilfunk und schalte den Bildschirm aus und ein. Der Bericht bleibt unvollständig, bis alle Ereignisse beobachtet wurden.</string>
+    <string name="diagnostics_device_gate_body">Führe die Prüfung aus, während das VPN Reality verwendet. Stelle danach die Verbindung wieder her, wechsle zwischen WLAN und Mobilfunk und lasse den Bildschirm mindestens fünf Minuten ausgeschaltet, bevor du ihn wieder einschaltest. Der Bericht bleibt unvollständig, bis alle Ereignisse beobachtet wurden.</string>
     <string name="diagnostics_device_gate_run">Abnahmeprüfung starten</string>
     <string name="diagnostics_device_gate_rerun">Abnahmeprüfung neu starten</string>
     <string name="diagnostics_device_gate_share">Bereinigten Bericht teilen</string>

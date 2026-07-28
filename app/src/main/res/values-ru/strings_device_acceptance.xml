@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="diagnostics_device_gate_title">Приёмочная проверка устройства</string>
-    <string name="diagnostics_device_gate_body">Запустите проверку при VPN через Reality. Затем переподключитесь, переключитесь между Wi-Fi и мобильной сетью и выключите и включите экран. Отчёт останется неполным, пока не будут зафиксированы все события.</string>
+    <string name="diagnostics_device_gate_body">Запустите проверку при VPN через Reality. Затем переподключитесь, переключитесь между Wi-Fi и мобильной сетью и оставьте экран выключенным минимум на пять минут, прежде чем включить его. Отчёт останется неполным, пока не будут зафиксированы все события.</string>
     <string name="diagnostics_device_gate_run">Начать приёмочную проверку</string>
     <string name="diagnostics_device_gate_rerun">Перезапустить проверку</string>
     <string name="diagnostics_device_gate_share">Поделиться очищенным отчётом</string>

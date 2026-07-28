@@ -4203,7 +4203,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_draft_save_failed_title">لم تُحفظ المسودة</string>
     <string name="strategy_config_draft_save_failed_body">يعيد RIPDPI محاولة حفظ المسودة محليًا. أبقِ هذه الشاشة مفتوحة حتى يختفي التحذير.</string>
     <string name="diagnostics_device_gate_title">قبول الجهاز البعيد</string>
-    <string name="diagnostics_device_gate_body">شغّل الفحص أثناء استخدام VPN لـ Reality. ثم أعد الاتصال وبدّل بين Wi-Fi وبيانات الهاتف وأطفئ الشاشة وشغّلها. يبقى التقرير غير مكتمل حتى تُرصد كل الأحداث.</string>
+    <string name="diagnostics_device_gate_body">شغّل الفحص أثناء استخدام VPN لـ Reality. ثم أعد الاتصال وبدّل بين Wi-Fi وبيانات الهاتف واترك الشاشة مطفأة خمس دقائق على الأقل قبل تشغيلها. يبقى التقرير غير مكتمل حتى تُرصد كل الأحداث.</string>
     <string name="diagnostics_device_gate_run">بدء فحص القبول</string>
     <string name="diagnostics_device_gate_rerun">إعادة فحص القبول</string>
     <string name="diagnostics_device_gate_share">مشاركة التقرير المنقّح</string>
