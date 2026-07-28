@@ -357,7 +357,7 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
             when {
                 strategyApplied != null -> StrategyAdequacy.STRATEGY_APPLIED
                 strategyRecommendation?.actionable == true -> StrategyAdequacy.STRATEGY_RECOMMENDED
-                strategyProbe != null && allTcpCandidatesFailed(strategyProbe) -> StrategyAdequacy.ALL_CANDIDATES_FAILED
+                strategyProbe != null && allCandidatesFailed(strategyProbe) -> StrategyAdequacy.ALL_CANDIDATES_FAILED
                 resolverApplied.isNotEmpty() -> StrategyAdequacy.DNS_ONLY_APPLIED
                 strategyProbe == null -> StrategyAdequacy.NO_STRATEGY_PROBE
                 else -> null
@@ -368,9 +368,13 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
             resolverApplied: List<DiagnosticsAppliedSetting>,
         ): List<DiagnosticsAppliedSetting> = strategyApplied?.appliedSettings ?: resolverApplied
 
-        private fun allTcpCandidatesFailed(report: StrategyProbeReport): Boolean =
-            report.tcpCandidates.isNotEmpty() &&
-                report.tcpCandidates.none { it.succeededTargets > 0 && !it.skipped }
+        private fun allCandidatesFailed(report: StrategyProbeReport): Boolean {
+            val executedCandidates =
+                (report.tcpCandidates + report.quicCandidates)
+                    .filterNot { it.skipped }
+            return executedCandidates.isNotEmpty() &&
+                executedCandidates.none { it.succeededTargets > 0 }
+        }
 
         private fun buildAuditHeadline(
             strategyApplied: StrategyApplyResult?,
