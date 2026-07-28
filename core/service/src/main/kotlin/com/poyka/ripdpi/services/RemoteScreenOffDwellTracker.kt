@@ -14,7 +14,7 @@ import com.poyka.ripdpi.data.deltaFrom
 
 internal class RemoteScreenOffDwellTracker(
     private val minimumDwellMs: Long,
-    private val evidenceRecorder: (DeviceRuntimeEvidence) -> Unit = {},
+    private val evidenceRecorder: suspend (DeviceRuntimeEvidence.BackgroundSurvival) -> Unit = {},
 ) {
     private var screenOffStartedAt: Long? = null
     private var countersBefore: DeviceRuntimeDataPlaneCounters? = null
@@ -23,7 +23,7 @@ internal class RemoteScreenOffDwellTracker(
     private var screenOffProbeReady = false
     private var screenOffProbePassed: Boolean? = null
 
-    fun observe(
+    suspend fun observe(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         running: Boolean,
@@ -36,7 +36,7 @@ internal class RemoteScreenOffDwellTracker(
             observeScreenOff(elapsedNowMs, observedAtMillis, running, telemetry)
         }
 
-    private fun observeScreenOff(
+    private suspend fun observeScreenOff(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         running: Boolean,
@@ -61,7 +61,7 @@ internal class RemoteScreenOffDwellTracker(
             }
         }
 
-    private fun observeInteractive(
+    private suspend fun observeInteractive(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
@@ -97,7 +97,7 @@ internal class RemoteScreenOffDwellTracker(
         }
     }
 
-    private fun completeStoppedDuringScreenOff(
+    private suspend fun completeStoppedDuringScreenOff(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
@@ -116,7 +116,7 @@ internal class RemoteScreenOffDwellTracker(
         ).asCompletedObservation()
     }
 
-    private fun recordScreenOffStarted(
+    private suspend fun recordScreenOffStarted(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
@@ -136,11 +136,13 @@ internal class RemoteScreenOffDwellTracker(
         )
     }
 
-    fun recordScreenOffProbe(
+    suspend fun recordScreenOffProbe(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
         screenOffProbePassed: Boolean,
+        telemetryFresh: Boolean,
     ): RemoteScreenOffDwellObservation =
         screenOffStartedAt?.let { startedAt ->
             recordScreenOffProbeForStarted(
@@ -148,21 +150,24 @@ internal class RemoteScreenOffDwellTracker(
                 elapsedNowMs = elapsedNowMs,
                 observedAtMillis = observedAtMillis,
                 telemetry = telemetry,
+                countersBefore = countersBefore,
                 screenOffProbePassed = screenOffProbePassed,
+                telemetryFresh = telemetryFresh,
             )
         } ?: RemoteScreenOffDwellObservation.None
 
-    private fun recordScreenOffProbeForStarted(
+    private suspend fun recordScreenOffProbeForStarted(
         startedAt: Long,
         elapsedNowMs: Long,
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
         screenOffProbePassed: Boolean,
+        telemetryFresh: Boolean,
     ): RemoteScreenOffDwellObservation {
         val durationMs = elapsedNowMs - startedAt
         val countersAfter = telemetry.toRuntimeDataPlaneCounters()
-        val before = countersBefore ?: countersAfter
-        val delta = countersAfter.deltaFrom(before)
+        val delta = countersAfter.deltaFrom(countersBefore)
         val verdict =
             when {
                 !screenOffProbePassed -> {
@@ -180,6 +185,15 @@ internal class RemoteScreenOffDwellTracker(
                         outcome = DeviceRuntimeBackgroundSurvivalOutcome.Failed,
                         reason = DeviceRuntimeBackgroundSurvivalReason.ServiceRestarted,
                         errorClass = ErrorScreenOffServiceRestarted,
+                    )
+                }
+
+                !telemetryFresh -> {
+                    RemoteScreenOffDwellVerdict(
+                        status = RemoteDeviceAcceptanceStatus.Incomplete,
+                        outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
+                        reason = DeviceRuntimeBackgroundSurvivalReason.TelemetryStale,
+                        errorClass = null,
                     )
                 }
 
@@ -204,7 +218,7 @@ internal class RemoteScreenOffDwellTracker(
         recordEvidence(
             phase = DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe,
             observedAtMillis = observedAtMillis,
-            countersBefore = before,
+            countersBefore = countersBefore,
             countersAfter = countersAfter,
             counterDelta = delta,
             durationMs = durationMs,
@@ -220,6 +234,7 @@ internal class RemoteScreenOffDwellTracker(
                 observedAtMillis = observedAtMillis,
                 phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
                 countersAfter = countersAfter,
+                countersBeforeOverride = countersBefore,
                 durationMs = durationMs,
                 status = verdict.status,
                 outcome = verdict.outcome,
@@ -242,17 +257,18 @@ internal class RemoteScreenOffDwellTracker(
         return RemoteScreenOffDwellObservation.ReadyForScreenOffProbe(durationMs.coerceAtLeast(0L))
     }
 
-    fun completeAfterWake(
+    suspend fun completeAfterWake(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
         afterWakeProbePassed: Boolean,
+        telemetryFresh: Boolean,
     ): RemoteScreenOffDwellResult {
         val startedAt = screenOffStartedAt
         val durationMs = startedAt?.let { elapsedNowMs - it } ?: 0L
         val countersAfter = telemetry.toRuntimeDataPlaneCounters()
-        val before = countersBefore ?: countersAfter
-        val delta = countersAfter.deltaFrom(before)
+        val delta = countersAfter.deltaFrom(countersBefore)
         val result =
             when {
                 screenOffProbePassed != true -> {
@@ -282,6 +298,15 @@ internal class RemoteScreenOffDwellTracker(
                     )
                 }
 
+                !telemetryFresh -> {
+                    RemoteScreenOffDwellVerdict(
+                        status = RemoteDeviceAcceptanceStatus.Incomplete,
+                        outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
+                        reason = DeviceRuntimeBackgroundSurvivalReason.TelemetryStale,
+                        errorClass = null,
+                    )
+                }
+
                 delta.hasForwarding -> {
                     RemoteScreenOffDwellVerdict(
                         status = RemoteDeviceAcceptanceStatus.Pass,
@@ -305,6 +330,7 @@ internal class RemoteScreenOffDwellTracker(
             observedAtMillis = observedAtMillis,
             phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
             countersAfter = countersAfter,
+            countersBeforeOverride = countersBefore,
             durationMs = durationMs,
             status = result.status,
             outcome = result.outcome,
@@ -313,7 +339,31 @@ internal class RemoteScreenOffDwellTracker(
         )
     }
 
-    fun cancel(
+    suspend fun interruptScreenOffProbe(
+        elapsedNowMs: Long,
+        observedAtMillis: Long,
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+        reason: DeviceRuntimeBackgroundSurvivalReason,
+        status: RemoteDeviceAcceptanceStatus,
+        errorClass: String?,
+    ): RemoteScreenOffDwellObservation {
+        val startedAt = screenOffStartedAt ?: return RemoteScreenOffDwellObservation.None
+        return complete(
+            elapsedNowMs = elapsedNowMs,
+            observedAtMillis = observedAtMillis,
+            phase = DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe,
+            countersAfter = telemetry.toRuntimeDataPlaneCounters(),
+            countersBeforeOverride = countersBefore,
+            durationMs = elapsedNowMs - startedAt,
+            status = status,
+            outcome = status.toBackgroundOutcome(),
+            reason = reason,
+            errorClass = errorClass,
+        ).asCompletedObservation()
+    }
+
+    suspend fun cancel(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
@@ -332,11 +382,12 @@ internal class RemoteScreenOffDwellTracker(
         )
     }
 
-    private fun complete(
+    private suspend fun complete(
         elapsedNowMs: Long,
         observedAtMillis: Long,
         phase: DeviceRuntimeBackgroundSurvivalPhase,
         countersAfter: DeviceRuntimeDataPlaneCounters,
+        countersBeforeOverride: DeviceRuntimeDataPlaneCounters? = null,
         durationMs: Long,
         status: RemoteDeviceAcceptanceStatus,
         outcome: DeviceRuntimeBackgroundSurvivalOutcome,
@@ -344,7 +395,7 @@ internal class RemoteScreenOffDwellTracker(
         errorClass: String?,
         recordEvidence: Boolean = true,
     ): RemoteScreenOffDwellResult {
-        val before = countersBefore ?: countersAfter
+        val before = countersBeforeOverride ?: countersBefore ?: countersAfter
         val delta = countersAfter.deltaFrom(before)
         val normalizedDurationMs = durationMs.coerceAtLeast(0L)
         if (recordEvidence) {
@@ -369,7 +420,7 @@ internal class RemoteScreenOffDwellTracker(
         )
     }
 
-    private fun recordEvidence(
+    private suspend fun recordEvidence(
         phase: DeviceRuntimeBackgroundSurvivalPhase,
         observedAtMillis: Long,
         countersBefore: DeviceRuntimeDataPlaneCounters,
@@ -442,7 +493,7 @@ private data class RemoteScreenOffDwellVerdict(
 private fun RemoteScreenOffDwellResult.asCompletedObservation(): RemoteScreenOffDwellObservation =
     RemoteScreenOffDwellObservation.Completed(this)
 
-private fun ServiceTelemetrySnapshot.toRuntimeDataPlaneCounters(): DeviceRuntimeDataPlaneCounters {
+internal fun ServiceTelemetrySnapshot.toRuntimeDataPlaneCounters(): DeviceRuntimeDataPlaneCounters {
     val nativeStats =
         listOf(proxyTelemetry, relayTelemetry, warpTelemetry, awgTelemetry, tunnelTelemetry)
             .map(NativeRuntimeSnapshot::tunnelStats)
@@ -476,3 +527,15 @@ private fun saturatedSum(
 ): Long =
     runCatching { Math.addExact(left.coerceAtLeast(0L), right.coerceAtLeast(0L)) }
         .getOrDefault(Long.MAX_VALUE)
+
+private fun RemoteDeviceAcceptanceStatus.toBackgroundOutcome(): DeviceRuntimeBackgroundSurvivalOutcome =
+    when (this) {
+        RemoteDeviceAcceptanceStatus.Pass -> DeviceRuntimeBackgroundSurvivalOutcome.Passed
+
+        RemoteDeviceAcceptanceStatus.Fail -> DeviceRuntimeBackgroundSurvivalOutcome.Failed
+
+        RemoteDeviceAcceptanceStatus.Idle,
+        RemoteDeviceAcceptanceStatus.Running,
+        RemoteDeviceAcceptanceStatus.Incomplete,
+        -> DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive
+    }

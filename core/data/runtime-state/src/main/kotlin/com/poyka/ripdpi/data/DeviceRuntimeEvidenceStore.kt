@@ -70,6 +70,8 @@ enum class DeviceRuntimeBackgroundSurvivalReason {
     ScreenOffProbeMissing,
     NoDataPlaneDelta,
     PostActionProbeFailed,
+    TelemetryStale,
+    ScreenStateChanged,
     Cancelled,
 }
 

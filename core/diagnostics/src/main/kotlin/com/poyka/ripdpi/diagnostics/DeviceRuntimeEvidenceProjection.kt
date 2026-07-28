@@ -215,6 +215,8 @@ private fun DeviceRuntimeEvidence?.backgroundSurvivalReasonValue(): String =
         DeviceRuntimeBackgroundSurvivalReason.ScreenOffProbeMissing -> "screen_off_probe_missing"
         DeviceRuntimeBackgroundSurvivalReason.NoDataPlaneDelta -> "no_data_plane_delta"
         DeviceRuntimeBackgroundSurvivalReason.PostActionProbeFailed -> "post_action_probe_failed"
+        DeviceRuntimeBackgroundSurvivalReason.TelemetryStale -> "telemetry_stale"
+        DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged -> "screen_state_changed"
         DeviceRuntimeBackgroundSurvivalReason.Cancelled -> "cancelled"
         null -> "unchanged"
     }

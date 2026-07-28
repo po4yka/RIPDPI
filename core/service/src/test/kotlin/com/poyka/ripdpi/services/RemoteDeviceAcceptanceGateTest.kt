@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,251 +17,373 @@ import org.junit.Test
 
 class RemoteDeviceAcceptanceGateTest {
     @Test
-    fun `screen off survival passes after configured dwell with forwarding delta`() {
-        val events = mutableListOf<DeviceRuntimeEvidence>()
-        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L, events::add)
+    fun `screen off survival passes after configured dwell with forwarding delta`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
 
-        assertEquals(
-            RemoteScreenOffDwellObservation.None,
+            assertEquals(
+                RemoteScreenOffDwellObservation.None,
+                tracker.observe(
+                    elapsedNowMs = 1_000L,
+                    observedAtMillis = 10L,
+                    running = true,
+                    interactive = false,
+                    telemetry = telemetry(tunnelTxBytes = 100L),
+                ),
+            )
+            assertEquals(
+                RemoteScreenOffDwellObservation.ReadyForScreenOffProbe(durationMs = 300_000L),
+                tracker.observe(
+                    elapsedNowMs = 301_000L,
+                    observedAtMillis = 310L,
+                    running = true,
+                    interactive = false,
+                    telemetry = telemetry(tunnelTxBytes = 100L),
+                ),
+            )
+            assertEquals(
+                RemoteScreenOffDwellObservation.None,
+                tracker.recordScreenOffProbe(
+                    elapsedNowMs = 301_050L,
+                    observedAtMillis = 315L,
+                    telemetry = telemetry(tunnelTxBytes = 132L, relayRxPackets = 2L),
+                    countersBefore = telemetry(tunnelTxBytes = 100L).toRuntimeDataPlaneCounters(),
+                    screenOffProbePassed = true,
+                    telemetryFresh = true,
+                ),
+            )
+            assertEquals(
+                RemoteScreenOffDwellObservation.ReadyForAfterWakeProbe(durationMs = 300_100L),
+                tracker.observe(
+                    elapsedNowMs = 301_100L,
+                    observedAtMillis = 320L,
+                    running = true,
+                    interactive = true,
+                    telemetry = telemetry(tunnelTxBytes = 132L, relayRxPackets = 2L),
+                ),
+            )
+
+            val result =
+                tracker.completeAfterWake(
+                    elapsedNowMs = 301_150L,
+                    observedAtMillis = 325L,
+                    telemetry = telemetry(tunnelTxBytes = 160L, relayRxPackets = 3L),
+                    countersBefore = telemetry(tunnelTxBytes = 132L, relayRxPackets = 2L).toRuntimeDataPlaneCounters(),
+                    afterWakeProbePassed = true,
+                    telemetryFresh = true,
+                )
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Pass, result.status)
+            assertNull(result.errorClass)
+            assertTrue(result.counterDelta.hasForwarding)
+            assertEquals(3, events.size)
+            val started = events[0] as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted, started.phase)
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Pending, started.outcome)
+            val screenOffProbe = events[1] as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe, screenOffProbe.phase)
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Passed, screenOffProbe.outcome)
+            val completed = events[2] as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalPhase.AfterWake, completed.phase)
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Passed, completed.outcome)
+            assertEquals(28L, completed.counterDelta?.tunnelBytes)
+            assertEquals(1L, completed.counterDelta?.nativePackets)
+        }
+
+    @Test
+    fun `screen off survival fails when no forwarding delta is observed after wake`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(tunnelRxBytes = 100L),
+            )
+            val ready =
+                tracker.observe(
+                    elapsedNowMs = 301_000L,
+                    observedAtMillis = 310L,
+                    running = true,
+                    interactive = false,
+                    telemetry = telemetry(tunnelRxBytes = 100L),
+                )
+            assertEquals(RemoteScreenOffDwellObservation.ReadyForScreenOffProbe(300_000L), ready)
+
+            val result =
+                tracker.recordScreenOffProbe(
+                    elapsedNowMs = 301_050L,
+                    observedAtMillis = 315L,
+                    telemetry = telemetry(tunnelRxBytes = 100L),
+                    countersBefore = telemetry(tunnelRxBytes = 100L).toRuntimeDataPlaneCounters(),
+                    screenOffProbePassed = true,
+                    telemetryFresh = true,
+                ) as RemoteScreenOffDwellObservation.Completed
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, result.result.status)
+            assertNull(result.result.errorClass)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe, completed.phase)
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.NoDataPlaneDelta, completed.reason)
+            assertFalse(result.result.counterDelta.hasForwarding)
+        }
+
+    @Test
+    fun `screen off survival is inconclusive when after-wake probe is missing`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(tunnelRxBytes = 100L),
+            )
+            tracker.observe(
+                elapsedNowMs = 301_000L,
+                observedAtMillis = 310L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(tunnelRxBytes = 100L),
+            )
+            val woke =
+                tracker.observe(
+                    elapsedNowMs = 301_100L,
+                    observedAtMillis = 320L,
+                    running = true,
+                    interactive = true,
+                    telemetry = telemetry(tunnelRxBytes = 132L),
+                ) as RemoteScreenOffDwellObservation.Completed
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, woke.result.status)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.ScreenOffProbeMissing, completed.reason)
+        }
+
+    @Test
+    fun `screen off survival fails when VPN stops during dwell`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(),
+            )
+            val stopped =
+                tracker.observe(
+                    elapsedNowMs = 200_000L,
+                    observedAtMillis = 20L,
+                    running = false,
+                    interactive = false,
+                    telemetry = telemetry(),
+                ) as RemoteScreenOffDwellObservation.Completed
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Fail, stopped.result.status)
+            assertEquals(ErrorScreenOffServiceStopped, stopped.result.errorClass)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Failed, completed.outcome)
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.ServiceStopped, completed.reason)
+        }
+
+    @Test
+    fun `screen off start evidence is recorded before completion and stays privacy safe`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(tunnelTxBytes = 7L),
+            )
+
+            assertEquals(1, events.size)
+            val started = events.single() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted, started.phase)
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Pending, started.outcome)
+            assertEquals(7L, started.countersBefore.tunnelTxBytes)
+            assertNull(started.countersAfter)
+            listOf("ssid", "bssid", "serial", "endpoint", "profile", "uuid").forEach { forbidden ->
+                assertFalse(started.toString().contains(forbidden, ignoreCase = true))
+            }
+        }
+
+    @Test
+    fun `screen off cancellation records inconclusive evidence`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(),
+            )
+            val cancelled =
+                tracker.cancel(
+                    elapsedNowMs = 2_000L,
+                    observedAtMillis = 20L,
+                    telemetry = telemetry(),
+                )
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, cancelled?.status)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.Cancelled, completed.reason)
+        }
+
+    @Test
+    fun `short screen off wake records inconclusive result without passing the gate`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(),
+            )
+            val wokeEarly =
+                tracker.observe(
+                    elapsedNowMs = 2_000L,
+                    observedAtMillis = 20L,
+                    running = true,
+                    interactive = true,
+                    telemetry = telemetry(),
+                ) as RemoteScreenOffDwellObservation.Completed
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, wokeEarly.result.status)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.TooShort, completed.reason)
+        }
+
+    @Test
+    fun `ambient dwell traffic does not satisfy the screen-off probe delta`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
             tracker.observe(
                 elapsedNowMs = 1_000L,
                 observedAtMillis = 10L,
                 running = true,
                 interactive = false,
                 telemetry = telemetry(tunnelTxBytes = 100L),
-            ),
-        )
-        assertEquals(
-            RemoteScreenOffDwellObservation.ReadyForScreenOffProbe(durationMs = 300_000L),
+            )
+            tracker.observe(
+                elapsedNowMs = 301_000L,
+                observedAtMillis = 310L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(tunnelTxBytes = 500L),
+            )
+            val result =
+                tracker.recordScreenOffProbe(
+                    elapsedNowMs = 301_050L,
+                    observedAtMillis = 315L,
+                    telemetry = telemetry(tunnelTxBytes = 500L),
+                    countersBefore = telemetry(tunnelTxBytes = 500L).toRuntimeDataPlaneCounters(),
+                    screenOffProbePassed = true,
+                    telemetryFresh = true,
+                ) as RemoteScreenOffDwellObservation.Completed
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, result.result.status)
+            assertFalse(result.result.counterDelta.hasForwarding)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.NoDataPlaneDelta, completed.reason)
+        }
+
+    @Test
+    fun `successful probe with stale telemetry stays inconclusive`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
+
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(tunnelTxBytes = 100L),
+            )
             tracker.observe(
                 elapsedNowMs = 301_000L,
                 observedAtMillis = 310L,
                 running = true,
                 interactive = false,
                 telemetry = telemetry(tunnelTxBytes = 100L),
-            ),
-        )
-        assertEquals(
-            RemoteScreenOffDwellObservation.None,
-            tracker.recordScreenOffProbe(
-                elapsedNowMs = 301_050L,
-                observedAtMillis = 315L,
-                telemetry = telemetry(tunnelTxBytes = 132L, relayRxPackets = 2L),
-                screenOffProbePassed = true,
-            ),
-        )
-        assertEquals(
-            RemoteScreenOffDwellObservation.ReadyForAfterWakeProbe(durationMs = 300_100L),
-            tracker.observe(
-                elapsedNowMs = 301_100L,
-                observedAtMillis = 320L,
-                running = true,
-                interactive = true,
-                telemetry = telemetry(tunnelTxBytes = 132L, relayRxPackets = 2L),
-            ),
-        )
-
-        val result =
-            tracker.completeAfterWake(
-                elapsedNowMs = 301_150L,
-                observedAtMillis = 325L,
-                telemetry = telemetry(tunnelTxBytes = 132L, relayRxPackets = 2L),
-                afterWakeProbePassed = true,
             )
+            val result =
+                tracker.recordScreenOffProbe(
+                    elapsedNowMs = 301_050L,
+                    observedAtMillis = 315L,
+                    telemetry = telemetry(tunnelTxBytes = 140L),
+                    countersBefore = telemetry(tunnelTxBytes = 100L).toRuntimeDataPlaneCounters(),
+                    screenOffProbePassed = true,
+                    telemetryFresh = false,
+                ) as RemoteScreenOffDwellObservation.Completed
 
-        assertEquals(RemoteDeviceAcceptanceStatus.Pass, result.status)
-        assertNull(result.errorClass)
-        assertTrue(result.counterDelta.hasForwarding)
-        assertEquals(3, events.size)
-        val started = events[0] as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted, started.phase)
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Pending, started.outcome)
-        val screenOffProbe = events[1] as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe, screenOffProbe.phase)
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Passed, screenOffProbe.outcome)
-        val completed = events[2] as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalPhase.AfterWake, completed.phase)
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Passed, completed.outcome)
-        assertEquals(32L, completed.counterDelta?.tunnelBytes)
-        assertEquals(2L, completed.counterDelta?.nativePackets)
-    }
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, result.result.status)
+            assertTrue(result.result.counterDelta.hasForwarding)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.TelemetryStale, completed.reason)
+        }
 
     @Test
-    fun `screen off survival fails when no forwarding delta is observed after wake`() {
-        val events = mutableListOf<DeviceRuntimeEvidence>()
-        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L, events::add)
+    fun `screen state changes during the screen-off probe record an inconclusive terminal event`() =
+        runTest {
+            val events = mutableListOf<DeviceRuntimeEvidence>()
+            val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L) { events.add(it) }
 
-        tracker.observe(
-            elapsedNowMs = 1_000L,
-            observedAtMillis = 10L,
-            running = true,
-            interactive = false,
-            telemetry = telemetry(tunnelRxBytes = 100L),
-        )
-        val ready =
+            tracker.observe(
+                elapsedNowMs = 1_000L,
+                observedAtMillis = 10L,
+                running = true,
+                interactive = false,
+                telemetry = telemetry(tunnelTxBytes = 100L),
+            )
             tracker.observe(
                 elapsedNowMs = 301_000L,
                 observedAtMillis = 310L,
                 running = true,
                 interactive = false,
-                telemetry = telemetry(tunnelRxBytes = 100L),
+                telemetry = telemetry(tunnelTxBytes = 100L),
             )
-        assertEquals(RemoteScreenOffDwellObservation.ReadyForScreenOffProbe(300_000L), ready)
+            val result =
+                tracker.interruptScreenOffProbe(
+                    elapsedNowMs = 301_050L,
+                    observedAtMillis = 315L,
+                    telemetry = telemetry(tunnelTxBytes = 100L),
+                    countersBefore = telemetry(tunnelTxBytes = 100L).toRuntimeDataPlaneCounters(),
+                    reason = DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged,
+                    status = RemoteDeviceAcceptanceStatus.Incomplete,
+                    errorClass = null,
+                ) as RemoteScreenOffDwellObservation.Completed
 
-        val result =
-            tracker.recordScreenOffProbe(
-                elapsedNowMs = 301_050L,
-                observedAtMillis = 315L,
-                telemetry = telemetry(tunnelRxBytes = 100L),
-                screenOffProbePassed = true,
-            ) as RemoteScreenOffDwellObservation.Completed
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, result.result.status)
-        assertNull(result.result.errorClass)
-        val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe, completed.phase)
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
-        assertEquals(DeviceRuntimeBackgroundSurvivalReason.NoDataPlaneDelta, completed.reason)
-        assertFalse(result.result.counterDelta.hasForwarding)
-    }
-
-    @Test
-    fun `screen off survival is inconclusive when after-wake probe is missing`() {
-        val events = mutableListOf<DeviceRuntimeEvidence>()
-        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L, events::add)
-
-        tracker.observe(
-            elapsedNowMs = 1_000L,
-            observedAtMillis = 10L,
-            running = true,
-            interactive = false,
-            telemetry = telemetry(tunnelRxBytes = 100L),
-        )
-        tracker.observe(
-            elapsedNowMs = 301_000L,
-            observedAtMillis = 310L,
-            running = true,
-            interactive = false,
-            telemetry = telemetry(tunnelRxBytes = 100L),
-        )
-        val woke =
-            tracker.observe(
-                elapsedNowMs = 301_100L,
-                observedAtMillis = 320L,
-                running = true,
-                interactive = true,
-                telemetry = telemetry(tunnelRxBytes = 132L),
-            ) as RemoteScreenOffDwellObservation.Completed
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, woke.result.status)
-        val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
-        assertEquals(DeviceRuntimeBackgroundSurvivalReason.ScreenOffProbeMissing, completed.reason)
-    }
-
-    @Test
-    fun `screen off survival fails when VPN stops during dwell`() {
-        val events = mutableListOf<DeviceRuntimeEvidence>()
-        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L, events::add)
-
-        tracker.observe(
-            elapsedNowMs = 1_000L,
-            observedAtMillis = 10L,
-            running = true,
-            interactive = false,
-            telemetry = telemetry(),
-        )
-        val stopped =
-            tracker.observe(
-                elapsedNowMs = 200_000L,
-                observedAtMillis = 20L,
-                running = false,
-                interactive = false,
-                telemetry = telemetry(),
-            ) as RemoteScreenOffDwellObservation.Completed
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Fail, stopped.result.status)
-        assertEquals(ErrorScreenOffServiceStopped, stopped.result.errorClass)
-        val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Failed, completed.outcome)
-        assertEquals(DeviceRuntimeBackgroundSurvivalReason.ServiceStopped, completed.reason)
-    }
-
-    @Test
-    fun `screen off start evidence is recorded before completion and stays privacy safe`() {
-        val events = mutableListOf<DeviceRuntimeEvidence>()
-        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L, events::add)
-
-        tracker.observe(
-            elapsedNowMs = 1_000L,
-            observedAtMillis = 10L,
-            running = true,
-            interactive = false,
-            telemetry = telemetry(tunnelTxBytes = 7L),
-        )
-
-        assertEquals(1, events.size)
-        val started = events.single() as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted, started.phase)
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Pending, started.outcome)
-        assertEquals(7L, started.countersBefore.tunnelTxBytes)
-        assertNull(started.countersAfter)
-        listOf("ssid", "bssid", "serial", "endpoint", "profile", "uuid").forEach { forbidden ->
-            assertFalse(started.toString().contains(forbidden, ignoreCase = true))
+            assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, result.result.status)
+            val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
+            assertEquals(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe, completed.phase)
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged, completed.reason)
         }
-    }
-
-    @Test
-    fun `screen off cancellation records inconclusive evidence`() {
-        val events = mutableListOf<DeviceRuntimeEvidence>()
-        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L, events::add)
-
-        tracker.observe(
-            elapsedNowMs = 1_000L,
-            observedAtMillis = 10L,
-            running = true,
-            interactive = false,
-            telemetry = telemetry(),
-        )
-        val cancelled =
-            tracker.cancel(
-                elapsedNowMs = 2_000L,
-                observedAtMillis = 20L,
-                telemetry = telemetry(),
-            )
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, cancelled?.status)
-        val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
-        assertEquals(DeviceRuntimeBackgroundSurvivalReason.Cancelled, completed.reason)
-    }
-
-    @Test
-    fun `short screen off wake records inconclusive result without passing the gate`() {
-        val events = mutableListOf<DeviceRuntimeEvidence>()
-        val tracker = RemoteScreenOffDwellTracker(minimumDwellMs = 300_000L, events::add)
-
-        tracker.observe(
-            elapsedNowMs = 1_000L,
-            observedAtMillis = 10L,
-            running = true,
-            interactive = false,
-            telemetry = telemetry(),
-        )
-        val wokeEarly =
-            tracker.observe(
-                elapsedNowMs = 2_000L,
-                observedAtMillis = 20L,
-                running = true,
-                interactive = true,
-                telemetry = telemetry(),
-            ) as RemoteScreenOffDwellObservation.Completed
-
-        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, wokeEarly.result.status)
-        val completed = events.last() as DeviceRuntimeEvidence.BackgroundSurvival
-        assertEquals(DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive, completed.outcome)
-        assertEquals(DeviceRuntimeBackgroundSurvivalReason.TooShort, completed.reason)
-    }
 
     @Test
     fun `successful baseline passes data plane and leaves guided checks incomplete`() {
