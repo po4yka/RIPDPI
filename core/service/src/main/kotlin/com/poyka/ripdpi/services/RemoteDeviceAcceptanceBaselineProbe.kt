@@ -12,6 +12,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.net.InetSocketAddress
@@ -219,38 +221,47 @@ internal class RelayUdpPayloadHealthCache(
         nowMs: Long,
         loader: suspend () -> RelayUdpPayloadHealthEvidence?,
     ): RelayUdpPayloadHealthEvidence? {
-        var leader = false
-        val deferred =
-            mutex.withLock {
-                freshEntry(key, nowMs)?.let { cached ->
-                    return cached.evidence
+        while (true) {
+            var leader = false
+            val deferred =
+                mutex.withLock {
+                    freshEntry(key, nowMs)?.let { cached ->
+                        return cached.evidence
+                    }
+                    inFlight[key]
+                        ?: CompletableDeferred<RelayUdpPayloadHealthEvidence?>()
+                            .also { pending ->
+                                inFlight[key] = pending
+                                leader = true
+                            }
                 }
-                inFlight[key]
-                    ?: CompletableDeferred<RelayUdpPayloadHealthEvidence?>()
-                        .also { pending ->
-                            inFlight[key] = pending
-                            leader = true
-                        }
+            if (!leader) {
+                try {
+                    return deferred.await()
+                } catch (_: CancellationException) {
+                    currentCoroutineContext().ensureActive()
+                    continue
+                }
             }
-        if (!leader) return deferred.await()
 
-        return try {
-            val loaded = loader()
-            mutex.withLock {
-                entries[key] = CachedRelayUdpPayloadHealth(nowMs, loaded)
-                trimLocked()
-                inFlight.remove(key)
+            return try {
+                val loaded = loader()
+                mutex.withLock {
+                    entries[key] = CachedRelayUdpPayloadHealth(nowMs, loaded)
+                    trimLocked()
+                    inFlight.remove(key)
+                }
+                deferred.complete(loaded)
+                loaded
+            } catch (cancelled: CancellationException) {
+                mutex.withLock { inFlight.remove(key) }
+                deferred.completeExceptionally(cancelled)
+                throw cancelled
+            } catch (throwable: Throwable) {
+                mutex.withLock { inFlight.remove(key) }
+                deferred.completeExceptionally(throwable)
+                throw throwable
             }
-            deferred.complete(loaded)
-            loaded
-        } catch (cancelled: CancellationException) {
-            mutex.withLock { inFlight.remove(key) }
-            deferred.completeExceptionally(cancelled)
-            throw cancelled
-        } catch (throwable: Throwable) {
-            mutex.withLock { inFlight.remove(key) }
-            deferred.completeExceptionally(throwable)
-            throw throwable
         }
     }
 

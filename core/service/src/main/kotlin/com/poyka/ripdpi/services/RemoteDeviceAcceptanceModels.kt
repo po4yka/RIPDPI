@@ -86,7 +86,7 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
             !evidence.serviceRunning -> ErrorServiceNotRunning
             evidence.transportKind != com.poyka.ripdpi.data.RelayKindVlessReality -> ErrorTransportMismatch
             !evidence.listenerAvailable -> ErrorListenerUnavailable
-            evidence.probe == null -> ErrorProbe
+            evidence.probe == null && evidence.contextError == null -> ErrorProbe
             else -> null
         }
     val probe = evidence.probe

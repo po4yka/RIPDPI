@@ -14,6 +14,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -223,6 +224,46 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
         }
 
     @Test
+    fun `context drift takes precedence over null connectivity probes`() =
+        runTest {
+            val initial = runningRealitySnapshot()
+            val serviceStateStore = TestServiceStateStore(AppStatus.Running to Mode.VPN)
+            serviceStateStore.updateTelemetry(initial)
+            val capabilityProbe =
+                RelayCapabilityProbe(
+                    tcpProbe =
+                        RelayTcpProbe { _, _ ->
+                            serviceStateStore.updateTelemetry(
+                                runningRealitySnapshot(listenerAddress = "127.0.0.1:1081"),
+                            )
+                            error("connectivity probe unavailable")
+                        },
+                    udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    payloadHealthProbe =
+                        RelayUdpPayloadHealthProbe { _, families ->
+                            successfulPayloadHealth(families)
+                        },
+                )
+            val probe =
+                RemoteDeviceAcceptanceBaselineProbe(
+                    serviceStateStore = serviceStateStore,
+                    relayCapabilityProbe = capabilityProbe,
+                    underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
+                    deviceProvider = { Device },
+                    monotonicClock = { 1_000L },
+                )
+
+            val report = probe.capture(initial)
+
+            listOf(StepRealityTcp, StepUdpAssociate, StepDnsUdp, StepRelayUdpPayload, StepIpv4, StepIpv6)
+                .forEach { stepId ->
+                    assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.step(stepId).status)
+                    assertEquals(ErrorPayloadHealthContextDrift, report.step(stepId).errorClass)
+                }
+            assertEquals(null, report.pathHealth)
+        }
+
+    @Test
     fun `payload health cache reuses evidence during guided cooldown`() =
         runTest {
             var payloadCalls = 0
@@ -382,6 +423,40 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
 
             assertEquals(1, retryCalls)
             assertEquals(RelayUdpPayloadHealthVerdict.Acknowledged.wireValue, result?.overallVerdict)
+        }
+
+    @Test
+    fun `payload health cache follower retries after shared leader is cancelled`() =
+        runTest {
+            val cache = RelayUdpPayloadHealthCache()
+            val key = payloadCacheKey()
+            val leaderStarted = CompletableDeferred<Unit>()
+            val leader =
+                async {
+                    cache.getOrPut(key, nowMs = 1_000L) {
+                        leaderStarted.complete(Unit)
+                        awaitCancellation()
+                    }
+                }
+
+            leaderStarted.await()
+            var leaderCancelled = false
+            var retryCalls = 0
+            val follower =
+                async {
+                    cache.getOrPut(key, nowMs = 1_000L) {
+                        assertTrue(leaderCancelled)
+                        retryCalls += 1
+                        successfulPayloadHealth(setOf(RelayUdpPayloadFamily.Ipv4))
+                    }
+                }
+
+            yield()
+            leaderCancelled = true
+            leader.cancelAndJoin()
+
+            assertEquals(1, retryCalls)
+            assertEquals(RelayUdpPayloadHealthVerdict.Acknowledged.wireValue, follower.await()?.overallVerdict)
         }
 
     private fun payloadCacheKey(): RelayUdpPayloadHealthCacheKey =
