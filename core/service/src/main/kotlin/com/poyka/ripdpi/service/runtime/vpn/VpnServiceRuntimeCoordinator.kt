@@ -299,6 +299,7 @@ internal class VpnServiceRuntimeCoordinator(
             stopHooks =
                 ServiceRuntimeStopHooks(
                     stopModeRuntime = ::stopModeRuntime,
+                    captureFinalTelemetry = telemetryCoordinator::captureFinalTelemetry,
                     onAfterStopCleanup = ::onAfterStopCleanup,
                 ),
             handoverHooks =

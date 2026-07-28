@@ -26,6 +26,7 @@ internal class ServiceRuntimeStartHooks<TSession>(
 
 internal class ServiceRuntimeStopHooks<TSession>(
     val stopModeRuntime: suspend (Boolean) -> Unit,
+    val captureFinalTelemetry: suspend () -> Unit = {},
     val onAfterStopCleanup: (TSession?) -> Unit = {},
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
 

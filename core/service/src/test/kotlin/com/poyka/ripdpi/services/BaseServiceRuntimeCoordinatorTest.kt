@@ -91,6 +91,18 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun finalTelemetryIsCapturedBeforeRuntimeStop() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+
+            env.coordinator.stop()
+
+            assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
+        }
+
+    @Test
     fun nonActionableAndCooldownHandoverEventsAreIgnored() =
         runTest {
             val initialFingerprint = sampleFingerprint()
@@ -604,6 +616,7 @@ private class TestCoordinator(
     var handoverRestartGate: CompletableDeferred<Unit>? = null
     val handoverResolutionGates = mutableMapOf<String, CompletableDeferred<Unit>>()
     val statusTransitions = mutableListOf<ServiceStatus>()
+    val stopLifecycleEvents = mutableListOf<String>()
 
     override val runtimeHooks: ServiceRuntimeModeHooks<ProxyRuntimeSession> =
         ServiceRuntimeModeHooks(
@@ -618,6 +631,7 @@ private class TestCoordinator(
                 ),
             stopHooks =
                 ServiceRuntimeStopHooks(
+                    captureFinalTelemetry = ::captureFinalTelemetry,
                     stopModeRuntime = ::stopModeRuntime,
                 ),
             handoverHooks =
@@ -682,9 +696,14 @@ private class TestCoordinator(
 
     @Suppress("UnusedParameter")
     private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
+        stopLifecycleEvents += "runtime_stop"
         stopCalls += 1
         if (failOnStop) error("stop failed")
         stopGate?.await()
+    }
+
+    private suspend fun captureFinalTelemetry() {
+        stopLifecycleEvents += "final_telemetry"
     }
 
     @Suppress("UnusedParameter")

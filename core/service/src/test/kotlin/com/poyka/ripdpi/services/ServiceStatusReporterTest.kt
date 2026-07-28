@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
@@ -90,6 +91,7 @@ class ServiceStatusReporterTest {
                                 totalErrors = 1,
                                 lastError = "no supported socks auth method",
                                 lastFailureClass = "native_io",
+                                nativeEvents = dataPlaneEvents(20) + staleNativeEvents(),
                             ),
                         tunnelTelemetry =
                             NativeRuntimeSnapshot(
@@ -135,6 +137,24 @@ class ServiceStatusReporterTest {
         assertNull(store.telemetry.value.tunnelTelemetry.lastError)
         assertNull(store.telemetry.value.proxyTelemetry.lastFailureClass)
         assertNull(store.telemetry.value.tunnelTelemetry.lastFailureClass)
+        assertEquals(16, store.telemetry.value.proxyTelemetry.nativeEvents.size)
+        assertTrue(
+            store.telemetry.value.proxyTelemetry.nativeEvents.all { event ->
+                event.subsystem == "data_plane" && event.level == "info"
+            },
+        )
+        assertEquals(
+            "event-4",
+            store.telemetry.value.proxyTelemetry.nativeEvents
+                .first()
+                .message,
+        )
+        assertEquals(
+            "event-19",
+            store.telemetry.value.proxyTelemetry.nativeEvents
+                .last()
+                .message,
+        )
     }
 
     @Test
@@ -336,5 +356,36 @@ class ServiceStatusReporterTest {
                     override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
                 },
             clock = TestServiceClock(now = now),
+        )
+
+    private fun dataPlaneEvents(count: Int): List<NativeRuntimeEvent> =
+        List(count) { index ->
+            NativeRuntimeEvent(
+                source = "service",
+                level = "info",
+                message = "event-$index",
+                createdAt = index.toLong(),
+                kind = "data_plane_correlation",
+                subsystem = "data_plane",
+            )
+        }
+
+    private fun staleNativeEvents(): List<NativeRuntimeEvent> =
+        listOf(
+            NativeRuntimeEvent(
+                source = "proxy",
+                level = "error",
+                message = "stale native error",
+                createdAt = 100L,
+                kind = "native_error",
+                subsystem = "proxy",
+            ),
+            NativeRuntimeEvent(
+                source = "proxy",
+                level = "warn",
+                message = "stale native warning",
+                createdAt = 101L,
+                kind = "native_warning",
+            ),
         )
 }

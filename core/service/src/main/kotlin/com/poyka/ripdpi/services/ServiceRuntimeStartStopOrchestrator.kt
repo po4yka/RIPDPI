@@ -64,6 +64,10 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
 
         dependencies.lifecycleRunner.stop {
             dependencies.loopOwner.cancelPermissionWatchdog()
+            runCatching { callbacks.captureFinalTelemetry() }
+                .onFailure { failure ->
+                    Logger.e(failure) { "Failed to capture final ${dependencies.serviceLabel()} telemetry" }
+                }
             runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
                 .onFailure { failure ->
                     Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
@@ -105,6 +109,7 @@ internal class ServiceRuntimeStartStopCallbacks<TSession>(
     val resolveInitialConnectionPolicy: suspend () -> ConnectionPolicyResolution,
     val applyActiveConnectionPolicy: (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
     val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> Unit,
+    val captureFinalTelemetry: suspend () -> Unit = {},
     val stopModeRuntime: suspend (Boolean) -> Unit,
     val startModeTelemetryUpdates: () -> Unit,
     val onAfterStopCleanup: (TSession?) -> Unit,

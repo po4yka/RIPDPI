@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.ResolvedRipDpiAmneziaWgConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiAmneziaWgFactory
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.core.RipDpiWarpRuntime
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
+import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -710,6 +712,8 @@ internal class TestProxyRuntime(
     var awaitReadyFailure: Exception? = null
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
+    var forwardingEvidenceFailure: Throwable? = null
+    var forwardingEvidence: ProxyForwardingEvidence = ProxyForwardingEvidence.Empty
     var telemetry: NativeRuntimeSnapshot =
         NativeRuntimeSnapshot(
             source = "proxy",
@@ -752,6 +756,11 @@ internal class TestProxyRuntime(
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
         telemetryFailure?.let { throw it }
         return telemetry
+    }
+
+    override suspend fun pollForwardingEvidence(): ProxyForwardingEvidence {
+        forwardingEvidenceFailure?.let { throw it }
+        return forwardingEvidence
     }
 
     override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) {
@@ -1107,6 +1116,8 @@ internal class TestTun2SocksBridge(
     var startFailure: Throwable? = null
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
+    var forwardingEvidenceFailure: Throwable? = null
+    var forwardingEvidence: TunForwardingEvidence = TunForwardingEvidence()
     var telemetry: NativeRuntimeSnapshot =
         NativeRuntimeSnapshot(
             source = "tunnel",
@@ -1140,6 +1151,11 @@ internal class TestTun2SocksBridge(
     override suspend fun telemetry(): NativeRuntimeSnapshot {
         telemetryFailure?.let { throw it }
         return telemetry.copy(tunnelStats = statsValue)
+    }
+
+    override suspend fun forwardingEvidence(): TunForwardingEvidence {
+        forwardingEvidenceFailure?.let { throw it }
+        return forwardingEvidence
     }
 }
 

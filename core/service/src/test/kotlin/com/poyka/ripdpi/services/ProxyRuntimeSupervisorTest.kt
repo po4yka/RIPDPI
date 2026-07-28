@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
@@ -21,6 +22,29 @@ private const val TestLocalProxyAuth = "alpha-123"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyRuntimeSupervisorTest {
+    @Test
+    fun forwardingEvidencePollIsAvailableAndFailureSafeWhileRunning() =
+        runTest {
+            val runtime =
+                TestProxyRuntime().apply {
+                    forwardingEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 55)
+                }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            assertEquals(55L, supervisor.pollForwardingEvidence()?.upstreamApplicationBytes)
+            runtime.forwardingEvidenceFailure = IOException("poll failed")
+            assertNull(supervisor.pollForwardingEvidence())
+
+            supervisor.stop()
+        }
+
     @Test
     fun startAndStopManageRuntimeLifecycle() =
         runTest {

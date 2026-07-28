@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
+import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroup
@@ -12,6 +13,7 @@ import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -374,6 +376,17 @@ internal class VpnTunnelRuntime(
         stopFailure?.let { throw it }
         tunSession = session
         return !isForwarding
+    }
+
+    suspend fun pollForwardingEvidence(): TunForwardingEvidence? {
+        val bridge = tun2SocksBridge ?: return null
+        return try {
+            bridge.forwardingEvidence()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun resetRuntimeState() {

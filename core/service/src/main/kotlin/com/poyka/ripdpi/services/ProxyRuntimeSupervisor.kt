@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
@@ -161,5 +162,16 @@ internal class ProxyRuntimeSupervisor(
                     )
                 },
             )
+    }
+
+    suspend fun pollForwardingEvidence(): ProxyForwardingEvidence? {
+        val runtime = proxyRuntime ?: return null
+        return try {
+            runtime.pollForwardingEvidence()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
     }
 }

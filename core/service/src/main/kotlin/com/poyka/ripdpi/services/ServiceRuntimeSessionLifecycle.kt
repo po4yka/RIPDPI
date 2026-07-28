@@ -68,6 +68,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
                     applyActiveConnectionPolicy = hooks.startHooks.applyActiveConnectionPolicy,
                     startResolvedRuntime = hooks.startHooks.startResolvedRuntime,
                     stopModeRuntime = hooks.stopHooks.stopModeRuntime,
+                    captureFinalTelemetry = hooks.stopHooks.captureFinalTelemetry,
                     startModeTelemetryUpdates = {
                         hooks.startHooks.startModeTelemetryUpdates(::replaceTelemetryJob)
                     },

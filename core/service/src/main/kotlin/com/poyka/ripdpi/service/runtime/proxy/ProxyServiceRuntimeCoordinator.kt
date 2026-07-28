@@ -148,6 +148,7 @@ internal class ProxyServiceRuntimeCoordinator(
             stopHooks =
                 ServiceRuntimeStopHooks(
                     stopModeRuntime = ::stopModeRuntime,
+                    captureFinalTelemetry = telemetryCoordinator::captureFinalTelemetry,
                 ),
             handoverHooks =
                 ServiceRuntimeHandoverHooks(

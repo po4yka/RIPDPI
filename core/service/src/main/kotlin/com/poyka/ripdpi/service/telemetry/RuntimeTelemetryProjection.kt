@@ -24,6 +24,10 @@ internal class RuntimeTelemetryProjection(
     private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
     private val clock: ServiceClock,
 ) {
+    private companion object {
+        private const val TerminalNativeEventCap = 16
+    }
+
     fun statusTelemetry(
         newStatus: ServiceStatus,
         currentTelemetry: ServiceTelemetrySnapshot,
@@ -205,11 +209,22 @@ internal class RuntimeTelemetryProjection(
         current: NativeRuntimeSnapshot,
     ): NativeRuntimeSnapshot =
         when (newStatus) {
-            ServiceStatus.Connected,
-            ServiceStatus.Disconnected,
-            -> NativeRuntimeSnapshot.idle(source = source)
+            ServiceStatus.Connected -> {
+                NativeRuntimeSnapshot.idle(source = source)
+            }
 
-            ServiceStatus.Failed -> current
+            ServiceStatus.Disconnected -> {
+                NativeRuntimeSnapshot.idle(source = source).copy(
+                    nativeEvents =
+                        current.nativeEvents
+                            .filter { it.subsystem == "data_plane" }
+                            .takeLast(TerminalNativeEventCap),
+                )
+            }
+
+            ServiceStatus.Failed -> {
+                current
+            }
         }
 
     private fun currentTelemetryFingerprintHash(fallback: RuntimeFieldTelemetry): String? =

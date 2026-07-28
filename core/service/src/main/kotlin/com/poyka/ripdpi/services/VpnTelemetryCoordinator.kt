@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.toStatus
@@ -10,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import java.util.concurrent.atomic.AtomicReference
 
 internal interface VpnTelemetryRuntimeDependencies {
     val host: VpnCoordinatorHost
@@ -70,19 +72,23 @@ internal class VpnTelemetryCoordinator(
             state = state,
             callbacks = callbacks,
         )
+    private val activeEvidenceCollector = AtomicReference<DataPlaneEvidenceCollector?>()
 
     fun start(
         tunnelRefreshCoordinator: VpnTunnelRefreshCoordinator,
         replaceTelemetryJob: ((suspend CoroutineScope.() -> Unit) -> Unit),
     ) {
         protectFailureWatcher.start()
+        val evidenceCollector = newEvidenceCollector()
+        activeEvidenceCollector.set(evidenceCollector)
         replaceTelemetryJob {
             launch { observeBuilderAffectingSettings(tunnelRefreshCoordinator) }
             while (state.status() == ServiceStatus.Connected) {
                 val session = state.runtimeSession() ?: return@replaceTelemetryJob
                 tunnelRefreshCoordinator.refreshIfNeeded(session)
                 if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
-                val telemetry = pollCurrentTelemetry()
+                val telemetry = pollCurrentTelemetry(evidenceCollector)
+                if (activeEvidenceCollector.get() !== evidenceCollector) return@replaceTelemetryJob
                 if (tunnelRefreshCoordinator.recoverIfNeeded(session, telemetry)) {
                     tunnelRefreshCoordinator.refreshIfNeeded(session)
                     if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
@@ -98,25 +104,48 @@ internal class VpnTelemetryCoordinator(
         protectFailureWatcher.stop()
     }
 
-    private suspend fun pollCurrentTelemetry(): VpnTelemetrySnapshot {
+    suspend fun captureFinalTelemetry() {
+        val evidenceCollector = activeEvidenceCollector.getAndSet(null) ?: return
+        val telemetry = pollCurrentTelemetry(evidenceCollector, finalCapture = true)
+        if (activeEvidenceCollector.get() != null) return
+        dependencies.telemetryReporter.report(telemetry, state)
+    }
+
+    private fun newEvidenceCollector(): DataPlaneEvidenceCollector =
+        DataPlaneEvidenceCollector(
+            mode = Mode.VPN,
+            proxyEvidenceProvider = dependencies.proxyRuntimeSupervisor::pollForwardingEvidence,
+            tunEvidenceProvider = dependencies.vpnTunnelRuntime::pollForwardingEvidence,
+        )
+
+    private suspend fun pollCurrentTelemetry(
+        evidenceCollector: DataPlaneEvidenceCollector,
+        finalCapture: Boolean = false,
+    ): VpnTelemetrySnapshot {
         val proxyTelemetryOutcome = dependencies.proxyRuntimeSupervisor.pollTelemetry()
         val relayTelemetryOutcome = dependencies.upstreamRelaySupervisor.pollTelemetry()
         val warpTelemetryOutcome = dependencies.warpRuntimeSupervisor.pollTelemetry()
         val awgTelemetryOutcome = dependencies.amneziaWgRuntimeSupervisor.pollTelemetry()
         val tunnelTelemetryOutcome = dependencies.vpnTunnelRuntime.pollTelemetry()
         val tunnelTelemetry = tunnelTelemetryOutcome.snapshotOrIdle(source = "tunnel")
-        return VpnTelemetrySnapshot(
-            proxyTelemetry = proxyTelemetryOutcome.snapshotOrIdle(source = "proxy"),
-            proxyTelemetryStatus = proxyTelemetryOutcome.toStatus(),
-            relayTelemetry = relayTelemetryOutcome.snapshotOrIdle(source = "relay"),
-            relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
-            warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp"),
-            warpTelemetryStatus = warpTelemetryOutcome.toStatus(),
-            awgTelemetry = awgTelemetryOutcome.snapshotOrIdle(source = "amneziawg"),
-            awgTelemetryStatus = awgTelemetryOutcome.toStatus(),
-            tunnelTelemetry = state.applyPendingNetworkHandoverClass(tunnelTelemetry),
-            tunnelTelemetryStatus = tunnelTelemetryOutcome.toStatus(),
-        )
+        val snapshot =
+            VpnTelemetrySnapshot(
+                proxyTelemetry = proxyTelemetryOutcome.snapshotOrIdle(source = "proxy"),
+                proxyTelemetryStatus = proxyTelemetryOutcome.toStatus(),
+                relayTelemetry = relayTelemetryOutcome.snapshotOrIdle(source = "relay"),
+                relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
+                warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp"),
+                warpTelemetryStatus = warpTelemetryOutcome.toStatus(),
+                awgTelemetry = awgTelemetryOutcome.snapshotOrIdle(source = "amneziawg"),
+                awgTelemetryStatus = awgTelemetryOutcome.toStatus(),
+                tunnelTelemetry = state.applyPendingNetworkHandoverClass(tunnelTelemetry),
+                tunnelTelemetryStatus = tunnelTelemetryOutcome.toStatus(),
+            )
+        return if (finalCapture) {
+            evidenceCollector.finalizeAndEnrich(snapshot)
+        } else {
+            evidenceCollector.enrich(snapshot)
+        }
     }
 
     private fun nextTelemetryPollInterval(): Long =

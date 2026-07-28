@@ -84,6 +84,35 @@ class RuntimeHistoryMonitorPersistenceTest {
         }
 
     @Test
+    fun `status before telemetry persists final data plane event on active session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitorScope = monitorScope()
+            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+
+            monitor.start()
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            val connectionSessionId =
+                stores.usageSessionsState.value
+                    .single()
+                    .id
+
+            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            val finalEvent =
+                stores.nativeEventsState.value.single { event ->
+                    event.message == "state=outbound_only final=true"
+                }
+            assertEquals(connectionSessionId, finalEvent.connectionSessionId)
+            monitorScope.cancel()
+        }
+
+    @Test
     fun `running attachment serializes with concurrent failure correlation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -230,5 +259,25 @@ class RuntimeHistoryMonitorPersistenceTest {
                         ),
                 ),
             updatedAt = createdAt,
+        )
+
+    private fun finalDataPlaneTelemetry(): ServiceTelemetrySnapshot =
+        ServiceTelemetrySnapshot(
+            proxyTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    nativeEvents =
+                        listOf(
+                            NativeRuntimeEvent(
+                                source = "service",
+                                level = "info",
+                                message = "state=outbound_only final=true",
+                                createdAt = 10L,
+                                kind = "data_plane_final",
+                                subsystem = "data_plane",
+                            ),
+                        ),
+                ),
+            updatedAt = 10L,
         )
 }
