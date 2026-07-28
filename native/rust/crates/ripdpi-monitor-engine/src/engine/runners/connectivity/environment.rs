@@ -80,7 +80,10 @@ mod tests {
     use super::EnvironmentRunner;
     use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageRunner, RunnerOutcome};
     use crate::transport::direct_transport;
-    use crate::types::{DiagnosticProfileFamily, ScanKind, ScanPathMode, ScanRequest, SharedState};
+    use crate::types::{
+        DiagnosticProfileFamily, ScanCompletionKind, ScanKind, ScanPathMode, ScanRequest, ScanTerminationReason,
+        SharedState,
+    };
 
     fn base_request(snapshot: Option<NetworkSnapshot>) -> ScanRequest {
         ScanRequest {
@@ -166,7 +169,10 @@ mod tests {
             matches!(outcome, RunnerOutcome::Finished),
             "expected Finished when OS reports no network and VPN was inactive"
         );
-        assert!(runtime.final_report.is_some(), "finish_with_report must be called for the no-network branch");
+        let report = runtime.final_report.expect("finish_with_report must publish a no-network report");
+        assert_eq!(report.completion_kind, ScanCompletionKind::Terminated);
+        assert_eq!(report.termination_reason, Some(ScanTerminationReason::NetworkUnavailable));
+        assert!(report.diagnoses.iter().any(|diagnosis| diagnosis.code == "network_unavailable"));
     }
 
     /// G4-c: `transport == "none" && vpn_service_was_active` → `Completed`,

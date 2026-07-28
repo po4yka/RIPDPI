@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::engine::{build_report, panic_payload_message};
-use crate::types::{ProbeDetail, ProbeResult, ScanProgress, ScanRequest, SharedState};
+use crate::types::{
+    ProbeDetail, ProbeResult, ScanCompletionKind, ScanProgress, ScanRequest, ScanTerminationReason, SharedState,
+};
 
 pub(super) fn record_panic_terminal_state(
     shared: Arc<Mutex<SharedState>>,
@@ -17,7 +19,7 @@ pub(super) fn record_panic_terminal_state(
         outcome: "worker_panicked".to_string(),
         details: vec![ProbeDetail { key: "error".to_string(), value: msg.clone() }],
     };
-    let panic_report = build_report(
+    let mut panic_report = build_report(
         session_id.clone(),
         request,
         started_at,
@@ -27,6 +29,8 @@ pub(super) fn record_panic_terminal_state(
         None,
         None,
     );
+    panic_report.completion_kind = ScanCompletionKind::Terminated;
+    panic_report.termination_reason = Some(ScanTerminationReason::WorkerPanicked);
     let Ok(mut state) = shared.lock() else {
         return;
     };
@@ -36,6 +40,8 @@ pub(super) fn record_panic_terminal_state(
         }
         report.finished_at = crate::util::now_ms();
         report.summary = "Diagnostics failed: internal worker error".to_string();
+        report.completion_kind = ScanCompletionKind::PartialResults;
+        report.termination_reason = Some(ScanTerminationReason::WorkerPanicked);
     } else {
         state.report = Some(panic_report);
     }

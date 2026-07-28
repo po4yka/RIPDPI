@@ -83,6 +83,8 @@ impl From<ScanReport> for EngineScanReportWire {
             started_at: value.started_at,
             finished_at: value.finished_at,
             summary: value.summary,
+            completion_kind: value.completion_kind,
+            termination_reason: value.termination_reason,
             results: value.results.into_iter().map(EngineProbeResultWire::from).collect(),
             resolver_recommendation: None,
             strategy_probe_report: value.strategy_probe_report,

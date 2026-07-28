@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::connectivity::{push_event, set_report};
 use crate::engine::report::build_report;
 use crate::engine::runners::prepare_strategy_probe_report;
-use crate::types::SharedState;
+use crate::types::{ScanCompletionKind, ScanTerminationReason, SharedState};
 
 use super::plan::ExecutionPlan;
 use super::state::ExecutionRuntime;
@@ -26,7 +26,8 @@ pub(in crate::engine) fn publish_cancelled_run(
     let has_partial_results =
         !runtime.results.is_empty() || !runtime.observations.is_empty() || strategy_probe_report.is_some();
     let summary = cancelled_run_summary(has_partial_results).to_string();
-    let report = build_report(
+    let deadline_exceeded = runtime.is_past_deadline();
+    let mut report = build_report(
         plan.session_id.clone(),
         plan.request.clone(),
         plan.started_at,
@@ -36,6 +37,13 @@ pub(in crate::engine) fn publish_cancelled_run(
         strategy_probe_report,
         None,
     );
+    report.completion_kind =
+        if has_partial_results { ScanCompletionKind::PartialResults } else { ScanCompletionKind::Terminated };
+    report.termination_reason = Some(if deadline_exceeded {
+        ScanTerminationReason::DeadlineExceeded
+    } else {
+        ScanTerminationReason::UserCancelled
+    });
     set_report(shared, report);
     push_event(
         shared,

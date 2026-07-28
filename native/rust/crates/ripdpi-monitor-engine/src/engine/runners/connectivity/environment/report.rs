@@ -1,8 +1,9 @@
 use crate::engine::report::{build_report, connectivity_summary};
 use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime};
+use crate::types::{Diagnosis, ScanCompletionKind, ScanTerminationReason};
 
 pub(super) fn finish_offline_scan(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime) {
-    runtime.finish_with_report(build_report(
+    let mut report = build_report(
         plan.session_id.clone(),
         plan.request.clone(),
         plan.started_at,
@@ -11,5 +12,17 @@ pub(super) fn finish_offline_scan(plan: &ExecutionPlan, runtime: &mut ExecutionR
         runtime.observations.clone(),
         None,
         None,
-    ));
+    );
+    report.completion_kind = ScanCompletionKind::Terminated;
+    report.termination_reason = Some(ScanTerminationReason::NetworkUnavailable);
+    report.diagnoses.push(Diagnosis {
+        code: "network_unavailable".to_string(),
+        summary: "The operating system reports no available network".to_string(),
+        severity: "error".to_string(),
+        target: None,
+        evidence: vec!["network transport is unavailable".to_string()],
+        recommendation: Some("Connect to a network and run diagnostics again".to_string()),
+        control_validated: None,
+    });
+    runtime.finish_with_report(report);
 }

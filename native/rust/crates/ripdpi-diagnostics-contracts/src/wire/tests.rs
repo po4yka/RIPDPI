@@ -39,6 +39,46 @@ fn diagnostics_wire_payloads_require_schema_version() {
 }
 
 #[test]
+fn scan_completion_defaults_are_backward_compatible() {
+    let report: EngineScanReportWire = serde_json::from_value(serde_json::json!({
+        "schemaVersion": DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+        "sessionId": "legacy-session",
+        "profileId": "default",
+        "pathMode": "RAW_PATH",
+        "startedAt": 1,
+        "finishedAt": 2,
+        "summary": "done"
+    }))
+    .expect("legacy report");
+
+    assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::Normal);
+    assert!(report.termination_reason.is_none());
+    let encoded = serde_json::to_value(report).expect("encoded report");
+    assert!(encoded.get("completionKind").is_none());
+    assert!(encoded.get("terminationReason").is_none());
+}
+
+#[test]
+fn terminated_scan_serializes_typed_reason() {
+    let mut report: EngineScanReportWire = serde_json::from_value(serde_json::json!({
+        "schemaVersion": DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+        "sessionId": "offline-session",
+        "profileId": "default",
+        "pathMode": "RAW_PATH",
+        "startedAt": 1,
+        "finishedAt": 2,
+        "summary": "offline"
+    }))
+    .expect("report");
+    report.completion_kind = crate::types::ScanCompletionKind::Terminated;
+    report.termination_reason = Some(crate::types::ScanTerminationReason::NetworkUnavailable);
+
+    let encoded = serde_json::to_value(report).expect("encoded report");
+    assert_eq!(encoded["completionKind"], "TERMINATED");
+    assert_eq!(encoded["terminationReason"], "NETWORK_UNAVAILABLE");
+}
+
+#[test]
 fn diagnostics_progress_field_manifest_matches_contract_fixture() {
     use golden_test_support::{assert_contract_fixture, extract_field_paths};
 
@@ -73,6 +113,8 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
         started_at: 1000,
         finished_at: 2000,
         summary: "All probes passed".to_string(),
+        completion_kind: crate::types::ScanCompletionKind::Normal,
+        termination_reason: None,
         results: vec![EngineProbeResultWire {
             probe_type: "dns".to_string(),
             target: "example.org".to_string(),

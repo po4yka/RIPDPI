@@ -128,6 +128,72 @@ class DiagnosticsDisplaySummaryTest {
         }
 
     @Test
+    fun `completed lifecycle with network termination is unavailable`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val sessionId = "session-offline"
+            val report =
+                ScanReport(
+                    sessionId = sessionId,
+                    profileId = "automatic-audit",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "0 completed",
+                    completionKind = ScanCompletionKind.TERMINATED,
+                    terminationReason = ScanTerminationReason.NETWORK_UNAVAILABLE,
+                    diagnoses =
+                        listOf(
+                            Diagnosis(
+                                code = "network_unavailable",
+                                summary = "No network",
+                                severity = "error",
+                            ),
+                        ),
+                )
+            stores.upsertScanSession(
+                ScanSessionEntity(
+                    id = sessionId,
+                    profileId = report.profileId,
+                    pathMode = report.pathMode.name,
+                    serviceMode = "VPN",
+                    status = "completed",
+                    summary = report.summary,
+                    reportJson =
+                        json.encodeToString(
+                            com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                .serializer(),
+                            report.toEngineScanReportWire(),
+                        ),
+                    startedAt = report.startedAt,
+                    finishedAt = report.finishedAt,
+                ),
+            )
+
+            val summary =
+                buildCompletedStageSummary(
+                    spec = HomeCompositeStageSpecs.first(),
+                    sessionId = sessionId,
+                    session =
+                        DiagnosticScanSession(
+                            id = sessionId,
+                            profileId = report.profileId,
+                            pathMode = report.pathMode.name,
+                            serviceMode = "VPN",
+                            status = "completed",
+                            summary = report.summary,
+                            startedAt = report.startedAt,
+                            finishedAt = report.finishedAt,
+                        ),
+                    scanRecordStore = stores,
+                    json = json,
+                )
+
+            assertEquals(DiagnosticsHomeCompositeStageStatus.UNAVAILABLE, summary.status)
+            assertEquals("Automatic audit unavailable", summary.headline)
+        }
+
+    @Test
     fun `approach summary uses partial result wording instead of raw cancelled summary`() {
         val report =
             ScanReport(

@@ -37,8 +37,8 @@ internal class DiagnosticsQuickScanRunner(
     ) {
         val auditSpec = QuickScanStageSpecs[0]
         val auditResult = executeStage(runId, 0, auditSpec, false, null)
-        if (auditResult == null || auditResult.second.status != "completed") {
-            if (auditResult == null && isAuditRunning()) {
+        if (auditResult == null) {
+            if (isAuditRunning()) {
                 markStageFailure(runId, 0, "${auditSpec.label} timed out", "Audit did not complete in time.")
             }
             skipRemaining(runId, from = 1, reason = "audit stage failed", updateStage)
@@ -48,6 +48,11 @@ internal class DiagnosticsQuickScanRunner(
         val (auditSessionId, auditSession) = auditResult
         val auditSummary = buildCompletedStageSummary(auditSpec, auditSessionId, auditSession, scanRecordStore, json)
         updateStage(runId, 0) { auditSummary }
+        if (auditSummary.status != DiagnosticsHomeCompositeStageStatus.COMPLETED) {
+            skipRemaining(runId, from = 1, reason = "audit stage failed", updateStage)
+            finalizeRun(runId, null, null, false, false)
+            return
+        }
         val audit = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
         updateStage(runId, 0) { c ->
             c.copy(headline = audit.headline, summary = audit.summary, recommendationContributor = audit.actionable)
@@ -73,7 +78,10 @@ internal class DiagnosticsQuickScanRunner(
             val (sId, sSession) = sResult
             val sSummary = buildCompletedStageSummary(sSpec, sId, sSession, scanRecordStore, json)
             updateStage(runId, sIndex) { sSummary }
-            if (auditOutcome?.actionable != true && sSession.status == "completed") {
+            if (
+                auditOutcome?.actionable != true &&
+                sSummary.status == DiagnosticsHomeCompositeStageStatus.COMPLETED
+            ) {
                 val sa = diagnosticsHomeWorkflowService.finalizeHomeAudit(sId)
                 if (sa.actionable) {
                     auditOutcome = sa

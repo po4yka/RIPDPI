@@ -583,6 +583,22 @@ data class LogHealthSummary(
 )
 
 @Serializable
+enum class ScanCompletionKind {
+    NORMAL,
+    PARTIAL_RESULTS,
+    TERMINATED,
+}
+
+@Serializable
+enum class ScanTerminationReason {
+    NETWORK_UNAVAILABLE,
+    USER_CANCELLED,
+    DEADLINE_EXCEEDED,
+    ENGINE_ERROR,
+    WORKER_PANICKED,
+}
+
+@Serializable
 data class ScanReport(
     val sessionId: String,
     val profileId: String,
@@ -590,6 +606,8 @@ data class ScanReport(
     val startedAt: Long,
     val finishedAt: Long,
     val summary: String,
+    val completionKind: ScanCompletionKind = ScanCompletionKind.NORMAL,
+    val terminationReason: ScanTerminationReason? = null,
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
     val strategyRecommendation: StrategyRecommendation? = null,

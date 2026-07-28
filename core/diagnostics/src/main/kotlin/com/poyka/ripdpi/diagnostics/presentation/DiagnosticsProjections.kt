@@ -11,7 +11,9 @@ import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
+import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import kotlinx.serialization.Serializable
@@ -39,6 +41,8 @@ data class DiagnosticsProfileProjection(
 
 @Serializable
 data class DiagnosticsSessionProjection(
+    val completionKind: ScanCompletionKind = ScanCompletionKind.NORMAL,
+    val terminationReason: ScanTerminationReason? = null,
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
     val strategyRecommendation: StrategyRecommendation? = null,

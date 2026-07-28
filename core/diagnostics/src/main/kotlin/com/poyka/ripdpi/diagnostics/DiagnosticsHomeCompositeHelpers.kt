@@ -18,14 +18,32 @@ internal suspend fun buildCompletedStageSummary(
             ?.takeIf(String::isNotBlank)
             ?.let { reportJson -> DiagnosticsSessionQueries.decodeScanReport(json, reportJson) }
     val status =
-        if (session.status == "completed") {
-            DiagnosticsHomeCompositeStageStatus.COMPLETED
-        } else {
-            DiagnosticsHomeCompositeStageStatus.FAILED
+        when {
+            report?.completionKind == ScanCompletionKind.TERMINATED &&
+                report.terminationReason == ScanTerminationReason.NETWORK_UNAVAILABLE -> {
+                DiagnosticsHomeCompositeStageStatus.UNAVAILABLE
+            }
+
+            report?.completionKind == ScanCompletionKind.TERMINATED -> {
+                DiagnosticsHomeCompositeStageStatus.FAILED
+            }
+
+            report?.completionKind == ScanCompletionKind.PARTIAL_RESULTS -> {
+                DiagnosticsHomeCompositeStageStatus.COMPLETED
+            }
+
+            session.status == "completed" -> {
+                DiagnosticsHomeCompositeStageStatus.COMPLETED
+            }
+
+            else -> {
+                DiagnosticsHomeCompositeStageStatus.FAILED
+            }
         }
     val summary = persistedSession?.displaySummary(report) ?: session.summary
     val headline =
         when {
+            status == DiagnosticsHomeCompositeStageStatus.UNAVAILABLE -> "${spec.label} unavailable"
             status == DiagnosticsHomeCompositeStageStatus.FAILED -> "${spec.label} failed"
             report?.diagnoses?.isNotEmpty() == true -> spec.label
             else -> "${spec.label} complete"
@@ -44,6 +62,9 @@ internal suspend fun buildCompletedStageSummary(
         wallClockMs = wallClockMs,
     )
 }
+
+internal fun DiagnosticsHomeCompositeStageSummary.isCompletedStage(): Boolean =
+    status == DiagnosticsHomeCompositeStageStatus.COMPLETED
 
 internal fun buildHomeCompositeOutcome(
     runId: String,

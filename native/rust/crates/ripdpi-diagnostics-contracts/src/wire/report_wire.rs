@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ConfirmGoodDpiVerdict, Diagnosis, ProbeDetail, ScanPathMode, StrategyProbeReport};
+use crate::types::{
+    ConfirmGoodDpiVerdict, Diagnosis, ProbeDetail, ScanCompletionKind, ScanPathMode, ScanTerminationReason,
+    StrategyProbeReport,
+};
 
 use super::{EngineObservationWire, ResolverRecommendationWire};
 
@@ -28,6 +31,10 @@ pub struct EngineScanReportWire {
     pub started_at: u64,
     pub finished_at: u64,
     pub summary: String,
+    #[serde(default, skip_serializing_if = "ScanCompletionKind::is_normal")]
+    pub completion_kind: ScanCompletionKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub termination_reason: Option<ScanTerminationReason>,
     #[serde(default)]
     pub results: Vec<EngineProbeResultWire>,
     #[serde(default)]

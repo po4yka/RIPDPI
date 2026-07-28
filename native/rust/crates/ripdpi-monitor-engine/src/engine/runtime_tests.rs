@@ -259,6 +259,8 @@ fn cancelled_strategy_probe_preserves_partial_strategy_report() {
     publish_cancelled_run(&plan, &shared, runtime);
 
     let report = shared.lock().expect("shared").report.clone().expect("cancelled report");
+    assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);
+    assert_eq!(report.termination_reason, Some(crate::types::ScanTerminationReason::UserCancelled));
     let strategy_probe = report.strategy_probe_report.expect("partial strategy report");
     assert_eq!(report.summary, "Scan completed with partial results");
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::PartialResults);

@@ -194,6 +194,8 @@ internal fun ProbeResult.toEngineProbeResultWire(): EngineProbeResultWire =
 
 internal fun EngineScanReportWire.toSessionProjection(): DiagnosticsSessionProjection =
     DiagnosticsSessionProjection(
+        completionKind = completionKind.toDomain(),
+        terminationReason = terminationReason?.toDomain(),
         results = results.map(EngineProbeResultWire::toProbeResult),
         resolverRecommendation = resolverRecommendation,
         strategyRecommendation = strategyRecommendation,
@@ -216,6 +218,8 @@ internal fun EngineScanReportWire.toScanReport(): ScanReport =
         startedAt = startedAt,
         finishedAt = finishedAt,
         summary = summary,
+        completionKind = completionKind.toDomain(),
+        terminationReason = terminationReason?.toDomain(),
         results = results.map(EngineProbeResultWire::toProbeResult),
         resolverRecommendation = resolverRecommendation,
         strategyRecommendation = strategyRecommendation,
@@ -238,6 +242,8 @@ internal fun ScanReport.toEngineScanReportWire(): EngineScanReportWire =
         startedAt = startedAt,
         finishedAt = finishedAt,
         summary = summary,
+        completionKind = completionKind.toWire(),
+        terminationReason = terminationReason?.toWire(),
         results = results.map(ProbeResult::toEngineProbeResultWire),
         resolverRecommendation = resolverRecommendation,
         strategyRecommendation = strategyRecommendation,
@@ -251,6 +257,20 @@ internal fun ScanReport.toEngineScanReportWire(): EngineScanReportWire =
         packVersions = packVersions,
         logHealthSummary = logHealthSummary,
     )
+
+private fun com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind.toDomain(): ScanCompletionKind =
+    ScanCompletionKind.valueOf(name)
+
+private fun com.poyka.ripdpi.diagnostics.contract.engine.ScanTerminationReason.toDomain(): ScanTerminationReason =
+    ScanTerminationReason.valueOf(name)
+
+private fun ScanCompletionKind.toWire(): com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind =
+    com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind
+        .valueOf(name)
+
+private fun ScanTerminationReason.toWire(): com.poyka.ripdpi.diagnostics.contract.engine.ScanTerminationReason =
+    com.poyka.ripdpi.diagnostics.contract.engine.ScanTerminationReason
+        .valueOf(name)
 
 internal fun ScanProgress.toEngineProgressWire(): EngineProgressWire =
     EngineProgressWire(

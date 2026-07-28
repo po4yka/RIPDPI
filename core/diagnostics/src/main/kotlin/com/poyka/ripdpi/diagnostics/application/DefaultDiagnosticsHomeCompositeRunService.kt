@@ -345,7 +345,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     summary = completedSummary.summary,
                 )
             stageExecutor.updateStage(progressState, runId, auditIndex) { completedSummary }
-            if (auditSession.status != "completed") {
+            if (completedSummary.status != DiagnosticsHomeCompositeStageStatus.COMPLETED) {
                 skipRemainingStages(runId, reason = "Skipped due to network unavailability.")
                 return null
             }
@@ -597,7 +597,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                         json = json,
                     )
                 stageExecutor.updateStage(progressState, runId, dpiStrategyIndex) { dpiStrategySummary }
-                if (auditOutcome?.actionable != true && dpiStrategySession.status == "completed") {
+                if (auditOutcome?.actionable != true && dpiStrategySummary.isCompletedStage()) {
                     val strategyAuditOutcome =
                         diagnosticsHomeWorkflowService.finalizeHomeAudit(dpiStrategySessionId)
                     if (strategyAuditOutcome.actionable) {

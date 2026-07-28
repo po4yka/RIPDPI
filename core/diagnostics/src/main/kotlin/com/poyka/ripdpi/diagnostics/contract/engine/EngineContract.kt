@@ -96,6 +96,22 @@ data class EngineProbeResultWire(
 )
 
 @Serializable
+enum class ScanCompletionKind {
+    NORMAL,
+    PARTIAL_RESULTS,
+    TERMINATED,
+}
+
+@Serializable
+enum class ScanTerminationReason {
+    NETWORK_UNAVAILABLE,
+    USER_CANCELLED,
+    DEADLINE_EXCEEDED,
+    ENGINE_ERROR,
+    WORKER_PANICKED,
+}
+
+@Serializable
 data class EngineScanReportWire(
     @Required
     val schemaVersion: Int = DiagnosticsEngineSchemaVersion,
@@ -105,6 +121,8 @@ data class EngineScanReportWire(
     val startedAt: Long,
     val finishedAt: Long,
     val summary: String,
+    val completionKind: ScanCompletionKind = ScanCompletionKind.NORMAL,
+    val terminationReason: ScanTerminationReason? = null,
     val results: List<EngineProbeResultWire> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
     val strategyRecommendation: StrategyRecommendation? = null,

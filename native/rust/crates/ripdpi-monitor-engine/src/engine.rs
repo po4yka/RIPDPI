@@ -288,6 +288,8 @@ mod tests {
 
         assert_eq!(report.summary, "strategy_probe scan requires baseProxyConfigJson");
         assert!(report.results.is_empty());
+        assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::Terminated);
+        assert_eq!(report.termination_reason, Some(crate::types::ScanTerminationReason::EngineError));
         assert_eq!(progress.phase, "finished");
         assert_eq!(progress.completed_steps, 1);
         assert_eq!(progress.total_steps, 1);

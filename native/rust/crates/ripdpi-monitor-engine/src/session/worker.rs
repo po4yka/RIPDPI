@@ -96,6 +96,8 @@ mod tests {
         assert_eq!(progress.phase, "error");
         let report = state.report.as_ref().expect("panic must publish a terminal report");
         assert_eq!(report.session_id, "panic-session");
+        assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::Terminated);
+        assert_eq!(report.termination_reason, Some(crate::types::ScanTerminationReason::WorkerPanicked));
         assert!(report.results.iter().any(|result| result.outcome == "worker_panicked"));
     }
 
@@ -146,6 +148,8 @@ mod tests {
         assert_eq!(report.results.len(), 2);
         assert_eq!(report.results[0].outcome, "dns_match");
         assert_eq!(report.results[1].outcome, "worker_panicked");
+        assert_eq!(report.completion_kind, crate::types::ScanCompletionKind::PartialResults);
+        assert_eq!(report.termination_reason, Some(crate::types::ScanTerminationReason::WorkerPanicked));
         let progress = state.progress.as_ref().expect("terminal progress");
         assert_eq!((progress.completed_steps, progress.total_steps), (3, 8));
         assert!(progress.is_finished);

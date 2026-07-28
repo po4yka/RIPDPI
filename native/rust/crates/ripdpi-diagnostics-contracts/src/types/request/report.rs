@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use ripdpi_telemetry::recorder::RecorderSnapshot;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ConfirmGoodDpiVerdict, Diagnosis, ProbeObservation, ScanPathMode, StrategyProbeReport};
+use crate::types::{
+    ConfirmGoodDpiVerdict, Diagnosis, ProbeObservation, ScanCompletionKind, ScanPathMode, ScanTerminationReason,
+    StrategyProbeReport,
+};
 
 use super::result::ProbeResult;
 
@@ -16,6 +19,10 @@ pub struct ScanReport {
     pub started_at: u64,
     pub finished_at: u64,
     pub summary: String,
+    #[serde(default, skip_serializing_if = "ScanCompletionKind::is_normal")]
+    pub completion_kind: ScanCompletionKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub termination_reason: Option<ScanTerminationReason>,
     pub results: Vec<ProbeResult>,
     #[serde(default)]
     pub observations: Vec<ProbeObservation>,

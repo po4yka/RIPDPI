@@ -75,12 +75,22 @@ pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Error
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::InitialResponse
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Response
+pub enum ripdpi_diagnostics_contracts::types::ScanCompletionKind
+pub ripdpi_diagnostics_contracts::types::ScanCompletionKind::Normal
+pub ripdpi_diagnostics_contracts::types::ScanCompletionKind::PartialResults
+pub ripdpi_diagnostics_contracts::types::ScanCompletionKind::Terminated
 pub enum ripdpi_diagnostics_contracts::types::ScanKind
 pub ripdpi_diagnostics_contracts::types::ScanKind::Connectivity
 pub ripdpi_diagnostics_contracts::types::ScanKind::StrategyProbe
 pub enum ripdpi_diagnostics_contracts::types::ScanPathMode
 pub ripdpi_diagnostics_contracts::types::ScanPathMode::InPath
 pub ripdpi_diagnostics_contracts::types::ScanPathMode::RawPath
+pub enum ripdpi_diagnostics_contracts::types::ScanTerminationReason
+pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::DeadlineExceeded
+pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::EngineError
+pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::NetworkUnavailable
+pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::UserCancelled
+pub ripdpi_diagnostics_contracts::types::ScanTerminationReason::WorkerPanicked
 pub enum ripdpi_diagnostics_contracts::types::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::LabDiagnosticsOnly
 pub ripdpi_diagnostics_contracts::types::StrategyEmitterTier::NonRootProduction
@@ -334,6 +344,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanReport
 pub ripdpi_diagnostics_contracts::types::ScanReport::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::ScanReport::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::types::ScanReport::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::types::ScanReport::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::types::ScanReport::engine_analysis_version: core::option::Option<alloc::string::String>
@@ -348,6 +359,7 @@ pub ripdpi_diagnostics_contracts::types::ScanReport::session_id: alloc::string::
 pub ripdpi_diagnostics_contracts::types::ScanReport::started_at: u64
 pub ripdpi_diagnostics_contracts::types::ScanReport::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::types::ScanReport::summary: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::ScanReport::termination_reason: core::option::Option<ripdpi_diagnostics_contracts::ScanTerminationReason>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanRequest
@@ -471,6 +483,7 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::total_we
 pub ripdpi_diagnostics_contracts::types::StrategyProbeCandidateSummary::weighted_success_score: usize
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeDomainOutcome
 pub ripdpi_diagnostics_contracts::types::StrategyProbeDomainOutcome::domain: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::StrategyProbeDomainOutcome::is_control: bool
 pub ripdpi_diagnostics_contracts::types::StrategyProbeDomainOutcome::succeeded: bool
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeLiveProgress
 pub ripdpi_diagnostics_contracts::types::StrategyProbeLiveProgress::candidate_id: alloc::string::String
@@ -674,6 +687,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanReportWire
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::engine_analysis_version: core::option::Option<alloc::string::String>
@@ -689,6 +703,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::session_id: alloc:
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::started_at: u64
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::summary: alloc::string::String
+pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::termination_reason: core::option::Option<ripdpi_diagnostics_contracts::ScanTerminationReason>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanRequestWire
@@ -818,12 +833,22 @@ pub ripdpi_diagnostics_contracts::QuicProbeStatus::Error
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::InitialResponse
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::Response
+pub enum ripdpi_diagnostics_contracts::ScanCompletionKind
+pub ripdpi_diagnostics_contracts::ScanCompletionKind::Normal
+pub ripdpi_diagnostics_contracts::ScanCompletionKind::PartialResults
+pub ripdpi_diagnostics_contracts::ScanCompletionKind::Terminated
 pub enum ripdpi_diagnostics_contracts::ScanKind
 pub ripdpi_diagnostics_contracts::ScanKind::Connectivity
 pub ripdpi_diagnostics_contracts::ScanKind::StrategyProbe
 pub enum ripdpi_diagnostics_contracts::ScanPathMode
 pub ripdpi_diagnostics_contracts::ScanPathMode::InPath
 pub ripdpi_diagnostics_contracts::ScanPathMode::RawPath
+pub enum ripdpi_diagnostics_contracts::ScanTerminationReason
+pub ripdpi_diagnostics_contracts::ScanTerminationReason::DeadlineExceeded
+pub ripdpi_diagnostics_contracts::ScanTerminationReason::EngineError
+pub ripdpi_diagnostics_contracts::ScanTerminationReason::NetworkUnavailable
+pub ripdpi_diagnostics_contracts::ScanTerminationReason::UserCancelled
+pub ripdpi_diagnostics_contracts::ScanTerminationReason::WorkerPanicked
 pub enum ripdpi_diagnostics_contracts::StrategyEmitterTier
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::LabDiagnosticsOnly
 pub ripdpi_diagnostics_contracts::StrategyEmitterTier::NonRootProduction
@@ -1035,6 +1060,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanReportWire
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::EngineScanReportWire::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::engine_analysis_version: core::option::Option<alloc::string::String>
@@ -1050,6 +1076,7 @@ pub ripdpi_diagnostics_contracts::EngineScanReportWire::session_id: alloc::strin
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::started_at: u64
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::summary: alloc::string::String
+pub ripdpi_diagnostics_contracts::EngineScanReportWire::termination_reason: core::option::Option<ripdpi_diagnostics_contracts::ScanTerminationReason>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanRequestWire
@@ -1165,6 +1192,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanReport
 pub ripdpi_diagnostics_contracts::ScanReport::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::ScanReport::completion_kind: ripdpi_diagnostics_contracts::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::ScanReport::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::ScanReport::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::ScanReport::engine_analysis_version: core::option::Option<alloc::string::String>
@@ -1179,6 +1207,7 @@ pub ripdpi_diagnostics_contracts::ScanReport::session_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::ScanReport::started_at: u64
 pub ripdpi_diagnostics_contracts::ScanReport::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::ScanReport::summary: alloc::string::String
+pub ripdpi_diagnostics_contracts::ScanReport::termination_reason: core::option::Option<ripdpi_diagnostics_contracts::ScanTerminationReason>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanRequest
@@ -1302,6 +1331,7 @@ pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::total_weight: u
 pub ripdpi_diagnostics_contracts::StrategyProbeCandidateSummary::weighted_success_score: usize
 pub struct ripdpi_diagnostics_contracts::StrategyProbeDomainOutcome
 pub ripdpi_diagnostics_contracts::StrategyProbeDomainOutcome::domain: alloc::string::String
+pub ripdpi_diagnostics_contracts::StrategyProbeDomainOutcome::is_control: bool
 pub ripdpi_diagnostics_contracts::StrategyProbeDomainOutcome::succeeded: bool
 pub struct ripdpi_diagnostics_contracts::StrategyProbeLiveProgress
 pub ripdpi_diagnostics_contracts::StrategyProbeLiveProgress::candidate_id: alloc::string::String

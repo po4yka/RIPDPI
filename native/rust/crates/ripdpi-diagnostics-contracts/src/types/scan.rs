@@ -14,6 +14,31 @@ pub enum ScanKind {
     StrategyProbe,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScanCompletionKind {
+    #[default]
+    Normal,
+    PartialResults,
+    Terminated,
+}
+
+impl ScanCompletionKind {
+    pub(crate) fn is_normal(&self) -> bool {
+        matches!(self, Self::Normal)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScanTerminationReason {
+    NetworkUnavailable,
+    UserCancelled,
+    DeadlineExceeded,
+    EngineError,
+    WorkerPanicked,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DiagnosticProfileFamily {

@@ -1,8 +1,8 @@
 use crate::classification::pack_versions_from_refs;
 use crate::observations::ENGINE_ANALYSIS_VERSION;
 use crate::types::{
-    ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus, Diagnosis, ProbeObservation, ProbeResult, ScanReport,
-    ScanRequest, StrategyProbeReport,
+    ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus, Diagnosis, ProbeObservation, ProbeResult, ScanCompletionKind,
+    ScanReport, ScanRequest, StrategyProbeReport,
 };
 use crate::util::{ProbeOutcomeBucket, classify_probe_outcome};
 use ripdpi_telemetry::recorder;
@@ -52,6 +52,8 @@ pub(crate) fn build_report(
         started_at,
         finished_at: crate::util::now_ms(),
         summary,
+        completion_kind: ScanCompletionKind::Normal,
+        termination_reason: None,
         results,
         observations,
         engine_analysis_version: Some(ENGINE_ANALYSIS_VERSION.to_string()),

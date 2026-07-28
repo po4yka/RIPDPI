@@ -13,6 +13,8 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind as WireScanCompletionKind
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanTerminationReason as WireScanTerminationReason
 
 class DiagnosticsModelsCompatibilityTest {
     private val json =
@@ -235,6 +237,51 @@ class DiagnosticsModelsCompatibilityTest {
             StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             decoded.strategyProbeReport?.completionKind,
         )
+    }
+
+    @Test
+    fun `legacy engine report defaults to normal completion`() {
+        val report =
+            json.decodeFromString(
+                EngineScanReportWire.serializer(),
+                """
+                {
+                  "schemaVersion": 5,
+                  "sessionId": "legacy",
+                  "profileId": "default",
+                  "pathMode": "RAW_PATH",
+                  "startedAt": 1,
+                  "finishedAt": 2,
+                  "summary": "done"
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(WireScanCompletionKind.NORMAL, report.completionKind)
+        assertEquals(null, report.terminationReason)
+    }
+
+    @Test
+    fun `engine report preserves typed network termination through domain mapping`() {
+        val wire =
+            EngineScanReportWire(
+                sessionId = "offline",
+                profileId = "default",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 1L,
+                finishedAt = 2L,
+                summary = "offline",
+                completionKind = WireScanCompletionKind.TERMINATED,
+                terminationReason = WireScanTerminationReason.NETWORK_UNAVAILABLE,
+            )
+
+        val domain = wire.toScanReport()
+        val restored = domain.toEngineScanReportWire()
+
+        assertEquals(ScanCompletionKind.TERMINATED, domain.completionKind)
+        assertEquals(ScanTerminationReason.NETWORK_UNAVAILABLE, domain.terminationReason)
+        assertEquals(WireScanCompletionKind.TERMINATED, restored.completionKind)
+        assertEquals(WireScanTerminationReason.NETWORK_UNAVAILABLE, restored.terminationReason)
     }
 
     @Test
