@@ -136,10 +136,12 @@ class RuntimeSessionCoordinator
             val failureMessage = reason.displayMessage
             val telemetry = serviceStateStore.telemetry.value
             val snapshot = artifactPersister.captureSnapshotOrNull()
+            var standaloneTerminalFailure = false
             val connectionSessionId =
                 stateMutex.withLock {
                     val current = activeUsageSession
                     if (current == null) {
+                        standaloneTerminalFailure = true
                         val connectionSessionId =
                             createFailedUsageSession(
                                 sender = sender,
@@ -181,10 +183,12 @@ class RuntimeSessionCoordinator
                 networkTypeFallback = activeUsageSession?.networkType ?: "unknown",
                 publicIpFallback = activeUsageSession?.publicIp,
             )
-            artifactPersister.persistTerminalRootCauseAssessment(
-                connectionSessionId = connectionSessionId,
-                createdAt = timestamp,
-            )
+            if (standaloneTerminalFailure) {
+                artifactPersister.persistTerminalRootCauseAssessment(
+                    connectionSessionId = connectionSessionId,
+                    createdAt = timestamp,
+                )
+            }
         }
 
         suspend fun handleActiveConnectionPolicyChange(policy: ActiveConnectionPolicy?) {

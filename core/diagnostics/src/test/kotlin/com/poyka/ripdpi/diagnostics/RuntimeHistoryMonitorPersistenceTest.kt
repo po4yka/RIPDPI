@@ -12,12 +12,17 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -106,7 +111,7 @@ class RuntimeHistoryMonitorPersistenceTest {
 
             val finalEvent =
                 stores.nativeEventsState.value.single { event ->
-                    event.message == "state=outbound_only final=true"
+                    event.message == "state=outbound_only final=true generation=1"
                 }
             assertEquals(connectionSessionId, finalEvent.connectionSessionId)
             monitorScope.cancel()
@@ -152,6 +157,109 @@ class RuntimeHistoryMonitorPersistenceTest {
                 assessment.verdict,
             )
             monitorScope.cancel()
+        }
+
+    @Test
+    fun `active transient failure does not persist root cause before finalization`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitorScope = monitorScope()
+            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+
+            monitor.start()
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+
+            serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError("transient"))
+            runCurrent()
+            assertTrue(rootCauseAssessments(stores).isEmpty())
+
+            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry(createdAt = System.currentTimeMillis()))
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertEquals(RuntimeRootCauseVerdict.VPN_PATH_LOSS, assessment.verdict)
+            monitorScope.cancel()
+        }
+
+    @Test
+    fun `root cause assessment retries after failed write`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.nativeEventsState.value = listOf(terminalDataPlaneEvent("conn-a", createdAt = 1L))
+            var failNextWrite = true
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.source == RuntimeRootCauseAssessmentSource && failNextWrite) {
+                    failNextWrite = false
+                    error("injected root cause persistence failure")
+                }
+            }
+            val persister = createArtifactPersister(stores)
+
+            val failed =
+                runCatching {
+                    persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L)
+                }.exceptionOrNull()
+            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L)
+
+            assertTrue(failed is IllegalStateException)
+            assertEquals(1, rootCauseAssessments(stores).size)
+        }
+
+    @Test
+    fun `root cause assessment retries after cancelled write`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.nativeEventsState.value = listOf(terminalDataPlaneEvent("conn-a", createdAt = 1L))
+            var cancelNextWrite = true
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.source == RuntimeRootCauseAssessmentSource && cancelNextWrite) {
+                    cancelNextWrite = false
+                    throw CancellationException("injected root cause cancellation")
+                }
+            }
+            val persister = createArtifactPersister(stores)
+
+            val cancelled =
+                runCatching {
+                    persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L)
+                }.exceptionOrNull()
+            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L)
+
+            assertTrue(cancelled is CancellationException)
+            assertEquals(1, rootCauseAssessments(stores).size)
+        }
+
+    @Test
+    fun `root cause assessment concurrent calls persist one event`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.nativeEventsState.value = listOf(terminalDataPlaneEvent("conn-a", createdAt = 1L))
+            val firstWriteStarted = CompletableDeferred<Unit>()
+            val releaseFirstWrite = CompletableDeferred<Unit>()
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.source == RuntimeRootCauseAssessmentSource) {
+                    firstWriteStarted.complete(Unit)
+                    releaseFirstWrite.await()
+                }
+            }
+            val persister = createArtifactPersister(stores)
+
+            val first = launch { persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L) }
+            firstWriteStarted.await()
+            val second = launch { persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L) }
+            runCurrent()
+            releaseFirstWrite.complete(Unit)
+            joinAll(first, second)
+
+            assertEquals(1, rootCauseAssessments(stores).size)
         }
 
     @Test
@@ -336,6 +444,20 @@ class RuntimeHistoryMonitorPersistenceTest {
             scope = scope,
         )
 
+    private fun createArtifactPersister(
+        stores: FakeDiagnosticsHistoryStores,
+        serviceStateStore: DefaultServiceStateStore = DefaultServiceStateStore(),
+    ): RuntimeArtifactPersister =
+        RuntimeArtifactPersister(
+            artifactReadStore = stores,
+            artifactWriteStore = stores,
+            historyRetentionStore = stores,
+            networkMetadataProvider = FakeNetworkMetadataProvider(),
+            diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            serviceStateStore = serviceStateStore,
+            nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
+        )
+
     private fun telemetryWithEvent(
         message: String,
         createdAt: Long,
@@ -367,7 +489,7 @@ class RuntimeHistoryMonitorPersistenceTest {
                             NativeRuntimeEvent(
                                 source = "service",
                                 level = "info",
-                                message = "state=outbound_only final=true",
+                                message = "state=outbound_only final=true generation=1",
                                 createdAt = createdAt,
                                 kind = "data_plane_final",
                                 subsystem = "data_plane",
@@ -390,4 +512,22 @@ class RuntimeHistoryMonitorPersistenceTest {
         stores.nativeEventsState.value.filter { event ->
             event.source == "android_device_state" && event.message.contains("trigger=handover")
         }
+
+    private fun terminalDataPlaneEvent(
+        connectionSessionId: String,
+        createdAt: Long,
+    ): NativeSessionEventEntity =
+        NativeSessionEventEntity(
+            id = "$connectionSessionId:data_plane:$createdAt",
+            sessionId = null,
+            connectionSessionId = connectionSessionId,
+            source = "service",
+            level = "info",
+            message = "state=outbound_only final=true generation=1",
+            createdAt = createdAt,
+            subsystem = "data_plane",
+        )
+
+    private fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
+        stores.nativeEventsState.value.filter { event -> event.source == RuntimeRootCauseAssessmentSource }
 }

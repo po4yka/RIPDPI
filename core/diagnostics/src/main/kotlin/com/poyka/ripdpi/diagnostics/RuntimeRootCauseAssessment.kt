@@ -98,35 +98,21 @@ internal object RuntimeRootCauseClassifier {
 
 private fun collectEvidence(events: List<NativeSessionEventEntity>): RuntimeEvidenceAccumulator {
     val evidence = RuntimeEvidenceAccumulator()
+    val terminalDataPlaneGeneration = events.terminalDataPlaneGeneration()
     events.forEach { event ->
         val tokens = event.message.toKeyValueTokens()
         val subsystem = event.subsystem.orEmpty()
         val source = event.source
         val level = event.level.lowercase(Locale.US)
 
+        // Process/device-state events are supporting context until they have session-correlated exit evidence.
         when (subsystem) {
             "network_transition" -> {
                 collectNetworkTransitionEvidence(event, tokens, evidence)
             }
 
-            "device_state" -> {
-                collectDeviceStateEvidence(event, tokens, evidence)
-            }
-
-            "process" -> {
-                collectProcessEvidence(event, tokens, evidence)
-            }
-
             "data_plane" -> {
-                collectDataPlaneEvidence(event, tokens, evidence)
-            }
-
-            "dns" -> {
-                collectDnsEvidence(event, tokens, level, evidence)
-            }
-
-            "relay" -> {
-                collectRelayEvidence(event, tokens, level, evidence)
+                collectDataPlaneEvidence(event, tokens, terminalDataPlaneGeneration, evidence)
             }
 
             "vpn_protect", "protect" -> {
@@ -135,8 +121,8 @@ private fun collectEvidence(events: List<NativeSessionEventEntity>): RuntimeEvid
                 }
             }
         }
-        if (source == "dns") collectDnsEvidence(event, tokens, level, evidence)
-        if (source == "relay") collectRelayEvidence(event, tokens, level, evidence)
+        if (subsystem == "dns" || source == "dns") collectDnsEvidence(event, tokens, level, evidence)
+        if (subsystem == "relay" || source == "relay") collectRelayEvidence(event, tokens, level, evidence)
         collectExplicitMtuEvidence(event, tokens, evidence)
     }
     return evidence
@@ -151,44 +137,21 @@ private fun collectNetworkTransitionEvidence(
     val path = tokens["path"]
     val validated = tokens["validated"]
     val internet = tokens["internet"]
-    val underlayLost = kind == "lost"
-    val underlayUnvalidated = path == "non_vpn" && networkCapabilityMissing(validated, internet)
+    val hasBoundedNonVpnPath = path == "non_vpn" && tokens["generation"]?.toLongOrNull() != null
+    val underlayLost = hasBoundedNonVpnPath && kind == "lost"
+    val underlayUnvalidated = hasBoundedNonVpnPath && networkCapabilityMissing(validated, internet)
     if (underlayLost || underlayUnvalidated) {
         evidence.add(RuntimeEvidenceCategory.UnderlayLost, event)
-    }
-}
-
-private fun collectDeviceStateEvidence(
-    event: NativeSessionEventEntity,
-    tokens: Map<String, String>,
-    evidence: RuntimeEvidenceAccumulator,
-) {
-    val terminalService = tokens["service_lifecycle"] == "destroyed" || tokens["trigger"] == "service_destroyed"
-    val foregroundDenied = tokens["foreground_outcome"] in ForegroundFailureOutcomes
-    val constrained =
-        tokens["background_restricted"] == "enabled" ||
-            tokens["power_saver"] == "enabled" ||
-            tokens["memory_trim_callback"] in setOf("background", "moderate", "critical")
-    if ((terminalService || foregroundDenied) && constrained) {
-        evidence.add(RuntimeEvidenceCategory.DeviceProcessKill, event)
-    }
-}
-
-private fun collectProcessEvidence(
-    event: NativeSessionEventEntity,
-    tokens: Map<String, String>,
-    evidence: RuntimeEvidenceAccumulator,
-) {
-    if (tokens["reason"] in ProcessKillReasons || tokens["subtype"] == "android_memory_limiter") {
-        evidence.add(RuntimeEvidenceCategory.DeviceProcessKill, event)
     }
 }
 
 private fun collectDataPlaneEvidence(
     event: NativeSessionEventEntity,
     tokens: Map<String, String>,
+    terminalGeneration: Long?,
     evidence: RuntimeEvidenceAccumulator,
 ) {
+    if (terminalGeneration == null || tokens["generation"]?.toLongOrNull() != terminalGeneration) return
     when (tokens["state"]) {
         "tun_ingress_no_upstream" -> evidence.add(RuntimeEvidenceCategory.DataPlaneTunIngressNoUpstream, event)
         "outbound_only" -> evidence.add(RuntimeEvidenceCategory.DataPlaneOutboundNoReturn, event)
@@ -233,47 +196,41 @@ private fun collectExplicitMtuEvidence(
     tokens: Map<String, String>,
     evidence: RuntimeEvidenceAccumulator,
 ) {
-    val explicitPmtuEvidence =
-        event.subsystem == "pmtu" ||
-            tokens["pmtu_blackhole"] == "true" ||
-            tokens["mtu_blackhole"] == "true" ||
-            tokens["state"] == "pmtu_blackhole"
-    if (explicitPmtuEvidence) {
+    if (event.subsystem == "pmtu" && tokens.hasExactPmtuBlackholeEvidence()) {
         evidence.add(RuntimeEvidenceCategory.MtuBlackhole, event)
     }
 }
 
 private fun selectVerdict(evidence: RuntimeEvidenceAccumulator): RuntimeRootCauseVerdict =
     when {
-        evidence.has(RuntimeEvidenceCategory.DataPlaneForwardingHealthy) -> RuntimeRootCauseVerdict.INCONCLUSIVE
-        else -> selectDirectVerdict(evidence) ?: selectDataPlaneVerdict(evidence)
+        evidence.has(RuntimeEvidenceCategory.DataPlaneForwardingHealthy) -> {
+            RuntimeRootCauseVerdict.INCONCLUSIVE
+        }
+
+        else -> {
+            val candidateVerdicts =
+                (selectDirectVerdicts(evidence) + selectDataPlaneVerdict(evidence))
+                    .filterNot { verdict -> verdict == RuntimeRootCauseVerdict.INCONCLUSIVE }
+                    .distinct()
+            candidateVerdicts.singleOrNull() ?: RuntimeRootCauseVerdict.INCONCLUSIVE
+        }
     }
 
-private fun selectDirectVerdict(evidence: RuntimeEvidenceAccumulator): RuntimeRootCauseVerdict? {
-    val directVerdicts =
-        listOfNotNull(
-            RuntimeRootCauseVerdict.OEM_PROCESS_KILL.takeIf {
-                evidence.has(RuntimeEvidenceCategory.DeviceProcessKill)
-            },
-            RuntimeRootCauseVerdict.UNDERLAY_LOST.takeIf {
-                evidence.has(RuntimeEvidenceCategory.UnderlayLost)
-            },
-            RuntimeRootCauseVerdict.DNS_FAILURE.takeIf {
-                evidence.has(RuntimeEvidenceCategory.DnsFailure)
-            },
-            RuntimeRootCauseVerdict.MTU_BLACKHOLE.takeIf {
-                evidence.has(RuntimeEvidenceCategory.MtuBlackhole)
-            },
-            RuntimeRootCauseVerdict.RELAY_STALL.takeIf {
-                evidence.has(RuntimeEvidenceCategory.RelayStall)
-            },
-        )
-    return when (directVerdicts.distinct().size) {
-        0 -> null
-        1 -> directVerdicts.single()
-        else -> RuntimeRootCauseVerdict.INCONCLUSIVE
-    }
-}
+private fun selectDirectVerdicts(evidence: RuntimeEvidenceAccumulator): List<RuntimeRootCauseVerdict> =
+    listOfNotNull(
+        RuntimeRootCauseVerdict.UNDERLAY_LOST.takeIf {
+            evidence.has(RuntimeEvidenceCategory.UnderlayLost)
+        },
+        RuntimeRootCauseVerdict.DNS_FAILURE.takeIf {
+            evidence.has(RuntimeEvidenceCategory.DnsFailure)
+        },
+        RuntimeRootCauseVerdict.MTU_BLACKHOLE.takeIf {
+            evidence.has(RuntimeEvidenceCategory.MtuBlackhole)
+        },
+        RuntimeRootCauseVerdict.RELAY_STALL.takeIf {
+            evidence.has(RuntimeEvidenceCategory.RelayStall)
+        },
+    )
 
 private fun selectDataPlaneVerdict(evidence: RuntimeEvidenceAccumulator): RuntimeRootCauseVerdict {
     val hasRouteLoop = evidence.has(RuntimeEvidenceCategory.DataPlaneTunIngressNoUpstream)
@@ -372,7 +329,6 @@ private enum class RuntimeEvidenceCategory(
     val wireValue: String,
 ) {
     UnderlayLost("network_transition_underlay_lost"),
-    DeviceProcessKill("device_state_process_kill"),
     DataPlaneTunIngressNoUpstream("data_plane_tun_ingress_no_upstream"),
     DataPlaneOutboundNoReturn("data_plane_outbound_no_return"),
     DataPlaneForwardingHealthy("data_plane_forwarding_healthy"),
@@ -389,7 +345,7 @@ private fun RuntimeRootCauseVerdict.evidenceCategories(): Set<RuntimeEvidenceCat
         }
 
         RuntimeRootCauseVerdict.OEM_PROCESS_KILL -> {
-            setOf(RuntimeEvidenceCategory.DeviceProcessKill)
+            emptySet()
         }
 
         RuntimeRootCauseVerdict.VPN_ROUTE_LOOP -> {
@@ -436,17 +392,34 @@ private fun networkCapabilityMissing(
     internet: String?,
 ): Boolean = validated == "absent" || internet == "absent"
 
+private fun List<NativeSessionEventEntity>.terminalDataPlaneGeneration(): Long? {
+    val generations =
+        asSequence()
+            .filter { event -> event.subsystem == "data_plane" }
+            .map { event -> event.message.toKeyValueTokens() }
+            .filter { tokens -> tokens["final"] == "true" }
+            .mapNotNull { tokens -> tokens["generation"]?.toLongOrNull() }
+            .distinct()
+            .toList()
+    return generations.singleOrNull()
+}
+
+private fun Map<String, String>.hasExactPmtuBlackholeEvidence(): Boolean =
+    this["verdict"] == "mtu_blackhole" &&
+        this["provenance"] in PmtuProbeProvenance &&
+        this["small_control"] == "success" &&
+        this["larger_failures"]?.toIntOrNull()?.let { count -> count >= MinPmtuLargeFailures } == true &&
+        this["post_control_recovery"] == "success"
+
 private const val MaxRuntimeRootCauseEvents = 64
 private const val MaxRuntimeRootCauseEvidenceRefs = 8
 private const val RuntimeRootCauseWindowMillis = 5 * 60 * 1000L
+private const val MinPmtuLargeFailures = 2
 
 private val WarningLevels = setOf("warn", "error")
 private val DnsFailureEvents = setOf("dns_failure", "dns_resolution_failed", "resolver_failure")
 private val RelayStallStates = setOf("stalled", "frozen")
 private val RelayStallFailureClasses = setOf("relay_stall", "timeout")
-private val ForegroundFailureOutcomes =
-    setOf("start_not_allowed", "security_rejected", "invalid_type", "other_failure")
-private val ProcessKillReasons =
-    setOf("low_memory", "excessive_resource_usage", "user_stopped", "dependency_died")
+private val PmtuProbeProvenance = setOf("pmtu_probe_v1", "typed_pmtu_probe_v1")
 private val DataPlaneSupportedVerdicts =
     setOf(RuntimeRootCauseVerdict.VPN_ROUTE_LOOP, RuntimeRootCauseVerdict.VPN_PATH_LOSS)
