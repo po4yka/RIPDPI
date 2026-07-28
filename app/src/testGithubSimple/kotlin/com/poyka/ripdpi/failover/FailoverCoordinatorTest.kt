@@ -25,8 +25,10 @@ import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -428,6 +430,45 @@ class FailoverCoordinatorTest {
             assertEquals(0, controller.startCalls.size)
 
             coordinator.stopObserving()
+        }
+
+    @Test
+    fun stopObservingCancelsSuspendedEgressConfirmationWithoutRestart() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val secondProbeStarted = CompletableDeferred<Unit>()
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            probeCalls++
+                            if (probeCalls == 1) {
+                                FailoverEgressProbeResult(succeeded = false, failure = "udp_read_timeout")
+                            } else {
+                                secondProbeStarted.complete(Unit)
+                                awaitCancellation()
+                            }
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            secondProbeStarted.await()
+
+            coordinator.stopObserving()
+            advanceUntilIdle()
+
+            assertEquals(2, probeCalls)
+            assertEquals(0, controller.stopCalls.size)
+            assertEquals(0, controller.startCalls.size)
+            assertNull(coordinator.activeCandidate.value)
         }
 
     @Test

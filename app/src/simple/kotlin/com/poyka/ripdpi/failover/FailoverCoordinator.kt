@@ -27,6 +27,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -551,8 +552,13 @@ class FailoverCoordinator
             }
             val endpoint = parseFailoverProxyEndpoint(snapshot.relayTelemetry.listenerAddress) ?: return false
             val result =
-                runCatching { egressProbe.probe(endpoint, activeRequirements) }
-                    .getOrElse { FailoverEgressProbeResult(succeeded = false, failure = "probe_error") }
+                try {
+                    egressProbe.probe(endpoint, activeRequirements)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    FailoverEgressProbeResult(succeeded = false, failure = "probe_error")
+                }
             if (!result.succeeded) {
                 Logger.w {
                     "FailoverCoordinator: egress probe failed kind=" +
