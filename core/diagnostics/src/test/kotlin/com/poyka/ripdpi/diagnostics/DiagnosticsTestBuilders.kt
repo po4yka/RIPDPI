@@ -354,6 +354,13 @@ internal fun createRuntimeHistoryMonitor(
             serviceStateStore = serviceStateStore,
             nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
         )
+    val deviceStateEventRecorder =
+        DefaultDeviceStateEventRecorder(
+            provider = FakeDeviceStateProvider(),
+            artifactWriteStore = stores,
+            clock = TestDeviceStateEventClock(),
+            scope = scope,
+        )
     val sessionCoordinator =
         RuntimeSessionCoordinator(
             appSettingsRepository = appSettingsRepository,
@@ -364,6 +371,7 @@ internal fun createRuntimeHistoryMonitor(
             activeConnectionPolicyStore = activeConnectionPolicyStore,
             rememberedPolicySessionTracker = rememberedPolicySessionTracker,
             artifactPersister = artifactPersister,
+            deviceStateEventRecorder = deviceStateEventRecorder,
             scope = scope,
         )
     return RuntimeHistoryMonitor(
@@ -373,6 +381,69 @@ internal fun createRuntimeHistoryMonitor(
         scope = scope,
     )
 }
+
+internal class FakeDeviceStateProvider(
+    var snapshot: DeviceStateSnapshot = deviceStateSnapshotForTest(),
+) : DeviceStateProvider {
+    private var onChanged: (() -> Unit)? = null
+    val isObserving: Boolean
+        get() = onChanged != null
+
+    override fun capture(): DeviceStateSnapshot = snapshot
+
+    override fun observeChanges(onChanged: () -> Unit): DeviceStateObservation {
+        this.onChanged = onChanged
+        return DeviceStateObservation { this.onChanged = null }
+    }
+
+    fun emitChanged() {
+        onChanged?.invoke()
+    }
+}
+
+internal class TestDeviceStateEventClock(
+    var currentTime: Long = 1_000L,
+) : DeviceStateEventClock {
+    override fun now(): Long = currentTime++
+}
+
+@Suppress("LongParameterList")
+internal fun deviceStateSnapshotForTest(
+    screenInteractive: DeviceStateValue = DeviceStateValue.Enabled,
+    deviceIdle: DeviceStateValue = DeviceStateValue.Disabled,
+    powerSaver: DeviceStateValue = DeviceStateValue.Disabled,
+    backgroundRestricted: DeviceStateValue = DeviceStateValue.Disabled,
+    batteryOptimizationExempt: DeviceStateValue = DeviceStateValue.Enabled,
+    lowPowerStandby: DeviceStateValue = DeviceStateValue.Disabled,
+    lowPowerStandbyExempt: DeviceStateValue = DeviceStateValue.Enabled,
+    batteryLevel: DeviceBatteryBand = DeviceBatteryBand.High,
+    charging: DeviceStateValue = DeviceStateValue.Disabled,
+    standbyBucket: DeviceStandbyBucket = DeviceStandbyBucket.Active,
+    notificationPermission: DeviceStateValue = DeviceStateValue.Enabled,
+    notificationsAllowed: DeviceStateValue = DeviceStateValue.Enabled,
+    foregroundNotificationChannels: NotificationChannelState = NotificationChannelState.Enabled,
+    memoryPressure: MemoryPressureBand = MemoryPressureBand.None,
+    thermalStatus: DeviceThermalBand = DeviceThermalBand.None,
+    manufacturerFamily: DeviceManufacturerFamily = DeviceManufacturerFamily.Other,
+): DeviceStateSnapshot =
+    DeviceStateSnapshot(
+        screenInteractive = screenInteractive,
+        deviceIdle = deviceIdle,
+        powerSaver = powerSaver,
+        backgroundRestricted = backgroundRestricted,
+        batteryOptimizationExempt = batteryOptimizationExempt,
+        lowPowerStandby = lowPowerStandby,
+        lowPowerStandbyExempt = lowPowerStandbyExempt,
+        batteryLevel = batteryLevel,
+        charging = charging,
+        standbyBucket = standbyBucket,
+        notificationPermission = notificationPermission,
+        notificationsAllowed = notificationsAllowed,
+        foregroundNotificationChannels = foregroundNotificationChannels,
+        memoryPressure = memoryPressure,
+        thermalStatus = thermalStatus,
+        manufacturerFamily = manufacturerFamily,
+    )
 
 private class EmptyActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
     override val activePolicies: StateFlow<Map<com.poyka.ripdpi.data.Mode, ActiveConnectionPolicy>> =

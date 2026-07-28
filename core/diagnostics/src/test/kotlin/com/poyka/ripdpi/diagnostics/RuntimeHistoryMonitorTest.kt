@@ -62,7 +62,7 @@ class RuntimeHistoryMonitorTest {
             }
 
             val session = stores.usageSessionsState.value.single()
-            val event = stores.nativeEventsState.value.single()
+            val event = stores.nativeEventsState.value.single { it.source == "proxy" }
             val telemetrySample = stores.telemetryState.value.single()
 
             assertEquals("Failed", session.connectionState)
@@ -104,14 +104,14 @@ class RuntimeHistoryMonitorTest {
                 stores.telemetryState.value.any { it.resolverId == "cloudflare" } &&
                     stores.snapshotsState.value.isNotEmpty() &&
                     stores.contextsState.value.isNotEmpty() &&
-                    stores.nativeEventsState.value.size == 1
+                    stores.nativeEventsState.value.count { it.source == "proxy" } == 1
             }
 
             val session = stores.usageSessionsState.value.single()
             val telemetrySample = stores.telemetryState.value.last { it.resolverId == "cloudflare" }
             assertRunningSessionFields(session)
             assertCloudflaretelemetrySampleFields(telemetrySample)
-            assertEquals(1, stores.nativeEventsState.value.size)
+            assertEquals(1, stores.nativeEventsState.value.count { it.source == "proxy" })
             assertTrue(stores.snapshotsState.value.all { it.connectionSessionId == session.id })
             assertTrue(stores.contextsState.value.all { it.connectionSessionId == session.id })
             assertTrue(stores.telemetryState.value.all { it.connectionSessionId == session.id })
@@ -386,7 +386,7 @@ class RuntimeHistoryMonitorTest {
             }
 
             assertEquals(1, stores.usageSessionsState.value.size)
-            assertEquals(1, stores.nativeEventsState.value.size)
+            assertEquals(1, stores.nativeEventsState.value.count { it.source == "proxy" })
             assertEquals(1, stores.telemetryState.value.size)
         }
 

@@ -36,6 +36,7 @@ class RuntimeSessionCoordinator
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
         private val rememberedPolicySessionTracker: RememberedPolicySessionTracker,
         private val artifactPersister: RuntimeArtifactPersister,
+        private val deviceStateEventRecorder: DeviceStateEventRecorder,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) {
@@ -43,14 +44,35 @@ class RuntimeSessionCoordinator
 
         private var activeUsageSession: BypassUsageSessionEntity? = null
         private var samplingJob: Job? = null
+        private var reconnectInProgress = false
 
         suspend fun handleStatusChange(
             status: AppStatus,
             mode: Mode,
         ) {
+            if (status == AppStatus.Reconnecting) {
+                stateMutex.withLock {
+                    val hadActiveSession = activeUsageSession != null
+                    if (hadActiveSession) {
+                        deviceStateEventRecorder.recordReconnectStart()
+                        finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+                    }
+                    reconnectInProgress = true
+                    deviceStateEventRecorder.beginServiceStart(mode)
+                    if (!hadActiveSession) {
+                        deviceStateEventRecorder.recordReconnectStart()
+                    }
+                }
+                return
+            }
+
             if (status == AppStatus.Running) {
                 stateMutex.withLock {
-                    ensureActiveUsageSession(mode = mode)
+                    ensureRecorderAttachedUsageSession(mode)
+                    if (reconnectInProgress) {
+                        deviceStateEventRecorder.recordRecovery()
+                    }
+                    reconnectInProgress = false
                 }
                 startSampling()
                 return
@@ -58,6 +80,8 @@ class RuntimeSessionCoordinator
 
             stopSampling()
             stateMutex.withLock {
+                deviceStateEventRecorder.recordStop()
+                reconnectInProgress = false
                 finalizeActiveUsageSession(serviceStateStore.telemetry.value)
             }
         }
@@ -66,9 +90,10 @@ class RuntimeSessionCoordinator
             val connectionSessionId =
                 stateMutex.withLock {
                     if (serviceStateStore.status.value.first == AppStatus.Running) {
-                        ensureActiveUsageSession(mode = serviceStateStore.status.value.second)
+                        val mode = serviceStateStore.status.value.second
+                        ensureRecorderAttachedUsageSession(mode)
                         updateActiveUsageSession(
-                            serviceMode = serviceStateStore.status.value.second,
+                            serviceMode = mode,
                             telemetry = telemetry,
                             networkType = activeUsageSession?.networkType ?: "unknown",
                             publicIp = activeUsageSession?.publicIp,
@@ -95,13 +120,19 @@ class RuntimeSessionCoordinator
                 stateMutex.withLock {
                     val current = activeUsageSession
                     if (current == null) {
-                        createFailedUsageSession(
-                            sender = sender,
-                            failureMessage = failureMessage,
-                            timestamp = timestamp,
-                            telemetry = telemetry,
-                            snapshot = snapshot,
+                        val connectionSessionId =
+                            createFailedUsageSession(
+                                sender = sender,
+                                failureMessage = failureMessage,
+                                timestamp = timestamp,
+                                telemetry = telemetry,
+                                snapshot = snapshot,
+                            )
+                        deviceStateEventRecorder.recordStandaloneFailure(
+                            connectionSessionId,
+                            serviceStateStore.status.value.second,
                         )
+                        connectionSessionId
                     } else {
                         val updated =
                             RuntimeUsageSessionBuilder.updateFailedSession(
@@ -115,6 +146,7 @@ class RuntimeSessionCoordinator
                             )
                         activeUsageSession = updated
                         bypassUsageHistoryStore.upsertBypassUsageSession(updated)
+                        deviceStateEventRecorder.recordFailure()
                         updated.id
                     }
                 }
@@ -220,6 +252,20 @@ class RuntimeSessionCoordinator
                 activeUsageSession = updatedSession
                 bypassUsageHistoryStore.upsertBypassUsageSession(updatedSession)
             }
+        }
+
+        private suspend fun ensureRecorderAttachedUsageSession(mode: Mode): String {
+            val current = activeUsageSession
+            val requiresNewSession = current == null || current.serviceMode != mode.name || current.finishedAt != null
+            if (requiresNewSession) {
+                deviceStateEventRecorder.beginServiceStart(mode)
+            }
+            ensureActiveUsageSession(mode)
+            val connectionSessionId = checkNotNull(activeUsageSession).id
+            if (requiresNewSession) {
+                deviceStateEventRecorder.attachRunningSession(connectionSessionId, mode)
+            }
+            return connectionSessionId
         }
 
         private suspend fun createFailedUsageSession(
