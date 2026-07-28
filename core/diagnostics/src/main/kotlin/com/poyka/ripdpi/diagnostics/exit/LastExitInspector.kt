@@ -101,11 +101,21 @@ class DefaultLastExitInspector
     internal constructor(
         private val historySource: ProcessExitHistorySource,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
+        private val processExitRuntimeReconciler: ProcessExitRuntimeReconciler,
     ) : LastExitInspector {
+        internal constructor(
+            historySource: ProcessExitHistorySource,
+            artifactWriteStore: DiagnosticsArtifactWriteStore,
+        ) : this(
+            historySource = historySource,
+            artifactWriteStore = artifactWriteStore,
+            processExitRuntimeReconciler = NoopProcessExitRuntimeReconciler,
+        )
+
         override suspend fun recordRecentProcessExits() {
             if (historySource.sdkInt < Build.VERSION_CODES.R) return
-            historySource.recentProcessExits(MaxExitsInspected).take(MaxExitsInspected).forEach { info ->
-                artifactWriteStore.insertNativeSessionEvent(
+            val recordedEvents =
+                historySource.recentProcessExits(MaxExitsInspected).take(MaxExitsInspected).map { info ->
                     processExitEvent(
                         timestampMs = info.timestampMs,
                         identityDiscriminator = info.identityDiscriminator,
@@ -115,9 +125,14 @@ class DefaultLastExitInspector
                         pssKb = info.pssKb,
                         rssKb = info.rssKb,
                         memoryLimiterMarkerPresent = info.memoryLimiterMarkerPresent,
-                    ),
+                    )
+                }
+            recordedEvents.forEach { event ->
+                artifactWriteStore.insertNativeSessionEvent(
+                    event,
                 )
             }
+            processExitRuntimeReconciler.reconcileStartupProcessExits(recordedEvents)
         }
 
         companion object {

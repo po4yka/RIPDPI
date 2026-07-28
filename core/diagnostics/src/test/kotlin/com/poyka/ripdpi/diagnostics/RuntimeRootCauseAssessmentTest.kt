@@ -496,6 +496,97 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
+    fun `canonical correlated process exit classifies oem kill with medium confidence`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedProcessExitCorrelationEvent(
+                            connectionSessionId = "conn-a",
+                            createdAt = 1L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.OEM_PROCESS_KILL, assessment.verdict)
+        assertEquals(RuntimeRootCauseConfidence.MEDIUM, assessment.confidence)
+        assertEquals(listOf("oem_process_kill"), assessment.evidenceRefs.map { it.category })
+    }
+
+    @Test
+    fun `spoofed process exit correlations stay inconclusive`() {
+        val variants =
+            listOf(
+                typedProcessExitCorrelationEvent(
+                    connectionSessionId = "conn-a",
+                    createdAt = 1L,
+                    id = "application_exit_correlation:conn-b",
+                ),
+                typedProcessExitCorrelationEvent(
+                    connectionSessionId = "conn-a",
+                    createdAt = 2L,
+                    source = "android_last_exit_inspector",
+                ),
+                typedProcessExitCorrelationEvent(
+                    connectionSessionId = "conn-a",
+                    createdAt = 3L,
+                    subsystem = "service",
+                ),
+                typedProcessExitCorrelationEvent(
+                    connectionSessionId = "conn-a",
+                    createdAt = 4L,
+                    message =
+                        "event=process_exit_correlation verdict=oem_process_kill " +
+                            "reason=low_memory subtype=none importance=service",
+                ),
+                typedProcessExitCorrelationEvent(
+                    connectionSessionId = "conn-a",
+                    createdAt = 5L,
+                    reason = "crash",
+                ),
+                typedProcessExitCorrelationEvent(
+                    connectionSessionId = "conn-a",
+                    createdAt = 6L,
+                    importance = "cached",
+                ),
+            )
+        variants.forEach { spoofed ->
+            val assessment =
+                RuntimeRootCauseClassifier.assess(
+                    connectionSessionId = "conn-a",
+                    events = listOf(spoofed),
+                )
+
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertTrue(assessment.evidenceRefs.isEmpty())
+        }
+    }
+
+    @Test
+    fun `dns and oem process kill conflict stays inconclusive`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedDnsRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            state = "failure_threshold",
+                            createdAt = 1L,
+                        ),
+                        typedProcessExitCorrelationEvent(
+                            connectionSessionId = "conn-a",
+                            createdAt = 2L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(listOf("dns_failure", "oem_process_kill"), assessment.contradictoryCategories)
+    }
+
+    @Test
     fun `process exit events stay inconclusive without safe session correlation`() {
         val sessionlessAssessment =
             RuntimeRootCauseClassifier.assess(
@@ -568,6 +659,30 @@ class RuntimeRootCauseAssessmentTest {
         source: String = "service_telemetry_state",
         subsystem: String = "dns",
         message: String = "event=dns_runtime_state evidence=dns_counter_transition_v1 state=$state",
+    ): NativeSessionEventEntity =
+        event(
+            connectionSessionId = connectionSessionId,
+            subsystem = subsystem,
+            source = source,
+            level = "warn",
+            message = message,
+            createdAt = createdAt,
+            id = id,
+            preserveMessage = true,
+        )
+
+    private fun typedProcessExitCorrelationEvent(
+        connectionSessionId: String,
+        createdAt: Long,
+        reason: String = "low_memory",
+        subtype: String = "none",
+        importance: String = "service",
+        id: String = "application_exit_correlation:$connectionSessionId",
+        source: String = "application_exit_correlation",
+        subsystem: String = "process",
+        message: String =
+            "event=process_exit_correlation verdict=oem_process_kill evidence=last_exit_inspector_v1 " +
+                "reason=$reason subtype=$subtype importance=$importance",
     ): NativeSessionEventEntity =
         event(
             connectionSessionId = connectionSessionId,

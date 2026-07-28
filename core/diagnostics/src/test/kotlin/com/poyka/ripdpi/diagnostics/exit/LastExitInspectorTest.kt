@@ -228,6 +228,39 @@ class LastExitInspectorTest {
         }
 
     @Test
+    fun `recorder reconciles only newly persisted bounded exits after writing globals`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val source =
+                FakeProcessExitHistorySource(
+                    sdkInt = 34,
+                    exits =
+                        (0 until 20).map { index ->
+                            ProcessExitHistoryItem(
+                                timestampMs = index.toLong(),
+                                identityDiscriminator = "ordinal-0",
+                                reason = ApplicationExitInfo.REASON_LOW_MEMORY,
+                                importance = ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE,
+                                pssKb = 0,
+                                rssKb = 0,
+                                memoryLimiterMarkerPresent = false,
+                            )
+                        },
+                )
+            val reconciler =
+                RecordingProcessExitRuntimeReconciler { recordedEvents ->
+                    assertEquals(16, stores.nativeEventsState.value.size)
+                    assertEquals(stores.nativeEventsState.value, recordedEvents)
+                }
+
+            DefaultLastExitInspector(source, stores, reconciler).recordRecentProcessExits()
+
+            assertEquals(1, reconciler.calls.size)
+            assertEquals(16, reconciler.calls.single().size)
+            assertEquals(listOf(16), source.requestedLimits)
+        }
+
+    @Test
     fun `same timestamp exits keep distinct opaque identities without exposing pid`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -257,13 +290,24 @@ class LastExitInspectorTest {
             inspector.recordRecentProcessExits()
 
             val events = stores.nativeEventsState.value
-            assertEquals(4, events.size)
+            assertEquals(2, events.size)
             assertEquals(2, events.map { it.id }.distinct().size)
             events.forEach { event ->
                 assertFalse(event.id.contains(firstPid.toString()))
                 assertFalse(event.id.contains(secondPid.toString()))
             }
         }
+
+    private class RecordingProcessExitRuntimeReconciler(
+        private val onCall: (List<NativeSessionEventEntity>) -> Unit = {},
+    ) : ProcessExitRuntimeReconciler {
+        val calls = mutableListOf<List<NativeSessionEventEntity>>()
+
+        override suspend fun reconcileStartupProcessExits(recordedExitEvents: List<NativeSessionEventEntity>) {
+            calls += recordedExitEvents
+            onCall(recordedExitEvents)
+        }
+    }
 
     private class FakeProcessExitHistorySource(
         override val sdkInt: Int,

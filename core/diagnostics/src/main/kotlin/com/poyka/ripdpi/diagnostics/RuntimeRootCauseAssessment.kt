@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.exit.ProcessExitCorrelationSource
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.Locale
@@ -127,6 +128,7 @@ private fun collectEvidence(
         }
         // DNS and relay verdicts remain fail-closed until their producers emit an allowlisted kind.
         collectTypedRuntimeHealthEvidence(connectionSessionId, event, tokens, evidence)
+        collectCorrelatedProcessExitEvidence(connectionSessionId, event, tokens, evidence)
         collectExplicitMtuEvidence(event, tokens, evidence)
     }
     return evidence
@@ -252,6 +254,26 @@ private fun collectTypedRuntimeHealthEvidence(
     }
 }
 
+private fun collectCorrelatedProcessExitEvidence(
+    connectionSessionId: String,
+    event: NativeSessionEventEntity,
+    tokens: Map<String, String>,
+    evidence: RuntimeEvidenceAccumulator,
+) {
+    if (event.id != "$ProcessExitCorrelationSource:$connectionSessionId") return
+    if (event.source != ProcessExitCorrelationSource) return
+    if (event.subsystem != "process") return
+    if (event.level.lowercase(Locale.US) != "warn") return
+    if (
+        tokens["event"] == "process_exit_correlation" &&
+        tokens["verdict"] == "oem_process_kill" &&
+        tokens["evidence"] == "last_exit_inspector_v1" &&
+        tokens.isQualifyingOemProcessKill()
+    ) {
+        evidence.add(RuntimeEvidenceCategory.OemProcessKill, event)
+    }
+}
+
 private fun collectExplicitMtuEvidence(
     event: NativeSessionEventEntity,
     tokens: Map<String, String>,
@@ -304,6 +326,9 @@ private fun selectDirectVerdicts(evidence: RuntimeEvidenceAccumulator): List<Run
         RuntimeRootCauseVerdict.DNS_FAILURE.takeIf {
             evidence.has(RuntimeEvidenceCategory.DnsFailure)
         },
+        RuntimeRootCauseVerdict.OEM_PROCESS_KILL.takeIf {
+            evidence.has(RuntimeEvidenceCategory.OemProcessKill)
+        },
         RuntimeRootCauseVerdict.MTU_BLACKHOLE.takeIf {
             evidence.has(RuntimeEvidenceCategory.MtuBlackhole)
         },
@@ -336,6 +361,7 @@ private fun confidenceFor(
         evidence.has(RuntimeEvidenceCategory.DataPlaneTunIngressNoUpstream) ||
             evidence.has(RuntimeEvidenceCategory.DataPlaneOutboundNoReturn)
     return when {
+        verdict == RuntimeRootCauseVerdict.OEM_PROCESS_KILL -> RuntimeRootCauseConfidence.MEDIUM
         verdict == RuntimeRootCauseVerdict.DNS_FAILURE -> RuntimeRootCauseConfidence.MEDIUM
         primaryCount >= 2 -> RuntimeRootCauseConfidence.HIGH
         hasTerminalDataPlane && verdict in DataPlaneSupportedVerdicts -> RuntimeRootCauseConfidence.HIGH
@@ -421,6 +447,7 @@ private enum class RuntimeEvidenceCategory(
     DataPlaneOutboundNoReturn("data_plane_outbound_no_return"),
     DataPlaneForwardingHealthy("data_plane_forwarding_healthy"),
     DnsFailure("dns_failure"),
+    OemProcessKill("oem_process_kill"),
     MtuBlackhole("mtu_blackhole"),
     RelayStall("relay_stall"),
     RelayRuntimeFailure("relay_runtime_failure"),
@@ -434,7 +461,7 @@ private fun RuntimeRootCauseVerdict.evidenceCategories(): Set<RuntimeEvidenceCat
         }
 
         RuntimeRootCauseVerdict.OEM_PROCESS_KILL -> {
-            emptySet()
+            setOf(RuntimeEvidenceCategory.OemProcessKill)
         }
 
         RuntimeRootCauseVerdict.VPN_ROUTE_LOOP -> {
@@ -495,6 +522,15 @@ private fun hasAuthoritativeCapabilities(
     internet: String?,
 ): Boolean = validated in NetworkCapabilityStates && internet in NetworkCapabilityStates
 
+private fun Map<String, String>.isQualifyingOemProcessKill(): Boolean {
+    val reason = this["reason"]
+    val subtype = this["subtype"]
+    val reasonQualified =
+        reason in OemProcessKillReasons ||
+            (reason == "other" && subtype == "android_memory_limiter")
+    return reasonQualified && this["importance"] in OemProcessKillImportanceBands
+}
+
 private fun List<NativeSessionEventEntity>.latestCanonicalDataPlaneFinalEvent(): NativeSessionEventEntity? =
     asSequence()
         .filter { event -> event.source == "service" }
@@ -530,6 +566,8 @@ private val WarningLevels = setOf("warn", "error")
 private val TypedRuntimeHealthLevels = setOf("info", "warn")
 private val PmtuProbeProvenance = setOf("pmtu_probe_v1", "typed_pmtu_probe_v1")
 private val NetworkCapabilityStates = setOf("present", "absent")
+private val OemProcessKillReasons = setOf("low_memory", "excessive_resource_usage")
+private val OemProcessKillImportanceBands = setOf("foreground_service", "service", "perceptible")
 private val RelayFailedValues = setOf("true", "false")
 private val RelayRuntimeStates =
     setOf("idle", "starting", "running", "stopping", "stopped", "degraded", "failed", "error", "unknown")

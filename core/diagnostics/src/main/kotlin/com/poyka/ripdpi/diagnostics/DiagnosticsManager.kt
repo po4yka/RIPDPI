@@ -7,8 +7,10 @@ import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.exit.AndroidProcessExitHistorySource
 import com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector
+import com.poyka.ripdpi.diagnostics.exit.DefaultProcessExitRuntimeReconciler
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.exit.ProcessExitHistorySource
+import com.poyka.ripdpi.diagnostics.exit.ProcessExitRuntimeReconciler
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe
@@ -465,6 +467,12 @@ abstract class DiagnosticsManagerModule {
     @Binds
     @Singleton
     abstract fun bindLastExitInspector(inspector: DefaultLastExitInspector): LastExitInspector
+
+    @Binds
+    @Singleton
+    abstract fun bindProcessExitRuntimeReconciler(
+        reconciler: DefaultProcessExitRuntimeReconciler,
+    ): ProcessExitRuntimeReconciler
 
     @Binds
     @Singleton
