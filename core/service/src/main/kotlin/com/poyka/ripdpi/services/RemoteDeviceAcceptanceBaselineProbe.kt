@@ -4,6 +4,7 @@ import android.os.SystemClock
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -20,6 +21,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
     private val deviceProvider: () -> RemoteDeviceAcceptanceDevice,
     private val monotonicClock: () -> Long,
+    private val payloadHealthCache: RelayUdpPayloadHealthCache = RelayUdpPayloadHealthCache(),
 ) {
     @Inject
     constructor(
@@ -40,25 +42,23 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
      */
     suspend fun capture(snapshot: ServiceTelemetrySnapshot): RemoteDeviceAcceptanceReport {
         val startedAt = monotonicClock()
-        val running =
-            serviceStateStore.status.value.let { (status, mode) ->
-                status == AppStatus.Running && mode == Mode.VPN
-            }
-        val transportKind = sanitizeTransportKind(snapshot.relayTelemetry.protocolKind)
-        val endpoint = parseLocalRelayEndpoint(snapshot.relayTelemetry.listenerAddress)
-        val underlay = underlayObservationProvider.capture().toRemoteDeviceAcceptanceUnderlay()
-        val probeEvidence = captureRelayEvidence(running, transportKind, endpoint, underlay)
+        val before = captureContext(snapshot)
+        val probeEvidence = captureRelayEvidence(before)
+        val after = captureContext(serviceStateStore.telemetry.value)
+        val payloadHealthError = before.driftError(after)
+        val underlay = before.underlayObservation.toRemoteDeviceAcceptanceUnderlay()
         return buildRemoteDeviceAcceptanceBaseline(
             device = deviceProvider(),
             evidence =
                 AcceptanceBaselineEvidence(
-                    serviceRunning = running,
-                    transportKind = transportKind,
-                    listenerAvailable = endpoint != null,
+                    serviceRunning = before.serviceRunning,
+                    transportKind = before.transportKind,
+                    listenerAvailable = before.endpoint != null,
                     probe = probeEvidence.connectivity,
                     ipv4Probe = probeEvidence.ipv4,
                     ipv6Probe = probeEvidence.ipv6,
-                    payloadHealth = probeEvidence.payloadHealth,
+                    payloadHealth = probeEvidence.payloadHealth.takeIf { payloadHealthError == null },
+                    payloadHealthError = payloadHealthError,
                     underlay = underlay,
                     directEgressObserved = snapshot.relayFailed,
                     durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
@@ -66,15 +66,24 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         )
     }
 
-    private suspend fun captureRelayEvidence(
-        running: Boolean,
-        transportKind: String,
-        endpoint: RelayProbeEndpoint?,
-        underlay: RemoteDeviceAcceptanceUnderlay,
-    ): AcceptanceRelayEvidence {
-        if (!running || transportKind != RelayKindVlessReality || endpoint == null) {
+    private fun captureContext(snapshot: ServiceTelemetrySnapshot): AcceptanceCaptureContext {
+        val (status, mode) = serviceStateStore.status.value
+        return AcceptanceCaptureContext(
+            status = status,
+            mode = mode,
+            relayProtocolKind = sanitizeTransportKind(snapshot.relayTelemetry.protocolKind),
+            relayListenerAddress = snapshot.relayTelemetry.listenerAddress?.trim(),
+            serviceStartedAt = snapshot.serviceStartedAt,
+            underlayObservation = underlayObservationProvider.capture(),
+        )
+    }
+
+    private suspend fun captureRelayEvidence(context: AcceptanceCaptureContext): AcceptanceRelayEvidence {
+        val endpoint = context.endpoint
+        if (!context.serviceRunning || context.relayProtocolKind != RelayKindVlessReality || endpoint == null) {
             return AcceptanceRelayEvidence()
         }
+        val families = context.underlayObservation.mandatoryRelayUdpPayloadFamilies()
         return coroutineScope {
             val connectivity =
                 async {
@@ -86,7 +95,14 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                 }
             val ipv4 = async { probeOrNull(endpoint, RemoteAcceptanceIpv4ProbeUrl, TcpOnlyRequirements) }
             val ipv6 = async { probeOrNull(endpoint, RemoteAcceptanceIpv6ProbeUrl, TcpOnlyRequirements) }
-            val payloadHealth = async { payloadHealthOrNull(endpoint, underlay.relayUdpPayloadFamilies()) }
+            val payloadHealth =
+                async {
+                    payloadHealthOrNull(
+                        endpoint = endpoint,
+                        families = families,
+                        underlayGeneration = context.underlayObservation.generation,
+                    )
+                }
             AcceptanceRelayEvidence(connectivity.await(), ipv4.await(), ipv6.await(), payloadHealth.await())
         }
     }
@@ -111,13 +127,19 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     private suspend fun payloadHealthOrNull(
         endpoint: RelayProbeEndpoint,
         families: Set<RelayUdpPayloadFamily>,
+        underlayGeneration: Long?,
     ): RelayUdpPayloadHealthEvidence? =
-        try {
-            relayCapabilityProbe.probePayloadHealth(endpoint, families)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            null
+        payloadHealthCache.getOrPut(
+            key = RelayUdpPayloadHealthCacheKey(endpoint, underlayGeneration, families),
+            nowMs = monotonicClock(),
+        ) {
+            try {
+                relayCapabilityProbe.probePayloadHealth(endpoint, families)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
         }
 }
 
@@ -127,6 +149,93 @@ private data class AcceptanceRelayEvidence(
     val ipv6: RelayCapabilityProbeEvidence? = null,
     val payloadHealth: RelayUdpPayloadHealthEvidence? = null,
 )
+
+private data class AcceptanceCaptureContext(
+    val status: AppStatus,
+    val mode: Mode?,
+    val relayProtocolKind: String,
+    val relayListenerAddress: String?,
+    val serviceStartedAt: Long?,
+    val underlayObservation: NetworkPathObservation,
+) {
+    val serviceRunning: Boolean
+        get() = status == AppStatus.Running && mode == Mode.VPN
+
+    val transportKind: String
+        get() = relayProtocolKind
+
+    val endpoint: RelayProbeEndpoint?
+        get() = parseLocalRelayEndpoint(relayListenerAddress)
+
+    fun driftError(after: AcceptanceCaptureContext): String? =
+        ErrorPayloadHealthContextDrift.takeIf {
+            status != after.status ||
+                mode != after.mode ||
+                relayProtocolKind != after.relayProtocolKind ||
+                relayListenerAddress != after.relayListenerAddress ||
+                serviceStartedAt != after.serviceStartedAt ||
+                underlayObservation.generation != after.underlayObservation.generation
+        }
+}
+
+internal data class RelayUdpPayloadHealthCacheKey(
+    val endpoint: RelayProbeEndpoint,
+    val underlayGeneration: Long?,
+    val families: Set<RelayUdpPayloadFamily>,
+)
+
+internal data class CachedRelayUdpPayloadHealth(
+    val capturedAtMs: Long,
+    val evidence: RelayUdpPayloadHealthEvidence?,
+)
+
+internal class RelayUdpPayloadHealthCache(
+    private val maxEntries: Int = MaxPayloadHealthCacheEntries,
+    private val cooldownMs: Long = PayloadHealthCacheCooldownMs,
+) {
+    private val entries = LinkedHashMap<RelayUdpPayloadHealthCacheKey, CachedRelayUdpPayloadHealth>()
+
+    @Synchronized
+    fun get(
+        key: RelayUdpPayloadHealthCacheKey,
+        nowMs: Long,
+    ): RelayUdpPayloadHealthEvidence? {
+        val cached = entries[key] ?: return null
+        return cached.evidence.takeIf { nowMs - cached.capturedAtMs in 0..cooldownMs }
+    }
+
+    @Synchronized
+    fun put(
+        key: RelayUdpPayloadHealthCacheKey,
+        nowMs: Long,
+        evidence: RelayUdpPayloadHealthEvidence?,
+    ) {
+        entries[key] = CachedRelayUdpPayloadHealth(nowMs, evidence)
+        while (entries.size > maxEntries) {
+            entries.remove(entries.keys.first())
+        }
+    }
+
+    suspend fun getOrPut(
+        key: RelayUdpPayloadHealthCacheKey,
+        nowMs: Long,
+        loader: suspend () -> RelayUdpPayloadHealthEvidence?,
+    ): RelayUdpPayloadHealthEvidence? {
+        if (hasFreshEntry(key, nowMs)) return get(key, nowMs)
+        val loaded = loader()
+        put(key, nowMs, loaded)
+        return loaded
+    }
+
+    @Synchronized
+    private fun hasFreshEntry(
+        key: RelayUdpPayloadHealthCacheKey,
+        nowMs: Long,
+    ): Boolean {
+        val cached = entries[key] ?: return false
+        return nowMs - cached.capturedAtMs in 0..cooldownMs
+    }
+}
 
 private fun parseLocalRelayEndpoint(listenerAddress: String?): RelayProbeEndpoint? =
     listenerAddress
@@ -149,3 +258,5 @@ internal const val RemoteAcceptanceIpv4ProbeUrl = "https://ipv4.google.com/gener
 internal const val RemoteAcceptanceIpv6ProbeUrl = "https://ipv6.google.com/generate_204"
 private val TcpOnlyRequirements = EgressRequirements(tcpConnect = true, udpAssociate = false)
 private const val MaxNetworkPort = 65_535
+private const val MaxPayloadHealthCacheEntries = 16
+private const val PayloadHealthCacheCooldownMs = 60_000L

@@ -276,7 +276,7 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
                 val input = DataInputStream(control.getInputStream())
                 val output = DataOutputStream(control.getOutputStream())
                 negotiateNoAuthentication(input, output)
-                val udpRelay = openUdpAssociation(endpoint, input, output)
+                val udpRelay = openUdpAssociation(control.inetAddress, input, output)
                 associationOpened = true
                 DatagramSocket().use { udp ->
                     udp.soTimeout = timeoutMillis
@@ -300,9 +300,13 @@ private fun probeSingleDnsDatagram(
 ): RelayUdpProbeResult {
     val query = dnsQuery()
     val frame = encodeSocksUdpFrame(dnsTarget, query)
-    return try {
+    try {
         udp.send(DatagramPacket(frame, frame.size, udpRelay))
-        val response = DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes)
+    } catch (_: IOException) {
+        return RelayUdpProbeResult.failure(RelayProbeFailure.UdpWrite, associationOpened = true)
+    }
+    val response = DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes)
+    return try {
         udp.receive(response)
         val payload = decodeSocksUdpPayload(response.data, response.length)
         when {
@@ -313,7 +317,7 @@ private fun probeSingleDnsDatagram(
     } catch (_: SocketTimeoutException) {
         RelayUdpProbeResult.failure(RelayProbeFailure.UdpReadTimeout, associationOpened = true)
     } catch (_: IOException) {
-        RelayUdpProbeResult.failure(RelayProbeFailure.UdpWrite, associationOpened = true)
+        RelayUdpProbeResult.failure(RelayProbeFailure.UdpIo, associationOpened = true)
     }
 }
 
@@ -349,7 +353,7 @@ internal fun negotiateNoAuthentication(
 }
 
 internal fun openUdpAssociation(
-    endpoint: RelayProbeEndpoint,
+    controlRemoteAddress: InetAddress,
     input: DataInputStream,
     output: DataOutputStream,
 ): InetSocketAddress {
@@ -366,14 +370,19 @@ internal fun openUdpAssociation(
     val relayAddress = readSocksAddress(input)
     val relayPort = input.readUnsignedShort()
     requireSocksProtocol(relayPort != SocksPortZero, "SOCKS UDP ASSOCIATE returned port zero")
-    val effectiveAddress =
-        if (relayAddress.isAnyLocalAddress) {
-            InetAddress.getByName(endpoint.host)
-        } else {
-            relayAddress
-        }
+    val effectiveAddress = effectiveUdpRelayAddress(relayAddress, controlRemoteAddress)
     return InetSocketAddress(effectiveAddress, relayPort)
 }
+
+internal fun effectiveUdpRelayAddress(
+    relayAddress: InetAddress,
+    controlRemoteAddress: InetAddress,
+): InetAddress =
+    if (relayAddress.isAnyLocalAddress) {
+        controlRemoteAddress
+    } else {
+        relayAddress
+    }
 
 private fun requireSocksProtocol(
     condition: Boolean,

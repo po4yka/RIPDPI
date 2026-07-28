@@ -112,6 +112,41 @@ class RemoteDeviceAcceptanceGateTest {
     }
 
     @Test
+    fun `unavailable and inconclusive payload health leave payload step incomplete`() {
+        val unavailable = buildRemoteDeviceAcceptanceBaseline(Device, successfulEvidence().copy(payloadHealth = null))
+        val controlFailed =
+            buildRemoteDeviceAcceptanceBaseline(
+                Device,
+                successfulEvidence().copy(
+                    payloadHealth =
+                        RelayUdpPayloadHealthEvidence(
+                            overallVerdict = RelayUdpPayloadHealthVerdict.InconclusiveControlFailed.wireValue,
+                            families =
+                                listOf(
+                                    RelayUdpPayloadFamilyHealthEvidence(
+                                        family = "ipv4",
+                                        controlBefore = RelayUdpPayloadControlOutcome.Failed.wireValue,
+                                        controlAfter = RelayUdpPayloadControlOutcome.NotAttempted.wireValue,
+                                        maxAcknowledgedPayloadBytes = null,
+                                        firstRepeatedFailedPayloadBytes = null,
+                                        attemptCount = 1,
+                                        verdict = RelayUdpPayloadHealthVerdict.InconclusiveControlFailed.wireValue,
+                                    ),
+                                ),
+                        ),
+                ),
+            )
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, unavailable.step(StepRelayUdpPayload).status)
+        assertEquals(ErrorPayloadHealthUnavailable, unavailable.step(StepRelayUdpPayload).errorClass)
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, controlFailed.step(StepRelayUdpPayload).status)
+        assertEquals(
+            RelayUdpPayloadHealthVerdict.InconclusiveControlFailed.wireValue,
+            controlFailed.step(StepRelayUdpPayload).errorClass,
+        )
+    }
+
+    @Test
     fun `wrong transport fails closed without probe details`() {
         val report =
             buildRemoteDeviceAcceptanceBaseline(
@@ -137,6 +172,8 @@ class RemoteDeviceAcceptanceGateTest {
         assertTrue(rendered.contains(RelayKindVlessReality))
         assertTrue(rendered.contains("relay_egress_udp_payload"))
         assertTrue(rendered.contains("acknowledged_application_payload_ceiling"))
+        assertTrue(rendered.contains("not_quantified_variable_encapsulation"))
+        assertTrue(rendered.contains("effectivePathMtuBytes"))
         assertTrue(rendered.contains("mtuBand"))
         assertTrue(rendered.contains("nat64Reachability"))
         assertTrue(rendered.contains("unknown"))

@@ -29,6 +29,26 @@ class RelayCapabilityProbeTest {
     }
 
     @Test
+    fun `wildcard socks udp bind address uses established control socket address`() {
+        val controlAddress = InetAddress.getByName("127.0.0.42")
+
+        assertEquals(
+            controlAddress,
+            effectiveUdpRelayAddress(
+                relayAddress = InetAddress.getByName("0.0.0.0"),
+                controlRemoteAddress = controlAddress,
+            ),
+        )
+        assertEquals(
+            InetAddress.getByName("203.0.113.7"),
+            effectiveUdpRelayAddress(
+                relayAddress = InetAddress.getByName("203.0.113.7"),
+                controlRemoteAddress = controlAddress,
+            ),
+        )
+    }
+
+    @Test
     fun `udp requirement rejects relay whose tcp probe succeeds but udp probe fails`() =
         runBlocking {
             val probe =

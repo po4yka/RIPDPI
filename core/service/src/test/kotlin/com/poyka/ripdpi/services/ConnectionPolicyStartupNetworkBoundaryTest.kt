@@ -87,6 +87,7 @@ class ConnectionPolicyStartupNetworkBoundaryTest {
                 "CloudflarePublishRuntime.kt",
                 "FlowAppAttributionStore.kt",
                 "RelayCapabilityProbe.kt",
+                "RelayUdpPayloadHealthProbe.kt",
                 "RipDpiVpnService.kt",
                 "VpnUnderlyingNetworkBinder.kt",
                 "WarpEndpointProbe.kt",

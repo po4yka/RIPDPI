@@ -15,6 +15,8 @@ import java.util.Locale
 data class RelayUdpPayloadHealthEvidence(
     val measurementKind: String = RelayUdpPayloadMeasurementKind,
     val ceilingLabel: String = RelayUdpPayloadCeilingLabel,
+    val overheadAssessment: String = RelayUdpPayloadOverheadAssessment,
+    val effectivePathMtuBytes: Int? = null,
     val overallVerdict: String,
     val families: List<RelayUdpPayloadFamilyHealthEvidence>,
 ) {
@@ -217,7 +219,7 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
                 val input = DataInputStream(control.getInputStream())
                 val output = DataOutputStream(control.getOutputStream())
                 negotiateNoAuthentication(input, output)
-                val udpRelay = openUdpAssociation(endpoint, input, output)
+                val udpRelay = openUdpAssociation(control.inetAddress, input, output)
                 DatagramSocket().use { udp ->
                     udp.soTimeout = timeoutMillis
                     probePayloadFamily(udp, udpRelay, target)
@@ -385,3 +387,4 @@ private const val DnsEdnsPaddingOption: Byte = 12
 private val DefaultUdpPayloadLadderBytes = listOf(256, 512, 960, 1_232, MaxUdpPayloadProbeBytes)
 private const val RelayUdpPayloadMeasurementKind = "relay_egress_udp_payload"
 private const val RelayUdpPayloadCeilingLabel = "acknowledged_application_payload_ceiling"
+private const val RelayUdpPayloadOverheadAssessment = "not_quantified_variable_encapsulation"

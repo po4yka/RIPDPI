@@ -14,9 +14,12 @@ internal fun NetworkPathObservation.toRemoteDeviceAcceptanceUnderlay(): RemoteDe
         nat64Advertised = nat64Present,
     )
 
-internal fun RemoteDeviceAcceptanceUnderlay.relayUdpPayloadFamilies(): Set<RelayUdpPayloadFamily> =
-    buildSet {
-        if (hasIpv4Address || hasIpv4DefaultRoute || hasIpv4Dns) add(RelayUdpPayloadFamily.Ipv4)
-        if (hasIpv6Address || hasIpv6DefaultRoute || hasIpv6Dns) add(RelayUdpPayloadFamily.Ipv6)
-        if (isEmpty()) add(RelayUdpPayloadFamily.Ipv4)
-    }
+internal fun NetworkPathObservation.mandatoryRelayUdpPayloadFamilies(): Set<RelayUdpPayloadFamily> =
+    defaultRouteFamilies
+        .mapNotNull { family ->
+            when (family) {
+                "ipv4" -> RelayUdpPayloadFamily.Ipv4
+                "ipv6" -> RelayUdpPayloadFamily.Ipv6
+                else -> null
+            }
+        }.toSet()

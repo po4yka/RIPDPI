@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 enum class RemoteDeviceAcceptanceStatus(
     val wireValue: String,
@@ -69,6 +70,7 @@ internal data class AcceptanceBaselineEvidence(
     val ipv4Probe: RelayCapabilityProbeEvidence?,
     val ipv6Probe: RelayCapabilityProbeEvidence?,
     val payloadHealth: RelayUdpPayloadHealthEvidence?,
+    val payloadHealthError: String? = null,
     val underlay: RemoteDeviceAcceptanceUnderlay,
     val directEgressObserved: Boolean,
     val durationMs: Long,
@@ -111,10 +113,11 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
-            resultStep(
+            payloadHealthStep(
                 StepRelayUdpPayload,
-                acceptedAfterPreflight(preflightError, evidence.payloadHealth?.passed == true),
-                preflightError ?: evidence.payloadHealth?.failureClass ?: ErrorPayloadHealthUnavailable,
+                preflightError = preflightError,
+                payloadHealth = evidence.payloadHealth,
+                payloadHealthError = evidence.payloadHealthError,
                 evidence.durationMs,
                 pathKind = RelayPathKind,
             ),
@@ -153,7 +156,7 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
 }
 
 internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceReport): String =
-    RipDpiPrettyContractJson.encodeToString(
+    RemoteDeviceAcceptanceReportJson.encodeToString(
         RedactedAcceptanceReport(
             device =
                 RedactedAcceptanceDevice(
@@ -211,6 +214,8 @@ private data class RedactedAcceptanceStep(
 private data class RedactedRelayUdpPayloadHealth(
     val measurementKind: String,
     val ceilingLabel: String,
+    val overheadAssessment: String,
+    val effectivePathMtuBytes: Int? = null,
     val overallVerdict: String,
     val families: List<RedactedRelayUdpPayloadFamilyHealth>,
 )
@@ -276,10 +281,40 @@ private fun resultStep(
         pathKind = pathKind,
     )
 
+private fun payloadHealthStep(
+    id: String,
+    preflightError: String?,
+    payloadHealth: RelayUdpPayloadHealthEvidence?,
+    payloadHealthError: String?,
+    durationMs: Long,
+    pathKind: String? = null,
+): RemoteDeviceAcceptanceStep {
+    val status =
+        when {
+            preflightError != null -> RemoteDeviceAcceptanceStatus.Fail
+            payloadHealth?.passed == true -> RemoteDeviceAcceptanceStatus.Pass
+            else -> RemoteDeviceAcceptanceStatus.Incomplete
+        }
+    return RemoteDeviceAcceptanceStep(
+        id = id,
+        status = status,
+        durationMs = durationMs,
+        errorClass =
+            when (status) {
+                RemoteDeviceAcceptanceStatus.Pass -> null
+                RemoteDeviceAcceptanceStatus.Fail -> preflightError
+                else -> payloadHealthError ?: payloadHealth?.failureClass ?: ErrorPayloadHealthUnavailable
+            },
+        pathKind = pathKind,
+    )
+}
+
 private fun RelayUdpPayloadHealthEvidence.toRedacted(): RedactedRelayUdpPayloadHealth =
     RedactedRelayUdpPayloadHealth(
         measurementKind = measurementKind,
         ceilingLabel = ceilingLabel,
+        overheadAssessment = overheadAssessment,
+        effectivePathMtuBytes = effectivePathMtuBytes,
         overallVerdict = overallVerdict,
         families =
             families.map { family ->
@@ -347,6 +382,11 @@ private fun readSalesCode(): String {
         } ?: "unknown"
 }
 
+private val RemoteDeviceAcceptanceReportJson =
+    Json(RipDpiPrettyContractJson) {
+        explicitNulls = true
+    }
+
 internal const val StepRealityTcp = "reality_tcp"
 internal const val StepUdpAssociate = "socks_udp_associate"
 internal const val StepDnsUdp = "dns_udp"
@@ -363,6 +403,7 @@ internal const val ErrorProbe = "probe_error"
 internal const val ErrorIpv4Egress = "ipv4_egress_failed"
 internal const val ErrorIpv6Egress = "ipv6_egress_failed"
 internal const val ErrorPayloadHealthUnavailable = "payload_health_unavailable"
+internal const val ErrorPayloadHealthContextDrift = "payload_health_context_drift"
 internal const val ErrorDirectEgress = "direct_egress_observed"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
 internal const val RelayPathKind = "relay_path"
