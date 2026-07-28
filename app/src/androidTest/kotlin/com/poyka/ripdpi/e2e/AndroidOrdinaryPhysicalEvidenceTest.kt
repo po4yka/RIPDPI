@@ -72,6 +72,7 @@ private const val OrdinaryDnsAttemptLimit = 3
 private const val OrdinaryMarkerPrefix = "RIPDPI-ORDINARY-V1"
 private const val OrdinaryAttestationPrefix = "RIPDPI-ORDINARY-ATTESTATION-V1"
 private const val OrdinaryTimeoutMs = 25_000L
+private const val OrdinaryProtectedRestartAction = "transport_failover_restart"
 
 @HiltAndroidTest
 @UninstallModules(Tun2SocksBridgeFactoryModule::class, RipDpiProxyFactoryModule::class)
@@ -151,12 +152,10 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
         ensureVpnConsentGranted(appContext)
         tunnelFactory.routeThrough(fixture.androidHost, fixture.socks5Port)
-        resetVpnBetweenActions()
     }
 
     @After
     fun tearDown() {
-        runCatching { resetVpnBetweenActions() }
         runCatching { shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow") }
         runCatching { shell("svc wifi enable") }
         runCatching { shell("input keyevent KEYCODE_WAKEUP") }
@@ -236,7 +235,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val phases = JSONArray().put(capturePhase("steady", expectVpn = true))
         sendMarker(actionId, correlation, "outcome")
         val finished = now()
-        resetVpnBetweenActions()
         return actionDocument(actionId, correlation, started, finished, event, probes, dns, phases)
     }
 
@@ -277,7 +275,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val protected = capturePhase("protected", expectVpn = true)
         sendMarker("wifi-lte-switch", correlation, "outcome")
         val finished = now()
-        resetVpnBetweenActions()
         shell("svc wifi enable")
         awaitUnderlay(NetworkCapabilities.TRANSPORT_WIFI)
         return actionDocument(
@@ -307,7 +304,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val protected = capturePhase("protected", expectVpn = true)
         sendMarker("sleep-wake", correlation, "outcome")
         val finished = now()
-        resetVpnBetweenActions()
         return actionDocument(
             "sleep-wake",
             correlation,
@@ -326,6 +322,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val correlation = correlation("android-always-on-block")
         sendMarker("android-always-on-block", correlation, "action")
         requestVpnStop()
+        Thread.sleep(500)
         awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
             serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null
         }
@@ -368,12 +365,26 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 setStrategyChains(emptyList(), emptyList())
             }
         }
+        val requestedAction =
+            if (serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null) {
+                OrdinaryProtectedRestartAction
+            } else {
+                startAction
+            }
         ContextCompat.startForegroundService(
             appContext,
-            Intent(appContext, RipDpiVpnService::class.java).setAction(startAction),
+            Intent(appContext, RipDpiVpnService::class.java).setAction(requestedAction),
         )
         awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
-            serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null
+            val network = vpnNetwork()
+            val hasIpv6 =
+                network
+                    ?.let(connectivityManager::getLinkProperties)
+                    ?.linkAddresses
+                    ?.any { it.address.address.size == 16 } == true
+            serviceStateStore.telemetry.value.status == AppStatus.Running &&
+                network != null &&
+                hasIpv6 == ipv6
         }
         lastVpnInterface =
             connectivityManager.getLinkProperties(requireNotNull(vpnNetwork()))?.interfaceName ?: lastVpnInterface
@@ -394,13 +405,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 !probeService.isVpnDefaultNetwork()
             }
         }
-    }
-
-    private fun resetVpnBetweenActions() {
-        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN ignore")
-        requestVpnStop()
-        awaitVpnDefaultNetworkAbsent()
-        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
     }
 
     private fun blockedTransitionProbes(): JSONArray =

@@ -114,17 +114,17 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("!ipv4.ok && !ipv6.ok", lockdown)
         self.assertNotIn("awaitNoDefaultNetwork", lockdown)
 
-    def test_boundary_reset_observes_the_external_test_uid(self) -> None:
+    def test_action_boundary_reconfigures_inside_the_protected_tunnel(self) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
             "AndroidOrdinaryPhysicalEvidenceTest.kt"
         ).read_text()
-        reset = producer[producer.index("private fun awaitVpnDefaultNetworkAbsent") :]
-        reset = reset[: reset.index("private fun blockedTransitionProbes")]
-        self.assertIn("bindTestProcessDnsProbeService", reset)
-        self.assertIn("!probeService.isVpnDefaultNetwork()", reset)
-        self.assertIn("ACTIVATE_VPN ignore", reset)
-        self.assertIn("ACTIVATE_VPN allow", reset)
+        configure = producer[producer.index("private fun configureAndStart") :]
+        configure = configure[: configure.index("private fun requestVpnStop")]
+        self.assertIn("OrdinaryProtectedRestartAction", configure)
+        self.assertIn("transport_failover_restart", producer)
+        self.assertIn("hasIpv6 == ipv6", configure)
+        self.assertNotIn("ACTIVATE_VPN ignore", configure)
 
     def test_always_on_transitions_require_continuous_tunnel_protection(self) -> None:
         producer = Path(
