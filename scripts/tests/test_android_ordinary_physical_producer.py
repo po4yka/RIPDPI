@@ -89,6 +89,55 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     marker_relay.validated_marker(payload)
 
+    def test_marker_relay_waits_for_successful_forward_command(self) -> None:
+        marker = b"RIPDPI-ORDINARY-V1:dual-stack:" + b"c" * 64 + b":action"
+        client, server = socket.socketpair()
+        completed = marker_relay.subprocess.CompletedProcess(("ssh",), 0)
+        with (
+            client,
+            server,
+            mock.patch.object(
+                marker_relay.subprocess, "run", return_value=completed
+            ) as run,
+        ):
+            worker = threading.Thread(
+                target=marker_relay.handle_connection,
+                kwargs={
+                    "connection": server,
+                    "forward_command": ("ssh", "fixture", "sender"),
+                },
+            )
+            worker.start()
+            client.sendall(marker + b"\n")
+            self.assertEqual(client.recv(16), b"OK\n")
+            worker.join(timeout=2)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(run.call_args.args[0], ("ssh", "fixture", "sender"))
+            self.assertEqual(run.call_args.kwargs["input"], marker)
+            self.assertFalse(run.call_args.kwargs["check"])
+
+    def test_marker_relay_rejects_failed_forward_command(self) -> None:
+        marker = b"RIPDPI-ORDINARY-V1:dual-stack:" + b"d" * 64 + b":outcome"
+        client, server = socket.socketpair()
+        completed = marker_relay.subprocess.CompletedProcess(("ssh",), 1)
+        with (
+            client,
+            server,
+            mock.patch.object(marker_relay.subprocess, "run", return_value=completed),
+        ):
+            worker = threading.Thread(
+                target=marker_relay.handle_connection,
+                kwargs={
+                    "connection": server,
+                    "forward_command": ("ssh", "fixture", "sender"),
+                },
+            )
+            worker.start()
+            client.sendall(marker + b"\n")
+            self.assertEqual(client.recv(16), b"ERROR\n")
+            worker.join(timeout=2)
+            self.assertFalse(worker.is_alive())
+
     def test_runner_does_not_require_coordinator_network_for_fixture_preflight(
         self,
     ) -> None:
@@ -245,7 +294,8 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn('(tcp port $dns_port)', runner)
         self.assertIn("/usr/bin/tcpdump -i any", runner)
         self.assertIn("android_ordinary_marker_relay.py", runner)
-        self.assertIn('--destination-host "$fixture_ipv4"', runner)
+        self.assertIn('--forward-command "${marker_forward_command[@]}"', runner)
+        self.assertIn('ssh -S "$marker_ssh_control"', runner)
         self.assertNotIn('-L "127.0.0.1:$marker_relay_port', runner)
         self.assertIn('reverse "tcp:$marker_relay_port"', runner)
         self.assertIn('reverse --remove "tcp:$marker_relay_port"', runner)

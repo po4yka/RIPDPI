@@ -70,7 +70,8 @@ if ((fixture_tailscale_proxy)); then
         -o StrictHostKeyChecking=yes
     )
 fi
-ssh_remote=(ssh -p "$fixture_ssh_port" "${ssh_options[@]}" "$fixture_ssh")
+ssh_base=(ssh -p "$fixture_ssh_port" "${ssh_options[@]}")
+ssh_remote=("${ssh_base[@]}" "$fixture_ssh")
 scp_remote=(scp -P "$fixture_ssh_port" "${ssh_options[@]}")
 marker_port=39001
 marker_relay_port=39005
@@ -81,12 +82,14 @@ control_port=46090
 run_id="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 run_short="${run_id:0:16}"
 remote_dir="/tmp/ripdpi-ordinary-$run_short"
+marker_ssh_control="/tmp/ripdpi-ordinary-marker-$run_short.sock"
 fixture_unit="ripdpi-ordinary-fixture-$run_short"
 dns_unit="ripdpi-ordinary-dns-$run_short"
 capture_unit="ripdpi-ordinary-capture-$run_short"
 nft_comment="ripdpi-ordinary-$run_short"
 remote_started=0
 marker_relay_pid=0
+marker_ssh_master_pid=0
 marker_reverse_started=0
 target_preinstalled=0
 test_preinstalled=0
@@ -151,6 +154,13 @@ cleanup_marker_transport() {
     if ((marker_relay_pid)); then
         kill "$marker_relay_pid" >/dev/null 2>&1 || true
         wait "$marker_relay_pid" >/dev/null 2>&1 || true
+    fi
+    if ((marker_ssh_master_pid)); then
+        if [[ -S "$marker_ssh_control" ]]; then
+            ssh -S "$marker_ssh_control" -O exit "$fixture_ssh" >/dev/null 2>&1 || true
+        fi
+        kill "$marker_ssh_master_pid" >/dev/null 2>&1 || true
+        wait "$marker_ssh_master_pid" >/dev/null 2>&1 || true
     fi
 }
 
@@ -289,10 +299,27 @@ remote_started=1
 
 "${ssh_remote[@]}" "python3 -c 'import socket; sock = socket.create_connection((\"::1\", $control_port), timeout=5); sock.close()'"
 "${ssh_remote[@]}" "python3 -c 'import socket; sock = socket.create_connection((\"::1\", $tcp_echo_port), timeout=5); sock.close()'"
+"${ssh_base[@]}" -M -S "$marker_ssh_control" -N "$fixture_ssh" &
+marker_ssh_master_pid=$!
+for _ in {1..40}; do
+    if ssh -S "$marker_ssh_control" -O check "$fixture_ssh" >/dev/null 2>&1; then
+        break
+    fi
+    if ! kill -0 "$marker_ssh_master_pid" 2>/dev/null; then
+        echo "Fixture marker SSH control connection exited before becoming ready." >&2
+        exit 1
+    fi
+    sleep 0.25
+done
+ssh -S "$marker_ssh_control" -O check "$fixture_ssh" >/dev/null
+remote_marker_sender="python3 -c 'import socket,sys; payload=sys.stdin.buffer.read(161); sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); sent=sock.sendto(payload,(sys.argv[1],int(sys.argv[2]))); sys.exit(sent != len(payload))' '$fixture_ipv4' '$marker_port'"
+marker_forward_command=(
+    ssh -S "$marker_ssh_control" -o ControlMaster=no "$fixture_ssh"
+    "$remote_marker_sender"
+)
 python3 "$repo_root/scripts/ci/android_ordinary_marker_relay.py" \
     --listen-port "$marker_relay_port" \
-    --destination-host "$fixture_ipv4" \
-    --destination-port "$marker_port" &
+    --forward-command "${marker_forward_command[@]}" &
 marker_relay_pid=$!
 for _ in {1..20}; do
     if python3 -c "import socket; socket.create_connection(('127.0.0.1', $marker_relay_port), timeout=1).close()" 2>/dev/null; then

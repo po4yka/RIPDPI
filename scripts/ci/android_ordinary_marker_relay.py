@@ -7,6 +7,7 @@ import argparse
 import ipaddress
 import re
 import socket
+import subprocess
 from collections.abc import Sequence
 
 
@@ -26,7 +27,8 @@ def validated_marker(raw: bytes) -> bytes:
 def handle_connection(
     connection: socket.socket,
     *,
-    destination: tuple[str, int],
+    destination: tuple[str, int] | None = None,
+    forward_command: Sequence[str] | None = None,
 ) -> None:
     connection.settimeout(5)
     raw = connection.makefile("rb", buffering=0).readline(MAX_MARKER_BYTES + 2)
@@ -38,12 +40,38 @@ def handle_connection(
         except OSError:
             pass
         return
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as datagram:
-        datagram.sendto(marker, destination)
+    if (destination is None) == (forward_command is None):
+        raise ValueError("exactly one marker delivery path is required")
+    if forward_command is not None:
+        try:
+            completed = subprocess.run(
+                tuple(forward_command),
+                input=marker,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=4,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            completed = None
+        if completed is None or completed.returncode != 0:
+            try:
+                connection.sendall(b"ERROR\n")
+            except OSError:
+                pass
+            return
+    else:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as datagram:
+            datagram.sendto(marker, destination)
     connection.sendall(b"OK\n")
 
 
-def serve(*, listen_port: int, destination: tuple[str, int]) -> None:
+def serve(
+    *,
+    listen_port: int,
+    destination: tuple[str, int] | None = None,
+    forward_command: Sequence[str] | None = None,
+) -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind(("127.0.0.1", listen_port))
@@ -52,7 +80,11 @@ def serve(*, listen_port: int, destination: tuple[str, int]) -> None:
             connection, _ = listener.accept()
             with connection:
                 try:
-                    handle_connection(connection, destination=destination)
+                    handle_connection(
+                        connection,
+                        destination=destination,
+                        forward_command=forward_command,
+                    )
                 except OSError:
                     continue
 
@@ -74,12 +106,23 @@ def ipv4(value: str) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--listen-port", required=True, type=port)
-    parser.add_argument("--destination-host", required=True, type=ipv4)
-    parser.add_argument("--destination-port", required=True, type=port)
+    parser.add_argument("--destination-host", type=ipv4)
+    parser.add_argument("--destination-port", type=port)
+    parser.add_argument("--forward-command", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    has_destination = (
+        args.destination_host is not None and args.destination_port is not None
+    )
+    if (args.destination_host is None) != (args.destination_port is None):
+        parser.error("destination host and port must be supplied together")
+    if has_destination == bool(args.forward_command):
+        parser.error("select exactly one marker delivery path")
     serve(
         listen_port=args.listen_port,
-        destination=(args.destination_host, args.destination_port),
+        destination=(args.destination_host, args.destination_port)
+        if has_destination
+        else None,
+        forward_command=args.forward_command,
     )
     return 0
 
