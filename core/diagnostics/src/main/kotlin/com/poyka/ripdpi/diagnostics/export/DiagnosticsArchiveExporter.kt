@@ -91,13 +91,28 @@ internal class DefaultDiagnosticsArchiveExporter
                     )
                 }
             val primaryResults = primarySession?.id?.let { sourceLoader.getProbeResults(it) }.orEmpty()
+            val selectedSessionIds =
+                (listOfNotNull(primarySession?.id) + compositeSessions.map { it.id }).distinct()
+            val selectionSourceData =
+                sourceData.copy(
+                    snapshots =
+                        mergeArchiveArtifacts(
+                            sourceData.snapshots,
+                            selectedSessionIds.flatMap { sessionId -> sourceLoader.getSnapshots(sessionId) },
+                        ) { it.id },
+                    contexts =
+                        mergeArchiveArtifacts(
+                            sourceData.contexts,
+                            selectedSessionIds.flatMap { sessionId -> sourceLoader.getContexts(sessionId) },
+                        ) { it.id },
+                )
             val selection =
                 sessionSelector
                     .buildSelection(
                         request = request,
                         primarySession = primarySession,
                         primaryResults = primaryResults,
-                        sourceData = sourceData,
+                        sourceData = selectionSourceData,
                         compositeOutcome = compositeOutcome,
                         compositeSessions = compositeSessions,
                         loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
@@ -112,6 +127,12 @@ internal class DefaultDiagnosticsArchiveExporter
                     )
             return selection
         }
+
+        private fun <T> mergeArchiveArtifacts(
+            recent: List<T>,
+            selected: List<T>,
+            key: (T) -> String,
+        ): List<T> = (recent + selected).distinctBy(key)
 
         private suspend fun collectDeveloperAnalytics(
             selection: DiagnosticsArchiveSelection,

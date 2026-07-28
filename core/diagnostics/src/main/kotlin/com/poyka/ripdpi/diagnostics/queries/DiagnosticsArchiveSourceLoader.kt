@@ -4,10 +4,12 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildInfoProvider
@@ -109,6 +111,18 @@ internal class DiagnosticsArchiveSourceLoader
             artifactQueryStore.getNativeEventsForSession(
                 sessionId = sessionId,
                 limit = DiagnosticsArchiveFormat.sessionEventLimit,
+            )
+
+        internal suspend fun getSnapshots(sessionId: String): List<NetworkSnapshotEntity> =
+            artifactQueryStore.getSnapshotsForSession(
+                sessionId = sessionId,
+                limit = DiagnosticsArchiveFormat.snapshotLimit,
+            )
+
+        internal suspend fun getContexts(sessionId: String): List<DiagnosticContextEntity> =
+            artifactQueryStore.getContextsForSession(
+                sessionId = sessionId,
+                limit = DiagnosticsArchiveFormat.snapshotLimit,
             )
 
         internal suspend fun getCompletedHomeRun(runId: String): DiagnosticsHomeCompositeOutcome? =

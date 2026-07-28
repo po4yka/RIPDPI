@@ -88,6 +88,59 @@ class DiagnosticsArchiveExporterTest {
             }
         }
 
+    @Test
+    fun `requested session artifacts survive the global recent window`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-outside-window",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Selected session",
+                )
+            seedSingleSessionStore(stores, session)
+            val selectedSnapshot = stores.snapshotsState.value.single()
+            val selectedContext = stores.contextsState.value.single()
+            stores.snapshotsState.value =
+                List(DiagnosticsArchiveFormat.snapshotLimit) { index ->
+                    selectedSnapshot.copy(
+                        id = "newer-snapshot-$index",
+                        sessionId = "newer-session",
+                        capturedAt =
+                            100L + index,
+                    )
+                } + selectedSnapshot
+            stores.contextsState.value =
+                List(DiagnosticsArchiveFormat.snapshotLimit) { index ->
+                    selectedContext.copy(
+                        id = "newer-context-$index",
+                        sessionId = "newer-session",
+                        capturedAt =
+                            100L + index,
+                    )
+                } + selectedContext
+
+            val archive =
+                createArchiveExporter(stores).createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 24L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val manifest =
+                    json.decodeFromString(
+                        DiagnosticsArchiveManifest.serializer(),
+                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+                    )
+                assertEquals(1, manifest.sessionSnapshotCount)
+                assertEquals(1, manifest.contextSnapshotCount)
+            }
+        }
+
     private suspend fun seedSingleSessionStore(
         stores: FakeDiagnosticsHistoryStores,
         session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,

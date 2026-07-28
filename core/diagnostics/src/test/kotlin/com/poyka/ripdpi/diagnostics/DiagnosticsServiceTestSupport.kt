@@ -154,7 +154,8 @@ internal class FakeDiagnosticsHistoryStores :
 
     override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> = sessionsState
 
-    override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = snapshotsState
+    override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> =
+        snapshotsState.map { snapshots -> snapshots.take(limit) }
 
     override suspend fun getSnapshotsForSession(
         sessionId: String,
@@ -169,7 +170,8 @@ internal class FakeDiagnosticsHistoryStores :
             snapshots.filter { it.connectionSessionId == connectionSessionId }.take(limit)
         }
 
-    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = contextsState
+    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
+        contextsState.map { contexts -> contexts.take(limit) }
 
     override suspend fun getContextsForSession(
         sessionId: String,
