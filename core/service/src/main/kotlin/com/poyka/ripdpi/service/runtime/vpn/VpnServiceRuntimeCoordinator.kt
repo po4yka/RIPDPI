@@ -306,6 +306,8 @@ internal class VpnServiceRuntimeCoordinator(
                     resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
                     restartAfterHandover = ::restartAfterHandover,
                     classifyFailure = ::classifyHandoverFailure,
+                    retainFailClosedAfterExhaustion =
+                        runtimeCompositionCoordinator::retainFailClosedAfterHandoverFailure,
                 ),
             statusHooks =
                 ServiceRuntimeStatusHooks(

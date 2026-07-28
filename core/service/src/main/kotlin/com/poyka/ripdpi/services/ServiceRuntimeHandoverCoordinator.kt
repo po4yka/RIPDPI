@@ -80,7 +80,9 @@ internal class ServiceRuntimeHandoverCoordinator<TSession>(
     private suspend fun handleExhaustedHandoverFailure(error: Exception) {
         val reason = hooks.handoverHooks.classifyFailure(error)
         hooks.statusHooks.updateStatus(ServiceStatus.Failed, reason)
-        stopService()
+        if (!hooks.handoverHooks.retainFailClosedAfterExhaustion()) {
+            stopService()
+        }
     }
 }
 

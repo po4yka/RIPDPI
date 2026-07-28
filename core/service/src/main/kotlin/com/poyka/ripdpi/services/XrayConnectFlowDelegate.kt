@@ -51,6 +51,10 @@ internal class XrayConnectFlowDelegate(
     val isActive: Boolean
         get() = active
 
+    /** True while lifecycle cleanup still belongs to the provider path. */
+    val ownsActiveProviderPath: Boolean
+        get() = ownsProviderPath
+
     /**
      * Attempt the Xray start. Returns `true` when the Xray provider is durably
      * selected and started successfully (the coordinator must then skip the

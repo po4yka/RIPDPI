@@ -1070,7 +1070,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun handoverFailureInVpnModeHalts() =
+    fun handoverFailureInVpnModeRetainsFailClosedTunUntilExplicitStop() =
         runTest {
             val initialFingerprint = sampleFingerprint()
             val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
@@ -1110,6 +1110,14 @@ class VpnServiceRuntimeCoordinatorTest {
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(env.tunnelProvider.session.closed)
+
+            env.coordinator.stop()
+            runCurrent()
+
+            assertTrue(env.tunnelProvider.session.closed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
         }
 
     @Test

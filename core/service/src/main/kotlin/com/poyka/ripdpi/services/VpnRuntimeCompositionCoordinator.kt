@@ -88,6 +88,20 @@ internal class VpnRuntimeCompositionCoordinator(
         appliedAt: Long,
     ) = restartAfterPolicyChange(session, resolution, appliedAt, "network_handover")
 
+    /**
+     * Leaves the installed native TUN as a blocking barrier after handover
+     * retries are exhausted. The runtime remains registered so an explicit
+     * user stop can close the barrier deliberately.
+     */
+    suspend fun retainFailClosedAfterHandoverFailure(): Boolean {
+        if (providerDelegate?.ownsActiveProviderPath == true || !vpnTunnelRuntime.isRunning) {
+            return false
+        }
+        runCatching { proxyRuntimeStack.stop(skipRuntimeShutdown = false) }
+        currentLocalProxyEndpoint = null
+        return true
+    }
+
     suspend fun restartAfterPolicyChange(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,

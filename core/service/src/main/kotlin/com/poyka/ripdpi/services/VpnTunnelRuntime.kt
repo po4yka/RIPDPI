@@ -138,7 +138,13 @@ internal class VpnTunnelRuntime(
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     ) {
         val previousSession = checkNotNull(tunSession) { "VPN tunnel is not running" }
-        val previousBridge = checkNotNull(tun2SocksBridge) { "VPN tunnel is not forwarding" }
+        check(tun2SocksBridge == null || retiringBridge == null || tun2SocksBridge === retiringBridge) {
+            "VPN tunnel has multiple bridges pending retirement"
+        }
+        val previousBridge =
+            checkNotNull(tun2SocksBridge ?: retiringBridge) {
+                "VPN tunnel has no bridge to replace"
+            }
         val pendingTunnel =
             prepareTunnel(
                 activeDns = activeDns,
@@ -154,6 +160,7 @@ internal class VpnTunnelRuntime(
         // a live interface that captures traffic instead of falling back to direct.
         tunSession = pendingTunnel.session
         tun2SocksBridge = null
+        retiringBridge = null
         try {
             try {
                 try {
@@ -290,6 +297,7 @@ internal class VpnTunnelRuntime(
             throw error
         }
         tun2SocksBridge = tunnelBridge
+        retiringBridge = null
         tunSession = pendingTunnel.session
         if (pendingSession === pendingTunnel.session) {
             pendingSession = null
