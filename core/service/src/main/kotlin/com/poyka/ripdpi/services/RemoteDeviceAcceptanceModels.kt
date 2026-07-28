@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.services
 
 import android.os.Build
+import com.poyka.ripdpi.serialization.RipDpiPrettyContractJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 enum class RemoteDeviceAcceptanceStatus(
     val wireValue: String,
@@ -119,7 +119,7 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
 }
 
 internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceReport): String =
-    AcceptanceReportJson.encodeToString(
+    RipDpiPrettyContractJson.encodeToString(
         RedactedAcceptanceReport(
             device =
                 RedactedAcceptanceDevice(
@@ -264,9 +264,3 @@ private val acceptanceStepIds =
     )
 private val acceptanceDataPlaneStepIds =
     setOf(StepRealityTcp, StepUdpAssociate, StepDnsUdp, StepIpv4, StepIpv6, StepNoDirectEgress)
-private val AcceptanceReportJson =
-    Json {
-        prettyPrint = true
-        encodeDefaults = true
-        explicitNulls = false
-    }
