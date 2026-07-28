@@ -52,6 +52,16 @@ interface DiagnosticsTelemetryDao {
     @Query(
         """
         SELECT * FROM native_session_events
+        WHERE sessionId IS NULL
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getGlobalNativeEvents(limit: Int = 250): List<NativeSessionEventEntity>
+
+    @Query(
+        """
+        SELECT * FROM native_session_events
         WHERE sessionId = :sessionId
         ORDER BY createdAt DESC
         LIMIT :limit

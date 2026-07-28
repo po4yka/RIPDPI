@@ -55,11 +55,25 @@ class DiagnosticsArchiveSessionSelector
             compositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
             compositeSessions: List<ScanSessionEntity> = emptyList(),
             loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
+            loadNativeEvents: suspend (String) -> List<NativeSessionEventEntity>,
         ): DiagnosticsArchiveSelection {
-            val primary = buildPrimarySessionData(primarySession, primaryResults, sourceData)
+            val eventCache = mutableMapOf<String, List<NativeSessionEventEntity>>()
+
+            suspend fun loadSessionEvents(sessionId: String): List<NativeSessionEventEntity> =
+                eventCache[sessionId] ?: loadNativeEvents(sessionId).also { eventCache[sessionId] = it }
+
+            val primaryEvents = primarySession?.id?.let { sessionId -> loadSessionEvents(sessionId) }.orEmpty()
+            val primary = buildPrimarySessionData(primarySession, primaryResults, primaryEvents, sourceData)
             val isComposite = compositeOutcome != null && request.homeRunId != null && request.sessionIds.isNotEmpty()
             val compositeStages =
-                buildCompositeStages(isComposite, compositeOutcome, compositeSessions, sourceData, loadProbeResults)
+                buildCompositeStages(
+                    isComposite,
+                    compositeOutcome,
+                    compositeSessions,
+                    sourceData,
+                    loadProbeResults,
+                    ::loadSessionEvents,
+                )
             val includedFiles = buildIncludedFiles(isComposite, compositeStages, sourceData)
             val payload =
                 DiagnosticsArchivePayload(
@@ -129,6 +143,7 @@ class DiagnosticsArchiveSessionSelector
         private fun buildPrimarySessionData(
             primarySession: ScanSessionEntity?,
             @Suppress("UnusedParameter") primaryResults: List<ProbeResultEntity>,
+            primaryEvents: List<NativeSessionEventEntity>,
             sourceData: DiagnosticsArchiveSourceData,
         ): PrimarySessionData {
             val report =
@@ -146,16 +161,11 @@ class DiagnosticsArchiveSessionSelector
                     ?.id
                     ?.let { sessionId -> sourceData.contexts.filter { it.sessionId == sessionId } }
                     .orEmpty()
-            val events =
-                primarySession
-                    ?.id
-                    ?.let { sessionId -> sourceData.events.filter { it.sessionId == sessionId } }
-                    .orEmpty()
             val latestPassiveSnapshot = sourceData.snapshots.firstOrNull { it.sessionId == null }
             val latestPassiveContext = sourceData.contexts.firstOrNull { it.sessionId == null }
             val globalEvents =
                 sourceData.events
-                    .filter { it.sessionId == null || it.sessionId != primarySession?.id }
+                    .filter { it.sessionId == null }
                     .take(DiagnosticsArchiveFormat.globalEventLimit)
             val selectedApproachSummary =
                 primarySession?.strategyId?.let { strategyId ->
@@ -189,7 +199,7 @@ class DiagnosticsArchiveSessionSelector
                 report = report,
                 snapshots = snapshots,
                 contexts = contexts,
-                events = events,
+                events = primaryEvents,
                 latestPassiveSnapshot = latestPassiveSnapshot,
                 latestPassiveContext = latestPassiveContext,
                 globalEvents = globalEvents,
@@ -207,6 +217,7 @@ class DiagnosticsArchiveSessionSelector
             compositeSessions: List<ScanSessionEntity>,
             sourceData: DiagnosticsArchiveSourceData,
             loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
+            loadNativeEvents: suspend (String) -> List<NativeSessionEventEntity>,
         ): List<DiagnosticsArchiveCompositeStageSelection> {
             if (!isComposite || compositeOutcome == null) return emptyList()
             return compositeOutcome.stageSummaries.map { stageSummary ->
@@ -227,7 +238,11 @@ class DiagnosticsArchiveSessionSelector
                             .orEmpty(),
                     snapshots = sourceData.snapshots.filter { it.sessionId == session?.id },
                     contexts = sourceData.contexts.filter { it.sessionId == session?.id },
-                    events = sourceData.events.filter { it.sessionId == session?.id },
+                    events =
+                        session
+                            ?.id
+                            ?.let { sessionId -> loadNativeEvents(sessionId) }
+                            .orEmpty(),
                 )
             }
         }

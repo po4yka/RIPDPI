@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
+import com.poyka.ripdpi.diagnostics.export.buildSectionStatuses
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -119,6 +121,39 @@ class DiagnosticsArchiveRendererTest {
         assertEquals(DiagnosticsArchiveSectionStatus.TRUNCATED, completeness.sectionStatuses["logcat.txt"])
         assertTrue(completeness.collectionWarnings.any { it.contains("snapshot_decode_failed_count:2") })
         assertTrue(completeness.collectionWarnings.any { it.contains("context_decode_failed_count:2") })
+    }
+
+    @Test
+    fun `stage native event status uses its own fetch quota`() {
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                runType = DiagnosticsArchiveRunType.HOME_COMPOSITE,
+                sourceCounts =
+                    base.sourceCounts.copy(nativeEvents = DiagnosticsArchiveFormat.globalEventLimit),
+                includedFiles =
+                    listOf(
+                        "native-events.csv",
+                        "stages/empty/native-events.csv",
+                        "stages/full/native-events.csv",
+                    ),
+                compositeStages =
+                    listOf(
+                        rendererCompositeStage("empty", emptyList()),
+                        rendererCompositeStage(
+                            "full",
+                            List(DiagnosticsArchiveFormat.sessionEventLimit) { index ->
+                                rendererNativeEvent(id = "event-$index", sessionId = "full-session")
+                            },
+                        ),
+                    ),
+            )
+
+        val statuses = buildSectionStatuses(selection)
+
+        assertEquals(DiagnosticsArchiveSectionStatus.TRUNCATED, statuses["native-events.csv"])
+        assertEquals(DiagnosticsArchiveSectionStatus.INCLUDED, statuses["stages/empty/native-events.csv"])
+        assertEquals(DiagnosticsArchiveSectionStatus.TRUNCATED, statuses["stages/full/native-events.csv"])
     }
 
     @Test
@@ -346,6 +381,29 @@ class DiagnosticsArchiveRendererTest {
                 ),
             fileLogSnapshot = null,
         )
+
+    private fun rendererCompositeStage(
+        stageKey: String,
+        events: List<NativeSessionEventEntity>,
+    ) = DiagnosticsArchiveCompositeStageSelection(
+        stageSummary =
+            DiagnosticsHomeCompositeStageSummary(
+                stageKey = stageKey,
+                stageLabel = stageKey,
+                profileId = "default",
+                pathMode = ScanPathMode.IN_PATH,
+                sessionId = "$stageKey-session",
+                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                headline = "Complete",
+                summary = "Complete",
+            ),
+        session = null,
+        report = null,
+        results = emptyList(),
+        snapshots = emptyList(),
+        contexts = emptyList(),
+        events = events,
+    )
 
     private fun buildTruncationRendererSelection(): DiagnosticsArchiveSelection {
         val invalidSnapshot = rendererNetworkSnapshotEntity(sessionId = "session-1").copy(payloadJson = "{bad")

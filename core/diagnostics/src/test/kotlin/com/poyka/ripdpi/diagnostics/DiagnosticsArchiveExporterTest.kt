@@ -632,6 +632,7 @@ class DiagnosticsArchiveExporterTest {
                     appSettingsRepository = FakeAppSettingsRepository(appSettings),
                     scanRecordStore = stores,
                     artifactReadStore = stores,
+                    artifactQueryStore = stores,
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
                     fileLogWriter =

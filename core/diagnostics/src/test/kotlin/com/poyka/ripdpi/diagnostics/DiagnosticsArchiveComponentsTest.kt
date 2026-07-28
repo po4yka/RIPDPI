@@ -143,9 +143,7 @@ class DiagnosticsArchiveComponentsTest {
                     telemetry = listOf(telemetrySample(publicIp = "198.51.100.8")),
                     events =
                         listOf(
-                            nativeEvent(id = "ev-session", sessionId = "session-latest"),
                             nativeEvent(id = "ev-global", sessionId = null),
-                            nativeEvent(id = "ev-other", sessionId = "session-running"),
                         ),
                     contexts =
                         listOf(
@@ -168,6 +166,12 @@ class DiagnosticsArchiveComponentsTest {
                     primaryResults = listOf(probeResult(sessionId = "session-latest")),
                     sourceData = sourceData,
                     loadProbeResults = { emptyList() },
+                    loadNativeEvents = { sessionId ->
+                        when (sessionId) {
+                            "session-latest" -> listOf(nativeEvent(id = "ev-session", sessionId = sessionId))
+                            else -> emptyList()
+                        }
+                    },
                 )
 
             assertEquals("session-latest", selectedSession?.id)
@@ -177,7 +181,7 @@ class DiagnosticsArchiveComponentsTest {
             assertEquals(1, selection.primaryEvents.size)
             assertNotNull(selection.latestPassiveSnapshot)
             assertNotNull(selection.latestPassiveContext)
-            assertEquals(listOf("ev-global", "ev-other"), selection.globalEvents.map { it.id })
+            assertEquals(listOf("ev-global"), selection.globalEvents.map { it.id })
             assertEquals("strategy-fast", selection.selectedApproachSummary?.approachId?.value)
             assertEquals(
                 DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION,
@@ -187,6 +191,86 @@ class DiagnosticsArchiveComponentsTest {
                 DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false),
                 selection.includedFiles,
             )
+        }
+
+    @Test
+    fun `selector fetches primary and composite events without treating other sessions as global`() =
+        runTest {
+            val primary = scanSession(id = "session-primary")
+            val stage = scanSession(id = "session-stage")
+            val fetchedSessionIds = mutableListOf<String>()
+            val sourceData =
+                DiagnosticsArchiveSourceData(
+                    sessions = listOf(primary, stage),
+                    usageSessions = emptyList(),
+                    snapshots = emptyList(),
+                    telemetry = emptyList(),
+                    events = listOf(nativeEvent(id = "ev-global", sessionId = null)),
+                    contexts = emptyList(),
+                    approachSummaries = emptyList(),
+                    appSettings = appSettings(),
+                    buildProvenance = buildProvenance(),
+                    collectionWarnings = emptyList(),
+                    logcatSnapshot = null,
+                    fileLogSnapshot = null,
+                )
+            val outcome =
+                DiagnosticsHomeCompositeOutcome(
+                    runId = "run-1",
+                    actionable = false,
+                    headline = "Complete",
+                    summary = "Complete",
+                    stageSummaries =
+                        listOf(
+                            DiagnosticsHomeCompositeStageSummary(
+                                stageKey = "primary",
+                                stageLabel = "Primary",
+                                profileId = primary.profileId,
+                                pathMode = ScanPathMode.IN_PATH,
+                                sessionId = primary.id,
+                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                headline = "Complete",
+                                summary = "Complete",
+                            ),
+                            DiagnosticsHomeCompositeStageSummary(
+                                stageKey = "stage",
+                                stageLabel = "Stage",
+                                profileId = stage.profileId,
+                                pathMode = ScanPathMode.IN_PATH,
+                                sessionId = stage.id,
+                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                headline = "Complete",
+                                summary = "Complete",
+                            ),
+                        ),
+                )
+
+            val selection =
+                selector.buildSelection(
+                    request =
+                        archiveRequest(sessionId = primary.id).copy(
+                            homeRunId = "run-1",
+                            sessionIds = listOf(primary.id, stage.id),
+                        ),
+                    primarySession = primary,
+                    primaryResults = emptyList(),
+                    sourceData = sourceData,
+                    compositeOutcome = outcome,
+                    compositeSessions = listOf(primary, stage),
+                    loadProbeResults = { emptyList() },
+                    loadNativeEvents = { sessionId ->
+                        fetchedSessionIds += sessionId
+                        listOf(nativeEvent(id = "ev-$sessionId", sessionId = sessionId))
+                    },
+                )
+
+            assertEquals(listOf("ev-session-primary"), selection.primaryEvents.map { it.id })
+            assertEquals(listOf("ev-global"), selection.globalEvents.map { it.id })
+            assertEquals(
+                listOf(listOf("ev-session-primary"), listOf("ev-session-stage")),
+                selection.compositeStages.map { stageSelection -> stageSelection.events.map { it.id } },
+            )
+            assertEquals(listOf("session-primary", "session-stage"), fetchedSessionIds)
         }
 
     @Test
@@ -215,6 +299,7 @@ class DiagnosticsArchiveComponentsTest {
                     primaryResults = emptyList(),
                     sourceData = sourceData,
                     loadProbeResults = { emptyList() },
+                    loadNativeEvents = { emptyList() },
                 )
 
             assertEquals(

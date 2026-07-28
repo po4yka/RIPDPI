@@ -125,6 +125,14 @@ class DiagnosticsHistoryStoresRoomTest {
             store.insertNativeSessionEvent(
                 nativeEvent(id = "evt-2", sessionId = "scan-2", connectionSessionId = "conn-2", createdAt = 30L),
             )
+            store.insertNativeSessionEvent(
+                nativeEvent(id = "evt-global", sessionId = null, createdAt = 10L),
+            )
+            repeat(201) { index ->
+                store.insertNativeSessionEvent(
+                    nativeEvent(id = "evt-scan-$index", sessionId = "scan-flood", createdAt = 100L + index),
+                )
+            }
             store.insertExportRecord(exportRecord(id = "exp-1", sessionId = "scan-1", createdAt = 25L))
 
             assertEquals(listOf("snap-2", "snap-1"), store.observeSnapshots(limit = 10).first().map { it.id })
@@ -135,6 +143,7 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(listOf("ctx-1"), store.observeConnectionContexts("conn-1", 10).first().map { it.id })
             assertEquals(listOf("tel-1"), store.observeConnectionTelemetry("conn-1", 10).first().map { it.id })
             assertEquals(listOf("evt-1"), store.observeConnectionNativeEvents("conn-1", 10).first().map { it.id })
+            assertEquals(listOf("evt-global"), store.getGlobalNativeEvents(limit = 10).map { it.id })
             assertEquals(listOf("exp-1"), store.observeExportRecords(limit = 10).first().map { it.id })
         }
 

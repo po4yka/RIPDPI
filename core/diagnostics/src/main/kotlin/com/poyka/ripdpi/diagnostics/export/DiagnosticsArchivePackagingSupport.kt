@@ -191,14 +191,31 @@ internal fun buildSectionStatuses(
     val truncationFlags =
         SectionTruncationFlags(
             telemetry = selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit,
-            nativeEvents = selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit,
+            nativeEvents =
+                selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit ||
+                    selection.sourceCounts.sessionEvents >= DiagnosticsArchiveFormat.sessionEventLimit,
             snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
             contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
             logcat = (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
         )
     return buildMap {
         selection.includedFiles.forEach { fileName ->
-            put(fileName, sectionStatusForFileName(fileName, truncationFlags))
+            val compositeStage =
+                selection.compositeStages.firstOrNull { stage ->
+                    fileName == "stages/${stage.stageSummary.stageKey}/native-events.csv"
+                }
+            put(
+                fileName,
+                if (compositeStage != null) {
+                    if (compositeStage.events.size >= DiagnosticsArchiveFormat.sessionEventLimit) {
+                        DiagnosticsArchiveSectionStatus.TRUNCATED
+                    } else {
+                        DiagnosticsArchiveSectionStatus.INCLUDED
+                    }
+                } else {
+                    sectionStatusForFileName(fileName, truncationFlags)
+                },
+            )
         }
     }
 }
@@ -271,7 +288,9 @@ internal fun buildCompleteness(
             DiagnosticsArchiveTruncation(
                 telemetrySamples =
                     selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit,
-                nativeEvents = selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit,
+                nativeEvents =
+                    selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit ||
+                        selection.sourceCounts.sessionEvents >= DiagnosticsArchiveFormat.sessionEventLimit,
                 snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
                 contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
                 logcat = (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,

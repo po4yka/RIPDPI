@@ -63,6 +63,7 @@ internal object DiagnosticsArchiveFormat {
     const val maxArchiveAgeMs = 3L * 24L * 60L * 60L * 1000L
     const val telemetryLimit = 120
     const val globalEventLimit = 200
+    const val sessionEventLimit = 200
     const val snapshotLimit = 250
 
     fun includedFiles(

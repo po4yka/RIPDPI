@@ -4,8 +4,10 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildInfoProvider
@@ -23,6 +25,7 @@ internal class DiagnosticsArchiveSourceLoader
         private val appSettingsRepository: AppSettingsRepository,
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val artifactQueryStore: DiagnosticsArtifactQueryStore,
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
         private val fileLogWriter: FileLogWriter,
@@ -45,7 +48,7 @@ internal class DiagnosticsArchiveSourceLoader
             val telemetry =
                 artifactReadStore.observeTelemetry(limit = DiagnosticsArchiveFormat.telemetryLimit).first()
             val events =
-                artifactReadStore.observeNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit).first()
+                artifactQueryStore.getGlobalNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit)
             val contexts =
                 artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
             val earliestSessionStart = sessions.minOfOrNull { it.startedAt }
@@ -101,6 +104,12 @@ internal class DiagnosticsArchiveSourceLoader
 
         internal suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> =
             scanRecordStore.getProbeResults(sessionId)
+
+        internal suspend fun getNativeEvents(sessionId: String): List<NativeSessionEventEntity> =
+            artifactQueryStore.getNativeEventsForSession(
+                sessionId = sessionId,
+                limit = DiagnosticsArchiveFormat.sessionEventLimit,
+            )
 
         internal suspend fun getCompletedHomeRun(runId: String): DiagnosticsHomeCompositeOutcome? =
             diagnosticsHomeCompositeRunService.getCompletedRun(runId)

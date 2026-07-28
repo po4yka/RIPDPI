@@ -113,6 +113,7 @@ internal fun createDiagnosticsServices(
                     appSettingsRepository = appSettingsRepository,
                     scanRecordStore = stores,
                     artifactReadStore = stores,
+                    artifactQueryStore = stores,
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = logcatSnapshotCollector,
                     fileLogWriter =

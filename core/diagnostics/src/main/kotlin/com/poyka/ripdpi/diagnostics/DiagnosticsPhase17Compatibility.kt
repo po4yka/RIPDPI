@@ -44,6 +44,7 @@ internal object DiagnosticsArchiveFormat {
     const val maxArchiveAgeMs = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.maxArchiveAgeMs
     const val telemetryLimit = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.telemetryLimit
     const val globalEventLimit = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.globalEventLimit
+    const val sessionEventLimit = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.sessionEventLimit
     const val snapshotLimit = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.snapshotLimit
 
     fun includedFiles(

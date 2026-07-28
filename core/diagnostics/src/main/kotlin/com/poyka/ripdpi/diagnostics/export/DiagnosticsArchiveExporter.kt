@@ -101,6 +101,7 @@ internal class DefaultDiagnosticsArchiveExporter
                         compositeOutcome = compositeOutcome,
                         compositeSessions = compositeSessions,
                         loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
+                        loadNativeEvents = { sessionId -> sourceLoader.getNativeEvents(sessionId) },
                     ).copy(
                         pcapFiles =
                             if (request.includePcap && sourceData.appSettings.rootModeEnabled) {
