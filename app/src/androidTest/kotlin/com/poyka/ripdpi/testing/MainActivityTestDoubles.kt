@@ -230,7 +230,7 @@ class StubInstrumentedDiagnosticsBootstrapper : DiagnosticsBootstrapper {
 }
 
 class StubInstrumentedLastExitInspector : LastExitInspector {
-    override suspend fun recordRecentMemoryLimiterExits() = Unit
+    override suspend fun recordRecentProcessExits() = Unit
 }
 
 class StubInstrumentedMemoryProfilingRegistrar : MemoryProfilingRegistrar {

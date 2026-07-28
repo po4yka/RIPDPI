@@ -130,13 +130,12 @@ class AppStartupInitializer
                 .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
             val report = initializeSubsystemsAfterRecovery(profileMutationRecovery)
             Logger.i { report.toLogMessage() }
-            // Record whether the previous process was capped by Android 17's
-            // memory limiter. A pure diagnostics read, isolated from the
-            // subsystem report so a failure here never affects startup.
+            // Record privacy-safe categories for recent process exits. This
+            // diagnostics read is isolated so a failure never affects startup.
             runCatching {
-                startupDiagnosticsProbes.lastExitInspector.recordRecentMemoryLimiterExits()
+                startupDiagnosticsProbes.lastExitInspector.recordRecentProcessExits()
             }.onFailure { error ->
-                Logger.w(error) { "Memory-limiter exit scan failed" }
+                Logger.w(error) { "Recent process exit scan failed" }
             }
             // Register Android 17 OOM/anomaly profiling triggers (no-op below
             // API 37). A captured heap dump is delivered to our result callback.

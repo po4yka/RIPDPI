@@ -315,12 +315,14 @@ class AppStartupInitializerTest {
                 )
             val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
             val detectionObservationStarter = RecordingDetectionObservationStarter()
+            val lastExitInspector = RecordingLastExitInspector()
             val initializer =
                 createInitializer(
                     compatibilityResetter = compatibilityResetter,
                     strategyPackService = strategyPackService,
                     diagnosticsBootstrapper = diagnosticsBootstrapper,
                     detectionObservationStarter = detectionObservationStarter,
+                    lastExitInspector = lastExitInspector,
                     scope = backgroundScope,
                 )
 
@@ -331,8 +333,35 @@ class AppStartupInitializerTest {
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
+            assertEquals(1, lastExitInspector.calls)
             assertEquals(1, detectionObservationStarter.startCalls)
             assertEquals(application, detectionObservationStarter.contexts.single())
+        }
+
+    @Test
+    fun `process exit scan failure does not stop later startup probes`() =
+        runTest {
+            val lastExitInspector =
+                RecordingLastExitInspector(
+                    failure = IllegalStateException("exit-scan-boom"),
+                )
+            val detectionObservationStarter = RecordingDetectionObservationStarter()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    detectionObservationStarter = detectionObservationStarter,
+                    lastExitInspector = lastExitInspector,
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+            runCurrent()
+
+            assertEquals(1, lastExitInspector.calls)
+            assertEquals(1, detectionObservationStarter.startCalls)
         }
 
     @Test
@@ -617,7 +646,19 @@ class AppStartupInitializerTest {
 }
 
 private object NoOpLastExitInspector : LastExitInspector {
-    override suspend fun recordRecentMemoryLimiterExits() = Unit
+    override suspend fun recordRecentProcessExits() = Unit
+}
+
+private class RecordingLastExitInspector(
+    private val failure: Throwable? = null,
+) : LastExitInspector {
+    var calls: Int = 0
+        private set
+
+    override suspend fun recordRecentProcessExits() {
+        calls += 1
+        failure?.let { throw it }
+    }
 }
 
 private object NoOpMemoryProfilingRegistrar : MemoryProfilingRegistrar {
