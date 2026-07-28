@@ -274,6 +274,72 @@ class DiagnosticsArchiveComponentsTest {
         }
 
     @Test
+    fun `composite stages without sessions do not inherit passive artifacts`() =
+        runTest {
+            val sourceData =
+                DiagnosticsArchiveSourceData(
+                    sessions = emptyList(),
+                    usageSessions = emptyList(),
+                    snapshots = listOf(networkSnapshotEntity(id = "snap-passive", sessionId = null)),
+                    telemetry = emptyList(),
+                    events = listOf(nativeEvent(id = "ev-global", sessionId = null)),
+                    contexts = listOf(diagnosticContextEntity(id = "ctx-passive", sessionId = null)),
+                    approachSummaries = emptyList(),
+                    appSettings = appSettings(),
+                    buildProvenance = buildProvenance(),
+                    collectionWarnings = emptyList(),
+                    logcatSnapshot = null,
+                    fileLogSnapshot = null,
+                )
+            val outcome =
+                DiagnosticsHomeCompositeOutcome(
+                    runId = "run-without-stage-sessions",
+                    actionable = false,
+                    headline = "Incomplete",
+                    summary = "Stages did not create scan sessions.",
+                    stageSummaries =
+                        listOf(
+                            stageWithoutSession(
+                                stageKey = "skipped",
+                                status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                            ),
+                            stageWithoutSession(
+                                stageKey = "failed",
+                                status = DiagnosticsHomeCompositeStageStatus.FAILED,
+                            ),
+                        ),
+                )
+
+            val selection =
+                selector.buildSelection(
+                    request =
+                        archiveRequest(sessionId = null).copy(
+                            homeRunId = outcome.runId,
+                            sessionIds = listOf("unavailable-stage-session"),
+                        ),
+                    primarySession = null,
+                    primaryResults = emptyList(),
+                    sourceData = sourceData,
+                    compositeOutcome = outcome,
+                    compositeSessions = emptyList(),
+                    loadProbeResults = { error("A stage without a session must not load probe results") },
+                    loadNativeEvents = { error("A stage without a session must not load native events") },
+                )
+
+            assertEquals(2, selection.compositeStages.size)
+            selection.compositeStages.forEach { stage ->
+                assertEquals(null, stage.session)
+                assertTrue(stage.results.isEmpty())
+                assertTrue(stage.snapshots.isEmpty())
+                assertTrue(stage.contexts.isEmpty())
+                assertTrue(stage.events.isEmpty())
+            }
+            assertEquals("snap-passive", selection.latestPassiveSnapshot?.id)
+            assertEquals("ctx-passive", selection.latestPassiveContext?.id)
+            assertEquals(listOf("ev-global"), selection.globalEvents.map { it.id })
+        }
+
+    @Test
     fun `selector marks support bundle exports explicitly`() =
         runTest {
             val sourceData =
@@ -344,6 +410,19 @@ class DiagnosticsArchiveComponentsTest {
         reportJson = reportJson,
         startedAt = startedAt,
         finishedAt = if (status == "finished") startedAt + 5L else null,
+    )
+
+    private fun stageWithoutSession(
+        stageKey: String,
+        status: DiagnosticsHomeCompositeStageStatus,
+    ) = DiagnosticsHomeCompositeStageSummary(
+        stageKey = stageKey,
+        stageLabel = stageKey,
+        profileId = "default",
+        pathMode = ScanPathMode.RAW_PATH,
+        status = status,
+        headline = stageKey,
+        summary = stageKey,
     )
 
     private fun probeResult(sessionId: String) =

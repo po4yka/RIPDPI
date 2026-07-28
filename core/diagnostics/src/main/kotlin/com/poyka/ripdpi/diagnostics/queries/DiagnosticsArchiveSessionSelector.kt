@@ -222,27 +222,30 @@ class DiagnosticsArchiveSessionSelector
             if (!isComposite || compositeOutcome == null) return emptyList()
             return compositeOutcome.stageSummaries.map { stageSummary ->
                 val session = compositeSessions.firstOrNull { it.id == stageSummary.sessionId }
+                if (session == null) {
+                    return@map DiagnosticsArchiveCompositeStageSelection(
+                        stageSummary = stageSummary,
+                        session = null,
+                        report = null,
+                        results = emptyList(),
+                        snapshots = emptyList(),
+                        contexts = emptyList(),
+                        events = emptyList(),
+                    )
+                }
                 val report =
                     session
-                        ?.reportJson
+                        .reportJson
                         ?.takeIf(String::isNotBlank)
                         ?.let(json::decodeEngineScanReportWire)
                 DiagnosticsArchiveCompositeStageSelection(
                     stageSummary = stageSummary,
                     session = session,
                     report = report,
-                    results =
-                        session
-                            ?.id
-                            ?.let { sessionId -> loadProbeResults(sessionId) }
-                            .orEmpty(),
-                    snapshots = sourceData.snapshots.filter { it.sessionId == session?.id },
-                    contexts = sourceData.contexts.filter { it.sessionId == session?.id },
-                    events =
-                        session
-                            ?.id
-                            ?.let { sessionId -> loadNativeEvents(sessionId) }
-                            .orEmpty(),
+                    results = loadProbeResults(session.id),
+                    snapshots = sourceData.snapshots.filter { it.sessionId == session.id },
+                    contexts = sourceData.contexts.filter { it.sessionId == session.id },
+                    events = loadNativeEvents(session.id),
                 )
             }
         }
