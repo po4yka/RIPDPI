@@ -468,12 +468,20 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         connected: Boolean,
     ): JSONObject {
         val started = now()
-        val result = testProcessTcpConnect(target, fixtureTcpEchoPort, timeoutMs = 4_000)
+        val payload = "ordinary-${hash("$runId:$id").take(24)}"
+        val result =
+            testProcessTcpRoundTrip(
+                host = target,
+                port = fixtureTcpEchoPort,
+                payload = payload,
+                connectTimeoutMs = 4_000,
+                readTimeoutMs = 4_000,
+            )
         val finished = now()
         if (connected) {
             assertTrue(
                 "$id must connect: $result",
-                result.ok,
+                result.ok && result.response == payload,
             )
         } else {
             assertFalse("$id must fail closed: $result", result.ok)

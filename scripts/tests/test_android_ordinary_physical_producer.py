@@ -277,6 +277,17 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("observed?.contentEquals(expected) == true", producer)
         self.assertIn('.put("answers", JSONArray(recordedAnswers))', producer)
 
+    def test_physical_connected_probes_require_an_exact_tcp_round_trip(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        probe = producer[producer.index("private fun probe(") :]
+        probe = probe[: probe.index("private fun normalizedFailure")]
+        self.assertIn("testProcessTcpRoundTrip(", probe)
+        self.assertIn("result.ok && result.response == payload", probe)
+        self.assertNotIn("testProcessTcpConnect(", probe)
+
     def test_aaaa_probe_runs_outside_the_vpn_owner_and_captures_direct_leaks(
         self,
     ) -> None:
