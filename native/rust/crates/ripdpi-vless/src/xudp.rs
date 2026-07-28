@@ -329,63 +329,76 @@ fn format_target(host: &str, port: u16) -> String {
 /// NOT cancel-safe: `read_exact` may consume a frame prefix. This function is
 /// owned by the dedicated reader task and is never raced in `select!`; aborting
 /// the task also drops the carrier, so a partial frame is never reused.
+enum DecodedFrame {
+    Datagram(String, Vec<u8>),
+    KeepAlive,
+}
+
+async fn read_frame<R>(reader: &mut R, last_target: &mut Option<String>) -> io::Result<DecodedFrame>
+where
+    R: AsyncRead + Unpin,
+{
+    let metadata_len = usize::from(reader.read_u16().await?);
+    if !(4..=MAX_XUDP_METADATA).contains(&metadata_len) {
+        return Err(XudpError::InvalidMetadataLength { len: metadata_len, max: MAX_XUDP_METADATA }.into_data_error());
+    }
+    let mut metadata = vec![0_u8; metadata_len];
+    reader.read_exact(&mut metadata).await?;
+    let session_id = u16::from_be_bytes([metadata[0], metadata[1]]);
+    if session_id != SESSION_ID {
+        return Err(XudpError::UnsupportedSessionId(session_id).into_data_error());
+    }
+    let status = metadata[2];
+    let option = metadata[3];
+    if option != OPTION_DATA {
+        return Err(XudpError::UnsupportedOption(option).into_data_error());
+    }
+
+    let target = match status {
+        STATUS_KEEP => {
+            if metadata.len() > 4 {
+                let network = metadata[4];
+                if network != NETWORK_UDP {
+                    return Err(XudpError::UnsupportedNetwork(network).into_data_error());
+                }
+                let mut cursor = 5;
+                let target = decode_target(&metadata, &mut cursor).map_err(XudpError::into_data_error)?;
+                if cursor != metadata.len() {
+                    return Err(XudpError::TruncatedMetadata.into_data_error());
+                }
+                *last_target = Some(target.clone());
+                Some(target)
+            } else {
+                last_target.clone()
+            }
+        }
+        STATUS_KEEP_ALIVE => None,
+        other => return Err(XudpError::UnsupportedStatus(other).into_data_error()),
+    };
+
+    let payload_len = usize::from(reader.read_u16().await?);
+    if payload_len > MAX_XUDP_PAYLOAD {
+        return Err(XudpError::PayloadTooLarge { len: payload_len, max: MAX_XUDP_PAYLOAD }.into_data_error());
+    }
+    let mut payload = vec![0_u8; payload_len];
+    reader.read_exact(&mut payload).await?;
+    if status == STATUS_KEEP_ALIVE {
+        return Ok(DecodedFrame::KeepAlive);
+    }
+    validate_payload(&payload).map_err(XudpError::into_data_error)?;
+    let target = target.ok_or_else(|| XudpError::MissingSourceTarget.into_data_error())?;
+    Ok(DecodedFrame::Datagram(target, payload))
+}
+
+#[cfg(test)]
 async fn read_datagram<R>(reader: &mut R, last_target: &mut Option<String>) -> io::Result<(String, Vec<u8>)>
 where
     R: AsyncRead + Unpin,
 {
     loop {
-        let metadata_len = usize::from(reader.read_u16().await?);
-        if !(4..=MAX_XUDP_METADATA).contains(&metadata_len) {
-            return Err(
-                XudpError::InvalidMetadataLength { len: metadata_len, max: MAX_XUDP_METADATA }.into_data_error()
-            );
+        if let DecodedFrame::Datagram(target, payload) = read_frame(reader, last_target).await? {
+            return Ok((target, payload));
         }
-        let mut metadata = vec![0_u8; metadata_len];
-        reader.read_exact(&mut metadata).await?;
-        let session_id = u16::from_be_bytes([metadata[0], metadata[1]]);
-        if session_id != SESSION_ID {
-            return Err(XudpError::UnsupportedSessionId(session_id).into_data_error());
-        }
-        let status = metadata[2];
-        let option = metadata[3];
-        if option != OPTION_DATA {
-            return Err(XudpError::UnsupportedOption(option).into_data_error());
-        }
-
-        let target = match status {
-            STATUS_KEEP => {
-                if metadata.len() > 4 {
-                    let network = metadata[4];
-                    if network != NETWORK_UDP {
-                        return Err(XudpError::UnsupportedNetwork(network).into_data_error());
-                    }
-                    let mut cursor = 5;
-                    let target = decode_target(&metadata, &mut cursor).map_err(XudpError::into_data_error)?;
-                    if cursor != metadata.len() {
-                        return Err(XudpError::TruncatedMetadata.into_data_error());
-                    }
-                    *last_target = Some(target.clone());
-                    Some(target)
-                } else {
-                    last_target.clone()
-                }
-            }
-            STATUS_KEEP_ALIVE => None,
-            other => return Err(XudpError::UnsupportedStatus(other).into_data_error()),
-        };
-
-        let payload_len = usize::from(reader.read_u16().await?);
-        if payload_len > MAX_XUDP_PAYLOAD {
-            return Err(XudpError::PayloadTooLarge { len: payload_len, max: MAX_XUDP_PAYLOAD }.into_data_error());
-        }
-        let mut payload = vec![0_u8; payload_len];
-        reader.read_exact(&mut payload).await?;
-        if status == STATUS_KEEP_ALIVE {
-            continue;
-        }
-        validate_payload(&payload).map_err(XudpError::into_data_error)?;
-        let target = target.ok_or_else(|| XudpError::MissingSourceTarget.into_data_error())?;
-        return Ok((target, payload));
     }
 }
 
@@ -402,14 +415,23 @@ async fn run_reader<R>(
 {
     let mut last_target = None;
     loop {
-        let result = match timeout(read_idle_timeout, read_datagram(&mut reader, &mut last_target)).await {
+        let result = match timeout(read_idle_timeout, read_frame(&mut reader, &mut last_target)).await {
             Ok(result) => result,
             Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "XUDP carrier read timed out")),
         };
-        let terminal = result.is_err();
-        if sender.send(result).await.is_err() || terminal {
-            writer_abort.abort();
-            return;
+        match result {
+            Ok(DecodedFrame::KeepAlive) => {}
+            Ok(DecodedFrame::Datagram(target, payload)) => {
+                if sender.send(Ok((target, payload))).await.is_err() {
+                    writer_abort.abort();
+                    return;
+                }
+            }
+            Err(error) => {
+                writer_abort.abort();
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
         }
     }
 }
@@ -649,6 +671,53 @@ mod tests {
             io::ErrorKind::BrokenPipe,
         );
         assert_eq!(session.recv_from().await.expect_err("reader closed").kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    #[tokio::test]
+    async fn keep_alive_frames_reset_the_reader_idle_deadline() {
+        let (stream, mut peer) = tokio::io::duplex(128);
+        let mut session = VlessXudpSession::new_with_timeouts(
+            stream,
+            false,
+            std::time::Duration::from_secs(1),
+            std::time::Duration::from_millis(20),
+        )
+        .expect("session");
+        let peer_task = tokio::spawn(async move {
+            peer.write_all(&keep_alive_frame()).await.expect("first keepalive");
+            tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+            peer.write_all(&keep_alive_frame()).await.expect("second keepalive");
+            tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+            peer.write_all(&keep_frame(Some("1.2.3.4:53"), b"alive")).await.expect("datagram");
+        });
+
+        assert_eq!(
+            session.recv_from().await.expect("datagram after keepalives"),
+            ("1.2.3.4:53".into(), b"alive".to_vec())
+        );
+        peer_task.await.expect("peer task");
+    }
+
+    #[tokio::test]
+    async fn terminal_reader_error_closes_writer_before_error_delivery_can_block() {
+        let (stream, mut peer) = tokio::io::duplex(4096);
+        let mut session = VlessXudpSession::new(stream, false).expect("session");
+        for _ in 0..READER_CHANNEL_CAPACITY {
+            peer.write_all(&keep_frame(Some("1.2.3.4:53"), b"queued")).await.expect("queued datagram");
+        }
+        peer.shutdown().await.expect("close peer write half");
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while !session.writer.is_closed() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("writer must close before the terminal error is dequeued");
+        assert_eq!(
+            session.send_to("example.com:53", b"next").await.expect_err("writer must reject reuse").kind(),
+            io::ErrorKind::BrokenPipe,
+        );
     }
 
     #[tokio::test]
