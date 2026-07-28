@@ -28,10 +28,10 @@ const UDP_BUFFER_SIZE: usize = 65_536;
 /// loop is now the sole place shutdown is observed, so it must lead. Teardown is
 /// at the `select!` boundary only: once a recv arm has been selected, its body
 /// runs a follow-on message-atomic `send_to().await` (relay→client or
-/// client→relay), so a cancel that arrives while that send is parked is deferred
-/// by at most that one datagram before the next loop iteration observes it — a
-/// bounded, single-datagram delay on already-lossy UDP, never an indefinite
-/// stall. The success reply (`REP=0x00`) and the first loop poll are separated by
+/// client→relay). VLESS/XUDP sends are executed by a bounded writer task with a
+/// terminal deadline, so a stalled Reality carrier cannot defer cancellation
+/// indefinitely or be reused after a partial frame. The success reply
+/// (`REP=0x00`) and the first loop poll are separated by
 /// no externally-cancellable drop point, so a confirmed `ASSOCIATE` always enters
 /// the pump.
 pub(crate) async fn handle_udp_associate<T>(

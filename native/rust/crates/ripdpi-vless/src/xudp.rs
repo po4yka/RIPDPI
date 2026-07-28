@@ -6,16 +6,21 @@
 
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
 use thiserror::Error;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, WriteHalf};
-use tokio::sync::mpsc;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
+use tokio::time::timeout;
 
 pub const MAX_XUDP_METADATA: usize = 512;
 pub const MAX_XUDP_PAYLOAD: usize = 8192 - 666;
 const READER_CHANNEL_CAPACITY: usize = 32;
+const WRITER_CHANNEL_CAPACITY: usize = 32;
+const DEFAULT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+const DEFAULT_READ_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 const SESSION_ID: u16 = 0;
 const STATUS_NEW: u8 = 0x01;
 const STATUS_KEEP: u8 = 0x02;
@@ -73,51 +78,91 @@ impl XudpError {
 /// One XUDP association. Cloning is intentionally unsupported: the writer,
 /// downlink ordering and stable GlobalID belong to exactly one SOCKS5 UDP
 /// ASSOCIATE lifecycle.
-pub struct VlessXudpSession<S>
-where
-    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
-    writer: WriteHalf<S>,
+pub struct VlessXudpSession {
+    writer: mpsc::Sender<WriteCommand>,
     receiver: mpsc::Receiver<io::Result<(String, Vec<u8>)>>,
     reader_task: JoinHandle<()>,
+    writer_task: JoinHandle<()>,
     global_id: [u8; 8],
     first_packet: bool,
     allow_udp_443: bool,
-    write_failed: bool,
 }
 
-impl<S> VlessXudpSession<S>
-where
-    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
-    pub(crate) fn new(stream: S, allow_udp_443: bool) -> io::Result<Self> {
+struct WriteCommand {
+    frame: Vec<u8>,
+    completion: oneshot::Sender<io::Result<()>>,
+}
+
+impl VlessXudpSession {
+    pub(crate) fn new<S>(stream: S, allow_udp_443: bool) -> io::Result<Self>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        Self::new_with_timeouts(stream, allow_udp_443, DEFAULT_WRITE_TIMEOUT, DEFAULT_READ_IDLE_TIMEOUT)
+    }
+
+    #[cfg(test)]
+    fn new_with_write_timeout<S>(stream: S, allow_udp_443: bool, write_timeout: Duration) -> io::Result<Self>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        Self::new_with_timeouts(stream, allow_udp_443, write_timeout, DEFAULT_READ_IDLE_TIMEOUT)
+    }
+
+    fn new_with_timeouts<S>(
+        stream: S,
+        allow_udp_443: bool,
+        write_timeout: Duration,
+        read_idle_timeout: Duration,
+    ) -> io::Result<Self>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
         let mut global_id = [0_u8; 8];
         SystemRandom::new().fill(&mut global_id).map_err(|_| io::Error::other("generate XUDP association id"))?;
         let (reader, writer) = tokio::io::split(stream);
-        let (sender, receiver) = mpsc::channel(READER_CHANNEL_CAPACITY);
-        let reader_task = tokio::spawn(run_reader(reader, sender));
-        Ok(Self { writer, receiver, reader_task, global_id, first_packet: true, allow_udp_443, write_failed: false })
+        let (reader_sender, receiver) = mpsc::channel(READER_CHANNEL_CAPACITY);
+        let (writer_sender, writer_receiver) = mpsc::channel(WRITER_CHANNEL_CAPACITY);
+        let (reader_abort_sender, reader_abort_receiver) = oneshot::channel();
+        let writer_task = tokio::spawn(run_writer(writer, writer_receiver, write_timeout, reader_abort_receiver));
+        let reader_task =
+            tokio::spawn(run_reader(reader, reader_sender, read_idle_timeout, writer_task.abort_handle()));
+        reader_abort_sender
+            .send(reader_task.abort_handle())
+            .map_err(|_| io::Error::other("start XUDP carrier tasks"))?;
+        Ok(Self {
+            writer: writer_sender,
+            receiver,
+            reader_task,
+            writer_task,
+            global_id,
+            first_packet: true,
+            allow_udp_443,
+        })
     }
 
-    /// NOT cancel-safe: `write_all` may have written a frame prefix when the
-    /// future is dropped. A caller that cancels this operation must drop the
-    /// association so the possibly desynchronized carrier cannot be reused.
+    /// cancel-safe: cancellation while waiting for queue capacity sends
+    /// nothing. Once capacity is reserved, enqueueing the complete frame and
+    /// advancing `first_packet` happen without an await; the bounded writer
+    /// task then finishes the write even if the acknowledgement wait is
+    /// cancelled. A timed-out write closes the carrier instead of reusing a
+    /// possibly partial frame.
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
-        if self.write_failed {
-            return Err(io::Error::new(io::ErrorKind::BrokenPipe, "XUDP carrier is not writable"));
-        }
         let (_, port) = parse_target(target).map_err(XudpError::into_input_error)?;
         if port == 443 && !self.allow_udp_443 {
             return Err(XudpError::Udp443NotAllowed.into_input_error());
         }
         let frame =
             encode_datagram(self.first_packet, target, payload, self.global_id).map_err(XudpError::into_input_error)?;
-        if let Err(error) = self.writer.write_all(&frame).await {
-            self.write_failed = true;
-            return Err(error);
-        }
+        let permit = self
+            .writer
+            .reserve()
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "XUDP writer is closed"))?;
+        let (completion, completed) = oneshot::channel();
+        permit.send(WriteCommand { frame, completion });
         self.first_packet = false;
-        Ok(())
+        completed.await.unwrap_or_else(|_| Err(io::Error::new(io::ErrorKind::BrokenPipe, "XUDP writer is closed")))
     }
 
     /// cancel-safe: the reader task owns all partial frame state and sends only
@@ -131,13 +176,40 @@ where
     }
 }
 
-impl<S> Drop for VlessXudpSession<S>
-where
-    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
+impl Drop for VlessXudpSession {
     fn drop(&mut self) {
         self.reader_task.abort();
+        self.writer_task.abort();
     }
+}
+
+/// NOT cancel-safe: `write_all` may have emitted a frame prefix. This task is
+/// the sole write-half owner and is never externally raced with a timeout; its
+/// internal deadline converts a partial or stalled write into terminal carrier
+/// closure before another frame can be accepted.
+async fn run_writer<W>(
+    mut writer: W,
+    mut receiver: mpsc::Receiver<WriteCommand>,
+    write_timeout: Duration,
+    reader_abort: oneshot::Receiver<tokio::task::AbortHandle>,
+) where
+    W: AsyncWrite + Unpin,
+{
+    let Ok(reader_abort) = reader_abort.await else {
+        return;
+    };
+    while let Some(command) = receiver.recv().await {
+        let result = match timeout(write_timeout, writer.write_all(&command.frame)).await {
+            Ok(result) => result,
+            Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "XUDP carrier write timed out")),
+        };
+        let terminal = result.is_err();
+        let _ = command.completion.send(result);
+        if terminal {
+            break;
+        }
+    }
+    reader_abort.abort();
 }
 
 fn encode_datagram(first: bool, target: &str, payload: &[u8], global_id: [u8; 8]) -> Result<Vec<u8>, XudpError> {
@@ -318,17 +390,25 @@ where
 }
 
 /// NOT cancel-safe: this task owns the carrier read half for its complete
-/// lifetime. It is aborted only when the association is dropped, which also
-/// makes the partially consumed carrier unusable.
-async fn run_reader<R>(mut reader: R, sender: mpsc::Sender<io::Result<(String, Vec<u8>)>>)
-where
+/// lifetime. Its idle deadline and external abort are terminal: both make a
+/// partially consumed carrier unusable and stop its paired writer task.
+async fn run_reader<R>(
+    mut reader: R,
+    sender: mpsc::Sender<io::Result<(String, Vec<u8>)>>,
+    read_idle_timeout: Duration,
+    writer_abort: tokio::task::AbortHandle,
+) where
     R: AsyncRead + Unpin,
 {
     let mut last_target = None;
     loop {
-        let result = read_datagram(&mut reader, &mut last_target).await;
+        let result = match timeout(read_idle_timeout, read_datagram(&mut reader, &mut last_target)).await {
+            Ok(result) => result,
+            Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "XUDP carrier read timed out")),
+        };
         let terminal = result.is_err();
         if sender.send(result).await.is_err() || terminal {
+            writer_abort.abort();
             return;
         }
     }
@@ -360,6 +440,23 @@ mod tests {
         frame.extend_from_slice(metadata);
         frame.extend_from_slice(&u16::try_from(payload.len()).expect("payload length").to_be_bytes());
         frame.extend_from_slice(payload);
+        frame
+    }
+
+    async fn read_encoded_frame<R>(reader: &mut R) -> Vec<u8>
+    where
+        R: AsyncRead + Unpin,
+    {
+        let metadata_len = usize::from(reader.read_u16().await.expect("metadata length"));
+        let mut frame = u16::try_from(metadata_len).expect("metadata length fits").to_be_bytes().to_vec();
+        let mut metadata = vec![0_u8; metadata_len];
+        reader.read_exact(&mut metadata).await.expect("metadata");
+        frame.extend(metadata);
+        let payload_len = usize::from(reader.read_u16().await.expect("payload length"));
+        frame.extend(u16::try_from(payload_len).expect("payload length fits").to_be_bytes());
+        let mut payload = vec![0_u8; payload_len];
+        reader.read_exact(&mut payload).await.expect("payload");
+        frame.extend(payload);
         frame
     }
 
@@ -517,6 +614,61 @@ mod tests {
         allowed.send_to("example.com:443", b"quic").await.expect("vision-udp443 permits UDP/443");
         let mut encoded = [0_u8; 32];
         assert!(peer.read(&mut encoded).await.expect("read permitted UDP/443 frame") > 0);
+    }
+
+    #[tokio::test]
+    async fn stalled_writer_times_out_and_closes_the_write_queue() {
+        let (stream, _peer) = tokio::io::duplex(1);
+        let mut session = VlessXudpSession::new_with_write_timeout(stream, false, std::time::Duration::from_millis(20))
+            .expect("session");
+
+        let error = session.send_to("example.com:53", &[0x5a; 128]).await.expect_err("stalled write must time out");
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert_eq!(
+            session.send_to("example.com:53", b"next").await.expect_err("closed writer must reject reuse").kind(),
+            io::ErrorKind::BrokenPipe,
+        );
+    }
+
+    #[tokio::test]
+    async fn stalled_reader_times_out_and_closes_the_write_queue() {
+        let (stream, mut peer) = tokio::io::duplex(128);
+        let mut session = VlessXudpSession::new_with_timeouts(
+            stream,
+            false,
+            std::time::Duration::from_secs(1),
+            std::time::Duration::from_millis(20),
+        )
+        .expect("session");
+        peer.write_all(&16_u16.to_be_bytes()).await.expect("partial metadata header");
+
+        assert_eq!(session.recv_from().await.expect_err("stalled read must time out").kind(), io::ErrorKind::TimedOut);
+        assert_eq!(
+            session.send_to("example.com:53", b"next").await.expect_err("closed writer must reject reuse").kind(),
+            io::ErrorKind::BrokenPipe,
+        );
+        assert_eq!(session.recv_from().await.expect_err("reader closed").kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    #[tokio::test]
+    async fn cancelled_send_finishes_in_writer_and_preserves_frame_sequence() {
+        let (stream, mut peer) = tokio::io::duplex(8);
+        let mut session = VlessXudpSession::new_with_write_timeout(stream, false, std::time::Duration::from_secs(1))
+            .expect("session");
+        {
+            let first_send = session.send_to("1.2.3.4:53", &[0x41; 128]);
+            tokio::pin!(first_send);
+            assert!(tokio::time::timeout(std::time::Duration::from_millis(10), &mut first_send).await.is_err());
+        }
+
+        let first = read_encoded_frame(&mut peer).await;
+        assert_eq!(first[4], STATUS_NEW);
+
+        let (second_result, second) =
+            tokio::join!(session.send_to("1.2.3.4:53", b"second"), read_encoded_frame(&mut peer));
+        second_result.expect("second frame");
+        assert_eq!(second[4], STATUS_KEEP);
     }
 
     #[tokio::test]

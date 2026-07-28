@@ -40,7 +40,7 @@ use crate::vision::VisionStream;
 use crate::wire::ResponseHeaderStream;
 
 type VlessRealityStream = VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>;
-pub type VlessXudpSession = xudp::VlessXudpSession<VlessRealityStream>;
+pub type VlessXudpSession = xudp::VlessXudpSession;
 
 /// Trait alias for an async bidirectional stream that is `Send`.
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
