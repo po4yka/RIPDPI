@@ -30,6 +30,7 @@ import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -40,6 +41,26 @@ import org.junit.Test
 import java.util.concurrent.TimeUnit
 
 class RuntimeHistoryMonitorTest {
+    @Test
+    fun `headless runtime startup activates network callback source once`() =
+        runTest {
+            val source = CountingNetworkPathValidationSource()
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = FakeDiagnosticsHistoryStores(),
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    networkPathValidationSource = source,
+                )
+
+            monitor.start()
+            monitor.start()
+
+            assertEquals(1, source.accessCount)
+        }
+
     @Test
     fun `failure without active session creates failed connection history`() =
         runTest {
@@ -612,6 +633,18 @@ class RuntimeHistoryMonitorTest {
                 session.rememberedPolicySource,
             )
             assertEquals(true, session.rememberedPolicyAppliedByExactMatch)
+        }
+}
+
+private class CountingNetworkPathValidationSource : NetworkPathValidationSource {
+    private val state = MutableStateFlow(NetworkPathValidationEvidence(captureStatus = "test_unavailable"))
+    var accessCount = 0
+        private set
+
+    override val evidence: StateFlow<NetworkPathValidationEvidence>
+        get() {
+            accessCount += 1
+            return state
         }
 }
 

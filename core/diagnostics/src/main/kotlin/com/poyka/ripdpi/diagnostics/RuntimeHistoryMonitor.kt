@@ -30,6 +30,7 @@ class RuntimeHistoryMonitor
         private val serviceStateStore: ServiceStateStore,
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
         private val deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore,
+        private val networkPathValidationSource: NetworkPathValidationSource,
         private val sessionCoordinator: RuntimeSessionCoordinator,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
@@ -42,6 +43,7 @@ class RuntimeHistoryMonitor
                 if (collectorJob?.isActive == true) {
                     return
                 }
+                networkPathValidationSource.evidence.value
                 collectorJob = scope.launch { collectRuntimeHistory() }
             }
         }

@@ -39,11 +39,18 @@ internal class AndroidNetworkPathValidationSource
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
-        @ApplicationScope scope: CoroutineScope,
+        @ApplicationScope private val scope: CoroutineScope,
         private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
+        private val sessionCoordinator: RuntimeSessionCoordinator,
     ) : NetworkPathValidationSource {
         private val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        private val transitionTimeline =
+            NetworkTransitionTimeline(
+                scope = scope,
+                connectionSessionIdProvider = sessionCoordinator::currentConnectionSessionIdForNetworkTransition,
+                persist = sessionCoordinator::handleNetworkTransition,
+            )
 
         override val evidence: StateFlow<NetworkPathValidationEvidence> =
             observeEvidence().stateIn(
@@ -65,6 +72,15 @@ internal class AndroidNetworkPathValidationSource
                 val callback =
                     object : ConnectivityManager.NetworkCallback() {
                         override fun onAvailable(network: Network) {
+                            transitionTimeline.recordAvailable(network)
+                            publishCurrentEvidence()
+                        }
+
+                        override fun onLosing(
+                            network: Network,
+                            maxMsToLive: Int,
+                        ) {
+                            transitionTimeline.recordLosing(network, maxMsToLive)
                             publishCurrentEvidence()
                         }
 
@@ -72,6 +88,7 @@ internal class AndroidNetworkPathValidationSource
                             network: Network,
                             networkCapabilities: NetworkCapabilities,
                         ) {
+                            transitionTimeline.recordCapabilities(network, networkCapabilities)
                             publishCurrentEvidence()
                         }
 
@@ -79,10 +96,12 @@ internal class AndroidNetworkPathValidationSource
                             network: Network,
                             linkProperties: LinkProperties,
                         ) {
+                            transitionTimeline.recordLinkProperties(network)
                             publishCurrentEvidence()
                         }
 
                         override fun onLost(network: Network) {
+                            transitionTimeline.recordLost(network)
                             publishCurrentEvidence()
                         }
                     }

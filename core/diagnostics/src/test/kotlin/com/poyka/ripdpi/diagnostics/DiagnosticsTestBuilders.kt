@@ -346,6 +346,11 @@ internal fun createRuntimeHistoryMonitor(
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
     deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
     policyHandoverEventStore: PolicyHandoverEventStore = FakePolicyHandoverEventStore(),
+    networkPathValidationSource: NetworkPathValidationSource =
+        object : NetworkPathValidationSource {
+            override val evidence =
+                MutableStateFlow(NetworkPathValidationEvidence(captureStatus = "test_unavailable"))
+        },
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1)),
 ): RuntimeHistoryStartup {
     val rememberedPolicySessionTracker =
@@ -383,6 +388,7 @@ internal fun createRuntimeHistoryMonitor(
         serviceStateStore = serviceStateStore,
         activeConnectionPolicyStore = activeConnectionPolicyStore,
         deviceRuntimeEvidenceStore = deviceRuntimeEvidenceStore,
+        networkPathValidationSource = networkPathValidationSource,
         sessionCoordinator = sessionCoordinator,
         scope = scope,
     )

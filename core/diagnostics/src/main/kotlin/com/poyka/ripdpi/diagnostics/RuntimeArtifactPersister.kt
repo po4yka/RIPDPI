@@ -102,6 +102,24 @@ class RuntimeArtifactPersister
                 }
         }
 
+        internal suspend fun persistNetworkTransition(
+            event: NetworkTransitionEvent,
+            connectionSessionId: String,
+        ) {
+            persistRuntimeEvent(
+                NativeSessionEventEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = null,
+                    connectionSessionId = connectionSessionId,
+                    source = "android_network_callback",
+                    level = "info",
+                    message = event.toRedactedMessage(),
+                    createdAt = event.occurredAtEpochMs,
+                    subsystem = "network_transition",
+                ),
+            )
+        }
+
         suspend fun persistFailureArtifacts(
             connectionSessionId: String,
             sender: Sender,

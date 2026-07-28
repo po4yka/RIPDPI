@@ -44,6 +44,9 @@ class RuntimeSessionCoordinator
         private val stateMutex = Mutex()
 
         private var activeUsageSession: BypassUsageSessionEntity? = null
+
+        @Volatile
+        private var callbackConnectionSessionId: String? = null
         private var samplingJob: Job? = null
         private var reconnectInProgress = false
 
@@ -112,6 +115,12 @@ class RuntimeSessionCoordinator
         suspend fun handleDeviceRuntimeEvidence(event: DeviceRuntimeEvidence) {
             deviceStateEventRecorder.recordRuntimeEvidence(event)
         }
+
+        internal suspend fun handleNetworkTransition(event: NetworkTransitionEvent) {
+            artifactPersister.persistNetworkTransition(event, event.connectionSessionId)
+        }
+
+        internal fun currentConnectionSessionIdForNetworkTransition(): String? = callbackConnectionSessionId
 
         suspend fun handleFailure(
             sender: Sender,
@@ -247,6 +256,7 @@ class RuntimeSessionCoordinator
                     seed = seed,
                 )
             activeUsageSession = session
+            callbackConnectionSessionId = session.id
             bypassUsageHistoryStore.upsertBypassUsageSession(session)
             val updatedSession =
                 rememberedPolicySessionTracker.sync(
@@ -339,6 +349,7 @@ class RuntimeSessionCoordinator
             rememberedPolicySessionTracker.finalize(finishedSession, finalizedAt)
             bypassUsageHistoryStore.upsertBypassUsageSession(finishedSession)
             activeUsageSession = null
+            callbackConnectionSessionId = null
             rememberedPolicySessionTracker.clear()
         }
 
