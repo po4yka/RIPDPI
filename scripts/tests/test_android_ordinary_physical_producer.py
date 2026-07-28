@@ -225,6 +225,13 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         instrumentation = runner.index("shell am instrument", target_reboot)
         self.assertLess(target_reboot, target_unlock)
         self.assertLess(target_unlock, instrumentation)
+        self.assertNotIn(
+            "LocalFixtureClient.fromInstrumentationArgs().manifest()", producer
+        )
+        self.assertIn('requiredPort("ripdpi.ordinaryTcpEchoPort")', producer)
+        self.assertIn('requiredPort("ripdpi.ordinarySocksPort")', producer)
+        self.assertIn('-e ripdpi.ordinaryTcpEchoPort "$tcp_echo_port"', runner)
+        self.assertIn('-e ripdpi.ordinarySocksPort "$socks_port"', runner)
         fixture_start = runner.index("remote_started=1")
         self.assertLess(target_unlock, fixture_start)
         self.assertLess(fixture_start, instrumentation)

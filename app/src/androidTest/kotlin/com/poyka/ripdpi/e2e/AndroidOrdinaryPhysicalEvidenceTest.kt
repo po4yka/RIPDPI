@@ -111,7 +111,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     private val connectivityManager
         get() = appContext.getSystemService(ConnectivityManager::class.java)
 
-    private lateinit var fixture: FixtureManifestDto
     private lateinit var settingsBefore: AppSettings
     private lateinit var sourceSha: String
     private lateinit var appApkSha256: String
@@ -121,6 +120,8 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     private lateinit var controlIpv6: String
     private var markerPort: Int = 0
     private var dnsPort: Int = 0
+    private var fixtureTcpEchoPort: Int = 0
+    private var fixtureSocksPort: Int = 0
     private var lastVpnInterface: String = "tun0"
     private val actions = JSONArray()
     private lateinit var hardwareAttestation: JSONObject
@@ -129,7 +130,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     fun setUp() {
         assumeE2eFixtureConfigured()
         hiltRule.inject()
-        fixture = LocalFixtureClient.fromInstrumentationArgs().manifest()
         settingsBefore = runBlocking { appSettingsRepository.snapshot() }
         sourceSha = requiredArg("ripdpi.ordinarySourceSha", Regex("[0-9a-f]{40}"))
         appApkSha256 = requiredArg("ripdpi.ordinaryAppApkSha256", Regex("[0-9a-f]{64}"))
@@ -139,6 +139,8 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         controlIpv6 = requiredArg("ripdpi.ordinaryControlIpv6", Regex("[0-9a-fA-F:]{2,64}"))
         markerPort = requiredPort("ripdpi.ordinaryMarkerPort")
         dnsPort = requiredPort("ripdpi.ordinaryDnsPort")
+        fixtureTcpEchoPort = requiredPort("ripdpi.ordinaryTcpEchoPort")
+        fixtureSocksPort = requiredPort("ripdpi.ordinarySocksPort")
         require(sourceSha.startsWith(BuildConfig.GIT_COMMIT)) { "APK source binding mismatch" }
         require(appApkSha256 != testApkSha256)
         appContext.deleteFile(OrdinaryObservationFile)
@@ -151,7 +153,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         }
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
         ensureVpnConsentGranted(appContext)
-        tunnelFactory.routeThrough(fixture.androidHost, fixture.socks5Port)
+        tunnelFactory.routeThrough(controlIpv4, fixtureSocksPort)
     }
 
     @After
@@ -447,8 +449,8 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                     "ipv4=$lastIpv4 ipv6=$lastIpv6"
             },
         ) {
-            val ipv4 = testProcessTcpConnect(controlIpv4, fixture.tcpEchoPort, timeoutMs = 1_000)
-            val ipv6 = testProcessTcpConnect(controlIpv6, fixture.tcpEchoPort, timeoutMs = 1_000)
+            val ipv4 = testProcessTcpConnect(controlIpv4, fixtureTcpEchoPort, timeoutMs = 1_000)
+            val ipv6 = testProcessTcpConnect(controlIpv6, fixtureTcpEchoPort, timeoutMs = 1_000)
             lastIpv4 = ipv4
             lastIpv6 = ipv6
             !ipv4.ok && !ipv6.ok
@@ -462,7 +464,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         connected: Boolean,
     ): JSONObject {
         val started = now()
-        val result = testProcessTcpConnect(target, fixture.tcpEchoPort, timeoutMs = 4_000)
+        val result = testProcessTcpConnect(target, fixtureTcpEchoPort, timeoutMs = 4_000)
         val finished = now()
         if (connected) {
             assertTrue(
@@ -480,7 +482,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             .put("outcome", if (connected) "connected" else "blocked")
             .put("startedAtEpochMs", started)
             .put("targetAddress", target)
-            .put("targetPort", fixture.tcpEchoPort)
+            .put("targetPort", fixtureTcpEchoPort)
     }
 
     private fun normalizedFailure(result: AppProcessTcpProbeResult): String =
@@ -655,9 +657,9 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             .put("controlIpv6", controlIpv6)
             .put("markerAddress", controlIpv4)
             .put("markerPort", markerPort)
-            .put("probePort", fixture.tcpEchoPort)
+            .put("probePort", fixtureTcpEchoPort)
             .put("tunnelEndpoints", JSONArray().put(controlIpv4))
-            .put("tunnelPort", fixture.socks5Port)
+            .put("tunnelPort", fixtureSocksPort)
 
     private fun sendMarker(
         actionId: String,

@@ -289,6 +289,8 @@ set +e
     -e ripdpi.ordinaryControlIpv6 "$fixture_ipv6" \
     -e ripdpi.ordinaryMarkerPort "$marker_port" \
     -e ripdpi.ordinaryDnsPort "$dns_port" \
+    -e ripdpi.ordinaryTcpEchoPort "$tcp_echo_port" \
+    -e ripdpi.ordinarySocksPort "$socks_port" \
     com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner >"$transcript" 2>&1
 instrumentation_status=$?
 set -e
