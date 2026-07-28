@@ -157,6 +157,7 @@ class ValidatedRawBundle:
         action_proofs: dict[str, Any] = {}
         gate_results: dict[str, dict[str, str]] = {}
         try:
+            contexts: list[android_ordinary_semantic_oracles.ActionContext] = []
             for action in self.actions:
                 artifacts = {
                     kind: android_ordinary_semantic_oracles.ArtifactBytes(
@@ -166,7 +167,7 @@ class ValidatedRawBundle:
                     )
                     for kind, artifact in action.artifacts.items()
                 }
-                proof = android_ordinary_semantic_oracles.evaluate_action(
+                contexts.append(
                     android_ordinary_semantic_oracles.ActionContext(
                         action_id=action.spec.action_id,
                         gate_ids=action.spec.gate_ids,
@@ -179,8 +180,18 @@ class ValidatedRawBundle:
                         artifacts=artifacts,
                     )
                 )
-                action_proofs[action.spec.action_id] = proof
-                for gate_id in action.spec.gate_ids:
+            capture_clock_offset_ms = (
+                android_ordinary_semantic_oracles.resolve_capture_clock_offset(
+                    contexts
+                )
+            )
+            for context in contexts:
+                proof = android_ordinary_semantic_oracles.evaluate_action(
+                    context,
+                    capture_clock_offset_ms=capture_clock_offset_ms,
+                )
+                action_proofs[context.action_id] = proof
+                for gate_id in context.gate_ids:
                     gate_results[gate_id] = {"state": "PASS"}
         except android_ordinary_semantic_oracles.OracleError as error:
             raise RawEvidenceError(error.code, error.message) from error

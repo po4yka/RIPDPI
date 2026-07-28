@@ -194,6 +194,24 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 )
             )
 
+    @staticmethod
+    def shift_pcap_timestamps(payload: bytes, delta_ms: int) -> bytes:
+        shifted = bytearray(payload)
+        offset = 24
+        while offset < len(shifted):
+            seconds = int.from_bytes(shifted[offset : offset + 4], "little")
+            micros = int.from_bytes(shifted[offset + 4 : offset + 8], "little")
+            included = int.from_bytes(shifted[offset + 8 : offset + 12], "little")
+            timestamp_ms = seconds * 1000 + micros // 1000 + delta_ms
+            shifted[offset : offset + 4] = (timestamp_ms // 1000).to_bytes(
+                4, "little"
+            )
+            shifted[offset + 4 : offset + 8] = (
+                (timestamp_ms % 1000) * 1000
+            ).to_bytes(4, "little")
+            offset += 16 + included
+        return bytes(shifted)
+
     def test_all_seven_oracles_derive_proofs_but_public_producer_stays_fail_closed(
         self,
     ) -> None:
@@ -233,6 +251,63 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 set(provenance["actionProofs"]),
                 {spec.action_id for spec in raw_evidence.ACTION_SPECS},
             )
+
+    def test_one_bounded_capture_clock_offset_is_applied_to_all_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            manifest_path, app_apk, test_apk, manifest = self.create_bundle(directory)
+            for spec in raw_evidence.ACTION_SPECS:
+                entry = self.artifact(manifest, spec.action_id, "packet-capture")
+                path = Path(manifest["artifactRoot"]) / entry["path"]
+                self.replace_artifact(
+                    manifest_path,
+                    manifest,
+                    spec.action_id,
+                    "packet-capture",
+                    self.shift_pcap_timestamps(path.read_bytes(), 1_775),
+                )
+            status, results = self.run_producer(
+                directory, manifest_path, app_apk, test_apk
+            )
+            self.assertEqual(status, 1)
+            self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
+            self.assertEqual(
+                results["rawBundleProvenance"]["verifier"],
+                "android_ordinary_semantic_oracles_v2",
+            )
+
+    def test_inconsistent_capture_clock_offsets_fail_closed(self) -> None:
+        def mutation(manifest_path, manifest):
+            entry = self.artifact(manifest, "core-fault", "packet-capture")
+            path = Path(manifest["artifactRoot"]) / entry["path"]
+            self.replace_artifact(
+                manifest_path,
+                manifest,
+                "core-fault",
+                "packet-capture",
+                self.shift_pcap_timestamps(path.read_bytes(), 10_000),
+            )
+
+        self.assert_semantic_failure(mutation, "SEMANTIC_CLOCK_MISMATCH")
+
+    def test_dual_stack_aaaa_compares_canonical_ip_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            manifest_path, app_apk, test_apk, manifest = self.create_bundle(directory)
+            self.mutate_json_artifact(
+                manifest_path,
+                manifest,
+                "dual-stack",
+                "action-receipt",
+                lambda value: value["dnsObservation"].update(
+                    {"answers": ["2001:0db8:0000:0000:0000:0000:0000:0010"]}
+                ),
+            )
+            status, results = self.run_producer(
+                directory, manifest_path, app_apk, test_apk
+            )
+            self.assertEqual(status, 1)
+            self.assertTrue(results["rawBundleProvenance"]["semanticVerified"])
 
     def test_each_action_oracle_fails_closed_on_its_semantic_boundary(self) -> None:
         def ipv4_route(manifest_path, manifest):
@@ -960,9 +1035,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
 
         self.assert_semantic_failure(early_probe, "SEMANTIC_CAUSAL_ORDER_INVALID")
         self.assert_semantic_failure(early_route, "SEMANTIC_CAUSAL_ORDER_INVALID")
-        self.assert_semantic_failure(
-            early_outcome_marker, "SEMANTIC_CAUSAL_ORDER_INVALID"
-        )
+        self.assert_semantic_failure(early_outcome_marker, "SEMANTIC_CLOCK_MISMATCH")
         self.assert_semantic_failure(
             tunnel_activity_precedes_event, "SEMANTIC_TUNNEL_CONTROL_MISSING"
         )

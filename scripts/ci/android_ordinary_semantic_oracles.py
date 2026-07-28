@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-VERIFIER_VERSION = "android_ordinary_semantic_oracles_v1"
+VERIFIER_VERSION = "android_ordinary_semantic_oracles_v2"
 RECEIPT_VERSION = "android_ordinary_action_receipt_v1"
 ROUTE_SNAPSHOT_VERSION = "android_ordinary_route_snapshot_v1"
 MARKER_PREFIX = "RIPDPI-ORDINARY-V1"
@@ -29,6 +29,7 @@ PACKAGE_RE = re.compile(r"com\.poyka\.ripdpi(?:\.simple)?\Z")
 MAX_JSON_BYTES = 256 * 1024
 MAX_PCAP_BYTES = 64 * 1024 * 1024
 MAX_PCAP_PACKETS = 250_000
+MAX_CAPTURE_CLOCK_OFFSET_MS = 5 * 60 * 1000
 FORBIDDEN_ASSERTION_KEYS = {
     "count",
     "pass",
@@ -538,13 +539,19 @@ def parse_receipt(context: ActionContext) -> tuple[dict[str, Any], dict[str, Any
             raise OracleError(
                 "SEMANTIC_DNS_MISMATCH", "DNS answers must be an array of IP literals"
             )
+        parsed_answers = [
+            str(_ip(item, f"dnsObservation.answers[{index}]"))
+            for index, item in enumerate(answers)
+        ]
         if context.action_id == "ipv4-only":
-            if dns["responseCode"] not in {0, 2, 3, 5} or answers:
+            if dns["responseCode"] not in {0, 2, 3, 5} or parsed_answers:
                 raise OracleError(
                     "SEMANTIC_IPV4_ONLY_DNS_LEAK",
                     "IPv4-only AAAA response was not empty or blocked",
                 )
-        elif dns["responseCode"] != 0 or answers != [fixture["controlIpv6"]]:
+        elif dns["responseCode"] != 0 or parsed_answers != [
+            fixture["controlIpv6"]
+        ]:
             raise OracleError(
                 "SEMANTIC_DUAL_STACK_DNS_INVALID",
                 "dual-stack AAAA response does not bind the IPv6 fixture",
@@ -1098,9 +1105,10 @@ def _marker(action_id: str, correlation_id: str, phase: str) -> bytes:
     return f"{MARKER_PREFIX}:{action_id}:{correlation_id}:{phase}".encode("ascii")
 
 
-def evaluate_pcap(
-    context: ActionContext, *, fixture: dict[str, Any], event_at: int
-) -> dict[str, Any]:
+def _packets_and_markers(
+    context: ActionContext,
+    fixture: dict[str, Any],
+) -> tuple[list[Packet], dict[str, list[Packet]]]:
     packets = parse_classic_pcap(context.artifacts["packet-capture"].payload)
     marker_packets: dict[str, list[Packet]] = {"action": [], "outcome": []}
     for packet in packets:
@@ -1119,8 +1127,71 @@ def evaluate_pcap(
             "SEMANTIC_MARKER_MISMATCH",
             "PCAP must contain one exact action and outcome marker",
         )
-    action_at = marker_packets["action"][0].timestamp_ms
-    outcome_at = marker_packets["outcome"][0].timestamp_ms
+    return packets, marker_packets
+
+
+def resolve_capture_clock_offset(contexts: list[ActionContext]) -> int:
+    if not contexts:
+        raise OracleError(
+            "SEMANTIC_CLOCK_MISMATCH", "capture clock requires at least one action"
+        )
+    lower_bound = -MAX_CAPTURE_CLOCK_OFFSET_MS
+    upper_bound = MAX_CAPTURE_CLOCK_OFFSET_MS
+    for context in contexts:
+        receipt, receipt_facts = parse_receipt(context)
+        route_facts = parse_route_snapshot(context, receipt=receipt)
+        _, marker_packets = _packets_and_markers(
+            context, receipt_facts["fixture"]
+        )
+        action_at = marker_packets["action"][0].timestamp_ms
+        outcome_at = marker_packets["outcome"][0].timestamp_ms
+        if action_at >= outcome_at:
+            raise OracleError(
+                "SEMANTIC_WINDOW_MISMATCH", "PCAP marker order is invalid"
+            )
+        lower_bound = max(
+            lower_bound,
+            outcome_at - context.window_finished_at_ms,
+            action_at - receipt_facts["eventAt"],
+        )
+        observations_finished = [
+            *(probe["finishedAtEpochMs"] for probe in receipt_facts["probes"]),
+            *(phase["capturedAt"] for phase in route_facts),
+        ]
+        dns = receipt["dnsObservation"]
+        if isinstance(dns, dict):
+            observations_finished.append(dns["finishedAtEpochMs"])
+        upper_bound = min(
+            upper_bound,
+            action_at - context.window_started_at_ms,
+            outcome_at - max(observations_finished),
+        )
+        if context.action_id == "sleep-wake":
+            upper_bound = min(
+                upper_bound, action_at - receipt_facts["eventStartedAt"]
+            )
+    if lower_bound > upper_bound:
+        raise OracleError(
+            "SEMANTIC_CLOCK_MISMATCH",
+            "PCAP and Android windows do not share one bounded clock offset",
+        )
+    if lower_bound <= 0 <= upper_bound:
+        return 0
+    return lower_bound if lower_bound > 0 else upper_bound
+
+
+def evaluate_pcap(
+    context: ActionContext,
+    *,
+    fixture: dict[str, Any],
+    event_at: int,
+    capture_clock_offset_ms: int,
+) -> dict[str, Any]:
+    packets, marker_packets = _packets_and_markers(context, fixture)
+    action_at = marker_packets["action"][0].timestamp_ms - capture_clock_offset_ms
+    outcome_at = (
+        marker_packets["outcome"][0].timestamp_ms - capture_clock_offset_ms
+    )
     if (
         not context.window_started_at_ms
         <= action_at
@@ -1132,7 +1203,7 @@ def evaluate_pcap(
         packet
         for packet in packets
         if context.window_started_at_ms
-        <= packet.timestamp_ms
+        <= packet.timestamp_ms - capture_clock_offset_ms
         <= context.window_finished_at_ms
     ]
     direct = [
@@ -1183,7 +1254,9 @@ def evaluate_pcap(
     outcome_tunnel_packets = [
         packet
         for packet in tunnel_packets
-        if event_at <= packet.timestamp_ms <= outcome_at
+        if event_at
+        <= packet.timestamp_ms - capture_clock_offset_ms
+        <= outcome_at
     ]
     if context.action_id in TUNNEL_ACTIVITY_ACTIONS and not outcome_tunnel_packets:
         raise OracleError(
@@ -1205,11 +1278,13 @@ def evaluate_pcap(
         )
     return {
         "actionMarkerAtEpochMs": action_at,
+        "captureClockOffsetMs": capture_clock_offset_ms,
         "outcomeMarkerAtEpochMs": outcome_at,
         "parsedPacketCount": len(packets),
         "tunnelPacketCount": len(outcome_tunnel_packets),
         "tunnelPacketTimesEpochMs": [
-            packet.timestamp_ms for packet in outcome_tunnel_packets
+            packet.timestamp_ms - capture_clock_offset_ms
+            for packet in outcome_tunnel_packets
         ],
         "windowPacketCount": len(scoped),
     }
@@ -1269,7 +1344,11 @@ def _validate_causal_order(
         )
 
 
-def evaluate_action(context: ActionContext) -> dict[str, Any]:
+def evaluate_action(
+    context: ActionContext,
+    *,
+    capture_clock_offset_ms: int | None = None,
+) -> dict[str, Any]:
     if context.action_id not in EXPECTED_PROBES:
         raise OracleError(
             "SEMANTIC_ACTION_UNSUPPORTED", f"unsupported action {context.action_id}"
@@ -1284,10 +1363,13 @@ def evaluate_action(context: ActionContext) -> dict[str, Any]:
     _digest(context.test_apk_sha256, SHA256_RE, "testApkSha256")
     receipt, receipt_facts = parse_receipt(context)
     route_facts = parse_route_snapshot(context, receipt=receipt)
+    if capture_clock_offset_ms is None:
+        capture_clock_offset_ms = resolve_capture_clock_offset([context])
     pcap_facts = evaluate_pcap(
         context,
         fixture=receipt_facts["fixture"],
         event_at=receipt_facts["eventAt"],
+        capture_clock_offset_ms=capture_clock_offset_ms,
     )
     _validate_causal_order(
         context,
