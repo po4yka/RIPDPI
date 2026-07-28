@@ -52,11 +52,15 @@ pub(super) fn deliver_udp_datagram(
     let Some(datagram) = OutboundDatagram::try_new(target, resolved_dst, attribution_dst, payload, memory_budget)
     else {
         debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
+        stats.record_tun_queue_drop();
         return;
     };
     match outbound.try_send(datagram) {
         Ok(()) => {}
-        Err(TrySendError::Full(_)) => debug!("UDP association queue full for {src}; dropping datagram"),
+        Err(TrySendError::Full(_)) => {
+            debug!("UDP association queue full for {src}; dropping datagram");
+            stats.record_tun_queue_drop();
+        }
         Err(TrySendError::Closed(datagram)) => {
             remove_association(associations, dns_cache, src);
             let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, attribution_dst);
@@ -80,7 +84,11 @@ pub(super) fn deliver_udp_datagram(
             lease_udp_attribution(associations, src, replacement.token);
             lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
             if let Some(association) = associations.get(&src) {
-                let _ = association.outbound.try_send(datagram);
+                if association.outbound.try_send(datagram).is_err() {
+                    stats.record_tun_queue_drop();
+                }
+            } else {
+                stats.record_tun_queue_drop();
             }
         }
     }

@@ -37,7 +37,7 @@ pub(in crate::io_loop) fn route_dns_packet(
                 match parsed.refused_response() {
                     Ok(refused) => {
                         let raw = super::super::packet::build_udp_response(mapdns.intercept_addr, src, &refused);
-                        super::super::bridge::enqueue_tun_packet(device, raw);
+                        super::super::bridge::enqueue_tun_packet(device, stats, raw);
                     }
                     Err(error) => {
                         stats.record_dns_response_failure("failed to encode split DNS REFUSED response");
@@ -46,7 +46,7 @@ pub(in crate::io_loop) fn route_dns_packet(
                                 Ok(servfail) => {
                                     let raw =
                                         super::super::packet::build_udp_response(mapdns.intercept_addr, src, &servfail);
-                                    super::super::bridge::enqueue_tun_packet(device, raw);
+                                    super::super::bridge::enqueue_tun_packet(device, stats, raw);
                                 }
                                 Err(servfail_error) => debug!(%servfail_error, "dropping split DNS block response"),
                             }

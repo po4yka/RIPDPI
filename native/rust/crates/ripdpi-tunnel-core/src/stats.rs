@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex};
 
 pub use snapshot::DnsStatsSnapshot;
+pub use snapshot::TunForwardingEvidenceSnapshot;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SplitDnsDecisionKind {
@@ -62,6 +63,14 @@ pub struct Stats {
     pub tx_bytes: AtomicU64,
     pub rx_packets: AtomicU64,
     pub rx_bytes: AtomicU64,
+    pub tun_read_errors: AtomicU64,
+    pub tun_write_errors: AtomicU64,
+    pub tun_parse_failures: AtomicU64,
+    pub tun_policy_drops: AtomicU64,
+    pub tun_interceptor_drops: AtomicU64,
+    pub tun_queue_drops: AtomicU64,
+    pub first_tun_write_at_epoch_ms: AtomicU64,
+    pub last_tun_write_at_epoch_ms: AtomicU64,
     /// ICMPv4/ICMPv6 packets classified at the TUN ingress boundary before
     /// UID-policy admission or drop.
     pub icmp_ingress_packets: AtomicU64,
@@ -144,6 +153,14 @@ impl Stats {
             tx_bytes: AtomicU64::new(0),
             rx_packets: AtomicU64::new(0),
             rx_bytes: AtomicU64::new(0),
+            tun_read_errors: AtomicU64::new(0),
+            tun_write_errors: AtomicU64::new(0),
+            tun_parse_failures: AtomicU64::new(0),
+            tun_policy_drops: AtomicU64::new(0),
+            tun_interceptor_drops: AtomicU64::new(0),
+            tun_queue_drops: AtomicU64::new(0),
+            first_tun_write_at_epoch_ms: AtomicU64::new(0),
+            last_tun_write_at_epoch_ms: AtomicU64::new(0),
             icmp_ingress_packets: AtomicU64::new(0),
             dns_queries_total: AtomicU64::new(0),
             dns_cache_hits: AtomicU64::new(0),
@@ -254,6 +271,63 @@ impl Stats {
         snapshot::dns_snapshot(self)
     }
 
+    pub fn tun_forwarding_evidence_snapshot(&self) -> TunForwardingEvidenceSnapshot {
+        snapshot::tun_forwarding_evidence_snapshot(self)
+    }
+
+    pub(crate) fn record_tun_read_success(&self, bytes: usize) {
+        // Ordering: packet/byte totals are independent telemetry counters.
+        self.tx_packets.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.tx_bytes.fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_tun_read_error(&self) {
+        // Ordering: independent telemetry counter, no synchronization needed.
+        self.tun_read_errors.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_tun_write_success(&self, bytes: usize) {
+        // Ordering: write packet count is the publish point for the timestamp
+        // fields. Snapshot readers load it with Acquire, which preserves the
+        // `count > 0 => first/last timestamp present` invariant without adding
+        // a hot-path mutex. Byte totals remain independent telemetry counters.
+        let now = time::now_ms();
+        let _ = self.first_tun_write_at_epoch_ms.compare_exchange(
+            0,
+            now,
+            std::sync::atomic::Ordering::Release,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+        self.last_tun_write_at_epoch_ms.fetch_max(now, std::sync::atomic::Ordering::Release);
+        self.rx_bytes.fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
+        self.rx_packets.fetch_add(1, std::sync::atomic::Ordering::Release);
+    }
+
+    pub(crate) fn record_tun_write_error(&self) {
+        // Ordering: independent telemetry counter, no synchronization needed.
+        self.tun_write_errors.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_tun_parse_failure(&self) {
+        // Ordering: independent telemetry counter, no synchronization needed.
+        self.tun_parse_failures.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_tun_policy_drop(&self) {
+        // Ordering: independent telemetry counter, no synchronization needed.
+        self.tun_policy_drops.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_tun_interceptor_drop(&self) {
+        // Ordering: independent telemetry counter, no synchronization needed.
+        self.tun_interceptor_drops.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_tun_queue_drop(&self) {
+        // Ordering: independent telemetry counter, no synchronization needed.
+        self.tun_queue_drops.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
     pub fn record_dht_trigger_destination(&self, endpoint: std::net::SocketAddr) {
         dht::record_trigger_destination(self, endpoint);
     }
@@ -351,6 +425,65 @@ mod tests {
         let stats = Stats::new();
         assert_eq!(stats.snapshot(), (0, 0, 0, 0));
         assert_eq!(stats.dns_snapshot(), DnsStatsSnapshot::default());
+        assert_eq!(stats.tun_forwarding_evidence_snapshot(), super::TunForwardingEvidenceSnapshot::default());
+    }
+
+    #[test]
+    fn tun_forwarding_evidence_records_counts_drops_and_tun_write_times() {
+        let stats = Stats::new();
+
+        stats.record_tun_read_success(64);
+        stats.record_tun_read_error();
+        stats.record_tun_parse_failure();
+        stats.record_tun_policy_drop();
+        stats.record_tun_interceptor_drop();
+        stats.record_tun_queue_drop();
+        stats.record_tun_write_error();
+        stats.record_tun_write_success(48);
+        stats.record_tun_write_success(52);
+
+        let snapshot = stats.tun_forwarding_evidence_snapshot();
+        assert_eq!(snapshot.tun_read_packets, 1);
+        assert_eq!(snapshot.tun_read_bytes, 64);
+        assert_eq!(snapshot.tun_write_packets, 2);
+        assert_eq!(snapshot.tun_write_bytes, 100);
+        assert_eq!(snapshot.tun_read_errors, 1);
+        assert_eq!(snapshot.tun_write_errors, 1);
+        assert_eq!(snapshot.tun_parse_failures, 1);
+        assert_eq!(snapshot.tun_policy_drops, 1);
+        assert_eq!(snapshot.tun_interceptor_drops, 1);
+        assert_eq!(snapshot.tun_queue_drops, 1);
+        assert!(snapshot.first_tun_write_at_epoch_ms.is_some());
+        assert!(snapshot.last_tun_write_at_epoch_ms >= snapshot.first_tun_write_at_epoch_ms);
+    }
+
+    #[test]
+    fn tun_write_timestamp_snapshot_invariant_survives_concurrent_polling() {
+        let stats = Arc::new(Stats::new());
+        let writer_stats = Arc::clone(&stats);
+        let writer = std::thread::spawn(move || {
+            for _ in 0..10_000 {
+                writer_stats.record_tun_write_success(1);
+            }
+        });
+
+        while !writer.is_finished() {
+            let snapshot = stats.tun_forwarding_evidence_snapshot();
+            if snapshot.tun_write_packets > 0 {
+                let first =
+                    snapshot.first_tun_write_at_epoch_ms.expect("write count publishes first TUN-write timestamp");
+                let last = snapshot.last_tun_write_at_epoch_ms.expect("write count publishes last TUN-write timestamp");
+                assert!(last >= first, "last TUN-write timestamp must be nondecreasing");
+            }
+            std::thread::yield_now();
+        }
+        writer.join().expect("writer thread");
+
+        let snapshot = stats.tun_forwarding_evidence_snapshot();
+        assert_eq!(snapshot.tun_write_packets, 10_000);
+        let first = snapshot.first_tun_write_at_epoch_ms.expect("first TUN-write timestamp");
+        let last = snapshot.last_tun_write_at_epoch_ms.expect("last TUN-write timestamp");
+        assert!(last >= first);
     }
 
     #[test]

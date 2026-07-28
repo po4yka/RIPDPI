@@ -35,6 +35,7 @@ pub use entry::{
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniUnregisterDirectDnsSocketBinderNative,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniUnregisterFlowAttribution,
+    Java_com_poyka_ripdpi_core_TunForwardingEvidenceNativeBindings_jniGetForwardingEvidence,
     Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapListCaptures, Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapRedactToFile,
     Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStart, Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStop,
 };

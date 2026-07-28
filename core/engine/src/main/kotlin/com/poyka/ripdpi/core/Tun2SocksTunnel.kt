@@ -91,6 +91,8 @@ interface Tun2SocksBindings {
 
     fun getStats(handle: Long): LongArray
 
+    fun getForwardingEvidence(handle: Long): String?
+
     fun getIcmpIngressPackets(handle: Long): Long
 
     fun getTelemetry(handle: Long): String?
@@ -166,6 +168,9 @@ class Tun2SocksNativeBindings
         // array as all-zero stats.
         override fun getStats(handle: Long): LongArray = jniGetStats(handle) ?: LongArray(0)
 
+        override fun getForwardingEvidence(handle: Long): String? =
+            TunForwardingEvidenceNativeBindings.getForwardingEvidence(handle)
+
         override fun getIcmpIngressPackets(handle: Long): Long = jniGetIcmpIngressPackets(handle)
 
         override fun getTelemetry(handle: Long): String? = jniGetTelemetry(handle)
@@ -201,6 +206,16 @@ class Tun2SocksNativeBindings
 
         private external fun jniUnregisterFlowAttribution(token: Long)
     }
+
+private object TunForwardingEvidenceNativeBindings {
+    init {
+        Tun2SocksNativeLoader.ensureLoaded()
+    }
+
+    fun getForwardingEvidence(handle: Long): String? = jniGetForwardingEvidence(handle)
+
+    private external fun jniGetForwardingEvidence(handle: Long): String?
+}
 
 /**
  * Coroutine-friendly owner of a single native tunnel handle (see
@@ -355,6 +370,16 @@ class Tun2SocksTunnel(
                     }
             }
             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
+
+    suspend fun forwardingEvidence(): TunForwardingEvidence =
+        reservations
+            .withReservationOrNull({ handle }) { currentHandle ->
+                withContext(Dispatchers.IO) {
+                    nativeBindings.getForwardingEvidence(currentHandle)
+                }
+            }?.takeIf { it.isNotBlank() }
+            ?.let { telemetryJson.decodeFromString(TunForwardingEvidence.serializer(), it) }
+            ?: TunForwardingEvidence()
 }
 
 const val defaultTun2SocksTunnelMtu: Int = 1500
@@ -432,6 +457,22 @@ data class Tun2SocksConfig(
     val logContext: RipDpiLogContext? = null,
     @Required
     val schemaVersion: Int = Tun2SocksConfigSchemaVersion,
+)
+
+@Serializable
+data class TunForwardingEvidence(
+    val tunReadPackets: Long = 0,
+    val tunReadBytes: Long = 0,
+    val tunWritePackets: Long = 0,
+    val tunWriteBytes: Long = 0,
+    val tunReadErrors: Long = 0,
+    val tunWriteErrors: Long = 0,
+    val tunParseFailures: Long = 0,
+    val tunPolicyDrops: Long = 0,
+    val tunInterceptorDrops: Long = 0,
+    val tunQueueDrops: Long = 0,
+    val firstTunWriteAtEpochMs: Long? = null,
+    val lastTunWriteAtEpochMs: Long? = null,
 )
 
 @Serializable

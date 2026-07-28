@@ -10,6 +10,7 @@ pub(super) fn drain_udp_events(state: &mut LoopState) {
         |event| {
             handle_udp_event(
                 &mut state.device,
+                &state.stats,
                 &mut state.udp_associations,
                 &mut state.udp_eviction_heap,
                 &mut state.dns_cache,

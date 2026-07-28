@@ -1,7 +1,6 @@
 use std::future::Future;
 use std::io;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
@@ -25,8 +24,7 @@ pub(super) async fn write_tun_packet(
     loop {
         match tun.try_send(packet) {
             Ok(_) => {
-                stats.rx_packets.fetch_add(1, Ordering::Relaxed);
-                stats.rx_bytes.fetch_add(packet.len() as u64, Ordering::Relaxed);
+                stats.record_tun_write_success(packet.len());
                 return Ok(true);
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -36,6 +34,7 @@ pub(super) async fn write_tun_packet(
             }
             Err(error) => {
                 warn!("TUN write error: {error} (packet dropped)");
+                stats.record_tun_write_error();
                 return Ok(true);
             }
         }

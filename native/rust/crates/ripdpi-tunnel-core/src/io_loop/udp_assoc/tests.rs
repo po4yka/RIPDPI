@@ -10,10 +10,10 @@ use tokio::net::{TcpListener, UdpSocket};
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
-use crate::TunDevice;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
+use crate::{Stats, TunDevice};
 
 use super::association_state::{
     OutboundDatagram, UdpAssociation, now_millis, touch_udp_activity, udp_association_is_idle,
@@ -245,10 +245,12 @@ async fn handle_udp_event_queues_matching_association_packet() {
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
+    let stats = Stats::new();
     let mut eviction_heap = BoundedHeap::new(4);
 
     handle_udp_event(
         &mut device,
+        &stats,
         &mut associations,
         &mut eviction_heap,
         &mut None,
@@ -256,6 +258,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
     );
 
     assert_eq!(device.tx_queue.front().expect("queued udp packet"), &vec![1, 2, 3, 4]);
+    assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 0);
     if let Some(association) = associations.remove(&src) {
         association.cancel.cancel();
         worker.abort();
@@ -283,10 +286,12 @@ async fn handle_udp_event_ignores_stale_association_id() {
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
+    let stats = Stats::new();
     let mut eviction_heap = BoundedHeap::new(4);
 
     handle_udp_event(
         &mut device,
+        &stats,
         &mut associations,
         &mut eviction_heap,
         &mut None,
@@ -321,10 +326,12 @@ async fn handle_udp_event_removes_closed_association() {
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
+    let stats = Stats::new();
     let mut eviction_heap = BoundedHeap::new(4);
 
     handle_udp_event(
         &mut device,
+        &stats,
         &mut associations,
         &mut eviction_heap,
         &mut None,
@@ -356,10 +363,12 @@ async fn handle_udp_event_ignores_stale_close() {
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
+    let stats = Stats::new();
     let mut eviction_heap = BoundedHeap::new(4);
 
     handle_udp_event(
         &mut device,
+        &stats,
         &mut associations,
         &mut eviction_heap,
         &mut None,
@@ -371,6 +380,111 @@ async fn handle_udp_event_ignores_stale_close() {
         association.cancel.cancel();
         worker.abort();
     }
+}
+
+#[tokio::test]
+async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53110);
+    let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)), 443);
+    let (outbound, _outbound_rx) = tokio::sync::mpsc::channel(1);
+    let association = UdpAssociation {
+        id: 11,
+        activity_generation: 0,
+        outbound,
+        cancel: CancellationToken::new(),
+        last_activity: Arc::new(AtomicU64::new(now_millis())),
+        worker: tokio::spawn(std::future::pending()),
+        leased_synthetic_ips: std::collections::HashSet::new(),
+        attribution_tokens: std::collections::HashSet::new(),
+    };
+    let mut associations = HashMap::from([(src, association)]);
+    let mut eviction_heap = BoundedHeap::new(4);
+    let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
+    let _reserved = memory_budget.try_reserve_queued_bytes(4 * 1024 * 1024).expect("reserve full queued-byte budget");
+    let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+    let stats = Arc::new(Stats::new());
+    let mut next_id = 1;
+
+    let outcome = super::forward_udp_payload(
+        "127.0.0.1:1080".parse().expect("proxy"),
+        &Auth::NoAuth,
+        src,
+        dst,
+        dst,
+        None,
+        None,
+        b"drop",
+        &mut None,
+        &mut associations,
+        &mut eviction_heap,
+        &memory_budget,
+        &mut next_id,
+        Duration::from_secs(1),
+        None,
+        &CancellationToken::new(),
+        &udp_tx,
+        &stats,
+        &crate::uid_policy::UidFlowPolicy::disarmed(),
+    );
+
+    assert!(matches!(outcome, super::UdpForwardOutcome::Forwarded));
+    assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
+    associations.remove(&src).expect("association").worker.abort();
+}
+
+#[tokio::test]
+async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53111);
+    let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 21)), 443);
+    let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
+    let (outbound, _outbound_rx) = tokio::sync::mpsc::channel(1);
+    outbound
+        .try_send(
+            OutboundDatagram::try_new(crate::session::TargetAddr::Ip(dst), dst, dst, b"already-queued", &memory_budget)
+                .expect("reserve queued datagram"),
+        )
+        .expect("fill association queue");
+    let association = UdpAssociation {
+        id: 12,
+        activity_generation: 0,
+        outbound,
+        cancel: CancellationToken::new(),
+        last_activity: Arc::new(AtomicU64::new(now_millis())),
+        worker: tokio::spawn(std::future::pending()),
+        leased_synthetic_ips: std::collections::HashSet::new(),
+        attribution_tokens: std::collections::HashSet::new(),
+    };
+    let mut associations = HashMap::from([(src, association)]);
+    let mut eviction_heap = BoundedHeap::new(4);
+    let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+    let stats = Arc::new(Stats::new());
+    let mut next_id = 1;
+
+    let outcome = super::forward_udp_payload(
+        "127.0.0.1:1080".parse().expect("proxy"),
+        &Auth::NoAuth,
+        src,
+        dst,
+        dst,
+        None,
+        None,
+        b"second",
+        &mut None,
+        &mut associations,
+        &mut eviction_heap,
+        &memory_budget,
+        &mut next_id,
+        Duration::from_secs(1),
+        None,
+        &CancellationToken::new(),
+        &udp_tx,
+        &stats,
+        &crate::uid_policy::UidFlowPolicy::disarmed(),
+    );
+
+    assert!(matches!(outcome, super::UdpForwardOutcome::Forwarded));
+    assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
+    associations.remove(&src).expect("association").worker.abort();
 }
 
 #[test]
@@ -407,9 +521,11 @@ async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
     assert_eq!(dns_cache.as_ref().expect("cache").lease_count(synthetic_ip), 1);
 
     let mut device = TunDevice::new(1500);
+    let stats = Stats::new();
     let mut eviction_heap = BoundedHeap::new(4);
     handle_udp_event(
         &mut device,
+        &stats,
         &mut associations,
         &mut eviction_heap,
         &mut dns_cache,

@@ -15,8 +15,8 @@ mod stats;
 mod telemetry;
 
 pub(crate) use entries::{
-    tunnel_create_entry, tunnel_destroy_entry, tunnel_icmp_ingress_packets_entry, tunnel_start_entry,
-    tunnel_stats_entry, tunnel_stop_entry, tunnel_telemetry_entry,
+    tunnel_create_entry, tunnel_destroy_entry, tunnel_forwarding_evidence_entry, tunnel_icmp_ingress_packets_entry,
+    tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry, tunnel_telemetry_entry,
 };
 pub(crate) use pcap_entries::{
     tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry,

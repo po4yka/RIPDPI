@@ -1,5 +1,5 @@
 use crate::IpClass;
-use crate::classify::classify_ip_packet;
+use crate::classify::classify_ip_packet_with_parse_status;
 use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, Verdict};
 
 use super::dns_intercept::{
@@ -7,6 +7,7 @@ use super::dns_intercept::{
 };
 use super::packet::is_injected_rst;
 use super::state::LoopState;
+use super::state::PendingUidRetainOutcome;
 use super::tcp_accept::ensure_pending_listen_for_syn;
 use super::udp_assoc::{UdpForwardOutcome, forward_udp_payload};
 
@@ -18,16 +19,21 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
 }
 
 fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_interceptor: bool) {
-    let ip_class = classify_ip_packet(packet, state.runtime.mapdns_classify);
+    let (ip_class, parsed_ip) = classify_ip_packet_with_parse_status(packet, state.runtime.mapdns_classify);
+    if !parsed_ip {
+        state.stats.record_tun_parse_failure();
+    }
     let is_icmp = matches!(ip_class, IpClass::Icmp);
     if is_icmp {
         state.stats.icmp_ingress_packets.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
     if is_icmp && state.runtime.uid_policy.is_enforcing() && !state.runtime.uid_policy_allow_icmp {
+        state.stats.record_tun_policy_drop();
         return;
     }
 
     if run_egress_interceptor && state.runtime.tun_egress_interceptor.handle_packet(packet) {
+        state.stats.record_tun_interceptor_drop();
         return;
     }
 
@@ -42,7 +48,10 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                     retain_pending_uid_udp(packet, state);
                     return;
                 }
-                Verdict::DropUdp | Verdict::ResetTcp => return,
+                Verdict::DropUdp | Verdict::ResetTcp => {
+                    state.stats.record_tun_policy_drop();
+                    return;
+                }
                 Verdict::Allow => {}
             }
             sync_direct_dns_mapping_generation(state.dns_cache.as_mut(), &mut state.active_direct_dns_generation);
@@ -62,6 +71,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
         }
         IpClass::Udp { src, dst, payload } => {
             if state.runtime.webrtc_protection_enabled && is_stun_datagram(payload) {
+                state.stats.record_tun_policy_drop();
                 return;
             }
             state.stats.record_dht_trigger_destination(dst);
@@ -109,7 +119,12 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
 }
 
 fn retain_pending_uid_udp(packet: &[u8], state: &mut LoopState) {
-    state.pending_uid_udp_packets.retain(packet);
+    match state.pending_uid_udp_packets.retain(packet) {
+        PendingUidRetainOutcome::Stored => {}
+        PendingUidRetainOutcome::EvictedOldest | PendingUidRetainOutcome::Rejected => {
+            state.stats.record_tun_queue_drop();
+        }
+    }
 }
 
 fn is_stun_datagram(payload: &[u8]) -> bool {
@@ -134,9 +149,12 @@ pub(in crate::io_loop) fn retry_pending_uid_udp(state: &mut LoopState) {
 
 fn route_tcp_or_other_packet(packet: &[u8], state: &mut LoopState) {
     if state.runtime.filter_injected_resets && is_injected_rst(packet) {
+        state.stats.record_tun_policy_drop();
         return;
     }
 
     ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
-    state.device.push_rx(packet.to_vec());
+    if !state.device.push_rx(packet.to_vec()) {
+        state.stats.record_tun_queue_drop();
+    }
 }

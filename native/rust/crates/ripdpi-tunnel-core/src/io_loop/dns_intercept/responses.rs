@@ -50,6 +50,6 @@ pub(in crate::io_loop) fn handle_dns_result(
         }
     };
     if let Some(payload) = payload {
-        deliver_dns_payload(device, mapdns, response.src, response.tcp_reply.take(), payload);
+        deliver_dns_payload(device, stats, mapdns, response.src, response.tcp_reply.take(), payload);
     }
 }

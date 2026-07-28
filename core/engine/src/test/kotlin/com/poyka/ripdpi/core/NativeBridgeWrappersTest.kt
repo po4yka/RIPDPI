@@ -530,6 +530,63 @@ class NativeBridgeWrappersTest {
         }
 
     @Test
+    fun tunnelWrapperParsesForwardingEvidence() =
+        runTest {
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    forwardingEvidenceJson =
+                        json.encodeToString(
+                            TunForwardingEvidence.serializer(),
+                            TunForwardingEvidence(
+                                tunReadPackets = 3,
+                                tunReadBytes = 300,
+                                tunWritePackets = 2,
+                                tunWriteBytes = 180,
+                                tunReadErrors = 1,
+                                tunWriteErrors = 2,
+                                tunParseFailures = 4,
+                                tunPolicyDrops = 5,
+                                tunInterceptorDrops = 6,
+                                tunQueueDrops = 7,
+                                firstTunWriteAtEpochMs = 10,
+                                lastTunWriteAtEpochMs = 20,
+                            ),
+                        )
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            assertEquals(TunForwardingEvidence(), tunnel.forwardingEvidence())
+
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 12)
+            val evidence = tunnel.forwardingEvidence()
+
+            assertEquals(3L, evidence.tunReadPackets)
+            assertEquals(180L, evidence.tunWriteBytes)
+            assertEquals(4L, evidence.tunParseFailures)
+            assertEquals(7L, evidence.tunQueueDrops)
+            assertEquals(10L, evidence.firstTunWriteAtEpochMs)
+            assertEquals(20L, evidence.lastTunWriteAtEpochMs)
+            assertEquals(listOf(1L), bindings.forwardingEvidenceHandles)
+            tunnel.stop()
+        }
+
+    @Test
+    fun tunnelWrapperReturnsZeroForwardingEvidenceWhenNativePayloadIsBlank() =
+        runTest {
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    forwardingEvidenceJson = ""
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 22)
+            val evidence = tunnel.forwardingEvidence()
+
+            assertEquals(TunForwardingEvidence(), evidence)
+            tunnel.stop()
+        }
+
+    @Test
     fun tunnelWrapperParsesTelemetrySnapshot() =
         runTest {
             val bindings =

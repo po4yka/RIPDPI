@@ -20,9 +20,9 @@ use super::udp_assoc::{UdpAssociation, UdpEvent, UdpEvictionEntry};
 mod pending_uid;
 mod runtime;
 
-pub(in crate::io_loop) use pending_uid::PendingUidUdpPackets;
 #[cfg(test)]
 pub(in crate::io_loop) use pending_uid::{PENDING_UID_UDP_CAPACITY, PENDING_UID_UDP_POOL_CAPACITY};
+pub(in crate::io_loop) use pending_uid::{PendingUidRetainOutcome, PendingUidUdpPackets};
 pub(in crate::io_loop) use runtime::LoopRuntime;
 
 pub(in crate::io_loop) struct LoopState {

@@ -278,6 +278,8 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     @Volatile var statsFailure: Throwable? = null
 
+    @Volatile var forwardingEvidenceFailure: Throwable? = null
+
     @Volatile var telemetryFailure: Throwable? = null
 
     @Volatile var statsStartedSignal: CompletableDeferred<Long>? = null
@@ -300,12 +302,15 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     @Volatile var icmpIngressPackets: Long = 0
 
     @Volatile var telemetryJson: String? = null
+
+    @Volatile var forwardingEvidenceJson: String? = null
     val faults = FaultQueue<TunnelBindingFaultTarget>()
     val createdPayloads = mutableListOf<String>()
     val startedHandles = mutableListOf<Long>()
     val stoppedHandles = mutableListOf<Long>()
     val destroyedHandles = mutableListOf<Long>()
     val statsHandles = mutableListOf<Long>()
+    val forwardingEvidenceHandles = mutableListOf<Long>()
     val telemetryHandles = mutableListOf<Long>()
 
     override fun create(configJson: String): Long {
@@ -341,6 +346,12 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
         faults.next(TunnelBindingFaultTarget.STATS)?.throwOrIgnore()
         statsFailure?.let { throw it }
         return nativeStats
+    }
+
+    override fun getForwardingEvidence(handle: Long): String? {
+        forwardingEvidenceHandles += handle
+        forwardingEvidenceFailure?.let { throw it }
+        return forwardingEvidenceJson
     }
 
     override fun getIcmpIngressPackets(handle: Long): Long = icmpIngressPackets

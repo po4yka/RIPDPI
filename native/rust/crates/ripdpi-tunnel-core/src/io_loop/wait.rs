@@ -66,6 +66,7 @@ pub(super) fn handle_wait_event(state: &mut LoopState, event: WaitEvent) -> Wait
         WaitEvent::Udp(Some(event)) => {
             handle_udp_event(
                 &mut state.device,
+                &state.stats,
                 &mut state.udp_associations,
                 &mut state.udp_eviction_heap,
                 &mut state.dns_cache,

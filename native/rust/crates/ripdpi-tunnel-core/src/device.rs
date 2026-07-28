@@ -1,6 +1,9 @@
 use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
 use smoltcp::time::Instant;
 use std::collections::VecDeque;
+use std::sync::Arc;
+
+use crate::Stats;
 
 /// A smoltcp `Device` implementation backed by two in-memory packet queues.
 ///
@@ -21,17 +24,25 @@ pub struct TunTxQueue {
     max_packets: usize,
     max_bytes: usize,
     dropped_packets: u64,
+    drop_stats: Option<Arc<Stats>>,
 }
 
 impl TunTxQueue {
     fn new(max_packets: usize, max_bytes: usize) -> Self {
-        Self { packets: VecDeque::new(), queued_bytes: 0, max_packets, max_bytes, dropped_packets: 0 }
+        Self { packets: VecDeque::new(), queued_bytes: 0, max_packets, max_bytes, dropped_packets: 0, drop_stats: None }
+    }
+
+    pub fn set_drop_stats(&mut self, stats: Arc<Stats>) {
+        self.drop_stats = Some(stats);
     }
 
     pub fn push_back(&mut self, packet: Vec<u8>) -> bool {
         let exceeds_bytes = self.queued_bytes.checked_add(packet.len()).is_none_or(|bytes| bytes > self.max_bytes);
         if self.packets.len() >= self.max_packets || exceeds_bytes {
             self.dropped_packets = self.dropped_packets.saturating_add(1);
+            if let Some(stats) = &self.drop_stats {
+                stats.record_tun_queue_drop();
+            }
             return false;
         }
         self.queued_bytes += packet.len();
@@ -89,6 +100,10 @@ impl TunDevice {
             max_rx_depth: DEFAULT_MAX_QUEUE_DEPTH,
             rx_drops: 0,
         }
+    }
+
+    pub fn set_tun_queue_drop_stats(&mut self, stats: Arc<Stats>) {
+        self.tx_queue.set_drop_stats(stats);
     }
 
     /// Push a packet onto the RX queue. Returns `false` and increments

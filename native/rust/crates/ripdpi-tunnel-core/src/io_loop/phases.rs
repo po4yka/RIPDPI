@@ -1,5 +1,4 @@
 use std::io;
-use std::sync::atomic::Ordering;
 
 use smoltcp::time::Instant;
 use tracing::warn;
@@ -30,12 +29,12 @@ fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
             Err(e) => {
                 warn!("TUN read error: {}", e);
+                state.stats.record_tun_read_error();
                 break;
             }
         };
 
-        state.stats.tx_packets.fetch_add(1, Ordering::Relaxed);
-        state.stats.tx_bytes.fetch_add(n as u64, Ordering::Relaxed);
+        state.stats.record_tun_read_success(n);
         drained += 1;
 
         let packet = &tun_read_buf[..n];
@@ -208,6 +207,7 @@ mod tests {
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.stats.dht_trigger_observations.load(Ordering::Relaxed), 0);
+        assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_interceptor_drops, 1);
         assert!(state.udp_associations.is_empty());
     }
 
@@ -221,6 +221,19 @@ mod tests {
 
         assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
         assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+    }
+
+    #[test]
+    fn malformed_tun_packet_records_parse_failure_evidence() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+        let packet = vec![0_u8; 5];
+
+        route_tun_packet(&packet, &mut state);
+
+        assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_parse_failures, 1);
+        assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
+        assert_eq!(state.device.rx_queue.front().expect("legacy smoltcp path"), &packet);
     }
 
     #[test]
@@ -240,6 +253,7 @@ mod tests {
             route_tun_packet(&packet, &mut state);
 
             assert_eq!(state.stats.icmp_ingress_packets(), 1);
+            assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_policy_drops, 1);
             assert!(seen_packets.lock().expect("seen packets").is_empty());
             assert!(state.device.rx_queue.is_empty());
         }
@@ -349,6 +363,7 @@ mod tests {
         retry_pending_uid_udp(&mut state);
         assert!(state.udp_associations.is_empty(), "denied UID must remain dropped");
         assert!(state.pending_uid_udp_packets.is_empty(), "denied UDP datagram must be released");
+        assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_policy_drops, 1);
         assert_eq!(
             ripdpi_flow_app_attribution::lookup_flow_uid(request.protocol, request.local, request.remote,),
             ripdpi_flow_app_attribution::FlowUidLookup::Missing,
@@ -685,6 +700,7 @@ mod tests {
 
         assert!(state.pending_uid_udp_packets.is_empty(), "blocked STUN must not enter UID admission");
         assert!(state.udp_associations.is_empty(), "blocked STUN must not create a SOCKS association");
+        assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_policy_drops, 1);
         state.shutdown().await;
     }
 
@@ -784,6 +800,8 @@ mod tests {
         let iface_cfg = IfaceConfig::new(HardwareAddress::Ip);
         let iface = Interface::new(iface_cfg, &mut device, Instant::now());
         let (udp_tx, udp_rx) = mpsc::channel(1);
+        let stats = Arc::new(Stats::new());
+        device.set_tun_queue_drop_stats(Arc::clone(&stats));
 
         LoopState {
             device,
@@ -791,7 +809,7 @@ mod tests {
             socket_set: SocketSet::new(vec![]),
             sessions: ActiveSessions::new(0),
             cancel: CancellationToken::new(),
-            stats: Arc::new(Stats::new()),
+            stats,
             dns_cache: None,
             runtime: LoopRuntime {
                 proxy_sockaddr: "127.0.0.1:1080".parse::<SocketAddr>().expect("proxy address"),
@@ -835,7 +853,7 @@ mod tests {
         assert_eq!(packets.free_len(), PENDING_UID_UDP_POOL_CAPACITY);
 
         for byte in 0..=PENDING_UID_UDP_CAPACITY {
-            assert!(packets.retain(&[byte as u8; 32]));
+            assert!(packets.retain(&[byte as u8; 32]).is_stored());
         }
         assert_eq!(packets.len(), PENDING_UID_UDP_CAPACITY);
         assert_eq!(packets.free_len(), 1);
@@ -844,9 +862,24 @@ mod tests {
         let allocation = packet.as_ptr();
         packets.recycle(packet);
         assert_eq!(packets.free_len(), 2);
-        assert!(packets.retain(&[7; 32]));
+        assert!(packets.retain(&[7; 32]).is_stored());
         assert_eq!(packets.back_ptr(), Some(allocation), "retention must reuse a preallocated buffer");
         assert_eq!(packets.free_len() + packets.len(), PENDING_UID_UDP_POOL_CAPACITY);
+    }
+
+    #[test]
+    fn pending_uid_udp_overflow_records_queue_drop_evidence() {
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
+        state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+
+        for offset in 0..=PENDING_UID_UDP_CAPACITY {
+            let port = 40_000 + u16::try_from(offset).expect("test port offset");
+            let packet = ipv4_udp_packet(port, 443, b"uid-pending");
+            route_tun_packet(&packet, &mut state);
+        }
+
+        assert_eq!(state.pending_uid_udp_packets.len(), PENDING_UID_UDP_CAPACITY);
+        assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
     }
 
     fn mapdns_loop_state(tun_egress_interceptor: Box<dyn TunEgressPacketHandler>) -> LoopState {

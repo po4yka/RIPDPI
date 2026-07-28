@@ -103,6 +103,14 @@ fn jni_get_stats(env: &mut Env<'_>, handle: jlong) -> jlongArray {
     crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats(env_to_unowned(env), JObject::null(), handle)
 }
 
+fn jni_get_forwarding_evidence(env: &mut Env<'_>, handle: jlong) -> jni::sys::jstring {
+    crate::Java_com_poyka_ripdpi_core_TunForwardingEvidenceNativeBindings_jniGetForwardingEvidence(
+        env_to_unowned(env),
+        JObject::null(),
+        handle,
+    )
+}
+
 fn jni_get_icmp_ingress_packets(env: &mut Env<'_>, handle: jlong) -> jlong {
     crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetIcmpIngressPackets(
         env_to_unowned(env),
@@ -313,6 +321,18 @@ fn exported_jni_reports_ready_stats_and_telemetry() {
         assert_no_exception(env);
         assert_eq!(stats, vec![0, 0, 0, 0]);
 
+        let raw_evidence = jni_get_forwarding_evidence(env, handle.raw());
+        let evidence_json = decode_jstring(env, raw_evidence).expect("forwarding evidence json");
+        assert_no_exception(env);
+        let evidence: Value = serde_json::from_str(&evidence_json).expect("decode forwarding evidence");
+        assert_eq!(evidence["tunReadPackets"], 0);
+        assert_eq!(evidence["tunWritePackets"], 0);
+        assert_eq!(evidence["tunParseFailures"], 0);
+        assert_eq!(evidence["tunPolicyDrops"], 0);
+        assert_eq!(evidence["firstTunWriteAtEpochMs"], Value::Null);
+        assert_eq!(evidence["lastTunWriteAtEpochMs"], Value::Null);
+        assert!(evidence.get("lastTarget").is_none(), "evidence must not expose endpoint identity");
+
         assert_eq!(jni_get_icmp_ingress_packets(env, handle.raw()), 0);
         assert_no_exception(env);
 
@@ -361,6 +381,12 @@ fn exported_jni_invalid_handles_throw_and_return_null_for_reference_results() {
         });
 
         with_env(|env| {
+            let evidence = jni_get_forwarding_evidence(env, handle);
+            assert!(decode_jstring(env, evidence).is_none());
+            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid tunnel handle");
+        });
+
+        with_env(|env| {
             assert_eq!(jni_get_icmp_ingress_packets(env, handle), 0);
             assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid tunnel handle");
         });
@@ -376,6 +402,17 @@ fn exported_jni_invalid_handles_throw_and_return_null_for_reference_results() {
             assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid tunnel handle");
         });
     }
+}
+
+#[test]
+fn exported_jni_forwarding_evidence_panic_returns_null_without_exception() {
+    let _serial = JNI_TEST_MUTEX.lock().expect("lock tunnel JNI tests");
+
+    with_env(|env| {
+        let raw = super::entries::tunnel_forwarding_evidence_panic_entry(env_to_unowned(env));
+        assert!(decode_jstring(env, raw).is_none());
+        assert_no_exception(env);
+    });
 }
 
 #[test]
@@ -403,6 +440,12 @@ fn exported_jni_rejects_stale_handles_as_unknown() {
     with_env(|env| {
         let stats = jni_get_stats(env, stale_handle);
         assert!(decode_long_array(env, stats).is_none());
+        assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Unknown tunnel handle");
+    });
+
+    with_env(|env| {
+        let evidence = jni_get_forwarding_evidence(env, stale_handle);
+        assert!(decode_jstring(env, evidence).is_none());
         assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Unknown tunnel handle");
     });
 

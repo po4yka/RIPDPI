@@ -15,13 +15,29 @@ pub enum IpClass<'a> {
 /// When `mapdns` is `None`, DNS interception is disabled and all UDP packets
 /// are returned as `IpClass::Udp`.
 pub fn classify_ip_packet<'a>(pkt: &'a [u8], mapdns: Option<(u32, u32, u16)>) -> IpClass<'a> {
+    classify_ip_packet_with_parse_status(pkt, mapdns).0
+}
+
+pub(crate) fn classify_ip_packet_with_parse_status<'a>(
+    pkt: &'a [u8],
+    mapdns: Option<(u32, u32, u16)>,
+) -> (IpClass<'a>, bool) {
     let Ok(parsed) = SlicedPacket::from_ip(pkt) else {
-        return IpClass::TcpOrOther;
+        return (IpClass::TcpOrOther, false);
     };
 
     let Some(net) = parsed.net else {
-        return IpClass::TcpOrOther;
+        return (IpClass::TcpOrOther, false);
     };
+
+    (classify_parsed_packet(net, parsed.transport, mapdns), true)
+}
+
+fn classify_parsed_packet<'a>(
+    net: NetSlice<'a>,
+    transport: Option<TransportSlice<'a>>,
+    mapdns: Option<(u32, u32, u16)>,
+) -> IpClass<'a> {
     let is_icmp = match &net {
         NetSlice::Ipv4(ipv4) => ipv4.payload_ip_number() == IpNumber::ICMP,
         NetSlice::Ipv6(ipv6) => ipv6.payload().ip_number == IpNumber::IPV6_ICMP,
@@ -31,9 +47,10 @@ pub fn classify_ip_packet<'a>(pkt: &'a [u8], mapdns: Option<(u32, u32, u16)>) ->
         return IpClass::Icmp;
     }
 
-    let Some(transport) = parsed.transport else {
+    let Some(transport) = transport else {
         return IpClass::TcpOrOther;
     };
+
     let udp = match transport {
         TransportSlice::Icmpv4(_) | TransportSlice::Icmpv6(_) => return IpClass::TcpOrOther,
         TransportSlice::Udp(udp) => udp,
@@ -192,6 +209,14 @@ mod tests {
     #[test]
     fn malformed_packet_is_tcp_or_other() {
         assert!(matches!(classify_ip_packet(&[0u8; 5], None), IpClass::TcpOrOther));
+    }
+
+    #[test]
+    fn malformed_packet_reports_parse_failure_status_without_changing_legacy_class() {
+        let (class, parsed_ip) = classify_ip_packet_with_parse_status(&[0u8; 5], None);
+
+        assert!(matches!(class, IpClass::TcpOrOther));
+        assert!(!parsed_ip);
     }
 
     #[test]

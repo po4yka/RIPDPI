@@ -27,7 +27,7 @@ mod runtime;
 use runtime::build_loop_runtime;
 
 pub(in crate::io_loop) fn setup_io_loop(
-    device: TunDevice,
+    mut device: TunDevice,
     iface: Interface,
     socket_set: SocketSet<'static>,
     sessions: ActiveSessions,
@@ -58,6 +58,7 @@ pub(in crate::io_loop) fn setup_io_loop(
     let (udp_tx, udp_rx) = mpsc::channel(256);
     let (dns_req_tx, dns_resp_rx) = build_dns_worker(&config, &cancel)?;
     let mtu = config.tunnel.mtu as usize;
+    device.set_tun_queue_drop_stats(Arc::clone(&stats));
 
     info!("io_loop started (proxy={}, max_sessions={})", proxy_sockaddr, max_sessions);
 

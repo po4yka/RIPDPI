@@ -56,6 +56,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
         Verdict::Pending => return UdpForwardOutcome::PendingUid,
         Verdict::DropUdp | Verdict::ResetTcp => {
             let _ = ripdpi_flow_app_attribution::evict_flow(observation.token);
+            stats.record_tun_policy_drop();
             return UdpForwardOutcome::Dropped;
         }
     }

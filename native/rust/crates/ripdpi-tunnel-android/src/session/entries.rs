@@ -5,7 +5,7 @@ use jni::{EnvUnowned, Outcome};
 
 use super::icmp::icmp_ingress_packets_session;
 use super::lifecycle::{create_session, destroy_session, start_session, stop_session};
-use super::stats::stats_session;
+use super::stats::{forwarding_evidence_session, stats_session};
 use super::telemetry::telemetry_session;
 
 pub(crate) fn tunnel_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {
@@ -89,6 +89,48 @@ pub(crate) fn tunnel_stats_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jlon
             throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel stats retrieval failed"));
             std::ptr::null_mut()
         }
+    }
+}
+
+pub(crate) fn tunnel_forwarding_evidence_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jni::sys::jstring {
+    android_support::init_android_logging("ripdpi-tunnel-native");
+    match env
+        .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> { Ok(forwarding_evidence_session(env, handle)) })
+        .into_outcome()
+    {
+        Outcome::Ok(evidence) => evidence,
+        Outcome::Err(err) => {
+            log::error!("Tunnel forwarding evidence retrieval failed: {err}");
+            throw_runtime_exception(
+                &mut env,
+                sanitize_error_message(&err.to_string(), "Tunnel forwarding evidence retrieval failed"),
+            );
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(_) => {
+            log::error!("Tunnel forwarding evidence retrieval panicked");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn tunnel_forwarding_evidence_panic_entry(mut env: EnvUnowned<'_>) -> jni::sys::jstring {
+    android_support::init_android_logging("ripdpi-tunnel-native");
+    match env
+        .with_env(|_env| -> jni::errors::Result<jni::sys::jstring> { panic!("injected forwarding evidence panic") })
+        .into_outcome()
+    {
+        Outcome::Ok(evidence) => evidence,
+        Outcome::Err(err) => {
+            log::error!("Tunnel forwarding evidence panic test failed unexpectedly: {err}");
+            throw_runtime_exception(
+                &mut env,
+                sanitize_error_message(&err.to_string(), "Tunnel forwarding evidence retrieval failed"),
+            );
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(_) => std::ptr::null_mut(),
     }
 }
 
