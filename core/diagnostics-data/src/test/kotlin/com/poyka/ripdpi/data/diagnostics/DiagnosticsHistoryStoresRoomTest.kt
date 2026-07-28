@@ -143,6 +143,8 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(listOf("ctx-1"), store.observeConnectionContexts("conn-1", 10).first().map { it.id })
             assertEquals(listOf("tel-1"), store.observeConnectionTelemetry("conn-1", 10).first().map { it.id })
             assertEquals(listOf("evt-1"), store.observeConnectionNativeEvents("conn-1", 10).first().map { it.id })
+            assertEquals("evt-1", store.getNativeEventById("evt-1")?.id)
+            assertNull(store.getNativeEventById("evt-missing"))
             assertEquals(listOf("evt-global"), store.getGlobalNativeEvents(limit = 10).map { it.id })
             assertEquals(listOf("exp-1"), store.observeExportRecords(limit = 10).first().map { it.id })
         }

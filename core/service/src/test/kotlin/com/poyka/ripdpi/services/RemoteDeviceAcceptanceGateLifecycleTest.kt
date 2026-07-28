@@ -113,6 +113,41 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         }
 
     @Test
+    fun `after-wake state change after baseline records terminal instead of returning`() =
+        runTest {
+            val writer = RecordingRemoteDeviceAcceptanceEvidenceWriter()
+            val serviceState = runningServiceState(updatedAt = 1L)
+            val screen = MutableRemoteAcceptanceScreenStateObserver(interactive = false)
+            val gate =
+                gate(
+                    serviceState = serviceState,
+                    screen = screen,
+                    writer = writer,
+                    mutateWhen = { screen.isInteractive.value },
+                    onTcpProbe = { screen.setInteractive(false) },
+                )
+
+            gate.start(backgroundScope)
+            runCurrent()
+            serviceState.updateTelemetry(runningRealitySnapshot(updatedAt = 2L))
+            runCurrent()
+            serviceState.updateTelemetry(runningRealitySnapshot(updatedAt = 3L, tunnelTxBytes = 64L))
+            runCurrent()
+            screen.setInteractive(true)
+            runCurrent()
+
+            val terminal = writer.events.last()
+            assertEquals(DeviceRuntimeBackgroundSurvivalPhase.AfterWake, terminal.phase)
+            assertEquals(DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged, terminal.reason)
+            assertFalse(
+                writer.events.any { event ->
+                    event.phase == DeviceRuntimeBackgroundSurvivalPhase.AfterWake &&
+                        event.reason == null
+                },
+            )
+        }
+
+    @Test
     fun `repeated observations after terminal do not start a second dwell in same run`() =
         runTest {
             val writer = RecordingRemoteDeviceAcceptanceEvidenceWriter()
@@ -152,11 +187,13 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
         screen: MutableRemoteAcceptanceScreenStateObserver,
         writer: RecordingRemoteDeviceAcceptanceEvidenceWriter,
         baselinePasses: Boolean = true,
+        mutateWhen: () -> Boolean = { false },
+        onTcpProbe: () -> Unit = {},
     ): DefaultRemoteDeviceAcceptanceGate =
         DefaultRemoteDeviceAcceptanceGate(
             serviceStateStore = serviceState,
             screenStateObserver = screen,
-            baselineProbe = baselineProbe(serviceState, baselinePasses),
+            baselineProbe = baselineProbe(serviceState, baselinePasses, mutateWhen, onTcpProbe),
             networkFingerprintProvider =
                 object : NetworkFingerprintProvider {
                     override fun capture() = null
@@ -169,13 +206,20 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
     private fun baselineProbe(
         serviceState: TestServiceStateStore,
         baselinePasses: Boolean,
-    ): RemoteDeviceAcceptanceBaselineProbe =
-        RemoteDeviceAcceptanceBaselineProbe(
+        mutateWhen: () -> Boolean,
+        onTcpProbe: () -> Unit,
+    ): RemoteDeviceAcceptanceBaselineProbe {
+        var mutated = false
+        return RemoteDeviceAcceptanceBaselineProbe(
             serviceStateStore = serviceState,
             relayCapabilityProbe =
                 RelayCapabilityProbe(
                     tcpProbe =
                         RelayTcpProbe { _, _ ->
+                            if (!mutated && mutateWhen()) {
+                                mutated = true
+                                onTcpProbe()
+                            }
                             if (baselinePasses) {
                                 RelayTcpProbeResult(succeeded = true, statusCode = 204)
                             } else {
@@ -187,6 +231,7 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
             deviceProvider = { Device },
             monotonicClock = { 1_000L },
         )
+    }
 
     private fun runningServiceState(
         updatedAt: Long,

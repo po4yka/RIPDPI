@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneCounters
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -50,7 +51,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
     fun `durable writer persists pending start before returning`() =
         runTest {
             val store = RecordingArtifactWriteStore()
-            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, prefs)
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, store, prefs)
 
             writer.beginRun("run-a", observedAtMillis = 10L)
             writer.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
@@ -71,7 +72,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
     fun `durable writer clears pending run after failed or cancelled terminal event`() =
         runTest {
             val store = RecordingArtifactWriteStore()
-            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, prefs)
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, store, prefs)
 
             writer.beginRun("run-a", observedAtMillis = 10L)
             writer.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
@@ -104,7 +105,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
     fun `durable writer keeps pending ledger after screen-off probe pass`() =
         runTest {
             val store = RecordingArtifactWriteStore()
-            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, prefs)
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, store, prefs)
 
             writer.beginRun("run-a", observedAtMillis = 10L)
             writer.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
@@ -128,12 +129,12 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
     fun `durable writer reconciles pending ledger after writer recreation`() =
         runTest {
             val firstStore = RecordingArtifactWriteStore()
-            val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(firstStore, prefs)
+            val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(firstStore, firstStore, prefs)
             firstWriter.beginRun("run-a", observedAtMillis = 10L)
             firstWriter.record("run-a", backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted))
 
             val secondStore = RecordingArtifactWriteStore()
-            val recreatedWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(secondStore, prefs)
+            val recreatedWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(secondStore, secondStore, prefs)
             recreatedWriter.beginRun("run-b", observedAtMillis = 30L)
 
             val interrupted = secondStore.nativeEvents.single()
@@ -146,7 +147,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
     fun `durable writer uses deterministic semantic ids`() =
         runTest {
             val firstStore = RecordingArtifactWriteStore()
-            val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(firstStore, prefs)
+            val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(firstStore, firstStore, prefs)
             val event = backgroundEvent(DeviceRuntimeBackgroundSurvivalPhase.ScreenOffStarted)
 
             firstWriter.beginRun("run-a", observedAtMillis = 10L)
@@ -154,8 +155,73 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
             firstWriter.record("run-a", event)
 
             val ids = firstStore.nativeEvents.map(NativeSessionEventEntity::id)
-            assertEquals(ids[0], ids[1])
+            assertEquals(1, ids.size)
             assertNotEquals(ids[0], "run-a")
+        }
+
+    @Test
+    fun `durable writer clears stale pending pref when terminal already exists`() =
+        runTest {
+            val store = RecordingArtifactWriteStore()
+            val firstWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, store, prefs)
+
+            firstWriter.beginRun("run-a", observedAtMillis = 10L)
+            firstWriter.record(
+                "run-a",
+                backgroundEvent(
+                    phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
+                    outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
+                    reason = DeviceRuntimeBackgroundSurvivalReason.Cancelled,
+                ),
+            )
+            prefs.edit().putString(PendingGenerationKey, "run-a").commit()
+
+            val recreatedWriter = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, store, prefs)
+            recreatedWriter.beginRun("run-b", observedAtMillis = 30L)
+
+            assertEquals(1, store.nativeEvents.size)
+            assertTrue(
+                store
+                    .nativeEvents
+                    .single()
+                    .message
+                    .contains("phase=after_wake"),
+            )
+            assertFalse(store.nativeEvents.any { it.message.contains("phase=run_interrupted") })
+        }
+
+    @Test
+    fun `durable writer uses one run-terminal id for terminal outcomes`() =
+        runTest {
+            val store = RecordingArtifactWriteStore()
+            val writer = DefaultRemoteDeviceAcceptanceEvidenceWriter(store, store, prefs)
+
+            writer.beginRun("run-a", observedAtMillis = 10L)
+            writer.record(
+                "run-a",
+                backgroundEvent(
+                    phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
+                    outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
+                    reason = DeviceRuntimeBackgroundSurvivalReason.Cancelled,
+                ),
+            )
+            writer.record(
+                "run-a",
+                backgroundEvent(
+                    phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
+                    outcome = DeviceRuntimeBackgroundSurvivalOutcome.Failed,
+                    reason = DeviceRuntimeBackgroundSurvivalReason.ServiceStopped,
+                ),
+            )
+
+            assertEquals(1, store.nativeEvents.size)
+            assertTrue(
+                store
+                    .nativeEvents
+                    .single()
+                    .message
+                    .contains("reason=service_stopped"),
+            )
         }
 
     private fun backgroundEvent(
@@ -174,9 +240,39 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
 }
 
 private const val TestPrefsName = "remote_acceptance_evidence_writer_test"
+private const val PendingGenerationKey = "pending_generation"
 
-private class RecordingArtifactWriteStore : DiagnosticsArtifactWriteStore {
+private class RecordingArtifactWriteStore :
+    DiagnosticsArtifactQueryStore,
+    DiagnosticsArtifactWriteStore {
     val nativeEvents = mutableListOf<NativeSessionEventEntity>()
+
+    override suspend fun getSnapshotsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<NetworkSnapshotEntity> = emptyList()
+
+    override suspend fun getContextsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<DiagnosticContextEntity> = emptyList()
+
+    override suspend fun getLatestTelemetrySampleForFingerprint(
+        activeMode: String,
+        fingerprintHash: String,
+        createdAfter: Long,
+    ): TelemetrySampleEntity? = null
+
+    override suspend fun getNativeEventsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<NativeSessionEventEntity> = nativeEvents.filter { event -> event.sessionId == sessionId }.take(limit)
+
+    override suspend fun getNativeEventById(id: String): NativeSessionEventEntity? =
+        nativeEvents.firstOrNull { event -> event.id == id }
+
+    override suspend fun getGlobalNativeEvents(limit: Int): List<NativeSessionEventEntity> =
+        nativeEvents.filter { event -> event.sessionId == null }.take(limit)
 
     override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) = Unit
 
@@ -185,6 +281,7 @@ private class RecordingArtifactWriteStore : DiagnosticsArtifactWriteStore {
     override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) = Unit
 
     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
+        nativeEvents.removeAll { existing -> existing.id == event.id }
         nativeEvents += event
     }
 

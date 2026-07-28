@@ -216,6 +216,9 @@ internal class FakeDiagnosticsHistoryStores :
         limit: Int,
     ): List<NativeSessionEventEntity> = nativeEventsState.value.filter { it.sessionId == sessionId }.take(limit)
 
+    override suspend fun getNativeEventById(id: String): NativeSessionEventEntity? =
+        nativeEventsState.value.firstOrNull { it.id == id }
+
     override suspend fun getGlobalNativeEvents(limit: Int): List<NativeSessionEventEntity> =
         nativeEventsState.value.filter { it.sessionId == null }.take(limit)
 

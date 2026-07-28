@@ -116,6 +116,8 @@ interface DiagnosticsArtifactQueryStore {
         limit: Int = 500,
     ): List<NativeSessionEventEntity>
 
+    suspend fun getNativeEventById(id: String): NativeSessionEventEntity?
+
     suspend fun getGlobalNativeEvents(limit: Int = 250): List<NativeSessionEventEntity>
 }
 
@@ -338,6 +340,8 @@ class RoomDiagnosticsArtifactStore
             sessionId: String,
             limit: Int,
         ): List<NativeSessionEventEntity> = dao.getNativeEventsForSession(sessionId = sessionId, limit = limit)
+
+        override suspend fun getNativeEventById(id: String): NativeSessionEventEntity? = dao.getNativeEventById(id)
 
         override suspend fun getGlobalNativeEvents(limit: Int): List<NativeSessionEventEntity> =
             dao.getGlobalNativeEvents(limit)

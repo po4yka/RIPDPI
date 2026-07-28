@@ -235,7 +235,28 @@ internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
         val verified = baselineProbe.captureDataPlanePassed(beforeProbeTelemetry).takeIf { isCurrent(run) }
         val afterBaseline = currentGuidedObservation()
         if (verified != null && isCurrent(run)) {
-            if (!afterBaseline.isVpnRunning || !afterBaseline.interactive) return
+            val interruptedAfterBaseline =
+                when {
+                    !afterBaseline.isVpnRunning -> {
+                        state.interruptAfterWakeServiceStoppedProbe(afterBaseline.telemetry, countersBefore)
+                    }
+
+                    !afterBaseline.interactive -> {
+                        state.interruptAfterWakeScreenChangedProbe(afterBaseline.telemetry, countersBefore)
+                    }
+
+                    afterBaseline.telemetry.serviceInstance() != serviceInstanceBefore -> {
+                        state.interruptAfterWakeServiceRestartedProbe(afterBaseline.telemetry, countersBefore)
+                    }
+
+                    else -> {
+                        null
+                    }
+                }
+            if (interruptedAfterBaseline != null) {
+                applyScreenOffResult(run, startedAt, interruptedAfterBaseline)
+                return
+            }
             val telemetrySample = awaitFreshTelemetryAfter(beforeProbeTelemetry.updatedAt)
             val latestObservation = currentGuidedObservation()
             if (isCurrent(run)) {

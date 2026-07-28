@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
 import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneDelta
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import dagger.Binds
@@ -40,14 +41,17 @@ internal interface RemoteDeviceAcceptanceEvidenceWriter {
 
 @Singleton
 internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
+    private val artifactQueryStore: DiagnosticsArtifactQueryStore,
     private val artifactWriteStore: DiagnosticsArtifactWriteStore,
     private val ledger: SharedPreferences,
 ) : RemoteDeviceAcceptanceEvidenceWriter {
     @Inject
     constructor(
         @ApplicationContext context: Context,
+        artifactQueryStore: DiagnosticsArtifactQueryStore,
         artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) : this(
+        artifactQueryStore = artifactQueryStore,
         artifactWriteStore = artifactWriteStore,
         ledger = context.getSharedPreferences(RemoteAcceptanceEvidencePrefsName, Context.MODE_PRIVATE),
     )
@@ -61,15 +65,7 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
         lock.withLock {
             val interrupted = ledger.pendingGeneration()?.takeIf { it != runGeneration }
             if (interrupted != null) {
-                persistDurableEvent(
-                    event =
-                        durableLifecycleEvent(
-                            runGeneration = interrupted,
-                            phase = RemoteAcceptanceInterruptedPhase,
-                            reason = RemoteAcceptanceInterruptedBeforeNextRun,
-                        ),
-                    createdAt = observedAtMillis,
-                )
+                reconcilePendingGeneration(interrupted, observedAtMillis)
                 ledger.clearPendingGeneration(interrupted)
             }
             ledger.persistPendingGeneration(runGeneration)
@@ -131,6 +127,24 @@ internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
             ),
         )
     }
+
+    private suspend fun reconcilePendingGeneration(
+        runGeneration: String,
+        observedAtMillis: Long,
+    ) {
+        if (artifactQueryStore.getNativeEventById(runTerminalEventId(runGeneration)) != null) {
+            return
+        }
+        persistDurableEvent(
+            event =
+                durableLifecycleEvent(
+                    runGeneration = runGeneration,
+                    phase = RemoteAcceptanceInterruptedPhase,
+                    reason = RemoteAcceptanceInterruptedBeforeNextRun,
+                ),
+            createdAt = observedAtMillis,
+        )
+    }
 }
 
 @Module
@@ -151,10 +165,12 @@ private data class RemoteAcceptanceDurableEvent(
     val message: String,
 ) {
     val id: String =
-        listOf(RemoteAcceptanceBackgroundEvent, runGeneration, phase, outcome, reason)
-            .joinToString(separator = "|")
-            .sha256Hex()
-            .let { hash -> "${RemoteAcceptanceBackgroundEvent}_${hash.take(RemoteAcceptanceEventIdHashChars)}" }
+        durableEventId(
+            runGeneration = runGeneration,
+            phase = phase,
+            outcome = outcome,
+            reason = reason,
+        )
 }
 
 private fun DeviceRuntimeEvidence.BackgroundSurvival.toDurableEvent(
@@ -205,6 +221,39 @@ private fun durableLifecycleEvent(
                 "delta_native_bytes=unchanged " +
                 "vendor_policy_visibility=unavailable",
     )
+
+private fun durableEventId(
+    runGeneration: String,
+    phase: String,
+    outcome: String,
+    reason: String,
+): String {
+    val idParts =
+        if (phase.isTerminalDurablePhase(outcome)) {
+            listOf(RemoteAcceptanceBackgroundEvent, runGeneration, RemoteAcceptanceTerminalEventIdPart)
+        } else {
+            listOf(RemoteAcceptanceBackgroundEvent, runGeneration, phase, outcome, reason)
+        }
+    return idParts
+        .joinToString(separator = "|")
+        .sha256Hex()
+        .let { hash -> "${RemoteAcceptanceBackgroundEvent}_${hash.take(RemoteAcceptanceEventIdHashChars)}" }
+}
+
+private fun runTerminalEventId(runGeneration: String): String =
+    durableEventId(
+        runGeneration = runGeneration,
+        phase = RemoteAcceptanceTerminalEventIdPart,
+        outcome = "terminal",
+        reason = "terminal",
+    )
+
+private fun String.isTerminalDurablePhase(outcome: String): Boolean =
+    this == RemoteAcceptanceTerminalEventIdPart ||
+        this == RemoteAcceptanceInterruptedPhase ||
+        this == RemoteAcceptanceCancelledPhase ||
+        this == "after_wake" ||
+        (this == "screen_off_probe" && outcome != "pending" && outcome != "passed")
 
 private fun StringBuilder.appendDelta(delta: DeviceRuntimeDataPlaneDelta?) {
     append(" delta_tunnel_packets=").append(delta?.tunnelPackets?.coerceAtLeast(0L) ?: "unchanged")
@@ -284,3 +333,4 @@ private const val RemoteAcceptanceInterruptedBeforeNextRun = "interrupted_before
 private const val RemoteAcceptanceCancelledReason = "cancelled"
 private const val RemoteAcceptanceInterruptedPhase = "run_interrupted"
 private const val RemoteAcceptanceCancelledPhase = "run_cancelled"
+private const val RemoteAcceptanceTerminalEventIdPart = "run_terminal"

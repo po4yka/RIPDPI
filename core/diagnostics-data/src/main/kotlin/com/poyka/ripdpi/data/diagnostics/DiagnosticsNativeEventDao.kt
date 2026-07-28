@@ -34,6 +34,9 @@ interface DiagnosticsNativeEventDao {
         limit: Int = 500,
     ): List<NativeSessionEventEntity>
 
+    @Query("SELECT * FROM native_session_events WHERE id = :id LIMIT 1")
+    suspend fun getNativeEventById(id: String): NativeSessionEventEntity?
+
     @Query(
         """
         SELECT * FROM native_session_events
