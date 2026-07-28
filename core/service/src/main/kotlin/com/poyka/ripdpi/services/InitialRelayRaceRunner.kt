@@ -136,7 +136,7 @@ internal class InitialRelayRaceRunner(
             val slot = startCandidate(candidate)
             slots[candidate.profileId] = slot
             val endpoint = requireNotNull(slot.endpoint)
-            val result = relayActiveProbe.probe(endpoint, plan.probeUrl)
+            val result = relayActiveProbe.probe(endpoint, plan.probeUrl, plan.requirements)
             val outcome = result.failure ?: if (result.succeeded) RaceOutcomeSucceeded else RaceOutcomeFailed
             outcomes[candidate.profileId] = candidate.toSnapshot(outcome, result.latencyMs)
             attempts.send(RelayRaceAttempt(candidate, slot, result))

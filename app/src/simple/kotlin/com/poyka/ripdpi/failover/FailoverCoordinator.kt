@@ -189,6 +189,9 @@ class FailoverCoordinator
          */
         private var suspectedRelayFailure: Boolean = false
 
+        /** Capability contract used to build and actively verify the current candidate set. */
+        private var activeRequirements: EgressRequirements = EgressRequirements()
+
         /**
          * Ordered candidate list built from what is actually seeded.
          * Fewer than 2 entries → coordinator stays inert.
@@ -313,6 +316,7 @@ class FailoverCoordinator
             failingsSince = null
             observedProxyTotalErrors = null
             suspectedRelayFailure = false
+            activeRequirements = EgressRequirements()
             awgEgressSelection.clear()
             backedOff = false
             switchesInCycle = 0
@@ -546,7 +550,17 @@ class FailoverCoordinator
                 return false
             }
             val endpoint = parseFailoverProxyEndpoint(snapshot.relayTelemetry.listenerAddress) ?: return false
-            return runCatching { egressProbe.probe(endpoint) }.getOrDefault(false)
+            val result =
+                runCatching { egressProbe.probe(endpoint, activeRequirements) }
+                    .getOrElse { FailoverEgressProbeResult(succeeded = false, failure = "probe_error") }
+            if (!result.succeeded) {
+                Logger.w {
+                    "FailoverCoordinator: egress probe failed kind=" +
+                        candidates.getOrNull(activeCandidateIndex)?.transportKind().orEmpty() +
+                        " capability=${result.failure.orEmpty()}"
+                }
+            }
+            return result.succeeded
         }
 
         /**
@@ -718,6 +732,7 @@ class FailoverCoordinator
                     tcpConnect = true,
                     udpAssociate = !settings.hasUdpAssociateEnabled() || settings.udpAssociateEnabled,
                 )
+            activeRequirements = requirements
 
             val relayProfiles = relayProfileStore.list()
 
@@ -856,7 +871,7 @@ abstract class FailoverCoordinatorBindsModule {
 
     @Binds
     @Singleton
-    internal abstract fun bindFailoverEgressProbe(probe: HttpFailoverEgressProbe): FailoverEgressProbe
+    internal abstract fun bindFailoverEgressProbe(probe: CapabilityAwareFailoverEgressProbe): FailoverEgressProbe
 
     @Binds
     internal abstract fun bindInitialRaceFailoverCoordinator(

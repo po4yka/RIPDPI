@@ -273,7 +273,8 @@ private fun buildCoordinator(
     awgProfiles: List<AwgProfileEntity> = emptyList(),
     clock: FakeFailoverClock = FakeFailoverClock(now = 0L),
     settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
-    egressProbe: FailoverEgressProbe = FailoverEgressProbe { _ -> false },
+    egressProbe: FailoverEgressProbe =
+        FailoverEgressProbe { _, _ -> FailoverEgressProbeResult(succeeded = false) },
 ): CoordinatorFixture {
     val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
     val awgSelection = SimpleAwgEgressSelection(awgRepo, settings)
@@ -392,11 +393,26 @@ class FailoverCoordinatorTest {
                 buildCoordinator(
                     stateStore = stateStore,
                     clock = clock,
+                    settings = FakeAppSettingsRepository(udpAssociateEnabled = null),
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = "reality-1",
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                            ),
+                            RelayProfileRecord(
+                                id = "hysteria-1",
+                                kind = RelayKindHysteria2,
+                                udpEnabled = true,
+                            ),
+                        ),
                     egressProbe =
-                        FailoverEgressProbe { endpoint ->
+                        FailoverEgressProbe { endpoint, requirements ->
                             probeCalls++
                             assertEquals(FailoverProxyEndpoint("127.0.0.1", 1080), endpoint)
-                            true
+                            assertTrue(requirements.udpAssociate)
+                            FailoverEgressProbeResult(succeeded = true)
                         },
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
@@ -425,9 +441,12 @@ class FailoverCoordinatorTest {
                     stateStore = stateStore,
                     clock = clock,
                     egressProbe =
-                        FailoverEgressProbe { _ ->
+                        FailoverEgressProbe { _, _ ->
                             probeCalls++
-                            false
+                            FailoverEgressProbeResult(
+                                succeeded = false,
+                                failure = "udp_read_timeout",
+                            )
                         },
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
@@ -471,9 +490,9 @@ class FailoverCoordinatorTest {
                     stateStore = stateStore,
                     clock = clock,
                     egressProbe =
-                        FailoverEgressProbe { _ ->
+                        FailoverEgressProbe { _, _ ->
                             probeCalls++
-                            true
+                            FailoverEgressProbeResult(succeeded = true)
                         },
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
@@ -520,9 +539,9 @@ class FailoverCoordinatorTest {
                 buildCoordinator(
                     stateStore = stateStore,
                     egressProbe =
-                        FailoverEgressProbe { _ ->
+                        FailoverEgressProbe { _, _ ->
                             probeCalls++
-                            true
+                            FailoverEgressProbeResult(succeeded = true)
                         },
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))

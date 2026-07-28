@@ -68,7 +68,7 @@ class UpstreamRelaySupervisorTest {
         runTest {
             val relayFactory = raceRelayFactory()
             val supervisor =
-                raceSupervisor(relayFactory) { endpoint, _ ->
+                raceSupervisor(relayFactory) { endpoint, _, _ ->
                     if (endpoint.port == RealityRacePort) {
                         delay(5_000L)
                         RelayActiveProbeResult(false, latencyMs = 5_000L, failure = "timeout")
@@ -93,7 +93,7 @@ class UpstreamRelaySupervisorTest {
         runTest {
             val relayFactory = raceRelayFactory()
             val supervisor =
-                raceSupervisor(relayFactory) { endpoint, _ ->
+                raceSupervisor(relayFactory) { endpoint, _, _ ->
                     if (endpoint.port == HysteriaRacePort) {
                         delay(5_000L)
                         RelayActiveProbeResult(false, latencyMs = 5_000L, failure = "timeout")
@@ -117,7 +117,7 @@ class UpstreamRelaySupervisorTest {
         runTest {
             val relayFactory = raceRelayFactory()
             val supervisor =
-                raceSupervisor(relayFactory) { endpoint, _ ->
+                raceSupervisor(relayFactory) { endpoint, _, _ ->
                     val latency = if (endpoint.port == HysteriaRacePort) 50L else 100L
                     delay(latency)
                     RelayActiveProbeResult(true, statusCode = 204, latencyMs = latency)
@@ -152,7 +152,7 @@ class UpstreamRelaySupervisorTest {
                     }
                 }
             val supervisor =
-                raceSupervisor(relayFactory) { _, _ ->
+                raceSupervisor(relayFactory) { _, _, _ ->
                     RelayActiveProbeResult(true, statusCode = 200, latencyMs = 20L)
                 }
 
@@ -168,7 +168,7 @@ class UpstreamRelaySupervisorTest {
         runTest {
             val relayFactory = raceRelayFactory()
             val supervisor =
-                raceSupervisor(relayFactory) { _, _ ->
+                raceSupervisor(relayFactory) { _, _, _ ->
                     RelayActiveProbeResult(false, statusCode = 503, latencyMs = 10L, failure = "http_status")
                 }
 
@@ -191,7 +191,7 @@ class UpstreamRelaySupervisorTest {
         runTest {
             val relayFactory = raceRelayFactory()
             val supervisor =
-                raceSupervisor(relayFactory) { _, _ ->
+                raceSupervisor(relayFactory) { _, _, _ ->
                     RelayActiveProbeResult(false, latencyMs = 10L, failure = "io_error")
                 }
 
@@ -207,7 +207,7 @@ class UpstreamRelaySupervisorTest {
             val relayFactory = raceRelayFactory()
             val exits = mutableListOf<SupervisorExitCause>()
             val supervisor =
-                raceSupervisor(relayFactory) { _, _ ->
+                raceSupervisor(relayFactory) { _, _, _ ->
                     awaitCancellation()
                 }
             val race = async { supervisor.startRace(racePlan(), onUnexpectedExit = exits::add) }
@@ -282,7 +282,7 @@ class UpstreamRelaySupervisorTest {
         runTest {
             val relayFactory = raceRelayFactory()
             val supervisor =
-                raceSupervisor(relayFactory) { _, _ ->
+                raceSupervisor(relayFactory) { _, _, _ ->
                     RelayActiveProbeResult(true, statusCode = 204, latencyMs = 30L)
                 }
             val plan =

@@ -187,7 +187,7 @@ class SharedProxyRuntimeStackTest {
                         )
                     },
                 initialRelayRaceRunnerFactory =
-                    InitialRelayRaceRunnerFactory { endpoint, probeUrl ->
+                    InitialRelayRaceRunnerFactory { endpoint, probeUrl, _ ->
                         if (probeUrl.endsWith("/udp") || endpoint.port == HysteriaRacePort) {
                             RelayActiveProbeResult(true, statusCode = 204, latencyMs = 10L)
                         } else {

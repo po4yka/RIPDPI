@@ -1,20 +1,20 @@
 package com.poyka.ripdpi.failover
 
-import kotlinx.coroutines.suspendCancellableCoroutine
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import java.io.IOException
-import java.net.InetSocketAddress
-import java.net.Proxy
-import java.util.concurrent.TimeUnit
+import com.poyka.ripdpi.services.EgressRequirements
+import com.poyka.ripdpi.services.RelayCapabilityProbe
+import com.poyka.ripdpi.services.RelayProbeEndpoint
 import javax.inject.Inject
-import kotlin.coroutines.resume
+
+internal data class FailoverEgressProbeResult(
+    val succeeded: Boolean,
+    val failure: String? = null,
+)
 
 internal fun interface FailoverEgressProbe {
-    suspend fun probe(endpoint: FailoverProxyEndpoint): Boolean
+    suspend fun probe(
+        endpoint: FailoverProxyEndpoint,
+        requirements: EgressRequirements,
+    ): FailoverEgressProbeResult
 }
 
 internal data class FailoverProxyEndpoint(
@@ -22,65 +22,29 @@ internal data class FailoverProxyEndpoint(
     val port: Int,
 )
 
-internal class HttpFailoverEgressProbe
+internal class CapabilityAwareFailoverEgressProbe
     @Inject
-    constructor() : FailoverEgressProbe {
-        private val client =
-            OkHttpClient
-                .Builder()
-                .followRedirects(false)
-                .followSslRedirects(false)
-                .retryOnConnectionFailure(false)
-                .callTimeout(ProbeTimeoutSeconds, TimeUnit.SECONDS)
-                .build()
-
-        override suspend fun probe(endpoint: FailoverProxyEndpoint): Boolean =
-            suspendCancellableCoroutine { continuation ->
-                val call =
-                    client
-                        .newBuilder()
-                        .proxy(
-                            Proxy(
-                                Proxy.Type.SOCKS,
-                                InetSocketAddress.createUnresolved(endpoint.host, endpoint.port),
-                            ),
-                        ).build()
-                        .newCall(
-                            Request
-                                .Builder()
-                                .url(ProbeUrl)
-                                .get()
-                                .build(),
-                        )
-                continuation.invokeOnCancellation { call.cancel() }
-                call.enqueue(
-                    object : Callback {
-                        override fun onFailure(
-                            call: Call,
-                            e: IOException,
-                        ) {
-                            if (continuation.isActive) {
-                                continuation.resume(false)
-                            }
-                        }
-
-                        override fun onResponse(
-                            call: Call,
-                            response: Response,
-                        ) {
-                            response.use {
-                                if (continuation.isActive) {
-                                    continuation.resume(response.code in SuccessfulStatusRange)
-                                }
-                            }
-                        }
-                    },
+    constructor(
+        private val relayProbe: RelayCapabilityProbe,
+    ) : FailoverEgressProbe {
+        /** cancel-safe: delegates to bounded TCP and UDP capability probes. */
+        override suspend fun probe(
+            endpoint: FailoverProxyEndpoint,
+            requirements: EgressRequirements,
+        ): FailoverEgressProbeResult {
+            val result =
+                relayProbe.probe(
+                    endpoint = RelayProbeEndpoint(endpoint.host, endpoint.port),
+                    url = ProbeUrl,
+                    requirements = requirements,
                 )
-            }
+            return FailoverEgressProbeResult(
+                succeeded = result.succeeded,
+                failure = result.failure,
+            )
+        }
 
         private companion object {
             const val ProbeUrl = "https://connectivitycheck.gstatic.com/generate_204"
-            const val ProbeTimeoutSeconds = 10L
-            val SuccessfulStatusRange = 200..299
         }
     }
