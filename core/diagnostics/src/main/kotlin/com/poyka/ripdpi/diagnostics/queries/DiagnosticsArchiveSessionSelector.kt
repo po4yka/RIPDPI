@@ -76,23 +76,7 @@ class DiagnosticsArchiveSessionSelector
                     ::loadSessionEvents,
                 )
             val includedFiles = buildIncludedFiles(isComposite, compositeStages, sourceData)
-            val payload =
-                DiagnosticsArchivePayload(
-                    schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                    scope = DiagnosticsArchiveFormat.scope,
-                    privacyMode = DiagnosticsArchiveFormat.privacyMode,
-                    session = primarySession,
-                    primaryReport = primary.report,
-                    results = primaryResults,
-                    sessionSnapshots = primary.snapshots,
-                    sessionContexts = primary.contexts,
-                    sessionEvents = primary.events,
-                    latestPassiveSnapshot = primary.latestPassiveSnapshot,
-                    latestPassiveContext = primary.latestPassiveContext,
-                    telemetry = sourceData.telemetry.take(DiagnosticsArchiveFormat.telemetryLimit),
-                    globalEvents = primary.globalEvents,
-                    approachSummaries = sourceData.approachSummaries,
-                )
+            val payload = buildArchivePayload(primarySession, primaryResults, primary, sourceData)
             return DiagnosticsArchiveSelection(
                 runType =
                     if (isComposite) {
@@ -141,6 +125,28 @@ class DiagnosticsArchiveSessionSelector
                 fileLogSnapshot = sourceData.fileLogSnapshot,
             )
         }
+
+        private fun buildArchivePayload(
+            primarySession: ScanSessionEntity?,
+            primaryResults: List<ProbeResultEntity>,
+            primary: PrimarySessionData,
+            sourceData: DiagnosticsArchiveSourceData,
+        ) = DiagnosticsArchivePayload(
+            schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+            scope = DiagnosticsArchiveFormat.scope,
+            privacyMode = DiagnosticsArchiveFormat.privacyMode,
+            session = primarySession,
+            primaryReport = primary.report,
+            results = primaryResults,
+            sessionSnapshots = primary.snapshots,
+            sessionContexts = primary.contexts,
+            sessionEvents = primary.events,
+            latestPassiveSnapshot = primary.latestPassiveSnapshot,
+            latestPassiveContext = primary.latestPassiveContext,
+            telemetry = sourceData.telemetry.take(DiagnosticsArchiveFormat.telemetryLimit),
+            globalEvents = primary.globalEvents,
+            approachSummaries = sourceData.approachSummaries,
+        )
 
         private fun buildPrimarySessionData(
             primarySession: ScanSessionEntity?,
