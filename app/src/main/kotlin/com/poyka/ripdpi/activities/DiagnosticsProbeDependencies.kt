@@ -33,4 +33,5 @@ internal class DiagnosticsProbeDependencies
         val assetLoader: DpiAssetLoader,
         val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer,
         val echTlsHandshake: EchTlsHandshake,
+        val remoteDeviceAcceptance: DiagnosticsRemoteDeviceAcceptance,
     )

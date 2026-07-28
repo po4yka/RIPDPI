@@ -63,6 +63,7 @@ import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -148,6 +149,8 @@ data class DiagnosticsScreenActions(
     val onOpenPastReplays: () -> Unit = {},
     val onTogglePcapRecording: () -> Unit = {},
     val onRunDnsIntegrityCheck: () -> Unit = {},
+    val onRunRemoteDeviceAcceptance: () -> Unit = {},
+    val onShareRemoteDeviceAcceptance: () -> Unit = {},
     val onRunDnsAvailabilitySurvey: () -> Unit = {},
     val onRunDomainReachabilityScan: () -> Unit = {},
     val onRunCompressionProbe: () -> Unit = {},
@@ -186,6 +189,7 @@ fun DiagnosticsScreen(
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     xrayProvider: XrayProviderToolUiModel = XrayProviderToolUiModel(),
+    remoteDeviceAcceptance: RemoteDeviceAcceptanceReport = RemoteDeviceAcceptanceReport(),
     rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
     topBarExtraActions: @Composable () -> Unit = {},
@@ -208,6 +212,9 @@ fun DiagnosticsScreen(
                 pluggableTransportTool = pluggableTransportTool,
                 xrayProvider = xrayProvider,
                 onRunXrayProviderProbe = actions.onRunXrayProviderProbe,
+                remoteDeviceAcceptance = remoteDeviceAcceptance,
+                onRunRemoteDeviceAcceptance = actions.onRunRemoteDeviceAcceptance,
+                onShareRemoteDeviceAcceptance = actions.onShareRemoteDeviceAcceptance,
             ),
         rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,

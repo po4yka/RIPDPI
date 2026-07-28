@@ -30,6 +30,7 @@ import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
@@ -72,6 +73,7 @@ fun DiagnosticsRoute(
         ipv4WhitelistTool = toolsState.ipv4Whitelist,
         pluggableTransportTool = toolsState.pluggableTransport,
         xrayProvider = toolsState.xrayProvider,
+        remoteDeviceAcceptance = toolsState.remoteDeviceAcceptance,
         rootModeEnabled = toolsState.rootModeEnabled,
         pcapRecording = toolsState.pcapRecording,
         topBarExtraActions = topBarExtraActions,
@@ -151,8 +153,17 @@ private fun DiagnosticsViewModel.toolsRouteStateFlow(): Flow<DiagnosticsToolsRou
                 probeRunning = running,
             )
         }
-    return combine(baseFlow, rootModeEnabled, xrayProviderFlow) { state, rootMode, xrayProvider ->
-        state.copy(rootModeEnabled = rootMode, xrayProvider = xrayProvider)
+    return combine(
+        baseFlow,
+        rootModeEnabled,
+        xrayProviderFlow,
+        remoteDeviceAcceptanceReport,
+    ) { state, rootMode, xrayProvider, remoteDeviceAcceptance ->
+        state.copy(
+            rootModeEnabled = rootMode,
+            xrayProvider = xrayProvider,
+            remoteDeviceAcceptance = remoteDeviceAcceptance,
+        )
     }
 }
 
@@ -365,6 +376,8 @@ private fun rememberDiagnosticsScreenActions(
         onRunDpiProbeSuite = remember(viewModel) { viewModel::runDpiProbeSuite },
         onCancelDpiProbeSuite = remember(viewModel) { viewModel::cancelDpiProbeSuite },
         onRunXrayProviderProbe = remember(viewModel) { viewModel::runXrayProviderProbe },
+        onRunRemoteDeviceAcceptance = remember(viewModel) { viewModel::runRemoteDeviceAcceptance },
+        onShareRemoteDeviceAcceptance = remember(viewModel) { viewModel::shareRemoteDeviceAcceptance },
     )
 
 private data class DiagnosticsToolsRouteState(
@@ -375,6 +388,7 @@ private data class DiagnosticsToolsRouteState(
     val ipv4Whitelist: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     val pluggableTransport: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     val xrayProvider: XrayProviderToolUiModel = XrayProviderToolUiModel(),
+    val remoteDeviceAcceptance: RemoteDeviceAcceptanceReport = RemoteDeviceAcceptanceReport(),
 )
 
 private data class DiagnosticsBasicDpiTools(

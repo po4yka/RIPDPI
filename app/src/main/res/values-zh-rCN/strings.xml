@@ -4158,4 +4158,9 @@ fake_burst 3</string>
     <string name="strategy_config_restoring_draft">正在恢复已保存的草稿…</string>
     <string name="strategy_config_draft_save_failed_title">草稿未保存</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI 正在重试将草稿保存到本地。请保持此页面打开，直到警告消失。</string>
+    <string name="diagnostics_device_gate_title">远程设备验收</string>
+    <string name="diagnostics_device_gate_body">在 VPN 使用 Reality 时运行检查。然后重新连接，在 Wi-Fi 和移动数据之间切换，并关闭再开启屏幕。所有事件均被观察到之前，报告会保持不完整。</string>
+    <string name="diagnostics_device_gate_run">开始验收检查</string>
+    <string name="diagnostics_device_gate_rerun">重新开始验收检查</string>
+    <string name="diagnostics_device_gate_share">分享已脱敏报告</string>
 </resources>

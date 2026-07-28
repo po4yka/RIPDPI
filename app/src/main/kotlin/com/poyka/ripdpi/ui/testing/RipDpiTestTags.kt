@@ -280,6 +280,7 @@ internal object RipDpiTestTags {
     const val DiagnosticsWorkflowRestrictionAction = "diagnostics-workflow-restriction-action"
     const val DiagnosticsSharePreviewCard = "diagnostics-share-preview-card"
     const val DiagnosticsArchiveStateIndicator = "diagnostics-archive-state-indicator"
+    const val DiagnosticsDeviceAcceptanceCard = "diagnostics-device-acceptance-card"
     const val DiagnosticsSessionDetailSheet = "diagnostics-session-detail-sheet"
     const val DiagnosticsEventDetailSheet = "diagnostics-event-detail-sheet"
     const val DiagnosticsApproachDetailSheet = "diagnostics-approach-detail-sheet"

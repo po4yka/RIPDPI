@@ -39,6 +39,16 @@ data class RelayCapabilityProbeResult(
     val failure: String?,
 )
 
+/** Per-capability evidence used by local acceptance diagnostics. */
+data class RelayCapabilityProbeEvidence(
+    val tcpSucceeded: Boolean,
+    val tcpStatusCode: Int?,
+    val tcpFailure: String?,
+    val udpSucceeded: Boolean,
+    val udpFailure: String?,
+    val latencyMs: Long,
+)
+
 enum class RelayProbeFailure(
     val wireValue: String,
 ) {
@@ -100,7 +110,22 @@ class RelayCapabilityProbe internal constructor(
         endpoint: RelayProbeEndpoint,
         url: String,
         requirements: EgressRequirements,
-    ): RelayCapabilityProbeResult =
+    ): RelayCapabilityProbeResult {
+        val evidence = probeEvidence(endpoint, url, requirements)
+        return RelayCapabilityProbeResult(
+            succeeded = evidence.tcpSucceeded && evidence.udpSucceeded,
+            statusCode = evidence.tcpStatusCode,
+            latencyMs = evidence.latencyMs,
+            failure = evidence.tcpFailure ?: evidence.udpFailure,
+        )
+    }
+
+    /** cancel-safe: child probes either expose cancellable calls or bounded blocking I/O. */
+    suspend fun probeEvidence(
+        endpoint: RelayProbeEndpoint,
+        url: String,
+        requirements: EgressRequirements,
+    ): RelayCapabilityProbeEvidence =
         coroutineScope {
             val startedAt = System.nanoTime()
             val tcp =
@@ -117,12 +142,13 @@ class RelayCapabilityProbe internal constructor(
                 }
             val tcpResult = tcp?.await() ?: RelayTcpProbeResult(succeeded = true)
             val udpResult = udp?.await() ?: RelayUdpProbeResult.success()
-            val failure = tcpResult.failure ?: udpResult.failure
-            RelayCapabilityProbeResult(
-                succeeded = tcpResult.succeeded && udpResult.succeeded,
-                statusCode = tcpResult.statusCode,
+            RelayCapabilityProbeEvidence(
+                tcpSucceeded = tcpResult.succeeded,
+                tcpStatusCode = tcpResult.statusCode,
+                tcpFailure = tcpResult.failure?.wireValue,
+                udpSucceeded = udpResult.succeeded,
+                udpFailure = udpResult.failure?.wireValue,
                 latencyMs = elapsedMillis(startedAt),
-                failure = failure?.wireValue,
             )
         }
 }

@@ -116,6 +116,7 @@ class DiagnosticsViewModel
                 serviceStateStore = serviceStateStore,
                 probeCoordinator = xrayProviderProbeCoordinator,
             )
+        private val remoteDeviceAcceptance = probeDependencies.remoteDeviceAcceptance
 
         val uiState: StateFlow<DiagnosticsUiState> =
             diagnosticsUiStateAssembler.assemble(
@@ -164,6 +165,7 @@ class DiagnosticsViewModel
         val xrayProviderSnapshot: StateFlow<XrayProviderSnapshot?> = xrayProviderController.snapshot
         val xrayProviderProbeReport: StateFlow<XrayProviderProbeReport?> = xrayProviderController.probeReport
         val xrayProviderProbeRunning: StateFlow<Boolean> = xrayProviderController.probeRunning
+        val remoteDeviceAcceptanceReport = remoteDeviceAcceptance.report
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -356,6 +358,10 @@ class DiagnosticsViewModel
         fun cancelDpiProbeSuite() = dpiSuiteController.cancel()
 
         fun runXrayProviderProbe() = xrayProviderController.runProbe()
+
+        fun runRemoteDeviceAcceptance() = remoteDeviceAcceptance.start(viewModelScope)
+
+        fun shareRemoteDeviceAcceptance() = remoteDeviceAcceptance.share(_effects::tryEmit)
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =

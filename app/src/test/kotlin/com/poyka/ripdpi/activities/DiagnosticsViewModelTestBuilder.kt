@@ -33,6 +33,8 @@ import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceGate
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -152,7 +154,20 @@ private fun defaultDiagnosticsProbeDependencies(appContext: Context): Diagnostic
         assetLoader = DpiAssetLoader(appContext),
         tlsKeylogRunFinalizer = TlsKeylogRunFinalizer(),
         echTlsHandshake = StubEchTlsHandshake,
+        remoteDeviceAcceptance =
+            DiagnosticsRemoteDeviceAcceptance(
+                gate = StubRemoteDeviceAcceptanceGate,
+                stringResolver = AndroidStringResolver(appContext),
+            ),
     )
+
+private object StubRemoteDeviceAcceptanceGate : RemoteDeviceAcceptanceGate {
+    override val report = MutableStateFlow(RemoteDeviceAcceptanceReport())
+
+    override fun start(scope: kotlinx.coroutines.CoroutineScope) = Unit
+
+    override fun renderRedactedReport(): String = "{}"
+}
 
 private object StubEchTlsHandshake : EchTlsHandshake {
     override suspend fun connect(

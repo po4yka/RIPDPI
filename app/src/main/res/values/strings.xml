@@ -4300,4 +4300,9 @@ Source: %2$s</string>
     <string name="strategy_config_restoring_draft">Restoring saved draft…</string>
     <string name="strategy_config_draft_save_failed_title">Draft not saved</string>
     <string name="strategy_config_draft_save_failed_body">RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.</string>
+    <string name="diagnostics_device_gate_title">Remote device acceptance</string>
+    <string name="diagnostics_device_gate_body">Run while the VPN uses Reality. Then reconnect, switch between Wi-Fi and mobile data, and turn the screen off and on. The report stays incomplete until every event is observed.</string>
+    <string name="diagnostics_device_gate_run">Start acceptance check</string>
+    <string name="diagnostics_device_gate_rerun">Restart acceptance check</string>
+    <string name="diagnostics_device_gate_share">Share redacted report</string>
 </resources>

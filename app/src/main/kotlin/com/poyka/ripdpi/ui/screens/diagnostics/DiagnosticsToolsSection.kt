@@ -48,6 +48,7 @@ import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderState
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -118,6 +119,9 @@ internal data class DiagnosticsToolsUiModel(
     val pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     val xrayProvider: XrayProviderToolUiModel = XrayProviderToolUiModel(),
     val onRunXrayProviderProbe: () -> Unit = {},
+    val remoteDeviceAcceptance: RemoteDeviceAcceptanceReport = RemoteDeviceAcceptanceReport(),
+    val onRunRemoteDeviceAcceptance: () -> Unit = {},
+    val onShareRemoteDeviceAcceptance: () -> Unit = {},
 )
 
 @Composable
@@ -163,6 +167,11 @@ internal fun ToolsSection(
             onOpenLogs = shareActions.onOpenLogs,
         )
         xrayProviderItem(tools.xrayProvider, tools.onRunXrayProviderProbe)
+        remoteDeviceAcceptanceItem(
+            report = tools.remoteDeviceAcceptance,
+            onRun = tools.onRunRemoteDeviceAcceptance,
+            onShare = tools.onShareRemoteDeviceAcceptance,
+        )
         dpiToolItems(
             dpiTools = tools.dpiTools,
             cidrWhitelistTool = tools.cidrWhitelistTool,
@@ -204,6 +213,16 @@ private fun LazyListScope.captureItem(
             pcapRecording = pcapRecording,
             onTogglePcapRecording = onTogglePcapRecording,
         )
+    }
+}
+
+private fun LazyListScope.remoteDeviceAcceptanceItem(
+    report: RemoteDeviceAcceptanceReport,
+    onRun: () -> Unit,
+    onShare: () -> Unit,
+) {
+    item {
+        RemoteDeviceAcceptanceCard(report = report, onRun = onRun, onShare = onShare)
     }
 }
 

@@ -67,6 +67,10 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceDevice
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStatus
+import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStep
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -1827,6 +1831,7 @@ class DiagnosticsScreenTest {
     private fun setToolsScreen(
         rootModeEnabled: Boolean = false,
         pcapRecording: Boolean = false,
+        tools: DiagnosticsToolsUiModel = DiagnosticsToolsUiModel(),
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -1842,6 +1847,7 @@ class DiagnosticsScreenTest {
                             onSaveArchive = {},
                             onSaveLogs = {},
                         ),
+                    tools = tools,
                     rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                 )
@@ -2010,6 +2016,35 @@ class DiagnosticsScreenTest {
 
         swipeToolsUntilTextVisible("packet payloads")
         swipeToolsUntilTextVisible("explicitly share or save after recording")
+    }
+
+    @Test
+    fun remoteDeviceAcceptanceCardShowsOnlyRedactedEvidence() {
+        setToolsScreen(
+            tools =
+                DiagnosticsToolsUiModel(
+                    remoteDeviceAcceptance =
+                        RemoteDeviceAcceptanceReport(
+                            status = RemoteDeviceAcceptanceStatus.Incomplete,
+                            device = RemoteDeviceAcceptanceDevice("SM-S928B", "XSG", 35, "arm64-v8a"),
+                            transportKind = "vless_reality",
+                            steps =
+                                listOf(
+                                    RemoteDeviceAcceptanceStep(
+                                        id = "reality_tcp",
+                                        status = RemoteDeviceAcceptanceStatus.Pass,
+                                        durationMs = 42L,
+                                    ),
+                                ),
+                        ),
+                ),
+        )
+
+        swipeToolsUntilTextVisible("SM-S928B")
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsDeviceAcceptanceCard).assertIsDisplayed()
+        composeRule.onNodeWithText("SM-S928B", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("reality_tcp: pass", substring = true).assertIsDisplayed()
+        composeRule.onAllNodesWithText("endpoint", substring = true).assertCountEquals(0)
     }
 
     @Test
