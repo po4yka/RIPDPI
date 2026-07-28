@@ -323,6 +323,53 @@ class DiagnosticsArchiveRendererTest {
         )
     }
 
+    @Test
+    fun `renderer never exports content from undecodable snapshot or context payloads`() {
+        val malformedSnapshot =
+            rendererNetworkSnapshotEntity(sessionId = "session-1").copy(
+                payloadJson = "{\"secret\":\"snapshot-secret-token\",\"ssid\":\"PrivateNetwork\"}",
+            )
+        val malformedContext =
+            rendererDiagnosticContextEntity(sessionId = "session-1").copy(
+                payloadJson = "{\"password\":\"context-secret-token\",\"endpoint\":\"private.example\"}",
+            )
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                payload =
+                    base.payload.copy(
+                        sessionSnapshots = listOf(malformedSnapshot),
+                        sessionContexts = listOf(malformedContext),
+                        latestPassiveSnapshot = malformedSnapshot.copy(id = "passive-snapshot", sessionId = null),
+                        latestPassiveContext = malformedContext.copy(id = "passive-context", sessionId = null),
+                    ),
+                primarySnapshots = listOf(malformedSnapshot),
+                primaryContexts = listOf(malformedContext),
+                latestPassiveSnapshot = malformedSnapshot.copy(id = "passive-snapshot", sessionId = null),
+                latestPassiveContext = malformedContext.copy(id = "passive-context", sessionId = null),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-malformed-payload", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-malformed-payload.zip",
+                createdAt = 47L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val allBytes = entries.values.joinToString("") { it.bytes.decodeToString() }
+        val report = entries.getValue("report.json").bytes.decodeToString()
+
+        listOf(
+            "snapshot-secret-token",
+            "PrivateNetwork",
+            "context-secret-token",
+            "private.example",
+        ).forEach { secret ->
+            assertFalse("$secret must not appear in any archive entry", allBytes.contains(secret))
+        }
+        assertTrue(report.contains("payload_decode_failed"))
+    }
+
     private fun buildFullRendererSelection(): DiagnosticsArchiveSelection =
         DiagnosticsArchiveSelection(
             runType = DiagnosticsArchiveRunType.SINGLE_SESSION,

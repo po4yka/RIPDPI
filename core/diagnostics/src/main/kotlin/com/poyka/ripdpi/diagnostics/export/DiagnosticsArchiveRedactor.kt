@@ -95,14 +95,18 @@ class DiagnosticsArchiveRedactor
             )
 
         fun redact(entity: NetworkSnapshotEntity): NetworkSnapshotEntity {
-            val model = decodeNetworkSnapshot(entity) ?: return entity
+            val model =
+                decodeNetworkSnapshot(entity)
+                    ?: return entity.copy(payloadJson = UndecodableArchivePayloadMarker)
             return entity.copy(
                 payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), redact(model)),
             )
         }
 
         fun redact(entity: DiagnosticContextEntity): DiagnosticContextEntity {
-            val model = decodeDiagnosticContext(entity) ?: return entity
+            val model =
+                decodeDiagnosticContext(entity)
+                    ?: return entity.copy(payloadJson = UndecodableArchivePayloadMarker)
             return entity.copy(
                 payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), redact(model)),
             )
@@ -135,6 +139,8 @@ class DiagnosticsArchiveRedactor
                 }.getOrNull()
             }
     }
+
+private const val UndecodableArchivePayloadMarker = "{\"redactionStatus\":\"payload_decode_failed\"}"
 
 internal fun redactDiagnosticsFreeText(value: String): String =
     value

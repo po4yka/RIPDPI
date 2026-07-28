@@ -72,7 +72,7 @@ class DiagnosticsArchiveComponentsTest {
     }
 
     @Test
-    fun `redactor hides sensitive network and context data and leaves undecodable payloads alone`() {
+    fun `redactor hides sensitive network and context data and replaces undecodable payloads`() {
         val snapshotEntity = networkSnapshotEntity(sessionId = "session-1")
         val contextEntity = diagnosticContextEntity(sessionId = "session-1")
         val invalidSnapshot = snapshotEntity.copy(payloadJson = "{not-json}")
@@ -84,7 +84,9 @@ class DiagnosticsArchiveComponentsTest {
         assertTrue(redactedSnapshot.payloadJson.contains("redacted(1)"))
         assertFalse(redactedContext.payloadJson.contains("127.0.0.1:1080"))
         assertTrue(redactedContext.payloadJson.contains("\"proxyEndpoint\": \"redacted\""))
-        assertEquals(invalidSnapshot, redactor.redact(invalidSnapshot))
+        val redactedInvalidSnapshot = redactor.redact(invalidSnapshot)
+        val marker = "{\"redactionStatus\":\"payload_decode_failed\"}"
+        assertEquals(invalidSnapshot.copy(payloadJson = marker), redactedInvalidSnapshot)
     }
 
     @Test

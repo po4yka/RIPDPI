@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsLogcat
@@ -26,6 +27,39 @@ class DiagnosticsArchiveRedactorTest {
         }
 
     private val redactor = DiagnosticsArchiveRedactor(json)
+
+    @Test
+    fun `redactor replaces undecodable payloads without retaining their content`() {
+        val snapshot =
+            NetworkSnapshotEntity(
+                id = "snapshot-id",
+                sessionId = "session-id",
+                connectionSessionId = "connection-id",
+                snapshotKind = "post_scan",
+                payloadJson = "{\"secret\":\"snapshot-secret-token\",\"ssid\":\"PrivateNetwork\"}",
+                capturedAt = 41L,
+            )
+        val context =
+            DiagnosticContextEntity(
+                id = "context-id",
+                sessionId = "session-id",
+                connectionSessionId = "connection-id",
+                contextKind = "service_state",
+                payloadJson = "{\"password\":\"context-secret-token\",\"endpoint\":\"private.example\"}",
+                capturedAt = 42L,
+            )
+
+        val redactedSnapshot = redactor.redact(snapshot)
+        val redactedContext = redactor.redact(context)
+        val marker = "{\"redactionStatus\":\"payload_decode_failed\"}"
+
+        assertEquals(snapshot.copy(payloadJson = marker), redactedSnapshot)
+        assertEquals(context.copy(payloadJson = marker), redactedContext)
+        assertFalse(redactedSnapshot.payloadJson.contains("snapshot-secret-token"))
+        assertFalse(redactedSnapshot.payloadJson.contains("PrivateNetwork"))
+        assertFalse(redactedContext.payloadJson.contains("context-secret-token"))
+        assertFalse(redactedContext.payloadJson.contains("private.example"))
+    }
 
     @Test
     fun `redactor strips public ip asn dns servers local addresses ssid bssid and gateway from network snapshot`() {
