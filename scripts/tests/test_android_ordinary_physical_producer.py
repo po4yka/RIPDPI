@@ -114,6 +114,17 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("!ipv4.ok && !ipv6.ok", lockdown)
         self.assertNotIn("awaitNoDefaultNetwork", lockdown)
 
+    def test_stop_observes_the_external_test_uid_instead_of_app_status(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        stop = producer[producer.index("private fun stopVpn") :]
+        stop = stop[: stop.index("private fun blockedTransitionProbes")]
+        self.assertIn("bindTestProcessDnsProbeService", stop)
+        self.assertIn("!probeService.isVpnDefaultNetwork()", stop)
+        self.assertNotIn("serviceStateStore.telemetry", stop)
+
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"

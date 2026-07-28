@@ -367,11 +367,16 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     }
 
     private fun stopVpn() {
-        appContext.startService(Intent(appContext, RipDpiVpnService::class.java).setAction(stopAction))
-        appContext.startService(Intent(appContext, RipDpiProxyService::class.java).setAction(stopAction))
-        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
-            serviceStateStore.telemetry.value.status == AppStatus.Halted &&
-                vpnNetwork() == null
+        bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
+            appContext.startService(Intent(appContext, RipDpiVpnService::class.java).setAction(stopAction))
+            appContext.startService(Intent(appContext, RipDpiProxyService::class.java).setAction(stopAction))
+            awaitUntil(
+                timeoutMs = OrdinaryTimeoutMs,
+                pollMs = 10,
+                failureMessage = { "Test UID never observed the VPN default network disappear" },
+            ) {
+                !probeService.isVpnDefaultNetwork()
+            }
         }
     }
 
