@@ -349,7 +349,15 @@ private fun ProfileExecutionPolicyDefinition.toJson(): JsonObject =
 private fun DomainTargetDefinition.toJson(): JsonObject =
     buildJsonObject {
         put("host", host)
+        if (isControl) put("isControl", true)
+        concurrencyProbe?.let { put("concurrencyProbe", it.toJson()) }
         effectiveMetadata()?.let { put("legalSafety", it.toJson()) }
+    }
+
+private fun ConcurrencyProbeTargetMetadataDefinition.toJson(): JsonObject =
+    buildJsonObject {
+        put("cohortId", cohortId)
+        put("maxParallelism", maxParallelism)
     }
 
 private fun DnsTargetDefinition.toJson(): JsonObject =

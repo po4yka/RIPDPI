@@ -172,7 +172,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         val fullProfile = profiles.single { it.id == "ru-dpi-full" }
         val telegramTarget = requireNotNull(fullProfile.telegramTarget)
 
-        assertEquals(6, fullProfile.version)
+        assertEquals(7, fullProfile.version)
         assertEquals("https://telegram.org/img/Telegram200million.png", telegramTarget.mediaUrl)
         assertEquals(5, telegramTarget.dcEndpoints.size)
         assertEquals(listOf("DC1", "DC2", "DC3", "DC4", "DC5"), telegramTarget.dcEndpoints.map { it.label })
@@ -206,6 +206,7 @@ class DiagnosticsCatalogLegalSafetyTest {
                 "ru-global-platforms@1",
                 "ru-messaging@2",
                 "ru-circumvention@1",
+                "neutral-control@2",
             ),
             strategy.packRefs,
         )
@@ -219,6 +220,8 @@ class DiagnosticsCatalogLegalSafetyTest {
                 "telegram.org",
                 "signal.org",
                 "www.whatsapp.com",
+                "speed.cloudflare.com",
+                "proof.ovh.net",
             ),
             strategy.domainTargets.mapTo(mutableSetOf()) { it.host },
         )
@@ -226,6 +229,39 @@ class DiagnosticsCatalogLegalSafetyTest {
             setOf("www.youtube.com", "discord.com", "www.whatsapp.com"),
             strategy.quicTargets.mapTo(mutableSetOf()) { it.host },
         )
+    }
+
+    @Test
+    fun `control evidence is preserved in profiles and rendered catalog`() {
+        val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
+        val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)
+
+        listOf("automatic-probing", "automatic-audit", "ru-dpi-full", "ru-dpi-strategy").forEach { profileId ->
+            val profile = profiles.single { it.id == profileId }
+            assertTrue(
+                profile.domainTargets.any { it.isControl },
+                "Profile $profileId must carry at least one neutral control domain",
+            )
+        }
+
+        listOf("automatic-probing", "automatic-audit").forEach { profileId ->
+            val profile = profiles.single { it.id == profileId }
+            val concurrencyTargets = profile.domainTargets.filterNot { it.isControl }
+            assertTrue(concurrencyTargets.isNotEmpty())
+            assertTrue(
+                concurrencyTargets.all { target ->
+                    target.concurrencyProbe ==
+                        ConcurrencyProbeTargetMetadataDefinition(
+                            cohortId = "global-platform-control-v1",
+                            maxParallelism = 8,
+                        )
+                },
+            )
+        }
+
+        val rendered = DiagnosticsCatalogDefinitions.renderCatalog()
+        assertContains(rendered, "\"isControl\": true")
+        assertContains(rendered, "\"concurrencyProbe\"")
     }
 
     @Test

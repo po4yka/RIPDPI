@@ -268,6 +268,29 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
+    fun `background auto persist eligibility rejects high confidence without control evidence`() {
+        val eligibility =
+            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
+                requireNotNull(
+                    scanReportWithStrategyProbe(
+                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        tcpFamily = "hostfake",
+                        quicFamily = "quic_realistic_burst",
+                        auditAssessment = auditAssessment(),
+                        pilotBucketLabels = emptyList(),
+                    ).strategyProbeReport,
+                ),
+            )
+
+        assertEquals(
+            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
+                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_CONTROL_EVIDENCE,
+            ),
+            eligibility,
+        )
+    }
+
+    @Test
     fun `background auto persist eligibility accepts strong coverage with not applicable candidates`() {
         val eligibility =
             DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
@@ -757,6 +780,7 @@ internal fun scanReportWithStrategyProbe(
     connectionConcurrencyAssessment: ConnectionConcurrencyAssessment? = null,
     tcpSucceededTargets: Int = 1,
     quicSucceededTargets: Int = 1,
+    pilotBucketLabels: List<String> = listOf("control:cloudflare:ech=yes"),
 ): ScanReport =
     ScanReport(
         sessionId = "session-1",
@@ -798,6 +822,7 @@ internal fun scanReportWithStrategyProbe(
                 completionKind = completionKind,
                 auditAssessment = auditAssessment,
                 connectionConcurrencyAssessment = connectionConcurrencyAssessment,
+                pilotBucketLabels = pilotBucketLabels,
             ),
     )
 

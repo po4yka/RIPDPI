@@ -95,6 +95,7 @@ internal object DiagnosticsScanWorkflow {
         LOW_CONFIDENCE,
         INSUFFICIENT_MATRIX_COVERAGE,
         INSUFFICIENT_WINNER_COVERAGE,
+        MISSING_CONTROL_EVIDENCE,
         NO_WINNER_TARGET_SUCCESS,
     }
 
@@ -247,6 +248,12 @@ internal object DiagnosticsScanWorkflow {
 
                 assessment.coverage.winnerCoveragePercent < BackgroundAutoPersistMinWinnerCoveragePercent -> {
                     BackgroundAutoPersistRejectionReason.INSUFFICIENT_WINNER_COVERAGE
+                }
+
+                strategyProbe.pilotBucketLabels.none { label ->
+                    label.startsWith("control:", ignoreCase = true)
+                } -> {
+                    BackgroundAutoPersistRejectionReason.MISSING_CONTROL_EVIDENCE
                 }
 
                 !hasWinningTargetSuccess(strategyProbe) -> {

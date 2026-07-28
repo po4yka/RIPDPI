@@ -128,6 +128,7 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                         speed.cloudflare.com
                         proof.ovh.net
                         """.trimIndent(),
+                        isControl = true,
                     ),
                 tcpTargets = DiagnosticsCatalogSharedData.neutralTcpTargets,
                 throughputTargets =

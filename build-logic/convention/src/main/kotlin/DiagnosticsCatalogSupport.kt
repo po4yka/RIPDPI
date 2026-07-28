@@ -19,9 +19,16 @@ internal fun policy(
 internal fun domainTargets(
     multiline: String,
     legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
+    isControl: Boolean = false,
+    concurrencyProbe: ConcurrencyProbeTargetMetadataDefinition? = null,
 ): List<DomainTargetDefinition> =
     lines(multiline).map { host ->
-        DomainTargetDefinition(host = host, legalSafety = legalSafety)
+        DomainTargetDefinition(
+            host = host,
+            isControl = isControl,
+            concurrencyProbe = concurrencyProbe,
+            legalSafety = legalSafety,
+        )
     }
 
 internal fun quicTargets(multiline: String): List<QuicTargetDefinition> =

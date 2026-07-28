@@ -1,5 +1,5 @@
 internal const val DiagnosticsCatalogGeneratedAt = "2026-04-20"
-internal const val DiagnosticsCatalogSchemaVersion = 1
+internal const val DiagnosticsCatalogSchemaVersion = 2
 
 internal data class DiagnosticsCatalog(
     val packs: List<TargetPackDefinition>,
@@ -78,8 +78,15 @@ internal data class ProfileExecutionPolicyDefinition(
 
 internal data class DomainTargetDefinition(
     val host: String,
+    val isControl: Boolean = false,
+    val concurrencyProbe: ConcurrencyProbeTargetMetadataDefinition? = null,
     val legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
     val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
+)
+
+internal data class ConcurrencyProbeTargetMetadataDefinition(
+    val cohortId: String,
+    val maxParallelism: Int,
 )
 
 internal data class DnsTargetDefinition(

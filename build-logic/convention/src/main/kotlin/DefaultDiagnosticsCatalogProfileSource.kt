@@ -1,12 +1,17 @@
 internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfileSource {
     private val defaultDnsDomains = listOf("cloudflare.com", "google.com", "youtube.com")
+    private val globalPlatformConcurrencyProbe =
+        ConcurrencyProbeTargetMetadataDefinition(
+            cohortId = "global-platform-control-v1",
+            maxParallelism = 8,
+        )
 
     override fun load(index: DiagnosticsCatalogIndex): List<DiagnosticsProfileDefinition> =
         listOf(
             defaultProfile(),
             resolverAuditProfile(),
-            automaticProbingProfile(),
-            automaticAuditProfile(),
+            automaticProbingProfile(index),
+            automaticAuditProfile(index),
             dpiDetectorFullProfile(),
             ruWebConnectivityProfile(index),
             ruMessagingProfile(index),
@@ -52,16 +57,18 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             dnsTargets = defaultDnsDomains.map { domain -> DnsTargetDefinition(domain = domain) },
         )
 
-    private fun automaticProbingProfile(): DiagnosticsProfileDefinition =
-        DiagnosticsProfileDefinition(
+    private fun automaticProbingProfile(index: DiagnosticsCatalogIndex): DiagnosticsProfileDefinition {
+        val neutralControl = index.requirePack("neutral-control")
+        return DiagnosticsProfileDefinition(
             id = "automatic-probing",
             name = "Automatic probing",
-            version = 3,
+            version = 4,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_PROBING,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
+            packRefs = listOf(packRef("neutral-control", 2)),
             domainTargets =
                 domainTargets(
                     """
@@ -69,7 +76,8 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     discord.com
                     proton.me
                     """.trimIndent(),
-                ),
+                    concurrencyProbe = globalPlatformConcurrencyProbe,
+                ) + neutralControl.domainTargets,
             quicTargets =
                 quicTargets(
                     """
@@ -79,17 +87,20 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                 ),
             strategyProbe = StrategyProbeDefinition(suiteId = "quick_v1"),
         )
+    }
 
-    private fun automaticAuditProfile(): DiagnosticsProfileDefinition =
-        DiagnosticsProfileDefinition(
+    private fun automaticAuditProfile(index: DiagnosticsCatalogIndex): DiagnosticsProfileDefinition {
+        val neutralControl = index.requirePack("neutral-control")
+        return DiagnosticsProfileDefinition(
             id = "automatic-audit",
             name = "Automatic audit",
-            version = 3,
+            version = 4,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
+            packRefs = listOf(packRef("neutral-control", 2)),
             domainTargets =
                 domainTargets(
                     """
@@ -97,7 +108,8 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     discord.com
                     proton.me
                     """.trimIndent(),
-                ),
+                    concurrencyProbe = globalPlatformConcurrencyProbe,
+                ) + neutralControl.domainTargets,
             quicTargets =
                 quicTargets(
                     """
@@ -107,6 +119,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                 ),
             strategyProbe = StrategyProbeDefinition(suiteId = "full_matrix_v1"),
         )
+    }
 
     private fun dpiDetectorFullProfile(): DiagnosticsProfileDefinition =
         DiagnosticsProfileDefinition(
@@ -242,7 +255,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 6,
+            version = 7,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -262,7 +275,8 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     independentMedia.domainTargets +
                         globalPlatforms.domainTargets +
                         messaging.domainTargets +
-                        circumvention.domainTargets
+                        circumvention.domainTargets +
+                        neutralControl.domainTargets
                 ).distinctBy { it.host.lowercase() },
             dnsTargets =
                 listOf(
@@ -294,10 +308,11 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         val globalPlatforms = index.requirePack("ru-global-platforms")
         val messaging = index.requirePack("ru-messaging")
         val circumvention = index.requirePack("ru-circumvention")
+        val neutralControl = index.requirePack("neutral-control")
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-strategy",
             name = "Russia DPI Strategy Probe",
-            version = 1,
+            version = 2,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
@@ -310,13 +325,15 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("ru-global-platforms", 1),
                     packRef("ru-messaging", 2),
                     packRef("ru-circumvention", 1),
+                    packRef("neutral-control", 2),
                 ),
             domainTargets =
                 (
                     independentMedia.domainTargets +
                         globalPlatforms.domainTargets +
                         messaging.domainTargets +
-                        circumvention.domainTargets
+                        circumvention.domainTargets +
+                        neutralControl.domainTargets
                 ).distinctBy { it.host.lowercase() },
             quicTargets =
                 (globalPlatforms.quicTargets + messaging.quicTargets)

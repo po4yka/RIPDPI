@@ -167,19 +167,38 @@
           "requiresRawPath": true,
           "probePersistencePolicy": "BACKGROUND_ONLY"
         },
-        "packRefs": [],
+        "packRefs": [
+          "neutral-control@2"
+        ],
         "domainTargets": [
           {
             "host": "www.youtube.com",
-            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
+            "concurrencyProbe": {
+              "cohortId": "global-platform-control-v1",
+              "maxParallelism": 8
+            }
           },
           {
             "host": "discord.com",
-            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
+            "concurrencyProbe": {
+              "cohortId": "global-platform-control-v1",
+              "maxParallelism": 8
+            }
           },
           {
             "host": "proton.me",
-            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
+            "concurrencyProbe": {
+              "cohortId": "global-platform-control-v1",
+              "maxParallelism": 8
+            }
+          },
+          {
+            "host": "speed.cloudflare.com",
+            "isControl": true
+          },
+          {
+            "host": "proof.ovh.net",
+            "isControl": true
           }
         ],
         "dnsTargets": [],
@@ -220,19 +239,38 @@
           "requiresRawPath": true,
           "probePersistencePolicy": "BACKGROUND_ONLY"
         },
-        "packRefs": [],
+        "packRefs": [
+          "neutral-control@2"
+        ],
         "domainTargets": [
           {
             "host": "www.youtube.com",
-            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
+            "concurrencyProbe": {
+              "cohortId": "global-platform-control-v1",
+              "maxParallelism": 8
+            }
           },
           {
             "host": "discord.com",
-            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
+            "concurrencyProbe": {
+              "cohortId": "global-platform-control-v1",
+              "maxParallelism": 8
+            }
           },
           {
             "host": "proton.me",
-            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
+            "concurrencyProbe": {
+              "cohortId": "global-platform-control-v1",
+              "maxParallelism": 8
+            }
+          },
+          {
+            "host": "speed.cloudflare.com",
+            "isControl": true
+          },
+          {
+            "host": "proof.ovh.net",
+            "isControl": true
           }
         ],
         "dnsTargets": [],
@@ -1681,10 +1719,12 @@
             "host": "www.youtube.com"
           },
           {
-            "host": "speed.cloudflare.com"
+            "host": "speed.cloudflare.com",
+            "isControl": true
           },
           {
-            "host": "proof.ovh.net"
+            "host": "proof.ovh.net",
+            "isControl": true
           }
         ],
         "dnsTargets": [],
@@ -1752,7 +1792,7 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 6,
+      "version": 7,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
@@ -1799,6 +1839,14 @@
           },
           {
             "host": "www.whatsapp.com"
+          },
+          {
+            "host": "speed.cloudflare.com",
+            "isControl": true
+          },
+          {
+            "host": "proof.ovh.net",
+            "isControl": true
           }
         ],
         "dnsTargets": [
@@ -1946,7 +1994,7 @@
     {
       "id": "ru-dpi-strategy",
       "name": "Russia DPI Strategy Probe",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "ru-dpi-strategy",
         "displayName": "Russia DPI Strategy Probe",
@@ -1965,7 +2013,8 @@
           "ru-independent-media@1",
           "ru-global-platforms@1",
           "ru-messaging@2",
-          "ru-circumvention@1"
+          "ru-circumvention@1",
+          "neutral-control@2"
         ],
         "domainTargets": [
           {
@@ -1991,6 +2040,14 @@
           },
           {
             "host": "www.whatsapp.com"
+          },
+          {
+            "host": "speed.cloudflare.com",
+            "isControl": true
+          },
+          {
+            "host": "proof.ovh.net",
+            "isControl": true
           }
         ],
         "dnsTargets": [],
