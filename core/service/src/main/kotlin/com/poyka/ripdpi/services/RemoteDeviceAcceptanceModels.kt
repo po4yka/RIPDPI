@@ -51,8 +51,8 @@ internal data class AcceptanceBaselineEvidence(
     val transportKind: String,
     val listenerAvailable: Boolean,
     val probe: RelayCapabilityProbeEvidence?,
-    val ipv4Route: Boolean,
-    val ipv6Route: Boolean,
+    val ipv4Probe: RelayCapabilityProbeEvidence?,
+    val ipv6Probe: RelayCapabilityProbeEvidence?,
     val directEgressObserved: Boolean,
     val durationMs: Long,
 )
@@ -91,8 +91,18 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
                 preflightError ?: probe?.udpFailure,
                 evidence.durationMs,
             ),
-            resultStep(StepIpv4, evidence.ipv4Route, ErrorIpv4Route, evidence.durationMs),
-            resultStep(StepIpv6, evidence.ipv6Route, ErrorIpv6Route, evidence.durationMs),
+            resultStep(
+                StepIpv4,
+                preflightError == null && evidence.ipv4Probe?.tcpSucceeded == true,
+                preflightError ?: evidence.ipv4Probe?.tcpFailure ?: ErrorIpv4Egress,
+                evidence.durationMs,
+            ),
+            resultStep(
+                StepIpv6,
+                preflightError == null && evidence.ipv6Probe?.tcpSucceeded == true,
+                preflightError ?: evidence.ipv6Probe?.tcpFailure ?: ErrorIpv6Egress,
+                evidence.durationMs,
+            ),
             pendingStep(StepReconnect),
             pendingStep(StepHandover),
             pendingStep(StepScreenOff),
@@ -228,8 +238,8 @@ private fun readSalesCode(): String {
 internal const val StepRealityTcp = "reality_tcp"
 internal const val StepUdpAssociate = "socks_udp_associate"
 internal const val StepDnsUdp = "dns_udp"
-internal const val StepIpv4 = "ipv4_vpn_route"
-internal const val StepIpv6 = "ipv6_vpn_route"
+internal const val StepIpv4 = "ipv4_reality_egress"
+internal const val StepIpv6 = "ipv6_reality_egress"
 internal const val StepReconnect = "reconnect"
 internal const val StepHandover = "wifi_mobile_handover"
 internal const val StepScreenOff = "screen_off_survival"
@@ -237,8 +247,8 @@ internal const val ErrorServiceNotRunning = "service_not_running"
 internal const val ErrorTransportMismatch = "transport_mismatch"
 internal const val ErrorListenerUnavailable = "local_listener_unavailable"
 internal const val ErrorProbe = "probe_error"
-internal const val ErrorIpv4Route = "ipv4_route_missing"
-internal const val ErrorIpv6Route = "ipv6_route_missing"
+internal const val ErrorIpv4Egress = "ipv4_egress_failed"
+internal const val ErrorIpv6Egress = "ipv6_egress_failed"
 internal const val ErrorDirectEgress = "direct_egress_observed"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
 private const val MaxDeviceFieldLength = 64

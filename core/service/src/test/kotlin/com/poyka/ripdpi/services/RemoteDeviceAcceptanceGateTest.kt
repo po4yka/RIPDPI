@@ -101,8 +101,8 @@ class RemoteDeviceAcceptanceGateTest {
             transportKind = RelayKindVlessReality,
             listenerAvailable = true,
             probe = successfulProbe(),
-            ipv4Route = true,
-            ipv6Route = true,
+            ipv4Probe = successfulProbe(),
+            ipv6Probe = successfulProbe(),
             directEgressObserved = false,
             durationMs = 42L,
         )
