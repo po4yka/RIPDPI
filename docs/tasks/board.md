@@ -2,13 +2,14 @@
 
 _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; update issue files and regenerate this board._
 
-## Doing (23)
+## Doing (24)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | critical | epic | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-07-17 |
 | critical | epic | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
 | high | ci | [Run a recurring real-VPS AmneziaWG and NAT lane](issues/run-recurring-real-vps-awg-nat-lane.md) | AWG real-VPS lane | 2026-07-22 |
+| high | diagnostics | [Capture P1 device and network evidence](issues/capture-diagnostics-p1-device-network-evidence.md) | Codex diagnostics P1 coordinator | 2026-07-28 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
