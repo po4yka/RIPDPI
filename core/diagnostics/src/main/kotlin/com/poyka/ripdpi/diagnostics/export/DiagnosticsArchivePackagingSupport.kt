@@ -227,27 +227,23 @@ internal fun buildCompleteness(
     contextPayload: DiagnosticsArchiveContextPayload,
 ): DiagnosticsArchiveCompletenessPayload {
     val snapshotDecodeFailures =
-        selection.primarySnapshots.size +
-            if (selection.latestPassiveSnapshot != null) {
-                1
-            } else {
-                0 -
-                    (
-                        snapshotPayload.sessionSnapshots.size +
-                            if (snapshotPayload.latestPassiveSnapshot != null) 1 else 0
-                    )
-            }
+        (
+            selection.primarySnapshots.size +
+                if (selection.latestPassiveSnapshot != null) 1 else 0
+        ) -
+            (
+                snapshotPayload.sessionSnapshots.size +
+                    if (snapshotPayload.latestPassiveSnapshot != null) 1 else 0
+            )
     val contextDecodeFailures =
-        selection.primaryContexts.size +
-            if (selection.latestPassiveContext != null) {
-                1
-            } else {
-                0 -
-                    (
-                        contextPayload.sessionContexts.size +
-                            if (contextPayload.latestPassiveContext != null) 1 else 0
-                    )
-            }
+        (
+            selection.primaryContexts.size +
+                if (selection.latestPassiveContext != null) 1 else 0
+        ) -
+            (
+                contextPayload.sessionContexts.size +
+                    if (contextPayload.latestPassiveContext != null) 1 else 0
+            )
     val collectionWarnings =
         buildList {
             addAll(selection.collectionWarnings)

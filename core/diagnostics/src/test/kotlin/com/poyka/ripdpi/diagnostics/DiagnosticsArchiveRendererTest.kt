@@ -310,6 +310,38 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `decode failure counts subtract successfully decoded artifacts`() {
+        val base = buildFullRendererSelection()
+        val malformedSnapshot = rendererNetworkSnapshotEntity(sessionId = "session-1").copy(payloadJson = "{bad")
+        val malformedContext = rendererDiagnosticContextEntity(sessionId = "session-1").copy(payloadJson = "{bad")
+        val selection =
+            base.copy(
+                primarySnapshots = base.primarySnapshots + malformedSnapshot,
+                primaryContexts = base.primaryContexts + malformedContext,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-decode-count", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-decode-count.zip",
+                createdAt = 44L,
+            )
+
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                renderer
+                    .render(target, selection)
+                    .associateBy(DiagnosticsArchiveEntry::name)
+                    .getValue("completeness.json")
+                    .bytes
+                    .decodeToString(),
+            )
+
+        assertTrue(completeness.collectionWarnings.contains("snapshot_decode_failed_count:1"))
+        assertTrue(completeness.collectionWarnings.contains("context_decode_failed_count:1"))
+    }
+
+    @Test
     fun `stage native event status uses its own fetch quota`() {
         val base = buildFullRendererSelection()
         val selection =
