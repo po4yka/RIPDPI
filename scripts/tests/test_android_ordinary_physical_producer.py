@@ -289,7 +289,12 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertLess(generation, switch)
         self.assertLess(switch, completed)
         self.assertLess(completed, probe)
-        self.assertIn("awaitUntil(timeoutMs = OrdinaryTimeoutMs)", network)
+        self.assertIn("awaitStable(", network)
+        self.assertIn("pollMs = 250", network)
+        self.assertIn("stablePollCount = 12", network)
+        self.assertIn(
+            "networkHandoverState == NetworkHandoverStates.Revalidated", network
+        )
 
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(

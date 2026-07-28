@@ -35,6 +35,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.setStrategyChains
@@ -307,8 +308,24 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 .put("observedAtEpochMs", now())
                 .put("toNetworkHandleSha256", hash("network:${after.networkHandle}"))
                 .put("toTransport", "CELLULAR")
-        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
-            serviceStateStore.telemetry.value.status == AppStatus.Running &&
+        var lastObservedStartCount = completedStartCount
+        awaitStable(
+            timeoutMs = OrdinaryTimeoutMs,
+            pollMs = 250,
+            stablePollCount = 12,
+            failureMessage = {
+                "Network handover did not settle on a completed native bridge: " +
+                    "starts=${tunnelFactory.completedStartCount()} " +
+                    "state=${serviceStateStore.telemetry.value.networkHandoverState}"
+            },
+        ) {
+            val currentStartCount = tunnelFactory.completedStartCount()
+            val generationUnchanged = currentStartCount == lastObservedStartCount
+            lastObservedStartCount = currentStartCount
+            val telemetry = serviceStateStore.telemetry.value
+            generationUnchanged &&
+                telemetry.status == AppStatus.Running &&
+                telemetry.networkHandoverState == NetworkHandoverStates.Revalidated &&
                 vpnNetwork() != null &&
                 tunnelFactory.completedStartAfter(completedStartCount, ipv6 = false)
         }
