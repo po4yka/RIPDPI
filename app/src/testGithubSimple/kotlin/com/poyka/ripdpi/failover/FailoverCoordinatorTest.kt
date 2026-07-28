@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -775,6 +776,51 @@ class FailoverCoordinatorTest {
             )
 
             assertTrue(memory.failures.isEmpty())
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun confirmedXudpFailureAfterRevalidatedHandoverIsPenalized() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val memory = RecordingSimpleEgressHealthMemory()
+            val coordinator =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    settings = FakeAppSettingsRepository(udpAssociateEnabled = null),
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = "reality-1",
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                            ),
+                            RelayProfileRecord(
+                                id = "hysteria-1",
+                                kind = RelayKindHysteria2,
+                                udpEnabled = true,
+                            ),
+                        ),
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            FailoverEgressProbeResult(succeeded = false, failure = "udp_read_timeout")
+                        },
+                    egressHealthMemory = memory,
+                ).coordinator
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 3,
+                    networkScopeKey = "network-hash-b",
+                    networkHandoverState = NetworkHandoverStates.Revalidated,
+                    failureClass = FailureClass.NetworkHandover,
+                ),
+            )
+
+            assertEquals(1, memory.failures.size)
             coordinator.stopObserving()
         }
 

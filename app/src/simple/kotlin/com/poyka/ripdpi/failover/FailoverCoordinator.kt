@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -863,7 +864,20 @@ class FailoverCoordinator
     }
 
 private fun ServiceTelemetrySnapshot.isNetworkHandover(): Boolean =
-    networkHandoverState != null || runtimeFieldTelemetry.failureClass == FailureClass.NetworkHandover
+    when (networkHandoverState) {
+        in ActiveNetworkHandoverStates -> true
+        null -> runtimeFieldTelemetry.failureClass == FailureClass.NetworkHandover
+        else -> false
+    }
+
+private val ActiveNetworkHandoverStates =
+    setOf(
+        NetworkHandoverStates.Observed,
+        NetworkHandoverStates.WaitingForNetwork,
+        NetworkHandoverStates.DeferredCaptivePortal,
+        NetworkHandoverStates.Restarting,
+        NetworkHandoverStates.RetryScheduled,
+    )
 
 internal fun parseFailoverProxyEndpoint(listenerAddress: String?): FailoverProxyEndpoint? {
     val raw = listenerAddress?.trim()?.takeIf(String::isNotEmpty) ?: return null
