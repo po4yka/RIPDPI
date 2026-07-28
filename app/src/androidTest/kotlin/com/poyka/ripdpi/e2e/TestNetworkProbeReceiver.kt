@@ -215,7 +215,6 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
                 val output: OutputStream = socket.getOutputStream()
                 output.write(payloadBytes)
                 output.flush()
-                socket.shutdownOutput()
 
                 val input: InputStream = socket.getInputStream()
                 extras.putString(ExtraResponse, readTcpProbeResponse(input, payloadBytes.size))

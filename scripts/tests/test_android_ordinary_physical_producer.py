@@ -288,6 +288,18 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("result.ok && result.response == payload", probe)
         self.assertNotIn("testProcessTcpConnect(", probe)
 
+    def test_tcp_round_trip_reads_echo_before_half_closing_the_socket(self) -> None:
+        receiver = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "TestNetworkProbeReceiver.kt"
+        ).read_text()
+        tcp_probe = receiver[receiver.index("private fun runTcpProbe(") :]
+        tcp_probe = tcp_probe[: tcp_probe.index("private fun runUdpProbe(")]
+
+        self.assertIn("output.write(payloadBytes)", tcp_probe)
+        self.assertIn("readTcpProbeResponse(input, payloadBytes.size)", tcp_probe)
+        self.assertNotIn("shutdownOutput()", tcp_probe)
+
     def test_aaaa_probe_runs_outside_the_vpn_owner_and_captures_direct_leaks(
         self,
     ) -> None:
