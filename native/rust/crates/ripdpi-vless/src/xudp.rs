@@ -326,14 +326,14 @@ fn format_target(host: &str, port: u16) -> String {
     if host.contains(':') { format!("[{host}]:{port}") } else { format!("{host}:{port}") }
 }
 
-/// NOT cancel-safe: `read_exact` may consume a frame prefix. This function is
-/// owned by the dedicated reader task and is never raced in `select!`; aborting
-/// the task also drops the carrier, so a partial frame is never reused.
 enum DecodedFrame {
     Datagram(String, Vec<u8>),
     KeepAlive,
 }
 
+/// NOT cancel-safe: `read_exact` may consume a frame prefix. This function is
+/// owned by the dedicated reader task and is never raced in `select!`; aborting
+/// the task also drops the carrier, so a partial frame is never reused.
 async fn read_frame<R>(reader: &mut R, last_target: &mut Option<String>) -> io::Result<DecodedFrame>
 where
     R: AsyncRead + Unpin,
