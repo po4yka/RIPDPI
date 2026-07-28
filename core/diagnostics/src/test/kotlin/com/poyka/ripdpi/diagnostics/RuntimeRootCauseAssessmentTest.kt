@@ -38,6 +38,129 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
+    fun `typed dns runtime state classifies dns failure with medium confidence`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedDnsRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            state = "failure_threshold",
+                            createdAt = 1L,
+                        ),
+                        typedDnsRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            state = "failure_threshold",
+                            createdAt = 2L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
+        assertEquals(RuntimeRootCauseConfidence.MEDIUM, assessment.confidence)
+        assertEquals(listOf("dns_failure"), assessment.evidenceRefs.map { it.category })
+    }
+
+    @Test
+    fun `recovered typed dns runtime state stays inconclusive`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedDnsRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            state = "recovered",
+                            createdAt = 1L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
+    fun `spoofed dns runtime state requires deterministic producer shape`() {
+        val variants =
+            listOf(
+                typedDnsRuntimeEvent(
+                    connectionSessionId = "conn-a",
+                    state = "failure_threshold",
+                    createdAt = 1L,
+                    id = "typed_runtime_state:dns:conn-b",
+                ),
+                typedDnsRuntimeEvent(
+                    connectionSessionId = "conn-a",
+                    state = "failure_threshold",
+                    createdAt = 2L,
+                    source = "service",
+                ),
+                typedDnsRuntimeEvent(
+                    connectionSessionId = "conn-a",
+                    state = "failure_threshold",
+                    createdAt = 3L,
+                    subsystem = "service",
+                ),
+                typedDnsRuntimeEvent(
+                    connectionSessionId = "conn-a",
+                    state = "failure_threshold",
+                    createdAt = 4L,
+                    message = "event=dns_failure evidence=dns_counter_transition_v1 state=failure_threshold",
+                ),
+            )
+        variants.forEach { spoofed ->
+            val assessment =
+                RuntimeRootCauseClassifier.assess(
+                    connectionSessionId = "conn-a",
+                    events = listOf(spoofed),
+                )
+
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertTrue(assessment.evidenceRefs.isEmpty())
+        }
+    }
+
+    @Test
+    fun `relay runtime failure blocks roots but relay stall remains unreachable`() {
+        val relayOnly =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedRelayRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            relayFailed = true,
+                            createdAt = 1L,
+                        ),
+                    ),
+            )
+        val withDns =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        typedDnsRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            state = "failure_threshold",
+                            createdAt = 1L,
+                        ),
+                        typedRelayRuntimeEvent(
+                            connectionSessionId = "conn-a",
+                            relayFailed = true,
+                            createdAt = 2L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, relayOnly.verdict)
+        assertEquals(listOf("relay_runtime_failure"), relayOnly.contradictoryCategories)
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, withDns.verdict)
+        assertEquals(listOf("dns_failure", "relay_runtime_failure"), withDns.contradictoryCategories)
+    }
+
+    @Test
     fun `missing and foreign session evidence stays inconclusive`() {
         val assessment =
             RuntimeRootCauseClassifier.assess(
@@ -418,10 +541,11 @@ class RuntimeRootCauseAssessmentTest {
         createdAt: Long,
         source: String = "service",
         level: String = "info",
+        id: String = "${connectionSessionId.orEmpty()}:$subsystem:$createdAt",
         preserveMessage: Boolean = false,
     ): NativeSessionEventEntity =
         NativeSessionEventEntity(
-            id = "${connectionSessionId.orEmpty()}:$subsystem:$createdAt",
+            id = id,
             sessionId = null,
             connectionSessionId = connectionSessionId,
             source = source,
@@ -434,5 +558,43 @@ class RuntimeRootCauseAssessmentTest {
                 },
             createdAt = createdAt,
             subsystem = subsystem,
+        )
+
+    private fun typedDnsRuntimeEvent(
+        connectionSessionId: String,
+        state: String,
+        createdAt: Long,
+        id: String = "typed_runtime_state:dns:$connectionSessionId",
+        source: String = "service_telemetry_state",
+        subsystem: String = "dns",
+        message: String = "event=dns_runtime_state evidence=dns_counter_transition_v1 state=$state",
+    ): NativeSessionEventEntity =
+        event(
+            connectionSessionId = connectionSessionId,
+            subsystem = subsystem,
+            source = source,
+            level = "warn",
+            message = message,
+            createdAt = createdAt,
+            id = id,
+            preserveMessage = true,
+        )
+
+    private fun typedRelayRuntimeEvent(
+        connectionSessionId: String,
+        relayFailed: Boolean,
+        createdAt: Long,
+    ): NativeSessionEventEntity =
+        event(
+            connectionSessionId = connectionSessionId,
+            subsystem = "relay",
+            source = "service_telemetry_state",
+            level = "warn",
+            message =
+                "event=relay_runtime_state evidence=relay_health_transition_v1 " +
+                    "state=failed health=failed relay_failed=$relayFailed",
+            createdAt = createdAt,
+            id = "typed_runtime_state:relay:$connectionSessionId",
+            preserveMessage = true,
         )
 }

@@ -10,6 +10,8 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -288,6 +290,134 @@ class RuntimeHistoryMonitorPersistenceTest {
                 )
             assertFalse(persistedEvidence.message.contains("event_kind="))
             assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        }
+
+    @Test
+    fun `dns runtime health threshold persists one deterministic typed event`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 0, failures = 0, updatedAt = 1L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 1, failures = 1, updatedAt = 2L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 3L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-b")
+            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 5L)
+
+            val typedEvent = typedRuntimeEvents(stores, "dns").single()
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertEquals("typed_runtime_state:dns:conn-a", typedEvent.id)
+            assertEquals("service_telemetry_state", typedEvent.source)
+            assertEquals("dns", typedEvent.subsystem)
+            assertEquals("warn", typedEvent.level)
+            assertEquals(
+                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=failure_threshold",
+                typedEvent.message,
+            )
+            assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
+            assertEquals(RuntimeRootCauseConfidence.MEDIUM, assessment.confidence)
+            assertTrue(stores.nativeEventsState.value.none { event -> event.id == "typed_runtime_state:dns:conn-b" })
+        }
+
+    @Test
+    fun `dns runtime health success replaces threshold with recovered`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 0, failures = 0, updatedAt = 1L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 1, failures = 1, updatedAt = 2L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 3L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 3, failures = 2, updatedAt = 4L), "conn-a")
+            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 5L)
+
+            val typedEvent = typedRuntimeEvents(stores, "dns").single()
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertEquals("info", typedEvent.level)
+            assertEquals(
+                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=recovered",
+                typedEvent.message,
+            )
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        }
+
+    @Test
+    fun `dns runtime health rollback resets active failure to inconclusive`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 0, failures = 0, updatedAt = 1L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 1, failures = 1, updatedAt = 2L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 3L), "conn-a")
+            persister.persistRuntimeEvents(dnsTelemetry(queries = 0, failures = 0, updatedAt = 4L), "conn-a")
+            persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 5L)
+
+            val typedEvent = typedRuntimeEvents(stores, "dns").single()
+            val assessment =
+                RuntimeHistoryJson.decodeFromString(
+                    RuntimeRootCauseAssessment.serializer(),
+                    rootCauseAssessments(stores).single().message.substringAfter("runtime_root_cause_assessment "),
+                )
+            assertEquals(
+                "event=dns_runtime_state evidence=dns_counter_transition_v1 state=recovered",
+                typedEvent.message,
+            )
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        }
+
+    @Test
+    fun `relay runtime health persists only categorical typed state`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(
+                relayTelemetry(
+                    updatedAt = 1L,
+                    state = "failed",
+                    health = "fd=33 private.example",
+                    status =
+                        RuntimeTelemetryStatus(
+                            state = RuntimeTelemetryState.EngineError,
+                            message = "private.example fd=33",
+                            causeClass = "java.io.IOException",
+                        ),
+                ),
+                "conn-a",
+            )
+            persister.persistRuntimeEvents(
+                relayTelemetry(
+                    updatedAt = 2L,
+                    state = "running",
+                    health = "ok",
+                    status = RuntimeTelemetryStatus(state = RuntimeTelemetryState.Snapshot),
+                ),
+                "conn-a",
+            )
+
+            val typedEvent = typedRuntimeEvents(stores, "relay").single()
+            assertEquals("typed_runtime_state:relay:conn-a", typedEvent.id)
+            assertEquals("service_telemetry_state", typedEvent.source)
+            assertEquals("relay", typedEvent.subsystem)
+            assertEquals("info", typedEvent.level)
+            assertEquals(
+                "event=relay_runtime_state evidence=relay_health_transition_v1 " +
+                    "state=running health=ok relay_failed=false",
+                typedEvent.message,
+            )
+            assertFalse(typedEvent.message.contains("private.example"))
+            assertFalse(typedEvent.message.contains("fd=33"))
+            assertFalse(typedEvent.message.contains("java.io.IOException"))
         }
 
     @Test
@@ -623,6 +753,38 @@ class RuntimeHistoryMonitorPersistenceTest {
             updatedAt = updatedAt,
         )
 
+    private fun dnsTelemetry(
+        queries: Long,
+        failures: Long,
+        updatedAt: Long,
+    ): ServiceTelemetrySnapshot =
+        ServiceTelemetrySnapshot(
+            tunnelTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    dnsQueriesTotal = queries,
+                    dnsFailuresTotal = failures,
+                ),
+            updatedAt = updatedAt,
+        )
+
+    private fun relayTelemetry(
+        updatedAt: Long,
+        state: String,
+        health: String,
+        status: RuntimeTelemetryStatus,
+    ): ServiceTelemetrySnapshot =
+        ServiceTelemetrySnapshot(
+            relayTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "relay",
+                    state = state,
+                    health = health,
+                ),
+            relayTelemetryStatus = status,
+            updatedAt = updatedAt,
+        )
+
     private fun handoverEvents(stores: FakeDiagnosticsHistoryStores) =
         stores.nativeEventsState.value.filter { event ->
             event.source == "android_device_state" && event.message.contains("trigger=handover")
@@ -645,4 +807,12 @@ class RuntimeHistoryMonitorPersistenceTest {
 
     private fun rootCauseAssessments(stores: FakeDiagnosticsHistoryStores): List<NativeSessionEventEntity> =
         stores.nativeEventsState.value.filter { event -> event.source == RuntimeRootCauseAssessmentSource }
+
+    private fun typedRuntimeEvents(
+        stores: FakeDiagnosticsHistoryStores,
+        subsystem: String,
+    ): List<NativeSessionEventEntity> =
+        stores.nativeEventsState.value.filter { event ->
+            event.source == "service_telemetry_state" && event.subsystem == subsystem
+        }
 }

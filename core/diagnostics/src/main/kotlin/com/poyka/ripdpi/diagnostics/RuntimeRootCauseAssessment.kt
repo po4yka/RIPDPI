@@ -88,7 +88,7 @@ internal object RuntimeRootCauseClassifier {
                         .thenBy { event -> event.transitionSequence() },
                 ).toList()
                 .takeLast(MaxRuntimeRootCauseEvents)
-        val evidence = collectEvidence(scopedEvents)
+        val evidence = collectEvidence(connectionSessionId, scopedEvents)
         val verdict = selectVerdict(evidence, terminalEvidenceSealed)
         return RuntimeRootCauseAssessment(
             verdict = verdict,
@@ -101,7 +101,10 @@ internal object RuntimeRootCauseClassifier {
     }
 }
 
-private fun collectEvidence(events: List<NativeSessionEventEntity>): RuntimeEvidenceAccumulator {
+private fun collectEvidence(
+    connectionSessionId: String,
+    events: List<NativeSessionEventEntity>,
+): RuntimeEvidenceAccumulator {
     val evidence = RuntimeEvidenceAccumulator()
     val terminalDataPlaneEvent = events.latestCanonicalDataPlaneFinalEvent()
     collectNetworkTransitionEvidence(events, evidence)
@@ -123,6 +126,7 @@ private fun collectEvidence(events: List<NativeSessionEventEntity>): RuntimeEvid
             }
         }
         // DNS and relay verdicts remain fail-closed until their producers emit an allowlisted kind.
+        collectTypedRuntimeHealthEvidence(connectionSessionId, event, tokens, evidence)
         collectExplicitMtuEvidence(event, tokens, evidence)
     }
     return evidence
@@ -211,6 +215,43 @@ private fun collectDataPlaneEvidence(
     }
 }
 
+private fun collectTypedRuntimeHealthEvidence(
+    connectionSessionId: String,
+    event: NativeSessionEventEntity,
+    tokens: Map<String, String>,
+    evidence: RuntimeEvidenceAccumulator,
+) {
+    if (event.source != "service_telemetry_state") return
+    if (event.level.lowercase(Locale.US) !in TypedRuntimeHealthLevels) return
+    when (event.subsystem) {
+        "dns" -> {
+            if (
+                event.id == "typed_runtime_state:dns:$connectionSessionId" &&
+                tokens["event"] == "dns_runtime_state" &&
+                tokens["evidence"] == "dns_counter_transition_v1" &&
+                tokens["state"] == "failure_threshold"
+            ) {
+                evidence.add(RuntimeEvidenceCategory.DnsFailure, event)
+            }
+        }
+
+        "relay" -> {
+            if (
+                event.id == "typed_runtime_state:relay:$connectionSessionId" &&
+                tokens["event"] == "relay_runtime_state" &&
+                tokens["evidence"] == "relay_health_transition_v1" &&
+                tokens["state"] in RelayRuntimeStates &&
+                tokens["health"] in RelayRuntimeHealthValues &&
+                tokens["relay_failed"] in RelayFailedValues
+            ) {
+                if (tokens["relay_failed"] == "true") {
+                    evidence.add(RuntimeEvidenceCategory.RelayRuntimeFailure, event)
+                }
+            }
+        }
+    }
+}
+
 private fun collectExplicitMtuEvidence(
     event: NativeSessionEventEntity,
     tokens: Map<String, String>,
@@ -231,6 +272,10 @@ private fun selectVerdict(
         }
 
         evidence.hasDataPlaneConflict() -> {
+            RuntimeRootCauseVerdict.INCONCLUSIVE
+        }
+
+        evidence.has(RuntimeEvidenceCategory.RelayRuntimeFailure) -> {
             RuntimeRootCauseVerdict.INCONCLUSIVE
         }
 
@@ -291,6 +336,7 @@ private fun confidenceFor(
         evidence.has(RuntimeEvidenceCategory.DataPlaneTunIngressNoUpstream) ||
             evidence.has(RuntimeEvidenceCategory.DataPlaneOutboundNoReturn)
     return when {
+        verdict == RuntimeRootCauseVerdict.DNS_FAILURE -> RuntimeRootCauseConfidence.MEDIUM
         primaryCount >= 2 -> RuntimeRootCauseConfidence.HIGH
         hasTerminalDataPlane && verdict in DataPlaneSupportedVerdicts -> RuntimeRootCauseConfidence.HIGH
         else -> RuntimeRootCauseConfidence.MEDIUM
@@ -377,6 +423,7 @@ private enum class RuntimeEvidenceCategory(
     DnsFailure("dns_failure"),
     MtuBlackhole("mtu_blackhole"),
     RelayStall("relay_stall"),
+    RelayRuntimeFailure("relay_runtime_failure"),
     ProtectFailure("protect_failure"),
 }
 
@@ -418,7 +465,7 @@ private fun RuntimeRootCauseVerdict.evidenceCategories(): Set<RuntimeEvidenceCat
         }
     }
 
-private fun String.toKeyValueTokens(): Map<String, String> =
+internal fun String.toKeyValueTokens(): Map<String, String> =
     split(' ', ';')
         .asSequence()
         .mapNotNull { token ->
@@ -428,6 +475,8 @@ private fun String.toKeyValueTokens(): Map<String, String> =
             val value = token.substring(separator + 1).trim(',', '"').lowercase(Locale.US)
             key to value
         }.toMap()
+
+internal fun NativeSessionEventEntity.toKeyValueTokens(): Map<String, String> = message.toKeyValueTokens()
 
 private fun NativeSessionEventEntity.transitionSequence(): Long =
     if (subsystem == "network_transition") {
@@ -478,8 +527,14 @@ private const val RuntimeRootCauseWindowMillis = 5 * 60 * 1000L
 private const val MinPmtuLargeFailures = 2
 
 private val WarningLevels = setOf("warn", "error")
+private val TypedRuntimeHealthLevels = setOf("info", "warn")
 private val PmtuProbeProvenance = setOf("pmtu_probe_v1", "typed_pmtu_probe_v1")
 private val NetworkCapabilityStates = setOf("present", "absent")
+private val RelayFailedValues = setOf("true", "false")
+private val RelayRuntimeStates =
+    setOf("idle", "starting", "running", "stopping", "stopped", "degraded", "failed", "error", "unknown")
+private val RelayRuntimeHealthValues =
+    setOf("idle", "ok", "healthy", "degraded", "failed", "error", "unknown")
 private val DataPlaneModes = setOf("vpn", "proxy")
 private val DataPlaneCorrelationStates =
     setOf(

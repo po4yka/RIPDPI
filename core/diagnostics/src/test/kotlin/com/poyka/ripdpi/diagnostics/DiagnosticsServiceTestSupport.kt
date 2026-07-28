@@ -327,7 +327,7 @@ internal class FakeDiagnosticsHistoryStores :
 
     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
         beforeInsertNativeSessionEvent(event)
-        nativeEventsState.value = nativeEventsState.value + event
+        nativeEventsState.value = nativeEventsState.value.upsertById(event) { it.id }
     }
 
     override suspend fun insertExportRecord(record: ExportRecordEntity) {
