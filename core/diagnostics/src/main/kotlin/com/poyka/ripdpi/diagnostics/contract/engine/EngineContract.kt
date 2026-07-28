@@ -26,6 +26,7 @@ import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
@@ -121,6 +122,7 @@ data class EngineScanReportWire(
     val startedAt: Long,
     val finishedAt: Long,
     val summary: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val completionKind: ScanCompletionKind = ScanCompletionKind.NORMAL,
     val terminationReason: ScanTerminationReason? = null,
     val results: List<EngineProbeResultWire> = emptyList(),
