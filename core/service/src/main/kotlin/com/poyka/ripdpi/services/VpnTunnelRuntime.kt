@@ -344,6 +344,38 @@ internal class VpnTunnelRuntime(
             )
     }
 
+    /** Stops native forwarding while deliberately retaining the installed TUN. */
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun retainFailClosedBarrier(): Boolean {
+        val session = tunSession ?: pendingSession ?: return false
+        val activeBridge = tun2SocksBridge
+        val inactiveBridge = retiringBridge
+        val bridges =
+            buildList {
+                activeBridge?.let(::add)
+                if (inactiveBridge !== activeBridge) inactiveBridge?.let(::add)
+            }
+        tun2SocksBridge = null
+        retiringBridge = null
+
+        var stopFailure: Throwable? = null
+        for (bridge in bridges) {
+            try {
+                bridge.stop()
+            } catch (error: Exception) {
+                retiringBridge = bridge
+                if (stopFailure == null) {
+                    stopFailure = error
+                } else {
+                    stopFailure.addSuppressed(error)
+                }
+            }
+        }
+        stopFailure?.let { throw it }
+        tunSession = session
+        return !isForwarding
+    }
+
     fun resetRuntimeState() {
         currentDnsSignature = null
         currentInterfacePolicySignature = null

@@ -150,6 +150,27 @@ class SharedProxyRuntimeStackTest {
             assertTrue(fixture.proxyFactory.runtimes.isEmpty())
         }
 
+    @Test
+    fun stopAttemptsRelayCleanupAfterProxyStopFailure() =
+        runTest {
+            val fixture = createFixture()
+            fixture.stack.start(
+                proxyPreferences = rememberedJsonPreferences(),
+                onRelayExit = {},
+                onWarpExit = {},
+                onAwgExit = {},
+                onProxyExit = {},
+                initialRelayRacePlan = racePlan(),
+            )
+            fixture.proxyFactory.lastRuntime.stopFailure = IllegalStateException("proxy stop failed")
+
+            val failure = runCatching { fixture.stack.stop(skipRuntimeShutdown = false) }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals(1, fixture.proxyFactory.lastRuntime.stopCount)
+            assertEquals(1, fixture.relayFactory.lastRuntime.stopCount)
+        }
+
     private fun TestScope.createFixture(
         renderer: (RipDpiProxyPreferences, RipDpiRelayConfig, String, Int) -> RipDpiProxyPreferences =
             { preferences, selection, host, port ->

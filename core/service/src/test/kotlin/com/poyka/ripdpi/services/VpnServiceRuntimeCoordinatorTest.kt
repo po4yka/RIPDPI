@@ -1121,6 +1121,50 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun exhaustedHandoverWithProxyStopFailureStillSealsTunForwarding() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            var runtimeCount = 0
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(mode = Mode.VPN, policySignature = "handover"),
+                        ),
+                    runtimeFactory = { events ->
+                        runtimeCount += 1
+                        TestProxyRuntime(events).apply {
+                            if (runtimeCount > 1) {
+                                startFailure = IOException("proxy restart boom")
+                                stopFailure = IOException("proxy stop boom")
+                            }
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(5) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(env.tunnelProvider.session.closed)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+        }
+
+    @Test
     fun staleSupersededProxyExitDoesNotHaltRebuiltVpnSession() =
         runTest {
             val env = buildStaleProxyExitEnv()

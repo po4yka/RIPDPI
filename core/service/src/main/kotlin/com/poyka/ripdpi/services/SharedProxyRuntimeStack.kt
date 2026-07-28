@@ -123,10 +123,25 @@ internal class SharedProxyRuntimeStack(
         }
 
         clearForeignRelayFailed()
-        proxyRuntimeSupervisor.stop()
-        warpRuntimeSupervisor.stop()
-        amneziaWgRuntimeSupervisor.stop()
-        upstreamRelaySupervisor.stop()
+        var stopFailure: Throwable? = null
+        val stopActions =
+            listOf<suspend () -> Unit>(
+                proxyRuntimeSupervisor::stop,
+                warpRuntimeSupervisor::stop,
+                amneziaWgRuntimeSupervisor::stop,
+                upstreamRelaySupervisor::stop,
+            )
+        for (stopAction in stopActions) {
+            runCatching { stopAction() }
+                .onFailure { error ->
+                    if (stopFailure == null) {
+                        stopFailure = error
+                    } else {
+                        stopFailure.addSuppressed(error)
+                    }
+                }
+        }
+        stopFailure?.let { throw it }
     }
 
     fun detachAll() {

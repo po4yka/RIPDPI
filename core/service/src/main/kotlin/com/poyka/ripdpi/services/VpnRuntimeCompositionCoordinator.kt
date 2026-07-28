@@ -97,9 +97,10 @@ internal class VpnRuntimeCompositionCoordinator(
         if (providerDelegate?.ownsActiveProviderPath == true || !vpnTunnelRuntime.isRunning) {
             return false
         }
+        val barrierRetained = runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }.getOrDefault(false)
         runCatching { proxyRuntimeStack.stop(skipRuntimeShutdown = false) }
         currentLocalProxyEndpoint = null
-        return true
+        return barrierRetained && !vpnTunnelRuntime.isForwarding
     }
 
     suspend fun restartAfterPolicyChange(

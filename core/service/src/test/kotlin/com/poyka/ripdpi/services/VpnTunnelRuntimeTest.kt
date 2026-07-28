@@ -454,6 +454,30 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
+    fun retainFailClosedBarrierStopsForwardingWithoutClosingTun() =
+        runTest {
+            val events = mutableListOf<String>()
+            val bridge = TestTun2SocksBridge(events)
+            val session = TestVpnTunnelSession(events = events)
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(events = events, session = session),
+                )
+            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), null, null, localProxyEndpoint)
+
+            assertTrue(runtime.retainFailClosedBarrier())
+
+            assertTrue(runtime.isRunning)
+            assertFalse(runtime.isForwarding)
+            assertFalse(session.closed)
+            assertEquals(1, bridge.stopCount)
+        }
+
+    @Test
     fun rebuildStopFailureRetainsBridgeForCleanupAndReplacementTunBarrier() =
         runTest {
             val events = mutableListOf<String>()
