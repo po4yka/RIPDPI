@@ -10,10 +10,29 @@
 
 use std::io;
 use std::os::fd::AsRawFd;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 const PROTECT_SUBSYSTEM: &str = "protect";
 const PROTECT_EVENT_KIND: &str = "vpn_protect";
 const PROTECT_EVENT_SOURCE: &str = "vpn_protect";
+const PROTECT_SUCCESS_SAMPLE_INTERVAL: u64 = 64;
+static PROXY_SUCCESS_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+static DIAGNOSTICS_SUCCESS_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ProtectEventRing {
+    Proxy,
+    Diagnostics,
+}
+
+impl ProtectEventRing {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Proxy => "proxy",
+            Self::Diagnostics => "diagnostics",
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ProtectBackend {
@@ -61,46 +80,57 @@ fn classify_outcome(result: &io::Result<()>) -> ProtectOutcome {
     }
 }
 
-fn protect_event_ring(path: Option<&str>) -> &'static str {
-    if path.is_some() { "proxy" } else { "diagnostics" }
+fn should_emit_outcome(outcome: ProtectOutcome, success_sequence: u64) -> bool {
+    outcome != ProtectOutcome::Success || success_sequence.is_multiple_of(PROTECT_SUCCESS_SAMPLE_INTERVAL)
 }
 
 fn run_with_outcome(
     backend: ProtectBackend,
-    ring: &'static str,
+    ring: Option<ProtectEventRing>,
     protect: impl FnOnce() -> io::Result<()>,
 ) -> io::Result<()> {
-    let backend = backend.as_str();
-    tracing::debug!(
-        ring,
-        source = PROTECT_EVENT_SOURCE,
-        kind = PROTECT_EVENT_KIND,
-        subsystem = PROTECT_SUBSYSTEM,
-        backend,
-        outcome = "attempt",
-        "vpn protect backend={} outcome=attempt",
-        backend
-    );
-
     let result = protect();
-    let outcome = classify_outcome(&result).as_str();
-    tracing::debug!(
-        ring,
-        source = PROTECT_EVENT_SOURCE,
-        kind = PROTECT_EVENT_KIND,
-        subsystem = PROTECT_SUBSYSTEM,
-        backend,
-        outcome,
-        "vpn protect backend={} outcome={}",
-        backend,
-        outcome
-    );
+    let outcome = classify_outcome(&result);
+    if let Some(ring) = ring {
+        let success_sequence = match (outcome, ring) {
+            (ProtectOutcome::Success, ProtectEventRing::Proxy) => {
+                PROXY_SUCCESS_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+            }
+            (ProtectOutcome::Success, ProtectEventRing::Diagnostics) => {
+                DIAGNOSTICS_SUCCESS_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+            }
+            _ => 0,
+        };
+        if should_emit_outcome(outcome, success_sequence) {
+            let backend = backend.as_str();
+            let outcome = outcome.as_str();
+            tracing::debug!(
+                ring = ring.as_str(),
+                source = PROTECT_EVENT_SOURCE,
+                kind = PROTECT_EVENT_KIND,
+                subsystem = PROTECT_SUBSYSTEM,
+                backend,
+                outcome,
+                "vpn protect backend={} outcome={}",
+                backend,
+                outcome
+            );
+        }
+    }
     result
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
-    let ring = protect_event_ring(path);
+    protect_socket_with_ring(socket, path, None)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn protect_socket_with_ring<T: AsRawFd>(
+    socket: &T,
+    path: Option<&str>,
+    ring: Option<ProtectEventRing>,
+) -> io::Result<()> {
     if crate::protect::has_protect_callback() {
         return run_with_outcome(ProtectBackend::Jni, ring, || {
             crate::protect::protect_socket_via_callback(socket.as_raw_fd())
@@ -112,7 +142,15 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
-    let ring = protect_event_ring(path);
+    protect_socket_with_ring(socket, path, None)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn protect_socket_with_ring<T: AsRawFd>(
+    socket: &T,
+    _path: Option<&str>,
+    ring: Option<ProtectEventRing>,
+) -> io::Result<()> {
     if crate::protect::has_protect_callback() {
         return run_with_outcome(ProtectBackend::Jni, ring, || {
             crate::protect::protect_socket_via_callback(socket.as_raw_fd())
@@ -120,6 +158,14 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<
     }
 
     run_with_outcome(ProtectBackend::Noop, ring, || Ok(()))
+}
+
+pub fn protect_proxy_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
+    protect_socket_with_ring(socket, path, Some(ProtectEventRing::Proxy))
+}
+
+pub fn protect_diagnostics_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
+    protect_socket_with_ring(socket, path, Some(ProtectEventRing::Diagnostics))
 }
 
 #[cfg(test)]
@@ -157,9 +203,12 @@ mod tests {
     }
 
     #[test]
-    fn routes_proxy_and_diagnostics_protect_events_without_identifiers() {
-        assert_eq!(protect_event_ring(Some("/ignored/protect.sock")), "proxy");
-        assert_eq!(protect_event_ring(None), "diagnostics");
+    fn samples_successes_but_never_rejections_or_errors() {
+        assert!(should_emit_outcome(ProtectOutcome::Success, 0));
+        assert!(!should_emit_outcome(ProtectOutcome::Success, 1));
+        assert!(should_emit_outcome(ProtectOutcome::Success, 64));
+        assert!(should_emit_outcome(ProtectOutcome::Rejected, 1));
+        assert!(should_emit_outcome(ProtectOutcome::Error, 1));
     }
 
     #[test]
@@ -168,17 +217,16 @@ mod tests {
         let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
 
         let result = tracing::subscriber::with_default(subscriber, || {
-            run_with_outcome(ProtectBackend::Jni, "diagnostics", || Ok(()))
+            run_with_outcome(ProtectBackend::Jni, Some(ProtectEventRing::Diagnostics), || Ok(()))
         });
 
         assert!(result.is_ok());
         assert!(buffers.drain_proxy().is_empty());
         let events = buffers.drain_diagnostics();
-        assert_eq!(events.len(), 2);
+        assert_eq!(events.len(), 1);
         assert_eq!(events[0].source, PROTECT_EVENT_SOURCE);
         assert_eq!(events[0].kind.as_deref(), Some(PROTECT_EVENT_KIND));
-        assert_eq!(events[0].message, "vpn protect backend=jni outcome=attempt");
-        assert_eq!(events[1].message, "vpn protect backend=jni outcome=success");
-        assert!(!events[1].message.contains("fd="));
+        assert_eq!(events[0].message, "vpn protect backend=jni outcome=success");
+        assert!(!events[0].message.contains("fd="));
     }
 }

@@ -28,7 +28,7 @@ pub mod connect {
     }
 
     pub fn protect_socket(socket: &Socket, protect_path: &str) -> io::Result<()> {
-        ripdpi_runtime_platform::vpn::protect_socket(socket, Some(protect_path))
+        ripdpi_runtime_platform::vpn::protect_proxy_socket(socket, Some(protect_path))
     }
 
     pub fn set_rcvbuf(socket: &Socket, rcvbuf: u32) -> io::Result<()> {
@@ -201,7 +201,7 @@ pub mod udp {
     use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
     pub fn protect_socket(socket: &Socket, protect_path: &str) -> io::Result<()> {
-        ripdpi_runtime_platform::vpn::protect_socket(socket, Some(protect_path))
+        ripdpi_runtime_platform::vpn::protect_proxy_socket(socket, Some(protect_path))
     }
 
     pub fn bind_low_port(socket: &UdpSocket, local_ip: IpAddr, start_port: u16) -> io::Result<()> {

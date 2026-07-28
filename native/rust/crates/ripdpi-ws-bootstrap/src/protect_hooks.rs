@@ -37,7 +37,7 @@ fn connect_protected_tcp_socket(target: SocketAddr, protect_path: &str, timeout:
         SocketAddr::V6(_) => Domain::IPV6,
     };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-    platform::vpn::protect_socket(&socket, Some(protect_path))?;
+    platform::vpn::protect_proxy_socket(&socket, Some(protect_path))?;
     socket.connect_timeout(&SockAddr::from(target), timeout)?;
     let stream: TcpStream = socket.into();
     stream.set_nodelay(true)?;
@@ -50,7 +50,7 @@ fn bind_protected_udp_socket(bind_addr: SocketAddr, protect_path: &str) -> io::R
         SocketAddr::V6(_) => Domain::IPV6,
     };
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-    platform::vpn::protect_socket(&socket, Some(protect_path))?;
+    platform::vpn::protect_proxy_socket(&socket, Some(protect_path))?;
     socket.bind(&SockAddr::from(bind_addr))?;
     let socket: UdpSocket = socket.into();
     socket.set_nonblocking(true)?;

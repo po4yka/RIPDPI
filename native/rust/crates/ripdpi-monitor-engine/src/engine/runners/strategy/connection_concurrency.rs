@@ -217,7 +217,7 @@ fn execute_cell(
 fn protected_tcp_connect(address: SocketAddr) -> io::Result<TcpStream> {
     let domain = if address.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-    ripdpi_runtime_platform::vpn::protect_socket(&socket, None)?;
+    ripdpi_runtime_platform::vpn::protect_diagnostics_socket(&socket, None)?;
     socket.connect_timeout(&SockAddr::from(address), CONNECT_TIMEOUT)?;
     Ok(socket.into())
 }
