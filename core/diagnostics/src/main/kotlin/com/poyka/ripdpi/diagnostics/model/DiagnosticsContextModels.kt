@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NetworkPathObservation
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -52,17 +53,29 @@ data class NetworkSnapshotModel(
     val cellularDetails: CellularNetworkDetails? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val pathValidation: NetworkPathValidationEvidence? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val pathSnapshots: NetworkPathSnapshotPair? = null,
     val capturedAt: Long,
+)
+
+@Serializable
+data class NetworkPathSnapshotPair(
+    val captureGeneration: Long,
+    val vpn: NetworkPathObservation,
+    val underlay: NetworkPathObservation,
 )
 
 @Serializable
 data class NetworkPathValidationEvidence(
     val captureStatus: String,
+    val underlayAssociation: String = "unknown",
+    val underlayGeneration: Long? = null,
     val underlayPresent: Boolean? = null,
     val underlayTransport: String? = null,
     val underlayInternet: Boolean? = null,
     val underlayValidated: Boolean? = null,
     val underlayCaptivePortal: Boolean? = null,
+    val vpnAssociation: String = "unknown",
     val vpnPresent: Boolean? = null,
     val vpnInternet: Boolean? = null,
     val vpnValidated: Boolean? = null,

@@ -9,6 +9,9 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.NetworkPathAssociationActiveDefault
+import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
+import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
@@ -113,6 +116,17 @@ class RuntimeHistoryMonitorTest {
             assertCloudflaretelemetrySampleFields(telemetrySample)
             assertEquals(1, stores.nativeEventsState.value.count { it.source == "proxy" })
             assertTrue(stores.snapshotsState.value.all { it.connectionSessionId == session.id })
+            val connectionSamples = stores.snapshotsState.value.filter { it.snapshotKind == "connection_sample" }
+            assertTrue(connectionSamples.isNotEmpty())
+            assertEquals(stores.snapshotsState.value.size, connectionSamples.size)
+            val storedNetwork =
+                RuntimeHistoryJson.decodeFromString(
+                    NetworkSnapshotModel.serializer(),
+                    connectionSamples.last().payloadJson,
+                )
+            assertEquals(11L, storedNetwork.pathSnapshots?.captureGeneration)
+            assertEquals(NetworkPathAssociationActiveDefault, storedNetwork.pathSnapshots?.vpn?.association)
+            assertEquals(NetworkPathAssociationServiceBinder, storedNetwork.pathSnapshots?.underlay?.association)
             assertTrue(stores.contextsState.value.all { it.connectionSessionId == session.id })
             assertTrue(stores.telemetryState.value.all { it.connectionSessionId == session.id })
 
@@ -670,6 +684,22 @@ private class RecorderFakeNetworkMetadataProvider : NetworkMetadataProvider {
             publicAsn = "AS64500",
             captivePortalDetected = false,
             networkValidated = true,
+            pathSnapshots =
+                NetworkPathSnapshotPair(
+                    captureGeneration = 11L,
+                    vpn =
+                        NetworkPathObservation(
+                            association = NetworkPathAssociationActiveDefault,
+                            generation = 3L,
+                            transport = "vpn",
+                        ),
+                    underlay =
+                        NetworkPathObservation(
+                            association = NetworkPathAssociationServiceBinder,
+                            generation = 7L,
+                            transport = "wifi",
+                        ),
+                ),
             capturedAt = System.currentTimeMillis(),
         )
 }

@@ -15,6 +15,8 @@ import android.os.Build
 import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
+import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
@@ -29,48 +31,13 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 import java.net.InetAddress
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
 interface NetworkMetadataProvider {
     suspend fun captureSnapshot(includePublicIp: Boolean = false): NetworkSnapshotModel
 }
-
-internal data class NetworkPathCapabilities(
-    val transport: String,
-    val isVpn: Boolean,
-    val isNotVpn: Boolean,
-    val hasInternet: Boolean,
-    val validated: Boolean,
-    val captivePortal: Boolean,
-)
-
-internal fun resolvePathValidationEvidence(
-    permissionAvailable: Boolean,
-    networks: List<NetworkPathCapabilities>,
-): NetworkPathValidationEvidence {
-    if (!permissionAvailable) {
-        return NetworkPathValidationEvidence(captureStatus = "permission_unavailable")
-    }
-
-    val underlay = networks.filter { it.isNotVpn }.maxWithOrNull(pathEvidenceComparator)
-    val vpn = networks.filter { it.isVpn }.maxWithOrNull(pathEvidenceComparator)
-    return NetworkPathValidationEvidence(
-        captureStatus = "captured",
-        underlayPresent = underlay != null,
-        underlayTransport = underlay?.transport,
-        underlayInternet = underlay?.hasInternet,
-        underlayValidated = underlay?.validated,
-        underlayCaptivePortal = underlay?.captivePortal,
-        vpnPresent = vpn != null,
-        vpnInternet = vpn?.hasInternet,
-        vpnValidated = vpn?.validated,
-        vpnCaptivePortal = vpn?.captivePortal,
-    )
-}
-
-private val pathEvidenceComparator =
-    compareBy<NetworkPathCapabilities>({ it.validated }, { it.hasInternet }, { !it.captivePortal }, { it.transport })
 
 internal fun resolveNetworkTransport(capabilities: NetworkCapabilities?): String =
     when {
@@ -81,35 +48,6 @@ internal fun resolveNetworkTransport(capabilities: NetworkCapabilities?): String
         capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
         else -> "other"
     }
-
-internal fun NetworkCapabilities.toNetworkPathCapabilities(): NetworkPathCapabilities =
-    NetworkPathCapabilities(
-        transport = resolveNetworkTransport(this),
-        isVpn = hasTransport(NetworkCapabilities.TRANSPORT_VPN),
-        isNotVpn = hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN),
-        hasInternet = hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
-        validated = hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-        captivePortal = hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
-    )
-
-@SuppressLint("MissingPermission")
-internal fun captureCurrentPathValidationEvidence(
-    connectivityManager: ConnectivityManager,
-    permissionAvailable: Boolean,
-): NetworkPathValidationEvidence =
-    resolvePathValidationEvidence(
-        permissionAvailable = permissionAvailable,
-        networks =
-            if (permissionAvailable) {
-                connectivityManager.allNetworks.mapNotNull { observedNetwork ->
-                    connectivityManager
-                        .getNetworkCapabilities(observedNetwork)
-                        ?.toNetworkPathCapabilities()
-                }
-            } else {
-                emptyList()
-            },
-    )
 
 data class PublicIpInfo(
     val ip: String,
@@ -227,6 +165,7 @@ class AndroidNetworkMetadataProvider
     constructor(
         @param:ApplicationContext private val context: Context,
         private val publicIpInfoResolver: PublicIpInfoResolver,
+        private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
     ) : NetworkMetadataProvider {
         // System Private DNS status is read behind an injectable seam so the
         // status-mapping logic is unit-tested without a device. The default
@@ -238,6 +177,8 @@ class AndroidNetworkMetadataProvider
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         private val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+        private val activeVpnGenerationTracker = ActiveVpnPathGenerationTracker()
+        private val captureGeneration = AtomicLong()
 
         @SuppressLint("MissingPermission")
         override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel {
@@ -246,10 +187,22 @@ class AndroidNetworkMetadataProvider
             val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
             val linkProperties = network?.let(connectivityManager::getLinkProperties)
             val publicIpInfo = if (includePublicIp) publicIpInfoResolver.resolve() else null
+            val vpnObservation = captureActiveVpnObservation(network, capabilities, linkProperties)
+            val underlayObservation =
+                sanitizeAuthoritativeUnderlayObservation(
+                    runCatching(underlayObservationProvider::capture).getOrDefault(NetworkPathObservation()),
+                )
             val pathValidation =
-                captureCurrentPathValidationEvidence(
-                    connectivityManager = connectivityManager,
+                resolvePathValidationEvidence(
                     permissionAvailable = hasNetworkPermission,
+                    activePath = capabilities?.toNetworkPathCapabilities(),
+                    underlay = underlayObservation,
+                )
+            val pathSnapshots =
+                NetworkPathSnapshotPair(
+                    captureGeneration = captureGeneration.incrementAndGet(),
+                    vpn = vpnObservation,
+                    underlay = underlayObservation,
                 )
 
             return NetworkSnapshotModel(
@@ -268,8 +221,22 @@ class AndroidNetworkMetadataProvider
                 wifiDetails = resolveWifiDetails(capabilities),
                 cellularDetails = resolveCellularDetails(capabilities),
                 pathValidation = pathValidation,
+                pathSnapshots = pathSnapshots,
                 capturedAt = System.currentTimeMillis(),
             )
+        }
+
+        private fun captureActiveVpnObservation(
+            network: android.net.Network?,
+            capabilities: NetworkCapabilities?,
+            linkProperties: LinkProperties?,
+        ): NetworkPathObservation {
+            if (network == null || capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true) {
+                return NetworkPathObservation()
+            }
+            val shape = projectActiveVpnObservation(capabilities, linkProperties, generation = 0L)
+            val generation = activeVpnGenerationTracker.generationFor(network, shape.copy(generation = null))
+            return shape.copy(generation = generation)
         }
 
         private fun resolveTransport(capabilities: NetworkCapabilities?): String = resolveNetworkTransport(capabilities)

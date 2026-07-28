@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
+import com.poyka.ripdpi.data.NetworkPathAssociationUnknown
+import com.poyka.ripdpi.data.NetworkPathObservation
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,7 +16,8 @@ class NetworkPathValidationEvidenceTest {
         val evidence =
             resolvePathValidationEvidence(
                 permissionAvailable = true,
-                networks = listOf(wifi(validated = true), vpn(validated = true)),
+                activePath = vpn(validated = true),
+                underlay = underlay(validated = true),
             )
 
         assertEquals("captured", evidence.captureStatus)
@@ -27,7 +31,8 @@ class NetworkPathValidationEvidenceTest {
         val evidence =
             resolvePathValidationEvidence(
                 permissionAvailable = true,
-                networks = listOf(wifi(validated = true), vpn(validated = false)),
+                activePath = vpn(validated = false),
+                underlay = underlay(validated = true),
             )
 
         assertTrue(requireNotNull(evidence.underlayValidated))
@@ -39,7 +44,8 @@ class NetworkPathValidationEvidenceTest {
         val evidence =
             resolvePathValidationEvidence(
                 permissionAvailable = true,
-                networks = listOf(wifi(validated = true)),
+                activePath = wifi(validated = true),
+                underlay = underlay(validated = true),
             )
 
         assertFalse(requireNotNull(evidence.vpnPresent))
@@ -51,7 +57,8 @@ class NetworkPathValidationEvidenceTest {
         val evidence =
             resolvePathValidationEvidence(
                 permissionAvailable = false,
-                networks = emptyList(),
+                activePath = null,
+                underlay = underlay(validated = true),
             )
 
         assertEquals("permission_unavailable", evidence.captureStatus)
@@ -60,14 +67,16 @@ class NetworkPathValidationEvidenceTest {
     }
 
     @Test
-    fun `empty observed network set reports both paths absent`() {
+    fun `arbitrary non vpn path is never reported as authoritative underlay`() {
         val evidence =
             resolvePathValidationEvidence(
                 permissionAvailable = true,
-                networks = emptyList(),
+                activePath = wifi(validated = true),
+                underlay = NetworkPathObservation(),
             )
 
-        assertFalse(requireNotNull(evidence.underlayPresent))
+        assertEquals(NetworkPathAssociationUnknown, evidence.underlayAssociation)
+        assertNull(evidence.underlayPresent)
         assertFalse(requireNotNull(evidence.vpnPresent))
     }
 
@@ -76,6 +85,7 @@ class NetworkPathValidationEvidenceTest {
         val encoded = diagnosticsTestJson().encodeToString(networkSnapshotModelForTest())
 
         assertFalse(encoded.contains("pathValidation"))
+        assertFalse(encoded.contains("pathSnapshots"))
     }
 
     @Test
@@ -83,19 +93,31 @@ class NetworkPathValidationEvidenceTest {
         val evidence =
             resolvePathValidationEvidence(
                 permissionAvailable = true,
-                networks = listOf(wifi(validated = true), vpn(validated = false)),
+                activePath = vpn(validated = false),
+                underlay = underlay(validated = true),
             )
 
-        val summary = networkSnapshotModelForTest().copy(pathValidation = evidence).toRedactedSummary()
+        val pair =
+            NetworkPathSnapshotPair(
+                captureGeneration = 2L,
+                vpn = NetworkPathObservation(),
+                underlay = underlay(validated = true),
+            )
+        val summary =
+            networkSnapshotModelForTest()
+                .copy(
+                    pathValidation = evidence,
+                    pathSnapshots = pair,
+                ).toRedactedSummary()
 
         assertEquals(evidence, summary.pathValidation)
+        assertEquals(pair, summary.pathSnapshots)
     }
 
     private fun wifi(validated: Boolean) =
         NetworkPathCapabilities(
             transport = "wifi",
             isVpn = false,
-            isNotVpn = true,
             hasInternet = true,
             validated = validated,
             captivePortal = false,
@@ -105,7 +127,16 @@ class NetworkPathValidationEvidenceTest {
         NetworkPathCapabilities(
             transport = "vpn",
             isVpn = true,
-            isNotVpn = false,
+            hasInternet = true,
+            validated = validated,
+            captivePortal = false,
+        )
+
+    private fun underlay(validated: Boolean) =
+        NetworkPathObservation(
+            association = NetworkPathAssociationServiceBinder,
+            generation = 7L,
+            transport = "wifi",
             hasInternet = true,
             validated = validated,
             captivePortal = false,

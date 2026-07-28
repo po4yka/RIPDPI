@@ -11,6 +11,8 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
+import com.poyka.ripdpi.data.NetworkPathObservation
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,6 +40,7 @@ internal class AndroidNetworkPathValidationSource
     constructor(
         @ApplicationContext private val context: Context,
         @ApplicationScope scope: CoroutineScope,
+        private val underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
     ) : NetworkPathValidationSource {
         private val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -57,24 +61,29 @@ internal class AndroidNetworkPathValidationSource
                     return@callbackFlow
                 }
 
+                val publishCurrentEvidence = { trySend(captureEvidence()) }
                 val callback =
                     object : ConnectivityManager.NetworkCallback() {
-                        override fun onAvailable(network: Network) = publishCurrentEvidence()
+                        override fun onAvailable(network: Network) {
+                            publishCurrentEvidence()
+                        }
 
                         override fun onCapabilitiesChanged(
                             network: Network,
                             networkCapabilities: NetworkCapabilities,
-                        ) = publishCurrentEvidence()
+                        ) {
+                            publishCurrentEvidence()
+                        }
 
                         override fun onLinkPropertiesChanged(
                             network: Network,
                             linkProperties: LinkProperties,
-                        ) = publishCurrentEvidence()
+                        ) {
+                            publishCurrentEvidence()
+                        }
 
-                        override fun onLost(network: Network) = publishCurrentEvidence()
-
-                        private fun publishCurrentEvidence() {
-                            trySend(captureEvidence())
+                        override fun onLost(network: Network) {
+                            publishCurrentEvidence()
                         }
                     }
                 val request =
@@ -91,8 +100,15 @@ internal class AndroidNetworkPathValidationSource
                     close()
                     return@callbackFlow
                 }
-                trySend(captureEvidence())
+                val authorityObserver =
+                    launch {
+                        underlayObservationProvider.changes.collect {
+                            publishCurrentEvidence()
+                        }
+                    }
+                publishCurrentEvidence()
                 awaitClose {
+                    authorityObserver.cancel()
                     runCatching { connectivityManager.unregisterNetworkCallback(callback) }
                 }
             }.distinctUntilChanged()
@@ -101,6 +117,10 @@ internal class AndroidNetworkPathValidationSource
             captureCurrentPathValidationEvidence(
                 connectivityManager = connectivityManager,
                 permissionAvailable = hasNetworkStatePermission(),
+                underlay =
+                    sanitizeAuthoritativeUnderlayObservation(
+                        runCatching(underlayObservationProvider::capture).getOrDefault(NetworkPathObservation()),
+                    ),
             )
 
         private fun hasNetworkStatePermission(): Boolean =

@@ -15,6 +15,8 @@ internal data class RedactedNetworkSummary(
     val captivePortalDetected: Boolean,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val pathValidation: NetworkPathValidationEvidence? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val pathSnapshots: NetworkPathSnapshotPair? = null,
     val wifiDetails: RedactedWifiSummary? = null,
     val cellularDetails: RedactedCellularSummary? = null,
 )
@@ -104,6 +106,7 @@ internal fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
         networkValidated = networkValidated,
         captivePortalDetected = captivePortalDetected,
         pathValidation = pathValidation,
+        pathSnapshots = pathSnapshots,
         wifiDetails =
             wifiDetails?.let {
                 RedactedWifiSummary(
