@@ -56,19 +56,19 @@ fn flush_outbound_payload(
         *remembered_host = parsed_host.clone();
     }
     let peer_addr = writer.peer_addr()?;
-    let send_outcome = state
-        .send_tcp_desync_payload(
-            writer,
-            DesyncSendRequest {
-                group_index,
-                group_override: None,
-                payload,
-                progress: progress.into_adapter(),
-                host: parsed_host.as_deref().or(remembered_host.as_deref()),
-                target: peer_addr,
-            },
-        )
-        .map_err(OutboundSendError::into_io_error)?;
+    let send_result = state.send_tcp_desync_payload(
+        writer,
+        DesyncSendRequest {
+            group_index,
+            group_override: None,
+            payload,
+            progress: progress.into_adapter(),
+            host: parsed_host.as_deref().or(remembered_host.as_deref()),
+            target: peer_addr,
+        },
+    );
+    state.note_upstream_application_send_result(&send_result);
+    let send_outcome = send_result.map_err(OutboundSendError::into_io_error)?;
     tracing::trace!(
         target = %peer_addr,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),

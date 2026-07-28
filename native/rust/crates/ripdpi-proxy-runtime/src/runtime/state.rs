@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::io::{self, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Transport id used when accounting per-exit-IP concurrent outbound TCP
 /// sessions through [`ExitIpSessionLimiter`].
@@ -199,6 +200,10 @@ mod warmup;
 mod ws;
 
 pub(super) use listener::{ActiveSocketRegistry, ClientSlotGuard};
+
+pub(in crate::runtime) fn now_epoch_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or_default()
+}
 impl RuntimeState {
     pub(super) fn validate_runtime_requirements(config: &RuntimeConfig) -> io::Result<()> {
         validate_ip_fragmentation_support(&raw_packet_requirements(config))
@@ -349,9 +354,83 @@ mod state_coverage_tests {
     use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
     use std::io::Cursor;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
     fn state() -> RuntimeState {
         RuntimeState::test(RuntimeConfig::default())
+    }
+
+    #[derive(Default)]
+    struct CountingTelemetry {
+        bytes: AtomicU64,
+    }
+
+    impl RuntimeTelemetrySink for CountingTelemetry {
+        fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
+
+        fn on_listener_stopped(&self) {}
+
+        fn on_client_accepted(&self) {}
+
+        fn on_client_finished(&self) {}
+
+        fn on_client_error(&self, _error: &io::Error) {}
+
+        fn on_route_selected(
+            &self,
+            _target: SocketAddr,
+            _group_index: usize,
+            _host: Option<&str>,
+            _phase: &'static str,
+        ) {
+        }
+
+        fn on_failure_classified(&self, _target: SocketAddr, _failure: &ClassifiedFailure, _host: Option<&str>) {}
+
+        fn on_route_advanced(
+            &self,
+            _target: SocketAddr,
+            _from_group: usize,
+            _to_group: usize,
+            _trigger: u32,
+            _host: Option<&str>,
+        ) {
+        }
+
+        fn on_host_autolearn_state(
+            &self,
+            _enabled: bool,
+            _learned_host_count: usize,
+            _penalized_host_count: usize,
+            _blocked_host_count: usize,
+            _last_block_signal: Option<&str>,
+            _last_block_provider: Option<&str>,
+        ) {
+        }
+
+        fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
+
+        fn on_upstream_application_bytes_forwarded(&self, bytes: u64, _epoch_ms: u64) {
+            self.bytes.fetch_add(bytes, AtomicOrdering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn upstream_application_send_result_records_partial_strategy_execution_bytes() {
+        let telemetry = std::sync::Arc::new(CountingTelemetry::default());
+        let state = RuntimeState::test_with_telemetry(RuntimeConfig::default(), Some(telemetry.clone()));
+        let result = Err(OutboundSendError::StrategyExecution {
+            action: "split",
+            strategy_family: "tls_record_split",
+            fallback: None,
+            bytes_committed: 37,
+            source_errno: None,
+            source: io::Error::new(io::ErrorKind::BrokenPipe, "partial write"),
+        });
+
+        state.note_upstream_application_send_result(&result);
+
+        assert_eq!(telemetry.bytes.load(AtomicOrdering::Relaxed), 37);
     }
 
     #[test]

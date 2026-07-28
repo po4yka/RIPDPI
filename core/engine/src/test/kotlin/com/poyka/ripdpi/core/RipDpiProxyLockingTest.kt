@@ -161,6 +161,57 @@ class RipDpiProxyLockingTest {
         }
 
     @Test
+    fun forwardingEvidenceUsesActiveHandleAndDefaultsWhenUnavailable() =
+        runTest {
+            val bindings =
+                FakeRipDpiProxyBindings().apply {
+                    forwardingEvidenceJson =
+                        """
+                        {
+                          "proxyClientSocketsAccepted": 1,
+                          "upstreamSocketCreated": 2,
+                          "upstreamOpened": 1,
+                          "upstreamOpenFailures": 1,
+                          "protectAttempted": 2,
+                          "protectSucceeded": 1,
+                          "protectRejected": 1,
+                          "upstreamApplicationBytes": 256,
+                          "firstUpstreamApplicationForwardedAt": 100,
+                          "lastUpstreamApplicationForwardedAt": 200
+                        }
+                        """.trimIndent()
+                }
+            val proxy = RipDpiProxy(bindings, bindings)
+
+            assertEquals(ProxyForwardingEvidence.Empty, proxy.pollForwardingEvidence())
+
+            val started = CompletableDeferred<Long>()
+            val startBlocker = CompletableDeferred<Unit>()
+            bindings.startedSignal = started
+            bindings.startBlocker = startBlocker
+            bindings.stopCompletesStartBlocker = true
+            val startJob = async { proxy.startProxy(prefs(1410)) }
+            assertEquals(1L, started.await())
+
+            val evidence = proxy.pollForwardingEvidence()
+
+            assertEquals(1L, bindings.forwardingEvidenceHandles.single())
+            assertEquals(1L, evidence.proxyClientSocketsAccepted)
+            assertEquals(2L, evidence.upstreamSocketCreated)
+            assertEquals(1L, evidence.upstreamOpened)
+            assertEquals(1L, evidence.upstreamOpenFailures)
+            assertEquals(2L, evidence.protectAttempted)
+            assertEquals(1L, evidence.protectSucceeded)
+            assertEquals(1L, evidence.protectRejected)
+            assertEquals(256L, evidence.upstreamApplicationBytes)
+            assertEquals(100L, evidence.firstUpstreamApplicationForwardedAt)
+            assertEquals(200L, evidence.lastUpstreamApplicationForwardedAt)
+
+            proxy.stopProxy()
+            assertEquals(0, startJob.await())
+        }
+
+    @Test
     fun startStopStartAcquiresNewHandle() =
         runTest {
             val started = CompletableDeferred<Long>()

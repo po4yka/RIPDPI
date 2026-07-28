@@ -63,7 +63,9 @@ enum class ProxyBindingFaultTarget {
     TELEMETRY,
 }
 
-class FakeRipDpiProxyBindings : RipDpiProxyBindings {
+class FakeRipDpiProxyBindings :
+    RipDpiProxyBindings,
+    RipDpiProxyForwardingEvidenceBindings {
     companion object {
         private const val DEFAULT_START_BLOCK_TIMEOUT_MS = 60_000L
     }
@@ -79,6 +81,8 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     @Volatile var stopFailure: Throwable? = null
 
     @Volatile var telemetryFailure: Throwable? = null
+
+    @Volatile var forwardingEvidenceJson: String? = null
 
     @Volatile var updateFailure: Throwable? = null
 
@@ -118,6 +122,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     val stoppedHandles = mutableListOf<Long>()
     val destroyedHandles = mutableListOf<Long>()
     val telemetryHandles = mutableListOf<Long>()
+    val forwardingEvidenceHandles = mutableListOf<Long>()
     val updatedHandles = mutableListOf<Long>()
 
     override fun create(configJson: String): Long {
@@ -184,6 +189,11 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
         }
         telemetryFailure?.let { throw it }
         return telemetryJson
+    }
+
+    override fun pollForwardingEvidence(handle: Long): String? {
+        forwardingEvidenceHandles += handle
+        return forwardingEvidenceJson
     }
 
     override fun destroy(handle: Long) {

@@ -150,6 +150,15 @@ fn exported_jni_create_poll_update_and_destroy_round_trip_without_exception() {
         assert!(telemetry_json.contains("\"state\":\"idle\""));
         assert_no_exception(env);
 
+        let evidence = jni_poll_forwarding_evidence(env, handle.raw());
+        let evidence_json = decode_jstring(env, evidence).expect("forwarding evidence json");
+        let evidence: serde_json::Value = serde_json::from_str(&evidence_json).expect("evidence json object");
+        assert_eq!(evidence["proxyClientSocketsAccepted"], 0);
+        assert_eq!(evidence["upstreamSocketCreated"], 0);
+        assert_eq!(evidence["upstreamApplicationBytes"], 0);
+        assert!(evidence.get("firstUpstreamApplicationForwardedAt").is_none());
+        assert_no_exception(env);
+
         let snapshot_json = serde_json::to_string(&NetworkSnapshot::default()).expect("snapshot json");
         jni_update_network_snapshot(env, handle.raw(), &snapshot_json);
         assert_no_exception(env);
@@ -267,6 +276,12 @@ fn exported_jni_invalid_handles_throw_and_reference_calls_return_null() {
 
         with_env(|env| {
             let telemetry = jni_poll_telemetry(env, handle);
+            assert!(decode_jstring(env, telemetry).is_none());
+            assert_eq!(take_exception(env), untyped);
+        });
+
+        with_env(|env| {
+            let telemetry = jni_poll_forwarding_evidence(env, handle);
             assert!(decode_jstring(env, telemetry).is_none());
             assert_eq!(take_exception(env), untyped);
         });
@@ -490,6 +505,10 @@ fn jni_stop(env: &mut Env<'_>, handle: jlong) {
 
 fn jni_poll_telemetry(env: &mut Env<'_>, handle: jlong) -> jstring {
     crate::proxy_poll_telemetry_entry(env_to_unowned(env), handle)
+}
+
+fn jni_poll_forwarding_evidence(env: &mut Env<'_>, handle: jlong) -> jstring {
+    crate::proxy_poll_forwarding_evidence_entry(env_to_unowned(env), handle)
 }
 
 fn jni_destroy(env: &mut Env<'_>, handle: jlong) {

@@ -15,7 +15,7 @@ pub(super) fn execute_first_write(
     session_state: &mut FirstOutboundSession,
 ) -> Result<Option<&'static str>, OutboundSendError> {
     let progress = session_state.observe_first_outbound_payload(original_request);
-    let send_outcome = state.send_tcp_desync_payload(
+    let send_result = state.send_tcp_desync_payload(
         upstream,
         DesyncSendRequest {
             group_index: route.group_index,
@@ -25,7 +25,9 @@ pub(super) fn execute_first_write(
             host,
             target,
         },
-    )?;
+    );
+    state.note_upstream_application_send_result(&send_result);
+    let send_outcome = send_result?;
     tracing::debug!(
         target = %target,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),

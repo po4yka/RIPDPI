@@ -38,4 +38,44 @@ class NativeRuntimeTelemetryCodecTest {
             }
         }
     }
+
+    @Test
+    fun `proxy forwarding evidence decodes additive privacy-safe counters`() {
+        val evidence =
+            json.decodeProxyForwardingEvidence(
+                """
+                {
+                  "proxyClientSocketsAccepted": 2,
+                  "upstreamSocketCreated": 3,
+                  "upstreamOpened": 1,
+                  "upstreamOpenFailures": 2,
+                  "protectAttempted": 3,
+                  "protectSucceeded": 1,
+                  "protectRejected": 1,
+                  "protectErrors": 1,
+                  "upstreamApplicationBytes": 512,
+                  "firstUpstreamApplicationForwardedAt": 1000,
+                  "lastUpstreamApplicationForwardedAt": 1200,
+                  "futureField": true
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(2L, evidence.proxyClientSocketsAccepted)
+        assertEquals(3L, evidence.upstreamSocketCreated)
+        assertEquals(1L, evidence.upstreamOpened)
+        assertEquals(2L, evidence.upstreamOpenFailures)
+        assertEquals(3L, evidence.protectAttempted)
+        assertEquals(1L, evidence.protectSucceeded)
+        assertEquals(1L, evidence.protectRejected)
+        assertEquals(1L, evidence.protectErrors)
+        assertEquals(512L, evidence.upstreamApplicationBytes)
+        assertEquals(1000L, evidence.firstUpstreamApplicationForwardedAt)
+        assertEquals(1200L, evidence.lastUpstreamApplicationForwardedAt)
+    }
+
+    @Test
+    fun `missing proxy forwarding evidence fields default to zero`() {
+        assertEquals(ProxyForwardingEvidence.Empty, json.decodeProxyForwardingEvidence("{}"))
+    }
 }

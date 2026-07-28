@@ -27,6 +27,21 @@ pub mod connect {
         pub tcp_fast_open_enabled: bool,
     }
 
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    pub enum ProtectObservationOutcome {
+        Succeeded,
+        Rejected,
+        Error,
+    }
+
+    pub trait TcpConnectObserver {
+        fn on_socket_created(&self) {}
+
+        fn on_protect_attempted(&self) {}
+
+        fn on_protect_finished(&self, _outcome: ProtectObservationOutcome) {}
+    }
+
     pub fn protect_socket(socket: &Socket, protect_path: &str) -> io::Result<()> {
         ripdpi_runtime_platform::vpn::protect_proxy_socket(socket, Some(protect_path))
     }
@@ -47,9 +62,43 @@ pub mod connect {
         connect_timeout: Option<Duration>,
         pre_connect_rcvbuf: Option<u32>,
     ) -> Result<TcpStream, TcpConnectError> {
+        connect_tcp_stream_observed(target, bind_ip, protect_path, tfo, connect_timeout, pre_connect_rcvbuf, None)
+    }
+
+    pub fn connect_tcp_stream_observed(
+        target: SocketAddr,
+        bind_ip: IpAddr,
+        protect_path: Option<&str>,
+        tfo: bool,
+        connect_timeout: Option<Duration>,
+        pre_connect_rcvbuf: Option<u32>,
+        observer: Option<&dyn TcpConnectObserver>,
+    ) -> Result<TcpStream, TcpConnectError> {
         let socket = new_tcp_socket(target, tfo)?;
+        if let Some(observer) = observer {
+            observer.on_socket_created();
+        }
         if let Some(path) = protect_path {
-            protect_socket(&socket, path).map_err(|source| connect_error(source, tfo))?;
+            if let Some(observer) = observer {
+                observer.on_protect_attempted();
+            }
+            protect_socket(&socket, path)
+                .inspect(|()| {
+                    if let Some(observer) = observer {
+                        observer.on_protect_finished(ProtectObservationOutcome::Succeeded);
+                    }
+                })
+                .map_err(|source| {
+                    if let Some(observer) = observer {
+                        let outcome = if source.kind() == io::ErrorKind::PermissionDenied {
+                            ProtectObservationOutcome::Rejected
+                        } else {
+                            ProtectObservationOutcome::Error
+                        };
+                        observer.on_protect_finished(outcome);
+                    }
+                    connect_error(source, tfo)
+                })?;
         }
         if tfo {
             enable_tcp_fastopen_if_supported(&socket).map_err(|source| connect_error(source, tfo))?;

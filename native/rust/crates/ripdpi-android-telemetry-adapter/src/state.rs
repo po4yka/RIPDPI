@@ -56,6 +56,16 @@ pub struct ProxyTelemetryState {
     pub(super) last_autolearn_group: AtomicI64,
     pub(super) slot_exhaustions: AtomicU64,
     pub(super) ws_tunnel_fake_sni_active: AtomicU64,
+    pub(super) upstream_socket_created: AtomicU64,
+    pub(super) upstream_opened: AtomicU64,
+    pub(super) upstream_open_failures: AtomicU64,
+    pub(super) protect_attempted: AtomicU64,
+    pub(super) protect_succeeded: AtomicU64,
+    pub(super) protect_rejected: AtomicU64,
+    pub(super) protect_errors: AtomicU64,
+    pub(super) upstream_application_bytes: AtomicU64,
+    pub(super) first_upstream_application_forwarded_at: AtomicU64,
+    pub(super) last_upstream_application_forwarded_at: AtomicU64,
     pub(super) strings: ArcSwap<TelemetryStrings>,
     pub(super) direct_path_learning_signals: Mutex<Vec<DirectPathLearningSignal>>,
     pub(super) tcp_connect_histogram: LatencyHistogram,
@@ -92,6 +102,16 @@ impl ProxyTelemetryState {
             last_autolearn_group: AtomicI64::new(-1),
             slot_exhaustions: AtomicU64::new(0),
             ws_tunnel_fake_sni_active: AtomicU64::new(0),
+            upstream_socket_created: AtomicU64::new(0),
+            upstream_opened: AtomicU64::new(0),
+            upstream_open_failures: AtomicU64::new(0),
+            protect_attempted: AtomicU64::new(0),
+            protect_succeeded: AtomicU64::new(0),
+            protect_rejected: AtomicU64::new(0),
+            protect_errors: AtomicU64::new(0),
+            upstream_application_bytes: AtomicU64::new(0),
+            first_upstream_application_forwarded_at: AtomicU64::new(0),
+            last_upstream_application_forwarded_at: AtomicU64::new(0),
             direct_path_learning_signals: Mutex::new(Vec::new()),
             strings: ArcSwap::from_pointee(TelemetryStrings {
                 listener_address: None,
@@ -131,6 +151,37 @@ impl ProxyTelemetryState {
             f(&mut next);
             next
         });
+    }
+
+    pub(super) fn record_upstream_application_forward(&self, bytes: u64, epoch_ms: u64) {
+        if bytes == 0 {
+            return;
+        }
+        let epoch_ms = epoch_ms.max(1);
+        self.record_first_upstream_application_forwarded_at(epoch_ms);
+        // Ordering: AcqRel -- maintains the maximum observed timestamp across
+        // concurrent writers before the byte counter publishes the observation.
+        self.last_upstream_application_forwarded_at.fetch_max(epoch_ms, Ordering::AcqRel);
+        // Ordering: Release -- publishes timestamp updates before byte count.
+        // Snapshot uses Acquire so bytes > 0 implies timestamps are visible.
+        self.upstream_application_bytes.fetch_add(bytes, Ordering::Release);
+    }
+
+    fn record_first_upstream_application_forwarded_at(&self, epoch_ms: u64) {
+        let mut current = self.first_upstream_application_forwarded_at.load(Ordering::Acquire);
+        while current == 0 || epoch_ms < current {
+            match self.first_upstream_application_forwarded_at.compare_exchange_weak(
+                current,
+                epoch_ms,
+                // Ordering: AcqRel -- publishes the minimum timestamp before byte publication.
+                Ordering::AcqRel,
+                // Ordering: Acquire -- observes competing timestamp updates.
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(observed) => current = observed,
+            }
+        }
     }
 
     /// Install a readiness observer fired exactly once from

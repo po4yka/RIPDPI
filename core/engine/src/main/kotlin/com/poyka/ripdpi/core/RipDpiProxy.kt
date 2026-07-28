@@ -26,6 +26,8 @@ interface RipDpiProxyRuntime {
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 
+    suspend fun pollForwardingEvidence(): ProxyForwardingEvidence = ProxyForwardingEvidence.Empty
+
     suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot)
 }
 
@@ -257,6 +259,20 @@ class RipDpiProxyNativeBindings
         ): String?
     }
 
+internal interface RipDpiProxyForwardingEvidenceBindings {
+    fun pollForwardingEvidence(handle: Long): String?
+}
+
+internal object RipDpiProxyNativeForwardingEvidenceBindings : RipDpiProxyForwardingEvidenceBindings {
+    init {
+        RipDpiNativeLoader.ensureLoaded()
+    }
+
+    override fun pollForwardingEvidence(handle: Long): String? = jniPollForwardingEvidence(handle)
+
+    private external fun jniPollForwardingEvidence(handle: Long): String?
+}
+
 /**
  * Coroutine-friendly owner of a single native proxy handle (see
  * [RipDpiProxyBindings] for the raw JNI contract).
@@ -275,9 +291,23 @@ class RipDpiProxyNativeBindings
  *
  * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
  */
-class RipDpiProxy(
-    private val nativeBindings: RipDpiProxyBindings,
-) : RipDpiProxyRuntime {
+class RipDpiProxy : RipDpiProxyRuntime {
+    private val nativeBindings: RipDpiProxyBindings
+    private val forwardingEvidenceBindings: RipDpiProxyForwardingEvidenceBindings
+
+    constructor(nativeBindings: RipDpiProxyBindings) {
+        this.nativeBindings = nativeBindings
+        this.forwardingEvidenceBindings = RipDpiProxyNativeForwardingEvidenceBindings
+    }
+
+    internal constructor(
+        nativeBindings: RipDpiProxyBindings,
+        forwardingEvidenceBindings: RipDpiProxyForwardingEvidenceBindings,
+    ) {
+        this.nativeBindings = nativeBindings
+        this.forwardingEvidenceBindings = forwardingEvidenceBindings
+    }
+
     private companion object {
         private const val READY_POLL_INTERVAL_MS = 50L
     }
@@ -438,5 +468,16 @@ class RipDpiProxy(
             ?.takeIf { it.isNotBlank() }
             ?.let(json::decodeNativeRuntimeSnapshot)
             ?: NativeRuntimeSnapshot.idle(source = "proxy")
+    }
+
+    override suspend fun pollForwardingEvidence(): ProxyForwardingEvidence {
+        val payload =
+            reservations.withReservationOrNull({ handle }) { currentHandle ->
+                withContext(Dispatchers.IO) { forwardingEvidenceBindings.pollForwardingEvidence(currentHandle) }
+            }
+        return payload
+            ?.takeIf { it.isNotBlank() }
+            ?.let(json::decodeProxyForwardingEvidence)
+            ?: ProxyForwardingEvidence.Empty
     }
 }

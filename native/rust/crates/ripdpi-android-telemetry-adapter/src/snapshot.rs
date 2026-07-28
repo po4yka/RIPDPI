@@ -4,10 +4,51 @@ use android_support::drain_proxy_events;
 use ripdpi_telemetry::LatencyDistributions;
 
 use super::state::ProxyTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION, TunnelStatsSnapshot};
+use super::types::{
+    NativeRuntimeEvent, NativeRuntimeSnapshot, ProxyForwardingEvidenceSnapshot, SNAPSHOT_SCHEMA_VERSION,
+    TunnelStatsSnapshot,
+};
 use super::util::now_ms;
 
 impl ProxyTelemetryState {
+    pub fn forwarding_evidence_snapshot(&self) -> ProxyForwardingEvidenceSnapshot {
+        let timestamp = |value| match value {
+            0 => None,
+            value => Some(value),
+        };
+        // Ordering: Acquire -- pairs with the Release byte-counter publication
+        // in `record_upstream_application_forward`, so a positive byte count
+        // implies the timestamp writes for that publication are visible.
+        let upstream_application_bytes = self.upstream_application_bytes.load(Ordering::Acquire);
+        ProxyForwardingEvidenceSnapshot {
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            proxy_client_sockets_accepted: self.total_sessions.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            upstream_socket_created: self.upstream_socket_created.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            upstream_opened: self.upstream_opened.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            upstream_open_failures: self.upstream_open_failures.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            protect_attempted: self.protect_attempted.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            protect_succeeded: self.protect_succeeded.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            protect_rejected: self.protect_rejected.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- evidence counters are cumulative display-only fields.
+            protect_errors: self.protect_errors.load(Ordering::Relaxed),
+            upstream_application_bytes,
+            first_upstream_application_forwarded_at: timestamp(
+                // Ordering: Acquire -- pairs with timestamp AcqRel updates before byte publication.
+                self.first_upstream_application_forwarded_at.load(Ordering::Acquire),
+            ),
+            last_upstream_application_forwarded_at: timestamp(
+                // Ordering: Acquire -- pairs with timestamp AcqRel updates before byte publication.
+                self.last_upstream_application_forwarded_at.load(Ordering::Acquire),
+            ),
+        }
+    }
+
     pub fn snapshot(&self) -> NativeRuntimeSnapshot {
         let strings = self.strings.load();
         let listener_address = strings.listener_address.clone();

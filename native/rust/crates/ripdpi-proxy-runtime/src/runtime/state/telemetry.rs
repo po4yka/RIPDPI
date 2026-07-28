@@ -70,6 +70,49 @@ impl RuntimeState {
             telemetry.on_upstream_connect_failed(addr, rtt_ms, kind);
         }
     }
+    pub(in crate::runtime) fn note_upstream_socket_created(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_socket_created();
+        }
+    }
+    pub(in crate::runtime) fn note_upstream_protect_attempted(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_protect_attempted();
+        }
+    }
+    pub(in crate::runtime) fn note_upstream_protect_succeeded(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_protect_succeeded();
+        }
+    }
+    pub(in crate::runtime) fn note_upstream_protect_rejected(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_protect_rejected();
+        }
+    }
+    pub(in crate::runtime) fn note_upstream_protect_error(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_protect_error();
+        }
+    }
+    pub(in crate::runtime) fn note_upstream_application_bytes_forwarded(&self, bytes: u64, epoch_ms: u64) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_application_bytes_forwarded(bytes, epoch_ms);
+        }
+    }
+    pub(in crate::runtime) fn note_upstream_application_send_result(
+        &self,
+        result: &Result<OutboundSendOutcome, OutboundSendError>,
+    ) {
+        let bytes_committed = match result {
+            Ok(outcome) => outcome.bytes_committed,
+            Err(OutboundSendError::StrategyExecution { bytes_committed, .. }) => *bytes_committed,
+            Err(OutboundSendError::Transport(_)) => 0,
+        };
+        if bytes_committed > 0 {
+            self.note_upstream_application_bytes_forwarded(bytes_committed as u64, now_epoch_ms());
+        }
+    }
     pub(in crate::runtime) fn note_quic_migration_status(
         &self,
         target: SocketAddr,

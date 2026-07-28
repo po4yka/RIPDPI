@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use super::super::super::state::{RouteConnectPolicy, RuntimeState};
 use super::error::ConnectAttemptError;
 use super::post_connect::{apply_group_socket_options, record_connect_telemetry};
-use super::socket::connect_socket_detailed;
+use super::socket::connect_socket_detailed_observed;
 use super::socks::connect_via_socks;
 use crate::runtime::destination_routing::DestinationEgress;
 
@@ -87,6 +87,7 @@ fn connect_target_via_group_with_policy(
             policy.protect_path.as_deref(),
             policy.tfo_enabled,
             policy.connect_timeout,
+            state,
         )
         .map_err(|source| ConnectAttemptError {
             source,
@@ -94,13 +95,14 @@ fn connect_target_via_group_with_policy(
             tcp_fast_open_enabled: policy.tfo_enabled,
         })
     } else {
-        connect_socket_detailed(
+        connect_socket_detailed_observed(
             target,
             unspecified_ip_for(target),
             policy.protect_path.as_deref(),
             policy.tfo_enabled,
             policy.connect_timeout,
             policy.pre_connect_rcvbuf,
+            state,
         )
     };
     let stream = match connect_result {

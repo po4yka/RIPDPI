@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use super::socket::connect_socket;
+use super::error::ConnectAttemptError;
 use crate::runtime::state::RuntimeState;
 pub(in crate::runtime::routing::connect) fn connect_via_socks(
     target: SocketAddr,
@@ -11,8 +11,18 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
     protect_path: Option<&str>,
     tfo: bool,
     connect_timeout: Option<Duration>,
+    state: &RuntimeState,
 ) -> io::Result<TcpStream> {
-    let mut stream = connect_socket(upstream, bind_ip, protect_path, tfo, connect_timeout)?;
+    let mut stream = super::socket::connect_socket_detailed_observed(
+        upstream,
+        bind_ip,
+        protect_path,
+        tfo,
+        connect_timeout,
+        None,
+        state,
+    )
+    .map_err(ConnectAttemptError::into_io_error)?;
     stream.set_read_timeout(connect_timeout)?;
     stream.set_write_timeout(connect_timeout)?;
 
@@ -58,6 +68,7 @@ mod tests {
         });
 
         let started = Instant::now();
+        let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
         let err = connect_via_socks(
             target,
             upstream,
@@ -65,6 +76,7 @@ mod tests {
             None,
             false,
             Some(Duration::from_millis(75)),
+            &state,
         )
         .expect_err("auth stall should time out");
 
@@ -89,6 +101,7 @@ mod tests {
         });
 
         let started = Instant::now();
+        let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
         let err = connect_via_socks(
             target,
             upstream,
@@ -96,6 +109,7 @@ mod tests {
             None,
             false,
             Some(Duration::from_millis(75)),
+            &state,
         )
         .expect_err("connect reply stall should time out");
 
@@ -119,6 +133,7 @@ mod tests {
             stream.write_all(&[0x05, 0, 0, 0x01, 127, 0, 0, 1, 0x1f, 0x90]).expect("write connect success");
         });
 
+        let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
         let stream = connect_via_socks(
             target,
             upstream,
@@ -126,6 +141,7 @@ mod tests {
             None,
             false,
             Some(Duration::from_millis(75)),
+            &state,
         )
         .expect("connect via upstream socks");
 

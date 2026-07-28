@@ -48,6 +48,43 @@ pub(crate) struct TunnelStatsSnapshot {
     pub(crate) rx_bytes: u64,
 }
 
+/// Privacy-safe cumulative proxy data-plane evidence.
+///
+/// Semantics:
+/// - `proxy_client_sockets_accepted`: proxy client sockets accepted into the
+///   worker pool; capacity rejections are excluded.
+/// - `upstream_socket_created`: outbound TCP sockets successfully created by
+///   the proxy connector before protect/connect outcomes are known.
+/// - `upstream_opened`: outbound TCP connects that completed and produced a
+///   live upstream stream.
+/// - `upstream_open_failures`: failed outbound open attempts, including
+///   protect, connect, and post-connect socket-option failures.
+/// - `protect_*`: exact outcomes only for sockets where the proxy owner
+///   requested protection; no fd/path/endpoint/error text is serialized.
+/// - `upstream_application_bytes`: bytes committed from the accepted client to
+///   the actual upstream write path after proxy handshakes. Protocol overhead
+///   and synthetic fake/desync bytes are excluded when the sender reports the
+///   committed application-byte count.
+/// - `first_upstream_application_forwarded_at` / `last_*`: epoch milliseconds
+///   for the first and last positive application-byte commit in this process.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyForwardingEvidenceSnapshot {
+    pub proxy_client_sockets_accepted: u64,
+    pub upstream_socket_created: u64,
+    pub upstream_opened: u64,
+    pub upstream_open_failures: u64,
+    pub protect_attempted: u64,
+    pub protect_succeeded: u64,
+    pub protect_rejected: u64,
+    pub protect_errors: u64,
+    pub upstream_application_bytes: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_upstream_application_forwarded_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_upstream_application_forwarded_at: Option<u64>,
+}
+
 /// Runtime-telemetry payload schema version emitted on every snapshot.
 pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 

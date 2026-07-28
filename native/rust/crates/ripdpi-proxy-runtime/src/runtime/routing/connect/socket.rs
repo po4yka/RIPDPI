@@ -2,9 +2,33 @@ use std::io;
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::platform::connect as connect_platform;
+use ripdpi_proxy_runtime_adapter::platform::connect::{self as connect_platform, ProtectObservationOutcome};
 
 use super::error::ConnectAttemptError;
+use crate::runtime::state::RuntimeState;
+
+struct RuntimeConnectObserver<'a> {
+    state: &'a RuntimeState,
+}
+
+impl connect_platform::TcpConnectObserver for RuntimeConnectObserver<'_> {
+    fn on_socket_created(&self) {
+        self.state.note_upstream_socket_created();
+    }
+
+    fn on_protect_attempted(&self) {
+        self.state.note_upstream_protect_attempted();
+    }
+
+    fn on_protect_finished(&self, outcome: ProtectObservationOutcome) {
+        match outcome {
+            ProtectObservationOutcome::Succeeded => self.state.note_upstream_protect_succeeded(),
+            ProtectObservationOutcome::Rejected => self.state.note_upstream_protect_rejected(),
+            ProtectObservationOutcome::Error => self.state.note_upstream_protect_error(),
+        }
+    }
+}
+
 pub(in crate::runtime) fn connect_socket(
     target: SocketAddr,
     bind_ip: IpAddr,
@@ -30,6 +54,32 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed(
             tcp_total_retransmissions: err.tcp_total_retransmissions,
             tcp_fast_open_enabled: err.tcp_fast_open_enabled,
         })
+}
+
+pub(in crate::runtime::routing::connect) fn connect_socket_detailed_observed(
+    target: SocketAddr,
+    bind_ip: IpAddr,
+    protect_path: Option<&str>,
+    tfo: bool,
+    connect_timeout: Option<Duration>,
+    pre_connect_rcvbuf: Option<u32>,
+    state: &RuntimeState,
+) -> Result<TcpStream, ConnectAttemptError> {
+    let observer = RuntimeConnectObserver { state };
+    connect_platform::connect_tcp_stream_observed(
+        target,
+        bind_ip,
+        protect_path,
+        tfo,
+        connect_timeout,
+        pre_connect_rcvbuf,
+        Some(&observer),
+    )
+    .map_err(|err| ConnectAttemptError {
+        source: err.source,
+        tcp_total_retransmissions: err.tcp_total_retransmissions,
+        tcp_fast_open_enabled: err.tcp_fast_open_enabled,
+    })
 }
 
 #[cfg(test)]

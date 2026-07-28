@@ -58,7 +58,44 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
     }
 
     fn on_upstream_connected(&self, upstream_addr: std::net::SocketAddr, rtt_ms: Option<u64>) {
+        // Ordering: Relaxed -- cumulative evidence counter, no happens-before required.
+        self.state.upstream_opened.fetch_add(1, Ordering::Relaxed);
         self.state.on_upstream_connected(upstream_addr.to_string(), rtt_ms);
+    }
+
+    fn on_upstream_connect_failed(&self, _addr: std::net::SocketAddr, rtt_ms: u64, kind: std::io::ErrorKind) {
+        let _ = (rtt_ms, kind);
+        // Ordering: Relaxed -- cumulative evidence counter, no happens-before required.
+        self.state.upstream_open_failures.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn on_upstream_socket_created(&self) {
+        // Ordering: Relaxed -- cumulative evidence counter, no happens-before required.
+        self.state.upstream_socket_created.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn on_upstream_protect_attempted(&self) {
+        // Ordering: Relaxed -- cumulative evidence counter, no happens-before required.
+        self.state.protect_attempted.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn on_upstream_protect_succeeded(&self) {
+        // Ordering: Relaxed -- cumulative evidence counter, no happens-before required.
+        self.state.protect_succeeded.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn on_upstream_protect_rejected(&self) {
+        // Ordering: Relaxed -- cumulative evidence counter, no happens-before required.
+        self.state.protect_rejected.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn on_upstream_protect_error(&self) {
+        // Ordering: Relaxed -- cumulative evidence counter, no happens-before required.
+        self.state.protect_errors.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn on_upstream_application_bytes_forwarded(&self, bytes: u64, epoch_ms: u64) {
+        self.state.record_upstream_application_forward(bytes, epoch_ms);
     }
 
     fn on_tls_handshake_completed(&self, _target: std::net::SocketAddr, latency_ms: u64) {

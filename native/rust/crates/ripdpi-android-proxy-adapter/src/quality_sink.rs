@@ -225,6 +225,36 @@ impl RuntimeTelemetrySink for CompositeProxyTelemetrySink {
         self.quality.on_upstream_connect_failed(addr, rtt_ms, kind);
     }
 
+    fn on_upstream_socket_created(&self) {
+        self.primary.on_upstream_socket_created();
+        self.quality.on_upstream_socket_created();
+    }
+
+    fn on_upstream_protect_attempted(&self) {
+        self.primary.on_upstream_protect_attempted();
+        self.quality.on_upstream_protect_attempted();
+    }
+
+    fn on_upstream_protect_succeeded(&self) {
+        self.primary.on_upstream_protect_succeeded();
+        self.quality.on_upstream_protect_succeeded();
+    }
+
+    fn on_upstream_protect_rejected(&self) {
+        self.primary.on_upstream_protect_rejected();
+        self.quality.on_upstream_protect_rejected();
+    }
+
+    fn on_upstream_protect_error(&self) {
+        self.primary.on_upstream_protect_error();
+        self.quality.on_upstream_protect_error();
+    }
+
+    fn on_upstream_application_bytes_forwarded(&self, bytes: u64, epoch_ms: u64) {
+        self.primary.on_upstream_application_bytes_forwarded(bytes, epoch_ms);
+        self.quality.on_upstream_application_bytes_forwarded(bytes, epoch_ms);
+    }
+
     fn on_tls_handshake_completed(&self, target: SocketAddr, latency_ms: u64) {
         self.primary.on_tls_handshake_completed(target, latency_ms);
         self.quality.on_tls_handshake_completed(target, latency_ms);

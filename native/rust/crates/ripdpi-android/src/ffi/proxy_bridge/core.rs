@@ -1,10 +1,11 @@
 //! JNI export facade for the embedded SOCKS proxy lifecycle.
 //!
-//! Each `export_jni!` entry is a `Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_*`
-//! symbol that wraps a `proxy_*_entry` delegate from `ripdpi-android-proxy-adapter`
-//! in `android_support::ffi_boundary` for panic containment. This module owns
-//! only the export symbols and panic sentinels; the lifecycle logic lives in
-//! the adapter crate.
+//! Most `export_jni!` entries are
+//! `Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_*` symbols that wrap a
+//! `proxy_*_entry` delegate from `ripdpi-android-proxy-adapter` in
+//! `android_support::ffi_boundary` for panic containment. This module owns only
+//! the export symbols and panic sentinels; the lifecycle logic lives in the
+//! adapter crate.
 //!
 //! ## Handle lifecycle
 //! `jniCreate` -> `jniStart` -> `jniStop` -> `jniDestroy`, per session.
@@ -31,9 +32,9 @@ use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
 
 use ripdpi_android_proxy_adapter::{
-    proxy_create_entry, proxy_destroy_entry, proxy_poll_telemetry_entry, proxy_register_readiness_listener_entry,
-    proxy_start_entry, proxy_stop_entry, proxy_unregister_readiness_listener_entry,
-    proxy_update_network_snapshot_entry,
+    proxy_create_entry, proxy_destroy_entry, proxy_poll_forwarding_evidence_entry, proxy_poll_telemetry_entry,
+    proxy_register_readiness_listener_entry, proxy_start_entry, proxy_stop_entry,
+    proxy_unregister_readiness_listener_entry, proxy_update_network_snapshot_entry,
 };
 
 export_jni!(
@@ -62,6 +63,13 @@ export_jni!(
     (handle: jlong),
     jstring,
     proxy_poll_telemetry_entry,
+    core::ptr::null_mut(),
+);
+export_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeForwardingEvidenceBindings_jniPollForwardingEvidence,
+    (handle: jlong),
+    jstring,
+    proxy_poll_forwarding_evidence_entry,
     core::ptr::null_mut(),
 );
 export_jni!(

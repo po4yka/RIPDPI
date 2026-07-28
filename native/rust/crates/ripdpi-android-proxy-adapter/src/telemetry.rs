@@ -18,8 +18,23 @@ pub(crate) fn poll_proxy_telemetry(env: &mut Env<'_>, handle: jlong) -> jstring 
     }
 }
 
+pub(crate) fn poll_proxy_forwarding_evidence(env: &mut Env<'_>, handle: jlong) -> jstring {
+    let telemetry = match proxy_forwarding_evidence_json(handle) {
+        Ok(value) => value,
+        Err(err) => return throw_proxy_error(env, err),
+    };
+    match env.new_string(telemetry) {
+        Ok(value) => value.into_raw(),
+        Err(err) => throw_runtime_error(env, err),
+    }
+}
+
 fn proxy_telemetry_json(handle: jlong) -> Result<String, JniProxyError> {
     Ok(serialize_proxy_telemetry(&lookup_proxy_session(handle)?.telemetry.snapshot())?)
+}
+
+fn proxy_forwarding_evidence_json(handle: jlong) -> Result<String, JniProxyError> {
+    Ok(serde_json::to_string(&lookup_proxy_session(handle)?.telemetry.forwarding_evidence_snapshot())?)
 }
 
 fn throw_proxy_error(env: &mut Env<'_>, err: JniProxyError) -> jstring {

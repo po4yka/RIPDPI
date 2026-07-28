@@ -1,8 +1,12 @@
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION, TunnelStatsSnapshot};
+use super::types::{
+    NativeRuntimeEvent, NativeRuntimeSnapshot, ProxyForwardingEvidenceSnapshot, SNAPSHOT_SCHEMA_VERSION,
+    TunnelStatsSnapshot,
+};
 use super::*;
 
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Barrier};
+use std::thread;
 
 use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
 use golden_test_support::{assert_text_golden, canonicalize_json_with};
@@ -108,6 +112,120 @@ fn proxy_telemetry_observer_updates_snapshot_and_drains_events() {
         assert_eq!(stopped.native_events.len(), 1);
         assert_eq!(stopped.native_events[0].kind.as_deref(), Some("runtime_stopped"));
     });
+}
+
+#[test]
+fn proxy_forwarding_evidence_counts_protect_outcomes_and_bytes_without_sensitive_fields() {
+    let state = Arc::new(ProxyTelemetryState::new(None));
+    let observer = ProxyTelemetryObserver { state: state.clone() };
+    let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+    let target = SocketAddr::from(([203, 0, 113, 10], 443));
+
+    observer.on_listener_started(listener, 256, 1);
+    observer.on_client_accepted();
+    observer.on_upstream_socket_created();
+    observer.on_upstream_protect_attempted();
+    observer.on_upstream_protect_succeeded();
+    observer.on_upstream_connected(target, Some(42));
+    observer.on_upstream_socket_created();
+    observer.on_upstream_protect_attempted();
+    observer.on_upstream_protect_rejected();
+    observer.on_upstream_connect_failed(target, 7, std::io::ErrorKind::PermissionDenied);
+    observer.on_upstream_socket_created();
+    observer.on_upstream_protect_attempted();
+    observer.on_upstream_protect_error();
+    observer.on_upstream_connect_failed(target, 9, std::io::ErrorKind::ConnectionRefused);
+    observer.on_upstream_application_bytes_forwarded(128, 1_000);
+    observer.on_upstream_application_bytes_forwarded(0, 1_100);
+    observer.on_upstream_application_bytes_forwarded(384, 1_200);
+
+    let evidence = state.forwarding_evidence_snapshot();
+    assert_eq!(evidence.proxy_client_sockets_accepted, 1);
+    assert_eq!(evidence.upstream_socket_created, 3);
+    assert_eq!(evidence.upstream_opened, 1);
+    assert_eq!(evidence.upstream_open_failures, 2);
+    assert_eq!(evidence.protect_attempted, 3);
+    assert_eq!(evidence.protect_succeeded, 1);
+    assert_eq!(evidence.protect_rejected, 1);
+    assert_eq!(evidence.protect_errors, 1);
+    assert_eq!(evidence.upstream_application_bytes, 512);
+    assert_eq!(evidence.first_upstream_application_forwarded_at, Some(1_000));
+    assert_eq!(evidence.last_upstream_application_forwarded_at, Some(1_200));
+
+    let payload = serde_json::to_string(&evidence).expect("serialize evidence");
+    assert!(!payload.contains("203.0.113.10"));
+    assert!(!payload.contains("fd"));
+    assert!(!payload.contains("PermissionDenied"));
+}
+
+#[test]
+fn empty_proxy_forwarding_evidence_omits_absent_timestamps() {
+    let state = ProxyTelemetryState::new(None);
+    let evidence = state.forwarding_evidence_snapshot();
+    let expected = ProxyForwardingEvidenceSnapshot {
+        proxy_client_sockets_accepted: 0,
+        upstream_socket_created: 0,
+        upstream_opened: 0,
+        upstream_open_failures: 0,
+        protect_attempted: 0,
+        protect_succeeded: 0,
+        protect_rejected: 0,
+        protect_errors: 0,
+        upstream_application_bytes: 0,
+        first_upstream_application_forwarded_at: None,
+        last_upstream_application_forwarded_at: None,
+    };
+
+    assert_eq!(
+        serde_json::to_value(&evidence).expect("serialize"),
+        serde_json::to_value(&expected).expect("serialize")
+    );
+    let payload = serde_json::to_string(&evidence).expect("serialize evidence");
+    assert!(!payload.contains("firstUpstreamApplicationForwardedAt"));
+    assert!(!payload.contains("lastUpstreamApplicationForwardedAt"));
+}
+
+#[test]
+fn proxy_forwarding_evidence_concurrent_byte_publication_preserves_timestamp_bounds() {
+    let state = Arc::new(ProxyTelemetryState::new(None));
+    let start = Arc::new(Barrier::new(5));
+    let writer_timestamps = [1_400, 1_000, 1_600, 1_200];
+    let mut writers = Vec::new();
+
+    for timestamp in writer_timestamps {
+        let state = state.clone();
+        let start = start.clone();
+        writers.push(thread::spawn(move || {
+            let observer = ProxyTelemetryObserver { state };
+            start.wait();
+            observer.on_upstream_application_bytes_forwarded(100, timestamp);
+        }));
+    }
+
+    let reader_state = state.clone();
+    let reader_start = start.clone();
+    let reader = thread::spawn(move || {
+        reader_start.wait();
+        loop {
+            let evidence = reader_state.forwarding_evidence_snapshot();
+            if evidence.upstream_application_bytes > 0 {
+                assert!(evidence.first_upstream_application_forwarded_at.is_some());
+                assert!(evidence.last_upstream_application_forwarded_at.is_some());
+                break;
+            }
+            thread::yield_now();
+        }
+    });
+
+    for writer in writers {
+        writer.join().expect("writer joins");
+    }
+    reader.join().expect("reader joins");
+
+    let evidence = state.forwarding_evidence_snapshot();
+    assert_eq!(evidence.upstream_application_bytes, 400);
+    assert_eq!(evidence.first_upstream_application_forwarded_at, Some(1_000));
+    assert_eq!(evidence.last_upstream_application_forwarded_at, Some(1_600));
 }
 
 #[test]

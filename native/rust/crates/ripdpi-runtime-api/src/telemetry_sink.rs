@@ -55,6 +55,42 @@ pub trait RuntimeTelemetrySink: Send + Sync {
     /// capture and the error return — no `.await` is interposed.
     fn on_upstream_connect_failed(&self, _addr: SocketAddr, _rtt_ms: u64, _kind: io::ErrorKind) {}
 
+    /// Called after an outbound TCP socket has been created for the proxy
+    /// data plane and before any connect/protect outcome is known.
+    ///
+    /// The sink receives no fd, endpoint, host, or raw error details. Consumers
+    /// that need owner-specific evidence count this as a socket-creation
+    /// attempt boundary only. Default body is a no-op so existing sinks remain
+    /// source-compatible.
+    fn on_upstream_socket_created(&self) {}
+
+    /// Called before the proxy data plane asks the platform protect layer to
+    /// protect a newly-created outbound TCP socket.
+    ///
+    /// This hook intentionally carries no fd/path/endpoint. It is emitted only
+    /// when the proxy owner passed a protect path and therefore requested
+    /// protection for that socket.
+    fn on_upstream_protect_attempted(&self) {}
+
+    /// Called when the proxy data plane's requested socket protection succeeds.
+    fn on_upstream_protect_succeeded(&self) {}
+
+    /// Called when requested socket protection is denied by policy/permission.
+    fn on_upstream_protect_rejected(&self) {}
+
+    /// Called when requested socket protection fails for an operational reason
+    /// other than policy rejection.
+    fn on_upstream_protect_error(&self) {}
+
+    /// Called after application payload bytes from the accepted client have
+    /// been committed to the upstream TCP socket.
+    ///
+    /// Counts exclude SOCKS/HTTP proxy handshake bytes and upstream-SOCKS
+    /// control handshake bytes. They include exactly the byte count the desync
+    /// sender reports as committed to the real upstream write path; fake/desync
+    /// overhead is excluded when the sender can distinguish it.
+    fn on_upstream_application_bytes_forwarded(&self, _bytes: u64, _epoch_ms: u64) {}
+
     /// Called when the first upstream response is received for a TLS connection,
     /// measuring the round-trip for the ClientHello -> ServerHello exchange.
     /// Only called when the first outbound request starts with a TLS record byte (0x16).

@@ -8,7 +8,7 @@ use ripdpi_android_bridge_support::{NativeBridgeError, NativeBridgeErrorDomain, 
 use crate::entry_error::{log_and_throw, log_and_throw_with_payload};
 use crate::geo_versions::geoip_metadata;
 use crate::lifecycle::{create_session, destroy_session, start_session, stop_session, update_network_snapshot};
-use crate::telemetry::poll_proxy_telemetry;
+use crate::telemetry::{poll_proxy_forwarding_evidence, poll_proxy_telemetry};
 
 fn proxy_bridge_error(code: &'static str, message: &str) -> NativeBridgeError {
     NativeBridgeError::new(NativeBridgeErrorDomain::Proxy, code, message)
@@ -97,6 +97,24 @@ pub fn proxy_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jst
         }
         Outcome::Panic(payload) => {
             log_and_throw(&mut env, "Proxy telemetry polling panicked", &extract_panic_message(payload));
+            std::ptr::null_mut()
+        }
+    }
+}
+
+pub fn proxy_poll_forwarding_evidence_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
+    init_android_logging("ripdpi-native");
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> { Ok(poll_proxy_forwarding_evidence(env, handle)) })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        Outcome::Err(err) => {
+            log_and_throw(&mut env, "Proxy forwarding evidence polling failed", &err.to_string());
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy forwarding evidence polling panicked", &extract_panic_message(payload));
             std::ptr::null_mut()
         }
     }
