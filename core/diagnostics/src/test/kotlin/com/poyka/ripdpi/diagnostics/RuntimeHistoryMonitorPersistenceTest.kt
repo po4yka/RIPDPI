@@ -187,6 +187,60 @@ class RuntimeHistoryMonitorPersistenceTest {
         }
 
     @Test
+    fun `handover telemetry persists each new state once per running session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitorScope = monitorScope()
+            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+
+            monitor.start()
+            runCurrent()
+            serviceStateStore.updateTelemetry(handoverTelemetry(" ", updatedAt = 1L))
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            val firstConnectionSessionId =
+                stores.usageSessionsState.value
+                    .single()
+                    .id
+
+            serviceStateStore.updateTelemetry(handoverTelemetry("observed", updatedAt = 10L))
+            runCurrent()
+            serviceStateStore.updateTelemetry(handoverTelemetry("observed", updatedAt = 11L))
+            runCurrent()
+            serviceStateStore.updateTelemetry(handoverTelemetry(" ", updatedAt = 12L))
+            runCurrent()
+            serviceStateStore.updateTelemetry(handoverTelemetry("restarting", updatedAt = 13L))
+            runCurrent()
+
+            val firstSessionEvents = handoverEvents(stores)
+            assertEquals(2, firstSessionEvents.size)
+            assertTrue(firstSessionEvents.all { it.connectionSessionId == firstConnectionSessionId })
+            assertTrue(firstSessionEvents.none { it.message.contains("observed") || it.message.contains("restarting") })
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            val secondConnectionSessionId =
+                stores.usageSessionsState.value
+                    .single { it.finishedAt == null }
+                    .id
+            assertTrue(handoverEvents(stores).none { it.connectionSessionId == secondConnectionSessionId })
+            serviceStateStore.updateTelemetry(handoverTelemetry("restarting", updatedAt = 14L))
+            runCurrent()
+            assertTrue(handoverEvents(stores).none { it.connectionSessionId == secondConnectionSessionId })
+            serviceStateStore.updateTelemetry(handoverTelemetry("revalidated", updatedAt = 15L))
+            runCurrent()
+
+            val secondSessionEvents =
+                handoverEvents(stores).filter { it.connectionSessionId == secondConnectionSessionId }
+            assertEquals(1, secondSessionEvents.size)
+            monitorScope.cancel()
+        }
+
+    @Test
     fun `device runtime ingress preserves pre running service lifecycle evidence`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -280,4 +334,18 @@ class RuntimeHistoryMonitorPersistenceTest {
                 ),
             updatedAt = 10L,
         )
+
+    private fun handoverTelemetry(
+        state: String,
+        updatedAt: Long,
+    ): ServiceTelemetrySnapshot =
+        ServiceTelemetrySnapshot(
+            networkHandoverState = state,
+            updatedAt = updatedAt,
+        )
+
+    private fun handoverEvents(stores: FakeDiagnosticsHistoryStores) =
+        stores.nativeEventsState.value.filter { event ->
+            event.source == "android_device_state" && event.message.contains("trigger=handover")
+        }
 }

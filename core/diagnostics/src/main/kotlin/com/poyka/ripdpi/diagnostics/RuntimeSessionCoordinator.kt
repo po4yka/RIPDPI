@@ -49,6 +49,7 @@ class RuntimeSessionCoordinator
         private var callbackConnectionSessionId: String? = null
         private var samplingJob: Job? = null
         private var reconnectInProgress = false
+        private var lastRecordedNetworkHandoverState: String? = null
 
         suspend fun handleStatusChange(
             status: AppStatus,
@@ -102,6 +103,11 @@ class RuntimeSessionCoordinator
                             networkType = activeUsageSession?.networkType ?: "unknown",
                             publicIp = activeUsageSession?.publicIp,
                         )
+                        val handoverState = telemetry.networkHandoverState?.takeIf(String::isNotBlank)
+                        if (handoverState != null && handoverState != lastRecordedNetworkHandoverState) {
+                            deviceStateEventRecorder.recordHandover()
+                            lastRecordedNetworkHandoverState = handoverState
+                        }
                     }
                     activeUsageSession?.id
                 }
@@ -257,6 +263,7 @@ class RuntimeSessionCoordinator
                 )
             activeUsageSession = session
             callbackConnectionSessionId = session.id
+            lastRecordedNetworkHandoverState = telemetry.networkHandoverState?.takeIf(String::isNotBlank)
             bypassUsageHistoryStore.upsertBypassUsageSession(session)
             val updatedSession =
                 rememberedPolicySessionTracker.sync(
@@ -354,6 +361,7 @@ class RuntimeSessionCoordinator
             bypassUsageHistoryStore.upsertBypassUsageSession(finishedSession)
             activeUsageSession = null
             callbackConnectionSessionId = null
+            lastRecordedNetworkHandoverState = null
             rememberedPolicySessionTracker.clear()
         }
 
