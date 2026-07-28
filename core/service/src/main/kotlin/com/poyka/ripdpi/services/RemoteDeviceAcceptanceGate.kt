@@ -4,8 +4,6 @@ import android.os.SystemClock
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
 import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneCounters
-import com.poyka.ripdpi.data.DeviceRuntimeEvidence
-import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NetworkHandoverStates
@@ -18,6 +16,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,373 +24,420 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-internal class DefaultRemoteDeviceAcceptanceGate
+internal class DefaultRemoteDeviceAcceptanceGate internal constructor(
+    private val serviceStateStore: ServiceStateStore,
+    private val screenStateObserver: ScreenStateObserver,
+    private val baselineProbe: RemoteDeviceAcceptanceBaselineProbe,
+    private val networkFingerprintProvider: NetworkFingerprintProvider,
+    private val evidenceWriter: RemoteDeviceAcceptanceEvidenceWriter,
+    private val screenOffDwellMs: Long,
+    private val telemetryFreshTimeoutMs: Long,
+) : RemoteDeviceAcceptanceGate {
     @Inject
     constructor(
-        private val serviceStateStore: ServiceStateStore,
-        private val screenStateObserver: ScreenStateObserver,
-        private val baselineProbe: RemoteDeviceAcceptanceBaselineProbe,
-        private val networkFingerprintProvider: NetworkFingerprintProvider,
-        private val deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore,
-        private val evidenceWriter: RemoteDeviceAcceptanceEvidenceWriter,
-    ) : RemoteDeviceAcceptanceGate {
-        private val _report = MutableStateFlow(RemoteDeviceAcceptanceReport())
-        override val report: StateFlow<RemoteDeviceAcceptanceReport> = _report.asStateFlow()
-        private var runJob: Job? = null
-        private var activeRunOrdinal = 0L
+        serviceStateStore: ServiceStateStore,
+        screenStateObserver: ScreenStateObserver,
+        baselineProbe: RemoteDeviceAcceptanceBaselineProbe,
+        networkFingerprintProvider: NetworkFingerprintProvider,
+        evidenceWriter: RemoteDeviceAcceptanceEvidenceWriter,
+    ) : this(
+        serviceStateStore = serviceStateStore,
+        screenStateObserver = screenStateObserver,
+        baselineProbe = baselineProbe,
+        networkFingerprintProvider = networkFingerprintProvider,
+        evidenceWriter = evidenceWriter,
+        screenOffDwellMs = RemoteAcceptanceScreenOffDwellMs,
+        telemetryFreshTimeoutMs = RemoteAcceptanceTelemetryFreshTimeoutMs,
+    )
 
-        override fun start(scope: CoroutineScope) {
-            val previousRun = runJob
-            activeRunOrdinal += 1L
-            val run =
-                RemoteAcceptanceRun(
-                    ordinal = activeRunOrdinal,
-                    generation = UUID.randomUUID().toString(),
-                )
-            runJob =
-                scope.launch {
-                    previousRun?.cancelAndJoin()
-                    if (!isCurrent(run)) return@launch
-                    evidenceWriter.beginRun(run.generation, System.currentTimeMillis())
-                    if (!isCurrent(run)) return@launch
-                    runAcceptance(run)
-                }
-        }
+    private val _report = MutableStateFlow(RemoteDeviceAcceptanceReport())
+    override val report: StateFlow<RemoteDeviceAcceptanceReport> = _report.asStateFlow()
+    private var runJob: Job? = null
+    private var activeRunOrdinal = 0L
 
-        override fun renderRedactedReport(): String = renderRemoteDeviceAcceptanceReport(_report.value)
-
-        /** Cancel-safe: an in-flight screen-off check records a terminal cancellation event. */
-        private suspend fun runAcceptance(run: RemoteAcceptanceRun) {
-            val startedAt = SystemClock.elapsedRealtime()
-            val initialSnapshot = serviceStateStore.telemetry.value
-            _report.value =
-                RemoteDeviceAcceptanceReport(
-                    status = RemoteDeviceAcceptanceStatus.Running,
-                    device = captureRemoteDeviceAcceptanceDevice(),
-                    transportKind = sanitizeTransportKind(initialSnapshot.relayTelemetry.protocolKind),
-                )
-            val baseline = baselineProbe.capture(initialSnapshot)
-            if (!isCurrent(run)) return
-            _report.value = baseline
-            observeGuidedSteps(run, startedAt, initialSnapshot)
-        }
-
-        private suspend fun observeGuidedSteps(
-            run: RemoteAcceptanceRun,
-            startedAt: Long,
-            initialSnapshot: ServiceTelemetrySnapshot,
-        ) {
-            val state =
-                GuidedRunState(
-                    baselineUnderlay = captureUnderlayTransport(),
-                    lastHandoverState = initialSnapshot.networkHandoverState,
-                    screenOffDwellTracker =
-                        RemoteScreenOffDwellTracker(
-                            minimumDwellMs = RemoteAcceptanceScreenOffDwellMs,
-                            evidenceRecorder = { event -> recordBackgroundEvidence(run, event) },
-                        ),
-                )
-
-            try {
-                combine(
-                    serviceStateStore.status,
-                    serviceStateStore.telemetry,
-                    screenStateObserver.isInteractive,
-                ) { status, telemetry, interactive ->
-                    GuidedObservation(
-                        status.first,
-                        status.second,
-                        telemetry,
-                        interactive,
-                        captureUnderlayTransport(),
-                    )
-                }.collect { observation ->
-                    if (isCurrent(run)) {
-                        handleGuidedObservation(run, startedAt, state, observation)
-                    }
-                }
-            } catch (cancelled: CancellationException) {
-                state.cancelScreenOff(serviceStateStore.telemetry.value)
-                throw cancelled
+    override fun start(scope: CoroutineScope) {
+        val previousRun = runJob
+        activeRunOrdinal += 1L
+        val run =
+            RemoteAcceptanceRun(
+                ordinal = activeRunOrdinal,
+                generation = UUID.randomUUID().toString(),
+            )
+        runJob =
+            scope.launch {
+                previousRun?.cancelAndJoin()
+                if (!isCurrent(run)) return@launch
+                evidenceWriter.beginRun(run.generation, System.currentTimeMillis())
+                if (!isCurrent(run)) return@launch
+                runAcceptance(run)
             }
-        }
+    }
 
-        private suspend fun handleGuidedObservation(
-            run: RemoteAcceptanceRun,
-            startedAt: Long,
-            state: GuidedRunState,
-            observation: GuidedObservation,
-        ) {
-            val running = observation.isVpnRunning
-            val screenOffObservation =
-                state.recordLifecycle(
-                    running = running,
-                    interactive = observation.interactive,
-                    elapsedNowMs = SystemClock.elapsedRealtime(),
-                    observedAtMillis = System.currentTimeMillis(),
-                    telemetry = observation.telemetry,
+    override fun renderRedactedReport(): String = renderRemoteDeviceAcceptanceReport(_report.value)
+
+    /** Cancel-safe: an in-flight screen-off check records a terminal cancellation event. */
+    private suspend fun runAcceptance(run: RemoteAcceptanceRun) {
+        val startedAt = SystemClock.elapsedRealtime()
+        val initialSnapshot = serviceStateStore.telemetry.value
+        _report.value =
+            RemoteDeviceAcceptanceReport(
+                status = RemoteDeviceAcceptanceStatus.Running,
+                device = captureRemoteDeviceAcceptanceDevice(),
+                transportKind = sanitizeTransportKind(initialSnapshot.relayTelemetry.protocolKind),
+            )
+        val baseline = baselineProbe.capture(initialSnapshot)
+        if (!isCurrent(run)) return
+        _report.value = baseline
+        observeGuidedSteps(run, startedAt, initialSnapshot)
+    }
+
+    private suspend fun observeGuidedSteps(
+        run: RemoteAcceptanceRun,
+        startedAt: Long,
+        initialSnapshot: ServiceTelemetrySnapshot,
+    ) {
+        val state =
+            GuidedRunState(
+                baselineUnderlay = captureUnderlayTransport(),
+                lastHandoverState = initialSnapshot.networkHandoverState,
+                screenOffDwellTracker =
+                    RemoteScreenOffDwellTracker(
+                        minimumDwellMs = screenOffDwellMs,
+                        evidenceRecorder = { event -> evidenceWriter.record(run.generation, event) },
+                    ),
+            )
+
+        try {
+            combine(
+                serviceStateStore.status,
+                serviceStateStore.telemetry,
+                screenStateObserver.isInteractive,
+            ) { status, telemetry, interactive ->
+                GuidedObservation(
+                    status.first,
+                    status.second,
+                    telemetry,
+                    interactive,
+                    captureUnderlayTransport(),
                 )
-            recordDirectFallback(startedAt, observation)
-            when (screenOffObservation) {
-                is RemoteScreenOffDwellObservation.Completed -> {
-                    applyScreenOffResult(run, startedAt, screenOffObservation.result)
-                }
-
-                is RemoteScreenOffDwellObservation.ReadyForScreenOffProbe -> {
-                    handleScreenOffProbe(run, startedAt, state)
-                }
-
-                is RemoteScreenOffDwellObservation.ReadyForAfterWakeProbe -> {
-                    handleAfterWakeProbe(run, startedAt, state)
-                }
-
-                RemoteScreenOffDwellObservation.None -> {
-                }
-            }
-
-            val triggers = guidedTriggers(state, observation, running)
-            state.lastHandoverState = observation.telemetry.networkHandoverState
-            if (triggers.any) {
-                val result =
-                    guidedDataPlaneResult(
-                        baselineProbe.capture(observation.telemetry).acceptanceDataPlaneStatus(),
-                    ).takeIf { isCurrent(run) }
-                val latestObservation = currentGuidedObservation()
-                if (result != null && isCurrent(run) && latestObservation.isVpnRunning) {
-                    applyGuidedResult(startedAt, state, observation, triggers, result.status, result.errorClass)
-                }
-            }
-        }
-
-        private suspend fun handleScreenOffProbe(
-            run: RemoteAcceptanceRun,
-            startedAt: Long,
-            state: GuidedRunState,
-        ) {
-            val beforeProbeTelemetry = serviceStateStore.telemetry.value
-            val countersBefore = beforeProbeTelemetry.toRuntimeDataPlaneCounters()
-            val verified = baselineProbe.captureDataPlanePassed(beforeProbeTelemetry).takeIf { isCurrent(run) }
-            val afterBaseline = currentGuidedObservation()
-            if (verified != null && isCurrent(run)) {
-                when {
-                    !afterBaseline.isVpnRunning -> {
-                        state
-                            .interruptServiceStoppedProbe(afterBaseline.telemetry, countersBefore)
-                            ?.let { result -> applyScreenOffResult(run, startedAt, result) }
-                    }
-
-                    afterBaseline.interactive -> {
-                        state
-                            .interruptScreenChangedProbe(afterBaseline.telemetry, countersBefore)
-                            ?.let { result -> applyScreenOffResult(run, startedAt, result) }
-                    }
-
-                    else -> {
-                        recordCompletedScreenOffProbe(
-                            run = run,
-                            startedAt = startedAt,
-                            state = state,
-                            beforeProbeTelemetry = beforeProbeTelemetry,
-                            countersBefore = countersBefore,
-                            verified = verified,
-                        )
-                    }
-                }
-            }
-        }
-
-        private suspend fun handleAfterWakeProbe(
-            run: RemoteAcceptanceRun,
-            startedAt: Long,
-            state: GuidedRunState,
-        ) {
-            val beforeProbeTelemetry = serviceStateStore.telemetry.value
-            val countersBefore = beforeProbeTelemetry.toRuntimeDataPlaneCounters()
-            val verified = baselineProbe.captureDataPlanePassed(beforeProbeTelemetry).takeIf { isCurrent(run) }
-            val afterBaseline = currentGuidedObservation()
-            if (verified != null && isCurrent(run)) {
-                if (!afterBaseline.isVpnRunning || !afterBaseline.interactive) return
-                val telemetrySample = awaitFreshTelemetryAfter(beforeProbeTelemetry.updatedAt)
-                val latestObservation = currentGuidedObservation()
+            }.collect { observation ->
                 if (isCurrent(run)) {
-                    val result =
-                        state.completeScreenOffAfterWake(
-                            elapsedNowMs = SystemClock.elapsedRealtime(),
-                            observedAtMillis = System.currentTimeMillis(),
-                            telemetry = telemetrySample.snapshot ?: latestObservation.telemetry,
-                            countersBefore = countersBefore,
-                            afterWakeProbePassed = verified,
-                            telemetryFresh = telemetrySample.fresh,
-                        )
-                    applyScreenOffResult(run, startedAt, result)
+                    handleGuidedObservation(run, startedAt, state, observation)
                 }
+            }
+        } catch (cancelled: CancellationException) {
+            persistCancellation(run, state)
+            throw cancelled
+        }
+    }
+
+    private suspend fun handleGuidedObservation(
+        run: RemoteAcceptanceRun,
+        startedAt: Long,
+        state: GuidedRunState,
+        observation: GuidedObservation,
+    ) {
+        val running = observation.isVpnRunning
+        val screenOffObservation =
+            state.recordLifecycle(
+                running = running,
+                interactive = observation.interactive,
+                elapsedNowMs = SystemClock.elapsedRealtime(),
+                observedAtMillis = System.currentTimeMillis(),
+                telemetry = observation.telemetry,
+            )
+        recordDirectFallback(startedAt, observation)
+        when (screenOffObservation) {
+            is RemoteScreenOffDwellObservation.Completed -> {
+                applyScreenOffResult(run, startedAt, screenOffObservation.result)
+            }
+
+            is RemoteScreenOffDwellObservation.ReadyForScreenOffProbe -> {
+                handleScreenOffProbe(run, startedAt, state)
+            }
+
+            is RemoteScreenOffDwellObservation.ReadyForAfterWakeProbe -> {
+                handleAfterWakeProbe(run, startedAt, state)
+            }
+
+            RemoteScreenOffDwellObservation.None -> {
             }
         }
 
-        private suspend fun recordCompletedScreenOffProbe(
-            run: RemoteAcceptanceRun,
-            startedAt: Long,
-            state: GuidedRunState,
-            beforeProbeTelemetry: ServiceTelemetrySnapshot,
-            countersBefore: DeviceRuntimeDataPlaneCounters,
-            verified: Boolean,
-        ) {
+        val triggers = guidedTriggers(state, observation, running)
+        state.lastHandoverState = observation.telemetry.networkHandoverState
+        if (triggers.any) {
+            val result =
+                guidedDataPlaneResult(
+                    baselineProbe.capture(observation.telemetry).acceptanceDataPlaneStatus(),
+                ).takeIf { isCurrent(run) }
+            val latestObservation = currentGuidedObservation()
+            if (result != null && isCurrent(run) && latestObservation.isVpnRunning) {
+                applyGuidedResult(startedAt, state, observation, triggers, result.status, result.errorClass)
+            }
+        }
+    }
+
+    private suspend fun handleScreenOffProbe(
+        run: RemoteAcceptanceRun,
+        startedAt: Long,
+        state: GuidedRunState,
+    ) {
+        val beforeProbeTelemetry = serviceStateStore.telemetry.value
+        val countersBefore = beforeProbeTelemetry.toRuntimeDataPlaneCounters()
+        val serviceInstanceBefore = beforeProbeTelemetry.serviceInstance()
+        val verified = baselineProbe.captureDataPlanePassed(beforeProbeTelemetry).takeIf { isCurrent(run) }
+        val afterBaseline = currentGuidedObservation()
+        if (verified != null && isCurrent(run)) {
+            when {
+                !afterBaseline.isVpnRunning -> {
+                    state
+                        .interruptServiceStoppedProbe(afterBaseline.telemetry, countersBefore)
+                        ?.let { result -> applyScreenOffResult(run, startedAt, result) }
+                }
+
+                afterBaseline.interactive -> {
+                    state
+                        .interruptScreenChangedProbe(afterBaseline.telemetry, countersBefore)
+                        ?.let { result -> applyScreenOffResult(run, startedAt, result) }
+                }
+
+                else -> {
+                    recordCompletedScreenOffProbe(
+                        run = run,
+                        startedAt = startedAt,
+                        state = state,
+                        beforeProbeTelemetry = beforeProbeTelemetry,
+                        countersBefore = countersBefore,
+                        serviceInstanceBefore = serviceInstanceBefore,
+                        verified = verified,
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun handleAfterWakeProbe(
+        run: RemoteAcceptanceRun,
+        startedAt: Long,
+        state: GuidedRunState,
+    ) {
+        val beforeProbeTelemetry = serviceStateStore.telemetry.value
+        val countersBefore = beforeProbeTelemetry.toRuntimeDataPlaneCounters()
+        val serviceInstanceBefore = beforeProbeTelemetry.serviceInstance()
+        val verified = baselineProbe.captureDataPlanePassed(beforeProbeTelemetry).takeIf { isCurrent(run) }
+        val afterBaseline = currentGuidedObservation()
+        if (verified != null && isCurrent(run)) {
+            if (!afterBaseline.isVpnRunning || !afterBaseline.interactive) return
             val telemetrySample = awaitFreshTelemetryAfter(beforeProbeTelemetry.updatedAt)
             val latestObservation = currentGuidedObservation()
             if (isCurrent(run)) {
-                val telemetryAfterProbe = telemetrySample.snapshot ?: latestObservation.telemetry
-                val completedResult =
-                    if (!latestObservation.isVpnRunning) {
-                        state.interruptServiceStoppedProbe(telemetryAfterProbe, countersBefore)
-                    } else if (latestObservation.interactive) {
-                        state.interruptScreenChangedProbe(telemetryAfterProbe, countersBefore)
-                    } else {
-                        (
-                            state.recordScreenOffProbe(
+                val result =
+                    when {
+                        !latestObservation.isVpnRunning -> {
+                            state.interruptAfterWakeServiceStoppedProbe(latestObservation.telemetry, countersBefore)
+                        }
+
+                        !latestObservation.interactive -> {
+                            state.interruptAfterWakeScreenChangedProbe(latestObservation.telemetry, countersBefore)
+                        }
+
+                        latestObservation.telemetry.serviceInstance() != serviceInstanceBefore -> {
+                            state.interruptAfterWakeServiceRestartedProbe(
+                                latestObservation.telemetry,
+                                countersBefore,
+                            )
+                        }
+
+                        else -> {
+                            state.completeScreenOffAfterWake(
                                 elapsedNowMs = SystemClock.elapsedRealtime(),
                                 observedAtMillis = System.currentTimeMillis(),
-                                telemetry = telemetryAfterProbe,
+                                telemetry = latestObservation.telemetry,
                                 countersBefore = countersBefore,
-                                screenOffProbePassed = verified,
+                                afterWakeProbePassed = verified,
                                 telemetryFresh = telemetrySample.fresh,
-                            ) as? RemoteScreenOffDwellObservation.Completed
-                        )?.result
+                            )
+                        }
                     }
-                if (completedResult != null) {
-                    applyScreenOffResult(run, startedAt, completedResult)
-                }
+                result?.let { applyScreenOffResult(run, startedAt, it) }
             }
         }
-
-        private fun recordDirectFallback(
-            startedAt: Long,
-            observation: GuidedObservation,
-        ) {
-            if (!observation.telemetry.relayFailed) return
-            updateStep(
-                stepId = StepNoDirectEgress,
-                status = RemoteDeviceAcceptanceStatus.Fail,
-                errorClass = ErrorDirectEgress,
-                durationMs = elapsedSince(startedAt),
-            )
-        }
-
-        private fun guidedTriggers(
-            state: GuidedRunState,
-            observation: GuidedObservation,
-            running: Boolean,
-        ): GuidedTriggers =
-            GuidedTriggers(
-                reconnect =
-                    running &&
-                        state.sawDisconnected &&
-                        stepStatus(StepReconnect) != RemoteDeviceAcceptanceStatus.Pass,
-                handover =
-                    running &&
-                        observation.telemetry.networkHandoverState == NetworkHandoverStates.Revalidated &&
-                        state.lastHandoverState != NetworkHandoverStates.Revalidated &&
-                        isWifiMobileTransition(state.baselineUnderlay, observation.underlayTransport) &&
-                        stepStatus(StepHandover) != RemoteDeviceAcceptanceStatus.Pass,
-            )
-
-        private fun applyGuidedResult(
-            startedAt: Long,
-            state: GuidedRunState,
-            observation: GuidedObservation,
-            triggers: GuidedTriggers,
-            status: RemoteDeviceAcceptanceStatus,
-            errorClass: String?,
-        ) {
-            val durationMs = elapsedSince(startedAt)
-            if (triggers.reconnect) {
-                updateStep(StepReconnect, status, errorClass, durationMs)
-                state.sawDisconnected = false
-            }
-            if (triggers.handover) {
-                updateStep(StepHandover, status, errorClass, durationMs)
-                state.baselineUnderlay = observation.underlayTransport
-            }
-        }
-
-        private fun applyScreenOffResult(
-            run: RemoteAcceptanceRun,
-            startedAt: Long,
-            result: RemoteScreenOffDwellResult,
-        ) {
-            if (!isCurrent(run) || stepStatus(StepScreenOff).isTerminalScreenOffStatus()) return
-            if (result.status == RemoteDeviceAcceptanceStatus.Incomplete) return
-            updateStep(
-                stepId = StepScreenOff,
-                status = result.status,
-                errorClass = result.errorClass,
-                durationMs = result.durationMs ?: elapsedSince(startedAt),
-            )
-        }
-
-        private fun captureUnderlayTransport(): String? =
-            networkFingerprintProvider
-                .capture()
-                ?.transport
-                ?.takeIf { it == UnderlayWifi || it == UnderlayCellular }
-
-        private fun updateStep(
-            stepId: String,
-            status: RemoteDeviceAcceptanceStatus,
-            errorClass: String?,
-            durationMs: Long,
-        ) {
-            val current = _report.value
-            val steps =
-                current.steps.map { step ->
-                    if (step.id == stepId) {
-                        step.copy(status = status, durationMs = durationMs, errorClass = errorClass)
-                    } else {
-                        step
-                    }
-                }
-            _report.value = current.copy(status = deriveAcceptanceStatus(steps), steps = steps)
-        }
-
-        private fun stepStatus(stepId: String): RemoteDeviceAcceptanceStatus =
-            _report.value.steps
-                .first { it.id == stepId }
-                .status
-
-        private suspend fun awaitFreshTelemetryAfter(updatedAt: Long): FreshTelemetrySample {
-            val fresh =
-                withTimeoutOrNull(RemoteAcceptanceTelemetryFreshTimeoutMs) {
-                    serviceStateStore.telemetry.first { snapshot -> snapshot.updatedAt > updatedAt }
-                }
-            return FreshTelemetrySample(snapshot = fresh, fresh = fresh != null)
-        }
-
-        private fun currentGuidedObservation(): GuidedObservation {
-            val (status, mode) = serviceStateStore.status.value
-            return GuidedObservation(
-                status = status,
-                mode = mode,
-                telemetry = serviceStateStore.telemetry.value,
-                interactive = screenStateObserver.isInteractive.value,
-                underlayTransport = captureUnderlayTransport(),
-            )
-        }
-
-        private suspend fun recordBackgroundEvidence(
-            run: RemoteAcceptanceRun,
-            event: DeviceRuntimeEvidence.BackgroundSurvival,
-        ) {
-            deviceRuntimeEvidenceStore.record(event)
-            evidenceWriter.record(run.generation, event)
-        }
-
-        private fun isCurrent(run: RemoteAcceptanceRun): Boolean = activeRunOrdinal == run.ordinal
     }
+
+    private suspend fun recordCompletedScreenOffProbe(
+        run: RemoteAcceptanceRun,
+        startedAt: Long,
+        state: GuidedRunState,
+        beforeProbeTelemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+        serviceInstanceBefore: ServiceInstance,
+        verified: Boolean,
+    ) {
+        val telemetrySample = awaitFreshTelemetryAfter(beforeProbeTelemetry.updatedAt)
+        val latestObservation = currentGuidedObservation()
+        if (isCurrent(run)) {
+            val completedResult =
+                if (!latestObservation.isVpnRunning) {
+                    state.interruptServiceStoppedProbe(latestObservation.telemetry, countersBefore)
+                } else if (latestObservation.interactive) {
+                    state.interruptScreenChangedProbe(latestObservation.telemetry, countersBefore)
+                } else if (latestObservation.telemetry.serviceInstance() != serviceInstanceBefore) {
+                    state.interruptServiceRestartedProbe(latestObservation.telemetry, countersBefore)
+                } else {
+                    (
+                        state.recordScreenOffProbe(
+                            elapsedNowMs = SystemClock.elapsedRealtime(),
+                            observedAtMillis = System.currentTimeMillis(),
+                            telemetry = latestObservation.telemetry,
+                            countersBefore = countersBefore,
+                            screenOffProbePassed = verified,
+                            telemetryFresh = telemetrySample.fresh,
+                        ) as? RemoteScreenOffDwellObservation.Completed
+                    )?.result
+                }
+            if (completedResult != null) {
+                applyScreenOffResult(run, startedAt, completedResult)
+            }
+        }
+    }
+
+    private fun recordDirectFallback(
+        startedAt: Long,
+        observation: GuidedObservation,
+    ) {
+        if (!observation.telemetry.relayFailed) return
+        updateStep(
+            stepId = StepNoDirectEgress,
+            status = RemoteDeviceAcceptanceStatus.Fail,
+            errorClass = ErrorDirectEgress,
+            durationMs = elapsedSince(startedAt),
+        )
+    }
+
+    private fun guidedTriggers(
+        state: GuidedRunState,
+        observation: GuidedObservation,
+        running: Boolean,
+    ): GuidedTriggers =
+        GuidedTriggers(
+            reconnect =
+                running &&
+                    state.sawDisconnected &&
+                    stepStatus(StepReconnect) != RemoteDeviceAcceptanceStatus.Pass,
+            handover =
+                running &&
+                    observation.telemetry.networkHandoverState == NetworkHandoverStates.Revalidated &&
+                    state.lastHandoverState != NetworkHandoverStates.Revalidated &&
+                    isWifiMobileTransition(state.baselineUnderlay, observation.underlayTransport) &&
+                    stepStatus(StepHandover) != RemoteDeviceAcceptanceStatus.Pass,
+        )
+
+    private fun applyGuidedResult(
+        startedAt: Long,
+        state: GuidedRunState,
+        observation: GuidedObservation,
+        triggers: GuidedTriggers,
+        status: RemoteDeviceAcceptanceStatus,
+        errorClass: String?,
+    ) {
+        val durationMs = elapsedSince(startedAt)
+        if (triggers.reconnect) {
+            updateStep(StepReconnect, status, errorClass, durationMs)
+            state.sawDisconnected = false
+        }
+        if (triggers.handover) {
+            updateStep(StepHandover, status, errorClass, durationMs)
+            state.baselineUnderlay = observation.underlayTransport
+        }
+    }
+
+    private fun applyScreenOffResult(
+        run: RemoteAcceptanceRun,
+        startedAt: Long,
+        result: RemoteScreenOffDwellResult,
+    ) {
+        if (!isCurrent(run) || stepStatus(StepScreenOff).isTerminalScreenOffStatus()) return
+        if (result.status == RemoteDeviceAcceptanceStatus.Incomplete) return
+        updateStep(
+            stepId = StepScreenOff,
+            status = result.status,
+            errorClass = result.errorClass,
+            durationMs = result.durationMs ?: elapsedSince(startedAt),
+        )
+    }
+
+    private fun captureUnderlayTransport(): String? =
+        networkFingerprintProvider
+            .capture()
+            ?.transport
+            ?.takeIf { it == UnderlayWifi || it == UnderlayCellular }
+
+    private fun updateStep(
+        stepId: String,
+        status: RemoteDeviceAcceptanceStatus,
+        errorClass: String?,
+        durationMs: Long,
+    ) {
+        val current = _report.value
+        val steps =
+            current.steps.map { step ->
+                if (step.id == stepId) {
+                    step.copy(status = status, durationMs = durationMs, errorClass = errorClass)
+                } else {
+                    step
+                }
+            }
+        _report.value = current.copy(status = deriveAcceptanceStatus(steps), steps = steps)
+    }
+
+    private fun stepStatus(stepId: String): RemoteDeviceAcceptanceStatus =
+        _report.value.steps
+            .first { it.id == stepId }
+            .status
+
+    private suspend fun awaitFreshTelemetryAfter(updatedAt: Long): FreshTelemetrySample {
+        val fresh =
+            withTimeoutOrNull(telemetryFreshTimeoutMs) {
+                serviceStateStore.telemetry.first { snapshot -> snapshot.updatedAt > updatedAt }
+            }
+        return FreshTelemetrySample(fresh = fresh != null)
+    }
+
+    private fun currentGuidedObservation(): GuidedObservation {
+        val (status, mode) = serviceStateStore.status.value
+        return GuidedObservation(
+            status = status,
+            mode = mode,
+            telemetry = serviceStateStore.telemetry.value,
+            interactive = screenStateObserver.isInteractive.value,
+            underlayTransport = captureUnderlayTransport(),
+        )
+    }
+
+    private suspend fun persistCancellation(
+        run: RemoteAcceptanceRun,
+        state: GuidedRunState,
+    ) {
+        withContext(NonCancellable) {
+            withTimeoutOrNull(RemoteAcceptanceCancellationPersistTimeoutMs) {
+                val wroteScreenOffCancellation = state.cancelScreenOff(serviceStateStore.telemetry.value)
+                if (!wroteScreenOffCancellation) {
+                    evidenceWriter.cancelRun(run.generation, System.currentTimeMillis())
+                }
+            }
+        }
+    }
+
+    private fun isCurrent(run: RemoteAcceptanceRun): Boolean = activeRunOrdinal == run.ordinal
+}
 
 internal data class GuidedDataPlaneResult(
     val status: RemoteDeviceAcceptanceStatus,
@@ -419,8 +465,12 @@ private data class RemoteAcceptanceRun(
 )
 
 private data class FreshTelemetrySample(
-    val snapshot: ServiceTelemetrySnapshot?,
     val fresh: Boolean,
+)
+
+private data class ServiceInstance(
+    val startedAt: Long?,
+    val restartCount: Int,
 )
 
 private data class GuidedObservation(
@@ -500,60 +550,119 @@ private data class GuidedRunState(
         return observation
     }
 
-    suspend fun interruptScreenOffProbe(
-        elapsedNowMs: Long,
-        observedAtMillis: Long,
+    suspend fun interruptServiceStoppedProbe(
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+    ): RemoteScreenOffDwellResult? {
+        val observation =
+            screenOffDwellTracker
+                .interruptScreenOffProbe(
+                    elapsedNowMs = SystemClock.elapsedRealtime(),
+                    observedAtMillis = System.currentTimeMillis(),
+                    telemetry = telemetry,
+                    countersBefore = countersBefore,
+                    reason = DeviceRuntimeBackgroundSurvivalReason.ServiceStopped,
+                    status = RemoteDeviceAcceptanceStatus.Fail,
+                    errorClass = ErrorScreenOffServiceStopped,
+                )
+        return observation.completedResultOrNull()
+    }
+
+    suspend fun interruptServiceRestartedProbe(
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+    ): RemoteScreenOffDwellResult? {
+        val observation =
+            screenOffDwellTracker
+                .interruptScreenOffProbe(
+                    elapsedNowMs = SystemClock.elapsedRealtime(),
+                    observedAtMillis = System.currentTimeMillis(),
+                    telemetry = telemetry,
+                    countersBefore = countersBefore,
+                    reason = DeviceRuntimeBackgroundSurvivalReason.ServiceRestarted,
+                    status = RemoteDeviceAcceptanceStatus.Fail,
+                    errorClass = ErrorScreenOffServiceRestarted,
+                )
+        return observation.completedResultOrNull()
+    }
+
+    suspend fun interruptScreenChangedProbe(
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+    ): RemoteScreenOffDwellResult? {
+        val observation =
+            screenOffDwellTracker
+                .interruptScreenOffProbe(
+                    elapsedNowMs = SystemClock.elapsedRealtime(),
+                    observedAtMillis = System.currentTimeMillis(),
+                    telemetry = telemetry,
+                    countersBefore = countersBefore,
+                    reason = DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged,
+                    status = RemoteDeviceAcceptanceStatus.Incomplete,
+                    errorClass = null,
+                )
+        return observation.completedResultOrNull()
+    }
+
+    suspend fun interruptAfterWakeServiceStoppedProbe(
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+    ): RemoteScreenOffDwellResult? =
+        interruptAfterWakeProbe(
+            telemetry = telemetry,
+            countersBefore = countersBefore,
+            reason = DeviceRuntimeBackgroundSurvivalReason.ServiceStopped,
+            status = RemoteDeviceAcceptanceStatus.Fail,
+            errorClass = ErrorScreenOffServiceStopped,
+        )
+
+    suspend fun interruptAfterWakeServiceRestartedProbe(
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+    ): RemoteScreenOffDwellResult? =
+        interruptAfterWakeProbe(
+            telemetry = telemetry,
+            countersBefore = countersBefore,
+            reason = DeviceRuntimeBackgroundSurvivalReason.ServiceRestarted,
+            status = RemoteDeviceAcceptanceStatus.Fail,
+            errorClass = ErrorScreenOffServiceRestarted,
+        )
+
+    suspend fun interruptAfterWakeScreenChangedProbe(
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+    ): RemoteScreenOffDwellResult? =
+        interruptAfterWakeProbe(
+            telemetry = telemetry,
+            countersBefore = countersBefore,
+            reason = DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged,
+            status = RemoteDeviceAcceptanceStatus.Incomplete,
+            errorClass = null,
+        )
+
+    suspend fun cancelScreenOff(telemetry: ServiceTelemetrySnapshot): Boolean =
+        screenOffDwellTracker.cancel(
+            elapsedNowMs = SystemClock.elapsedRealtime(),
+            observedAtMillis = System.currentTimeMillis(),
+            telemetry = telemetry,
+        ) != null
+
+    private suspend fun interruptAfterWakeProbe(
         telemetry: ServiceTelemetrySnapshot,
         countersBefore: DeviceRuntimeDataPlaneCounters,
         reason: DeviceRuntimeBackgroundSurvivalReason,
         status: RemoteDeviceAcceptanceStatus,
         errorClass: String?,
-    ): RemoteScreenOffDwellObservation =
-        screenOffDwellTracker.interruptScreenOffProbe(
-            elapsedNowMs = elapsedNowMs,
-            observedAtMillis = observedAtMillis,
+    ): RemoteScreenOffDwellResult? =
+        screenOffDwellTracker.interruptAfterWakeProbe(
+            elapsedNowMs = SystemClock.elapsedRealtime(),
+            observedAtMillis = System.currentTimeMillis(),
             telemetry = telemetry,
             countersBefore = countersBefore,
             reason = reason,
             status = status,
             errorClass = errorClass,
         )
-
-    suspend fun interruptServiceStoppedProbe(
-        telemetry: ServiceTelemetrySnapshot,
-        countersBefore: DeviceRuntimeDataPlaneCounters,
-    ): RemoteScreenOffDwellResult? =
-        interruptScreenOffProbe(
-            elapsedNowMs = SystemClock.elapsedRealtime(),
-            observedAtMillis = System.currentTimeMillis(),
-            telemetry = telemetry,
-            countersBefore = countersBefore,
-            reason = DeviceRuntimeBackgroundSurvivalReason.ServiceStopped,
-            status = RemoteDeviceAcceptanceStatus.Fail,
-            errorClass = ErrorScreenOffServiceStopped,
-        ).completedResultOrNull()
-
-    suspend fun interruptScreenChangedProbe(
-        telemetry: ServiceTelemetrySnapshot,
-        countersBefore: DeviceRuntimeDataPlaneCounters,
-    ): RemoteScreenOffDwellResult? =
-        interruptScreenOffProbe(
-            elapsedNowMs = SystemClock.elapsedRealtime(),
-            observedAtMillis = System.currentTimeMillis(),
-            telemetry = telemetry,
-            countersBefore = countersBefore,
-            reason = DeviceRuntimeBackgroundSurvivalReason.ScreenStateChanged,
-            status = RemoteDeviceAcceptanceStatus.Incomplete,
-            errorClass = null,
-        ).completedResultOrNull()
-
-    suspend fun cancelScreenOff(telemetry: ServiceTelemetrySnapshot) {
-        screenOffDwellTracker.cancel(
-            elapsedNowMs = SystemClock.elapsedRealtime(),
-            observedAtMillis = System.currentTimeMillis(),
-            telemetry = telemetry,
-        )
-    }
 }
 
 private suspend fun RemoteDeviceAcceptanceBaselineProbe.captureDataPlanePassed(
@@ -562,6 +671,9 @@ private suspend fun RemoteDeviceAcceptanceBaselineProbe.captureDataPlanePassed(
 
 private fun RemoteScreenOffDwellObservation.completedResultOrNull(): RemoteScreenOffDwellResult? =
     (this as? RemoteScreenOffDwellObservation.Completed)?.result
+
+private fun ServiceTelemetrySnapshot.serviceInstance(): ServiceInstance =
+    ServiceInstance(serviceStartedAt, restartCount)
 
 private data class GuidedTriggers(
     val reconnect: Boolean,
@@ -593,7 +705,8 @@ internal abstract class RemoteDeviceAcceptanceGateModule {
 private const val UnderlayWifi = "wifi"
 private const val UnderlayCellular = "cellular"
 internal const val RemoteAcceptanceScreenOffDwellMs = 300_000L
-private const val RemoteAcceptanceTelemetryFreshTimeoutMs = 2_000L
+internal const val RemoteAcceptanceTelemetryFreshTimeoutMs = 6_000L
+private const val RemoteAcceptanceCancellationPersistTimeoutMs = 2_000L
 internal const val StepNoDirectEgress = "no_direct_fallback"
 internal const val ErrorScreenOffNoDataPlaneDelta = "background_no_data_plane_delta"
 internal const val ErrorScreenOffServiceStopped = "background_service_stopped"

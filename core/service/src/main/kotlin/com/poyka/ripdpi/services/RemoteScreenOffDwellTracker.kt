@@ -22,6 +22,7 @@ internal class RemoteScreenOffDwellTracker(
     private var restartCountBefore: Int? = null
     private var screenOffProbeReady = false
     private var screenOffProbePassed: Boolean? = null
+    private var terminalRecorded = false
 
     suspend fun observe(
         elapsedNowMs: Long,
@@ -43,6 +44,10 @@ internal class RemoteScreenOffDwellTracker(
         telemetry: ServiceTelemetrySnapshot,
     ): RemoteScreenOffDwellObservation =
         when {
+            terminalRecorded -> {
+                RemoteScreenOffDwellObservation.None
+            }
+
             !running -> {
                 completeStoppedDuringScreenOff(elapsedNowMs, observedAtMillis, telemetry)
             }
@@ -144,17 +149,21 @@ internal class RemoteScreenOffDwellTracker(
         screenOffProbePassed: Boolean,
         telemetryFresh: Boolean,
     ): RemoteScreenOffDwellObservation =
-        screenOffStartedAt?.let { startedAt ->
-            recordScreenOffProbeForStarted(
-                startedAt = startedAt,
-                elapsedNowMs = elapsedNowMs,
-                observedAtMillis = observedAtMillis,
-                telemetry = telemetry,
-                countersBefore = countersBefore,
-                screenOffProbePassed = screenOffProbePassed,
-                telemetryFresh = telemetryFresh,
-            )
-        } ?: RemoteScreenOffDwellObservation.None
+        if (terminalRecorded) {
+            RemoteScreenOffDwellObservation.None
+        } else {
+            screenOffStartedAt?.let { startedAt ->
+                recordScreenOffProbeForStarted(
+                    startedAt = startedAt,
+                    elapsedNowMs = elapsedNowMs,
+                    observedAtMillis = observedAtMillis,
+                    telemetry = telemetry,
+                    countersBefore = countersBefore,
+                    screenOffProbePassed = screenOffProbePassed,
+                    telemetryFresh = telemetryFresh,
+                )
+            } ?: RemoteScreenOffDwellObservation.None
+        }
 
     private suspend fun recordScreenOffProbeForStarted(
         startedAt: Long,
@@ -265,6 +274,7 @@ internal class RemoteScreenOffDwellTracker(
         afterWakeProbePassed: Boolean,
         telemetryFresh: Boolean,
     ): RemoteScreenOffDwellResult {
+        check(!terminalRecorded) { "Screen-off dwell result already completed for this run" }
         val startedAt = screenOffStartedAt
         val durationMs = startedAt?.let { elapsedNowMs - it } ?: 0L
         val countersAfter = telemetry.toRuntimeDataPlaneCounters()
@@ -348,19 +358,51 @@ internal class RemoteScreenOffDwellTracker(
         status: RemoteDeviceAcceptanceStatus,
         errorClass: String?,
     ): RemoteScreenOffDwellObservation {
-        val startedAt = screenOffStartedAt ?: return RemoteScreenOffDwellObservation.None
-        return complete(
-            elapsedNowMs = elapsedNowMs,
-            observedAtMillis = observedAtMillis,
-            phase = DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe,
-            countersAfter = telemetry.toRuntimeDataPlaneCounters(),
-            countersBeforeOverride = countersBefore,
-            durationMs = elapsedNowMs - startedAt,
-            status = status,
-            outcome = status.toBackgroundOutcome(),
-            reason = reason,
-            errorClass = errorClass,
-        ).asCompletedObservation()
+        val startedAt = screenOffStartedAt
+        return if (terminalRecorded || startedAt == null) {
+            RemoteScreenOffDwellObservation.None
+        } else {
+            complete(
+                elapsedNowMs = elapsedNowMs,
+                observedAtMillis = observedAtMillis,
+                phase = DeviceRuntimeBackgroundSurvivalPhase.ScreenOffProbe,
+                countersAfter = telemetry.toRuntimeDataPlaneCounters(),
+                countersBeforeOverride = countersBefore,
+                durationMs = elapsedNowMs - startedAt,
+                status = status,
+                outcome = status.toBackgroundOutcome(),
+                reason = reason,
+                errorClass = errorClass,
+            ).asCompletedObservation()
+        }
+    }
+
+    suspend fun interruptAfterWakeProbe(
+        elapsedNowMs: Long,
+        observedAtMillis: Long,
+        telemetry: ServiceTelemetrySnapshot,
+        countersBefore: DeviceRuntimeDataPlaneCounters,
+        reason: DeviceRuntimeBackgroundSurvivalReason,
+        status: RemoteDeviceAcceptanceStatus,
+        errorClass: String?,
+    ): RemoteScreenOffDwellResult? {
+        val startedAt = screenOffStartedAt
+        return if (terminalRecorded || startedAt == null) {
+            null
+        } else {
+            complete(
+                elapsedNowMs = elapsedNowMs,
+                observedAtMillis = observedAtMillis,
+                phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
+                countersAfter = telemetry.toRuntimeDataPlaneCounters(),
+                countersBeforeOverride = countersBefore,
+                durationMs = elapsedNowMs - startedAt,
+                status = status,
+                outcome = status.toBackgroundOutcome(),
+                reason = reason,
+                errorClass = errorClass,
+            )
+        }
     }
 
     suspend fun cancel(
@@ -368,18 +410,22 @@ internal class RemoteScreenOffDwellTracker(
         observedAtMillis: Long,
         telemetry: ServiceTelemetrySnapshot,
     ): RemoteScreenOffDwellResult? {
-        val startedAt = screenOffStartedAt ?: return null
-        return complete(
-            elapsedNowMs = elapsedNowMs,
-            observedAtMillis = observedAtMillis,
-            phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
-            countersAfter = telemetry.toRuntimeDataPlaneCounters(),
-            durationMs = elapsedNowMs - startedAt,
-            status = RemoteDeviceAcceptanceStatus.Incomplete,
-            outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
-            reason = DeviceRuntimeBackgroundSurvivalReason.Cancelled,
-            errorClass = null,
-        )
+        val startedAt = screenOffStartedAt
+        return if (terminalRecorded || startedAt == null) {
+            null
+        } else {
+            complete(
+                elapsedNowMs = elapsedNowMs,
+                observedAtMillis = observedAtMillis,
+                phase = DeviceRuntimeBackgroundSurvivalPhase.AfterWake,
+                countersAfter = telemetry.toRuntimeDataPlaneCounters(),
+                durationMs = elapsedNowMs - startedAt,
+                status = RemoteDeviceAcceptanceStatus.Incomplete,
+                outcome = DeviceRuntimeBackgroundSurvivalOutcome.Inconclusive,
+                reason = DeviceRuntimeBackgroundSurvivalReason.Cancelled,
+                errorClass = null,
+            )
+        }
     }
 
     private suspend fun complete(
@@ -411,6 +457,7 @@ internal class RemoteScreenOffDwellTracker(
             )
         }
         clear()
+        terminalRecorded = true
         return RemoteScreenOffDwellResult(
             status = status,
             errorClass = errorClass,
