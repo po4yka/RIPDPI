@@ -57,20 +57,6 @@ internal class DiagnosticsHomeRecommendationApplier
                     }
                 }
 
-        internal fun buildStrategyRecommendationAppliedSettings(
-            recommendation: StrategyRecommendation,
-        ): List<DiagnosticsAppliedSetting> =
-            listOf(
-                DiagnosticsAppliedSetting(
-                    label = "Strategy recommendation",
-                    value = recommendation.recommendedFamily.toHumanLabel(),
-                ),
-                DiagnosticsAppliedSetting(
-                    label = "Blocking pattern",
-                    value = recommendation.blockingPattern.toHumanLabel(),
-                ),
-            )
-
         private fun buildStrategyAppliedSettings(
             recommendation: StrategyProbeRecommendation,
             report: StrategyProbeReport,
@@ -319,17 +305,13 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
             strategyRecommendation: StrategyRecommendation?,
             resolverRecommendation: ResolverRecommendation?,
             resolverApplied: List<DiagnosticsAppliedSetting>,
-            strategyRecommendationApplied: List<DiagnosticsAppliedSetting>,
             capabilityEvidence: List<DiagnosticsCapabilityEvidence>,
         ): DiagnosticsHomeAuditOutcome {
-            val allApplied = resolveAppliedSettings(strategyApplied, resolverApplied, strategyRecommendationApplied)
-            val actionable =
-                strategyApplied != null ||
-                    resolverApplied.isNotEmpty() ||
-                    strategyRecommendationApplied.isNotEmpty()
+            val allApplied = resolveAppliedSettings(strategyApplied, resolverApplied)
+            val actionable = strategyApplied != null || resolverApplied.isNotEmpty()
             val assessment = strategyProbe?.auditAssessment
             val strategyAdequacy =
-                resolveStrategyAdequacy(strategyApplied, strategyRecommendationApplied, resolverApplied, strategyProbe)
+                resolveStrategyAdequacy(strategyApplied, strategyRecommendation, resolverApplied, strategyProbe)
             val coverageSummary =
                 assessment?.let {
                     "Matrix ${it.coverage.matrixCoveragePercent}%" +
@@ -368,13 +350,13 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
 
         private fun resolveStrategyAdequacy(
             strategyApplied: StrategyApplyResult?,
-            strategyRecommendationApplied: List<DiagnosticsAppliedSetting>,
+            strategyRecommendation: StrategyRecommendation?,
             resolverApplied: List<DiagnosticsAppliedSetting>,
             strategyProbe: StrategyProbeReport?,
         ): StrategyAdequacy? =
             when {
                 strategyApplied != null -> StrategyAdequacy.STRATEGY_APPLIED
-                strategyRecommendationApplied.isNotEmpty() -> StrategyAdequacy.STRATEGY_RECOMMENDED
+                strategyRecommendation?.actionable == true -> StrategyAdequacy.STRATEGY_RECOMMENDED
                 strategyProbe != null && allTcpCandidatesFailed(strategyProbe) -> StrategyAdequacy.ALL_CANDIDATES_FAILED
                 resolverApplied.isNotEmpty() -> StrategyAdequacy.DNS_ONLY_APPLIED
                 strategyProbe == null -> StrategyAdequacy.NO_STRATEGY_PROBE
@@ -384,9 +366,7 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
         private fun resolveAppliedSettings(
             strategyApplied: StrategyApplyResult?,
             resolverApplied: List<DiagnosticsAppliedSetting>,
-            strategyRecommendationApplied: List<DiagnosticsAppliedSetting>,
-        ): List<DiagnosticsAppliedSetting> =
-            strategyApplied?.appliedSettings ?: (resolverApplied + strategyRecommendationApplied)
+        ): List<DiagnosticsAppliedSetting> = strategyApplied?.appliedSettings ?: resolverApplied
 
         private fun allTcpCandidatesFailed(report: StrategyProbeReport): Boolean =
             report.tcpCandidates.isNotEmpty() &&
@@ -502,12 +482,6 @@ internal class DefaultDiagnosticsHomeWorkflowService
                         strategyApplied = strategyApplied,
                         resolverRecommendation = resolverRecommendation,
                     )
-                val strategyRecommendationApplied =
-                    if (strategyApplied == null && strategyRecommendation?.actionable == true) {
-                        recommendationApplier.buildStrategyRecommendationAppliedSettings(strategyRecommendation)
-                    } else {
-                        emptyList()
-                    }
                 val capabilityEvidence = capabilityEvidenceSummarizer.summarize(fingerprintHash)
 
                 auditOutcomeBuilder.build(
@@ -520,7 +494,6 @@ internal class DefaultDiagnosticsHomeWorkflowService
                     strategyRecommendation = strategyRecommendation,
                     resolverRecommendation = resolverRecommendation,
                     resolverApplied = resolverApplied,
-                    strategyRecommendationApplied = strategyRecommendationApplied,
                     capabilityEvidence = capabilityEvidence,
                 )
             }

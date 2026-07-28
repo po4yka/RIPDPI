@@ -313,10 +313,11 @@ class DiagnosticsHomeWorkflowServiceTest {
         }
 
     @Test
-    fun `finalizeHomeAudit uses persisted strategy recommendation when probe result is not reusable`() =
+    fun `finalizeHomeAudit reports but does not apply low coverage secondary recommendation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val appSettingsRepository = FakeAppSettingsRepository()
+            val initialSettings = appSettingsRepository.snapshot()
             stores.sessionsState.value =
                 listOf(
                     diagnosticsSession(
@@ -328,7 +329,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                             json.encodeToString(
                                 com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
                                     .serializer(),
-                                strategyRecommendationOnlyAuditReport(
+                                unappliedStrategyRecommendationAuditReport(
                                     sessionId = "strategy-recommendation-session",
                                 ).toEngineScanReportWire(),
                             ),
@@ -341,19 +342,14 @@ class DiagnosticsHomeWorkflowServiceTest {
                     appSettingsRepository = appSettingsRepository,
                 ).finalizeHomeAudit("strategy-recommendation-session")
 
-            assertTrue(outcome.actionable)
+            assertFalse(outcome.actionable)
+            assertEquals("Analysis complete, but no settings were applied", outcome.headline)
+            assertEquals("Confidence low (65)", outcome.confidenceSummary)
+            assertEquals("Matrix 90% · winners 0%", outcome.coverageSummary)
             assertEquals("Prefer TLS record split on this network", outcome.recommendationSummary)
             assertEquals(StrategyAdequacy.STRATEGY_RECOMMENDED, outcome.strategyAdequacy)
-            assertTrue(
-                outcome.appliedSettings.any {
-                    it.label == "Strategy recommendation" && it.value == "TLS record split"
-                },
-            )
-            assertTrue(
-                outcome.appliedSettings.any {
-                    it.label == "Blocking pattern" && it.value == "SNI/TLS suspected"
-                },
-            )
+            assertTrue(outcome.appliedSettings.isEmpty())
+            assertEquals(initialSettings, appSettingsRepository.snapshot())
         }
 
     @Test
@@ -603,14 +599,30 @@ class DiagnosticsHomeWorkflowServiceTest {
                 ),
         )
 
-    private fun strategyRecommendationOnlyAuditReport(sessionId: String): ScanReport =
-        ScanReport(
-            sessionId = sessionId,
-            profileId = "automatic-audit",
-            pathMode = ScanPathMode.RAW_PATH,
-            startedAt = 10L,
-            finishedAt = 20L,
+    private fun unappliedStrategyRecommendationAuditReport(sessionId: String): ScanReport {
+        val report =
+            strategyAuditReport(
+                sessionId = sessionId,
+                confidenceLevel = StrategyProbeAuditConfidenceLevel.LOW,
+            )
+        val strategyProbe = requireNotNull(report.strategyProbeReport)
+        val assessment = requireNotNull(strategyProbe.auditAssessment)
+        return report.copy(
             summary = "Prefer TLS record split on this network",
+            strategyProbeReport =
+                strategyProbe.copy(
+                    auditAssessment =
+                        assessment.copy(
+                            coverage =
+                                assessment.coverage.copy(
+                                    tcpWinnerSucceededTargets = 0,
+                                    quicWinnerSucceededTargets = 0,
+                                    winnerCoveragePercent = 0,
+                                    tcpWinnerCoveragePercent = 0,
+                                    quicWinnerCoveragePercent = 0,
+                                ),
+                        ),
+                ),
             strategyRecommendation =
                 StrategyRecommendation(
                     triggerOutcomes = listOf("tls_blocked"),
@@ -620,4 +632,5 @@ class DiagnosticsHomeWorkflowServiceTest {
                     evidence = listOf("tls_post_client_hello_failure"),
                 ),
         )
+    }
 }
