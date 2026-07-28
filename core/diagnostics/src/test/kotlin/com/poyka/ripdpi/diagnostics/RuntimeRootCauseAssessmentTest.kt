@@ -18,7 +18,7 @@ class RuntimeRootCauseAssessmentTest {
                         event(
                             connectionSessionId = "conn-a",
                             subsystem = "data_plane",
-                            message = "state=outbound_only final=true generation=1 host=blocked.example",
+                            message = "state=outbound_only mode=vpn generation=1 final=true host=blocked.example",
                             createdAt = 10L,
                         ),
                         event(
@@ -113,6 +113,71 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
+    fun `same generation lost after non vpn state remains evidence only without terminal drain`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "network_transition",
+                            source = "android_network_callback",
+                            message =
+                                "kind=capabilities_changed;path=non_vpn;" +
+                                    "internet=present;validated=present;generation=7",
+                            createdAt = 1L,
+                        ),
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "network_transition",
+                            source = "android_network_callback",
+                            message = "kind=lost;generation=7;sequence=2",
+                            createdAt = 2L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(
+            listOf("network_transition_underlay_lost"),
+            assessment.evidenceRefs.map { it.category },
+        )
+    }
+
+    @Test
+    fun `later validated non vpn recovery clears transition failure`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "network_transition",
+                            source = "android_network_callback",
+                            message =
+                                "kind=capabilities_changed;path=non_vpn;" +
+                                    "internet=present;validated=absent;generation=3",
+                            createdAt = 1L,
+                        ),
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "network_transition",
+                            source = "android_network_callback",
+                            message =
+                                "kind=capabilities_changed;path=non_vpn;" +
+                                    "internet=present;validated=present;generation=3",
+                            createdAt = 2L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
     fun `device state constraints alone do not emit oem process kill`() {
         val assessment =
             RuntimeRootCauseClassifier.assess(
@@ -145,7 +210,7 @@ class RuntimeRootCauseAssessmentTest {
                             connectionSessionId = "conn-a",
                             subsystem = "data_plane",
                             message =
-                                "state=outbound_only final=true generation=1 host=secret.example " +
+                                "state=outbound_only mode=vpn generation=1 final=true host=secret.example " +
                                     "ip=203.0.113.77 profile_id=profile-secret",
                             createdAt = 1L,
                         ),
@@ -167,10 +232,16 @@ class RuntimeRootCauseAssessmentTest {
                 event(
                     connectionSessionId = "conn-a",
                     subsystem = "data_plane",
-                    message = "state=outbound_only final=true generation=1 sequence=$index",
+                    message = "state=outbound_only mode=vpn generation=1 sequence=$index",
                     createdAt = index,
                 )
-            }
+            } +
+                event(
+                    connectionSessionId = "conn-a",
+                    subsystem = "data_plane",
+                    message = "state=outbound_only mode=vpn generation=1 final=true",
+                    createdAt = 81L,
+                )
 
         val assessment =
             RuntimeRootCauseClassifier.assess(
@@ -181,8 +252,8 @@ class RuntimeRootCauseAssessmentTest {
         assertEquals(RuntimeRootCauseVerdict.VPN_PATH_LOSS, assessment.verdict)
         assertEquals(64, assessment.evidenceEventCount)
         assertEquals(1, assessment.evidenceRefs.size)
-        assertEquals(64, assessment.evidenceRefs.single().count)
-        assertEquals(63L, assessment.evidenceRefs.single().firstSeenOffsetMillis)
+        assertEquals(1, assessment.evidenceRefs.single().count)
+        assertEquals(0L, assessment.evidenceRefs.single().firstSeenOffsetMillis)
         assertEquals(0L, assessment.evidenceRefs.single().lastSeenOffsetMillis)
     }
 
@@ -237,13 +308,13 @@ class RuntimeRootCauseAssessmentTest {
                         event(
                             connectionSessionId = "conn-a",
                             subsystem = "data_plane",
-                            message = "state=outbound_only generation=1 host=stale.example",
+                            message = "state=outbound_only mode=vpn generation=1 host=stale.example",
                             createdAt = 1L,
                         ),
                         event(
                             connectionSessionId = "conn-a",
                             subsystem = "data_plane",
-                            message = "state=tun_ingress_no_upstream final=true generation=2",
+                            message = "state=tun_ingress_no_upstream mode=vpn generation=2 final=true",
                             createdAt = 2L,
                         ),
                     ),
@@ -281,7 +352,8 @@ class RuntimeRootCauseAssessmentTest {
                             subsystem = "pmtu",
                             message =
                                 "verdict=mtu_blackhole provenance=pmtu_probe_v1 " +
-                                    "small_control=success larger_failures=2 post_control_recovery=success",
+                                    "small_control=success larger_failures=2 " +
+                                    "post_control_recovery=success ptb_observation=not_observed_in_run",
                             createdAt = 2L,
                         ),
                     ),
@@ -289,6 +361,65 @@ class RuntimeRootCauseAssessmentTest {
 
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, weakAssessment.verdict)
         assertEquals(RuntimeRootCauseVerdict.MTU_BLACKHOLE, explicitAssessment.verdict)
+    }
+
+    @Test
+    fun `mtu blackhole rejects missing ptb observation`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "pmtu",
+                            message =
+                                "verdict=mtu_blackhole provenance=pmtu_probe_v1 " +
+                                    "small_control=success larger_failures=2 post_control_recovery=success",
+                            createdAt = 1L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
+    fun `internal data plane conflict blocks direct root verdict`() {
+        val assessment =
+            RuntimeRootCauseClassifier.assess(
+                connectionSessionId = "conn-a",
+                events =
+                    listOf(
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "data_plane",
+                            message = "state=tun_ingress_no_upstream mode=vpn generation=1 final=true",
+                            createdAt = 1L,
+                        ),
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "vpn_protect",
+                            level = "warn",
+                            message = "event=protect_failed",
+                            createdAt = 2L,
+                        ),
+                        event(
+                            connectionSessionId = "conn-a",
+                            subsystem = "dns",
+                            level = "error",
+                            message = "event=dns_failure",
+                            createdAt = 3L,
+                        ),
+                    ),
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(
+            listOf("data_plane_tun_ingress_no_upstream", "dns_failure", "protect_failure"),
+            assessment.contradictoryCategories,
+        )
     }
 
     @Test

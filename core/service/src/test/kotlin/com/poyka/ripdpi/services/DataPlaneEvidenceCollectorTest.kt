@@ -218,6 +218,52 @@ class DataPlaneEvidenceCollectorTest {
         }
 
     @Test
+    fun finalCaptureEmitsCanonicalFinalEventWhenSummaryIsUnchanged() =
+        runTest {
+            val collector =
+                DataPlaneEvidenceCollector(
+                    mode = Mode.Proxy,
+                    proxyEvidenceProvider = { ProxyForwardingEvidence(upstreamApplicationBytes = 64) },
+                    clock = TestServiceClock(now = 9L),
+                )
+
+            val first = collector.enrich(emptyTelemetrySnapshot())
+            val finalized = collector.finalizeAndEnrich(emptyTelemetrySnapshot())
+            val finalEvents = finalized.proxyTelemetry.nativeEvents.filter { event -> event.kind == "data_plane_final" }
+            val finalEvent = finalEvents.single()
+
+            assertEquals(
+                "data_plane_correlation",
+                first.proxyTelemetry.nativeEvents
+                    .single()
+                    .kind,
+            )
+            assertEquals("service", finalEvent.source)
+            assertEquals("info", finalEvent.level)
+            assertEquals("data_plane", finalEvent.subsystem)
+            assertEquals("proxy", finalEvent.mode)
+            assertTrue(finalEvent.message.contains("state=proxy_outbound_observed"))
+            assertTrue(finalEvent.message.contains("mode=proxy"))
+            assertTrue(finalEvent.message.contains("generation=1"))
+            assertTrue(finalEvent.message.contains("final=true"))
+        }
+
+    @Test
+    fun trackerEmitsOnlyOneFinalEvent() {
+        val tracker = DataPlaneCorrelationTracker(Mode.Proxy, TestServiceClock(now = 10L))
+
+        tracker.observe(
+            proxyEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 64),
+            tunEvidence = null,
+            tunSupport = TunEvidenceSupport.Unsupported,
+        )
+        tracker.finalEvent()
+        tracker.finalEvent()
+
+        assertEquals(1, tracker.events().count { event -> event.kind == "data_plane_final" })
+    }
+
+    @Test
     fun mixedAvailabilityDoesNotMakeNegativeCrossLayerClaims() =
         runTest {
             val tunOnly =

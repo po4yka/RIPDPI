@@ -111,7 +111,7 @@ class RuntimeHistoryMonitorPersistenceTest {
 
             val finalEvent =
                 stores.nativeEventsState.value.single { event ->
-                    event.message == "state=outbound_only final=true generation=1"
+                    event.message == "state=outbound_only mode=vpn generation=1 final=true"
                 }
             assertEquals(connectionSessionId, finalEvent.connectionSessionId)
             monitorScope.cancel()
@@ -259,6 +259,42 @@ class RuntimeHistoryMonitorPersistenceTest {
             releaseFirstWrite.complete(Unit)
             joinAll(first, second)
 
+            assertEquals(1, rootCauseAssessments(stores).size)
+        }
+
+    @Test
+    fun `root cause assessment follower retries after leader write failure`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.nativeEventsState.value = listOf(terminalDataPlaneEvent("conn-a", createdAt = 1L))
+            val firstWriteStarted = CompletableDeferred<Unit>()
+            val releaseFirstWrite = CompletableDeferred<Unit>()
+            var attempts = 0
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.source == RuntimeRootCauseAssessmentSource) {
+                    attempts += 1
+                    if (attempts == 1) {
+                        firstWriteStarted.complete(Unit)
+                        releaseFirstWrite.await()
+                        error("injected leader persistence failure")
+                    }
+                }
+            }
+            val persister = createArtifactPersister(stores)
+
+            val leader =
+                launch {
+                    runCatching {
+                        persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L)
+                    }
+                }
+            firstWriteStarted.await()
+            val follower = launch { persister.persistTerminalRootCauseAssessment("conn-a", createdAt = 2L) }
+            runCurrent()
+            releaseFirstWrite.complete(Unit)
+            joinAll(leader, follower)
+
+            assertEquals(2, attempts)
             assertEquals(1, rootCauseAssessments(stores).size)
         }
 
@@ -489,7 +525,7 @@ class RuntimeHistoryMonitorPersistenceTest {
                             NativeRuntimeEvent(
                                 source = "service",
                                 level = "info",
-                                message = "state=outbound_only final=true generation=1",
+                                message = "state=outbound_only mode=vpn generation=1 final=true",
                                 createdAt = createdAt,
                                 kind = "data_plane_final",
                                 subsystem = "data_plane",
@@ -523,7 +559,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             connectionSessionId = connectionSessionId,
             source = "service",
             level = "info",
-            message = "state=outbound_only final=true generation=1",
+            message = "state=outbound_only mode=vpn generation=1 final=true",
             createdAt = createdAt,
             subsystem = "data_plane",
         )

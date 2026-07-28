@@ -12,11 +12,9 @@ import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
 import java.util.Locale
@@ -39,9 +37,9 @@ class RuntimeArtifactPersister
         private val eventKeysMutex = Mutex()
         private val persistedEventKeys = LinkedHashSet<String>()
         private val runtimeEvidenceMutex = Mutex()
+        private val rootCauseAssessmentMutex = Mutex()
         private val runtimeEventsByConnectionSessionId = LinkedHashMap<String, ArrayDeque<NativeSessionEventEntity>>()
         private val persistedRootCauseConnectionSessionIds = LinkedHashSet<String>()
-        private val inFlightRootCauseConnectionSessionIds = LinkedHashSet<String>()
 
         suspend fun captureSnapshotOrNull(): NetworkSnapshotModel? =
             runCatching {
@@ -189,54 +187,49 @@ class RuntimeArtifactPersister
         suspend fun persistTerminalRootCauseAssessment(
             connectionSessionId: String,
             createdAt: Long,
-        ) {
-            if (!reserveRootCauseAssessment(connectionSessionId)) return
-            var inserted = false
-            try {
-                val persistedEvents =
-                    artifactReadStore
-                        .observeConnectionNativeEvents(
-                            connectionSessionId = connectionSessionId,
-                            limit = MaxRuntimeRootCauseEventsPerSession,
-                        ).first()
-                val fallbackEvents =
-                    runtimeEvidenceMutex.withLock {
-                        runtimeEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
-                    }
-                val assessment =
-                    RuntimeRootCauseClassifier.assess(
+        ) = rootCauseAssessmentMutex.withLock {
+            if (connectionSessionId in persistedRootCauseConnectionSessionIds) return@withLock
+
+            val persistedEvents =
+                artifactReadStore
+                    .observeConnectionNativeEvents(
                         connectionSessionId = connectionSessionId,
-                        events = persistedEvents.ifEmpty { fallbackEvents },
-                        terminalAtMillis = createdAt,
-                    )
-                artifactWriteStore.insertNativeSessionEvent(
-                    NativeSessionEventEntity(
-                        id = "$RuntimeRootCauseAssessmentSource:$connectionSessionId",
-                        sessionId = null,
-                        connectionSessionId = connectionSessionId,
-                        source = RuntimeRootCauseAssessmentSource,
-                        level =
-                            if (assessment.verdict == RuntimeRootCauseVerdict.INCONCLUSIVE) {
-                                "info"
-                            } else {
-                                "warn"
-                            },
-                        message =
-                            "runtime_root_cause_assessment " +
-                                RuntimeHistoryJson.encodeToString(
-                                    RuntimeRootCauseAssessment.serializer(),
-                                    assessment,
-                                ),
-                        createdAt = createdAt,
-                        subsystem = RuntimeRootCauseAssessmentSubsystem,
-                    ),
-                )
-                inserted = true
-            } finally {
-                withContext(NonCancellable) {
-                    completeRootCauseAssessment(connectionSessionId, inserted)
+                        limit = MaxRuntimeRootCauseEventsPerSession,
+                    ).first()
+            val fallbackEvents =
+                runtimeEvidenceMutex.withLock {
+                    runtimeEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
                 }
-            }
+            val assessment =
+                RuntimeRootCauseClassifier.assess(
+                    connectionSessionId = connectionSessionId,
+                    events = persistedEvents.ifEmpty { fallbackEvents },
+                    terminalAtMillis = createdAt,
+                )
+            artifactWriteStore.insertNativeSessionEvent(
+                NativeSessionEventEntity(
+                    id = "$RuntimeRootCauseAssessmentSource:$connectionSessionId",
+                    sessionId = null,
+                    connectionSessionId = connectionSessionId,
+                    source = RuntimeRootCauseAssessmentSource,
+                    level =
+                        if (assessment.verdict == RuntimeRootCauseVerdict.INCONCLUSIVE) {
+                            "info"
+                        } else {
+                            "warn"
+                        },
+                    message =
+                        "runtime_root_cause_assessment " +
+                            RuntimeHistoryJson.encodeToString(
+                                RuntimeRootCauseAssessment.serializer(),
+                                assessment,
+                            ),
+                    createdAt = createdAt,
+                    subsystem = RuntimeRootCauseAssessmentSubsystem,
+                ),
+            )
+            persistedRootCauseConnectionSessionIds.add(connectionSessionId)
+            trimPersistedRootCauseSessionIds()
         }
 
         suspend fun trimHistory(retentionDays: Int) {
@@ -338,29 +331,6 @@ class RuntimeArtifactPersister
                 if (iterator.hasNext()) {
                     iterator.next()
                     iterator.remove()
-                }
-            }
-        }
-
-        private suspend fun reserveRootCauseAssessment(connectionSessionId: String): Boolean =
-            runtimeEvidenceMutex.withLock {
-                if (connectionSessionId in persistedRootCauseConnectionSessionIds ||
-                    connectionSessionId in inFlightRootCauseConnectionSessionIds
-                ) {
-                    return@withLock false
-                }
-                inFlightRootCauseConnectionSessionIds.add(connectionSessionId)
-            }
-
-        private suspend fun completeRootCauseAssessment(
-            connectionSessionId: String,
-            inserted: Boolean,
-        ) {
-            runtimeEvidenceMutex.withLock {
-                inFlightRootCauseConnectionSessionIds.remove(connectionSessionId)
-                if (inserted) {
-                    persistedRootCauseConnectionSessionIds.add(connectionSessionId)
-                    trimPersistedRootCauseSessionIds()
                 }
             }
         }

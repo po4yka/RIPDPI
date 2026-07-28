@@ -104,6 +104,7 @@ internal class DataPlaneCorrelationTracker(
     private val emittedStates = mutableSetOf<DataPlaneCorrelationState>()
     private var previousState: DataPlaneCorrelationState? = null
     private var lastPublishedSummary: String? = null
+    private var finalEventEmitted = false
 
     init {
         require(eventCap > 0)
@@ -163,6 +164,8 @@ internal class DataPlaneCorrelationTracker(
     }
 
     fun finalEvent() {
+        if (finalEventEmitted) return
+        finalEventEmitted = true
         emitSummary(classify(), finalCapture = true)
     }
 
@@ -193,6 +196,7 @@ internal class DataPlaneCorrelationTracker(
         emittedStates.clear()
         previousState = null
         lastPublishedSummary = null
+        finalEventEmitted = false
         appendEvent(
             message =
                 "state=counter_reset mode=${mode.preferenceValue} generation=$generation " +
@@ -215,7 +219,6 @@ internal class DataPlaneCorrelationTracker(
                 proxy = bestProxyEvidence,
                 tun = bestTunEvidence,
             )
-        if (finalCapture && summary == lastPublishedSummary) return
         val message = if (finalCapture) "$summary final=true" else summary
         if (appendEvent(message, if (finalCapture) "data_plane_final" else "data_plane_correlation")) {
             lastPublishedSummary = summary
