@@ -366,8 +366,12 @@ fun relayProfileSupportsUdpAssociation(
     vlessTransport: String,
     vlessFlow: String,
 ): Boolean {
-    if (!udpEnabled || relayKindDescriptor(kindId)?.udp != true) return false
-    if (kindId != RelayKindVlessReality) return true
-    return vlessTransport == RelayVlessTransportRealityTcp &&
-        vlessFlow.trim() in setOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
+    val profileSupportsUdp = udpEnabled && relayKindDescriptor(kindId)?.udp == true
+    val realitySubModeSupportsUdp =
+        kindId != RelayKindVlessReality ||
+            (
+                vlessTransport == RelayVlessTransportRealityTcp &&
+                    vlessFlow.trim() in setOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
+            )
+    return profileSupportsUdp && realitySubModeSupportsUdp
 }

@@ -263,67 +263,86 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
         Socket().use { control ->
             var associationOpened = false
             try {
-                control.soTimeout = timeoutMillis
-                control.connect(InetSocketAddress(endpoint.host, endpoint.port), timeoutMillis)
-                val input = DataInputStream(control.getInputStream())
-                val output = DataOutputStream(control.getOutputStream())
-                negotiateNoAuthentication(input, output)
-                val udpRelay = openUdpAssociation(endpoint, input, output)
+                val udpRelay = openUdpRelayControlChannel(control, endpoint)
                 associationOpened = true
-                DatagramSocket().use { udp ->
-                    udp.soTimeout = timeoutMillis
-                    val query = dnsQuery()
-                    val frame = encodeSocksUdpFrame(dnsTarget, query)
-                    try {
-                        udp.send(DatagramPacket(frame, frame.size, udpRelay))
-                    } catch (_: IOException) {
-                        return RelayUdpProbeResult.failure(
-                            RelayProbeFailure.UdpWrite,
-                            associationOpened = true,
-                        )
-                    }
-                    val response = DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes)
-                    try {
-                        udp.receive(response)
-                    } catch (_: SocketTimeoutException) {
-                        return RelayUdpProbeResult.failure(
-                            RelayProbeFailure.UdpReadTimeout,
-                            associationOpened = true,
-                        )
-                    }
-                    val payload =
-                        decodeSocksUdpPayload(response.data, response.length)
-                            ?: return RelayUdpProbeResult.failure(
-                                RelayProbeFailure.DnsResponse,
-                                associationOpened = true,
-                            )
-                    return if (isMatchingDnsResponse(query, payload)) {
-                        RelayUdpProbeResult.success()
-                    } else {
-                        RelayUdpProbeResult.failure(
-                            RelayProbeFailure.DnsResponse,
-                            associationOpened = true,
-                        )
-                    }
-                }
+                return probeDnsThroughRelay(udpRelay)
             } catch (_: ProtocolException) {
-                return RelayUdpProbeResult.failure(
-                    classifyUdpAssociationIoFailure(associationOpened),
-                    associationOpened,
-                )
+                return associationFailure(associationOpened)
             } catch (_: SocketTimeoutException) {
-                return RelayUdpProbeResult.failure(
-                    classifyUdpAssociationIoFailure(associationOpened),
-                    associationOpened,
-                )
+                return associationFailure(associationOpened)
             } catch (_: IOException) {
-                return RelayUdpProbeResult.failure(
-                    classifyUdpAssociationIoFailure(associationOpened),
-                    associationOpened,
-                )
+                return associationFailure(associationOpened)
             }
         }
     }
+
+    private fun openUdpRelayControlChannel(
+        control: Socket,
+        endpoint: RelayProbeEndpoint,
+    ): InetSocketAddress {
+        control.soTimeout = timeoutMillis
+        control.connect(InetSocketAddress(endpoint.host, endpoint.port), timeoutMillis)
+        val input = DataInputStream(control.getInputStream())
+        val output = DataOutputStream(control.getOutputStream())
+        negotiateNoAuthentication(input, output)
+        return openUdpAssociation(endpoint, input, output)
+    }
+
+    private fun probeDnsThroughRelay(udpRelay: InetSocketAddress): RelayUdpProbeResult =
+        DatagramSocket().use { udp ->
+            udp.soTimeout = timeoutMillis
+            val query = dnsQuery()
+            val frame = encodeSocksUdpFrame(dnsTarget, query)
+            if (sendUdpFrame(udp, frame, udpRelay)) {
+                readDnsResponse(udp, query)
+            } else {
+                RelayUdpProbeResult.failure(
+                    RelayProbeFailure.UdpWrite,
+                    associationOpened = true,
+                )
+            }
+        }
+
+    private fun sendUdpFrame(
+        udp: DatagramSocket,
+        frame: ByteArray,
+        udpRelay: InetSocketAddress,
+    ): Boolean =
+        try {
+            udp.send(DatagramPacket(frame, frame.size, udpRelay))
+            true
+        } catch (_: IOException) {
+            false
+        }
+
+    private fun readDnsResponse(
+        udp: DatagramSocket,
+        query: ByteArray,
+    ): RelayUdpProbeResult {
+        val response = DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes)
+        try {
+            udp.receive(response)
+        } catch (_: SocketTimeoutException) {
+            return RelayUdpProbeResult.failure(
+                RelayProbeFailure.UdpReadTimeout,
+                associationOpened = true,
+            )
+        }
+        return if (isMatchingDnsResponse(query, decodeSocksUdpPayload(response.data, response.length))) {
+            RelayUdpProbeResult.success()
+        } else {
+            RelayUdpProbeResult.failure(
+                RelayProbeFailure.DnsResponse,
+                associationOpened = true,
+            )
+        }
+    }
+
+    private fun associationFailure(associationOpened: Boolean): RelayUdpProbeResult =
+        RelayUdpProbeResult.failure(
+            classifyUdpAssociationIoFailure(associationOpened),
+            associationOpened,
+        )
 
     private fun negotiateNoAuthentication(
         input: DataInputStream,
@@ -341,17 +360,18 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
         input: DataInputStream,
         output: DataOutputStream,
     ): InetSocketAddress {
-        output.write(byteArrayOf(SocksVersion, UdpAssociateCommand, 0, AddressIpv4, 0, 0, 0, 0, 0, 0))
+        output.write(udpAssociateRequest())
         output.flush()
-        if (input.readUnsignedByte() != SocksVersion.toInt() || input.readUnsignedByte() != ReplySucceeded) {
-            throw ProtocolException("SOCKS UDP ASSOCIATE was rejected")
-        }
-        if (input.readUnsignedByte() != 0) {
-            throw ProtocolException("SOCKS UDP ASSOCIATE reserved byte is invalid")
-        }
+        val version = input.readUnsignedByte()
+        val reply = input.readUnsignedByte()
+        val reserved = input.readUnsignedByte()
+        requireProtocol(
+            version == SocksVersion.toInt() && reply == ReplySucceeded && reserved == ReservedByte,
+            "SOCKS UDP ASSOCIATE reply header is invalid",
+        )
         val relayAddress = readSocksAddress(input)
         val relayPort = input.readUnsignedShort()
-        if (relayPort == 0) throw ProtocolException("SOCKS UDP ASSOCIATE returned port zero")
+        requireProtocol(relayPort != 0, "SOCKS UDP ASSOCIATE returned port zero")
         val effectiveAddress =
             if (relayAddress.isAnyLocalAddress) {
                 InetAddress.getByName(endpoint.host)
@@ -362,10 +382,31 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
     }
 }
 
+private fun udpAssociateRequest(): ByteArray =
+    byteArrayOf(
+        SocksVersion,
+        UdpAssociateCommand,
+        ReservedByte.toByte(),
+        AddressIpv4,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+
+private fun requireProtocol(
+    condition: Boolean,
+    message: String,
+) {
+    if (!condition) throw ProtocolException(message)
+}
+
 private fun readSocksAddress(input: DataInputStream): InetAddress =
     when (input.readUnsignedByte()) {
-        AddressIpv4.toInt() -> InetAddress.getByAddress(input.readNBytesExact(4))
-        AddressIpv6.toInt() -> InetAddress.getByAddress(input.readNBytesExact(16))
+        AddressIpv4.toInt() -> InetAddress.getByAddress(input.readNBytesExact(Ipv4AddressBytes))
+        AddressIpv6.toInt() -> InetAddress.getByAddress(input.readNBytesExact(Ipv6AddressBytes))
         else -> throw ProtocolException("SOCKS address type is unsupported")
     }
 
@@ -375,55 +416,70 @@ private fun encodeSocksUdpFrame(
 ): ByteArray {
     val address = target.address ?: throw ProtocolException("UDP probe target must be an IP address")
     val addressBytes = address.address
-    val addressType = if (addressBytes.size == 4) AddressIpv4 else AddressIpv6
-    return ByteArray(4 + addressBytes.size + 2 + payload.size).also { frame ->
-        frame[3] = addressType
-        addressBytes.copyInto(frame, destinationOffset = 4)
-        val portOffset = 4 + addressBytes.size
-        frame[portOffset] = (target.port ushr 8).toByte()
+    val addressType = if (addressBytes.size == Ipv4AddressBytes) AddressIpv4 else AddressIpv6
+    return ByteArray(SocksUdpHeaderBytes + addressBytes.size + PortBytes + payload.size).also { frame ->
+        frame[SocksUdpAddressTypeOffset] = addressType
+        addressBytes.copyInto(frame, destinationOffset = SocksUdpAddressOffset)
+        val portOffset = SocksUdpAddressOffset + addressBytes.size
+        frame[portOffset] = (target.port ushr ByteBits).toByte()
         frame[portOffset + 1] = target.port.toByte()
-        payload.copyInto(frame, destinationOffset = portOffset + 2)
+        payload.copyInto(frame, destinationOffset = portOffset + PortBytes)
     }
 }
 
 private fun decodeSocksUdpPayload(
     frame: ByteArray,
     length: Int,
-): ByteArray? {
-    if (length < MinimumSocksUdpFrameBytes || frame[0] != 0.toByte() || frame[1] != 0.toByte() ||
-        frame[2] != 0.toByte()
-    ) {
-        return null
+): ByteArray? =
+    if (hasValidSocksUdpPrefix(frame, length)) {
+        socksUdpAddressLength(frame, length)?.let { addressLength ->
+            val payloadOffset = SocksUdpAddressOffset + addressLength + PortBytes
+            if (payloadOffset < length) frame.copyOfRange(payloadOffset, length) else null
+        }
+    } else {
+        null
     }
-    val addressLength =
-        when (frame[3]) {
-            AddressIpv4 -> {
-                4
-            }
 
-            AddressIpv6 -> {
-                16
-            }
+private fun hasValidSocksUdpPrefix(
+    frame: ByteArray,
+    length: Int,
+): Boolean =
+    length >= MinimumSocksUdpFrameBytes &&
+        frame[SocksUdpReservedHighOffset] == ReservedByte.toByte() &&
+        frame[SocksUdpReservedLowOffset] == ReservedByte.toByte() &&
+        frame[SocksUdpFragmentOffset] == ReservedByte.toByte()
 
-            AddressDomain -> {
-                if (length < 5) return null
-                1 + frame[4].toUByte().toInt()
-            }
+private fun socksUdpAddressLength(
+    frame: ByteArray,
+    length: Int,
+): Int? =
+    when (frame[SocksUdpAddressTypeOffset]) {
+        AddressIpv4 -> {
+            Ipv4AddressBytes
+        }
 
-            else -> {
-                return null
+        AddressIpv6 -> {
+            Ipv6AddressBytes
+        }
+
+        AddressDomain -> {
+            if (length > SocksUdpDomainLengthOffset) {
+                DomainLengthBytes + frame[SocksUdpDomainLengthOffset].toUByte().toInt()
+            } else {
+                null
             }
         }
-    val payloadOffset = 4 + addressLength + 2
-    if (payloadOffset >= length) return null
-    return frame.copyOfRange(payloadOffset, length)
-}
+
+        else -> {
+            null
+        }
+    }
 
 private fun dnsQuery(): ByteArray {
-    val queryId = SecureRandom().nextInt(1 shl 16)
+    val queryId = SecureRandom().nextInt(1 shl UnsignedShortBits)
     val question =
         byteArrayOf(
-            7,
+            ExampleLabelLength,
             'e'.code.toByte(),
             'x'.code.toByte(),
             'a'.code.toByte(),
@@ -431,7 +487,7 @@ private fun dnsQuery(): ByteArray {
             'p'.code.toByte(),
             'l'.code.toByte(),
             'e'.code.toByte(),
-            3,
+            ComLabelLength,
             'c'.code.toByte(),
             'o'.code.toByte(),
             'm'.code.toByte(),
@@ -442,23 +498,27 @@ private fun dnsQuery(): ByteArray {
             1,
         )
     return ByteArray(DnsHeaderBytes + question.size).also { query ->
-        query[0] = (queryId ushr 8).toByte()
-        query[1] = queryId.toByte()
-        query[2] = 1
-        query[5] = 1
+        query[DnsTransactionIdHighOffset] = (queryId ushr ByteBits).toByte()
+        query[DnsTransactionIdLowOffset] = queryId.toByte()
+        query[DnsFlagsHighOffset] = DnsRecursionDesiredFlag
+        query[DnsQuestionCountLowOffset] = SingleQuestionCount
         question.copyInto(query, destinationOffset = DnsHeaderBytes)
     }
 }
 
 private fun isMatchingDnsResponse(
     query: ByteArray,
-    response: ByteArray,
+    response: ByteArray?,
 ): Boolean =
-    response.size >= DnsHeaderBytes &&
-        response[0] == query[0] &&
-        response[1] == query[1] &&
-        response[2].toInt() and DnsResponseFlag != 0 &&
-        ((response[4].toUByte().toInt() shl 8) or response[5].toUByte().toInt()) > 0
+    response != null &&
+        response.size >= DnsHeaderBytes &&
+        response[DnsTransactionIdHighOffset] == query[DnsTransactionIdHighOffset] &&
+        response[DnsTransactionIdLowOffset] == query[DnsTransactionIdLowOffset] &&
+        response[DnsFlagsHighOffset].toInt() and DnsResponseFlag != 0 &&
+        (
+            (response[DnsQuestionCountHighOffset].toUByte().toInt() shl ByteBits) or
+                response[DnsQuestionCountLowOffset].toUByte().toInt()
+        ) > 0
 
 private fun DataInputStream.readNBytesExact(size: Int): ByteArray = ByteArray(size).also { bytes -> readFully(bytes) }
 
@@ -468,15 +528,38 @@ private const val TcpProbeTimeoutSeconds = 10L
 private const val UdpProbeTimeoutMillis = 5_000
 private const val MaxUdpProbeResponseBytes = 4_096
 private const val MinimumSocksUdpFrameBytes = 10
+private const val SocksUdpHeaderBytes = 4
+private const val SocksUdpReservedHighOffset = 0
+private const val SocksUdpReservedLowOffset = 1
+private const val SocksUdpFragmentOffset = 2
+private const val SocksUdpAddressTypeOffset = 3
+private const val SocksUdpAddressOffset = 4
+private const val SocksUdpDomainLengthOffset = 4
+private const val DomainLengthBytes = 1
+private const val PortBytes = 2
+private const val Ipv4AddressBytes = 4
+private const val Ipv6AddressBytes = 16
 private const val DnsHeaderBytes = 12
 private const val DnsResponseFlag = 0x80
+private const val DnsRecursionDesiredFlag: Byte = 1
+private const val SingleQuestionCount: Byte = 1
+private const val DnsTransactionIdHighOffset = 0
+private const val DnsTransactionIdLowOffset = 1
+private const val DnsFlagsHighOffset = 2
+private const val DnsQuestionCountHighOffset = 4
+private const val DnsQuestionCountLowOffset = 5
+private const val ExampleLabelLength: Byte = 7
+private const val ComLabelLength: Byte = 3
 private const val DnsPort = 53
 private const val DefaultDnsAddress = "94.140.14.14"
 private const val SocksVersion: Byte = 5
 private const val NoAuthentication: Byte = 0
 private const val UdpAssociateCommand: Byte = 3
 private const val ReplySucceeded = 0
+private const val ReservedByte = 0
 private const val AddressIpv4: Byte = 1
 private const val AddressDomain: Byte = 3
 private const val AddressIpv6: Byte = 4
+private const val ByteBits = 8
+private const val UnsignedShortBits = 16
 private val SuccessfulStatusRange = 200..299

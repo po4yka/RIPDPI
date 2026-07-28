@@ -90,11 +90,33 @@ class RelayCapabilityProbeTest {
             assertEquals(RelayProbeFailure.UdpReadTimeout, result.failure)
         }
     }
+
+    @Test
+    fun `socks udp probe rejects a failed udp association`() {
+        SocksUdpFixture(Behavior.RejectAssociation).use { fixture ->
+            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+
+            assertFalse(result.succeeded)
+            assertEquals(RelayProbeFailure.UdpAssociateOpen, result.failure)
+        }
+    }
+
+    @Test
+    fun `socks udp probe rejects a non-response dns payload`() {
+        SocksUdpFixture(Behavior.MalformedDns).use { fixture ->
+            val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
+
+            assertFalse(result.succeeded)
+            assertEquals(RelayProbeFailure.DnsResponse, result.failure)
+        }
+    }
 }
 
 private enum class Behavior {
     Respond,
     Blackhole,
+    MalformedDns,
+    RejectAssociation,
 }
 
 private class SocksUdpFixture(
@@ -130,6 +152,12 @@ private class SocksUdpFixture(
                 assertEquals(0, input.readUnsignedByte())
                 skipAddress(input)
 
+                if (behavior == Behavior.RejectAssociation) {
+                    output.write(byteArrayOf(5, 1, 0, 1, 127, 0, 0, 1, 0, 1))
+                    output.flush()
+                    return@runCatching
+                }
+
                 DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { udp ->
                     val address = udp.localAddress.address
                     output.write(byteArrayOf(5, 0, 0, 1))
@@ -139,10 +167,12 @@ private class SocksUdpFixture(
 
                     val request = DatagramPacket(ByteArray(512), 512)
                     udp.receive(request)
-                    if (behavior == Behavior.Respond) {
+                    if (behavior == Behavior.Respond || behavior == Behavior.MalformedDns) {
                         val frame = request.data.copyOf(request.length)
-                        val dnsOffset = 10
-                        frame[dnsOffset + 2] = (frame[dnsOffset + 2].toInt() or 0x80).toByte()
+                        if (behavior == Behavior.Respond) {
+                            val dnsOffset = 10
+                            frame[dnsOffset + 2] = (frame[dnsOffset + 2].toInt() or 0x80).toByte()
+                        }
                         udp.send(DatagramPacket(frame, frame.size, request.socketAddress))
                     }
                     input.read()
