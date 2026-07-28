@@ -346,7 +346,8 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             selectedApproach = selection.selectedApproachSummary,
             networkSummary = selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary(),
             contextSummary =
-                (selection.sessionContextModel ?: selection.latestContextModel)
+                selectArchiveRuntimeContext(selection)
+                    .context
                     ?.let(redactor::redact)
                     ?.toRedactedSummary(),
             latestTelemetrySummary =
@@ -482,7 +483,8 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             report = selection.primaryReport?.toSessionProjection(),
             latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
             latestContextModel =
-                (selection.sessionContextModel ?: selection.latestContextModel)
+                selectArchiveRuntimeContext(selection)
+                    .context
                     ?.let(redactor::redact),
             latestTelemetry = selection.payload.telemetry.firstOrNull(),
             selectedResults = selection.primaryResults,

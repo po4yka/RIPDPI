@@ -27,6 +27,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.File
@@ -350,6 +351,20 @@ internal data class DiagnosticsArchiveRuntimeConfigPayload(
     val relayRuntime: RuntimeComponentSummary? = null,
     val warpRuntime: RuntimeComponentSummary? = null,
     val connectivityAssessment: ConnectivityAssessment? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val runtimeContextSource: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val runtimeContextCapturedAt: Long? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val networkSnapshotSource: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val networkSnapshotCapturedAt: Long? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val terminalServiceStatus: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val terminalContextSource: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val terminalContextCapturedAt: Long? = null,
 )
 
 @Serializable

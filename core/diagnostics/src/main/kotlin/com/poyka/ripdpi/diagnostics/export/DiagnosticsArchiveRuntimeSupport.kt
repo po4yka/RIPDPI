@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.export
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
@@ -22,7 +23,7 @@ internal fun buildArchiveProvenance(
     selection: DiagnosticsArchiveSelection,
 ): DiagnosticsArchiveProvenancePayload {
     val allEvents = selection.primaryEvents + selection.globalEvents
-    val context = selection.sessionContextModel ?: selection.latestContextModel
+    val context = selectArchiveRuntimeContext(selection).context
     val runtimeProvenance =
         DiagnosticsArchiveRuntimeProvenance(
             runtimeId = allEvents.latestCorrelation { it.runtimeId }?.let(::redactDiagnosticsFreeText),
@@ -74,7 +75,8 @@ internal fun buildArchiveProvenance(
 }
 
 internal fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveRuntimeConfigPayload {
-    val context = selection.sessionContextModel ?: selection.latestContextModel
+    val runtimeContextSelection = selectArchiveRuntimeContext(selection)
+    val context = runtimeContextSelection.context
     val snapshot = selection.latestSnapshotModel
     val telemetry = selection.payload.telemetry.firstOrNull()
     val serviceConfig = resolveServiceConfig(context?.service, selection.primarySession?.profileId)
@@ -136,8 +138,157 @@ internal fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): Diagnos
         relayRuntime = context?.service?.relay?.redactedRuntimeAddresses(),
         warpRuntime = context?.service?.warp?.redactedRuntimeAddresses(),
         connectivityAssessment = selection.homeCompositeOutcome?.connectivityAssessment,
+        runtimeContextSource = runtimeContextSelection.mixedVantageValue(runtimeContextSelection.source),
+        runtimeContextCapturedAt = runtimeContextSelection.mixedVantageValue(runtimeContextSelection.capturedAt),
+        networkSnapshotSource = runtimeContextSelection.mixedVantageValue(selection.archiveSnapshotSource()),
+        networkSnapshotCapturedAt = runtimeContextSelection.mixedVantageValue(snapshot?.capturedAt),
+        terminalServiceStatus =
+            runtimeContextSelection.mixedVantageValue(runtimeContextSelection.terminalContext?.service?.serviceStatus),
+        terminalContextSource =
+            runtimeContextSelection.mixedVantageValue(runtimeContextSelection.terminalSource),
+        terminalContextCapturedAt =
+            runtimeContextSelection.mixedVantageValue(runtimeContextSelection.terminalCapturedAt),
     )
 }
+
+internal data class SelectedArchiveRuntimeContext(
+    val context: DiagnosticContextModel?,
+    val source: String?,
+    val capturedAt: Long?,
+    val terminalContext: DiagnosticContextModel?,
+    val terminalSource: String?,
+    val terminalCapturedAt: Long?,
+) {
+    val usesHistoricalContext: Boolean
+        get() = context != null && terminalContext != null && source != terminalSource
+
+    fun <T> mixedVantageValue(value: T?): T? = value.takeIf { usesHistoricalContext }
+}
+
+/**
+ * Selects the context that best explains the runtime failure without losing the
+ * chronologically terminal state. Raw-path scans intentionally stop the VPN,
+ * so their later `Halted`/idle snapshot must not hide a still-relevant passive
+ * `Running` snapshot with degraded or failed native components.
+ */
+internal fun selectArchiveRuntimeContext(selection: DiagnosticsArchiveSelection): SelectedArchiveRuntimeContext {
+    val candidates =
+        listOfNotNull(
+            selection.sessionContextModel?.let { context ->
+                ArchiveRuntimeContextCandidate(
+                    context = context,
+                    source = ArchiveSessionContextSource,
+                    capturedAt = selection.primaryContexts.maxOfOrNull { it.capturedAt },
+                    sourcePriority = ArchiveSessionContextPriority,
+                )
+            },
+            selection.latestContextModel?.let { context ->
+                ArchiveRuntimeContextCandidate(
+                    context = context,
+                    source = ArchivePassiveContextSource,
+                    capturedAt = selection.latestPassiveContext?.capturedAt,
+                    sourcePriority = ArchivePassiveContextPriority,
+                )
+            },
+        )
+    val terminal =
+        candidates.maxWithOrNull(
+            compareBy(
+                ArchiveRuntimeContextCandidate::capturedAtOrMinimum,
+                ArchiveRuntimeContextCandidate::sourcePriority,
+            ),
+        )
+    val selected =
+        candidates.maxWithOrNull(
+            compareBy(
+                ArchiveRuntimeContextCandidate::diagnosticRank,
+                ArchiveRuntimeContextCandidate::capturedAtOrMinimum,
+                ArchiveRuntimeContextCandidate::sourcePriority,
+            ),
+        )
+    return SelectedArchiveRuntimeContext(
+        context = selected?.context,
+        source = selected?.source,
+        capturedAt = selected?.capturedAt,
+        terminalContext = terminal?.context,
+        terminalSource = terminal?.source,
+        terminalCapturedAt = terminal?.capturedAt,
+    )
+}
+
+private data class ArchiveRuntimeContextCandidate(
+    val context: DiagnosticContextModel,
+    val source: String,
+    val capturedAt: Long?,
+    val sourcePriority: Int,
+) {
+    val capturedAtOrMinimum: Long
+        get() = capturedAt ?: Long.MIN_VALUE
+
+    val diagnosticRank: Int
+        get() = context.diagnosticRank()
+}
+
+private fun DiagnosticContextModel.diagnosticRank(): Int {
+    val components = listOfNotNull(service.proxy, service.tunnel, service.relay, service.warp)
+    val hasFailure =
+        components.any(RuntimeComponentSummary::hasDiagnosticFailure) ||
+            service.lastNativeErrorHeadline.hasDiagnosticValue()
+    val serviceState = service.serviceStatus.lowercase()
+    val isActive =
+        serviceState in ArchiveActiveServiceStates ||
+            components.any { component ->
+                component.activeSessions > 0 || component.state.lowercase() in ArchiveActiveComponentStates
+            }
+    if (isActive) return ArchiveActiveContextRank
+
+    val hasNonIdleComponent =
+        components.any { component ->
+            component.state.lowercase() !in ArchiveIdleComponentStates ||
+                component.health.lowercase() !in ArchiveIdleComponentStates
+        }
+    return when {
+        hasFailure -> ArchiveFailedContextRank
+        isActive -> ArchiveActiveContextRank
+        hasNonIdleComponent -> ArchiveNonIdleContextRank
+        else -> ArchiveIdleContextRank
+    }
+}
+
+private fun RuntimeComponentSummary.hasDiagnosticFailure(): Boolean =
+    state.lowercase().containsDiagnosticFailureToken() ||
+        health.lowercase().containsDiagnosticFailureToken() ||
+        lastError.hasDiagnosticValue() ||
+        lastFailureClass.hasDiagnosticValue()
+
+private fun String.containsDiagnosticFailureToken(): Boolean = ArchiveFailureTokens.any(::contains)
+
+private fun String.hasDiagnosticValue(): Boolean = isNotBlank() && lowercase() !in ArchiveEmptyDiagnosticValues
+
+private fun DiagnosticsArchiveSelection.archiveSnapshotSource(): String? {
+    val snapshot = latestSnapshotModel ?: return null
+    return if (latestPassiveSnapshot?.capturedAt == snapshot.capturedAt) {
+        ArchivePassiveSnapshotSource
+    } else {
+        ArchiveSessionSnapshotSource
+    }
+}
+
+private const val ArchiveSessionContextSource = "session_context"
+private const val ArchivePassiveContextSource = "latest_passive_context"
+private const val ArchiveSessionSnapshotSource = "session_snapshot"
+private const val ArchivePassiveSnapshotSource = "latest_passive_snapshot"
+private const val ArchiveSessionContextPriority = 1
+private const val ArchivePassiveContextPriority = 0
+private const val ArchiveIdleContextRank = 0
+private const val ArchiveNonIdleContextRank = 1
+private const val ArchiveActiveContextRank = 2
+private const val ArchiveFailedContextRank = 3
+private val ArchiveActiveServiceStates = setOf("running", "connected", "active")
+private val ArchiveActiveComponentStates = setOf("running", "connected", "active", "listening")
+private val ArchiveIdleComponentStates = setOf("idle", "stopped", "unavailable", "unknown", "none", "")
+private val ArchiveEmptyDiagnosticValues = setOf("none", "unavailable", "unknown", "")
+private val ArchiveFailureTokens = setOf("degraded", "failed", "error", "broken", "unhealthy")
 
 private data class ResolvedServiceConfig(
     val configuredMode: String = "unavailable",

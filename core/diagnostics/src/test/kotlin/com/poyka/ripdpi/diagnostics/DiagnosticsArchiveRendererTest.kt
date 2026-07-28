@@ -63,6 +63,131 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer keeps active failure context when a later session context is halted and idle`() {
+        val base = buildFullRendererSelection()
+        val idleRuntime = RuntimeComponentSummary(state = "idle", health = "idle")
+        val haltedContext =
+            rendererDiagnosticContextModel().copy(
+                service =
+                    rendererDiagnosticContextModel().service.copy(
+                        serviceStatus = "Halted",
+                        lastNativeErrorHeadline = "none",
+                        proxy = idleRuntime,
+                        tunnel = idleRuntime,
+                        relay = idleRuntime,
+                        warp = idleRuntime,
+                    ),
+            )
+        val activeFailureContext =
+            rendererDiagnosticContextModel().copy(
+                service =
+                    rendererDiagnosticContextModel().service.copy(
+                        serviceStatus = "Running",
+                        lastNativeErrorHeadline = "relay transport failed",
+                        relay =
+                            RuntimeComponentSummary(
+                                state = "failed",
+                                health = "degraded",
+                                lastError = "udp associate unsupported",
+                                lastFailureClass = "protocol_unsupported",
+                            ),
+                    ),
+                device = rendererDiagnosticContextModel().device.copy(androidVersion = "15", apiLevel = 35),
+            )
+        val sessionContextEntity =
+            rendererDiagnosticContextEntity(sessionId = "session-1", capturedAt = 40L).copy(
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), haltedContext),
+            )
+        val passiveContextEntity =
+            rendererDiagnosticContextEntity(id = "ctx-passive", sessionId = null, capturedAt = 30L).copy(
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), activeFailureContext),
+            )
+        val passiveSnapshot = rendererNetworkSnapshotEntity(id = "snap-passive", sessionId = null, capturedAt = 35L)
+        val selection =
+            base.copy(
+                primaryContexts = listOf(sessionContextEntity),
+                latestPassiveContext = passiveContextEntity,
+                latestContextModel = activeFailureContext,
+                sessionContextModel = haltedContext,
+                latestPassiveSnapshot = passiveSnapshot,
+                latestSnapshotModel = rendererNetworkSnapshotModel().copy(capturedAt = 35L),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-runtime-context", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-runtime-context.zip",
+                createdAt = 50L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        assertMixedRuntimeContext(entries)
+    }
+
+    private fun assertMixedRuntimeContext(entries: Map<String, DiagnosticsArchiveEntry>) {
+        val runtimeConfig =
+            json.decodeFromString(
+                DiagnosticsArchiveRuntimeConfigPayload.serializer(),
+                entries.getValue("runtime-config.json").bytes.decodeToString(),
+            )
+        val provenance =
+            json.decodeFromString(
+                DiagnosticsArchiveProvenancePayload.serializer(),
+                entries.getValue("archive-provenance.json").bytes.decodeToString(),
+            )
+        val manifest =
+            json.decodeFromString(
+                DiagnosticsArchiveManifest.serializer(),
+                entries.getValue("manifest.json").bytes.decodeToString(),
+            )
+        val summary = entries.getValue("summary.txt").bytes.decodeToString()
+
+        assertEquals("Running", runtimeConfig.serviceStatus)
+        assertEquals("degraded", runtimeConfig.relayRuntime?.health)
+        assertEquals("latest_passive_context", runtimeConfig.runtimeContextSource)
+        assertEquals(30L, runtimeConfig.runtimeContextCapturedAt)
+        assertEquals("latest_passive_snapshot", runtimeConfig.networkSnapshotSource)
+        assertEquals(35L, runtimeConfig.networkSnapshotCapturedAt)
+        assertEquals("Halted", runtimeConfig.terminalServiceStatus)
+        assertEquals("session_context", runtimeConfig.terminalContextSource)
+        assertEquals(40L, runtimeConfig.terminalContextCapturedAt)
+        assertEquals("15", provenance.runtimeProvenance.androidVersion)
+        assertEquals("Running", manifest.contextSummary?.service?.serviceStatus)
+        assertTrue(summary.contains("android=15 (API 35)"))
+    }
+
+    @Test
+    fun `runtime context selection leaves an ordinary single context unchanged`() {
+        val base = buildFullRendererSelection()
+        val selection =
+            base.copy(
+                latestPassiveContext = null,
+                latestContextModel = null,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-single-runtime-context", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-single-runtime-context.zip",
+                createdAt = 50L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val runtimeConfig =
+            json.decodeFromString(
+                DiagnosticsArchiveRuntimeConfigPayload.serializer(),
+                entries.getValue("runtime-config.json").bytes.decodeToString(),
+            )
+
+        assertEquals("connected", runtimeConfig.serviceStatus)
+        assertNull(runtimeConfig.runtimeContextSource)
+        assertNull(runtimeConfig.runtimeContextCapturedAt)
+        assertNull(runtimeConfig.networkSnapshotSource)
+        assertNull(runtimeConfig.networkSnapshotCapturedAt)
+        assertNull(runtimeConfig.terminalServiceStatus)
+        assertNull(runtimeConfig.terminalContextSource)
+        assertNull(runtimeConfig.terminalContextCapturedAt)
+    }
+
+    @Test
     fun `renderer redacts endpoint fields from logcat entry`() {
         val selection =
             buildFullRendererSelection().copy(
