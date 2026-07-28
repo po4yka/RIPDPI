@@ -30,7 +30,9 @@ pub use yamux_session::VlessYamuxSession;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::os::fd::AsRawFd;
+use std::time::Duration;
 
+use socket2::{SockRef, TcpKeepalive};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
 
@@ -41,6 +43,12 @@ use crate::wire::ResponseHeaderStream;
 
 type VlessRealityStream = VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>;
 pub type VlessXudpSession = xudp::VlessXudpSession;
+
+const TCP_KEEPALIVE_IDLE: Duration = Duration::from_secs(30);
+const TCP_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
+const TCP_KEEPALIVE_RETRIES: u32 = 3;
+#[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux", target_os = "cygwin"))]
+const TCP_USER_TIMEOUT: Duration = Duration::from_secs(90);
 
 /// Trait alias for an async bidirectional stream that is `Send`.
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -98,6 +106,8 @@ impl VlessRealityClient {
     /// Open one Xray-compatible XUDP association over a dedicated protected
     /// `TCP -> Reality -> VLESS Mux -> Vision` carrier.
     ///
+    /// # Cancel safety
+    ///
     /// NOT cancel-safe: cancellation discards the in-progress TCP/TLS/VLESS
     /// handshake and its carrier. Retrying always starts a fresh association.
     pub async fn connect_xudp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<VlessXudpSession> {
@@ -106,6 +116,7 @@ impl VlessRealityClient {
         }
         tracing::debug!("VLESS+Reality: connecting XUDP carrier");
         let tcp = connect_tcp(config, bind_ip).await?;
+        configure_tcp_liveness(&tcp)?;
         let tls = reality::connect_reality_tls(tcp, config).await?;
         let carrier = Self::vless_handshake_and_wrap_command(tls, config, wire::VlessCommand::Mux, None).await?;
         xudp::VlessXudpSession::new(carrier, config.flow == crate::addons::VlessFlow::VisionUdp443)
@@ -224,6 +235,18 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
         .map_err(|e| io::Error::new(e.kind(), format!("VLESS TCP connect failed: {e}")))?;
     stream.set_nodelay(true)?;
     Ok(stream)
+}
+
+fn configure_tcp_liveness(stream: &TcpStream) -> io::Result<()> {
+    let socket = SockRef::from(stream);
+    let keepalive = TcpKeepalive::new()
+        .with_time(TCP_KEEPALIVE_IDLE)
+        .with_interval(TCP_KEEPALIVE_INTERVAL)
+        .with_retries(TCP_KEEPALIVE_RETRIES);
+    socket.set_tcp_keepalive(&keepalive)?;
+    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux", target_os = "cygwin"))]
+    socket.set_tcp_user_timeout(Some(TCP_USER_TIMEOUT))?;
+    Ok(())
 }
 
 /// Protect a freshly created outbound socket via the registered
@@ -350,6 +373,10 @@ mod protect_tests {
     }
 
     #[tokio::test]
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: cancellation can leave the process-global protect
+    /// callback registered. The test is never externally raced or timed out.
     async fn loopback_socket_skips_protect_and_connects() {
         let _guard = PROTECT_TEST_LOCK.lock().await;
         // A recording callback that would fail if ever called — loopback must
@@ -362,6 +389,9 @@ mod protect_tests {
 
         let cfg = config_for("127.0.0.1", port);
         let stream = connect_tcp(&cfg, None).await.expect("loopback connect must succeed without protect");
+        assert!(!SockRef::from(&stream).keepalive().expect("read default SO_KEEPALIVE"));
+        configure_tcp_liveness(&stream).expect("configure XUDP TCP liveness");
+        assert!(SockRef::from(&stream).keepalive().expect("read SO_KEEPALIVE"));
         drop(stream);
 
         assert_eq!(cb.calls.load(Ordering::SeqCst), 0, "loopback target must be exempt from protect");

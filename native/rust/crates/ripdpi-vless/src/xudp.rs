@@ -13,7 +13,7 @@ use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
-use tokio::time::timeout;
+use tokio::time::{Instant, MissedTickBehavior, interval, timeout};
 
 pub const MAX_XUDP_METADATA: usize = 512;
 pub const MAX_XUDP_PAYLOAD: usize = 8192 - 666;
@@ -21,6 +21,8 @@ const READER_CHANNEL_CAPACITY: usize = 32;
 const WRITER_CHANNEL_CAPACITY: usize = 32;
 const DEFAULT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_READ_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
+const DEFAULT_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
+const DEFAULT_RECENT_ACTIVITY_WINDOW: Duration = Duration::from_secs(180);
 const SESSION_ID: u16 = 0;
 const STATUS_NEW: u8 = 0x01;
 const STATUS_KEEP: u8 = 0x02;
@@ -94,6 +96,17 @@ struct WriteCommand {
     completion: oneshot::Sender<io::Result<()>>,
 }
 
+#[derive(Clone, Copy)]
+struct XudpLivenessConfig {
+    keepalive_interval: Duration,
+    recent_activity_window: Duration,
+}
+
+const DEFAULT_LIVENESS: XudpLivenessConfig = XudpLivenessConfig {
+    keepalive_interval: DEFAULT_KEEPALIVE_INTERVAL,
+    recent_activity_window: DEFAULT_RECENT_ACTIVITY_WINDOW,
+};
+
 impl VlessXudpSession {
     pub(crate) fn new<S>(stream: S, allow_udp_443: bool) -> io::Result<Self>
     where
@@ -119,13 +132,27 @@ impl VlessXudpSession {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
+        Self::new_with_liveness(stream, allow_udp_443, write_timeout, read_idle_timeout, DEFAULT_LIVENESS)
+    }
+
+    fn new_with_liveness<S>(
+        stream: S,
+        allow_udp_443: bool,
+        write_timeout: Duration,
+        read_idle_timeout: Duration,
+        liveness: XudpLivenessConfig,
+    ) -> io::Result<Self>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
         let mut global_id = [0_u8; 8];
         SystemRandom::new().fill(&mut global_id).map_err(|_| io::Error::other("generate XUDP association id"))?;
         let (reader, writer) = tokio::io::split(stream);
         let (reader_sender, receiver) = mpsc::channel(READER_CHANNEL_CAPACITY);
         let (writer_sender, writer_receiver) = mpsc::channel(WRITER_CHANNEL_CAPACITY);
         let (reader_abort_sender, reader_abort_receiver) = oneshot::channel();
-        let writer_task = tokio::spawn(run_writer(writer, writer_receiver, write_timeout, reader_abort_receiver));
+        let writer_task =
+            tokio::spawn(run_writer(writer, writer_receiver, write_timeout, liveness, reader_abort_receiver));
         let reader_task =
             tokio::spawn(run_reader(reader, reader_sender, read_idle_timeout, writer_task.abort_handle()));
         reader_abort_sender
@@ -193,14 +220,17 @@ impl Drop for VlessXudpSession {
     }
 }
 
+/// # Cancel safety
+///
 /// NOT cancel-safe: `write_all` may have emitted a frame prefix. This task is
-/// the sole write-half owner and is never externally raced with a timeout; its
-/// internal deadline converts a partial or stalled write into terminal carrier
-/// closure before another frame can be accepted.
+/// the sole write-half owner; aborting it also drops the carrier. Its internal
+/// deadline converts a partial or stalled write into terminal carrier closure
+/// before another frame can be accepted.
 async fn run_writer<W>(
     mut writer: W,
     mut receiver: mpsc::Receiver<WriteCommand>,
     write_timeout: Duration,
+    liveness: XudpLivenessConfig,
     reader_abort: oneshot::Receiver<tokio::task::AbortHandle>,
 ) where
     W: AsyncWrite + Unpin,
@@ -208,18 +238,59 @@ async fn run_writer<W>(
     let Ok(reader_abort) = reader_abort.await else {
         return;
     };
-    while let Some(command) = receiver.recv().await {
-        let result = match timeout(write_timeout, writer.write_all(&command.frame)).await {
-            Ok(result) => result,
-            Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "XUDP carrier write timed out")),
-        };
-        let terminal = result.is_err();
-        let _ = command.completion.send(result);
-        if terminal {
-            break;
+    let mut keepalive_interval = interval(liveness.keepalive_interval);
+    keepalive_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    keepalive_interval.tick().await;
+    let mut last_application_activity = None;
+
+    loop {
+        tokio::select! {
+            command = receiver.recv() => {
+                let Some(command) = command else {
+                    break;
+                };
+                let result = write_frame(&mut writer, &command.frame, write_timeout).await;
+                let terminal = result.is_err();
+                if result.is_ok() {
+                    last_application_activity = Some(Instant::now());
+                }
+                let _ = command.completion.send(result);
+                if terminal {
+                    break;
+                }
+            }
+            _ = keepalive_interval.tick() => {
+                let recently_active = last_application_activity
+                    .is_some_and(|last_activity| last_activity.elapsed() <= liveness.recent_activity_window);
+                if !recently_active {
+                    continue;
+                }
+                // Xray treats StatusKeepAlive as one-way activity and does not
+                // acknowledge it. TCP keepalive/TCP_USER_TIMEOUT owns silent
+                // carrier failure detection; lack of XUDP downlink is never a
+                // failure signal by itself.
+                if write_frame(&mut writer, &encode_keep_alive(), write_timeout).await.is_err() {
+                    break;
+                }
+            }
         }
     }
     reader_abort.abort();
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: a cancelled write may leave a frame prefix on the carrier.
+/// Only the dedicated writer task calls this helper, and every error is
+/// terminal for that carrier before the next frame can be accepted.
+async fn write_frame<W>(writer: &mut W, frame: &[u8], write_timeout: Duration) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
+    match timeout(write_timeout, writer.write_all(frame)).await {
+        Ok(result) => result,
+        Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "XUDP carrier write timed out")),
+    }
 }
 
 fn encode_datagram(first: bool, target: &str, payload: &[u8], global_id: [u8; 8]) -> Result<Vec<u8>, XudpError> {
@@ -245,6 +316,10 @@ fn encode_datagram(first: bool, target: &str, payload: &[u8], global_id: [u8; 8]
     frame.extend_from_slice(&payload_len.to_be_bytes());
     frame.extend_from_slice(payload);
     Ok(frame)
+}
+
+fn encode_keep_alive() -> [u8; 8] {
+    [0, 4, 0, 0, STATUS_KEEP_ALIVE, OPTION_DATA, 0, 0]
 }
 
 fn validate_payload(payload: &[u8]) -> Result<(), XudpError> {
@@ -412,6 +487,8 @@ where
     }
 }
 
+/// # Cancel safety
+///
 /// NOT cancel-safe: this task owns the carrier read half for its complete
 /// lifetime. Its idle deadline and external abort are terminal: both make a
 /// partially consumed carrier unusable and stop its paired writer task.
@@ -496,6 +573,13 @@ mod tests {
         raw_frame(&[0, 0, STATUS_KEEP_ALIVE, OPTION_DATA], &[])
     }
 
+    fn test_liveness() -> XudpLivenessConfig {
+        XudpLivenessConfig {
+            keepalive_interval: Duration::from_millis(10),
+            recent_activity_window: Duration::from_millis(200),
+        }
+    }
+
     #[test]
     fn new_and_keep_frames_match_xray_shape() {
         let global_id = [0x5a; 8];
@@ -512,6 +596,11 @@ mod tests {
         let keep = encode_datagram(false, "example.com:5353", b"next", global_id).expect("keep frame");
         assert_eq!(&keep[2..7], &[0, 0, STATUS_KEEP, OPTION_DATA, NETWORK_UDP]);
         assert!(!keep.windows(global_id.len()).any(|window| window == global_id));
+    }
+
+    #[test]
+    fn keep_alive_frame_matches_xray_shape() {
+        assert_eq!(encode_keep_alive(), [0, 4, 0, 0, STATUS_KEEP_ALIVE, OPTION_DATA, 0, 0]);
     }
 
     #[test]
@@ -706,6 +795,51 @@ mod tests {
             ("1.2.3.4:53".into(), b"alive".to_vec())
         );
         peer_task.await.expect("peer task");
+    }
+
+    #[tokio::test]
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: the timeout races a single-byte `read`, which cannot
+    /// partially consume a larger protocol unit.
+    async fn writer_does_not_probe_an_unused_association() {
+        let (stream, mut peer) = tokio::io::duplex(128);
+        let _session = VlessXudpSession::new_with_liveness(
+            stream,
+            false,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+            test_liveness(),
+        )
+        .expect("session");
+
+        let mut byte = [0_u8; 1];
+        assert!(tokio::time::timeout(Duration::from_millis(35), peer.read(&mut byte)).await.is_err());
+    }
+
+    #[tokio::test]
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: frame reads use `read_exact`, but this test never
+    /// races or externally cancels them.
+    async fn discard_only_peer_does_not_make_xudp_keepalives_fatal() {
+        let (stream, mut peer) = tokio::io::duplex(256);
+        let mut session = VlessXudpSession::new_with_liveness(
+            stream,
+            false,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+            test_liveness(),
+        )
+        .expect("session");
+
+        session.send_to("1.2.3.4:53", b"query").await.expect("uplink");
+        let _ = read_encoded_frame(&mut peer).await;
+        for _ in 0..4 {
+            assert_eq!(read_encoded_frame(&mut peer).await, encode_keep_alive());
+        }
+
+        assert!(!session.writer.is_closed());
     }
 
     #[tokio::test]
