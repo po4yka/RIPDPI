@@ -47,7 +47,6 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     use nix::sys::socket::{ControlMessage, MsgFlags, sendmsg};
     use std::io::IoSlice;
 
-    tracing::debug!(path = path, "protect_socket: connecting");
     let stream = UnixStream::connect(path)?;
     stream.set_read_timeout(Some(Duration::from_secs(1)))?;
     stream.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -64,7 +63,6 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     if ack[0] != 0 {
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "VpnService.protect() rejected socket"));
     }
-    tracing::debug!(path = path, "protect_socket: fd protected");
     Ok(())
 }
 
