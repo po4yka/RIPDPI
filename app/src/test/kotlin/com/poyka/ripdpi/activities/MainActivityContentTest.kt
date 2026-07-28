@@ -332,6 +332,7 @@ class MainActivityContentTest {
                             compositeRunService = StubDiagnosticsHomeCompositeRunService(),
                         ),
                     latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+                    networkPathValidationSource = FakeNetworkPathValidationSource(),
                 ),
             mainControlPlaneDependencies =
                 MainControlPlaneDependencies(

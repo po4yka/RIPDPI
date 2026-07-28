@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.diagnostics.NetworkPathValidationSource
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.permissions.PermissionCoordinator
@@ -45,6 +46,7 @@ class MainDiagnosticsDependencies
         val diagnosticsShareService: DiagnosticsShareService,
         val homeDiagnosticsServices: HomeDiagnosticsServices,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
+        val networkPathValidationSource: NetworkPathValidationSource,
     )
 
 class MainControlPlaneDependencies

@@ -42,6 +42,10 @@ internal class MainUiStateOwner(
                 approachStats = approachStats,
             )
         }.combine(
+            diagnosticsDependencies.networkPathValidationSource.evidence,
+        ) { base, pathValidation ->
+            base.copy(pathValidation = pathValidation)
+        }.combine(
             serviceDependencies.hardKillSwitchStateStore.snapshot,
         ) { base, hardKillSwitch ->
             base to hardKillSwitch
@@ -66,6 +70,7 @@ internal class MainUiStateOwner(
                 approachStats = base.approachStats,
                 hostPackCatalog = hostPackCatalog,
                 strategyPackRuntimeState = strategyPackRuntimeState,
+                pathValidation = base.pathValidation,
             )
         }.map { inputs ->
             val settings = inputs.settings

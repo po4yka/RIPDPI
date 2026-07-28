@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
+import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -143,6 +144,7 @@ internal data class MainUiInputs(
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
     val hostPackCatalog: HostPackCatalogUiState,
     val strategyPackRuntimeState: StrategyPackRuntimeState,
+    val pathValidation: NetworkPathValidationEvidence?,
 )
 
 internal data class MainUiInputsBase(
@@ -152,6 +154,7 @@ internal data class MainUiInputsBase(
     val telemetry: ServiceTelemetrySnapshot,
     val permissions: PermissionRuntimeState,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
+    val pathValidation: NetworkPathValidationEvidence? = null,
 )
 
 internal fun calculateTransferredBytes(

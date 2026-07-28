@@ -72,6 +72,45 @@ internal fun resolvePathValidationEvidence(
 private val pathEvidenceComparator =
     compareBy<NetworkPathCapabilities>({ it.validated }, { it.hasInternet }, { !it.captivePortal }, { it.transport })
 
+internal fun resolveNetworkTransport(capabilities: NetworkCapabilities?): String =
+    when {
+        capabilities == null -> "unavailable"
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+        else -> "other"
+    }
+
+internal fun NetworkCapabilities.toNetworkPathCapabilities(): NetworkPathCapabilities =
+    NetworkPathCapabilities(
+        transport = resolveNetworkTransport(this),
+        isVpn = hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+        isNotVpn = hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN),
+        hasInternet = hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+        validated = hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+        captivePortal = hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+    )
+
+@SuppressLint("MissingPermission")
+internal fun captureCurrentPathValidationEvidence(
+    connectivityManager: ConnectivityManager,
+    permissionAvailable: Boolean,
+): NetworkPathValidationEvidence =
+    resolvePathValidationEvidence(
+        permissionAvailable = permissionAvailable,
+        networks =
+            if (permissionAvailable) {
+                connectivityManager.allNetworks.mapNotNull { observedNetwork ->
+                    connectivityManager
+                        .getNetworkCapabilities(observedNetwork)
+                        ?.toNetworkPathCapabilities()
+                }
+            } else {
+                emptyList()
+            },
+    )
+
 data class PublicIpInfo(
     val ip: String,
     val asn: String?,
@@ -208,9 +247,9 @@ class AndroidNetworkMetadataProvider
             val linkProperties = network?.let(connectivityManager::getLinkProperties)
             val publicIpInfo = if (includePublicIp) publicIpInfoResolver.resolve() else null
             val pathValidation =
-                resolvePathValidationEvidence(
+                captureCurrentPathValidationEvidence(
+                    connectivityManager = connectivityManager,
                     permissionAvailable = hasNetworkPermission,
-                    networks = if (hasNetworkPermission) captureNetworkPaths() else emptyList(),
                 )
 
             return NetworkSnapshotModel(
@@ -233,31 +272,7 @@ class AndroidNetworkMetadataProvider
             )
         }
 
-        @SuppressLint("MissingPermission")
-        private fun captureNetworkPaths(): List<NetworkPathCapabilities> =
-            connectivityManager.allNetworks.mapNotNull { observedNetwork ->
-                connectivityManager.getNetworkCapabilities(observedNetwork)?.let(::toPathCapabilities)
-            }
-
-        private fun toPathCapabilities(capabilities: NetworkCapabilities) =
-            NetworkPathCapabilities(
-                transport = resolveTransport(capabilities),
-                isVpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
-                isNotVpn = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN),
-                hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
-                validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-                captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
-            )
-
-        private fun resolveTransport(capabilities: NetworkCapabilities?): String =
-            when {
-                capabilities == null -> "unavailable"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-                else -> "other"
-            }
+        private fun resolveTransport(capabilities: NetworkCapabilities?): String = resolveNetworkTransport(capabilities)
 
         private fun resolveCapabilities(capabilities: NetworkCapabilities?): List<String> {
             if (capabilities == null) {

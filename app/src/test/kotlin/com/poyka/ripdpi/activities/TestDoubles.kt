@@ -43,6 +43,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
+import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
+import com.poyka.ripdpi.diagnostics.NetworkPathValidationSource
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.LauncherIconController
@@ -63,6 +65,19 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+
+class FakeNetworkPathValidationSource(
+    initialEvidence: NetworkPathValidationEvidence =
+        NetworkPathValidationEvidence(captureStatus = "permission_unavailable"),
+) : NetworkPathValidationSource {
+    private val mutableEvidence = MutableStateFlow(initialEvidence)
+
+    override val evidence: StateFlow<NetworkPathValidationEvidence> = mutableEvidence.asStateFlow()
+
+    fun emit(value: NetworkPathValidationEvidence) {
+        mutableEvidence.value = value
+    }
+}
 
 class FakeAppSettingsRepository(
     initialSettings: AppSettings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,

@@ -29,6 +29,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
+import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.stableId
@@ -41,6 +42,7 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
+import com.poyka.ripdpi.services.network.NetworkCondition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.persistentListOf
@@ -85,6 +87,42 @@ class MainViewModelTest {
         assertTrue(shouldPollConnectionMetrics(ConnectionState.Connected))
         assertFalse(shouldPollConnectionMetrics(ConnectionState.Error))
     }
+
+    @Test
+    fun `home network condition follows live path validation`() =
+        runTest {
+            val pathValidationSource = FakeNetworkPathValidationSource()
+            val viewModel = createViewModel(networkPathValidationSource = pathValidationSource)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            pathValidationSource.emit(
+                NetworkPathValidationEvidence(
+                    captureStatus = "captured",
+                    underlayPresent = false,
+                ),
+            )
+            runCurrent()
+            assertEquals(NetworkCondition.NoConnectivity, viewModel.uiState.value.networkCondition)
+
+            pathValidationSource.emit(
+                NetworkPathValidationEvidence(
+                    captureStatus = "captured",
+                    underlayPresent = true,
+                    underlayInternet = true,
+                    underlayValidated = true,
+                    underlayCaptivePortal = false,
+                ),
+            )
+            runCurrent()
+            assertEquals(NetworkCondition.Normal, viewModel.uiState.value.networkCondition)
+
+            pathValidationSource.emit(NetworkPathValidationEvidence(captureStatus = "permission_unavailable"))
+            runCurrent()
+            assertEquals(NetworkCondition.Normal, viewModel.uiState.value.networkCondition)
+
+            collector.cancel()
+        }
 
     @Test
     fun `startup destination prefers onboarding until it is completed`() {
@@ -1713,6 +1751,7 @@ class MainViewModelTest {
         diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
         diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
+        networkPathValidationSource: FakeNetworkPathValidationSource = FakeNetworkPathValidationSource(),
         hostPackCatalogUiStateStore: com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore =
             com.poyka.ripdpi.hosts
                 .HostPackCatalogUiStateStore(),
@@ -1753,6 +1792,7 @@ class MainViewModelTest {
                     diagnosticsShareService = diagnosticsShareService,
                     homeDiagnosticsServices = homeDiagnosticsServices,
                     latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+                    networkPathValidationSource = networkPathValidationSource,
                 ),
             mainControlPlaneDependencies =
                 MainControlPlaneDependencies(

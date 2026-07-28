@@ -132,6 +132,7 @@ private fun homeRouteDiagnosticsDependencies(): MainDiagnosticsDependencies =
                 compositeRunService = StubDiagnosticsHomeCompositeRunService(),
             ),
         latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+        networkPathValidationSource = FakeNetworkPathValidationSource(),
     )
 
 private fun homeRouteControlPlaneDependencies(): MainControlPlaneDependencies =
