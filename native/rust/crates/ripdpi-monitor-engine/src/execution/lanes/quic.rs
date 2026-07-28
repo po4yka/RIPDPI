@@ -65,9 +65,8 @@ pub(super) fn run_quic_strategy_probe(
     candidate: &StrategyCandidateSpec,
 ) -> ProbeSample {
     let started = now_ms();
-    let connect_targets = quic_connect_targets(target);
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
-    let response = relay_udp_payload_observed(&connect_targets, target.port, transport, &payload);
+    let response = relay_udp_payload_observed(&quic_connect_targets(target), target.port, transport, &payload);
     let latency_ms = now_ms().saturating_sub(started);
     let (outcome, status, error, connected_addr) = match response {
         Ok(result) if parse_quic_initial(&result.payload).is_some() => (

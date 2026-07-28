@@ -198,6 +198,8 @@ impl VlessXudpSession {
     }
 }
 
+// Drop order: abort reader_task before writer_task so no downlink work can
+// outlive carrier teardown; channel handles then drop in field order.
 impl Drop for VlessXudpSession {
     fn drop(&mut self) {
         self.reader_task.abort();

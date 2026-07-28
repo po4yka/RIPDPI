@@ -44,9 +44,7 @@ pub(super) fn probe_tcp_capabilities(
         raw_ipv6 = capabilities.ipfrag_caps.raw_ipv6,
         "strategy probe: capabilities probed"
     );
-    if let Some(failure) = baseline_failure
-        && let Some(timeout) = compute_rst_adaptive_timeout(failure)
-    {
+    if let Some(timeout) = baseline_failure.and_then(compute_rst_adaptive_timeout) {
         tracing::info!(adaptive_timeout_ms = timeout.as_millis(), "strategy probe: adaptive timeout (rst)");
     }
     capabilities

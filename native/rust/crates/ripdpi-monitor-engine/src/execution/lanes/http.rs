@@ -45,8 +45,7 @@ pub(super) fn run_http_strategy_probe(
     } else {
         (observation.status.clone(), None)
     };
-    let h3_advertised =
-        observation.response.as_ref().and_then(|r| r.headers.get("alt-svc")).is_some_and(|v| v.contains("h3"));
+    let h3 = observation.response.as_ref().and_then(|r| r.headers.get("alt-svc")).is_some_and(|v| v.contains("h3"));
     let mut details = candidate_probe_details(candidate, "HTTP", latency_ms);
     details.extend([
         ProbeDetail { key: "status".to_string(), value: observation.status },
@@ -68,7 +67,7 @@ pub(super) fn run_http_strategy_probe(
     if let Some(fp) = &fingerprint_name {
         details.push(ProbeDetail { key: "blockpageFingerprint".to_string(), value: fp.clone() });
     }
-    details.push(ProbeDetail { key: "h3Advertised".to_string(), value: h3_advertised.to_string() });
+    details.push(ProbeDetail { key: "h3Advertised".to_string(), value: h3.to_string() });
     ProbeSample {
         result: ProbeResult {
             probe_type: "strategy_http".to_string(),

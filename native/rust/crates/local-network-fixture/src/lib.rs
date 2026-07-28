@@ -26,6 +26,7 @@ mod masque_h3;
 mod naive;
 mod shadowsocks;
 mod socks;
+mod socks_udp;
 mod stack;
 mod tls;
 mod trojan;

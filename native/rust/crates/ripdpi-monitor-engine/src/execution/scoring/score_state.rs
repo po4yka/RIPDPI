@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::types::{ProbeResult, StrategyProbeDomainOutcome};
+use crate::types::ProbeResult;
 
 #[derive(Default)]
 pub struct CandidateScore {
@@ -53,22 +53,6 @@ impl CandidateScore {
 
     pub fn is_full_success(&self) -> bool {
         self.total_targets > 0 && self.succeeded_targets == self.total_targets
-    }
-
-    /// Build per-domain outcome list. A domain is considered successful if all
-    /// of its probes (HTTP + HTTPS) passed.
-    pub fn domain_outcomes(&self) -> Vec<StrategyProbeDomainOutcome> {
-        self.domain_totals
-            .iter()
-            .map(|(domain, &total)| {
-                let successes = self.domain_successes.get(domain).copied().unwrap_or(0);
-                StrategyProbeDomainOutcome {
-                    domain: domain.clone(),
-                    succeeded: successes == total && total > 0,
-                    is_control: self.domain_controls.get(domain).copied().unwrap_or(false),
-                }
-            })
-            .collect()
     }
 }
 

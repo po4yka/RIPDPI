@@ -1,3 +1,4 @@
+mod domain_outcomes;
 mod notes;
 mod score_state;
 mod serialization;
