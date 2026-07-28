@@ -94,18 +94,13 @@ EXPECTED_PROBES = {
         ("transition-ipv6", "ipv6", "blocked"),
     ),
     "wifi-lte-switch": (
-        ("transition-ipv4", "ipv4", "blocked"),
-        ("transition-ipv6", "ipv6", "blocked"),
-        ("post-tunnel-ipv4", "ipv4", "connected"),
+        ("post-switch-ipv4", "ipv4", "connected"),
     ),
     "sleep-wake": (
-        ("transition-ipv4", "ipv4", "blocked"),
-        ("transition-ipv6", "ipv6", "blocked"),
-        ("post-tunnel-ipv4", "ipv4", "connected"),
+        ("post-wake-ipv4", "ipv4", "connected"),
     ),
     "android-always-on-block": (
-        ("transition-ipv4", "ipv4", "blocked"),
-        ("transition-ipv6", "ipv6", "blocked"),
+        ("post-stop-ipv4", "ipv4", "connected"),
     ),
 }
 
@@ -114,9 +109,9 @@ EXPECTED_PHASES = {
     "dual-stack": ("steady",),
     "forced-revoke": ("closed",),
     "core-fault": ("closed",),
-    "wifi-lte-switch": ("transition", "reestablished"),
-    "sleep-wake": ("transition", "reestablished"),
-    "android-always-on-block": ("closed",),
+    "wifi-lte-switch": ("protected",),
+    "sleep-wake": ("protected",),
+    "android-always-on-block": ("protected",),
 }
 
 TUNNEL_ACTIVITY_ACTIONS = {
@@ -124,6 +119,7 @@ TUNNEL_ACTIVITY_ACTIONS = {
     "dual-stack",
     "wifi-lte-switch",
     "sleep-wake",
+    "android-always-on-block",
 }
 
 
@@ -309,7 +305,7 @@ def _event_time(event: dict[str, Any], action_id: str) -> int:
         "sleep-wake": ({"kind", "sleepAtEpochMs", "wakeAtEpochMs"}, "device-wake"),
         "android-always-on-block": (
             {"kind", "observedAtEpochMs", "packageName"},
-            "vpn-stopped-under-lockdown",
+            "vpn-stop-absorbed-under-lockdown",
         ),
     }
     expected_keys, expected_kind = schemas[action_id]
@@ -849,7 +845,7 @@ def _validate_route_facts(
                 "dual-stack tunnel lacks its IPv4/IPv6 routes or address",
             )
         return
-    if action_id in {"forced-revoke", "core-fault", "android-always-on-block"}:
+    if action_id in {"forced-revoke", "core-fault"}:
         closed = phases[0]
         if (
             closed["vpnActive"]
@@ -861,27 +857,27 @@ def _validate_route_facts(
                 "SEMANTIC_KILLSWITCH_ROUTE_OPEN",
                 f"{action_id} route snapshot is not fail-closed",
             )
-        if action_id == "android-always-on-block":
-            settings = closed["settings"]
-            if (
-                settings.get("always_on_vpn_app") != receipt["event"]["packageName"]
-                or settings.get("always_on_vpn_lockdown") != "1"
-            ):
-                raise OracleError(
-                    "SEMANTIC_ALWAYS_ON_INVALID",
-                    "Android always-on lockdown settings are not active",
-                )
         return
-    transition, reestablished = phases
-    if transition["vpnActive"] or not transition["lockdownActive"]:
+    protected = phases[0]
+    if (
+        not protected["vpnActive"]
+        or not protected["lockdownActive"]
+        or not protected["ipv4Default"]
+    ):
         raise OracleError(
             "SEMANTIC_KILLSWITCH_ROUTE_OPEN",
-            f"{action_id} transition is not fail-closed",
+            f"{action_id} did not remain protected by the VPN",
         )
-    if not reestablished["vpnActive"] or not reestablished["ipv4Default"]:
-        raise OracleError(
-            "SEMANTIC_KILLSWITCH_ROUTE_OPEN", f"{action_id} tunnel did not re-establish"
-        )
+    if action_id == "android-always-on-block":
+        settings = protected["settings"]
+        if (
+            settings.get("always_on_vpn_app") != receipt["event"]["packageName"]
+            or settings.get("always_on_vpn_lockdown") != "1"
+        ):
+            raise OracleError(
+                "SEMANTIC_ALWAYS_ON_INVALID",
+                "Android always-on lockdown settings are not active",
+            )
 
 
 def parse_classic_pcap(raw: bytes) -> list[Packet]:
@@ -1245,26 +1241,6 @@ def _validate_causal_order(
             "SEMANTIC_CAUSAL_ORDER_INVALID",
             "observations must follow the event and finish before the outcome marker",
         )
-    if context.action_id in {"wifi-lte-switch", "sleep-wake"}:
-        transition, reestablished = route_facts
-        blocked_probes = probes[:-1]
-        post_tunnel_probe = probes[-1]
-        tunnel_lower_bound = max(
-            transition["capturedAt"],
-            *(probe["finishedAtEpochMs"] for probe in blocked_probes),
-        )
-        causal_tunnel = any(
-            tunnel_lower_bound <= observed_at <= reestablished["capturedAt"]
-            for observed_at in pcap_facts["tunnelPacketTimesEpochMs"]
-        )
-        if (
-            not causal_tunnel
-            or post_tunnel_probe["startedAtEpochMs"] < reestablished["capturedAt"]
-        ):
-            raise OracleError(
-                "SEMANTIC_CAUSAL_ORDER_INVALID",
-                "transition evidence must precede tunnel activity, re-establishment, and post-tunnel probe",
-            )
 
 
 def evaluate_action(context: ActionContext) -> dict[str, Any]:

@@ -280,12 +280,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 commands = value["phases"][0]["commands"]
                 commands.update(
                     {
-                        "connectivity": "vpn_active=true\nlockdown_active=true\n",
-                        "ipAddressShow": (
-                            "7: tun0: <POINTOPOINT,UP> mtu 1500\n"
-                            "    inet 10.0.0.2/32 scope global tun0\n"
-                        ),
-                        "ip6AddressShow": "7: tun0: <POINTOPOINT,UP> mtu 1500\n",
+                        "ipRouteShow": "",
                     }
                 )
 
@@ -648,6 +643,16 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                     ),
                 ),
                 (
+                    started + 700,
+                    fixtures._udp_ipv4(
+                        "192.0.2.201",
+                        fixtures.FIXTURE["tunnelEndpoints"][0],
+                        43000,
+                        fixtures.FIXTURE["tunnelPort"],
+                        b"approved-tunnel-traffic",
+                    ),
+                ),
+                (
                     started + 900,
                     fixtures._udp_ipv4(
                         "192.0.2.201",
@@ -921,12 +926,12 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
 
         self.assert_semantic_failure(mutation, "SEMANTIC_ROUTE_MISMATCH")
 
-    def test_transition_actions_require_full_reestablishment_chain(self) -> None:
-        def early_post_tunnel_probe(manifest_path, manifest):
+    def test_continuously_protected_actions_require_causal_tunnel_proof(self) -> None:
+        def early_protected_probe(manifest_path, manifest):
             def mutation(value):
-                probe = value["probes"][2]
-                probe["startedAtEpochMs"] = value["windowStartedAtEpochMs"] + 650
-                probe["finishedAtEpochMs"] = value["windowStartedAtEpochMs"] + 675
+                probe = value["probes"][0]
+                probe["startedAtEpochMs"] = value["windowStartedAtEpochMs"] + 100
+                probe["finishedAtEpochMs"] = value["windowStartedAtEpochMs"] + 110
 
             self.mutate_json_artifact(
                 manifest_path,
@@ -936,7 +941,7 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 mutation,
             )
 
-        def transition_snapshot_after_tunnel(manifest_path, manifest):
+        def protected_snapshot_before_event(manifest_path, manifest):
             started = self.action(manifest, "sleep-wake")["windowStartedAtEpochMs"]
             self.mutate_json_artifact(
                 manifest_path,
@@ -944,11 +949,11 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                 "sleep-wake",
                 "route-snapshot",
                 lambda value: value["phases"][0].update(
-                    {"capturedAtEpochMs": started + 650}
+                    {"capturedAtEpochMs": started + 100}
                 ),
             )
 
-        def tunnel_activity_after_reestablishment(manifest_path, manifest):
+        def missing_tunnel_activity(manifest_path, manifest):
             action = self.action(manifest, "wifi-lte-switch")
             started = action["windowStartedAtEpochMs"]
             correlation = action["correlationId"]
@@ -958,22 +963,13 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
                     fixtures._udp_ipv4(
                         "192.0.2.201",
                         destination,
-                        43000 if phase == "tunnel" else 42000,
-                        (
-                            fixtures.FIXTURE["tunnelPort"]
-                            if phase == "tunnel"
-                            else fixtures.FIXTURE["markerPort"]
-                        ),
-                        (
-                            b"late-tunnel"
-                            if phase == "tunnel"
-                            else oracles._marker("wifi-lte-switch", correlation, phase)
-                        ),
+                            42000,
+                            fixtures.FIXTURE["markerPort"],
+                            oracles._marker("wifi-lte-switch", correlation, phase),
                     ),
                 )
                 for offset, destination, phase in (
                     (100, fixtures.FIXTURE["markerAddress"], "action"),
-                    (750, fixtures.FIXTURE["tunnelEndpoints"][0], "tunnel"),
                     (900, fixtures.FIXTURE["markerAddress"], "outcome"),
                 )
             ]
@@ -986,14 +982,14 @@ class AndroidOrdinarySemanticOracleTest(unittest.TestCase):
             )
 
         self.assert_semantic_failure(
-            early_post_tunnel_probe, "SEMANTIC_CAUSAL_ORDER_INVALID"
+            early_protected_probe, "SEMANTIC_CAUSAL_ORDER_INVALID"
         )
         self.assert_semantic_failure(
-            transition_snapshot_after_tunnel, "SEMANTIC_CAUSAL_ORDER_INVALID"
+            protected_snapshot_before_event, "SEMANTIC_CAUSAL_ORDER_INVALID"
         )
         self.assert_semantic_failure(
-            tunnel_activity_after_reestablishment,
-            "SEMANTIC_CAUSAL_ORDER_INVALID",
+            missing_tunnel_activity,
+            "SEMANTIC_TUNNEL_CONTROL_MISSING",
         )
 
     def test_tunnel_endpoint_and_port_must_match_the_same_direction(self) -> None:

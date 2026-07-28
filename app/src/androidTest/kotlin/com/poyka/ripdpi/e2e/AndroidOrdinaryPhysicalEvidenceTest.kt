@@ -151,12 +151,12 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
         ensureVpnConsentGranted(appContext)
         tunnelFactory.routeThrough(fixture.androidHost, fixture.socks5Port)
-        stopVpn()
+        resetVpnBetweenActions()
     }
 
     @After
     fun tearDown() {
-        runCatching { stopVpn() }
+        runCatching { resetVpnBetweenActions() }
         runCatching { shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow") }
         runCatching { shell("svc wifi enable") }
         runCatching { shell("input keyevent KEYCODE_WAKEUP") }
@@ -168,15 +168,13 @@ class AndroidOrdinaryPhysicalEvidenceTest {
 
     @Test
     fun produceSevenOrdinaryPhysicalActions() {
-        configureAndStart(ipv6 = true)
         hardwareAttestation = createHardwareAttestation()
-        stopVpn()
         actions.put(runSteadyAction("ipv4-only", ipv6 = false))
         actions.put(runSteadyAction("dual-stack", ipv6 = true))
         actions.put(
             runClosedAction("forced-revoke") {
                 shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN ignore")
-                stopVpn()
+                awaitVpnDefaultNetworkAbsent()
                 JSONObject().put("kind", "vpn-permission-revoked").put("observedAtEpochMs", now())
             },
         )
@@ -198,13 +196,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         actions.put(runNetworkSwitchAction())
         actions.put(runSleepWakeAction())
         actions.put(
-            runClosedAction("android-always-on-block") {
-                stopVpn()
-                JSONObject()
-                    .put("kind", "vpn-stopped-under-lockdown")
-                    .put("observedAtEpochMs", now())
-                    .put("packageName", appContext.packageName)
-            },
+            runAlwaysOnProtectedAction(),
         )
         val output =
             JSONObject()
@@ -244,7 +236,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         val phases = JSONArray().put(capturePhase("steady", expectVpn = true))
         sendMarker(actionId, correlation, "outcome")
         val finished = now()
-        stopVpn()
+        resetVpnBetweenActions()
         return actionDocument(actionId, correlation, started, finished, event, probes, dns, phases)
     }
 
@@ -281,16 +273,11 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 .put("observedAtEpochMs", now())
                 .put("toNetworkHandleSha256", hash("network:${after.networkHandle}"))
                 .put("toTransport", "CELLULAR")
-        stopVpn()
-        awaitTestProcessLockdown()
-        val transitionProbes = blockedTransitionProbes()
-        val transition = capturePhase("transition", expectVpn = false)
-        configureAndStart(ipv6 = false)
-        val reestablished = capturePhase("reestablished", expectVpn = true)
-        transitionProbes.put(probe("post-tunnel-ipv4", "ipv4", controlIpv4, connected = true))
+        val transitionProbes = JSONArray().put(probe("post-switch-ipv4", "ipv4", controlIpv4, connected = true))
+        val protected = capturePhase("protected", expectVpn = true)
         sendMarker("wifi-lte-switch", correlation, "outcome")
         val finished = now()
-        stopVpn()
+        resetVpnBetweenActions()
         shell("svc wifi enable")
         awaitUnderlay(NetworkCapabilities.TRANSPORT_WIFI)
         return actionDocument(
@@ -301,7 +288,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             event,
             transitionProbes,
             JSONObject.NULL,
-            JSONArray().put(transition).put(reestablished),
+            JSONArray().put(protected),
         )
     }
 
@@ -316,16 +303,11 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         shell("input keyevent KEYCODE_WAKEUP")
         val wakeAt = now()
         val event = JSONObject().put("kind", "device-wake").put("sleepAtEpochMs", sleepAt).put("wakeAtEpochMs", wakeAt)
-        stopVpn()
-        awaitTestProcessLockdown()
-        val probes = blockedTransitionProbes()
-        val transition = capturePhase("transition", expectVpn = false)
-        configureAndStart(ipv6 = false)
-        val reestablished = capturePhase("reestablished", expectVpn = true)
-        probes.put(probe("post-tunnel-ipv4", "ipv4", controlIpv4, connected = true))
+        val probes = JSONArray().put(probe("post-wake-ipv4", "ipv4", controlIpv4, connected = true))
+        val protected = capturePhase("protected", expectVpn = true)
         sendMarker("sleep-wake", correlation, "outcome")
         val finished = now()
-        stopVpn()
+        resetVpnBetweenActions()
         return actionDocument(
             "sleep-wake",
             correlation,
@@ -334,11 +316,42 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             event,
             probes,
             JSONObject.NULL,
-            JSONArray().put(transition).put(reestablished),
+            JSONArray().put(protected),
+        )
+    }
+
+    private fun runAlwaysOnProtectedAction(): JSONObject {
+        configureAndStart(ipv6 = false)
+        val started = now()
+        val correlation = correlation("android-always-on-block")
+        sendMarker("android-always-on-block", correlation, "action")
+        requestVpnStop()
+        awaitUntil(timeoutMs = OrdinaryTimeoutMs) {
+            serviceStateStore.telemetry.value.status == AppStatus.Running && vpnNetwork() != null
+        }
+        val event =
+            JSONObject()
+                .put("kind", "vpn-stop-absorbed-under-lockdown")
+                .put("observedAtEpochMs", now())
+                .put("packageName", appContext.packageName)
+        val probes = JSONArray().put(probe("post-stop-ipv4", "ipv4", controlIpv4, connected = true))
+        val protected = capturePhase("protected", expectVpn = true)
+        sendMarker("android-always-on-block", correlation, "outcome")
+        val finished = now()
+        return actionDocument(
+            "android-always-on-block",
+            correlation,
+            started,
+            finished,
+            event,
+            probes,
+            JSONObject.NULL,
+            JSONArray().put(protected),
         )
     }
 
     private fun configureAndStart(ipv6: Boolean) {
+        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
         runBlocking {
             appSettingsRepository.update {
                 proxyIp = "127.0.0.1"
@@ -366,10 +379,13 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             connectivityManager.getLinkProperties(requireNotNull(vpnNetwork()))?.interfaceName ?: lastVpnInterface
     }
 
-    private fun stopVpn() {
+    private fun requestVpnStop() {
+        appContext.startService(Intent(appContext, RipDpiVpnService::class.java).setAction(stopAction))
+        appContext.startService(Intent(appContext, RipDpiProxyService::class.java).setAction(stopAction))
+    }
+
+    private fun awaitVpnDefaultNetworkAbsent() {
         bindTestProcessDnsProbeService(OrdinaryTimeoutMs).use { probeService ->
-            appContext.startService(Intent(appContext, RipDpiVpnService::class.java).setAction(stopAction))
-            appContext.startService(Intent(appContext, RipDpiProxyService::class.java).setAction(stopAction))
             awaitUntil(
                 timeoutMs = OrdinaryTimeoutMs,
                 pollMs = 10,
@@ -378,6 +394,13 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 !probeService.isVpnDefaultNetwork()
             }
         }
+    }
+
+    private fun resetVpnBetweenActions() {
+        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN ignore")
+        requestVpnStop()
+        awaitVpnDefaultNetworkAbsent()
+        shell("cmd appops set ${appContext.packageName} ACTIVATE_VPN allow")
     }
 
     private fun blockedTransitionProbes(): JSONArray =

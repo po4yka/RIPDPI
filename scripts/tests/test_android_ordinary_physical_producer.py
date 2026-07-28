@@ -96,7 +96,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "AndroidOrdinaryPhysicalEvidenceTest.kt"
         ).read_text()
         configure = producer[producer.index("private fun configureAndStart") :]
-        configure = configure[: configure.index("private fun stopVpn")]
+        configure = configure[: configure.index("private fun requestVpnStop")]
         self.assertIn("fullTunnelMode = true", configure)
         self.assertIn("setSplitTunnelMode(SplitTunnelMode.Off)", configure)
         self.assertIn("clearSplitTunnelPackages()", configure)
@@ -114,16 +114,33 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("!ipv4.ok && !ipv6.ok", lockdown)
         self.assertNotIn("awaitNoDefaultNetwork", lockdown)
 
-    def test_stop_observes_the_external_test_uid_instead_of_app_status(self) -> None:
+    def test_boundary_reset_observes_the_external_test_uid(self) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
             "AndroidOrdinaryPhysicalEvidenceTest.kt"
         ).read_text()
-        stop = producer[producer.index("private fun stopVpn") :]
-        stop = stop[: stop.index("private fun blockedTransitionProbes")]
-        self.assertIn("bindTestProcessDnsProbeService", stop)
-        self.assertIn("!probeService.isVpnDefaultNetwork()", stop)
-        self.assertNotIn("serviceStateStore.telemetry", stop)
+        reset = producer[producer.index("private fun awaitVpnDefaultNetworkAbsent") :]
+        reset = reset[: reset.index("private fun blockedTransitionProbes")]
+        self.assertIn("bindTestProcessDnsProbeService", reset)
+        self.assertIn("!probeService.isVpnDefaultNetwork()", reset)
+        self.assertIn("ACTIVATE_VPN ignore", reset)
+        self.assertIn("ACTIVATE_VPN allow", reset)
+
+    def test_always_on_transitions_require_continuous_tunnel_protection(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        network = producer[producer.index("private fun runNetworkSwitchAction") :]
+        network = network[: network.index("private fun runSleepWakeAction")]
+        sleep = producer[producer.index("private fun runSleepWakeAction") :]
+        sleep = sleep[: sleep.index("private fun runAlwaysOnProtectedAction")]
+        always_on = producer[producer.index("private fun runAlwaysOnProtectedAction") :]
+        always_on = always_on[: always_on.index("private fun configureAndStart")]
+        for action in (network, sleep, always_on):
+            self.assertIn('capturePhase("protected", expectVpn = true)', action)
+            self.assertNotIn("blockedTransitionProbes", action)
+            self.assertNotIn("awaitTestProcessLockdown", action)
 
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(

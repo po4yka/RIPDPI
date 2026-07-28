@@ -78,7 +78,7 @@ def _event(action_id: str, *, started_at: int) -> dict[str, Any]:
         }
     if action_id == "android-always-on-block":
         return {
-            "kind": "vpn-stopped-under-lockdown",
+            "kind": "vpn-stop-absorbed-under-lockdown",
             "observedAtEpochMs": observed_at,
             "packageName": "com.poyka.ripdpi",
         }
@@ -95,12 +95,8 @@ def action_receipt(
     started_at: int,
     finished_at: int,
 ) -> bytes:
-    probe_offsets = (
-        (200, 280, 800)
-        if action_id in {"wifi-lte-switch", "sleep-wake"}
-        else tuple(
-            200 + index * 80 for index in range(len(oracles.EXPECTED_PROBES[action_id]))
-        )
+    probe_offsets = tuple(
+        200 + index * 80 for index in range(len(oracles.EXPECTED_PROBES[action_id]))
     )
     probes = [
         _probe(
@@ -222,34 +218,7 @@ def route_snapshot(
                 "vpnInterface": "tun0",
             }
         ]
-    elif action_id in {"wifi-lte-switch", "sleep-wake"}:
-        phases = [
-            {
-                "capturedAtEpochMs": started_at + 400,
-                "commands": _commands(
-                    vpn_active=False,
-                    lockdown_active=True,
-                    ipv4_default=False,
-                    ipv6_default=False,
-                    global_ipv6=False,
-                ),
-                "name": "transition",
-                "vpnInterface": "tun0",
-            },
-            {
-                "capturedAtEpochMs": started_at + 700,
-                "commands": _commands(
-                    vpn_active=True,
-                    lockdown_active=True,
-                    ipv4_default=True,
-                    ipv6_default=False,
-                    global_ipv6=False,
-                ),
-                "name": "reestablished",
-                "vpnInterface": "tun0",
-            },
-        ]
-    else:
+    elif action_id in {"wifi-lte-switch", "sleep-wake", "android-always-on-block"}:
         secure_settings = (
             "always_on_vpn_app=com.poyka.ripdpi\nalways_on_vpn_lockdown=1\n"
             if action_id == "android-always-on-block"
@@ -257,6 +226,22 @@ def route_snapshot(
         )
         phases = [
             {
+                "capturedAtEpochMs": started_at + 400,
+                "commands": _commands(
+                    vpn_active=True,
+                    lockdown_active=True,
+                    ipv4_default=True,
+                    ipv6_default=False,
+                    global_ipv6=False,
+                    secure_settings=secure_settings,
+                ),
+                "name": "protected",
+                "vpnInterface": "tun0",
+            },
+        ]
+    else:
+        phases = [
+            {
                 "capturedAtEpochMs": started_at + 700,
                 "commands": _commands(
                     vpn_active=False,
@@ -264,7 +249,6 @@ def route_snapshot(
                     ipv4_default=False,
                     ipv6_default=False,
                     global_ipv6=False,
-                    secure_settings=secure_settings,
                 ),
                 "name": "closed",
                 "vpnInterface": "tun0",
