@@ -15,6 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from scripts.ci import android_ordinary_dns_fixture as dns_fixture
+from scripts.ci import android_ordinary_marker_relay as marker_relay
 from scripts.ci import android_ordinary_physical_attestation as attestation
 from scripts.ci import android_ordinary_raw_evidence as raw_evidence
 from scripts.ci import android_ordinary_semantic_oracles as oracles
@@ -49,6 +50,44 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
     app_sha = hashlib.sha256(b"app").hexdigest()
     test_sha = hashlib.sha256(b"test").hexdigest()
     run_id = hashlib.sha256(b"physical-run").hexdigest()
+
+    def test_marker_relay_forwards_exact_marker_and_acknowledges_capture(self) -> None:
+        marker = b"RIPDPI-ORDINARY-V1:dual-stack:" + b"a" * 64 + b":outcome"
+        client, server = socket.socketpair()
+        with (
+            socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as observer,
+            client,
+            server,
+        ):
+            observer.bind(("127.0.0.1", 0))
+            observer.settimeout(2)
+            worker = threading.Thread(
+                target=marker_relay.handle_connection,
+                kwargs={
+                    "connection": server,
+                    "destination": observer.getsockname(),
+                },
+            )
+            worker.start()
+            client.sendall(marker + b"\n")
+            self.assertEqual(observer.recv(512), marker)
+            self.assertEqual(client.recv(16), b"OK\n")
+            worker.join(timeout=2)
+            self.assertFalse(worker.is_alive())
+
+    def test_marker_relay_rejects_unbounded_or_injected_payloads(self) -> None:
+        valid = b"RIPDPI-ORDINARY-V1:ipv4-only:" + b"b" * 64 + b":action"
+        self.assertEqual(marker_relay.validated_marker(valid + b"\n"), valid)
+        for payload in (
+            b"",
+            valid + b";id",
+            valid.replace(b":action", b":unknown"),
+            b"RIPDPI-ORDINARY-V1:ipv4-only:" + b"b" * 63 + b":action",
+            b"x" * (marker_relay.MAX_MARKER_BYTES + 1),
+        ):
+            with self.subTest(payload=payload[:32]):
+                with self.assertRaises(ValueError):
+                    marker_relay.validated_marker(payload)
 
     def test_runner_does_not_require_coordinator_network_for_fixture_preflight(
         self,
@@ -205,6 +244,12 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn('(udp port $dns_port)', runner)
         self.assertIn('(tcp port $dns_port)', runner)
         self.assertIn("/usr/bin/tcpdump -i any", runner)
+        self.assertIn("android_ordinary_marker_relay.py", runner)
+        self.assertIn('reverse "tcp:$marker_relay_port"', runner)
+        self.assertIn('reverse --remove "tcp:$marker_relay_port"', runner)
+        self.assertIn('requiredPort("ripdpi.ordinaryMarkerRelayPort")', producer)
+        self.assertIn('Socket().use { socket ->', producer)
+        self.assertNotIn("toybox nc -u", producer)
         self.assertIn("--fixture-tailscale-proxy", runner)
         self.assertIn('"ProxyCommand=$tailscale_path nc %h %p"', runner)
         self.assertIn('"HostKeyAlias=$fixture_host_key_alias"', runner)

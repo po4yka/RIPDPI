@@ -59,6 +59,8 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.security.KeyPairGenerator
 import java.security.KeyStore
@@ -120,6 +122,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     private lateinit var controlIpv6: String
     private var markerPort: Int = 0
     private var dnsPort: Int = 0
+    private var markerRelayPort: Int = 0
     private var fixtureTcpEchoPort: Int = 0
     private var fixtureSocksPort: Int = 0
     private var lastVpnInterface: String = "tun0"
@@ -139,6 +142,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         controlIpv6 = requiredArg("ripdpi.ordinaryControlIpv6", Regex("[0-9a-fA-F:]{2,64}"))
         markerPort = requiredPort("ripdpi.ordinaryMarkerPort")
         dnsPort = requiredPort("ripdpi.ordinaryDnsPort")
+        markerRelayPort = requiredPort("ripdpi.ordinaryMarkerRelayPort")
         fixtureTcpEchoPort = requiredPort("ripdpi.ordinaryTcpEchoPort")
         fixtureSocksPort = requiredPort("ripdpi.ordinarySocksPort")
         require(sourceSha.startsWith(BuildConfig.GIT_COMMIT)) { "APK source binding mismatch" }
@@ -668,7 +672,16 @@ class AndroidOrdinaryPhysicalEvidenceTest {
     ) {
         val payload = "$OrdinaryMarkerPrefix:$actionId:$correlation:$phase"
         require(payload.all { it.isLetterOrDigit() || it in "-:" })
-        shell("printf '$payload' | toybox nc -u -w 1 $controlIpv4 $markerPort")
+        Socket().use { socket ->
+            socket.connect(InetSocketAddress("127.0.0.1", markerRelayPort), 5_000)
+            socket.soTimeout = 5_000
+            socket.getOutputStream().apply {
+                write("$payload\n".toByteArray(StandardCharsets.US_ASCII))
+                flush()
+            }
+            val response = socket.getInputStream().bufferedReader(StandardCharsets.US_ASCII).readLine()
+            require(response == "OK") { "Fixture marker relay rejected $actionId/$phase" }
+        }
         Thread.sleep(75)
     }
 
