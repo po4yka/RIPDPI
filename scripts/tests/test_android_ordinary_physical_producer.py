@@ -296,6 +296,37 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
             "networkHandoverState == NetworkHandoverStates.Revalidated", network
         )
 
+    def test_sleep_wake_requires_a_stable_runtime_on_both_boundaries(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        sleep = producer[producer.index("private fun runSleepWakeAction") :]
+        sleep = sleep[: sleep.index("private fun runAlwaysOnProtectedAction")]
+        helper = producer[
+            producer.index("private fun awaitStablePhysicalRuntime") :
+        ]
+        helper = helper[: helper.index("private fun configureAndStart")]
+
+        before_sleep = sleep.index(
+            'awaitStablePhysicalRuntime("before sleep", requireInteractive = false)'
+        )
+        started = sleep.index("val started = now()")
+        wake = sleep.index('shell("input keyevent KEYCODE_WAKEUP")')
+        after_wake = sleep.index(
+            'awaitStablePhysicalRuntime("after wake", requireInteractive = true)'
+        )
+        probe = sleep.index('probe("post-wake-ipv4"')
+
+        self.assertLess(before_sleep, started)
+        self.assertLess(wake, after_wake)
+        self.assertLess(after_wake, probe)
+        self.assertIn("awaitStable(", helper)
+        self.assertIn("pollMs = 250", helper)
+        self.assertIn("stablePollCount = 12", helper)
+        self.assertIn("powerManager.isInteractive", helper)
+        self.assertIn("generationUnchanged", helper)
+
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(
             "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"

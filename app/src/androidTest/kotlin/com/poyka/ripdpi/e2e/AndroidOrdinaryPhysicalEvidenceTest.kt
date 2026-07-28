@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -349,6 +350,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
 
     private fun runSleepWakeAction(): JSONObject {
         configureAndStart(ipv6 = false)
+        awaitStablePhysicalRuntime("before sleep", requireInteractive = false)
         val started = now()
         val correlation = correlation("sleep-wake")
         val sleepAt = now()
@@ -357,6 +359,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
         Thread.sleep(1_000)
         shell("input keyevent KEYCODE_WAKEUP")
         val wakeAt = now()
+        awaitStablePhysicalRuntime("after wake", requireInteractive = true)
         val event = JSONObject().put("kind", "device-wake").put("sleepAtEpochMs", sleepAt).put("wakeAtEpochMs", wakeAt)
         val probes = JSONArray().put(probe("post-wake-ipv4", "ipv4", controlIpv4, connected = true))
         val protected = capturePhase("protected", expectVpn = true)
@@ -372,6 +375,34 @@ class AndroidOrdinaryPhysicalEvidenceTest {
             JSONObject.NULL,
             JSONArray().put(protected),
         )
+    }
+
+    private fun awaitStablePhysicalRuntime(
+        label: String,
+        requireInteractive: Boolean,
+    ) {
+        val powerManager = appContext.getSystemService(PowerManager::class.java)
+        var lastObservedStartCount = tunnelFactory.completedStartCount()
+        awaitStable(
+            timeoutMs = OrdinaryTimeoutMs,
+            pollMs = 250,
+            stablePollCount = 12,
+            failureMessage = {
+                val telemetry = serviceStateStore.telemetry.value
+                "Physical runtime did not settle $label: " +
+                    "starts=${tunnelFactory.completedStartCount()} " +
+                    "status=${telemetry.status} interactive=${powerManager.isInteractive}"
+            },
+        ) {
+            val currentStartCount = tunnelFactory.completedStartCount()
+            val generationUnchanged = currentStartCount == lastObservedStartCount
+            lastObservedStartCount = currentStartCount
+            val telemetry = serviceStateStore.telemetry.value
+            generationUnchanged &&
+                telemetry.status == AppStatus.Running &&
+                vpnNetwork() != null &&
+                (!requireInteractive || powerManager.isInteractive)
+        }
     }
 
     private fun runAlwaysOnProtectedAction(): JSONObject {
