@@ -80,6 +80,7 @@ class RelayCapabilityProbeTest {
             val result = runBlocking { fixture.probe.probe(RelayProbeEndpoint("127.0.0.1", fixture.port)) }
 
             assertFalse(result.succeeded)
+            assertTrue(result.associationOpened)
             assertEquals(RelayProbeFailure.UdpReadTimeout, result.failure)
         }
     }

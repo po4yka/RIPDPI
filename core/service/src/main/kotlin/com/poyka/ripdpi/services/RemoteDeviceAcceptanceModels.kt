@@ -70,14 +70,7 @@ internal fun buildRemoteDeviceAcceptanceBaseline(
             else -> null
         }
     val probe = evidence.probe
-    val udpAssociationSucceeded =
-        probe?.udpSucceeded == true ||
-            probe?.udpFailure in
-            setOf(
-                RelayProbeFailure.UdpWrite.wireValue,
-                RelayProbeFailure.UdpReadTimeout.wireValue,
-                RelayProbeFailure.DnsResponse.wireValue,
-            )
+    val udpAssociationSucceeded = probe?.udpAssociationOpened == true
     val steps =
         listOf(
             resultStep(

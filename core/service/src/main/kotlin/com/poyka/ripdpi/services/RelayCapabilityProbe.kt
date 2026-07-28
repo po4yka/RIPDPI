@@ -44,6 +44,7 @@ data class RelayCapabilityProbeEvidence(
     val tcpSucceeded: Boolean,
     val tcpStatusCode: Int?,
     val tcpFailure: String?,
+    val udpAssociationOpened: Boolean,
     val udpSucceeded: Boolean,
     val udpFailure: String?,
     val latencyMs: Long,
@@ -76,13 +77,23 @@ internal fun interface RelayTcpProbe {
 
 internal data class RelayUdpProbeResult(
     val succeeded: Boolean,
+    val associationOpened: Boolean,
     val failure: RelayProbeFailure? = null,
 ) {
     companion object {
-        fun success(): RelayUdpProbeResult = RelayUdpProbeResult(succeeded = true)
+        fun success(): RelayUdpProbeResult = RelayUdpProbeResult(succeeded = true, associationOpened = true)
 
-        fun failure(failure: RelayProbeFailure): RelayUdpProbeResult =
-            RelayUdpProbeResult(succeeded = false, failure = failure)
+        fun notRequired(): RelayUdpProbeResult = RelayUdpProbeResult(succeeded = true, associationOpened = false)
+
+        fun failure(
+            failure: RelayProbeFailure,
+            associationOpened: Boolean = false,
+        ): RelayUdpProbeResult =
+            RelayUdpProbeResult(
+                succeeded = false,
+                associationOpened = associationOpened,
+                failure = failure,
+            )
     }
 }
 
@@ -141,11 +152,12 @@ class RelayCapabilityProbe internal constructor(
                     null
                 }
             val tcpResult = tcp?.await() ?: RelayTcpProbeResult(succeeded = true)
-            val udpResult = udp?.await() ?: RelayUdpProbeResult.success()
+            val udpResult = udp?.await() ?: RelayUdpProbeResult.notRequired()
             RelayCapabilityProbeEvidence(
                 tcpSucceeded = tcpResult.succeeded,
                 tcpStatusCode = tcpResult.statusCode,
                 tcpFailure = tcpResult.failure?.wireValue,
+                udpAssociationOpened = udpResult.associationOpened,
                 udpSucceeded = udpResult.succeeded,
                 udpFailure = udpResult.failure?.wireValue,
                 latencyMs = elapsedMillis(startedAt),
@@ -246,6 +258,7 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
 
     private fun probeBlocking(endpoint: RelayProbeEndpoint): RelayUdpProbeResult {
         Socket().use { control ->
+            var associationOpened = false
             try {
                 control.soTimeout = timeoutMillis
                 control.connect(InetSocketAddress(endpoint.host, endpoint.port), timeoutMillis)
@@ -253,6 +266,7 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
                 val output = DataOutputStream(control.getOutputStream())
                 negotiateNoAuthentication(input, output)
                 val udpRelay = openUdpAssociation(endpoint, input, output)
+                associationOpened = true
                 DatagramSocket().use { udp ->
                     udp.soTimeout = timeoutMillis
                     val query = dnsQuery()
@@ -260,29 +274,41 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
                     try {
                         udp.send(DatagramPacket(frame, frame.size, udpRelay))
                     } catch (_: IOException) {
-                        return RelayUdpProbeResult.failure(RelayProbeFailure.UdpWrite)
+                        return RelayUdpProbeResult.failure(
+                            RelayProbeFailure.UdpWrite,
+                            associationOpened = true,
+                        )
                     }
                     val response = DatagramPacket(ByteArray(MaxUdpProbeResponseBytes), MaxUdpProbeResponseBytes)
                     try {
                         udp.receive(response)
                     } catch (_: SocketTimeoutException) {
-                        return RelayUdpProbeResult.failure(RelayProbeFailure.UdpReadTimeout)
+                        return RelayUdpProbeResult.failure(
+                            RelayProbeFailure.UdpReadTimeout,
+                            associationOpened = true,
+                        )
                     }
                     val payload =
                         decodeSocksUdpPayload(response.data, response.length)
-                            ?: return RelayUdpProbeResult.failure(RelayProbeFailure.DnsResponse)
+                            ?: return RelayUdpProbeResult.failure(
+                                RelayProbeFailure.DnsResponse,
+                                associationOpened = true,
+                            )
                     return if (isMatchingDnsResponse(query, payload)) {
                         RelayUdpProbeResult.success()
                     } else {
-                        RelayUdpProbeResult.failure(RelayProbeFailure.DnsResponse)
+                        RelayUdpProbeResult.failure(
+                            RelayProbeFailure.DnsResponse,
+                            associationOpened = true,
+                        )
                     }
                 }
             } catch (_: ProtocolException) {
-                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen)
+                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen, associationOpened)
             } catch (_: SocketTimeoutException) {
-                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen)
+                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen, associationOpened)
             } catch (_: IOException) {
-                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen)
+                return RelayUdpProbeResult.failure(RelayProbeFailure.UdpAssociateOpen, associationOpened)
             }
         }
     }

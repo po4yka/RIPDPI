@@ -43,6 +43,24 @@ class RemoteDeviceAcceptanceGateTest {
     }
 
     @Test
+    fun `post-open IO classification still proves UDP association`() {
+        val evidence =
+            successfulEvidence().copy(
+                probe =
+                    successfulProbe().copy(
+                        udpAssociationOpened = true,
+                        udpSucceeded = false,
+                        udpFailure = RelayProbeFailure.UdpAssociateOpen.wireValue,
+                    ),
+            )
+
+        val report = buildRemoteDeviceAcceptanceBaseline(Device, evidence)
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Pass, report.step("socks_udp_associate").status)
+        assertEquals(RemoteDeviceAcceptanceStatus.Fail, report.step("dns_udp").status)
+    }
+
+    @Test
     fun `wrong transport fails closed without probe details`() {
         val report =
             buildRemoteDeviceAcceptanceBaseline(
@@ -94,6 +112,7 @@ class RemoteDeviceAcceptanceGateTest {
             tcpSucceeded = true,
             tcpStatusCode = 204,
             tcpFailure = null,
+            udpAssociationOpened = true,
             udpSucceeded = true,
             udpFailure = null,
             latencyMs = 42L,
