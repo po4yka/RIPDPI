@@ -350,7 +350,6 @@ class AndroidOrdinaryPhysicalEvidenceTest {
 
     private fun runSleepWakeAction(): JSONObject {
         configureAndStart(ipv6 = false)
-        awaitStablePhysicalRuntime("before sleep", requireInteractive = false)
         val started = now()
         val correlation = correlation("sleep-wake")
         val sleepAt = now()
@@ -481,6 +480,7 @@ class AndroidOrdinaryPhysicalEvidenceTest {
                 hasIpv6 == ipv6 &&
                 tunnelFactory.completedStartAfter(completedStartCount, ipv6)
         }
+        awaitStablePhysicalRuntime("after configure", requireInteractive = false)
         lastVpnInterface =
             connectivityManager.getLinkProperties(requireNotNull(vpnNetwork()))?.interfaceName ?: lastVpnInterface
     }

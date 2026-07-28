@@ -308,9 +308,7 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         ]
         helper = helper[: helper.index("private fun configureAndStart")]
 
-        before_sleep = sleep.index(
-            'awaitStablePhysicalRuntime("before sleep", requireInteractive = false)'
-        )
+        before_sleep = sleep.index("configureAndStart(ipv6 = false)")
         started = sleep.index("val started = now()")
         wake = sleep.index('shell("input keyevent KEYCODE_WAKEUP")')
         after_wake = sleep.index(
@@ -326,6 +324,25 @@ class AndroidOrdinaryPhysicalProducerTest(unittest.TestCase):
         self.assertIn("stablePollCount = 12", helper)
         self.assertIn("powerManager.isInteractive", helper)
         self.assertIn("generationUnchanged", helper)
+
+    def test_configure_waits_for_a_stable_physical_runtime_generation(self) -> None:
+        producer = Path(
+            "app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/"
+            "AndroidOrdinaryPhysicalEvidenceTest.kt"
+        ).read_text()
+        configure = producer[producer.index("private fun configureAndStart") :]
+        configure = configure[: configure.index("private fun requestVpnStop")]
+
+        completed = configure.index(
+            "tunnelFactory.completedStartAfter(completedStartCount, ipv6)"
+        )
+        settled = configure.index(
+            'awaitStablePhysicalRuntime("after configure", requireInteractive = false)'
+        )
+        interface = configure.index("lastVpnInterface =")
+
+        self.assertLess(completed, settled)
+        self.assertLess(settled, interface)
 
     def test_physical_producer_compares_aaaa_answers_by_address_bytes(self) -> None:
         producer = Path(
