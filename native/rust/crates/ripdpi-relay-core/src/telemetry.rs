@@ -1,6 +1,8 @@
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use arc_swap::ArcSwapOption;
 use serde::Serialize;
 
 /// A single TCP upstream-connect observation for quality telemetry.
@@ -139,6 +141,8 @@ pub struct RelayTelemetry {
     pub protocol_kind: Option<String>,
     pub tcp_capable: Option<bool>,
     pub udp_capable: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub xudp_telemetry: Option<XudpTelemetrySnapshot>,
     pub fallback_mode: Option<String>,
     pub last_handshake_error: Option<String>,
     pub chain_entry_state: Option<String>,
@@ -163,6 +167,129 @@ pub struct RelayTelemetry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub confirm_good_dpi_evidence: Option<ripdpi_failure_classifier::ConfirmGoodDpiEvidence>,
     pub captured_at: u64,
+}
+
+/// Privacy-safe aggregate health for VLESS Reality XUDP associations.
+///
+/// No target, endpoint, credential, UUID, payload metadata, or GlobalID is
+/// retained by this state or serialized into the relay telemetry snapshot.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct XudpTelemetrySnapshot {
+    pub active_associations: u64,
+    pub opened_associations: u64,
+    pub closed_associations: u64,
+    pub uplink_packets: u64,
+    pub uplink_bytes: u64,
+    pub downlink_packets: u64,
+    pub downlink_bytes: u64,
+    pub last_successful_downlink_at: Option<u64>,
+    pub write_timeouts: u64,
+    pub read_timeouts: u64,
+    pub carrier_reconnects: u64,
+    pub consecutive_udp_failures: u64,
+    pub queue_high_water_mark: u64,
+    pub last_termination_reason: Option<String>,
+}
+
+#[derive(Default)]
+pub(crate) struct XudpTelemetryState {
+    active_associations: AtomicU64,
+    opened_associations: AtomicU64,
+    closed_associations: AtomicU64,
+    uplink_packets: AtomicU64,
+    uplink_bytes: AtomicU64,
+    downlink_packets: AtomicU64,
+    downlink_bytes: AtomicU64,
+    last_successful_downlink_at: AtomicU64,
+    write_timeouts: AtomicU64,
+    read_timeouts: AtomicU64,
+    carrier_reconnects: AtomicU64,
+    consecutive_udp_failures: AtomicU64,
+    queue_high_water_mark: AtomicU64,
+    reconnect_pending: AtomicBool,
+    last_termination_reason: ArcSwapOption<String>,
+}
+
+impl XudpTelemetryState {
+    pub(crate) fn association_opened(&self) {
+        self.active_associations.fetch_add(1, Ordering::Relaxed);
+        self.opened_associations.fetch_add(1, Ordering::Relaxed);
+        if self.reconnect_pending.swap(false, Ordering::Relaxed) {
+            self.carrier_reconnects.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    pub(crate) fn association_closed(&self, reason: &'static str) {
+        let _ = self
+            .active_associations
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |active| Some(active.saturating_sub(1)));
+        self.closed_associations.fetch_add(1, Ordering::Relaxed);
+        self.last_termination_reason.store(Some(Arc::new(reason.to_string())));
+    }
+
+    pub(crate) fn uplink_succeeded(&self, bytes: usize, queue_high_water_mark: usize) {
+        self.uplink_packets.fetch_add(1, Ordering::Relaxed);
+        self.uplink_bytes.fetch_add(bytes as u64, Ordering::Relaxed);
+        self.queue_high_water_mark.fetch_max(queue_high_water_mark as u64, Ordering::Relaxed);
+    }
+
+    pub(crate) fn downlink_succeeded(&self, bytes: usize) {
+        self.downlink_packets.fetch_add(1, Ordering::Relaxed);
+        self.downlink_bytes.fetch_add(bytes as u64, Ordering::Relaxed);
+        self.last_successful_downlink_at.store(now_ms(), Ordering::Relaxed);
+        self.consecutive_udp_failures.store(0, Ordering::Relaxed);
+    }
+
+    pub(crate) fn open_failed(&self) {
+        self.record_failure(false, false);
+    }
+
+    pub(crate) fn write_failed(&self, timed_out: bool) {
+        self.record_failure(timed_out, false);
+    }
+
+    pub(crate) fn read_failed(&self, timed_out: bool) {
+        self.record_failure(false, timed_out);
+    }
+
+    fn record_failure(&self, write_timeout: bool, read_timeout: bool) {
+        if write_timeout {
+            self.write_timeouts.fetch_add(1, Ordering::Relaxed);
+        }
+        if read_timeout {
+            self.read_timeouts.fetch_add(1, Ordering::Relaxed);
+        }
+        let _ = self
+            .consecutive_udp_failures
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |failures| Some(failures.saturating_add(1)));
+        self.reconnect_pending.store(true, Ordering::Relaxed);
+    }
+
+    pub(crate) fn snapshot(&self) -> Option<XudpTelemetrySnapshot> {
+        let opened_associations = self.opened_associations.load(Ordering::Relaxed);
+        let failures = self.consecutive_udp_failures.load(Ordering::Relaxed);
+        if opened_associations == 0 && failures == 0 {
+            return None;
+        }
+        let last_downlink = self.last_successful_downlink_at.load(Ordering::Relaxed);
+        Some(XudpTelemetrySnapshot {
+            active_associations: self.active_associations.load(Ordering::Relaxed),
+            opened_associations,
+            closed_associations: self.closed_associations.load(Ordering::Relaxed),
+            uplink_packets: self.uplink_packets.load(Ordering::Relaxed),
+            uplink_bytes: self.uplink_bytes.load(Ordering::Relaxed),
+            downlink_packets: self.downlink_packets.load(Ordering::Relaxed),
+            downlink_bytes: self.downlink_bytes.load(Ordering::Relaxed),
+            last_successful_downlink_at: (last_downlink != 0).then_some(last_downlink),
+            write_timeouts: self.write_timeouts.load(Ordering::Relaxed),
+            read_timeouts: self.read_timeouts.load(Ordering::Relaxed),
+            carrier_reconnects: self.carrier_reconnects.load(Ordering::Relaxed),
+            consecutive_udp_failures: failures,
+            queue_high_water_mark: self.queue_high_water_mark.load(Ordering::Relaxed),
+            last_termination_reason: self.last_termination_reason.load_full().as_deref().cloned(),
+        })
+    }
 }
 
 #[derive(Clone, Default)]

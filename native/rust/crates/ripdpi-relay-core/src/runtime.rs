@@ -159,6 +159,34 @@ impl SocksTelemetry for RelayRuntime {
         self.state.record_handshake_error(error);
     }
 
+    fn record_xudp_association_opened(&self) {
+        self.state.record_xudp_association_opened();
+    }
+
+    fn record_xudp_association_closed(&self, reason: &'static str) {
+        self.state.record_xudp_association_closed(reason);
+    }
+
+    fn record_xudp_uplink(&self, bytes: usize, queue_high_water_mark: usize) {
+        self.state.record_xudp_uplink(bytes, queue_high_water_mark);
+    }
+
+    fn record_xudp_downlink(&self, bytes: usize) {
+        self.state.record_xudp_downlink(bytes);
+    }
+
+    fn record_xudp_open_failure(&self) {
+        self.state.record_xudp_open_failure();
+    }
+
+    fn record_xudp_write_failure(&self, timed_out: bool) {
+        self.state.record_xudp_write_failure(timed_out);
+    }
+
+    fn record_xudp_read_failure(&self, timed_out: bool) {
+        self.state.record_xudp_read_failure(timed_out);
+    }
+
     fn emit_connect_observation(&self, obs: TcpConnectObservation) {
         self.state.emit_connect_observation(obs);
     }

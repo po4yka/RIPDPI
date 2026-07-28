@@ -11,6 +11,20 @@ pub(crate) trait SocksTelemetry {
 
     fn record_handshake_error(&self, error: String);
 
+    fn record_xudp_association_opened(&self) {}
+
+    fn record_xudp_association_closed(&self, _reason: &'static str) {}
+
+    fn record_xudp_uplink(&self, _bytes: usize, _queue_high_water_mark: usize) {}
+
+    fn record_xudp_downlink(&self, _bytes: usize) {}
+
+    fn record_xudp_open_failure(&self) {}
+
+    fn record_xudp_write_failure(&self, _timed_out: bool) {}
+
+    fn record_xudp_read_failure(&self, _timed_out: bool) {}
+
     /// Fire a quality observation for an upstream TCP connect attempt.
     ///
     /// Default impl is a no-op so existing implementors remain unchanged

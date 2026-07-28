@@ -30,6 +30,13 @@ pub(crate) enum RelayUdpSession {
 }
 
 impl RelayUdpSession {
+    pub(crate) fn queue_high_water_mark(&self) -> usize {
+        match self {
+            Self::VlessReality(session) => session.get_ref().queue_high_water_mark(),
+            _ => 0,
+        }
+    }
+
     pub(crate) async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
         match self {
             Self::Hysteria2 { session, migration } => {

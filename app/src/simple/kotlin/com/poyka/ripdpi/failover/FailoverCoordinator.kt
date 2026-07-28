@@ -477,6 +477,9 @@ class FailoverCoordinator
             if (observeFreshProxyFailure(snapshot)) {
                 suspectedRelayFailure = true
             }
+            if (hasSustainedXudpFailures(snapshot)) {
+                suspectedRelayFailure = true
+            }
 
             if (activeHealth !in FAILING_HEALTH_VALUES && !suspectedRelayFailure) {
                 // Healthy or idle — reset debounce, back-off, and the switch budget. This runs
@@ -545,6 +548,13 @@ class FailoverCoordinator
 
             return !snapshot.proxyTelemetry.lastFailureClass.isNullOrBlank()
         }
+
+        private fun hasSustainedXudpFailures(snapshot: ServiceTelemetrySnapshot): Boolean =
+            activeRequirements.udpAssociate &&
+                candidates.getOrNull(activeCandidateIndex) is FailoverCandidate.Relay &&
+                snapshot.relayTelemetry.protocolKind == RelayKindVlessReality &&
+                (snapshot.relayTelemetry.xudpTelemetry?.consecutiveUdpFailures ?: 0L) >=
+                XUDP_FAILURE_STREAK_THRESHOLD
 
         private suspend fun confirmRelayEgress(snapshot: ServiceTelemetrySnapshot): Boolean {
             if (candidates.getOrNull(activeCandidateIndex) !is FailoverCandidate.Relay) {
@@ -803,6 +813,7 @@ class FailoverCoordinator
         }
 
         private companion object {
+            const val XUDP_FAILURE_STREAK_THRESHOLD = 3L
             val relayKindPriority =
                 mapOf(
                     RelayKindVlessReality to 0,

@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
 use crate::backend::RelayBackend;
-use crate::telemetry::TcpConnectObservation;
+use crate::telemetry::{TcpConnectObservation, XudpTelemetrySnapshot, XudpTelemetryState};
 use ripdpi_failure_classifier::{
     ConfirmGoodDpiAccumulator, ConfirmGoodDpiEvidence, ConfirmGoodFlowObservation, ConfirmGoodFlowSource,
     ConfirmGoodTerminalReason,
@@ -89,6 +89,7 @@ pub(super) struct RuntimeState {
     active_sessions: Arc<AtomicU64>,
     total_sessions: AtomicU64,
     session_error_streak: AtomicU64,
+    xudp_telemetry: XudpTelemetryState,
     backend: OnceLock<Arc<RelayBackend>>,
     listener_address: OnceLock<String>,
     last_target: ArcSwapOption<String>,
@@ -116,6 +117,7 @@ impl RuntimeState {
             active_sessions: Arc::new(AtomicU64::new(0)),
             total_sessions: AtomicU64::new(0),
             session_error_streak: AtomicU64::new(0),
+            xudp_telemetry: XudpTelemetryState::default(),
             backend: OnceLock::new(),
             listener_address: OnceLock::new(),
             last_target: ArcSwapOption::empty(),
@@ -257,6 +259,38 @@ impl RuntimeState {
 
     pub(super) fn last_handshake_error(&self) -> Option<String> {
         load_optional_string(&self.last_handshake_error)
+    }
+
+    pub(super) fn record_xudp_association_opened(&self) {
+        self.xudp_telemetry.association_opened();
+    }
+
+    pub(super) fn record_xudp_association_closed(&self, reason: &'static str) {
+        self.xudp_telemetry.association_closed(reason);
+    }
+
+    pub(super) fn record_xudp_uplink(&self, bytes: usize, queue_high_water_mark: usize) {
+        self.xudp_telemetry.uplink_succeeded(bytes, queue_high_water_mark);
+    }
+
+    pub(super) fn record_xudp_downlink(&self, bytes: usize) {
+        self.xudp_telemetry.downlink_succeeded(bytes);
+    }
+
+    pub(super) fn record_xudp_open_failure(&self) {
+        self.xudp_telemetry.open_failed();
+    }
+
+    pub(super) fn record_xudp_write_failure(&self, timed_out: bool) {
+        self.xudp_telemetry.write_failed(timed_out);
+    }
+
+    pub(super) fn record_xudp_read_failure(&self, timed_out: bool) {
+        self.xudp_telemetry.read_failed(timed_out);
+    }
+
+    pub(super) fn xudp_telemetry(&self) -> Option<XudpTelemetrySnapshot> {
+        self.xudp_telemetry.snapshot()
     }
 
     /// Install a quality observer callback invoked for every upstream TCP
@@ -545,5 +579,36 @@ mod tests {
         // Second emit hits the replacement observer.
         state.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
         assert_eq!(replacement_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn xudp_telemetry_tracks_aggregates_and_failure_recovery() {
+        let state = RuntimeState::new();
+
+        state.record_xudp_association_opened();
+        state.record_xudp_uplink(48, 2);
+        state.record_xudp_read_failure(true);
+        state.record_xudp_association_closed("read_timeout");
+
+        let failed = state.xudp_telemetry().expect("XUDP snapshot after activity");
+        assert_eq!(0, failed.active_associations);
+        assert_eq!(1, failed.opened_associations);
+        assert_eq!(1, failed.closed_associations);
+        assert_eq!(1, failed.uplink_packets);
+        assert_eq!(48, failed.uplink_bytes);
+        assert_eq!(1, failed.read_timeouts);
+        assert_eq!(1, failed.consecutive_udp_failures);
+        assert_eq!(2, failed.queue_high_water_mark);
+        assert_eq!(Some("read_timeout"), failed.last_termination_reason.as_deref());
+
+        state.record_xudp_association_opened();
+        state.record_xudp_downlink(64);
+        let recovered = state.xudp_telemetry().expect("XUDP snapshot after recovery");
+        assert_eq!(1, recovered.active_associations);
+        assert_eq!(1, recovered.carrier_reconnects);
+        assert_eq!(1, recovered.downlink_packets);
+        assert_eq!(64, recovered.downlink_bytes);
+        assert_eq!(0, recovered.consecutive_udp_failures);
+        assert!(recovered.last_successful_downlink_at.is_some());
     }
 }

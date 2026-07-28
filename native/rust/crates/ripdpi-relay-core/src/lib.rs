@@ -26,7 +26,7 @@ pub use config::{
     VlessRelayConfig,
 };
 pub use runtime::RelayRuntime;
-pub use telemetry::{RelayTelemetry, TcpConnectObservation};
+pub use telemetry::{RelayTelemetry, TcpConnectObservation, XudpTelemetrySnapshot};
 pub use transport_descriptor::{RelayTransportDescriptor, relay_transport_descriptor};
 
 #[cfg(test)]

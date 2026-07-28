@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.XudpTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
@@ -232,8 +233,10 @@ private fun runningTelemetry(
     relayHealth: String = "healthy",
     awgHealth: String = "idle",
     relayListenerAddress: String? = "127.0.0.1:1080",
+    relayProtocolKind: String? = RelayKindVlessReality,
     proxyTotalErrors: Long = 0,
     proxyLastFailureClass: String? = null,
+    xudpConsecutiveFailures: Long = 0,
 ): ServiceTelemetrySnapshot =
     ServiceTelemetrySnapshot(
         status = AppStatus.Running,
@@ -252,6 +255,11 @@ private fun runningTelemetry(
                 state = "running",
                 health = relayHealth,
                 listenerAddress = relayListenerAddress,
+                protocolKind = relayProtocolKind,
+                xudpTelemetry =
+                    XudpTelemetrySnapshot(
+                        consecutiveUdpFailures = xudpConsecutiveFailures,
+                    ),
             ),
         awgTelemetry = NativeRuntimeSnapshot(source = "awg", state = "running", health = awgHealth),
         updatedAt = ++telemetrySeq,
@@ -516,6 +524,109 @@ class FailoverCoordinatorTest {
             assertEquals(2, probeCalls)
             assertEquals(1, controller.stopCalls.size)
             assertEquals(1, controller.startCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun consecutiveXudpFailuresTriggerConfirmedFailoverForUdpSession() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = FakeAppSettingsRepository(udpAssociateEnabled = null),
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(
+                                id = "reality-1",
+                                kind = RelayKindVlessReality,
+                                udpEnabled = true,
+                            ),
+                            RelayProfileRecord(
+                                id = "hysteria-1",
+                                kind = RelayKindHysteria2,
+                                udpEnabled = true,
+                            ),
+                        ),
+                    egressProbe =
+                        FailoverEgressProbe { _, requirements ->
+                            probeCalls++
+                            assertTrue(requirements.udpAssociate)
+                            FailoverEgressProbeResult(
+                                succeeded = false,
+                                failure = "udp_read_timeout",
+                            )
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "running"))
+
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 3,
+                ),
+            )
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 3,
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(2, probeCalls)
+            assertEquals(1, controller.transportRestartCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun tcpOnlySessionIgnoresXudpFailureStreak() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            var probeCalls = 0
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = FakeAppSettingsRepository(udpAssociateEnabled = false),
+                    egressProbe =
+                        FailoverEgressProbe { _, _ ->
+                            probeCalls++
+                            FailoverEgressProbeResult(succeeded = false)
+                        },
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 10,
+                ),
+            )
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(
+                runningTelemetry(
+                    relayHealth = "running",
+                    xudpConsecutiveFailures = 10,
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(0, probeCalls)
+            assertEquals(0, controller.transportRestartCalls.size)
 
             coordinator.stopObserving()
         }

@@ -37,6 +37,7 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         protocol_kind: Some(runtime.config.kind_id().to_string()),
         tcp_capable: Some(capabilities.tcp),
         udp_capable: Some(capabilities.udp),
+        xudp_telemetry: runtime.state.xudp_telemetry(),
         fallback_mode: planned_backend_fallback_mode(&runtime.config),
         last_handshake_error: runtime.state.last_handshake_error(),
         chain_entry_state: chain_hops

@@ -56,6 +56,30 @@ data class ChainIntermediateHopSnapshot(
     val latencyMs: Long? = null,
 )
 
+/**
+ * Privacy-safe aggregate health for VLESS Reality XUDP associations.
+ *
+ * This intentionally carries no destination, endpoint, profile identifier,
+ * payload metadata, UUID, or XUDP GlobalID.
+ */
+@Serializable
+data class XudpTelemetrySnapshot(
+    val activeAssociations: Long = 0,
+    val openedAssociations: Long = 0,
+    val closedAssociations: Long = 0,
+    val uplinkPackets: Long = 0,
+    val uplinkBytes: Long = 0,
+    val downlinkPackets: Long = 0,
+    val downlinkBytes: Long = 0,
+    val lastSuccessfulDownlinkAt: Long? = null,
+    val writeTimeouts: Long = 0,
+    val readTimeouts: Long = 0,
+    val carrierReconnects: Long = 0,
+    val consecutiveUdpFailures: Long = 0,
+    val queueHighWaterMark: Long = 0,
+    val lastTerminationReason: String? = null,
+)
+
 @Serializable
 data class NativeRuntimeEvent(
     val source: String,
@@ -146,6 +170,7 @@ data class NativeRuntimeSnapshot(
     val protocolKind: String? = null,
     val tcpCapable: Boolean? = null,
     val udpCapable: Boolean? = null,
+    val xudpTelemetry: XudpTelemetrySnapshot? = null,
     val fallbackMode: String? = null,
     val lastHandshakeError: String? = null,
     val chainEntryState: String? = null,

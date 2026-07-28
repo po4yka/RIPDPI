@@ -144,6 +144,7 @@ mod tests {
             protocol_kind: Some("vless".to_string()),
             tcp_capable: Some(true),
             udp_capable: Some(false),
+            xudp_telemetry: None,
             fallback_mode: None,
             last_handshake_error: None,
             chain_entry_state: None,

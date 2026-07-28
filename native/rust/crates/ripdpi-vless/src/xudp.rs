@@ -86,6 +86,7 @@ pub struct VlessXudpSession {
     global_id: [u8; 8],
     first_packet: bool,
     allow_udp_443: bool,
+    queue_high_water_mark: usize,
 }
 
 struct WriteCommand {
@@ -138,6 +139,7 @@ impl VlessXudpSession {
             global_id,
             first_packet: true,
             allow_udp_443,
+            queue_high_water_mark: 0,
         })
     }
 
@@ -161,8 +163,16 @@ impl VlessXudpSession {
             .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "XUDP writer is closed"))?;
         let (completion, completed) = oneshot::channel();
         permit.send(WriteCommand { frame, completion });
+        let queued = WRITER_CHANNEL_CAPACITY.saturating_sub(self.writer.capacity());
+        self.queue_high_water_mark = self.queue_high_water_mark.max(queued);
         self.first_packet = false;
         completed.await.unwrap_or_else(|_| Err(io::Error::new(io::ErrorKind::BrokenPipe, "XUDP writer is closed")))
+    }
+
+    /// Highest number of complete datagram frames queued for the sole writer
+    /// task during this association. Contains no packet contents or targets.
+    pub fn queue_high_water_mark(&self) -> usize {
+        self.queue_high_water_mark
     }
 
     /// cancel-safe: the reader task owns all partial frame state and sends only
@@ -738,6 +748,7 @@ mod tests {
             tokio::join!(session.send_to("1.2.3.4:53", b"second"), read_encoded_frame(&mut peer));
         second_result.expect("second frame");
         assert_eq!(second[4], STATUS_KEEP);
+        assert!(session.queue_high_water_mark() >= 1);
     }
 
     #[tokio::test]
