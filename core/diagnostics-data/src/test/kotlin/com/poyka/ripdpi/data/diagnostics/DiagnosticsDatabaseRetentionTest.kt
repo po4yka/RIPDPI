@@ -30,7 +30,7 @@ class DiagnosticsDatabaseRetentionTest {
                         dao = dao,
                         clock = DiagnosticsHistoryClock { now },
                     )
-                RoomDiagnosticsArtifactStore(dao).insertTelemetrySample(
+                RoomDiagnosticsArtifactStore(database, dao).insertTelemetrySample(
                     telemetrySample(id = "eight-days-old", createdAt = now - 8L * DiagnosticsHistoryDayMillis),
                 )
                 RoomDiagnosticsScanRecordStore(database, dao).upsertScanSession(

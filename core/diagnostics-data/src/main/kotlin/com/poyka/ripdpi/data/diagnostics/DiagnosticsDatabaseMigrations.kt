@@ -9,6 +9,7 @@ internal object DiagnosticsDatabaseMigrations {
         arrayOf(
             migration5To6,
             migration6To7,
+            migration7To8,
         )
 }
 
@@ -31,5 +32,22 @@ private val migration6To7 =
     object : Migration(6, 7) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE remembered_network_policies ADD COLUMN connectionConcurrencyPolicyJson TEXT")
+        }
+    }
+
+/** v7 → v8: add repository-owned durable diagnostics state for process-death ledgers. */
+private val migration7To8 =
+    object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS diagnostics_durable_state (
+                    `key` TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    updatedAt INTEGER NOT NULL,
+                    PRIMARY KEY(`key`)
+                )
+                """.trimIndent(),
+            )
         }
     }

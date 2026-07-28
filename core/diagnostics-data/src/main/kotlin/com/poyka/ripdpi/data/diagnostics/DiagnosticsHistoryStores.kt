@@ -133,6 +133,37 @@ interface DiagnosticsArtifactWriteStore {
     suspend fun insertExportRecord(record: ExportRecordEntity)
 }
 
+interface DiagnosticsDurableStateStore {
+    suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity?
+
+    suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity)
+
+    suspend fun insertNativeSessionEventAndUpsertDurableState(
+        event: NativeSessionEventEntity,
+        state: DiagnosticsDurableStateEntity,
+    )
+
+    suspend fun insertNativeSessionEventAndClearDurableState(
+        event: NativeSessionEventEntity,
+        key: String,
+        expectedValue: String,
+    )
+
+    suspend fun insertNativeSessionEventAndClearDurableStateIfCurrent(
+        event: NativeSessionEventEntity,
+        key: String,
+        expectedValue: String,
+    ): Boolean
+
+    suspend fun reconcileDurableStateWithTerminalEvent(
+        key: String,
+        expectedValue: String,
+        replacementState: DiagnosticsDurableStateEntity,
+        terminalEventId: String,
+        missingTerminalEvent: NativeSessionEventEntity,
+    )
+}
+
 interface BypassUsageHistoryStore {
     fun observeBypassUsageSessions(limit: Int = 100): Flow<List<BypassUsageSessionEntity>>
 
@@ -274,10 +305,12 @@ class RoomDiagnosticsScanRecordStore
 class RoomDiagnosticsArtifactStore
     @Inject
     constructor(
+        private val db: DiagnosticsDatabase,
         private val dao: DiagnosticsDao,
     ) : DiagnosticsArtifactReadStore,
         DiagnosticsArtifactQueryStore,
-        DiagnosticsArtifactWriteStore {
+        DiagnosticsArtifactWriteStore,
+        DiagnosticsDurableStateStore {
         override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = dao.observeSnapshots(limit)
 
         override suspend fun getSnapshotsForSession(
@@ -375,6 +408,67 @@ class RoomDiagnosticsArtifactStore
 
         override suspend fun insertExportRecord(record: ExportRecordEntity) {
             dao.insertExportRecord(record)
+        }
+
+        override suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity? =
+            dao.getDiagnosticsDurableState(key)
+
+        override suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity) {
+            dao.upsertDiagnosticsDurableState(state)
+        }
+
+        override suspend fun insertNativeSessionEventAndUpsertDurableState(
+            event: NativeSessionEventEntity,
+            state: DiagnosticsDurableStateEntity,
+        ) {
+            db.withTransaction {
+                dao.insertNativeSessionEvent(event)
+                dao.upsertDiagnosticsDurableState(state)
+            }
+        }
+
+        override suspend fun insertNativeSessionEventAndClearDurableState(
+            event: NativeSessionEventEntity,
+            key: String,
+            expectedValue: String,
+        ) {
+            db.withTransaction {
+                dao.insertNativeSessionEvent(event)
+                dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
+            }
+        }
+
+        override suspend fun insertNativeSessionEventAndClearDurableStateIfCurrent(
+            event: NativeSessionEventEntity,
+            key: String,
+            expectedValue: String,
+        ): Boolean =
+            db.withTransaction {
+                if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
+                    dao.insertNativeSessionEvent(event)
+                    dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
+                    true
+                } else {
+                    false
+                }
+            }
+
+        override suspend fun reconcileDurableStateWithTerminalEvent(
+            key: String,
+            expectedValue: String,
+            replacementState: DiagnosticsDurableStateEntity,
+            terminalEventId: String,
+            missingTerminalEvent: NativeSessionEventEntity,
+        ) {
+            db.withTransaction {
+                if (dao.getDiagnosticsDurableState(key)?.value == expectedValue) {
+                    if (dao.getNativeEventById(terminalEventId) == null) {
+                        dao.insertNativeSessionEvent(missingTerminalEvent)
+                    }
+                    dao.clearDiagnosticsDurableState(key = key, expectedValue = expectedValue)
+                }
+                dao.upsertDiagnosticsDurableState(replacementState)
+            }
         }
     }
 
@@ -597,6 +691,7 @@ class RoomDiagnosticsHistoryResetStore
                 dao.clearNetworkDnsPathPreferences()
                 dao.clearBlockedPaths()
                 dao.clearNetworkEdgePreferences()
+                dao.clearAllDiagnosticsDurableState()
             }
         }
     }
@@ -623,6 +718,10 @@ abstract class DiagnosticsHistoryStoresModule {
     @Binds
     @Singleton
     abstract fun bindDiagnosticsArtifactWriteStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactWriteStore
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsDurableStateStore(store: RoomDiagnosticsArtifactStore): DiagnosticsDurableStateStore
 
     @Binds
     @Singleton

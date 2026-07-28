@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.diagnostics
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -90,5 +91,51 @@ class DiagnosticsDatabaseMigrationTest {
             currentDbVersion,
             expected,
         )
+    }
+
+    @Test
+    fun `migration 7 to 8 creates durable diagnostics state table without destructive fallback`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v7-v8-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+
+        val seedDb =
+            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
+                context,
+                dbName,
+                allowDestructiveFallback = false,
+            )
+        try {
+            seedDb.openHelper.writableDatabase
+        } finally {
+            seedDb.close()
+        }
+
+        context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.execSQL("DROP TABLE diagnostics_durable_state")
+            legacyDb.execSQL("PRAGMA user_version = 7")
+        }
+
+        val migratedDb =
+            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
+                context,
+                dbName,
+                allowDestructiveFallback = false,
+            )
+        try {
+            migratedDb.openHelper.writableDatabase
+                .query("SELECT COUNT(*) FROM diagnostics_durable_state")
+                .use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(0, cursor.getInt(0))
+                }
+            migratedDb.openHelper.writableDatabase.query("SELECT COUNT(*) FROM scan_sessions").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        } finally {
+            migratedDb.close()
+            context.deleteDatabase(dbName)
+        }
     }
 }

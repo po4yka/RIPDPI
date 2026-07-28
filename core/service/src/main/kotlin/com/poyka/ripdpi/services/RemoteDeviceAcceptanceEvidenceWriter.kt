@@ -1,20 +1,17 @@
 package com.poyka.ripdpi.services
 
-import android.content.Context
-import android.content.SharedPreferences
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalOutcome
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalPhase
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
 import com.poyka.ripdpi.data.DeviceRuntimeDataPlaneDelta
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -40,112 +37,95 @@ internal interface RemoteDeviceAcceptanceEvidenceWriter {
 }
 
 @Singleton
-internal class DefaultRemoteDeviceAcceptanceEvidenceWriter internal constructor(
-    private val artifactQueryStore: DiagnosticsArtifactQueryStore,
-    private val artifactWriteStore: DiagnosticsArtifactWriteStore,
-    private val ledger: SharedPreferences,
-) : RemoteDeviceAcceptanceEvidenceWriter {
+internal class DefaultRemoteDeviceAcceptanceEvidenceWriter
     @Inject
     constructor(
-        @ApplicationContext context: Context,
-        artifactQueryStore: DiagnosticsArtifactQueryStore,
-        artifactWriteStore: DiagnosticsArtifactWriteStore,
-    ) : this(
-        artifactQueryStore = artifactQueryStore,
-        artifactWriteStore = artifactWriteStore,
-        ledger = context.getSharedPreferences(RemoteAcceptanceEvidencePrefsName, Context.MODE_PRIVATE),
-    )
+        private val durableStateStore: DiagnosticsDurableStateStore,
+    ) : RemoteDeviceAcceptanceEvidenceWriter {
+        private val lock = Mutex()
 
-    private val lock = Mutex()
-
-    override suspend fun beginRun(
-        runGeneration: String,
-        observedAtMillis: Long,
-    ) {
-        lock.withLock {
-            val interrupted = ledger.pendingGeneration()?.takeIf { it != runGeneration }
-            if (interrupted != null) {
-                reconcilePendingGeneration(interrupted, observedAtMillis)
-                ledger.clearPendingGeneration(interrupted)
-            }
-            ledger.persistPendingGeneration(runGeneration)
-        }
-    }
-
-    override suspend fun record(
-        runGeneration: String,
-        event: DeviceRuntimeEvidence.BackgroundSurvival,
-    ) {
-        lock.withLock {
-            persistDurableEvent(
-                event = event.toDurableEvent(runGeneration),
-                createdAt = event.observedAtMillis,
-            )
-            if (event.isTerminalBackgroundEvent()) {
-                ledger.clearPendingGeneration(runGeneration)
-            } else {
-                ledger.persistPendingGeneration(runGeneration)
+        override suspend fun beginRun(
+            runGeneration: String,
+            observedAtMillis: Long,
+        ) {
+            lock.withLock {
+                val nextState = pendingGenerationState(runGeneration, observedAtMillis)
+                val interrupted =
+                    durableStateStore
+                        .getDurableState(RemoteAcceptancePendingGenerationKey)
+                        ?.value
+                        ?.takeIf { it != runGeneration }
+                if (interrupted != null) {
+                    reconcilePendingGeneration(
+                        interrupted = interrupted,
+                        replacementState = nextState,
+                        observedAtMillis = observedAtMillis,
+                    )
+                } else {
+                    durableStateStore.upsertDurableState(nextState)
+                }
             }
         }
-    }
 
-    override suspend fun cancelRun(
-        runGeneration: String,
-        observedAtMillis: Long,
-    ) {
-        lock.withLock {
-            if (ledger.pendingGeneration() == runGeneration) {
-                persistDurableEvent(
+        override suspend fun record(
+            runGeneration: String,
+            event: DeviceRuntimeEvidence.BackgroundSurvival,
+        ) {
+            lock.withLock {
+                val durableEvent = event.toDurableEvent(runGeneration)
+                val nativeEvent = durableEvent.toNativeSessionEvent(event.observedAtMillis)
+                if (event.isTerminalBackgroundEvent()) {
+                    durableStateStore.insertNativeSessionEventAndClearDurableState(
+                        event = nativeEvent,
+                        key = RemoteAcceptancePendingGenerationKey,
+                        expectedValue = runGeneration,
+                    )
+                } else {
+                    durableStateStore.insertNativeSessionEventAndUpsertDurableState(
+                        event = nativeEvent,
+                        state = pendingGenerationState(runGeneration, event.observedAtMillis),
+                    )
+                }
+            }
+        }
+
+        override suspend fun cancelRun(
+            runGeneration: String,
+            observedAtMillis: Long,
+        ) {
+            lock.withLock {
+                durableStateStore.insertNativeSessionEventAndClearDurableStateIfCurrent(
                     event =
                         durableLifecycleEvent(
                             runGeneration = runGeneration,
                             phase = RemoteAcceptanceCancelledPhase,
                             reason = RemoteAcceptanceCancelledReason,
-                        ),
-                    createdAt = observedAtMillis,
+                        ).toNativeSessionEvent(observedAtMillis),
+                    key = RemoteAcceptancePendingGenerationKey,
+                    expectedValue = runGeneration,
                 )
-                ledger.clearPendingGeneration(runGeneration)
             }
         }
-    }
 
-    private suspend fun persistDurableEvent(
-        event: RemoteAcceptanceDurableEvent,
-        createdAt: Long,
-    ) {
-        artifactWriteStore.insertNativeSessionEvent(
-            NativeSessionEventEntity(
-                id = event.id,
-                sessionId = null,
-                source = RemoteAcceptanceEventSource,
-                level = RemoteAcceptanceEventLevelInfo,
-                message = event.message,
-                createdAt = createdAt,
-                runtimeId = event.runGeneration,
-                mode = Mode.VPN.name,
-                subsystem = RemoteAcceptanceSubsystem,
-            ),
-        )
-    }
-
-    private suspend fun reconcilePendingGeneration(
-        runGeneration: String,
-        observedAtMillis: Long,
-    ) {
-        if (artifactQueryStore.getNativeEventById(runTerminalEventId(runGeneration)) != null) {
-            return
+        private suspend fun reconcilePendingGeneration(
+            interrupted: String,
+            replacementState: DiagnosticsDurableStateEntity,
+            observedAtMillis: Long,
+        ) {
+            durableStateStore.reconcileDurableStateWithTerminalEvent(
+                key = RemoteAcceptancePendingGenerationKey,
+                expectedValue = interrupted,
+                replacementState = replacementState,
+                terminalEventId = runTerminalEventId(interrupted),
+                missingTerminalEvent =
+                    durableLifecycleEvent(
+                        runGeneration = interrupted,
+                        phase = RemoteAcceptanceInterruptedPhase,
+                        reason = RemoteAcceptanceInterruptedBeforeNextRun,
+                    ).toNativeSessionEvent(observedAtMillis),
+            )
         }
-        persistDurableEvent(
-            event =
-                durableLifecycleEvent(
-                    runGeneration = runGeneration,
-                    phase = RemoteAcceptanceInterruptedPhase,
-                    reason = RemoteAcceptanceInterruptedBeforeNextRun,
-                ),
-            createdAt = observedAtMillis,
-        )
     }
-}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -220,6 +200,29 @@ private fun durableLifecycleEvent(
                 "delta_native_packets=unchanged " +
                 "delta_native_bytes=unchanged " +
                 "vendor_policy_visibility=unavailable",
+    )
+
+private fun RemoteAcceptanceDurableEvent.toNativeSessionEvent(createdAt: Long): NativeSessionEventEntity =
+    NativeSessionEventEntity(
+        id = id,
+        sessionId = null,
+        source = RemoteAcceptanceEventSource,
+        level = RemoteAcceptanceEventLevelInfo,
+        message = message,
+        createdAt = createdAt,
+        runtimeId = runGeneration,
+        mode = Mode.VPN.name,
+        subsystem = RemoteAcceptanceSubsystem,
+    )
+
+private fun pendingGenerationState(
+    runGeneration: String,
+    observedAtMillis: Long,
+): DiagnosticsDurableStateEntity =
+    DiagnosticsDurableStateEntity(
+        key = RemoteAcceptancePendingGenerationKey,
+        value = runGeneration,
+        updatedAt = observedAtMillis,
     )
 
 private fun durableEventId(
@@ -299,36 +302,18 @@ private fun DeviceRuntimeEvidence.BackgroundSurvival.isTerminalBackgroundEvent()
                 outcome != DeviceRuntimeBackgroundSurvivalOutcome.Passed
         )
 
-private fun SharedPreferences.pendingGeneration(): String? =
-    getString(RemoteAcceptanceEvidencePendingGenerationKey, null)
-
-private fun SharedPreferences.persistPendingGeneration(runGeneration: String) {
-    check(edit().putString(RemoteAcceptanceEvidencePendingGenerationKey, runGeneration).commit()) {
-        "Failed to persist remote acceptance background evidence generation"
-    }
-}
-
-private fun SharedPreferences.clearPendingGeneration(runGeneration: String) {
-    if (pendingGeneration() == runGeneration) {
-        check(edit().remove(RemoteAcceptanceEvidencePendingGenerationKey).commit()) {
-            "Failed to clear remote acceptance background evidence generation"
-        }
-    }
-}
-
 private fun String.sha256Hex(): String =
     MessageDigest
         .getInstance("SHA-256")
         .digest(toByteArray(Charsets.UTF_8))
         .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
-internal const val RemoteAcceptanceEvidencePrefsName = "ripdpi_remote_acceptance_background_evidence"
 private const val RemoteAcceptanceBackgroundEvent = "remote_acceptance_background"
 private const val RemoteAcceptanceEventSource = "remote_device_acceptance"
 private const val RemoteAcceptanceEventLevelInfo = "info"
 private const val RemoteAcceptanceSubsystem = "remote_acceptance"
 private const val RemoteAcceptanceEventIdHashChars = 32
-private const val RemoteAcceptanceEvidencePendingGenerationKey = "pending_generation"
+internal const val RemoteAcceptancePendingGenerationKey = "remote_acceptance_pending_generation"
 private const val RemoteAcceptanceInterruptedBeforeNextRun = "interrupted_before_next_run"
 private const val RemoteAcceptanceCancelledReason = "cancelled"
 private const val RemoteAcceptanceInterruptedPhase = "run_interrupted"

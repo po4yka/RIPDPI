@@ -99,7 +99,7 @@ class DiagnosticsHistoryStoresRoomTest {
     @Test
     fun `artifact store exposes global and connection scoped reads after writes`() =
         runTest {
-            val store = RoomDiagnosticsArtifactStore(dao)
+            val store = RoomDiagnosticsArtifactStore(db, dao)
 
             store.upsertSnapshot(
                 snapshot(id = "snap-1", sessionId = "scan-1", connectionSessionId = "conn-1", capturedAt = 20L),
@@ -152,7 +152,7 @@ class DiagnosticsHistoryStoresRoomTest {
     @Test
     fun `artifact store returns latest telemetry sample by fingerprint and mode`() =
         runTest {
-            val store = RoomDiagnosticsArtifactStore(dao)
+            val store = RoomDiagnosticsArtifactStore(db, dao)
 
             store.insertTelemetrySample(
                 telemetry(
@@ -202,6 +202,28 @@ class DiagnosticsHistoryStoresRoomTest {
                     createdAfter = 35L,
                 ),
             )
+        }
+
+    @Test
+    fun `artifact store persists durable state and clears it with terminal native event transaction`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            val pending =
+                DiagnosticsDurableStateEntity(
+                    key = "remote-acceptance",
+                    value = "run-a",
+                    updatedAt = 10L,
+                )
+
+            store.upsertDurableState(pending)
+            store.insertNativeSessionEventAndClearDurableState(
+                event = nativeEvent(id = "evt-terminal", sessionId = null, createdAt = 20L),
+                key = pending.key,
+                expectedValue = pending.value,
+            )
+
+            assertEquals("evt-terminal", store.getNativeEventById("evt-terminal")?.id)
+            assertNull(store.getDurableState(pending.key))
         }
 
     @Test
@@ -369,7 +391,7 @@ class DiagnosticsHistoryStoresRoomTest {
             val rememberedStore = RoomRememberedNetworkPolicyRecordStore(dao, clock)
             val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
             val edgeStore = RoomNetworkEdgePreferenceRecordStore(dao, clock)
-            val artifactStore = RoomDiagnosticsArtifactStore(dao)
+            val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
             val bypassStore = RoomBypassUsageHistoryStore(dao)
 
             rememberedStore.upsertRememberedNetworkPolicy(
@@ -422,7 +444,7 @@ class DiagnosticsHistoryStoresRoomTest {
     fun `history retention store trims old rows across diagnostics tables`() =
         runTest {
             val scanStore = RoomDiagnosticsScanRecordStore(db, dao)
-            val artifactStore = RoomDiagnosticsArtifactStore(dao)
+            val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
             val bypassStore = RoomBypassUsageHistoryStore(dao)
             val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
             val retentionStore = RoomDiagnosticsHistoryRetentionStore(dao, clock)
@@ -569,7 +591,7 @@ class DiagnosticsHistoryStoresRoomTest {
         runTest {
             val profileCatalog = RoomDiagnosticsProfileCatalog(dao)
             val scanStore = RoomDiagnosticsScanRecordStore(db, dao)
-            val artifactStore = RoomDiagnosticsArtifactStore(dao)
+            val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
             val bypassStore = RoomBypassUsageHistoryStore(dao)
             val rememberedStore = RoomRememberedNetworkPolicyRecordStore(dao, clock)
             val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
@@ -588,6 +610,13 @@ class DiagnosticsHistoryStoresRoomTest {
             artifactStore.insertTelemetrySample(telemetry(id = "tel-reset", sessionId = session.id, createdAt = 24L))
             artifactStore.insertNativeSessionEvent(
                 nativeEvent(id = "evt-reset", sessionId = session.id, createdAt = 25L),
+            )
+            artifactStore.upsertDurableState(
+                DiagnosticsDurableStateEntity(
+                    key = "pending-reset",
+                    value = "run-reset",
+                    updatedAt = 25L,
+                ),
             )
             artifactStore.insertExportRecord(exportRecord(id = "exp-reset", sessionId = session.id, createdAt = 26L))
             bypassStore.upsertBypassUsageSession(
@@ -639,6 +668,7 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(0, rowCount("network_dns_path_preferences"))
             assertEquals(0, rowCount("network_dns_blocked_paths"))
             assertEquals(0, rowCount("network_edge_preferences"))
+            assertEquals(0, rowCount("diagnostics_durable_state"))
         }
 
     @Test

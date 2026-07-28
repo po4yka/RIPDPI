@@ -15,6 +15,7 @@ interface DiagnosticsDao :
     DiagnosticsBypassUsageDao,
     DiagnosticsRememberedPolicyDao,
     DiagnosticsNetworkPreferenceDao,
+    DiagnosticsDurableStateDao,
     DiagnosticsRetentionDao
 
 @Database(
@@ -33,8 +34,9 @@ interface DiagnosticsDao :
         NetworkDnsPathPreferenceEntity::class,
         NetworkDnsBlockedPathEntity::class,
         NetworkEdgePreferenceEntity::class,
+        DiagnosticsDurableStateEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
