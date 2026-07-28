@@ -84,6 +84,26 @@ fun RipDpiProxyPreferences.relayConfigOrNull(): RipDpiRelayConfig? =
         }
     }
 
+/** Returns the effective SOCKS5 UDP ASSOCIATE switch, preserving the default-on wire semantics. */
+fun RipDpiProxyPreferences.isUdpAssociateEnabled(): Boolean =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            protocols.udpAssociateEnabled
+        }
+
+        is RipDpiProxyUiSessionPreferences -> {
+            preferences.protocols.udpAssociateEnabled
+        }
+
+        is RipDpiProxyJsonPreferences -> {
+            decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.protocols?.udpAssociateEnabled ?: true
+        }
+
+        is RipDpiProxyCmdPreferences -> {
+            true
+        }
+    }
+
 fun RipDpiProxyPreferences.withRelayRuntimeSelection(
     selectedConfig: RipDpiRelayConfig,
     localSocksHost: String,

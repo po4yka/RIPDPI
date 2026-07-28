@@ -14,7 +14,7 @@ Minimal supervisor example:
 
 ```kotlin
 val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(19))
-supervisor.start(config) { cause ->
+supervisor.start(EgressRequirements(tcpConnect = true, udpAssociate = false), config) { cause ->
     observedExits += cause
     supervisor.detach()
 }

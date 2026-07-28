@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
@@ -145,6 +148,28 @@ internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
     }
     require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
         "xHTTP transport does not support UDP mode"
+    }
+}
+
+internal fun validateRelayEgressRequirements(
+    config: ResolvedRipDpiRelayConfig,
+    requirements: EgressRequirements,
+) {
+    val capabilities = relayTransportCapabilities(config.kind)
+    val missingCapability =
+        when {
+            requirements.tcpConnect && capabilities?.tcpConnect != true -> "TCP CONNECT"
+
+            requirements.udpAssociate &&
+                (capabilities?.udpAssociate != true || !config.udpEnabled) -> "UDP ASSOCIATE"
+
+            else -> null
+        }
+    if (missingCapability != null) {
+        Logger.w { "Relay transport kind=${config.kind} missingCapability=$missingCapability" }
+        throw InitialTransportSelectionException(
+            "Relay transport ${config.kind} is missing required capability $missingCapability",
+        )
     }
 }
 

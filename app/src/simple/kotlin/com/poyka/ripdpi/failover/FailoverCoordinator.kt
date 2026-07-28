@@ -17,8 +17,10 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
+import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -86,6 +88,8 @@ internal interface InitialRaceFailoverCoordinator {
         profileId: String,
         relayKind: String,
     )
+
+    fun recordInitialRelayRaceExhausted()
 }
 
 /** Production clock backed by [System.currentTimeMillis]. */
@@ -96,8 +100,9 @@ object SystemFailoverClock : FailoverClock {
 /**
  * A transport candidate managed by [FailoverCoordinator].
  *
- * Priority is a natural number — lower value = higher priority. Seeded relay profiles retain
- * bundle order inside a protocol family: REALITY endpoints, VLESS/XHTTP, Hysteria2, then AWG.
+ * Priority is a natural number — lower value = higher priority. In TCP-only sessions, seeded
+ * relay profiles retain bundle order inside a protocol family: REALITY endpoints, VLESS/XHTTP,
+ * Hysteria2, then AWG. UDP sessions filter the list to Hysteria2, then AWG.
  */
 sealed interface FailoverCandidate {
     val priority: Int
@@ -120,8 +125,8 @@ sealed interface FailoverCandidate {
 /**
  * Cross-subsystem failover coordinator for the `simple` flavor.
  *
- * Ordered candidate list: REALITY endpoints > VLESS/XHTTP > Hysteria2 > AWG.
- * Stays inert when fewer than 2 candidates are configured.
+ * The ordered candidate list is capability-aware. A single compatible candidate remains valid
+ * for startup recovery, while telemetry-driven switching requires a second candidate.
  *
  * Lifecycle:
  * - [startObserving] — begin watching telemetry (call when a VPN session starts).
@@ -209,7 +214,11 @@ class FailoverCoordinator
         /** Candidate set associated with [startupFailureSwitchesInCycle]. */
         private var startupFailureCandidates: List<FailoverCandidate> = emptyList()
 
+        private var startupFailureStartedOutsideCandidates: Boolean = false
+
         private var initialRaceSelection: FailoverCandidate.Relay? = null
+
+        private var initialRaceExhausted: Boolean = false
 
         // ── Public API ──────────────────────────────────────────────────────
 
@@ -239,6 +248,11 @@ class FailoverCoordinator
                     relayKind = relayKind,
                 )
             setActiveCandidate(initialRaceSelection)
+            initialRaceExhausted = false
+        }
+
+        override fun recordInitialRelayRaceExhausted() {
+            initialRaceExhausted = true
         }
 
         /**
@@ -256,9 +270,9 @@ class FailoverCoordinator
             scope
                 .launch {
                     val rebuilt = buildCandidates()
-                    if (rebuilt.size < 2) {
-                        candidates = rebuilt
-                        Logger.i { "FailoverCoordinator: fewer than 2 candidates — staying inert" }
+                    if (rebuilt.isEmpty()) {
+                        candidates = emptyList()
+                        Logger.w { "FailoverCoordinator: no transport satisfies required egress capabilities" }
                         return@launch
                     }
                     candidates = rebuilt
@@ -271,7 +285,7 @@ class FailoverCoordinator
                                         candidate.relayKind == selection.relayKind
                                 }.takeIf { it >= 0 }
                         }
-                    activeCandidateIndex = racedIndex ?: resumeIndex()
+                    activeCandidateIndex = racedIndex ?: resumeIndexOrNull() ?: 0
                     switchesInCycle = 0
                     backedOff = false
                     lastSwitchAt = 0L
@@ -283,8 +297,9 @@ class FailoverCoordinator
                     setActiveCandidate(candidates[activeCandidateIndex])
                     Logger.i {
                         "FailoverCoordinator: watching ${candidates.size} candidates, " +
-                            "active=${candidates[activeCandidateIndex]}"
+                            "active=${candidates[activeCandidateIndex].transportKind()}"
                     }
+                    if (candidates.size < 2) return@launch
                     observeLoop()
                 }.also { job ->
                     observeJob = job
@@ -333,6 +348,7 @@ class FailoverCoordinator
                     if (status == AppStatus.Running && mode == Mode.VPN) {
                         startupFailureSwitchesInCycle = 0
                         startupFailureCandidates = emptyList()
+                        startupFailureStartedOutsideCandidates = false
                         startObserving(scope)
                     } else {
                         stopObserving()
@@ -364,23 +380,47 @@ class FailoverCoordinator
             }
 
             val rebuilt = buildCandidates()
-            if (rebuilt.size < 2) return
+            if (rebuilt.isEmpty()) {
+                Logger.w { "FailoverCoordinator: no compatible startup fallback, remaining fail-closed" }
+                return
+            }
+            val persistedIndex = findPersistedCandidateIndex(rebuilt)
+            val exhaustedRaceFallbackIndex =
+                if (initialRaceExhausted) {
+                    rebuilt
+                        .indexOfFirst {
+                            it is FailoverCandidate.Awg
+                        }.takeIf { it >= 0 }
+                } else {
+                    null
+                }
+            if (initialRaceExhausted && exhaustedRaceFallbackIndex == null) {
+                Logger.w { "FailoverCoordinator: initial relay preflight exhausted without AWG fallback" }
+                initialRaceExhausted = false
+                return
+            }
             if (rebuilt != startupFailureCandidates) {
                 startupFailureCandidates = rebuilt
                 startupFailureSwitchesInCycle = 0
+                startupFailureStartedOutsideCandidates = persistedIndex == null
             }
             candidates = rebuilt
-            activeCandidateIndex = resumeIndex()
-            if (startupFailureSwitchesInCycle >= candidates.size - 1) {
+            activeCandidateIndex = persistedIndex ?: 0
+            val availableReplacements =
+                candidates.size - if (startupFailureStartedOutsideCandidates) 0 else 1
+            if (startupFailureSwitchesInCycle >= availableReplacements) {
                 Logger.w { "FailoverCoordinator: startup candidates exhausted, remaining fail-closed" }
                 return
             }
 
-            val nextIndex = (activeCandidateIndex + 1) % candidates.size
+            val nextIndex =
+                exhaustedRaceFallbackIndex
+                    ?: if (persistedIndex == null) 0 else (activeCandidateIndex + 1) % candidates.size
             val nextCandidate = candidates[nextIndex]
+            initialRaceExhausted = false
             Logger.i {
                 "FailoverCoordinator: startup transport failed; selecting candidate " +
-                    "${nextIndex + 1}/${candidates.size}"
+                    "${nextIndex + 1}/${candidates.size} kind=${nextCandidate.transportKind()}"
             }
             writeConfig(nextCandidate)
             activeCandidateIndex = nextIndex
@@ -538,7 +578,8 @@ class FailoverCoordinator
 
             val nextCandidate = candidates[nextIndex]
             Logger.i {
-                "FailoverCoordinator: switching ${candidates[activeCandidateIndex]} → $nextCandidate " +
+                "FailoverCoordinator: switching ${candidates[activeCandidateIndex].transportKind()} → " +
+                    "${nextCandidate.transportKind()} " +
                     "(failDuration=${now - (failingsSince ?: now)}ms)"
             }
 
@@ -601,7 +642,7 @@ class FailoverCoordinator
                         setRelayEnabled(false)
                         setSimpleFailoverAwgProfileId(candidate.awgProfileId)
                     }
-                    Logger.i { "FailoverCoordinator: switching to AWG profile ${candidate.awgProfileId}" }
+                    Logger.i { "FailoverCoordinator: switching to amneziawg" }
                 }
             }
         }
@@ -637,39 +678,39 @@ class FailoverCoordinator
          * // NOT cancel-safe: contains suspending [settingsRepository.snapshot].
          * Cancellation leaves [activeCandidateIndex] at 0, which is a safe default.
          */
-        private suspend fun resumeIndex(): Int {
+        private suspend fun resumeIndexOrNull(): Int? = findPersistedCandidateIndex(candidates)
+
+        private suspend fun findPersistedCandidateIndex(available: List<FailoverCandidate>): Int? {
             // Resume on the persisted transport. AWG uses an explicit selector because
             // relay-disabled is also the default-install state and cannot by itself mean AWG.
             val settings = settingsRepository.snapshot()
             if (settings.relayEnabled) {
                 val idx =
-                    candidates.indexOfFirst {
+                    available.indexOfFirst {
                         it is FailoverCandidate.Relay && it.profileId == settings.relayProfileId
                     }
                 if (idx >= 0) return idx
                 val legacyIdx =
-                    candidates.indexOfFirst {
+                    available.indexOfFirst {
                         it is FailoverCandidate.Relay && it.relayKind == settings.relayKind
                     }
                 if (legacyIdx >= 0) return legacyIdx
             } else if (settings.simpleFailoverAwgProfileId.isNotBlank()) {
                 val idx =
-                    candidates.indexOfFirst {
+                    available.indexOfFirst {
                         it is FailoverCandidate.Awg && it.awgProfileId == settings.simpleFailoverAwgProfileId
                     }
                 if (idx >= 0) return idx
             }
-            return 0
+            return null
         }
 
         /**
          * Builds the ordered candidate list from what is actually persisted in the stores.
          *
-         * Priority order:
-         *  0..n — every VLESS+Reality relay profile ([RelayKindVlessReality])
-         *  n..m — every VLESS/XHTTP relay profile ([RelayKindVless])
-         *  m..k — every Hysteria2 relay profile ([RelayKindHysteria2])
-         *  last — first AWG profile in [AwgProfileRepository]
+         * TCP-only priority order is VLESS+Reality, VLESS/XHTTP, Hysteria2, then AWG. When UDP
+         * ASSOCIATE is required, TCP-only relays are excluded and the order is Hysteria2, then
+         * AWG.
          *
          * A candidate is only added when its backing data exists. The list is sorted by
          * [FailoverCandidate.priority] so priority 0 is always index 0.
@@ -679,12 +720,21 @@ class FailoverCoordinator
          */
         private suspend fun buildCandidates(): List<FailoverCandidate> {
             val result = mutableListOf<FailoverCandidate>()
+            val settings = settingsRepository.snapshot()
+            val requirements =
+                EgressRequirements(
+                    tcpConnect = true,
+                    udpAssociate = !settings.hasUdpAssociateEnabled() || settings.udpAssociateEnabled,
+                )
 
             val relayProfiles = relayProfileStore.list()
 
             relayProfiles
-                .filter { it.kind in supportedRelayKinds }
-                .sortedWith(
+                .filter { profile ->
+                    profile.kind in supportedRelayKinds &&
+                        relayTransportCapabilities(profile.kind)?.satisfies(requirements) == true &&
+                        (!requirements.udpAssociate || profile.udpEnabled)
+                }.sortedWith(
                     compareBy(
                         { relayKindPriority.getValue(it.kind) },
                         { seededOccurrence(it.id, it.kind) },
@@ -757,6 +807,12 @@ internal fun parseFailoverProxyEndpoint(listenerAddress: String?): FailoverProxy
         FailoverProxyEndpoint(host = host, port = port)
     }.getOrNull()
 }
+
+private fun FailoverCandidate.transportKind(): String =
+    when (this) {
+        is FailoverCandidate.Relay -> relayKind
+        is FailoverCandidate.Awg -> "amneziawg"
+    }
 
 /**
  * Maps a [FailoverCandidate] to privacy-safe protocol details.

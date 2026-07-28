@@ -13,6 +13,11 @@ enum class InitialRelayTransportClass(
     UdpObfuscation("udp_obfuscation"),
 }
 
+data class EgressRequirements(
+    val tcpConnect: Boolean = true,
+    val udpAssociate: Boolean = true,
+)
+
 data class InitialRelayCandidate(
     val transportClass: InitialRelayTransportClass,
     val profileId: String,
@@ -22,6 +27,7 @@ data class InitialRelayCandidate(
 data class InitialRelayRacePlan(
     val probeUrl: String,
     val candidates: List<InitialRelayCandidate>,
+    val requirements: EgressRequirements,
     val cachedFallbackProfileId: String? = null,
 )
 
@@ -34,6 +40,7 @@ data class InitialRelayRaceResult(
 internal data class PromotedRelayRuntime(
     val endpoint: LocalProxyEndpoint,
     val result: InitialRelayRaceResult,
+    val udpEnabled: Boolean,
 )
 
 interface InitialRelayRacePolicy {
@@ -41,6 +48,7 @@ interface InitialRelayRacePolicy {
         configuredRelayProfileId: String?,
         configuredRelayKind: String?,
         networkScopeKey: String?,
+        requirements: EgressRequirements,
     ): InitialRelayRacePlan?
 
     fun onStateChanged(state: InitialTransportRaceSnapshot)

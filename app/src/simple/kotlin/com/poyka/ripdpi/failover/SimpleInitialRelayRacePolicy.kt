@@ -16,11 +16,13 @@ import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SIMPLE_RELAY_BUNDLE_ASSET_NAME
 import com.poyka.ripdpi.seed.SIMPLE_SEED_GROUP_ID
 import com.poyka.ripdpi.seed.seedRelayProfileId
+import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.InitialRelayCandidate
 import com.poyka.ripdpi.services.InitialRelayRacePlan
 import com.poyka.ripdpi.services.InitialRelayRacePolicy
 import com.poyka.ripdpi.services.InitialRelayRaceResult
 import com.poyka.ripdpi.services.InitialRelayTransportClass
+import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -67,10 +69,23 @@ internal class SimpleInitialRelayRacePolicy
         private val preferences = context.getSharedPreferences(CachePreferencesName, Context.MODE_PRIVATE)
         private var pendingCacheContext: PendingCacheContext? = null
 
+        internal suspend fun plan(
+            configuredRelayProfileId: String?,
+            configuredRelayKind: String?,
+            networkScopeKey: String?,
+        ): InitialRelayRacePlan? =
+            plan(
+                configuredRelayProfileId = configuredRelayProfileId,
+                configuredRelayKind = configuredRelayKind,
+                networkScopeKey = networkScopeKey,
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+            )
+
         override suspend fun plan(
             configuredRelayProfileId: String?,
             configuredRelayKind: String?,
             networkScopeKey: String?,
+            requirements: EgressRequirements,
         ): InitialRelayRacePlan? {
             pendingCacheContext = null
             if (
@@ -121,22 +136,21 @@ internal class SimpleInitialRelayRacePolicy
                 } else {
                     seededMembers.firstOrNull { (profile, _) -> profile is ProxyProfile.Hysteria2 }
                 }
-            val reality = realityMember?.first as? ProxyProfile.VlessReality
             val hysteria = hysteriaMember?.first as? ProxyProfile.Hysteria2
-            if (reality == null || hysteria == null) {
+            val reality = realityMember?.first as? ProxyProfile.VlessReality
+            if (hysteria == null || (!requirements.udpAssociate && reality == null)) {
                 publishDisabledSnapshot()
                 return null
             }
-            val realityProfileId = requireNotNull(realityMember).second
             val hysteriaProfileId = requireNotNull(hysteriaMember).second
-            val storedReality = relayProfileStore.load(realityProfileId)
             val storedHysteria = relayProfileStore.load(hysteriaProfileId)
             val hysteriaCredentials = relayCredentialStore.load(hysteriaProfileId)
             val hysteriaPassword = hysteriaCredentials?.hysteriaPassword
             val hysteriaSalamanderKey = hysteriaCredentials?.hysteriaSalamanderKey
             if (
-                storedReality?.kind != RelayKindVlessReality ||
                 storedHysteria?.kind != RelayKindHysteria2 ||
+                relayTransportCapabilities(RelayKindHysteria2)?.satisfies(requirements) != true ||
+                (requirements.udpAssociate && !storedHysteria.udpEnabled) ||
                 hysteriaPassword.isNullOrBlank() ||
                 (!hysteria.obfsPassword.isNullOrBlank() && hysteriaSalamanderKey.isNullOrBlank())
             ) {
@@ -144,34 +158,53 @@ internal class SimpleInitialRelayRacePolicy
                 return null
             }
 
-            val candidates =
-                listOf(
-                    InitialRelayCandidate(
-                        transportClass = InitialRelayTransportClass.TlsMimicry,
-                        profileId = realityProfileId,
-                        relayKind = RelayKindVlessReality,
-                    ),
-                    InitialRelayCandidate(
-                        transportClass = InitialRelayTransportClass.UdpObfuscation,
-                        profileId = hysteriaProfileId,
-                        relayKind = RelayKindHysteria2,
-                    ),
+            val hysteriaCandidate =
+                InitialRelayCandidate(
+                    transportClass = InitialRelayTransportClass.UdpObfuscation,
+                    profileId = hysteriaProfileId,
+                    relayKind = RelayKindHysteria2,
                 )
-            val signature = candidateSignature(normalizedProbeUrl, candidates)
+            val candidates =
+                if (requirements.udpAssociate) {
+                    listOf(hysteriaCandidate)
+                } else {
+                    val realityProfileId = requireNotNull(realityMember).second
+                    val storedReality = relayProfileStore.load(realityProfileId)
+                    if (
+                        storedReality?.kind != RelayKindVlessReality ||
+                        relayTransportCapabilities(RelayKindVlessReality)?.satisfies(requirements) != true
+                    ) {
+                        publishDisabledSnapshot()
+                        return null
+                    }
+                    listOf(
+                        InitialRelayCandidate(
+                            transportClass = InitialRelayTransportClass.TlsMimicry,
+                            profileId = realityProfileId,
+                            relayKind = RelayKindVlessReality,
+                        ),
+                        hysteriaCandidate,
+                    )
+                }
+            val signature = candidateSignature(normalizedProbeUrl, requirements, candidates)
             val cacheKey = networkScopeKey?.takeIf(String::isNotBlank)?.let { cacheKey(it, signature) }
             val cachedWinner =
-                cacheKey?.let(::readUnexpiredWinner)?.takeIf { winner ->
+                cacheKey?.takeIf { candidates.size > 1 }?.let(::readUnexpiredWinner)?.takeIf { winner ->
                     candidates.any { it.profileId == winner }
                 }
             pendingCacheContext = cacheKey?.let { PendingCacheContext(it) }
             return InitialRelayRacePlan(
                 probeUrl = normalizedProbeUrl,
                 candidates = candidates,
+                requirements = requirements,
                 cachedFallbackProfileId = cachedWinner,
             )
         }
 
         override fun onStateChanged(state: InitialTransportRaceSnapshot) {
+            if (state.state == RaceStateExhausted) {
+                failoverCoordinator.recordInitialRelayRaceExhausted()
+            }
             serviceStateStore.updateTelemetry(
                 serviceStateStore.telemetry.value.copy(initialTransportRaceSnapshot = state),
             )
@@ -213,6 +246,7 @@ internal class SimpleInitialRelayRacePolicy
 
         private fun candidateSignature(
             normalizedProbeUrl: String,
+            requirements: EgressRequirements,
             candidates: List<InitialRelayCandidate>,
         ): String =
             sha256(
@@ -220,6 +254,10 @@ internal class SimpleInitialRelayRacePolicy
                     append(BuildConfig.VERSION_NAME)
                     append('|')
                     append(normalizedProbeUrl)
+                    append('|')
+                    append(requirements.tcpConnect)
+                    append(':')
+                    append(requirements.udpAssociate)
                     candidates.sortedBy(InitialRelayCandidate::profileId).forEach { candidate ->
                         append('|')
                         append(candidate.profileId)
@@ -242,6 +280,7 @@ internal class SimpleInitialRelayRacePolicy
             const val CachePreferencesName = "simple_initial_relay_race"
             const val CacheTtlMillis = 24L * 60L * 60L * 1_000L
             const val RaceStateDisabled = "disabled"
+            const val RaceStateExhausted = "exhausted"
             val SeededRelayKinds = setOf(RelayKindVlessReality, RelayKindHysteria2)
         }
     }

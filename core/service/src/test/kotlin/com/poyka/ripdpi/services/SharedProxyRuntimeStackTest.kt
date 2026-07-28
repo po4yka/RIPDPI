@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
+import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -41,9 +43,55 @@ class SharedProxyRuntimeStackTest {
                     ?.relayConfigOrNull()
             assertEquals(RelayKindHysteria2, renderedRelay?.kind)
             assertEquals(HysteriaProfileId, renderedRelay?.profileId)
+            assertEquals(true, renderedRelay?.udpEnabled)
             assertEquals("127.0.0.1", renderedRelay?.localSocksHost)
             assertEquals(HysteriaRacePort, renderedRelay?.localSocksPort)
             assertEquals(HysteriaProfileId, selected.single().selectedCandidate.profileId)
+            fixture.stack.stop(skipRuntimeShutdown = false)
+        }
+
+    @Test
+    fun udpPreflightPreservesHysteriaCapabilityInPromotedProxyConfig() =
+        runTest {
+            val fixture = createFixture()
+            val preferences =
+                RipDpiProxyUIPreferences(
+                    protocols = RipDpiProtocolConfig(udpAssociateEnabled = true),
+                    relay =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVlessReality,
+                            profileId = RealityProfileId,
+                        ),
+                )
+            val plan =
+                InitialRelayRacePlan(
+                    probeUrl = "https://probe.example/udp",
+                    candidates =
+                        listOf(
+                            InitialRelayCandidate(
+                                InitialRelayTransportClass.UdpObfuscation,
+                                HysteriaProfileId,
+                                RelayKindHysteria2,
+                            ),
+                        ),
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = true),
+                )
+
+            fixture.stack.start(
+                proxyPreferences = preferences,
+                onRelayExit = {},
+                onWarpExit = {},
+                onAwgExit = {},
+                onProxyExit = {},
+                initialRelayRacePlan = plan,
+            )
+
+            val renderedRelay =
+                fixture.proxyFactory.lastRuntime.lastPreferences
+                    ?.relayConfigOrNull()
+            assertEquals(RelayKindHysteria2, renderedRelay?.kind)
+            assertEquals(true, renderedRelay?.udpEnabled)
             fixture.stack.stop(skipRuntimeShutdown = false)
         }
 
@@ -70,6 +118,36 @@ class SharedProxyRuntimeStackTest {
             assertTrue(selected.isEmpty())
             assertTrue(fixture.proxyFactory.runtimes.isEmpty())
             fixture.stack.stop(skipRuntimeShutdown = false)
+        }
+
+    @Test
+    fun udpRequirementRejectsTcpOnlyRelayBeforeRelayAndProxyStartup() =
+        runTest {
+            val fixture = createFixture()
+            val preferences =
+                RipDpiProxyUIPreferences(
+                    relay =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVlessReality,
+                            profileId = RealityProfileId,
+                        ),
+                )
+
+            val error =
+                runCatching {
+                    fixture.stack.start(
+                        proxyPreferences = preferences,
+                        onRelayExit = {},
+                        onWarpExit = {},
+                        onAwgExit = {},
+                        onProxyExit = {},
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
+            assertTrue(fixture.relayFactory.runtimes.isEmpty())
+            assertTrue(fixture.proxyFactory.runtimes.isEmpty())
         }
 
     private fun TestScope.createFixture(
@@ -104,11 +182,13 @@ class SharedProxyRuntimeStackTest {
                         override suspend fun resolve(
                             config: RipDpiRelayConfig,
                             quicMigrationConfig: OwnedRelayQuicMigrationConfig,
-                        ) = sampleResolvedRelayConfig(config.kind, config.profileId)
+                        ) = sampleResolvedRelayConfig(config.kind, config.profileId).copy(
+                            udpEnabled = config.kind == RelayKindHysteria2,
+                        )
                     },
                 initialRelayRaceRunnerFactory =
-                    InitialRelayRaceRunnerFactory { endpoint, _ ->
-                        if (endpoint.port == HysteriaRacePort) {
+                    InitialRelayRaceRunnerFactory { endpoint, probeUrl ->
+                        if (probeUrl.endsWith("/udp") || endpoint.port == HysteriaRacePort) {
                             RelayActiveProbeResult(true, statusCode = 204, latencyMs = 10L)
                         } else {
                             RelayActiveProbeResult(false, latencyMs = 10L, failure = "io_error")
@@ -142,13 +222,14 @@ class SharedProxyRuntimeStackTest {
                     ),
                 relayRuntimeSelectionRenderer = renderer,
             )
-        return Fixture(stack, proxyFactory)
+        return Fixture(stack, proxyFactory, relayFactory)
     }
 
     private fun rememberedJsonPreferences(): RipDpiProxyJsonPreferences =
         RipDpiProxyJsonPreferences(
             configJson =
                 RipDpiProxyUIPreferences(
+                    protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
                     relay =
                         RipDpiRelayConfig(
                             enabled = true,
@@ -178,11 +259,13 @@ class SharedProxyRuntimeStackTest {
                         RelayKindHysteria2,
                     ),
                 ),
+            requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
         )
 
     private data class Fixture(
         val stack: SharedProxyRuntimeStack,
         val proxyFactory: TestRipDpiProxyFactory,
+        val relayFactory: TestRipDpiRelayFactory,
     )
 
     private companion object {

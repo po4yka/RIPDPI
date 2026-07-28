@@ -1,14 +1,12 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.RelayKindChainRelay
-import com.poyka.ripdpi.data.RelayKindHysteria2
-import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
-import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
+import com.poyka.ripdpi.services.relayTransportCapabilities
 
 internal fun ConfigDraft.applyRelayPresetDefinition(preset: RelayPresetDefinition): ConfigDraft =
     copy(
@@ -56,5 +54,4 @@ internal fun ConfigDraft.applyRelayPresetDefinition(preset: RelayPresetDefinitio
         relayUdpEnabled = preset.udpEnabled && preset.relayKind.supportsRelayUdpMode(),
     )
 
-internal fun String.supportsRelayUdpMode(): Boolean =
-    this == RelayKindHysteria2 || this == RelayKindMasque || this == RelayKindTrojan || this == RelayKindTuicV5
+internal fun String.supportsRelayUdpMode(): Boolean = relayTransportCapabilities(this)?.udpAssociate == true

@@ -380,6 +380,56 @@ fn udp_associate_enabled_sets_network_udp() {
 }
 
 #[test]
+fn udp_enabled_with_udp_disabled_relay_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.protocols.udp_associate_enabled = Some(true);
+    ui.upstream_relay.enabled = true;
+    ui.upstream_relay.kind = "vless_reality".to_string();
+    ui.upstream_relay.udp_enabled = false;
+
+    let error = runtime_config_from_ui(ui).expect_err("relay must provide required UDP egress");
+
+    assert_eq!(
+        error,
+        ProxyConfigError::InvalidConfig(
+            "relay transport vless_reality is missing required capability UDP ASSOCIATE".to_string()
+        )
+    );
+}
+
+#[test]
+fn udp_enabled_with_udp_enabled_relay_routes_every_udp_group_through_relay() {
+    let mut ui = minimal_ui();
+    ui.protocols.udp_associate_enabled = Some(true);
+    ui.upstream_relay.enabled = true;
+    ui.upstream_relay.kind = "hysteria2".to_string();
+    ui.upstream_relay.udp_enabled = true;
+
+    let config = runtime_config_from_ui(ui).expect("UDP-capable relay config");
+
+    let udp_groups: Vec<_> = config.groups.iter().filter(|group| group.matches.proto & IS_UDP != 0).collect();
+    assert!(!udp_groups.is_empty(), "fixture must synthesize at least one UDP group");
+    assert!(
+        udp_groups.iter().all(|group| group.policy.ext_socks.is_some()),
+        "configured relay must own every UDP group"
+    );
+}
+
+#[test]
+fn tcp_only_mode_accepts_tcp_only_relay() {
+    let mut ui = minimal_ui();
+    ui.protocols.udp_associate_enabled = Some(false);
+    ui.upstream_relay.enabled = true;
+    ui.upstream_relay.kind = "vless_reality".to_string();
+    ui.upstream_relay.udp_enabled = false;
+
+    let config = runtime_config_from_ui(ui).expect("TCP-only relay config");
+
+    assert!(!config.network.udp);
+    assert!(config.groups.iter().all(|group| group.policy.ext_socks.is_some()));
+}
+
+#[test]
 fn actionable_ui_strategy_synthesizes_detect_connect_plain_fallback_group() {
     let config = runtime_config_from_ui(minimal_ui()).expect("runtime config");
 
@@ -403,7 +453,8 @@ fn actionable_ui_strategy_synthesizes_detect_connect_plain_fallback_group() {
 fn relay_upstream_covers_all_generated_fallback_groups() {
     let mut ui = minimal_ui();
     ui.upstream_relay.enabled = true;
-    ui.upstream_relay.kind = "vless_reality".to_string();
+    ui.upstream_relay.kind = "hysteria2".to_string();
+    ui.upstream_relay.udp_enabled = true;
     ui.upstream_relay.local_socks_port = 11_980;
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
@@ -424,7 +475,8 @@ fn relay_upstream_covers_all_generated_fallback_groups() {
 fn relay_upstream_preserves_warp_routed_group() {
     let mut ui = minimal_ui();
     ui.upstream_relay.enabled = true;
-    ui.upstream_relay.kind = "vless_reality".to_string();
+    ui.upstream_relay.kind = "hysteria2".to_string();
+    ui.upstream_relay.udp_enabled = true;
     ui.upstream_relay.local_socks_port = 11_980;
     ui.warp.enabled = true;
     ui.warp.route_mode = "rules".to_string();

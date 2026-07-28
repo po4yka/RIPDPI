@@ -4,6 +4,19 @@ use ripdpi_config::{DesyncGroup, UpstreamSocksConfig};
 
 use crate::types::{ProxyConfigError, ProxyUiRelayConfig, RELAY_KIND_OFF};
 
+pub(crate) fn validate_egress_requirements(
+    relay: &ProxyUiRelayConfig,
+    udp_associate_enabled: bool,
+) -> Result<(), ProxyConfigError> {
+    if relay.enabled && relay.kind != RELAY_KIND_OFF && udp_associate_enabled && !relay.udp_enabled {
+        return Err(ProxyConfigError::InvalidConfig(format!(
+            "relay transport {} is missing required capability UDP ASSOCIATE",
+            relay.kind
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn build_upstream(relay: &ProxyUiRelayConfig) -> Result<Option<UpstreamSocksConfig>, ProxyConfigError> {
     if !relay.enabled || relay.kind == RELAY_KIND_OFF {
         return Ok(None);

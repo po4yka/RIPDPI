@@ -119,6 +119,7 @@ internal class UpstreamRelaySupervisor(
     private var activeSlot: RelayRuntimeSlot? = null
 
     suspend fun start(
+        requirements: EgressRequirements,
         config: RipDpiRelayConfig,
         quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
@@ -129,6 +130,7 @@ internal class UpstreamRelaySupervisor(
                 config = config,
                 quicMigrationConfig = quicMigrationConfig,
                 localPortOverride = null,
+                requirements = requirements,
                 onUnexpectedExit = onUnexpectedExit,
             )
         promoteSlot(slot)
@@ -152,6 +154,7 @@ internal class UpstreamRelaySupervisor(
                             ),
                         quicMigrationConfig = quicMigrationConfig,
                         localPortOverride = EphemeralPort,
+                        requirements = plan.requirements,
                         onUnexpectedExit = onUnexpectedExit,
                     )
                 },
@@ -163,6 +166,7 @@ internal class UpstreamRelaySupervisor(
         config: RipDpiRelayConfig,
         quicMigrationConfig: OwnedRelayQuicMigrationConfig,
         localPortOverride: Int?,
+        requirements: EgressRequirements,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): RelayRuntimeSlot {
         val resolvedConfig =
@@ -171,6 +175,7 @@ internal class UpstreamRelaySupervisor(
                 .let { resolved ->
                     if (localPortOverride == null) resolved else resolved.copy(localSocksPort = localPortOverride)
                 }.withNetworkMode(networkMode)
+        validateRelayEgressRequirements(resolvedConfig, requirements)
         val runtime = createRuntime(resolvedConfig)
         val stopRequested = AtomicBoolean(false)
         val shouldReportExit = AtomicBoolean(false)
@@ -200,6 +205,7 @@ internal class UpstreamRelaySupervisor(
                 shouldReportExit = shouldReportExit,
                 exitReported = AtomicBoolean(false),
                 onUnexpectedExit = onUnexpectedExit,
+                udpEnabled = resolvedConfig.udpEnabled,
             )
 
         job.invokeOnCompletion {

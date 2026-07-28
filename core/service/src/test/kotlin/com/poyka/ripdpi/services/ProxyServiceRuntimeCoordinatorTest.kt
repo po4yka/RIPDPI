@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -102,6 +103,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                                 mode = Mode.Proxy,
                                 proxyPreferences =
                                     RipDpiProxyUIPreferences(
+                                        protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
                                         relay =
                                             RipDpiRelayConfig(
                                                 enabled = true,
@@ -178,6 +180,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                                 mode = Mode.Proxy,
                                 proxyPreferences =
                                     RipDpiProxyUIPreferences(
+                                        protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
                                         relay =
                                             RipDpiRelayConfig(
                                                 enabled = true,

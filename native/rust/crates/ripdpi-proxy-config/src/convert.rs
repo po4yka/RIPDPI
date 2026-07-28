@@ -142,6 +142,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     config.process.geosite_db_path = normalized_optional_path(geosite_db_path);
     listen::apply_listen_section(&mut config, &listen)?;
     protocol::apply_protocol_section(&mut config, &protocols, &quic)?;
+    relay::validate_egress_requirements(&upstream_relay, config.network.udp)?;
     adaptive_runtime_context::apply_runtime_section(&mut config, &adaptive_fallback, &host_autolearn, &ws_tunnel);
 
     let mut groups = Vec::new();

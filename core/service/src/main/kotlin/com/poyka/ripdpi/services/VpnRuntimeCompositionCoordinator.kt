@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiLogContext
+import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
 import java.util.UUID
 
@@ -203,11 +204,17 @@ internal class VpnRuntimeCompositionCoordinator(
                 .toString()
                 .replace("-", "")
         val configuredRelay = resolution.proxyPreferences.relayConfigOrNull()
+        val requirements =
+            EgressRequirements(
+                tcpConnect = true,
+                udpAssociate = resolution.proxyPreferences.isUdpAssociateEnabled(),
+            )
         val racePlan =
             initialRelayRacePolicy?.plan(
                 configuredRelayProfileId = configuredRelay?.profileId,
                 configuredRelayKind = configuredRelay?.kind,
                 networkScopeKey = resolution.networkScopeKey,
+                requirements = requirements,
             )
         return proxyRuntimeStack
             .start(

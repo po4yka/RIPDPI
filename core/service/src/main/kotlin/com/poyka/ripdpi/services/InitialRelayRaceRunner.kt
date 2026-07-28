@@ -31,7 +31,7 @@ internal class InitialRelayRaceRunner(
         coroutineScope {
             validatePlan(plan)
             val slots = ConcurrentHashMap<String, RelayRuntimeSlot>()
-            val attempts = Channel<RelayRaceAttempt>(capacity = RequiredRaceCandidateCount)
+            val attempts = Channel<RelayRaceAttempt>(capacity = plan.candidates.size)
             val outcomes = ConcurrentHashMap<String, InitialTransportRaceCandidateSnapshot>()
             plan.candidates.forEach { candidate ->
                 outcomes[candidate.profileId] = candidate.toSnapshot(outcome = RaceOutcomePending)
@@ -46,7 +46,7 @@ internal class InitialRelayRaceRunner(
                 }
             var retainedSlot: RelayRuntimeSlot? = null
             try {
-                val raceCompletion = awaitRaceCompletion(attempts)
+                val raceCompletion = awaitRaceCompletion(attempts, plan.candidates.size)
                 jobs.forEach { job ->
                     if (job.isActive) job.cancelAndJoin()
                 }
@@ -70,6 +70,7 @@ internal class InitialRelayRaceRunner(
                     return@coroutineScope PromotedRelayRuntime(
                         endpoint = requireNotNull(winningSlot.endpoint),
                         result = result,
+                        udpEnabled = winningSlot.udpEnabled,
                     )
                 }
 
@@ -95,11 +96,14 @@ internal class InitialRelayRaceRunner(
                     return@coroutineScope PromotedRelayRuntime(
                         endpoint = requireNotNull(cachedSlot.endpoint),
                         result = result,
+                        udpEnabled = cachedSlot.udpEnabled,
                     )
                 }
 
                 onState(raceState(state = RaceStateExhausted, plan = plan, outcomes = outcomes))
-                throw InitialTransportSelectionException("Neither initial relay transport passed its active probe")
+                throw InitialTransportSelectionException(
+                    "No compatible initial relay transport passed its active probe",
+                )
             } finally {
                 withContext(NonCancellable) {
                     jobs.forEach { job ->
@@ -128,19 +132,22 @@ internal class InitialRelayRaceRunner(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (
-            @Suppress("TooGenericExceptionCaught") error: Exception,
+            @Suppress("TooGenericExceptionCaught") _: Exception,
         ) {
-            Logger.w(error) { "Initial relay race candidate failed" }
+            Logger.w { "Initial relay race candidate kind=${candidate.relayKind} failed" }
             outcomes[candidate.profileId] = candidate.toSnapshot(RaceOutcomeRuntimeFailed)
             attempts.send(RelayRaceAttempt(candidate, slots[candidate.profileId], probeResult = null))
         }
     }
 
-    private suspend fun awaitRaceCompletion(attempts: Channel<RelayRaceAttempt>): RaceCompletion {
+    private suspend fun awaitRaceCompletion(
+        attempts: Channel<RelayRaceAttempt>,
+        candidateCount: Int,
+    ): RaceCompletion {
         var winner: RelayRaceAttempt? = null
         val completed =
             withTimeoutOrNull(RaceDeadlineMillis) {
-                repeat(RequiredRaceCandidateCount) {
+                repeat(candidateCount) {
                     val attempt = attempts.receive()
                     if (attempt.probeResult?.succeeded == true && attempt.slot?.job?.isActive == true) {
                         winner = attempt
@@ -157,18 +164,20 @@ internal class InitialRelayRaceRunner(
         slots: Map<String, RelayRuntimeSlot>,
     ): Pair<InitialRelayCandidate, RelayRuntimeSlot>? =
         plan.candidates
+            .takeIf { it.size > 1 }
+            .orEmpty()
             .firstOrNull { it.profileId == plan.cachedFallbackProfileId }
             ?.let { candidate -> slots[candidate.profileId]?.takeIf { it.job.isActive }?.let { candidate to it } }
 
     private fun validatePlan(plan: InitialRelayRacePlan) {
-        require(plan.candidates.size == RequiredRaceCandidateCount) {
-            "Initial relay race requires exactly $RequiredRaceCandidateCount candidates"
+        require(plan.candidates.size in MinRaceCandidateCount..MaxRaceCandidateCount) {
+            "Initial relay preflight requires one or two candidates"
         }
         require(
             plan.candidates
                 .map(InitialRelayCandidate::transportClass)
                 .toSet()
-                .size == RequiredRaceCandidateCount,
+                .size == plan.candidates.size,
         ) {
             "Initial relay race candidates must use distinct transport classes"
         }
@@ -229,7 +238,8 @@ internal class InitialRelayRaceRunner(
     )
 
     private companion object {
-        const val RequiredRaceCandidateCount = 2
+        const val MinRaceCandidateCount = 1
+        const val MaxRaceCandidateCount = 2
         const val RaceDeadlineMillis = 15_000L
         const val MaxReportedLatencyMillis = RaceDeadlineMillis
         const val RaceStateRacing = "racing"
@@ -269,5 +279,6 @@ internal data class RelayRuntimeSlot(
     val shouldReportExit: AtomicBoolean,
     val exitReported: AtomicBoolean,
     val onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+    val udpEnabled: Boolean,
     var endpoint: LocalProxyEndpoint? = null,
 )

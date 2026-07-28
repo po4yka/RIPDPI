@@ -84,6 +84,7 @@ class FinalmaskCompatibilityTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     com.poyka.ripdpi.core.RipDpiRelayConfig(
                         enabled = true,
@@ -134,6 +135,7 @@ class FinalmaskCompatibilityTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     com.poyka.ripdpi.core.RipDpiRelayConfig(
                         enabled = true,

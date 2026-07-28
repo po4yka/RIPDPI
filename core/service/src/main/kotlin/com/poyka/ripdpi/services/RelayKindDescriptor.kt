@@ -91,6 +91,14 @@ internal data class RelayKindDescriptor(
     val configBacking: RelayConfigBacking,
 )
 
+data class RelayTransportCapabilities(
+    val tcpConnect: Boolean,
+    val udpAssociate: Boolean,
+) {
+    fun satisfies(requirements: EgressRequirements): Boolean =
+        (!requirements.tcpConnect || tcpConnect) && (!requirements.udpAssociate || udpAssociate)
+}
+
 /**
  * Inventory of every relay kind the app recognises, one row per stable
  * `relay_kind` string and ordered to match the `relay_kind` comment in
@@ -332,3 +340,11 @@ private val RelayKindDescriptorsByKind: Map<String, RelayKindDescriptor> =
  * kind. Callers map a `null` to the historical permissive / off-state default.
  */
 internal fun relayKindDescriptor(kindId: String): RelayKindDescriptor? = RelayKindDescriptorsByKind[kindId]
+
+fun relayTransportCapabilities(kindId: String): RelayTransportCapabilities? =
+    relayKindDescriptor(kindId)?.let { descriptor ->
+        RelayTransportCapabilities(
+            tcpConnect = descriptor.tcp,
+            udpAssociate = descriptor.udp,
+        )
+    }

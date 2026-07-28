@@ -131,8 +131,16 @@ private class FakeRelayProfileStore(
     }
 }
 
-private class FakeAppSettingsRepository : AppSettingsRepository {
-    private val settingsState = MutableStateFlow(AppSettingsSerializer.defaultValue)
+private class FakeAppSettingsRepository(
+    udpAssociateEnabled: Boolean? = false,
+) : AppSettingsRepository {
+    private val settingsState =
+        MutableStateFlow(
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .apply { udpAssociateEnabled?.let(::setUdpAssociateEnabled) }
+                .build(),
+        )
 
     override val settings: Flow<AppSettings> = settingsState.asStateFlow()
 
@@ -260,7 +268,7 @@ private fun buildCoordinator(
     relayProfiles: List<RelayProfileRecord> =
         listOf(
             RelayProfileRecord(id = "reality-1", kind = RelayKindVlessReality),
-            RelayProfileRecord(id = "hysteria-1", kind = RelayKindHysteria2),
+            RelayProfileRecord(id = "hysteria-1", kind = RelayKindHysteria2, udpEnabled = true),
         ),
     awgProfiles: List<AwgProfileEntity> = emptyList(),
     clock: FakeFailoverClock = FakeFailoverClock(now = 0L),
@@ -679,7 +687,7 @@ class FailoverCoordinatorTest {
         }
 
     /**
-     * Fewer than 2 candidates → coordinator stays inert, activeCandidate remains null.
+     * A single compatible candidate is exposed as active but cannot switch.
      */
     @Test
     fun fewerThanTwoCandidatesNeverSwitches() =
@@ -703,9 +711,127 @@ class FailoverCoordinatorTest {
             }
             advanceUntilIdle()
 
-            assertNull("activeCandidate must be null with <2 candidates", coordinator.activeCandidate.value)
+            assertNotNull("single compatible candidate must remain usable", coordinator.activeCandidate.value)
             assertEquals("No switch for <2 candidates", 0, controller.stopCalls.size)
 
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun `default UDP requirement starts hysteria and fails over to AWG`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
+            val awg =
+                AwgProfileEntity(
+                    id = "awg-udp-fallback",
+                    name = "UDP fallback",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = settings,
+                    awgProfiles = listOf(awg),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            val initial = coordinator.activeCandidate.value
+            check(initial is FailoverCandidate.Relay)
+            assertEquals(RelayKindHysteria2, initial.relayKind)
+
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+
+            assertTrue(coordinator.activeCandidate.value is FailoverCandidate.Awg)
+            assertEquals(1, controller.startCalls.size)
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun `single AWG is a valid UDP fallback candidate`() =
+        runTest {
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
+            val awg =
+                AwgProfileEntity(
+                    id = "awg-only",
+                    name = "Only AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    relayProfiles = emptyList(),
+                    awgProfiles = listOf(awg),
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            assertTrue(coordinator.activeCandidate.value is FailoverCandidate.Awg)
+            assertTrue(controller.startCalls.isEmpty())
+            coordinator.stopObserving()
+        }
+
+    @Test
+    fun `single AWG starts during capability failure recovery`() =
+        runTest {
+            val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Reconnecting)
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
+            val awg =
+                AwgProfileEntity(
+                    id = "awg-only-recovery",
+                    name = "Only startup fallback",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId("incompatible-reality")
+            }
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    relayProfiles = emptyList(),
+                    awgProfiles = listOf(awg),
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+            coordinator.bind(observeScope)
+
+            stateStore.emitFailure(FailureReason.InitialTransportSelectionFailed("capability mismatch"))
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), controller.startCalls)
+            assertFalse(settings.relayEnabled())
+            assertEquals(awg.id, settings.simpleFailoverAwgProfileId())
+        }
+
+    @Test
+    fun `UDP requirement with no compatible candidate remains fail closed`() =
+        runTest {
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    relayProfiles = listOf(RelayProfileRecord(id = "reality-only", kind = RelayKindVlessReality)),
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            assertNull(coordinator.activeCandidate.value)
+            assertTrue(controller.startCalls.isEmpty())
             coordinator.stopObserving()
         }
 
@@ -1232,6 +1358,42 @@ class FailoverCoordinatorTest {
                 coordinator.shouldSkipInitialRelayRace(),
             )
             assertEquals("Initial-race bypass must be one-shot", false, coordinator.shouldSkipInitialRelayRace())
+        }
+
+    @Test
+    fun `exhausted UDP relay preflight advances directly to AWG`() =
+        runTest {
+            val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Reconnecting)
+            val settings = FakeAppSettingsRepository(udpAssociateEnabled = null)
+            val awg =
+                AwgProfileEntity(
+                    id = "awg-after-hysteria",
+                    name = "AWG after Hysteria",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId("reality-1")
+            }
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    settings = settings,
+                    awgProfiles = listOf(awg),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+            coordinator.bind(observeScope)
+            coordinator.recordInitialRelayRaceExhausted()
+
+            stateStore.emitFailure(FailureReason.InitialTransportSelectionFailed("preflight failed"))
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), controller.startCalls)
+            assertFalse(settings.relayEnabled())
+            assertEquals(awg.id, settings.simpleFailoverAwgProfileId())
         }
 
     /**

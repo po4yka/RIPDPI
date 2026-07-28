@@ -234,7 +234,9 @@ class UpstreamRelaySupervisorTest {
                     override suspend fun resolve(
                         config: RipDpiRelayConfig,
                         quicMigrationConfig: OwnedRelayQuicMigrationConfig,
-                    ) = sampleResolvedRelayConfig(kind = config.kind, profileId = config.profileId)
+                    ) = sampleResolvedRelayConfig(kind = config.kind, profileId = config.profileId).copy(
+                        udpEnabled = config.kind == RelayKindHysteria2,
+                    )
                 },
             initialRelayRaceRunnerFactory = InitialRelayRaceRunnerFactory(probe),
         )
@@ -271,8 +273,64 @@ class UpstreamRelaySupervisorTest {
                         RelayKindHysteria2,
                     ),
                 ),
+            requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
             cachedFallbackProfileId = cachedFallbackProfileId,
         )
+
+    @Test
+    fun `single compatible hysteria candidate passes initial preflight`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val supervisor =
+                raceSupervisor(relayFactory) { _, _ ->
+                    RelayActiveProbeResult(true, statusCode = 204, latencyMs = 30L)
+                }
+            val plan =
+                InitialRelayRacePlan(
+                    probeUrl = "https://probe.example/generate_204",
+                    candidates =
+                        listOf(
+                            InitialRelayCandidate(
+                                InitialRelayTransportClass.UdpObfuscation,
+                                HysteriaProfileId,
+                                RelayKindHysteria2,
+                            ),
+                        ),
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = true),
+                )
+
+            val promoted = supervisor.startRace(plan, onUnexpectedExit = {})
+
+            assertEquals(RelayKindHysteria2, promoted.result.selectedCandidate.relayKind)
+            assertEquals(1, relayFactory.runtimes.size)
+            supervisor.stop()
+        }
+
+    @Test
+    fun `UDP requirement rejects resolved tcp-only relay before runtime start`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                )
+
+            val error =
+                runCatching {
+                    supervisor.start(
+                        config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality),
+                        requirements = EgressRequirements(tcpConnect = true, udpAssociate = true),
+                        onUnexpectedExit = {},
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
+            assertTrue(relayFactory.runtimes.isEmpty())
+        }
 
     @Test
     fun `runtime-owned socket protection policy is applied after profile resolution`() =
@@ -290,6 +348,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
             )
@@ -336,6 +395,7 @@ class UpstreamRelaySupervisorTest {
                 val error =
                     runCatching {
                         supervisor.start(
+                            requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                             config = RipDpiRelayConfig(enabled = true, kind = resolvedConfig.kind),
                             onUnexpectedExit = {},
                         )
@@ -365,6 +425,7 @@ class UpstreamRelaySupervisorTest {
             val exits = mutableListOf<SupervisorExitCause>()
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { exits += it },
             )
@@ -390,6 +451,7 @@ class UpstreamRelaySupervisorTest {
             val exits = mutableListOf<SupervisorExitCause>()
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { exits += it },
             )
@@ -417,6 +479,7 @@ class UpstreamRelaySupervisorTest {
             val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(23))
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { cause ->
                     exits += cause
@@ -428,6 +491,7 @@ class UpstreamRelaySupervisorTest {
             advanceUntilIdle()
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { exits += it },
             )
@@ -461,6 +525,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
             )
@@ -527,6 +592,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -570,6 +636,7 @@ class UpstreamRelaySupervisorTest {
             val quicMigrationConfig = OwnedRelayQuicMigrationConfig(bindLowPort = true)
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = requestedConfig,
                 quicMigrationConfig = quicMigrationConfig,
                 onUnexpectedExit = {},
@@ -601,6 +668,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -640,6 +708,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -718,6 +787,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -769,6 +839,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
                             enabled = true,
@@ -800,6 +871,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
                             enabled = true,
@@ -855,6 +927,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -933,6 +1006,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -1008,6 +1082,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -1059,6 +1134,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
                             enabled = true,
@@ -1111,6 +1187,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -1167,6 +1244,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
                             enabled = true,
@@ -1233,6 +1311,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -1295,6 +1374,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
@@ -1347,6 +1427,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
                             enabled = true,
@@ -1406,6 +1487,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
                         enabled = true,

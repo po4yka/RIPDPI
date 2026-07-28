@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
+import com.poyka.ripdpi.services.EgressRequirements
 import com.poyka.ripdpi.services.InitialRelayRaceResult
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -112,6 +113,36 @@ class SimpleInitialRelayRacePolicyTest {
 
             assertEquals(2, plan?.candidates?.size)
             assertNull(plan?.cachedFallbackProfileId)
+        }
+
+    @Test
+    fun `default UDP requirements preflight only udp-enabled hysteria`() =
+        runTest {
+            val requirements = EgressRequirements(tcpConnect = true, udpAssociate = true)
+
+            val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a", requirements)
+
+            assertEquals(requirements, plan?.requirements)
+            assertEquals(listOf(RelayKindHysteria2), plan?.candidates?.map { it.relayKind })
+            assertNull(plan?.cachedFallbackProfileId)
+        }
+
+    @Test
+    fun `reality cache is ignored when UDP becomes required`() =
+        runTest {
+            val tcpPlan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")!!
+            policy.onSelected(InitialRelayRaceResult(tcpPlan.candidates.first(), false, 20L))
+
+            val udpPlan =
+                policy.plan(
+                    RealityProfileId,
+                    RelayKindVlessReality,
+                    "network-a",
+                    EgressRequirements(tcpConnect = true, udpAssociate = true),
+                )
+
+            assertEquals(listOf(RelayKindHysteria2), udpPlan?.candidates?.map { it.relayKind })
+            assertNull(udpPlan?.cachedFallbackProfileId)
         }
 
     @Test
@@ -287,7 +318,7 @@ class SimpleInitialRelayRacePolicyTest {
         InMemoryRelayProfileStore(
             RelayProfileRecord(id = RealityProfileId, kind = RelayKindVlessReality),
             RelayProfileRecord(id = FallbackRealityProfileId, kind = RelayKindVlessReality),
-            RelayProfileRecord(id = HysteriaProfileId, kind = RelayKindHysteria2),
+            RelayProfileRecord(id = HysteriaProfileId, kind = RelayKindHysteria2, udpEnabled = true),
         )
 
     private fun seededCredentialStore(): RelayCredentialStore =
@@ -374,6 +405,7 @@ private class RecordingInitialRaceFailoverCoordinator : InitialRaceFailoverCoord
     var skip = false
     var profileId: String? = null
     var relayKind: String? = null
+    var exhausted = false
 
     override fun shouldSkipInitialRelayRace(): Boolean = skip
 
@@ -383,6 +415,10 @@ private class RecordingInitialRaceFailoverCoordinator : InitialRaceFailoverCoord
     ) {
         this.profileId = profileId
         this.relayKind = relayKind
+    }
+
+    override fun recordInitialRelayRaceExhausted() {
+        exhausted = true
     }
 }
 

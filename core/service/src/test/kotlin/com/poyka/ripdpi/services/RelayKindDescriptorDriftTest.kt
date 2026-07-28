@@ -105,31 +105,19 @@ class RelayKindDescriptorDriftTest {
 
     @Test
     fun `kotlin capability fields match the rust descriptor table`() {
-        // kindId -> [tcp, udp, reusable, supportsOutboundBindIp] — a literal
-        // mirror of RELAY_TRANSPORT_DESCRIPTORS in transport_descriptor.rs.
-        val rustPinned =
-            mapOf(
-                "hysteria2" to listOf(true, true, true, false),
-                "tuic_v5" to listOf(true, true, true, true),
-                "vless" to listOf(true, false, true, true),
-                "vless_reality" to listOf(true, false, false, true),
-                "cloudflare_tunnel" to listOf(true, false, true, true),
-                "chain_relay" to listOf(true, false, false, true),
-                "masque" to listOf(true, true, true, false),
-                "anytls" to listOf(true, true, true, true),
-                "shadowtls_v3" to listOf(true, false, false, true),
-                "trojan" to listOf(true, true, false, true),
-                "shadowsocks" to listOf(true, true, false, true),
-                "tor" to listOf(true, false, true, false),
-                "naiveproxy" to listOf(true, false, false, true),
-                "ssh" to listOf(true, false, false, false),
-            )
-        rustPinned.forEach { (kindId, caps) ->
+        val rustCapabilities = parseRustDescriptorCapabilities()
+        assertTrue("expected to parse Rust descriptor capabilities", rustCapabilities.isNotEmpty())
+        rustCapabilities.forEach { (kindId, caps) ->
             val descriptor = relayKindDescriptor(kindId) ?: error("missing Kotlin descriptor for $kindId")
             assertEquals(
                 "capability drift for '$kindId' vs the Rust descriptor table",
                 caps,
                 listOf(descriptor.tcp, descriptor.udp, descriptor.reusable, descriptor.supportsOutboundBindIp),
+            )
+            assertEquals(
+                "public capability API must be backed by the descriptor table",
+                RelayTransportCapabilities(descriptor.tcp, descriptor.udp),
+                relayTransportCapabilities(kindId),
             )
         }
     }
@@ -193,10 +181,23 @@ class RelayKindDescriptorDriftTest {
             masquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
         ).registrations
 
-    private fun parseRustDescriptorKinds(): Set<String> {
+    private fun parseRustDescriptorKinds(): Set<String> = parseRustDescriptorCapabilities().keys
+
+    private fun parseRustDescriptorCapabilities(): Map<String, List<Boolean>> {
         val source =
             File(repoRoot(), "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs").readText()
-        return Regex("""kind_id:\s*"([a-z0-9_]+)"""").findAll(source).map { it.groupValues[1] }.toSet()
+        val descriptorPattern =
+            Regex(
+                """descriptor:\s*RelayTransportDescriptor\s*\{\s*kind_id:\s*"([a-z0-9_]+)",""" +
+                    """[\s\S]*?tcp:\s*(true|false),[\s\S]*?udp:\s*(true|false),""" +
+                    """[\s\S]*?reusable:\s*(true|false),""" +
+                    """[\s\S]*?supports_outbound_bind_ip:\s*(true|false),\s*\}""",
+            )
+        return descriptorPattern
+            .findAll(source)
+            .associate { match ->
+                match.groupValues[1] to match.groupValues.drop(2).map(String::toBooleanStrict)
+            }
     }
 
     private fun parseProtoRelayKinds(): Set<String> {

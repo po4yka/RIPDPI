@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.awgConfigOrNull
+import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.ownedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
@@ -45,6 +46,14 @@ internal class SharedProxyRuntimeStack(
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
     ): LocalProxyEndpoint {
         val awgRequest = proxyPreferences.awgConfigOrNull()
+        val egressRequirements =
+            EgressRequirements(
+                tcpConnect = true,
+                udpAssociate = proxyPreferences.isUdpAssociateEnabled(),
+            )
+        check(initialRelayRacePlan == null || initialRelayRacePlan.requirements == egressRequirements) {
+            "Initial relay plan requirements do not match effective proxy configuration"
+        }
         var effectivePreferences: RipDpiProxyPreferences = proxyPreferences
         if (awgRequest != null) {
             // AWG is the egress: start the AWG supervisor and point the proxy
@@ -58,7 +67,12 @@ internal class SharedProxyRuntimeStack(
                 // previous session so this session does not begin in a Degraded state.
                 clearForeignRelayFailed()
                 if (initialRelayRacePlan == null) {
-                    upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, onRelayExit)
+                    upstreamRelaySupervisor.start(
+                        config = relayConfig,
+                        quicMigrationConfig = relayQuicMigrationConfig,
+                        requirements = egressRequirements,
+                        onUnexpectedExit = onRelayExit,
+                    )
                 } else {
                     val promoted =
                         upstreamRelaySupervisor.startRace(
@@ -74,6 +88,7 @@ internal class SharedProxyRuntimeStack(
                                 enabled = true,
                                 kind = promoted.result.selectedCandidate.relayKind,
                                 profileId = promoted.result.selectedCandidate.profileId,
+                                udpEnabled = promoted.udpEnabled,
                             ),
                             promoted.endpoint.host,
                             promoted.endpoint.port,
@@ -84,6 +99,7 @@ internal class SharedProxyRuntimeStack(
                             renderedRelay.enabled &&
                             renderedRelay.kind == promoted.result.selectedCandidate.relayKind &&
                             renderedRelay.profileId == promoted.result.selectedCandidate.profileId &&
+                            renderedRelay.udpEnabled == promoted.udpEnabled &&
                             renderedRelay.localSocksHost == promoted.endpoint.host &&
                             renderedRelay.localSocksPort == promoted.endpoint.port,
                     ) {
