@@ -71,6 +71,7 @@ import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.VpnAppRoutingPlan
 import com.poyka.ripdpi.services.VpnTunnelBuilderHost
+import com.poyka.ripdpi.services.VpnTunnelNetworkParameters
 import com.poyka.ripdpi.services.VpnTunnelSession
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import kotlinx.coroutines.flow.Flow
@@ -435,6 +436,7 @@ class StubInstrumentedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
         appRoutingPlan: VpnAppRoutingPlan,
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
+        networkParameters: VpnTunnelNetworkParameters,
     ): VpnTunnelSession = StubInstrumentedVpnTunnelSession()
 }
 
