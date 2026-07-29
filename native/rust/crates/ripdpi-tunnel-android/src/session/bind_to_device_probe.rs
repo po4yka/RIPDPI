@@ -47,9 +47,8 @@ fn probe_unprivileged_bind_to_device() -> jint {
 
     use nix::sys::socket::{AddressFamily, SockFlag, SockType, setsockopt, socket, sockopt};
 
-    let socket = match socket(AddressFamily::Inet, SockType::Stream, SockFlag::SOCK_CLOEXEC, None) {
-        Ok(socket) => socket,
-        Err(_) => return PROBE_UNAVAILABLE,
+    let Ok(socket) = socket(AddressFamily::Inet, SockType::Stream, SockFlag::SOCK_CLOEXEC, None) else {
+        return PROBE_UNAVAILABLE;
     };
     let loopback = OsString::from("lo");
     classify_bind_result(setsockopt(&socket, sockopt::BindToDevice, &loopback))
