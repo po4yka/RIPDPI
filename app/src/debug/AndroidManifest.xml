@@ -11,6 +11,17 @@
 
     <application android:usesCleartextTraffic="true">
         <receiver
+            android:name=".debug.AppStartupReadinessDebugReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:process=":remote_acceptance_debug">
+            <intent-filter>
+                <action android:name="com.poyka.ripdpi.debug.AWAIT_APP_STARTUP_READY" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".debug.DebugNetworkProbeReceiver"
             android:enabled="true"
             android:exported="true"

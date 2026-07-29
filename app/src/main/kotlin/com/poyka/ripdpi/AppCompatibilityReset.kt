@@ -1,7 +1,6 @@
 package com.poyka.ripdpi
 
 import android.content.Context
-import androidx.core.content.edit
 import com.poyka.ripdpi.data.resolveAppSettingsStoreFile
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import dagger.Binds
@@ -49,7 +48,14 @@ class AppCompatibilityReset
                 }
             }
 
-            preferences.edit { putBoolean(CompatibilityResetAppliedKey, true) }
+            check(
+                preferences
+                    .edit()
+                    .putBoolean(CompatibilityResetAppliedKey, true)
+                    .commit(),
+            ) {
+                "Failed to persist compatibility reset completion"
+            }
         }
     }
 

@@ -94,7 +94,7 @@ class AppStartupInitializer
         private fun launchStartup() {
             if (!startupRunning.compareAndSet(false, true)) return
             applicationScope.launch {
-                val profileMutationRecovery =
+                val startupRecovery =
                     try {
                         val recovered = recoverBeforeReadiness()
                         reconcileRemoteAcceptanceBeforeReadiness()
@@ -107,31 +107,34 @@ class AppStartupInitializer
                         // an immediate UI retry cannot lose the retry launch.
                         startupRunning.set(false)
                         readinessState.value = AppStartupReadinessState.Failed
-                        Logger.e(error) { "Profile mutation recovery failed; startup remains gated" }
+                        Logger.e(error) { "Pre-readiness recovery failed; startup remains gated" }
                         return@launch
                     }
                 readinessState.value = AppStartupReadinessState.Ready
                 try {
-                    initializeAfterReadiness(profileMutationRecovery)
+                    initializeAfterReadiness(startupRecovery)
                 } finally {
                     startupRunning.set(false)
                 }
             }
         }
 
-        private suspend fun recoverBeforeReadiness(): AppStartupSubsystemResult =
+        private suspend fun recoverBeforeReadiness(): AppStartupRecovery =
             withContext(Dispatchers.IO) {
-                recoverProfileMutations()
+                AppStartupRecovery(
+                    profileMutationRecovery = recoverProfileMutations(),
+                    compatibilityReset = recoverCompatibilityReset(),
+                )
             }
 
-        private suspend fun initializeAfterReadiness(profileMutationRecovery: AppStartupSubsystemResult) {
+        private suspend fun initializeAfterReadiness(startupRecovery: AppStartupRecovery) {
             runCatching { DiagnosticsRetentionWorker.enqueuePeriodic(context) }
                 .onFailure { error -> Logger.w(error) { "Diagnostics retention worker failed to enqueue" } }
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
             runCatching { simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope) }
                 .onFailure { error -> Logger.w(error) { "Simple session watcher failed to bind" } }
-            val report = initializeSubsystemsAfterRecovery(profileMutationRecovery)
+            val report = initializeSubsystemsAfterRecovery(startupRecovery)
             Logger.i { report.toLogMessage() }
             recordRecentProcessExits()
             // Register Android 17 OOM/anomaly profiling triggers (no-op below
@@ -173,7 +176,7 @@ class AppStartupInitializer
         }
 
         internal suspend fun initializeSubsystems(): AppStartupReport =
-            initializeSubsystemsAfterRecovery(recoverProfileMutations())
+            initializeSubsystemsAfterRecovery(recoverBeforeReadiness())
 
         private suspend fun recoverProfileMutations(): AppStartupSubsystemResult {
             val profileMutationRecovery =
@@ -186,9 +189,12 @@ class AppStartupInitializer
             return profileMutationRecovery
         }
 
-        private suspend fun initializeSubsystemsAfterRecovery(
-            profileMutationRecovery: AppStartupSubsystemResult,
-        ): AppStartupReport {
+        private suspend fun recoverCompatibilityReset(): AppStartupSubsystemResult =
+            runSubsystem(AppStartupSubsystem.CompatibilityReset) {
+                startupDataRecovery.appCompatibilityResetter.resetIfNeeded()
+            }
+
+        private suspend fun initializeSubsystemsAfterRecovery(startupRecovery: AppStartupRecovery): AppStartupReport {
             val resetEventConsume =
                 runSubsystem(AppStartupSubsystem.ResetEventConsume) {
                     // The reset wipe recorded this BEFORE deleting everything; it
@@ -198,10 +204,6 @@ class AppStartupInitializer
                     if (resetEventRecorder.consumeResetEvent()) {
                         Logger.i { "Diagnostics event: $ResetEventName (recovered across restart)" }
                     }
-                }
-            val compatibilityReset =
-                runSubsystem(AppStartupSubsystem.CompatibilityReset) {
-                    startupDataRecovery.appCompatibilityResetter.resetIfNeeded()
                 }
             val strategyPackInitialization =
                 runSubsystem(AppStartupSubsystem.StrategyPackInitialization) {
@@ -240,9 +242,9 @@ class AppStartupInitializer
                     simpleFlavorStartupHooks.seeder.orElse(null)?.seed()
                 }
             return AppStartupReport(
-                profileMutationRecovery = profileMutationRecovery,
+                profileMutationRecovery = startupRecovery.profileMutationRecovery,
                 resetEventConsume = resetEventConsume,
-                compatibilityReset = compatibilityReset,
+                compatibilityReset = startupRecovery.compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
                 diagnosticsBootstrap = diagnosticsBootstrap,
                 dnsPathInvalidatorRegistration = dnsPathInvalidatorRegistration,
@@ -281,6 +283,11 @@ class AppStartupInitializer
             }
         }
     }
+
+private data class AppStartupRecovery(
+    val profileMutationRecovery: AppStartupSubsystemResult,
+    val compatibilityReset: AppStartupSubsystemResult,
+)
 
 @Module
 @InstallIn(SingletonComponent::class)

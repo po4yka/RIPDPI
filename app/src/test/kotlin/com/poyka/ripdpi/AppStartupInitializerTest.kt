@@ -344,10 +344,11 @@ class AppStartupInitializerTest {
     @Test
     fun `public initialize reconciles pending remote acceptance evidence`() =
         runTest {
-            val reconciler = RecordingRemoteDeviceAcceptanceStartupReconciler()
+            val callOrder = mutableListOf<String>()
+            val reconciler = RecordingRemoteDeviceAcceptanceStartupReconciler { callOrder += "reconcile" }
             val initializer =
                 createInitializer(
-                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    compatibilityResetter = RecordingAppCompatibilityResetter { callOrder += "compatibility" },
                     strategyPackService = RecordingStrategyPackService(),
                     diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
                     remoteDeviceAcceptanceStartupReconciler = reconciler,
@@ -359,6 +360,7 @@ class AppStartupInitializerTest {
             runCurrent()
 
             assertEquals(1, reconciler.calls)
+            assertEquals(listOf("compatibility", "reconcile"), callOrder.take(2))
         }
 
     @Test
@@ -776,6 +778,7 @@ private object NoOpRemoteDeviceAcceptanceStartupReconciler : RemoteDeviceAccepta
 private class RecordingRemoteDeviceAcceptanceStartupReconciler(
     private val started: CompletableDeferred<Unit>? = null,
     private val release: CompletableDeferred<Unit>? = null,
+    private val onReconcile: (() -> Unit)? = null,
 ) : RemoteDeviceAcceptanceStartupReconciler {
     var calls: Int = 0
         private set
@@ -784,6 +787,7 @@ private class RecordingRemoteDeviceAcceptanceStartupReconciler(
 
     override suspend fun reconcilePendingRun() {
         calls += 1
+        onReconcile?.invoke()
         started?.complete(Unit)
         release?.await()
         completed = true

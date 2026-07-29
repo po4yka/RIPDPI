@@ -14,9 +14,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
@@ -28,6 +25,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -54,15 +52,6 @@ class ProcessDeathReconstructionTest {
 
     @Inject
     lateinit var settingsRepository: AppSettingsRepository
-
-    @Inject
-    lateinit var diagnosticsArtifactQueryStore: DiagnosticsArtifactQueryStore
-
-    @Inject
-    lateinit var diagnosticsDurableStateStore: DiagnosticsDurableStateStore
-
-    @Inject
-    lateinit var diagnosticsHistoryResetStore: DiagnosticsHistoryResetStore
 
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val appContext: Context get() = ApplicationProvider.getApplicationContext()
@@ -105,58 +94,47 @@ class ProcessDeathReconstructionTest {
 
     @Test
     fun pendingRemoteAcceptanceRunReconstructsAfterProcessDeath() {
-        val runSuffix = System.nanoTime().toString(radix = 16)
-        val interruptedRun = "process-death-$runSuffix-a"
+        val interruptedRun = UUID.randomUUID().toString()
 
-        runBlocking { diagnosticsHistoryResetStore.clearRuntimeHistory() }
-
-        try {
-            val firstBegin =
-                beginRemoteAcceptanceRunInAppProcess(
-                    runGeneration = interruptedRun,
-                    observedAtMillis = 10L,
-                )
-            assertNotEquals(
-                "Remote acceptance debug receiver must run outside the instrumentation process",
-                Process.myPid(),
-                firstBegin.processPid,
+        val readyProducer = awaitAppStartupRecoveryInNewProcess()
+        val firstBegin =
+            beginRemoteAcceptanceRunInAppProcess(
+                runGeneration = interruptedRun,
+                observedAtMillis = 10L,
             )
-            runBlocking {
-                assertEquals(
-                    interruptedRun,
-                    diagnosticsDurableStateStore
-                        .getDurableState(firstBegin.pendingGenerationKey)
-                        ?.value,
-                )
-            }
+        assertEquals(
+            "Remote acceptance producer must start after app startup in the same process",
+            readyProducer.processPid,
+            firstBegin.processPid,
+        )
+        assertNotEquals(
+            "Remote acceptance debug receiver must run outside the instrumentation process",
+            Process.myPid(),
+            firstBegin.processPid,
+        )
+        assertEquals(interruptedRun, firstBegin.persistedGeneration)
 
-            killAndRelaunchApp(requiredDeadPid = firstBegin.processPid)
+        killAndRelaunchApp(requiredDeadPid = firstBegin.processPid)
 
-            runBlocking {
-                assertNull(
-                    diagnosticsDurableStateStore
-                        .getDurableState(firstBegin.pendingGenerationKey),
-                )
-
-                val interruptedEvents =
-                    diagnosticsArtifactQueryStore
-                        .getGlobalNativeEvents(limit = 100)
-                        .filter { event -> event.message.contains("phase=run_interrupted") }
-
-                assertEquals(1, interruptedEvents.size)
-                val interruptedEvent = interruptedEvents.single()
-                assertEquals(interruptedRun, interruptedEvent.runtimeId)
-                assertEquals("remote_device_acceptance", interruptedEvent.source)
-                assertEquals("remote_acceptance", interruptedEvent.subsystem)
-                assertTrue(interruptedEvent.message.contains("reason=interrupted_before_startup"))
-                assertNull(interruptedEvent.sessionId)
-                assertNull(interruptedEvent.connectionSessionId)
-                assertNull(interruptedEvent.fingerprintHash)
-                assertNull(interruptedEvent.policySignature)
-            }
-        } finally {
-            runBlocking { diagnosticsHistoryResetStore.clearRuntimeHistory() }
-        }
+        val relaunchedProcess =
+            awaitAppStartupRecoveryInNewProcess(
+                pendingGenerationKey = firstBegin.pendingGenerationKey,
+                expectedRunGeneration = interruptedRun,
+            )
+        assertNotEquals(
+            "Startup recovery must execute in a relaunched app process",
+            firstBegin.processPid,
+            relaunchedProcess.processPid,
+        )
+        val interruptedEvent = requireNotNull(relaunchedProcess.recoveredEvent)
+        assertEquals(interruptedRun, interruptedEvent.runtimeId)
+        assertEquals("remote_device_acceptance", interruptedEvent.source)
+        assertEquals("remote_acceptance", interruptedEvent.subsystem)
+        assertTrue(interruptedEvent.message.contains("reason=interrupted_before_startup"))
+        assertNull(interruptedEvent.sessionId)
+        assertNull(interruptedEvent.connectionSessionId)
+        assertNull(interruptedEvent.fingerprintHash)
+        assertNull(interruptedEvent.policySignature)
     }
 
     private fun killAndRelaunchApp(requiredDeadPid: Int? = null) {
@@ -166,6 +144,12 @@ class ProcessDeathReconstructionTest {
         uiAutomation.executeShellCommand("am kill ${BuildConfig.APPLICATION_ID}").let { pfd ->
             // Drain the output stream so the shell command completes before we continue.
             ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes() }
+        }
+        requiredDeadPid?.let { pid ->
+            // API 27 keeps the package UID alive while its main process hosts
+            // instrumentation, so `am kill` alone does not stop a secondary
+            // target-app process. Kill that exact process as the test oracle.
+            Process.sendSignal(pid, Process.SIGNAL_KILL)
         }
 
         // Wait for the app process to be absent from the process list.
@@ -203,7 +187,10 @@ class ProcessDeathReconstructionTest {
                 "$KILL_SETTLE_TIMEOUT_MS ms — am kill may not have succeeded"
         }
 
-        // Relaunch the app by starting MainActivity with a clean intent.
+        if (requiredDeadPid != null) return
+
+        // Relaunch the app by starting MainActivity with a clean intent for
+        // the settings-only case, where the main target process can restart.
         val launchIntent =
             Intent(appContext, MainActivity::class.java).apply {
                 addFlags(
@@ -217,16 +204,86 @@ class ProcessDeathReconstructionTest {
         SystemClock.sleep(RELAUNCH_SETTLE_MS)
     }
 
+    private fun awaitAppStartupRecoveryInNewProcess(
+        pendingGenerationKey: String? = null,
+        expectedRunGeneration: String? = null,
+    ): AppStartupReadyResult {
+        val latch = CountDownLatch(1)
+        val result = AtomicReference<AppStartupReadyResult?>()
+        val intent =
+            Intent(AppStartupDebugActionAwaitReady).apply {
+                setClassName(appContext.packageName, AppStartupDebugReceiverClassName)
+                pendingGenerationKey?.let { putExtra(AppStartupDebugExtraPendingGenerationKey, it) }
+                expectedRunGeneration?.let { putExtra(AppStartupDebugExtraExpectedRunGeneration, it) }
+            }
+        appContext.sendOrderedBroadcast(
+            intent,
+            null,
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    context: Context?,
+                    intent: Intent?,
+                ) {
+                    val extras = getResultExtras(false) ?: Bundle.EMPTY
+                    result.set(
+                        AppStartupReadyResult(
+                            ok =
+                                resultCode == Activity.RESULT_OK &&
+                                    extras.getBoolean(AppStartupDebugExtraOk, false),
+                            processPid = extras.getInt(AppStartupDebugExtraProcessPid),
+                            recoveredEvent =
+                                extras
+                                    .getString(AppStartupDebugExtraRecoveredRuntimeId)
+                                    ?.let {
+                                        RemoteAcceptanceRecoveredEvent(
+                                            runtimeId = it,
+                                            source = extras.getString(AppStartupDebugExtraRecoveredSource),
+                                            subsystem = extras.getString(AppStartupDebugExtraRecoveredSubsystem),
+                                            message = extras.getString(AppStartupDebugExtraRecoveredMessage).orEmpty(),
+                                            sessionId = extras.getString(AppStartupDebugExtraRecoveredSessionId),
+                                            connectionSessionId =
+                                                extras.getString(AppStartupDebugExtraRecoveredConnectionSessionId),
+                                            fingerprintHash =
+                                                extras.getString(AppStartupDebugExtraRecoveredFingerprintHash),
+                                            policySignature =
+                                                extras.getString(AppStartupDebugExtraRecoveredPolicySignature),
+                                        )
+                                    },
+                            errorClass = extras.getString(AppStartupDebugExtraErrorClass),
+                            errorMessage = extras.getString(AppStartupDebugExtraErrorMessage),
+                        ),
+                    )
+                    latch.countDown()
+                }
+            },
+            null,
+            Activity.RESULT_CANCELED,
+            null,
+            null,
+        )
+        check(latch.await(DebugReceiverTimeoutMs, TimeUnit.MILLISECONDS)) {
+            "Timed out waiting for app startup recovery"
+        }
+        val received = requireNotNull(result.get()) { "App startup debug receiver did not deliver a result" }
+        check(received.ok) {
+            "App startup recovery failed: ${received.errorClass}: ${received.errorMessage}"
+        }
+        check(received.processPid > 0) {
+            "App startup debug receiver did not report a target process pid"
+        }
+        return received
+    }
+
     private fun isPidAlive(pid: Int): Boolean {
         val output =
             instrumentation.uiAutomation
-                .executeShellCommand("if [ -d /proc/$pid ]; then echo alive; fi")
+                .executeShellCommand("cat /proc/$pid/stat")
                 .let { pfd ->
                     ParcelFileDescriptor.AutoCloseInputStream(pfd).use {
                         it.bufferedReader().readText()
                     }
                 }.trim()
-        return output == "alive"
+        return output.isNotEmpty()
     }
 
     private fun beginRemoteAcceptanceRunInAppProcess(
@@ -258,6 +315,8 @@ class ProcessDeathReconstructionTest {
                             processPid = extras.getInt(RemoteAcceptanceDebugExtraProcessPid),
                             pendingGenerationKey =
                                 extras.getString(RemoteAcceptanceDebugExtraPendingGenerationKey).orEmpty(),
+                            persistedGeneration =
+                                extras.getString(RemoteAcceptanceDebugExtraPersistedGeneration),
                             errorClass = extras.getString(RemoteAcceptanceDebugExtraErrorClass),
                             errorMessage = extras.getString(RemoteAcceptanceDebugExtraErrorMessage),
                         ),
@@ -293,11 +352,50 @@ class ProcessDeathReconstructionTest {
         val ok: Boolean,
         val processPid: Int,
         val pendingGenerationKey: String,
+        val persistedGeneration: String?,
         val errorClass: String?,
         val errorMessage: String?,
     )
 
+    private data class AppStartupReadyResult(
+        val ok: Boolean,
+        val processPid: Int,
+        val recoveredEvent: RemoteAcceptanceRecoveredEvent?,
+        val errorClass: String?,
+        val errorMessage: String?,
+    )
+
+    private data class RemoteAcceptanceRecoveredEvent(
+        val runtimeId: String,
+        val source: String?,
+        val subsystem: String?,
+        val message: String,
+        val sessionId: String?,
+        val connectionSessionId: String?,
+        val fingerprintHash: String?,
+        val policySignature: String?,
+    )
+
     private companion object {
+        private const val AppStartupDebugReceiverClassName =
+            "com.poyka.ripdpi.debug.AppStartupReadinessDebugReceiver"
+        private const val AppStartupDebugActionAwaitReady =
+            "com.poyka.ripdpi.debug.AWAIT_APP_STARTUP_READY"
+        private const val AppStartupDebugExtraOk = "ok"
+        private const val AppStartupDebugExtraProcessPid = "process_pid"
+        private const val AppStartupDebugExtraErrorClass = "error_class"
+        private const val AppStartupDebugExtraErrorMessage = "error_message"
+        private const val AppStartupDebugExtraExpectedRunGeneration = "expected_run_generation"
+        private const val AppStartupDebugExtraPendingGenerationKey = "pending_generation_key"
+        private const val AppStartupDebugExtraRecoveredRuntimeId = "recovered_runtime_id"
+        private const val AppStartupDebugExtraRecoveredSource = "recovered_source"
+        private const val AppStartupDebugExtraRecoveredSubsystem = "recovered_subsystem"
+        private const val AppStartupDebugExtraRecoveredMessage = "recovered_message"
+        private const val AppStartupDebugExtraRecoveredSessionId = "recovered_session_id"
+        private const val AppStartupDebugExtraRecoveredConnectionSessionId =
+            "recovered_connection_session_id"
+        private const val AppStartupDebugExtraRecoveredFingerprintHash = "recovered_fingerprint_hash"
+        private const val AppStartupDebugExtraRecoveredPolicySignature = "recovered_policy_signature"
         private const val RemoteAcceptanceDebugReceiverClassName =
             "com.poyka.ripdpi.services.RemoteAcceptanceDebugReceiver"
         private const val RemoteAcceptanceDebugActionBeginRun =
@@ -305,6 +403,7 @@ class ProcessDeathReconstructionTest {
         private const val RemoteAcceptanceDebugExtraRunGeneration = "run_generation"
         private const val RemoteAcceptanceDebugExtraObservedAtMillis = "observed_at_millis"
         private const val RemoteAcceptanceDebugExtraPendingGenerationKey = "pending_generation_key"
+        private const val RemoteAcceptanceDebugExtraPersistedGeneration = "persisted_generation"
         private const val RemoteAcceptanceDebugExtraOk = "ok"
         private const val RemoteAcceptanceDebugExtraProcessPid = "process_pid"
         private const val RemoteAcceptanceDebugExtraErrorClass = "error_class"
