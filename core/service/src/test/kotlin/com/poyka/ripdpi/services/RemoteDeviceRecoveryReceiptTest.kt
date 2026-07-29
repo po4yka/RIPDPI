@@ -114,7 +114,7 @@ class RemoteDeviceRecoveryReceiptTest {
     }
 
     @Test
-    fun `TUN ready resets the counter baseline for a replacement bridge`() {
+    fun `replacement TUN resets counters without mixing one way outcomes`() {
         val collector = collector()
         val generation = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
         collector.recordTunReady(generation)
@@ -130,7 +130,36 @@ class RemoteDeviceRecoveryReceiptTest {
             NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(rxBytes = 1L)),
         )
 
-        assertEquals("inbound_only", collector.snapshot().postStartDataPlaneOutcome)
+        assertEquals("outbound_only", collector.snapshot().postStartDataPlaneOutcome)
+    }
+
+    @Test
+    fun `replacement TUN cannot downgrade bidirectional evidence or first milestones`() {
+        var elapsed = 1_000L
+        val collector = collector(elapsed = { elapsed })
+        val generation = collector.beginStart(com.poyka.ripdpi.data.startAction, "instance-a")
+        elapsed = 1_500L
+        collector.recordTunReady(generation)
+        elapsed = 2_500L
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(
+                tunnelStats = TunnelStats(txBytes = 100L, rxBytes = 200L),
+            ),
+        )
+
+        elapsed = 8_000L
+        collector.recordTunReady(generation)
+        elapsed = 12_000L
+        collector.recordTunnelTelemetry(
+            generation,
+            NativeRuntimeSnapshot.idle(source = "tunnel").copy(tunnelStats = TunnelStats(txBytes = 1L)),
+        )
+
+        val receipt = collector.snapshot()
+        assertEquals("under_1s", receipt.timeToTun)
+        assertEquals("1_to_5s", receipt.timeToFirstFlow)
+        assertEquals("bidirectional_observed", receipt.postStartDataPlaneOutcome)
     }
 
     @Test

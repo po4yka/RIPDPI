@@ -147,13 +147,11 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
             receipt.copy(
                 timeToFirstFlow = firstFlow,
                 postStartDataPlaneOutcome =
-                    when {
-                        outbound && inbound -> "bidirectional_observed"
-                        outbound -> "outbound_only"
-                        inbound -> "inbound_only"
-                        receipt.postStartDataPlaneOutcome == PendingReceiptValue -> "no_flow_observed"
-                        else -> receipt.postStartDataPlaneOutcome
-                    },
+                    mergeDataPlaneOutcome(
+                        previous = receipt.postStartDataPlaneOutcome,
+                        outbound = outbound,
+                        inbound = inbound,
+                    ),
             )
         }
     }
@@ -291,6 +289,20 @@ private fun Boolean?.toReceiptValue(): String =
         true -> EnabledReceiptValue
         false -> DisabledReceiptValue
         null -> UnknownReceiptValue
+    }
+
+private fun mergeDataPlaneOutcome(
+    previous: String,
+    outbound: Boolean,
+    inbound: Boolean,
+): String =
+    when {
+        outbound && inbound -> "bidirectional_observed"
+        previous in ObservedDataPlaneOutcomes -> previous
+        outbound -> "outbound_only"
+        inbound -> "inbound_only"
+        previous == PendingReceiptValue -> "no_flow_observed"
+        else -> previous
     }
 
 private val ObservedDataPlaneOutcomes = setOf("bidirectional_observed", "outbound_only", "inbound_only")
