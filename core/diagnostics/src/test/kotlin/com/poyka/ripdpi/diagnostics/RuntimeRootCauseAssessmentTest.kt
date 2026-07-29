@@ -644,6 +644,11 @@ class RuntimeRootCausePathEvidenceTest {
 
 class RuntimeRootCauseProcessExitTest {
     @Test
+    fun `root cause taxonomy does not expose unsupported OEM attribution`() {
+        assertFalse(RuntimeRootCauseVerdict.entries.any { verdict -> verdict.name.contains("OEM") })
+    }
+
+    @Test
     fun `Android memory limiter correlation stays inconclusive`() {
         val assessment =
             assessRootCause(

@@ -35,9 +35,6 @@ internal enum class RuntimeRootCauseVerdict {
     @SerialName("UNDERLAY_LOST")
     UNDERLAY_LOST,
 
-    @SerialName("OEM_PROCESS_KILL")
-    OEM_PROCESS_KILL,
-
     @SerialName("VPN_ROUTE_LOOP")
     VPN_ROUTE_LOOP,
 
@@ -366,9 +363,6 @@ private fun selectDirectVerdicts(evidence: RuntimeEvidenceAccumulator): List<Run
         RuntimeRootCauseVerdict.DNS_FAILURE.takeIf {
             evidence.has(RuntimeEvidenceCategory.DnsFailure)
         },
-        RuntimeRootCauseVerdict.OEM_PROCESS_KILL.takeIf {
-            evidence.has(RuntimeEvidenceCategory.OemProcessKill)
-        },
         RuntimeRootCauseVerdict.MTU_BLACKHOLE.takeIf {
             evidence.has(RuntimeEvidenceCategory.MtuBlackhole)
         },
@@ -401,7 +395,6 @@ private fun confidenceFor(
         evidence.has(RuntimeEvidenceCategory.DataPlaneTunIngressNoUpstream) ||
             evidence.has(RuntimeEvidenceCategory.DataPlaneOutboundNoReturn)
     return when {
-        verdict == RuntimeRootCauseVerdict.OEM_PROCESS_KILL -> RuntimeRootCauseConfidence.MEDIUM
         verdict == RuntimeRootCauseVerdict.DNS_FAILURE -> RuntimeRootCauseConfidence.MEDIUM
         primaryCount >= 2 -> RuntimeRootCauseConfidence.HIGH
         hasTerminalDataPlane && verdict in DataPlaneSupportedVerdicts -> RuntimeRootCauseConfidence.HIGH
@@ -487,7 +480,6 @@ private enum class RuntimeEvidenceCategory(
     DataPlaneOutboundNoReturn("data_plane_outbound_no_return"),
     DataPlaneForwardingHealthy("data_plane_forwarding_healthy"),
     DnsFailure("dns_failure"),
-    OemProcessKill("oem_process_kill"),
     MtuBlackhole("mtu_blackhole"),
     RelayStall("relay_stall"),
     RelayRuntimeFailure("relay_runtime_failure"),
@@ -498,10 +490,6 @@ private fun RuntimeRootCauseVerdict.evidenceCategories(): Set<RuntimeEvidenceCat
     when (this) {
         RuntimeRootCauseVerdict.UNDERLAY_LOST -> {
             setOf(RuntimeEvidenceCategory.UnderlayLost)
-        }
-
-        RuntimeRootCauseVerdict.OEM_PROCESS_KILL -> {
-            setOf(RuntimeEvidenceCategory.OemProcessKill)
         }
 
         RuntimeRootCauseVerdict.VPN_ROUTE_LOOP -> {
