@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.AuthoritativeVpnUnderlayObservationProvider
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalPhase
 import com.poyka.ripdpi.data.DeviceRuntimeBackgroundSurvivalReason
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NetworkPathObservation
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
@@ -227,7 +229,12 @@ class RemoteDeviceAcceptanceGateLifecycleTest {
                             }
                         },
                     udpProbe = RelayUdpAssociateProbe { RelayUdpProbeResult.success() },
+                    payloadHealthProbe =
+                        RelayUdpPayloadHealthProbe { _, families ->
+                            successfulPayloadHealth(families)
+                        },
                 ),
+            underlayObservationProvider = FixedRemoteAcceptanceUnderlayProvider,
             deviceProvider = { Device },
             monotonicClock = { 1_000L },
         )
@@ -280,6 +287,35 @@ private class MutableRemoteAcceptanceScreenStateObserver(
         interactiveState.value = interactive
     }
 }
+
+private object FixedRemoteAcceptanceUnderlayProvider : AuthoritativeVpnUnderlayObservationProvider {
+    override val changes: StateFlow<Long> = MutableStateFlow(0L)
+
+    override fun capture(): NetworkPathObservation =
+        NetworkPathObservation(
+            generation = 1L,
+            addressFamilies = listOf("ipv4"),
+            defaultRouteFamilies = listOf("ipv4"),
+            dnsServerFamilies = listOf("ipv4"),
+        )
+}
+
+private fun successfulPayloadHealth(families: Set<RelayUdpPayloadFamily>): RelayUdpPayloadHealthEvidence =
+    RelayUdpPayloadHealthEvidence(
+        overallVerdict = RelayUdpPayloadHealthVerdict.Acknowledged.wireValue,
+        families =
+            families.map { family ->
+                RelayUdpPayloadFamilyHealthEvidence(
+                    family = family.wireValue,
+                    controlBefore = RelayUdpPayloadControlOutcome.Acknowledged.wireValue,
+                    controlAfter = RelayUdpPayloadControlOutcome.Acknowledged.wireValue,
+                    maxAcknowledgedPayloadBytes = 1_232,
+                    firstRepeatedFailedPayloadBytes = null,
+                    attemptCount = 7,
+                    verdict = RelayUdpPayloadHealthVerdict.Acknowledged.wireValue,
+                )
+            },
+    )
 
 private class RecordingRemoteDeviceAcceptanceEvidenceWriter : RemoteDeviceAcceptanceEvidenceWriter {
     val begunRuns = mutableListOf<String>()
