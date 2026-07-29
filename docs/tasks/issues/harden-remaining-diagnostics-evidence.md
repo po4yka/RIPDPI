@@ -70,3 +70,15 @@ observed.
   review, the unfinished P0 worktree, current main, task board, and seven
   independent read-only audits. Shared archive and locale files are assigned to
   serialized lanes before writers start.
+- 2026-07-29: Integrated the reviewed runtime lane as twelve atomic commits.
+  Generation-bound data-plane evidence, startup exit reconciliation, durable
+  acceptance CAS, bounded fail-closed terminal recovery, and cancellation-safe
+  runtime leases passed focused JVM, Room, correctness, and cancel-safety review.
+- 2026-07-29: Integrated the reviewed presentation lane as seven atomic commits.
+  Standalone partial and terminal outcomes now remain consistent across rows,
+  History, share, archive summaries, and both manual-conflict cancellation
+  orderings; locale parity and translation export passed in the source lane.
+- 2026-07-29: Archive hardening remains in review after the first independent
+  pass found raw structured-target and PCAP privacy paths plus seven failure and
+  truncation edge cases. Archive-v4 fixtures remain unchanged pending explicit
+  approval for the exact generated fixture set.
