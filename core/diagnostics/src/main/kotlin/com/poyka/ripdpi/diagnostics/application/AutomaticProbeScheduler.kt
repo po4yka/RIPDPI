@@ -90,7 +90,7 @@ class AutomaticProbeScheduler
             isStrategyFailure: Boolean,
             now: Long,
         ): AutomaticProbeCoordinator.Eligibility {
-            val baseEligibility =
+            var eligibility =
                 AutomaticProbeCoordinator.evaluateBaseEligibility(
                     settings = settings,
                     event = event,
@@ -98,28 +98,28 @@ class AutomaticProbeScheduler
                     recentRuns = recentProbeRuns,
                     cooldownMs = activeProbeSafetyPolicy.cooldownMsForHandoverClassification(event.classification),
                 )
-            if (baseEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) return baseEligibility
-            if (!isStrategyFailure) {
+            if (eligibility !is AutomaticProbeCoordinator.Eligibility.Rejected && !isStrategyFailure) {
                 val hasValidatedRememberedMatch =
                     rememberedNetworkPolicyStore.findValidatedMatch(
                         fingerprintHash = event.currentFingerprintHash,
                         mode = event.mode,
                     ) != null
-                val rememberedPolicyEligibility =
+                eligibility =
                     AutomaticProbeCoordinator.evaluateRememberedPolicyEligibility(
                         hasValidatedRememberedMatch = hasValidatedRememberedMatch,
                     )
-                if (rememberedPolicyEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
-                    return rememberedPolicyEligibility
-                }
             }
-            val latestTelemetrySample =
-                diagnosticsArtifactReadStore.getLatestTelemetrySampleForFingerprint(
-                    activeMode = event.mode.name,
-                    fingerprintHash = event.currentFingerprintHash,
-                    createdAfter = now - AutomaticProbeCoordinator.recentFailureLookbackMs(),
-                )
-            return AutomaticProbeCoordinator.evaluateRecentFailureSignal(sample = latestTelemetrySample)
+            return if (eligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
+                eligibility
+            } else {
+                val latestTelemetrySample =
+                    diagnosticsArtifactReadStore.getLatestTelemetrySampleForFingerprint(
+                        activeMode = event.mode.name,
+                        fingerprintHash = event.currentFingerprintHash,
+                        createdAfter = now - AutomaticProbeCoordinator.recentFailureLookbackMs(),
+                    )
+                AutomaticProbeCoordinator.evaluateRecentFailureSignal(sample = latestTelemetrySample)
+            }
         }
 
         private fun automaticProbeRetryDelayMs(): Long =

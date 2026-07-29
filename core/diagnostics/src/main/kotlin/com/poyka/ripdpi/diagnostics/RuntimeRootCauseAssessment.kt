@@ -276,31 +276,45 @@ private fun collectTypedRuntimeHealthEvidence(
     if (event.level.lowercase(Locale.US) !in TypedRuntimeHealthLevels) return
     when (event.subsystem) {
         "dns" -> {
-            if (
-                event.id == "typed_runtime_state:dns:$connectionSessionId" &&
-                tokens["event"] == "dns_runtime_state" &&
-                tokens["evidence"] == "dns_counter_transition_v1" &&
-                tokens["state"] == "failure_threshold"
-            ) {
+            if (event.isTerminalDnsFailure(connectionSessionId, tokens)) {
                 evidence.add(RuntimeEvidenceCategory.DnsFailure, event)
             }
         }
 
         "relay" -> {
-            if (
-                event.id == "typed_runtime_state:relay:$connectionSessionId" &&
-                tokens["event"] == "relay_runtime_state" &&
-                tokens["evidence"] == "relay_health_transition_v1" &&
-                tokens["state"] in RelayRuntimeStates &&
-                tokens["health"] in RelayRuntimeHealthValues &&
-                tokens["relay_failed"] in RelayFailedValues
-            ) {
+            if (event.isTerminalRelayState(connectionSessionId, tokens)) {
                 if (tokens["relay_failed"] == "true") {
                     evidence.add(RuntimeEvidenceCategory.RelayRuntimeFailure, event)
                 }
             }
         }
     }
+}
+
+private fun NativeSessionEventEntity.isTerminalDnsFailure(
+    connectionSessionId: String,
+    tokens: Map<String, String>,
+): Boolean {
+    val matchesIdentity = id == "typed_runtime_state:dns:$connectionSessionId"
+    val matchesTransition =
+        tokens["event"] == "dns_runtime_state" &&
+            tokens["evidence"] == "dns_counter_transition_v1"
+    return matchesIdentity && matchesTransition && tokens["state"] == "failure_threshold"
+}
+
+private fun NativeSessionEventEntity.isTerminalRelayState(
+    connectionSessionId: String,
+    tokens: Map<String, String>,
+): Boolean {
+    val matchesIdentity = id == "typed_runtime_state:relay:$connectionSessionId"
+    val matchesTransition =
+        tokens["event"] == "relay_runtime_state" &&
+            tokens["evidence"] == "relay_health_transition_v1"
+    val matchesVerdict =
+        tokens["state"] in RelayRuntimeStates &&
+            tokens["health"] in RelayRuntimeHealthValues &&
+            tokens["relay_failed"] in RelayFailedValues
+    return matchesIdentity && matchesTransition && matchesVerdict
 }
 
 private fun selectVerdict(

@@ -41,9 +41,13 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
 
     override suspend fun reconcileStartupProcessExits(recordedExitEvents: List<NativeSessionEventEntity>) {
         val startupTime = clock.nowMillis()
-        val session = latestSingleUnfinishedVpnSession() ?: return
-        val exitEvent = newestQualifyingExitEvent(recordedExitEvents, session, startupTime) ?: return
-        val classification = exitEvent.toKeyValueTokens().processExitClassificationOrNull() ?: return
+        val session = latestSingleUnfinishedVpnSession()
+        val exitEvent =
+            session?.let { currentSession ->
+                newestQualifyingExitEvent(recordedExitEvents, currentSession, startupTime)
+            }
+        val classification = exitEvent?.toKeyValueTokens()?.processExitClassificationOrNull()
+        if (session == null || exitEvent == null || classification == null) return
         val correlation = exitEvent.toCorrelationEvent(session.id, classification)
 
         artifactWriteStore.insertNativeSessionEvent(correlation)
