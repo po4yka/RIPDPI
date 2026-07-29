@@ -51,6 +51,45 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
         }
 
     @Test
+    fun `relay fallback appearing during capture invalidates path policy consistency`() =
+        runTest {
+            val snapshot = runningRealitySnapshot()
+            val store = TestServiceStateStore(AppStatus.Running to Mode.VPN)
+            store.updateTelemetry(snapshot)
+            var fallbackPublished = false
+            val capabilityProbe =
+                RelayCapabilityProbe(
+                    tcpProbe =
+                        RelayTcpProbe { _, _ ->
+                            if (!fallbackPublished) {
+                                fallbackPublished = true
+                                store.updateTelemetry(snapshot.copy(relayFailed = true))
+                            }
+                            RelayTcpProbeResult(succeeded = true, statusCode = 204)
+                        },
+                    udpProbe = RelayUdpAssociateProbe { _, _ -> RelayUdpProbeResult.success() },
+                    payloadHealthProbe =
+                        RelayUdpPayloadHealthProbe { _, families, _ ->
+                            successfulPayloadHealth(families)
+                        },
+                )
+            val probe =
+                RemoteDeviceAcceptanceBaselineProbe(
+                    serviceStateStore = store,
+                    relayCapabilityProbe = capabilityProbe,
+                    underlayObservationProvider = TestUnderlayObservationProvider(DualStackUnderlay),
+                    deviceProvider = { Device },
+                    monotonicClock = { 1_000L },
+                    probeTargets = FixtureRemoteAcceptanceProbeTargets,
+                )
+
+            val report = probe.capture(snapshot)
+
+            assertEquals(RemoteDeviceAcceptanceStatus.Fail, report.step(StepPathPolicyConsistency).status)
+            assertEquals(ErrorPathPolicyInconsistent, report.step(StepPathPolicyConsistency).errorClass)
+        }
+
+    @Test
     fun `missing configured targets do not make hidden public probe calls`() =
         runTest {
             val requestedUrls = mutableListOf<String>()

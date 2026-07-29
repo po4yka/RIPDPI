@@ -66,6 +66,20 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         val probeEvidence = captureRelayEvidence(before)
         val after = captureContext(serviceStateStore.telemetry.value)
         val contextError = before.driftError(after)
+        val pathPolicyAssessment =
+            when {
+                before.relayFallbackObserved || after.relayFallbackObserved -> {
+                    AcceptancePathPolicyAssessment.Inconsistent
+                }
+
+                contextError != null -> {
+                    AcceptancePathPolicyAssessment.Inconclusive
+                }
+
+                else -> {
+                    before.pathPolicyAssessment()
+                }
+            }
         val underlay = before.underlayObservation.toRemoteDeviceAcceptanceUnderlay()
         return buildRemoteDeviceAcceptanceBaseline(
             device = deviceProvider(),
@@ -80,7 +94,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     payloadHealth = probeEvidence.payloadHealth.takeIf { contextError == null },
                     contextError = contextError ?: probeEvidence.contextError,
                     underlay = underlay,
-                    pathPolicyAssessment = before.pathPolicyAssessment(snapshot.relayFailed),
+                    pathPolicyAssessment = pathPolicyAssessment,
                     durationMs = (monotonicClock() - startedAt).coerceAtLeast(0L),
                     probePlan = before.probePlan,
                     awgRuntimeHealthy = before.awgRuntimeHealthy,
@@ -99,6 +113,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             awgRuntimeHealth = snapshot.awgTelemetry.health,
             awgSelected = selectedAwgEgressStatus(),
             serviceStartedAt = snapshot.serviceStartedAt,
+            relayFallbackObserved = snapshot.relayFailed,
             underlayObservation = underlayObservationProvider.capture(),
         )
     }
@@ -306,6 +321,7 @@ private data class AcceptanceCaptureContext(
     val awgRuntimeHealth: String,
     val awgSelected: Boolean?,
     val serviceStartedAt: Long?,
+    val relayFallbackObserved: Boolean,
     val underlayObservation: NetworkPathObservation,
 ) {
     val serviceRunning: Boolean
@@ -326,7 +342,7 @@ private data class AcceptanceCaptureContext(
     val endpoint: RelayProbeEndpoint?
         get() = parseLocalRelayEndpoint(relayListenerAddress)
 
-    fun pathPolicyAssessment(relayFallbackObserved: Boolean): AcceptancePathPolicyAssessment =
+    fun pathPolicyAssessment(): AcceptancePathPolicyAssessment =
         when {
             relayFallbackObserved -> {
                 AcceptancePathPolicyAssessment.Inconsistent
@@ -367,6 +383,7 @@ private data class AcceptanceCaptureContext(
                 awgRuntimeHealth != after.awgRuntimeHealth ||
                 awgSelected != after.awgSelected ||
                 serviceStartedAt != after.serviceStartedAt ||
+                relayFallbackObserved != after.relayFallbackObserved ||
                 underlayObservation.generation != after.underlayObservation.generation
         }
 }
