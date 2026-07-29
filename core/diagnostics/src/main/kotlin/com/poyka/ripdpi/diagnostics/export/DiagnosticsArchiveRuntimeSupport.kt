@@ -31,7 +31,7 @@ internal fun buildArchiveProvenance(
         DiagnosticsArchiveRuntimeProvenance(
             runtimeId = allEvents.latestCorrelation { it.runtimeId }?.let(::redactDiagnosticsFreeText),
             mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode },
-            policySignature = allEvents.latestCorrelation { it.policySignature }?.let(::redactDiagnosticsFreeText),
+            policySignature = archiveStableCorrelatorProjection(allEvents.latestCorrelation { it.policySignature }),
             fingerprintHash =
                 archiveFingerprintProjection(
                     selection.payload.telemetry
@@ -81,11 +81,17 @@ internal fun buildArchiveProvenance(
     )
 }
 
-internal fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveRuntimeConfigPayload {
+internal fun buildRuntimeConfig(
+    selection: DiagnosticsArchiveSelection,
+    redactor: DiagnosticsArchiveRedactor,
+): DiagnosticsArchiveRuntimeConfigPayload {
     val runtimeContextSelection = selectArchiveRuntimeContext(selection)
-    val context = runtimeContextSelection.context
-    val snapshot = selection.latestSnapshotModel
-    val telemetry = selection.payload.telemetry.firstOrNull()
+    val context = runtimeContextSelection.context?.let(redactor::redact)
+    val snapshot = selection.latestSnapshotModel?.let(redactor::redact)
+    val telemetry =
+        selection.payload.telemetry
+            .firstOrNull()
+            ?.redactForArchive()
     val serviceConfig = resolveServiceConfig(context?.service, selection.primarySession?.profileId)
     val resolverConfig = resolveResolverConfig(telemetry)
     val networkConfig = resolveNetworkConfig(snapshot)
@@ -138,13 +144,13 @@ internal fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): Diagnos
                 .takeIf { it.enableCmdSettings }
                 ?.cmdArgs
                 ?.takeIf { it.isNotBlank() }
-                ?.let(::sha256Hex),
-        effectiveStrategySignature = selection.effectiveStrategySignature,
+                ?.let { "redacted" },
+        effectiveStrategySignature = null,
         proxyRuntime = context?.service?.proxy?.redactedRuntimeAddresses(),
         tunnelRuntime = context?.service?.tunnel?.redactedRuntimeAddresses(),
         relayRuntime = context?.service?.relay?.redactedRuntimeAddresses(),
         warpRuntime = context?.service?.warp?.redactedRuntimeAddresses(),
-        connectivityAssessment = selection.homeCompositeOutcome?.connectivityAssessment,
+        connectivityAssessment = redactor.redact(selection.homeCompositeOutcome?.connectivityAssessment),
         runtimeContextSource = runtimeContextSelection.mixedVantageValue(runtimeContextSelection.source),
         runtimeContextCapturedAt = runtimeContextSelection.mixedVantageValue(runtimeContextSelection.capturedAt),
         networkSnapshotSource = runtimeContextSelection.mixedVantageValue(selection.archiveSnapshotSource()),

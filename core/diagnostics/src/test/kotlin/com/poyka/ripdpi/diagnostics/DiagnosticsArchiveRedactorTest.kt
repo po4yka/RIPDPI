@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsLogcat
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -205,6 +206,29 @@ class DiagnosticsArchiveRedactorTest {
     }
 
     @Test
+    fun `redactor projects probe detail key value pairs by declared sensitive key`() {
+        val entity =
+            ProbeResultEntity(
+                id = "probe-sensitive",
+                sessionId = "session-redact",
+                probeType = "custom",
+                target = "opaque-internal-target",
+                outcome = "failed",
+                detailJson =
+                    """[{"key":"host","value":"opaque-internal-host"},""" +
+                        """{"key":"selectedDnscryptPublicKey","value":"opaque-public-key"}]""",
+                createdAt = 3L,
+            )
+
+        val redacted = redactor.redact(entity)
+
+        assertEquals("redacted", redacted.target)
+        assertFalse(redacted.detailJson.contains("opaque-internal-host"))
+        assertFalse(redacted.detailJson.contains("opaque-public-key"))
+        assertTrue(redacted.detailJson.contains("redacted"))
+    }
+
+    @Test
     fun `redactor leaves unknown ssid unchanged`() {
         val modelWithUnknownSsid =
             NetworkSnapshotModel(
@@ -244,10 +268,15 @@ class DiagnosticsArchiveRedactorTest {
 
     @Test
     fun `standalone log redactor uses diagnostics archive logcat policy`() {
+        val privateKeyStart = listOf("-----BEGIN", "PRIVATE KEY-----").joinToString(" ")
+        val privateKeyEnd = listOf("-----END", "PRIVATE KEY-----").joinToString(" ")
         val raw =
             "Authorization: Bearer secret-token " +
                 "https://admin:hunter2@private.example.test/api?token=abc123 " +
-                "host=private.example.test addr=203.0.113.10 ssid=\"CoffeeShop\" bssid=11:22:33:44:55:66"
+                "host=private.example.test addr=203.0.113.10 ssid=\"CoffeeShop\" bssid=11:22:33:44:55:66\n" +
+                "resolver 2001:db8::53 dns.stable.example path=/data/user/0/com.example/private.txt\n" +
+                "operator=Sensitive Mobile Operator; carrier=Sensitive Carrier\n" +
+                "$privateKeyStart\nprivate-key-material\n$privateKeyEnd"
 
         val redacted = DiagnosticsLogRedactor().redactLogcat(raw)
 
@@ -259,6 +288,15 @@ class DiagnosticsArchiveRedactorTest {
         assertFalse("endpoint address must not appear verbatim", redacted.contains("203.0.113.10"))
         assertFalse("SSID value must not appear verbatim", redacted.contains("CoffeeShop"))
         assertFalse("BSSID must not appear verbatim", redacted.contains("11:22:33:44:55:66"))
+        assertFalse("IPv6 must not appear verbatim", redacted.contains("2001:db8::53"))
+        assertFalse("DNS name must not appear verbatim", redacted.contains("dns.stable.example"))
+        assertFalse(
+            "filesystem path must not appear verbatim",
+            redacted.contains("/data/user/0/com.example/private.txt"),
+        )
+        assertFalse("operator must not appear verbatim", redacted.contains("Sensitive Mobile Operator"))
+        assertFalse("carrier must not appear verbatim", redacted.contains("Sensitive Carrier"))
+        assertFalse("PEM body must not appear verbatim", redacted.contains("private-key-material"))
         assertTrue("redacted marker must be present", redacted.contains("redacted"))
     }
 }

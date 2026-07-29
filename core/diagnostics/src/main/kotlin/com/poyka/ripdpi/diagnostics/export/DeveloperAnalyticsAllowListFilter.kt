@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.export
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -10,30 +11,53 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/**
- * Enforces the developer-analytics.json privacy allow-list before the payload is
- * written into a diagnostics archive.
- *
- * Filtering operates on the serialized [JsonObject] so that disallowed fields are
- * completely absent from the output — not merely empty. This is required because
- * kotlinx.serialization always encodes non-nullable list/map fields even when empty.
- *
- * Allowed fields are those disclosed on DataTransparencyScreen.
- * Any field added to [DeveloperAnalyticsPayload] that is NOT in the disclosure surface
- * must be suppressed here to keep the archive within the privacy boundary.
- *
- * Disallowed fields (removed from output):
- * - `pcapManifest` — raw packet-capture metadata
- * - `breadcrumbs` — internal event trail
- * - `reproductionContext.nativeLibDigests` — binary hashes (key removed from nested object)
- * - `nativeRuntime.recentLogTail` and `nativeRuntime.lastPanicBacktrace` — crash and log data
- * - `effectiveConfigDiff` entries whose `key` is `rootModeEnabled` or `enableCmdSettings`
- * - all network-snapshot fields outside the explicit coarse-metadata allow-list
- */
+/** Builds the disclosed developer-analytics surface from nested positive projections. */
 internal object DeveloperAnalyticsAllowListFilter {
-    private val deniedTopLevelKeys = setOf("pcapManifest", "breadcrumbs")
-    private val deniedConfigDiffKeys = setOf("rootModeEnabled", "enableCmdSettings")
-    private val allowedNetworkSnapshotKeys =
+    private val topLevelKeys =
+        setOf(
+            "schemaVersion",
+            "generatedAtIsoUtc",
+            "stageTimings",
+            "failureEnvelopes",
+            "reproductionContext",
+            "nativeRuntime",
+            "effectiveConfigDiff",
+            "networkSnapshots",
+            "deviceState",
+            "baselineDelta",
+            "notes",
+        )
+    private val stageTimingKeys =
+        setOf("stageKey", "wallClockMs", "cpuMs", "dnsMs", "tcpHandshakeMs", "tlsHandshakeMs", "ttfbMs", "notes")
+    private val failureEnvelopeKeys =
+        setOf("stageKey", "stageLabel", "headline", "summary", "tcpErrors", "tlsErrors", "dnsErrors", "httpErrors")
+    private val reproductionKeys =
+        setOf(
+            "appVersionName",
+            "appVersionCode",
+            "buildCommit",
+            "buildFlavor",
+            "buildType",
+            "buildTimestampIsoUtc",
+            "nativeLibVersion",
+            "kotlinVersion",
+            "rustToolchain",
+            "ndkVersion",
+            "cargoProfile",
+        )
+    private val nativeRuntimeKeys = setOf("openFileDescriptors", "threadCount", "virtualMemoryKb", "residentSetKb")
+    private val allowedConfigKeys =
+        setOf(
+            "dnsMode",
+            "fullTunnelMode",
+            "entropyMode",
+            "tlsFingerprintProfile",
+            "webrtcProtectionEnabled",
+            "strategyEvolution",
+            "proxyPort",
+        )
+    private val configEntryKeys = setOf("key", "defaultValue", "actualValue")
+    private val networkSnapshotKeys =
         setOf(
             "stageKey",
             "capturedAtIsoUtc",
@@ -48,76 +72,142 @@ internal object DeveloperAnalyticsAllowListFilter {
             "vpnActive",
             "mtu",
         )
+    private val deviceStateKeys =
+        setOf(
+            "deviceManufacturer",
+            "deviceModel",
+            "androidSdk",
+            "androidSecurityPatch",
+            "abi",
+            "locale",
+            "timeZone",
+            "batteryPercent",
+            "batteryCharging",
+            "thermalStatus",
+            "dozeModeActive",
+            "powerSaveActive",
+            "appStandbyBucket",
+            "availableMemoryMb",
+            "totalMemoryMb",
+            "lowMemory",
+        )
+    private val baselineDeltaKeys = setOf("baselineClass", "baselineVersion", "comparisons")
+    private val baselineMetricKeys = setOf("metric", "userValue", "baselineMedian", "verdict")
 
     fun filterToJson(
         payload: DeveloperAnalyticsPayload,
         json: Json,
     ): JsonObject {
-        val root =
-            json
-                .encodeToJsonElement(DeveloperAnalyticsPayload.serializer(), payload)
-                .jsonObject
-                .toMutableMap()
-
-        // Remove denied top-level keys entirely
-        for (key in deniedTopLevelKeys) {
-            root.remove(key)
-        }
-
-        // Strip nativeLibDigests from reproductionContext
-        root["reproductionContext"]?.jsonObject?.let { repro ->
-            root["reproductionContext"] = JsonObject(repro - "nativeLibDigests")
-        }
-
-        // Remove raw log content and null out the panic backtrace inside nativeRuntime.
-        root["nativeRuntime"]?.jsonObject?.let { runtime ->
-            root["nativeRuntime"] =
-                JsonObject(
-                    runtime
-                        .toMutableMap()
-                        .apply {
-                            remove("recentLogTail")
-                            this["lastPanicBacktrace"] = JsonNull
-                        },
-                )
-        }
-
-        // Remove denied-key entries from effectiveConfigDiff array
-        root["effectiveConfigDiff"]?.jsonArray?.let { array ->
-            root["effectiveConfigDiff"] =
-                JsonArray(
-                    array.filter { element ->
-                        val entryKey =
-                            runCatching {
-                                element.jsonObject["key"]?.jsonPrimitive?.content
-                            }.getOrNull()
-                        entryKey !in deniedConfigDiffKeys
-                    },
-                )
-        }
-
-        root["networkSnapshots"]?.jsonArray?.let { array ->
-            root["networkSnapshots"] =
-                JsonArray(
-                    array.map { element ->
-                        val source = element.jsonObject
-                        val projected =
-                            source
-                                .filterKeys(allowedNetworkSnapshotKeys::contains)
-                                .toMutableMap()
-                        source["dnsServers"]?.jsonArray?.let { servers ->
-                            projected["dnsServers"] =
-                                if (servers.isEmpty()) {
-                                    JsonArray(emptyList())
-                                } else {
-                                    JsonArray(listOf(JsonPrimitive("redacted(${servers.size})")))
-                                }
-                        }
-                        JsonObject(projected)
-                    },
-                )
-        }
-
-        return JsonObject(root)
+        val source = json.encodeToJsonElement(DeveloperAnalyticsPayload.serializer(), payload).jsonObject
+        return JsonObject(
+            buildMap {
+                topLevelKeys.forEach { key ->
+                    val value = source[key] ?: return@forEach
+                    put(key, projectTopLevel(key, value))
+                }
+            },
+        )
     }
+
+    private fun projectTopLevel(
+        key: String,
+        value: JsonElement,
+    ): JsonElement =
+        when (key) {
+            "stageTimings" -> projectObjectArray(value, stageTimingKeys)
+            "failureEnvelopes" -> projectObjectArray(value, failureEnvelopeKeys)
+            "reproductionContext" -> projectNullableObject(value, reproductionKeys)
+            "nativeRuntime" -> projectNullableObject(value, nativeRuntimeKeys)
+            "effectiveConfigDiff" -> projectConfigDiff(value)
+            "networkSnapshots" -> projectNetworkSnapshots(value)
+            "deviceState" -> projectNullableObject(value, deviceStateKeys)
+            "baselineDelta" -> projectBaselineDelta(value)
+            else -> redactStrings(value)
+        }
+
+    private fun projectConfigDiff(value: JsonElement): JsonElement =
+        JsonArray(
+            value.jsonArray.mapNotNull { element ->
+                val source = element as? JsonObject ?: return@mapNotNull null
+                val key = source["key"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                if (key !in allowedConfigKeys) return@mapNotNull null
+                projectObject(source, configEntryKeys)
+            },
+        )
+
+    private fun projectNetworkSnapshots(value: JsonElement): JsonElement =
+        JsonArray(
+            value.jsonArray.mapNotNull { element ->
+                val source = element as? JsonObject ?: return@mapNotNull null
+                val projected = projectObject(source, networkSnapshotKeys).toMutableMap()
+                source["dnsServers"]?.jsonArray?.let { servers ->
+                    projected["dnsServers"] =
+                        if (servers.isEmpty()) {
+                            JsonArray(emptyList())
+                        } else {
+                            JsonArray(listOf(JsonPrimitive("redacted(${servers.size})")))
+                        }
+                }
+                JsonObject(projected)
+            },
+        )
+
+    private fun projectBaselineDelta(value: JsonElement): JsonElement =
+        when (value) {
+            is JsonNull -> {
+                value
+            }
+
+            is JsonObject -> {
+                val projected = projectObject(value, baselineDeltaKeys).toMutableMap()
+                value["comparisons"]?.let { comparisons ->
+                    projected["comparisons"] = projectObjectArray(comparisons, baselineMetricKeys)
+                }
+                JsonObject(projected)
+            }
+
+            else -> {
+                JsonNull
+            }
+        }
+
+    private fun projectNullableObject(
+        value: JsonElement,
+        keys: Set<String>,
+    ): JsonElement = if (value is JsonNull) value else projectObject(value.jsonObject, keys)
+
+    private fun projectObjectArray(
+        value: JsonElement,
+        keys: Set<String>,
+    ): JsonArray =
+        JsonArray(
+            value.jsonArray.mapNotNull { element ->
+                (element as? JsonObject)?.let { projectObject(it, keys) }
+            },
+        )
+
+    private fun projectObject(
+        source: JsonObject,
+        keys: Set<String>,
+    ): JsonObject =
+        JsonObject(
+            buildMap {
+                keys.forEach { key -> source[key]?.let { value -> put(key, redactStrings(value)) } }
+            },
+        )
+
+    private fun redactStrings(value: JsonElement): JsonElement =
+        when (value) {
+            is JsonObject -> {
+                JsonObject(value.mapValues { (_, nested) -> redactStrings(nested) })
+            }
+
+            is JsonArray -> {
+                JsonArray(value.map(::redactStrings))
+            }
+
+            is JsonPrimitive -> {
+                if (value.isString) JsonPrimitive(redactDiagnosticsArchiveText(value.content)) else value
+            }
+        }
 }

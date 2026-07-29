@@ -86,7 +86,7 @@ class ReplayArchiveEntryBuilderTest {
     }
 
     @Test
-    fun build_preservesRequestFields() {
+    fun build_redactsRequestDomainAndPreservesExecutionFields() {
         val request = ReplayProbeRequest(domain = "x.test", strategyId = "xtls", timeoutMs = 7_500)
         val result =
             ReplayProbeResult(
@@ -104,7 +104,7 @@ class ReplayArchiveEntryBuilderTest {
                 .jsonArray[0]
                 .jsonObject["request"]!!
                 .jsonObject
-        assertEquals("x.test", replay["domain"]!!.jsonPrimitive.content)
+        assertEquals("redacted", replay["domain"]!!.jsonPrimitive.content)
         assertEquals("xtls", replay["strategyId"]!!.jsonPrimitive.content)
         assertEquals(7_500L, replay["timeoutMs"]!!.jsonPrimitive.content.toLong())
     }

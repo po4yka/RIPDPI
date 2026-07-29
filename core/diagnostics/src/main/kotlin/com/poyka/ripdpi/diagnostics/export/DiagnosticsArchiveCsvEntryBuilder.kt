@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 
 internal class DiagnosticsArchiveCsvEntryBuilder(
     private val json: Json,
+    private val redactor: DiagnosticsArchiveRedactor,
 ) {
     internal fun buildCsvEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> =
         buildList {
@@ -37,17 +38,12 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
                     ),
                 )
             }
-            if (selection.request.includePcap && selection.appSettings.rootModeEnabled) {
-                selection.pcapFiles.forEach { pcapFile ->
-                    add(DiagnosticsArchiveEntry(name = pcapFile.name, bytes = pcapFile.readBytes()))
-                }
-            }
         }
 
     internal fun buildProbeResultsCsv(results: List<ProbeResultEntity>): String =
         buildString {
             appendLine("sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson")
-            results.forEach { result ->
+            results.map(redactor::redact).forEach { result ->
                 appendLine(
                     listOf(
                         csvField(result.sessionId),

@@ -42,6 +42,9 @@ internal class DefaultDiagnosticsArchiveExporter
 
         override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive =
             archiveMutex.withLock {
+                require(!request.includePcap) {
+                    "PCAP cannot be embedded in a redacted diagnostics archive; export it as a separate raw artifact"
+                }
                 reconcileCache(reservedSlots = 1)
                 val selection = buildArchiveSelection(request)
                 val target = fileStore.createTarget()
@@ -198,12 +201,7 @@ internal class DefaultDiagnosticsArchiveExporter
                             sourceLoader.getStageTelemetry(session, connectionSessionIds)
                         },
                     )
-            val pcapFiles =
-                if (request.includePcap && sourceData.appSettings.rootModeEnabled) {
-                    fileStore.getRecentPcapFiles()
-                } else {
-                    emptyList()
-                }
+            val pcapFiles = emptyList<java.io.File>()
             val missingCompletedStageWarnings =
                 selection.compositeStages
                     .filter { stage -> stage.stageSummary.status.name == "COMPLETED" && stage.session == null }
@@ -218,7 +216,6 @@ internal class DefaultDiagnosticsArchiveExporter
                         composite = selection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE,
                         compositeStageKeys = selection.compositeStages.map { it.stageSummary.stageKey },
                         replayIncluded = selection.replayResults.isNotEmpty(),
-                        pcapFileNames = pcapFiles.map { it.name },
                     ),
             )
         }

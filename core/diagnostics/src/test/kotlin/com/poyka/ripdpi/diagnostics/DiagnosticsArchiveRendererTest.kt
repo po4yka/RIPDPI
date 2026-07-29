@@ -555,6 +555,56 @@ class DiagnosticsArchiveRendererTest {
 
     @Test
     fun `renderer redacts sensitive ip ssid and bssid values from archive byte buffers`() {
+        val selection = buildSensitiveRendererSelection()
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-redact", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-redact.zip",
+                createdAt = 46L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val hostileValues =
+            listOf(
+                "203.0.113.99",
+                "AS64501",
+                "203.0.113.53",
+                "192.0.2.42",
+                "SensitiveNetwork",
+                "AA:BB:CC:DD:EE:FF",
+                "192.0.2.1",
+                "fp-render",
+                "blocked.example",
+                "telegram.org",
+                "signal.org",
+                "discord.com",
+                "probe.private.example",
+                "detail.private.example",
+                "2001:db8::44",
+                "/data/private/trace",
+                "Sensitive Carrier",
+                "198.51.100.77",
+                "host-policy.private.example",
+                "opaque-resolver-endpoint",
+                "opaque-bootstrap-ip",
+                "opaque-resolver-host",
+                "opaque-tls-server-name",
+                "opaque-doh-url",
+                "opaque-dnscrypt-public-key",
+            )
+
+        entries.values.forEach { entry ->
+            val content = entry.bytes.decodeToString()
+            hostileValues.forEach { hostileValue ->
+                assertFalse(
+                    "$hostileValue must not appear in ${entry.name}",
+                    content.contains(hostileValue),
+                )
+            }
+        }
+    }
+
+    private fun buildSensitiveRendererSelection(): DiagnosticsArchiveSelection {
         val sensitiveSnapshot =
             NetworkSnapshotModel(
                 transport = "wifi",
@@ -577,45 +627,38 @@ class DiagnosticsArchiveRendererTest {
                     ),
                 capturedAt = 46L,
             )
-        val selection =
-            buildFullRendererSelection().copy(
-                primarySnapshots =
-                    listOf(
-                        NetworkSnapshotEntity(
-                            id = "snap-sensitive",
-                            sessionId = "session-1",
-                            snapshotKind = "post_scan",
-                            payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), sensitiveSnapshot),
-                            capturedAt = 46L,
-                        ),
+        val base = buildFullRendererSelection()
+        val hostileResult =
+            rendererProbeResult(sessionId = "session-1").copy(
+                target = "probe.private.example",
+                detailJson =
+                    """{"target":"detail.private.example","address":"2001:db8::44","path":"/data/private/trace"}""",
+            )
+        val hostileEvent =
+            rendererNativeEvent(id = "hostile-event", sessionId = "session-1").copy(
+                message = "carrier=Sensitive Carrier; resolver=198.51.100.77",
+                policySignature = "host-policy.private.example",
+            )
+        return base.copy(
+            payload =
+                base.payload.copy(
+                    results = listOf(hostileResult),
+                    sessionEvents = listOf(hostileEvent),
+                ),
+            primaryResults = listOf(hostileResult),
+            primaryEvents = listOf(hostileEvent),
+            primarySnapshots =
+                listOf(
+                    NetworkSnapshotEntity(
+                        id = "snap-sensitive",
+                        sessionId = "session-1",
+                        snapshotKind = "post_scan",
+                        payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), sensitiveSnapshot),
+                        capturedAt = 46L,
                     ),
-                latestSnapshotModel = sensitiveSnapshot,
-            )
-        val target =
-            DiagnosticsArchiveTarget(
-                file = Files.createTempFile("archive-redact", ".zip").toFile(),
-                fileName = "ripdpi-diagnostics-redact.zip",
-                createdAt = 46L,
-            )
-
-        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
-        val allBytes = entries.values.joinToString("") { it.bytes.decodeToString() }
-
-        listOf(
-            "203.0.113.99",
-            "AS64501",
-            "203.0.113.53",
-            "192.0.2.42",
-            "SensitiveNetwork",
-            "AA:BB:CC:DD:EE:FF",
-            "192.0.2.1",
-            "fp-render",
-        ).forEach { hostileValue ->
-            assertFalse(
-                "$hostileValue must not appear in any archive entry",
-                allBytes.contains(hostileValue),
-            )
-        }
+                ),
+            latestSnapshotModel = sensitiveSnapshot,
+        )
     }
 
     @Test
@@ -1121,6 +1164,19 @@ class DiagnosticsArchiveRendererTest {
                         details = listOf(ProbeDetail("attempts", "baseline:fail|fallback:ok")),
                     ),
                 ),
+            resolverRecommendation =
+                ResolverRecommendation(
+                    triggerOutcome = "dns_blocked",
+                    selectedResolverId = "fixture",
+                    selectedProtocol = "doh",
+                    selectedEndpoint = "opaque-resolver-endpoint",
+                    selectedBootstrapIps = listOf("opaque-bootstrap-ip"),
+                    selectedHost = "opaque-resolver-host",
+                    selectedTlsServerName = "opaque-tls-server-name",
+                    selectedDohUrl = "opaque-doh-url",
+                    selectedDnscryptPublicKey = "opaque-dnscrypt-public-key",
+                    rationale = "fallback",
+                ),
             diagnoses =
                 listOf(
                     Diagnosis(
@@ -1197,6 +1253,11 @@ class DiagnosticsArchiveRendererTest {
                             dnsStrategyLabel = "AdGuard",
                             rationale = "best path",
                             recommendedProxyConfigJson = "{}",
+                            strategySignature =
+                                deriveBypassStrategySignature(
+                                    rendererAppSettings(),
+                                    routeGroup = "private-route",
+                                ),
                             tlsPathSuppressed = true,
                             tlsPathSuppressionReason = "proxy_mode_browser_native_tls_suppressed",
                             tlsPathSuppressionSummary =

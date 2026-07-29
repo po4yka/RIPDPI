@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.ObservationFact
@@ -26,8 +27,14 @@ private val KnownRuntimeCapabilityIds =
         "network_binding",
     )
 
-internal fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveAnalysisPayload {
-    val telemetry = selection.payload.telemetry.sortedBy { it.createdAt }
+internal fun buildAnalysis(
+    selection: DiagnosticsArchiveSelection,
+    redactor: DiagnosticsArchiveRedactor,
+): DiagnosticsArchiveAnalysisPayload {
+    val telemetry =
+        selection.payload.telemetry
+            .map { it.redactForArchive() }
+            .sortedBy { it.createdAt }
     val failureSamples =
         telemetry.filter {
             !it.failureClass.isNullOrBlank() ||
@@ -39,70 +46,79 @@ internal fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsA
             .filter {
                 it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
             }.sortedBy { it.createdAt }
-    val latestTelemetry = selection.payload.telemetry.firstOrNull()
-    val strategyProbe = selection.primaryReport?.strategyProbeReport
-    val observations = selection.primaryReport?.observations.orEmpty()
+    val latestTelemetry =
+        selection.payload.telemetry
+            .firstOrNull()
+            ?.redactForArchive()
+    val projectedReport = redactor.redact(selection.primaryReport)
+    val strategyProbe = projectedReport?.strategyProbeReport
+    val observations = projectedReport?.observations.orEmpty()
     val measurementSnapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry)
     return DiagnosticsArchiveAnalysisPayload(
-        failureEnvelope =
-            DiagnosticsArchiveFailureEnvelope(
-                firstFailureTimestamp =
-                    listOfNotNull(
-                        failureSamples.firstOrNull()?.createdAt,
-                        failureEvents.firstOrNull()?.createdAt,
-                    ).minOrNull(),
-                lastFailureTimestamp =
-                    listOfNotNull(
-                        failureSamples.lastOrNull()?.createdAt,
-                        failureEvents.lastOrNull()?.createdAt,
-                    ).maxOrNull(),
-                latestFailureClass =
-                    latestTelemetry?.failureClass
-                        ?: latestTelemetry?.lastFailureClass
-                        ?: failureEvents.lastOrNull()?.message,
-                lastFallbackAction = latestTelemetry?.lastFallbackAction,
-                retryCounters =
-                    DiagnosticsArchiveRetryCounters(
-                        proxyRouteRetryCount = latestTelemetry?.proxyRouteRetryCount ?: 0,
-                        tunnelRecoveryRetryCount = latestTelemetry?.tunnelRecoveryRetryCount ?: 0,
-                        totalRetryCount = latestTelemetry?.retryCount() ?: 0,
-                    ),
-                failureClassTransitions =
-                    (
-                        failureSamples.flatMap { sample ->
-                            listOfNotNull(sample.failureClass, sample.lastFailureClass)
-                        } +
-                            failureEvents.map { event -> "native:${event.source}:${event.message}" }
-                    ).distinctConsecutive(),
-            ),
-        strategyExecutionDetail =
-            DiagnosticsArchiveStrategyExecutionDetail(
-                suiteId = strategyProbe?.suiteId,
-                completionKind = strategyProbe?.completionKind?.name,
-                tcpCandidates =
-                    strategyProbe
-                        ?.tcpCandidates
-                        ?.map { candidate ->
-                            candidate.toExecutionDetail(
-                                lane = "tcp",
-                                observations = observations,
-                            )
-                        }.orEmpty(),
-                quicCandidates =
-                    strategyProbe
-                        ?.quicCandidates
-                        ?.map { candidate ->
-                            candidate.toExecutionDetail(
-                                lane = "quic",
-                                observations = observations,
-                            )
-                        }.orEmpty(),
-            ),
-        recommendationTrace = buildRecommendationTrace(selection),
+        failureEnvelope = buildFailureEnvelope(failureSamples, failureEvents, latestTelemetry),
+        strategyExecutionDetail = buildStrategyExecutionDetail(strategyProbe, observations),
+        recommendationTrace = buildRecommendationTrace(selection, projectedReport),
         measurementSnapshot = measurementSnapshot,
-        connectivityAssessment = selection.homeCompositeOutcome?.connectivityAssessment,
+        connectivityAssessment = redactor.redact(selection.homeCompositeOutcome?.connectivityAssessment),
     )
 }
+
+private fun buildFailureEnvelope(
+    failureSamples: List<TelemetrySampleEntity>,
+    failureEvents: List<NativeSessionEventEntity>,
+    latestTelemetry: TelemetrySampleEntity?,
+): DiagnosticsArchiveFailureEnvelope =
+    DiagnosticsArchiveFailureEnvelope(
+        firstFailureTimestamp =
+            listOfNotNull(
+                failureSamples.firstOrNull()?.createdAt,
+                failureEvents.firstOrNull()?.createdAt,
+            ).minOrNull(),
+        lastFailureTimestamp =
+            listOfNotNull(
+                failureSamples.lastOrNull()?.createdAt,
+                failureEvents.lastOrNull()?.createdAt,
+            ).maxOrNull(),
+        latestFailureClass =
+            latestTelemetry?.failureClass
+                ?: latestTelemetry?.lastFailureClass
+                ?: failureEvents.lastOrNull()?.message?.let(::redactDiagnosticsArchiveText),
+        lastFallbackAction = latestTelemetry?.lastFallbackAction,
+        retryCounters =
+            DiagnosticsArchiveRetryCounters(
+                proxyRouteRetryCount = latestTelemetry?.proxyRouteRetryCount ?: 0,
+                tunnelRecoveryRetryCount = latestTelemetry?.tunnelRecoveryRetryCount ?: 0,
+                totalRetryCount = latestTelemetry?.retryCount() ?: 0,
+            ),
+        failureClassTransitions =
+            (
+                failureSamples.flatMap { sample ->
+                    listOfNotNull(sample.failureClass, sample.lastFailureClass)
+                } +
+                    failureEvents.map { event ->
+                        "native:${event.source}:${redactDiagnosticsArchiveText(event.message)}"
+                    }
+            ).distinctConsecutive(),
+    )
+
+private fun buildStrategyExecutionDetail(
+    strategyProbe: StrategyProbeReport?,
+    observations: List<ObservationFact>,
+): DiagnosticsArchiveStrategyExecutionDetail =
+    DiagnosticsArchiveStrategyExecutionDetail(
+        suiteId = strategyProbe?.suiteId,
+        completionKind = strategyProbe?.completionKind?.name,
+        tcpCandidates =
+            strategyProbe
+                ?.tcpCandidates
+                ?.map { candidate -> candidate.toExecutionDetail(lane = "tcp", observations = observations) }
+                .orEmpty(),
+        quicCandidates =
+            strategyProbe
+                ?.quicCandidates
+                ?.map { candidate -> candidate.toExecutionDetail(lane = "quic", observations = observations) }
+                .orEmpty(),
+    )
 
 internal fun buildMeasurementSnapshot(
     selection: DiagnosticsArchiveSelection,
@@ -371,15 +387,27 @@ private fun buildRecommendationEvidence(
 ): List<String> {
     val recommendation = strategyProbe?.recommendation
     return buildList {
-        recommendation?.rationale?.takeIf(String::isNotBlank)?.let { add(it) }
-        resolver?.rationale?.takeIf(String::isNotBlank)?.let { add("resolver:$it") }
+        recommendation?.rationale?.takeIf(String::isNotBlank)?.let {
+            add(redactDiagnosticsArchiveText(it))
+        }
+        resolver?.rationale?.takeIf(String::isNotBlank)?.let {
+            add("resolver:${redactDiagnosticsArchiveText(it)}")
+        }
         assessment
             ?.confidence
             ?.rationale
             ?.takeIf(String::isNotBlank)
-            ?.let { add(it) }
-        addAll(assessment?.confidence?.warnings.orEmpty())
-        strategyProbe?.targetSelection?.cohortLabel?.let { add("targetCohort=$it") }
+            ?.let { add(redactDiagnosticsArchiveText(it)) }
+        addAll(
+            assessment
+                ?.confidence
+                ?.warnings
+                .orEmpty()
+                .map(::redactDiagnosticsArchiveText),
+        )
+        strategyProbe?.targetSelection?.cohortLabel?.let {
+            add("targetCohort=${redactDiagnosticsArchiveText(it)}")
+        }
         recommendation?.tcpCandidateLabel?.let { add("tcpWinner=$it") }
         recommendation?.quicCandidateLabel?.let { add("quicWinner=$it") }
         val allTcpCandidatesFailed =
@@ -393,13 +421,16 @@ private fun buildRecommendationEvidence(
                     it.probeType == "tcp_fat_header" &&
                         it.outcome in setOf("tcp_reset", "tcp_16kb_blocked")
                 }.map { it.target }
-        if (blockedBootstraps.isNotEmpty()) add("blocked_bootstrap_ips:${blockedBootstraps.joinToString(",")}")
+        if (blockedBootstraps.isNotEmpty()) add("blocked_bootstrap_count:${blockedBootstraps.size}")
     }
 }
 
-private fun buildRecommendationTrace(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveRecommendationTrace? {
-    val strategyProbe = selection.primaryReport?.strategyProbeReport
-    val resolver = selection.primaryReport?.resolverRecommendation
+private fun buildRecommendationTrace(
+    selection: DiagnosticsArchiveSelection,
+    projectedReport: com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire?,
+): DiagnosticsArchiveRecommendationTrace? {
+    val strategyProbe = projectedReport?.strategyProbeReport
+    val resolver = projectedReport?.resolverRecommendation
     if (strategyProbe == null && resolver == null) return null
     val assessment = strategyProbe?.auditAssessment
     val recommendation = strategyProbe?.recommendation

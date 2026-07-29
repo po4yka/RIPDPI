@@ -15,7 +15,7 @@ internal fun buildStageIndexEntries(selection: DiagnosticsArchiveSelection): Lis
 private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry(): DiagnosticsArchiveStageIndexEntry =
     DiagnosticsArchiveStageIndexEntry(
         stageKey = stageSummary.stageKey,
-        stageLabel = stageSummary.stageLabel,
+        stageLabel = redactDiagnosticsArchiveText(stageSummary.stageLabel),
         profileId = stageSummary.profileId,
         pathMode = stageSummary.pathMode.name,
         sessionId = stageSummary.sessionId,
@@ -25,8 +25,8 @@ private fun DiagnosticsArchiveCompositeStageSelection.toArchiveStageIndexEntry()
             } else {
                 stageSummary.status.name.lowercase()
             },
-        headline = stageSummary.headline,
-        summary = stageSummary.summary,
+        headline = redactDiagnosticsArchiveText(stageSummary.headline),
+        summary = redactDiagnosticsArchiveText(stageSummary.summary),
         recommendationContributor = stageSummary.recommendationContributor,
         sourceSnapshotCount = sourceSnapshotCount,
         includedSnapshotCount = snapshots.size,
@@ -78,7 +78,7 @@ private fun buildTelemetryCsv(
                 "resolverEndpoint,resolverLatencyMs,dnsFailuresTotal,resolverFallbackActive," +
                 "resolverFallbackReason,networkHandoverClass,txPackets,txBytes,rxPackets,rxBytes,relayProtocolKind",
         )
-        payload.telemetry.forEach { sample ->
+        payload.telemetry.map { it.redactForArchive() }.forEach { sample ->
             appendLine(
                 listOf(
                     sample.createdAt,
@@ -161,7 +161,7 @@ internal fun buildNativeEventsCsv(
                     csvField(event.createdAt),
                     csvField(event.runtimeId?.let(::redactDiagnosticsFreeText).orEmpty()),
                     csvField(event.mode.orEmpty()),
-                    csvField(event.policySignature?.let(::redactDiagnosticsFreeText).orEmpty()),
+                    csvField(archiveStableCorrelatorProjection(event.policySignature).orEmpty()),
                     csvField(archiveFingerprintProjection(event.fingerprintHash).orEmpty()),
                     csvField(event.subsystem.orEmpty()),
                 ).joinToString(","),
@@ -178,7 +178,7 @@ internal fun buildNativeEventsCsv(
                     csvField(event.createdAt),
                     csvField(event.runtimeId?.let(::redactDiagnosticsFreeText).orEmpty()),
                     csvField(event.mode.orEmpty()),
-                    csvField(event.policySignature?.let(::redactDiagnosticsFreeText).orEmpty()),
+                    csvField(archiveStableCorrelatorProjection(event.policySignature).orEmpty()),
                     csvField(archiveFingerprintProjection(event.fingerprintHash).orEmpty()),
                     csvField(event.subsystem.orEmpty()),
                 ).joinToString(","),

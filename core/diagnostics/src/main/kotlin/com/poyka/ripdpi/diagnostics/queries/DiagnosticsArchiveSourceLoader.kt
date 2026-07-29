@@ -66,8 +66,8 @@ internal class DiagnosticsArchiveSourceLoader
                 )
             val collectionWarnings =
                 buildList {
-                    logcatCapture.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }?.let { message ->
-                        add("logcat_capture_failed:$message")
+                    logcatCapture.exceptionOrNull()?.let { error ->
+                        add("logcat_capture_failed:${error::class.simpleName ?: "unknown"}")
                     }
                     if (telemetry.size > DiagnosticsArchiveFormat.telemetryLimit) {
                         add("telemetry_samples_truncated_at_${DiagnosticsArchiveFormat.telemetryLimit}")

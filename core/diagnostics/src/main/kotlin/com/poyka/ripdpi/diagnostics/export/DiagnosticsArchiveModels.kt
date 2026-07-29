@@ -58,7 +58,7 @@ internal object DiagnosticsArchiveFormat {
     // Downstream readers ignore unknown files / unknown payload fields. Bump
     // to 5 only when an existing contract changes shape.
     const val schemaVersion = 4
-    const val privacyMode = "split_output"
+    const val privacyMode = "redacted_v1"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
     const val maxArchiveAgeMs = 3L * 24L * 60L * 60L * 1000L
@@ -73,7 +73,6 @@ internal object DiagnosticsArchiveFormat {
         composite: Boolean = false,
         compositeStageKeys: List<String> = emptyList(),
         replayIncluded: Boolean = false,
-        pcapFileNames: List<String> = emptyList(),
     ): List<String> =
         buildList {
             add("summary.txt")
@@ -111,7 +110,6 @@ internal object DiagnosticsArchiveFormat {
             if (fileLogIncluded) {
                 add("app-log.txt")
             }
-            addAll(pcapFileNames)
             if (replayIncluded) {
                 add("replay-results.json")
             }

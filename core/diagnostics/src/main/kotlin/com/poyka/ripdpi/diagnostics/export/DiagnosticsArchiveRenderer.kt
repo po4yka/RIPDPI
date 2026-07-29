@@ -19,7 +19,7 @@ class DiagnosticsArchiveRenderer
         private val json: Json,
     ) {
         private val jsonEntryBuilder = DiagnosticsArchiveJsonEntryBuilder(redactor, projector, json)
-        private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json)
+        private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
 
         internal fun render(
             target: DiagnosticsArchiveTarget,

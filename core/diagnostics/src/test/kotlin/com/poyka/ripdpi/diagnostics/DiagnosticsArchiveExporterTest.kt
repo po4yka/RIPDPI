@@ -773,7 +773,7 @@ class DiagnosticsArchiveExporterTest {
         }
 
     @Test
-    fun `createArchive includes pcap only with explicit advanced opt-in`() =
+    fun `createArchive rejects pcap embedding in redacted archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -788,33 +788,70 @@ class DiagnosticsArchiveExporterTest {
             seedPcapFile(context)
             val exporter = createArchiveExporter(stores, context = context, rootModeEnabled = true)
 
+            val failure =
+                runCatching {
+                    exporter.createArchive(
+                        DiagnosticsArchiveRequest(
+                            requestedSessionId = session.id,
+                            reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                            requestedAt = 104L,
+                            includePcap = true,
+                        ),
+                    )
+                }.exceptionOrNull()
+
+            assertNotNull(failure)
+            assertTrue(failure?.message.orEmpty().contains("separate raw artifact"))
+            assertTrue(stores.exportsState.value.isEmpty())
+        }
+
+    @Test
+    fun `createArchive never exposes logcat collection exception text`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-logcat-failure",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Logcat failure",
+                )
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+            val exporter =
+                createArchiveExporterForTest(
+                    stores = stores,
+                    context = context,
+                    rootModeEnabled = false,
+                    compositeRunService = compositeRunService,
+                    json = json,
+                    logcatSnapshotCollector =
+                        FakeLogcatSnapshotCollector(
+                            failure = IllegalStateException("secret-logcat.example 203.0.113.201"),
+                        ),
+                )
+
             val archive =
                 exporter.createArchive(
                     DiagnosticsArchiveRequest(
                         requestedSessionId = session.id,
                         reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
-                        requestedAt = 104L,
-                        includePcap = true,
+                        requestedAt = 105L,
                     ),
                 )
 
             ZipFile(archive.absolutePath).use { zip ->
-                val pcapEntries =
+                val content =
                     zip
                         .entries()
                         .asSequence()
-                        .filter { it.name.endsWith(".pcap") }
-                        .toList()
-                assertTrue(
-                    "Expected at least one pcap entry with root mode and explicit includePcap",
-                    pcapEntries.isNotEmpty(),
-                )
-                val manifest =
-                    json.decodeFromString(
-                        DiagnosticsArchiveManifest.serializer(),
-                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
-                    )
-                assertTrue(manifest.includedFiles.containsAll(pcapEntries.map { it.name }))
+                        .filterNot { it.isDirectory }
+                        .joinToString("\n") { entry ->
+                            zip.getInputStream(entry).bufferedReader().readText()
+                        }
+                assertTrue(content.contains("logcat_capture_failed:IllegalStateException"))
+                assertFalse(content.contains("secret-logcat.example"))
+                assertFalse(content.contains("203.0.113.201"))
             }
         }
 

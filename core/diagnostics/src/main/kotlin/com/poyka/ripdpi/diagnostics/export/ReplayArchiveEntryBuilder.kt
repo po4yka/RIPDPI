@@ -91,7 +91,7 @@ class ReplayArchiveEntryBuilder
     }
 
 private fun ReplayProbeRequest.toArchive(): ReplayArchiveRequest =
-    ReplayArchiveRequest(domain = domain, strategyId = strategyId, timeoutMs = timeoutMs)
+    ReplayArchiveRequest(domain = "redacted", strategyId = strategyId, timeoutMs = timeoutMs)
 
 private fun ReplayVerdict.toArchive(): ReplayArchiveVerdict =
     when (this) {

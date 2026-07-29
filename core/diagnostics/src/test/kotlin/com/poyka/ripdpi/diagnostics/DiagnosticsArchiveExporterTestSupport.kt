@@ -113,6 +113,7 @@ internal fun createArchiveExporterForTest(
     rootModeEnabled: Boolean,
     compositeRunService: DiagnosticsHomeCompositeRunService,
     json: Json,
+    logcatSnapshotCollector: LogcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
 ): DefaultDiagnosticsArchiveExporter {
     val appSettings =
         defaultDiagnosticsAppSettings()
@@ -128,7 +129,7 @@ internal fun createArchiveExporterForTest(
                 artifactReadStore = stores,
                 artifactQueryStore = stores,
                 bypassUsageHistoryStore = stores,
-                logcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
+                logcatSnapshotCollector = logcatSnapshotCollector,
                 fileLogWriter =
                     FileLogWriter(
                         java.nio.file.Files

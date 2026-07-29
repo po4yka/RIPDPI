@@ -185,6 +185,28 @@ class DeveloperAnalyticsAllowListTest {
             )
         }
 
+        assertNestedDeveloperAnalyticsProjection(obj)
+        assertNetworkSnapshotProjection(obj)
+
+        val encoded = readArchiveText(archivePath)
+        listOf(
+            "Sensitive Operator",
+            "203.0.113.53",
+            "198.51.100.53",
+            "native-tail-secret",
+            "Sensitive Tail Operator",
+            "private.tail.example",
+            "handover-secret",
+            "Sensitive Handover Operator",
+        ).forEach { sensitiveValue ->
+            assertFalse(
+                "developer analytics must not expose '$sensitiveValue' anywhere",
+                encoded.contains(sensitiveValue),
+            )
+        }
+    }
+
+    private fun assertNestedDeveloperAnalyticsProjection(obj: JsonObject) {
         obj["reproductionContext"]?.jsonObject?.let { repro ->
             val digests = repro["nativeLibDigests"]?.jsonObject
             assertTrue(
@@ -212,7 +234,9 @@ class DeveloperAnalyticsAllowListTest {
                 key in setOf("rootModeEnabled", "enableCmdSettings"),
             )
         }
+    }
 
+    private fun assertNetworkSnapshotProjection(obj: JsonObject) {
         val networkSnapshotsElement = obj["networkSnapshots"]
         assertNotNull("hostile fixture must include networkSnapshots", networkSnapshotsElement)
         val networkSnapshots = requireNotNull(networkSnapshotsElement).jsonArray
@@ -242,23 +266,6 @@ class DeveloperAnalyticsAllowListTest {
                 .single()
                 .jsonPrimitive.content == "redacted(2)",
         )
-
-        val encoded = readArchiveText(archivePath)
-        listOf(
-            "Sensitive Operator",
-            "203.0.113.53",
-            "198.51.100.53",
-            "native-tail-secret",
-            "Sensitive Tail Operator",
-            "private.tail.example",
-            "handover-secret",
-            "Sensitive Handover Operator",
-        ).forEach { sensitiveValue ->
-            assertFalse(
-                "developer analytics must not expose '$sensitiveValue' anywhere",
-                encoded.contains(sensitiveValue),
-            )
-        }
     }
 
     private fun createExporter(
