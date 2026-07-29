@@ -561,6 +561,7 @@ class ServiceLifecycleIntegrationTest {
                 assertEquals("198.18.0.53", config.mapdnsAddress)
                 assertEquals(53, config.mapdnsPort)
             }
+            assertEquals(2, IntegrationTestOverrides.orderSnapshot().count { it == "vpn:establish" })
             assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
         }

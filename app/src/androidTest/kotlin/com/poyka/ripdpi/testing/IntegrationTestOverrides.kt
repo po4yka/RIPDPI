@@ -319,6 +319,7 @@ class RecordingVpnTunnelSession(
 class RecordingVpnTunnelSessionProvider(
     private val events: MutableList<String>,
 ) : VpnTunnelSessionProvider {
+    private var hasReturnedSession = false
     var establishFailure: Throwable? = null
     val faults = FaultQueue<VpnSessionFaultTarget>()
     var lastDns: String? = null
@@ -340,9 +341,6 @@ class RecordingVpnTunnelSessionProvider(
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
     ): VpnTunnelSession {
-        if (session.isClosed) {
-            session = RecordingVpnTunnelSession.open(events)
-        }
         lastDns = dns
         lastIpv6 = ipv6
         lastAppRoutingPlan = appRoutingPlan
@@ -350,11 +348,16 @@ class RecordingVpnTunnelSessionProvider(
         events += "vpn:establish"
         faults.next(VpnSessionFaultTarget.ESTABLISH)?.throwOrIgnore()
         establishFailure?.let { throw it }
+        if (hasReturnedSession) {
+            session = RecordingVpnTunnelSession.open(events)
+        }
+        hasReturnedSession = true
         return session
     }
 
     fun reset() {
         session = RecordingVpnTunnelSession.open(events)
+        hasReturnedSession = false
         lastDns = null
         lastIpv6 = null
         lastAppRoutingPlan = null
