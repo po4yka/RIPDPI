@@ -376,18 +376,20 @@ internal class VpnTunnelRuntime(
         afterForwardingLeaseAcquired()
         val bridge = lease.bridge
         val telemetry =
-            try {
-                val snapshot = bridge.telemetry()
-                onTunnelTelemetry(snapshot)
-                RuntimeTelemetryOutcome.Snapshot(snapshot)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                RuntimeTelemetryOutcome.EngineError(
-                    message = error.message ?: "Tunnel telemetry polling failed",
-                    causeClass = error.javaClass.name,
+            runCatching { bridge.telemetry() }
+                .fold(
+                    onSuccess = { snapshot ->
+                        onTunnelTelemetry(snapshot)
+                        RuntimeTelemetryOutcome.Snapshot(snapshot)
+                    },
+                    onFailure = { error ->
+                        if (error is CancellationException || error !is Exception) throw error
+                        RuntimeTelemetryOutcome.EngineError(
+                            message = error.message ?: "Tunnel telemetry polling failed",
+                            causeClass = error.javaClass.name,
+                        )
+                    },
                 )
-            }
         val evidence =
             try {
                 RuntimeForwardingEvidence.Available(bridge.forwardingEvidence())

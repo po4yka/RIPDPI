@@ -183,16 +183,17 @@ internal class ProxyRuntimeSupervisor(
         afterForwardingLeaseAcquired()
         val runtime = lease.runtime
         val telemetry =
-            try {
-                RuntimeTelemetryOutcome.Snapshot(runtime.pollTelemetry())
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                RuntimeTelemetryOutcome.EngineError(
-                    message = error.message ?: "Proxy telemetry polling failed",
-                    causeClass = error.javaClass.name,
+            runCatching { runtime.pollTelemetry() }
+                .fold(
+                    onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                    onFailure = { error ->
+                        if (error is CancellationException || error !is Exception) throw error
+                        RuntimeTelemetryOutcome.EngineError(
+                            message = error.message ?: "Proxy telemetry polling failed",
+                            causeClass = error.javaClass.name,
+                        )
+                    },
                 )
-            }
         val evidence =
             try {
                 RuntimeForwardingEvidence.Available(runtime.pollForwardingEvidence())
