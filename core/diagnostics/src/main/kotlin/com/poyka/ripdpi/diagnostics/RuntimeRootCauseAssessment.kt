@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.diagnostics.exit.ProcessExitCorrelationSource
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.Locale
@@ -179,7 +178,6 @@ private fun collectEvidence(
         }
         // DNS and relay verdicts remain fail-closed until their producers emit an allowlisted kind.
         collectTypedRuntimeHealthEvidence(connectionSessionId, event, tokens, evidence)
-        collectCorrelatedProcessExitEvidence(connectionSessionId, event, tokens, evidence)
     }
     return evidence
 }
@@ -302,26 +300,6 @@ private fun collectTypedRuntimeHealthEvidence(
                 }
             }
         }
-    }
-}
-
-private fun collectCorrelatedProcessExitEvidence(
-    connectionSessionId: String,
-    event: NativeSessionEventEntity,
-    tokens: Map<String, String>,
-    evidence: RuntimeEvidenceAccumulator,
-) {
-    if (event.id != "$ProcessExitCorrelationSource:$connectionSessionId") return
-    if (event.source != ProcessExitCorrelationSource) return
-    if (event.subsystem != "process") return
-    if (event.level.lowercase(Locale.US) != "warn") return
-    if (
-        tokens["event"] == "process_exit_correlation" &&
-        tokens["verdict"] == "oem_process_kill" &&
-        tokens["evidence"] == "last_exit_inspector_v1" &&
-        tokens.isQualifyingOemProcessKill()
-    ) {
-        evidence.add(RuntimeEvidenceCategory.OemProcessKill, event)
     }
 }
 
@@ -581,15 +559,6 @@ private fun hasAuthoritativeCapabilities(
     internet: String?,
 ): Boolean = validated in NetworkCapabilityStates && internet in NetworkCapabilityStates
 
-private fun Map<String, String>.isQualifyingOemProcessKill(): Boolean {
-    val reason = this["reason"]
-    val subtype = this["subtype"]
-    val reasonQualified =
-        reason in OemProcessKillReasons ||
-            (reason == "other" && subtype == "android_memory_limiter")
-    return reasonQualified && this["importance"] in OemProcessKillImportanceBands
-}
-
 internal fun List<NativeSessionEventEntity>.hasCanonicalDataPlaneFinalEvent(): Boolean =
     latestCanonicalDataPlaneFinalEvent() != null
 
@@ -623,8 +592,6 @@ private val NetworkCapabilityStates = setOf("present", "absent")
 private val NetworkTransitionKinds =
     setOf("available", "losing", "lost", "capabilities_changed", "link_properties_changed")
 private val ProtectSubsystems = setOf("vpn_protect", "protect")
-private val OemProcessKillReasons = setOf("low_memory", "excessive_resource_usage")
-private val OemProcessKillImportanceBands = setOf("foreground_service", "service", "perceptible")
 private val RelayFailedValues = setOf("true", "false")
 private val RelayRuntimeStates =
     setOf("idle", "starting", "running", "stopping", "stopped", "degraded", "failed", "error", "unknown")

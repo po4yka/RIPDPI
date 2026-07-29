@@ -616,7 +616,7 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
-    fun `canonical correlated process exit classifies oem kill with medium confidence`() {
+    fun `Android memory limiter correlation stays inconclusive`() {
         val assessment =
             assess(
                 connectionSessionId = "conn-a",
@@ -627,12 +627,13 @@ class RuntimeRootCauseAssessmentTest {
                             createdAt = 1L,
                         ),
                     ),
+                terminalEvidenceSealed = false,
             )
 
-        assertEquals(RuntimeRootCauseVerdict.OEM_PROCESS_KILL, assessment.verdict)
-        assertEquals(RuntimeRootCauseConfidence.MEDIUM, assessment.confidence)
-        assertEquals(listOf("oem_process_kill"), assessment.evidenceRefs.map { it.category })
-        assertTrue(assessment.terminalEvidenceSealed)
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(RuntimeRootCauseConfidence.LOW, assessment.confidence)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+        assertFalse(assessment.terminalEvidenceSealed)
     }
 
     @Test
@@ -652,6 +653,33 @@ class RuntimeRootCauseAssessmentTest {
 
         assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
         assertFalse(assessment.terminalEvidenceSealed)
+    }
+
+    @Test
+    fun `generic Android pressure exits never classify as OEM kills`() {
+        listOf("low_memory", "excessive_resource_usage").forEach { reason ->
+            val assessment =
+                assess(
+                    connectionSessionId = "conn-a",
+                    events =
+                        listOf(
+                            typedProcessExitCorrelationEvent(
+                                connectionSessionId = "conn-a",
+                                createdAt = 1L,
+                                reason = reason,
+                                subtype = "none",
+                                message =
+                                    "event=process_exit_correlation verdict=inconclusive " +
+                                        "evidence=last_exit_inspector_v1 reason=$reason subtype=none importance=service",
+                            ),
+                        ),
+                    terminalEvidenceSealed = false,
+                )
+
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertFalse(assessment.terminalEvidenceSealed)
+            assertTrue(assessment.evidenceRefs.isEmpty())
+        }
     }
 
     @Test
@@ -704,7 +732,7 @@ class RuntimeRootCauseAssessmentTest {
     }
 
     @Test
-    fun `dns and oem process kill conflict stays inconclusive`() {
+    fun `Android process exit does not override typed DNS verdict`() {
         val assessment =
             RuntimeRootCauseClassifier.assess(
                 connectionSessionId = "conn-a",
@@ -720,10 +748,11 @@ class RuntimeRootCauseAssessmentTest {
                             createdAt = 2L,
                         ),
                     ),
+                terminalEvidenceSealed = true,
             )
 
-        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
-        assertEquals(listOf("dns_failure", "oem_process_kill"), assessment.contradictoryCategories)
+        assertEquals(RuntimeRootCauseVerdict.DNS_FAILURE, assessment.verdict)
+        assertTrue(assessment.contradictoryCategories.isEmpty())
     }
 
     @Test
@@ -827,14 +856,14 @@ class RuntimeRootCauseAssessmentTest {
     private fun typedProcessExitCorrelationEvent(
         connectionSessionId: String,
         createdAt: Long,
-        reason: String = "low_memory",
-        subtype: String = "none",
+        reason: String = "other",
+        subtype: String = "android_memory_limiter",
         importance: String = "service",
         id: String = "application_exit_correlation:$connectionSessionId",
         source: String = "application_exit_correlation",
         subsystem: String = "process",
         message: String =
-            "event=process_exit_correlation verdict=oem_process_kill evidence=last_exit_inspector_v1 " +
+            "event=process_exit_correlation verdict=inconclusive evidence=last_exit_inspector_v1 " +
                 "reason=$reason subtype=$subtype importance=$importance",
     ): NativeSessionEventEntity =
         event(

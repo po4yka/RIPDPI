@@ -23,7 +23,7 @@ import org.junit.Test
 
 class ProcessExitRuntimeReconcilerTest {
     @Test
-    fun `correlates latest unfinished vpn session and finalizes after assessment`() =
+    fun `Android memory limiter stays inconclusive without ordinary terminal seal`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             stores.usageSessionsState.value =
@@ -38,8 +38,8 @@ class ProcessExitRuntimeReconcilerTest {
                     exitEvent(
                         id = "application_exit:pid-4242:private-process",
                         createdAt = 130L,
-                        reason = "low_memory",
-                        subtype = "none",
+                        reason = "other",
+                        subtype = "android_memory_limiter",
                         importance = "service",
                     ),
                 ),
@@ -53,18 +53,42 @@ class ProcessExitRuntimeReconcilerTest {
             assertEquals("application_exit_correlation", correlation.source)
             assertEquals("process", correlation.subsystem)
             assertEquals(
-                "event=process_exit_correlation verdict=oem_process_kill evidence=last_exit_inspector_v1 " +
-                    "reason=low_memory subtype=none importance=service",
+                "event=process_exit_correlation verdict=inconclusive evidence=last_exit_inspector_v1 " +
+                    "reason=other subtype=android_memory_limiter importance=service",
                 correlation.message,
             )
             listOf("pid-4242", "private-process", "description", "trace").forEach { secret ->
                 assertFalse(correlation.id.contains(secret))
                 assertFalse(correlation.message.contains(secret))
             }
-            assertEquals(RuntimeRootCauseVerdict.OEM_PROCESS_KILL, assessment.verdict)
-            assertTrue(assessment.terminalEvidenceSealed)
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertFalse(assessment.terminalEvidenceSealed)
             assertEquals(130L, finalized.finishedAt)
-            assertEquals("process_exit:oem_process_kill", finalized.endedReason)
+            assertEquals("process_exit:inconclusive", finalized.endedReason)
+            assertEquals("Android reported a resource-pressure process exit.", finalized.failureMessage)
+        }
+
+    @Test
+    fun `generic Android pressure exits stay inconclusive and do not seal ordinary evidence`() =
+        runTest {
+            listOf("low_memory", "excessive_resource_usage").forEach { reason ->
+                val stores = FakeDiagnosticsHistoryStores()
+                stores.usageSessionsState.value = listOf(usageSession(startedAt = 100L, updatedAt = 100L))
+                val reconciler = reconciler(stores, startupAt = 200L)
+
+                reconciler.reconcileStartupProcessExits(
+                    listOf(exitEvent(createdAt = 150L, reason = reason)),
+                )
+
+                val correlation = correlations(stores).single()
+                val assessment = rootCauseAssessment(stores)
+                val finalized = stores.usageSessionsState.value.single()
+                assertTrue(correlation.message.contains("verdict=inconclusive"))
+                assertTrue(correlation.message.contains("reason=$reason"))
+                assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+                assertFalse(assessment.terminalEvidenceSealed)
+                assertEquals("process_exit:inconclusive", finalized.endedReason)
+            }
         }
 
     @Test
@@ -197,6 +221,14 @@ class ProcessExitRuntimeReconcilerTest {
                     .value
                     .single()
                     .finishedAt,
+            )
+            assertEquals(
+                "process_exit:inconclusive",
+                stores
+                    .usageSessionsState
+                    .value
+                    .single()
+                    .endedReason,
             )
         }
 
