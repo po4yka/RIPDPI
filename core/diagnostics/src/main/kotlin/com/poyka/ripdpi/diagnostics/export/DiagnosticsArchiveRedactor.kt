@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import kotlinx.serialization.json.Json
@@ -20,6 +21,7 @@ class DiagnosticsArchiveRedactor
             model.copy(
                 publicIp = model.publicIp?.let { "redacted" },
                 publicAsn = model.publicAsn?.let { "redacted" },
+                privateDnsMode = redactPrivateDnsMode(model.privateDnsMode),
                 dnsServers =
                     if (model.dnsServers.isNotEmpty()) {
                         listOf("redacted(${model.dnsServers.size})")
@@ -43,6 +45,7 @@ class DiagnosticsArchiveRedactor
                             subnetMask = wifi.subnetMask?.let { "redacted" },
                         )
                     },
+                cellularDetails = model.cellularDetails?.redactForArchive(),
             )
 
         fun redact(model: DiagnosticContextModel): DiagnosticContextModel =
@@ -138,6 +141,26 @@ class DiagnosticsArchiveRedactor
                     json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson)
                 }.getOrNull()
             }
+    }
+
+private fun CellularNetworkDetails.redactForArchive(): CellularNetworkDetails =
+    copy(
+        carrierName = carrierName.redactCellularIdentity(),
+        simOperatorName = simOperatorName.redactCellularIdentity(),
+        networkOperatorName = networkOperatorName.redactCellularIdentity(),
+        operatorCode = operatorCode.redactCellularIdentity(),
+        simOperatorCode = simOperatorCode.redactCellularIdentity(),
+        carrierId = null,
+        simCarrierId = null,
+    )
+
+private fun String.redactCellularIdentity(): String = if (equals("unknown", ignoreCase = true)) this else "redacted"
+
+internal fun redactPrivateDnsMode(value: String): String =
+    when (val normalized = value.trim().lowercase()) {
+        "system", "off", "none", "opportunistic", "strict", "unknown", "unavailable" -> normalized
+        "" -> "unknown"
+        else -> "strict"
     }
 
 private const val UndecodableArchivePayloadMarker = "{\"redactionStatus\":\"payload_decode_failed\"}"

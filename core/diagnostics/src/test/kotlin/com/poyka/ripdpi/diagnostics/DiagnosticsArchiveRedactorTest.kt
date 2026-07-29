@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsLogcat
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -113,6 +115,63 @@ class DiagnosticsArchiveRedactorTest {
         assertFalse("ipAddress must not appear verbatim", encoded.contains("192.0.2.42"))
         assertFalse("subnetMask must not appear verbatim", encoded.contains("255.255.255.0"))
         assertTrue("redacted marker must be present", encoded.contains("redacted"))
+    }
+
+    @Test
+    fun `redactor projects strict private dns and cellular identity to coarse metadata`() {
+        val sensitiveModel =
+            NetworkSnapshotModel(
+                transport = "cellular",
+                capabilities = listOf("validated"),
+                dnsServers = emptyList(),
+                privateDnsMode = "private-dns.customer.example",
+                mtu = 1420,
+                localAddresses = emptyList(),
+                publicIp = null,
+                publicAsn = null,
+                captivePortalDetected = false,
+                networkValidated = true,
+                cellularDetails =
+                    CellularNetworkDetails(
+                        carrierName = "Sensitive Carrier",
+                        simOperatorName = "Sensitive SIM",
+                        networkOperatorName = "Sensitive Operator",
+                        networkCountryIso = "ge",
+                        simCountryIso = "ge",
+                        operatorCode = "28201",
+                        simOperatorCode = "28202",
+                        dataNetworkType = "lte",
+                        voiceNetworkType = "umts",
+                        dataState = "connected",
+                        serviceState = "in_service",
+                        isNetworkRoaming = false,
+                        carrierId = 1_234_567_890,
+                        simCarrierId = 987_654_321,
+                        signalLevel = 3,
+                        signalDbm = -91,
+                    ),
+                capturedAt = 4L,
+            )
+
+        val encoded = json.encodeToString(NetworkSnapshotModel.serializer(), redactor.redact(sensitiveModel))
+        val projected = json.parseToJsonElement(encoded).jsonObject
+        val cellular = projected.getValue("cellularDetails").jsonObject
+
+        assertEquals("strict", projected.getValue("privateDnsMode").jsonPrimitive.content)
+        assertEquals("redacted", cellular.getValue("carrierName").jsonPrimitive.content)
+        assertEquals("redacted", cellular.getValue("simOperatorName").jsonPrimitive.content)
+        assertEquals("redacted", cellular.getValue("networkOperatorName").jsonPrimitive.content)
+        assertEquals("redacted", cellular.getValue("operatorCode").jsonPrimitive.content)
+        assertEquals("redacted", cellular.getValue("simOperatorCode").jsonPrimitive.content)
+        assertFalse("carrierId must not be exported", cellular.containsKey("carrierId"))
+        assertFalse("simCarrierId must not be exported", cellular.containsKey("simCarrierId"))
+        assertEquals("ge", cellular.getValue("networkCountryIso").jsonPrimitive.content)
+        assertEquals("lte", cellular.getValue("dataNetworkType").jsonPrimitive.content)
+        assertEquals("3", cellular.getValue("signalLevel").jsonPrimitive.content)
+        assertFalse(encoded.contains("private-dns.customer.example"))
+        assertFalse(encoded.contains("Sensitive Carrier"))
+        assertFalse(encoded.contains("28201"))
+        assertFalse(encoded.contains("1234567890"))
     }
 
     @Test

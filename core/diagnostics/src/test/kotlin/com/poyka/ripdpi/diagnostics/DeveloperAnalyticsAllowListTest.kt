@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertFalse
@@ -94,6 +95,12 @@ class DeveloperAnalyticsAllowListTest {
                     nativeRuntime =
                         DeveloperNativeRuntimeSnapshot(
                             threadCount = 4,
+                            recentLogTail =
+                                listOf(
+                                    "Authorization: Bearer native-tail-secret",
+                                    "operator=Sensitive Tail Operator",
+                                    "https://private.tail.example/path",
+                                ),
                             lastPanicBacktrace = "fixture-panic-backtrace",
                         ),
                     effectiveConfigDiff =
@@ -115,6 +122,29 @@ class DeveloperAnalyticsAllowListTest {
                         listOf(
                             DeveloperBreadcrumb(timestampMs = 0L, category = "fixture", message = "fixture-breadcrumb"),
                         ),
+                    networkSnapshots =
+                        listOf(
+                            DeveloperNetworkSnapshot(
+                                stageKey = "dpi_full",
+                                capturedAtIsoUtc = "2026-05-16T00:00:01Z",
+                                transport = "cellular",
+                                operatorOrSsid = "Sensitive Operator",
+                                dnsServers = listOf("203.0.113.53", "198.51.100.53"),
+                                signalStrengthDbm = -85,
+                                cellularLevel = 3,
+                                linkDownstreamKbps = 100_000,
+                                linkUpstreamKbps = 20_000,
+                                captivePortalDetected = false,
+                                meteredNetwork = true,
+                                vpnActive = false,
+                                mtu = 1420,
+                                handoverEvents =
+                                    listOf(
+                                        "Authorization: Bearer handover-secret",
+                                        "operator=Sensitive Handover Operator",
+                                    ),
+                            ),
+                        ),
                     deviceState = DeveloperDeviceState(locale = "en_US", androidSdk = 33),
                     notes = listOf("fixture note"),
                 )
@@ -126,6 +156,17 @@ class DeveloperAnalyticsAllowListTest {
                 zip.getEntry("developer-analytics.json")
                     ?: error("developer-analytics.json missing from archive")
             json.parseToJsonElement(zip.getInputStream(entry).bufferedReader().readText()).jsonObject
+        }
+
+    private fun readArchiveText(archivePath: String): String =
+        ZipFile(archivePath).use { zip ->
+            zip
+                .entries()
+                .asSequence()
+                .filterNot { it.isDirectory }
+                .joinToString("\n") { entry ->
+                    zip.getInputStream(entry).bufferedReader().readText()
+                }
         }
 
     private fun assertAllowList(archivePath: String) {
@@ -158,6 +199,10 @@ class DeveloperAnalyticsAllowListTest {
                 "nativeRuntime.lastPanicBacktrace must be absent or null",
                 backtrace == null || backtrace is JsonNull,
             )
+            assertFalse(
+                "nativeRuntime.recentLogTail must be absent",
+                runtime.containsKey("recentLogTail"),
+            )
         }
 
         (obj["effectiveConfigDiff"] as? JsonArray)?.forEach { element ->
@@ -165,6 +210,53 @@ class DeveloperAnalyticsAllowListTest {
             assertFalse(
                 "effectiveConfigDiff must not contain denied key '$key'",
                 key in setOf("rootModeEnabled", "enableCmdSettings"),
+            )
+        }
+
+        val networkSnapshotsElement = obj["networkSnapshots"]
+        assertNotNull("hostile fixture must include networkSnapshots", networkSnapshotsElement)
+        val networkSnapshots = requireNotNull(networkSnapshotsElement).jsonArray
+        assertTrue("hostile fixture must include exactly one network snapshot", networkSnapshots.size == 1)
+        val snapshot = networkSnapshots.single().jsonObject
+        val allowedSnapshotKeys =
+            setOf(
+                "stageKey",
+                "capturedAtIsoUtc",
+                "transport",
+                "dnsServers",
+                "signalStrengthDbm",
+                "cellularLevel",
+                "linkDownstreamKbps",
+                "linkUpstreamKbps",
+                "captivePortalDetected",
+                "meteredNetwork",
+                "vpnActive",
+                "mtu",
+            )
+        assertTrue("networkSnapshots must contain exactly the coarse allow-list", snapshot.keys == allowedSnapshotKeys)
+        assertTrue(
+            "networkSnapshots.dnsServers must retain only a coarse count",
+            snapshot
+                .getValue("dnsServers")
+                .jsonArray
+                .single()
+                .jsonPrimitive.content == "redacted(2)",
+        )
+
+        val encoded = readArchiveText(archivePath)
+        listOf(
+            "Sensitive Operator",
+            "203.0.113.53",
+            "198.51.100.53",
+            "native-tail-secret",
+            "Sensitive Tail Operator",
+            "private.tail.example",
+            "handover-secret",
+            "Sensitive Handover Operator",
+        ).forEach { sensitiveValue ->
+            assertFalse(
+                "developer analytics must not expose '$sensitiveValue' anywhere",
+                encoded.contains(sensitiveValue),
             )
         }
     }

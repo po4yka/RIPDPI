@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -25,12 +26,28 @@ import kotlinx.serialization.json.jsonPrimitive
  * - `pcapManifest` — raw packet-capture metadata
  * - `breadcrumbs` — internal event trail
  * - `reproductionContext.nativeLibDigests` — binary hashes (key removed from nested object)
- * - `nativeRuntime.lastPanicBacktrace` — crash data (key set to null in nested object)
+ * - `nativeRuntime.recentLogTail` and `nativeRuntime.lastPanicBacktrace` — crash and log data
  * - `effectiveConfigDiff` entries whose `key` is `rootModeEnabled` or `enableCmdSettings`
+ * - all network-snapshot fields outside the explicit coarse-metadata allow-list
  */
 internal object DeveloperAnalyticsAllowListFilter {
     private val deniedTopLevelKeys = setOf("pcapManifest", "breadcrumbs")
     private val deniedConfigDiffKeys = setOf("rootModeEnabled", "enableCmdSettings")
+    private val allowedNetworkSnapshotKeys =
+        setOf(
+            "stageKey",
+            "capturedAtIsoUtc",
+            "transport",
+            "dnsServers",
+            "signalStrengthDbm",
+            "cellularLevel",
+            "linkDownstreamKbps",
+            "linkUpstreamKbps",
+            "captivePortalDetected",
+            "meteredNetwork",
+            "vpnActive",
+            "mtu",
+        )
 
     fun filterToJson(
         payload: DeveloperAnalyticsPayload,
@@ -52,11 +69,16 @@ internal object DeveloperAnalyticsAllowListFilter {
             root["reproductionContext"] = JsonObject(repro - "nativeLibDigests")
         }
 
-        // Null out lastPanicBacktrace inside nativeRuntime
+        // Remove raw log content and null out the panic backtrace inside nativeRuntime.
         root["nativeRuntime"]?.jsonObject?.let { runtime ->
             root["nativeRuntime"] =
                 JsonObject(
-                    runtime.toMutableMap().apply { this["lastPanicBacktrace"] = JsonNull },
+                    runtime
+                        .toMutableMap()
+                        .apply {
+                            remove("recentLogTail")
+                            this["lastPanicBacktrace"] = JsonNull
+                        },
                 )
         }
 
@@ -70,6 +92,28 @@ internal object DeveloperAnalyticsAllowListFilter {
                                 element.jsonObject["key"]?.jsonPrimitive?.content
                             }.getOrNull()
                         entryKey !in deniedConfigDiffKeys
+                    },
+                )
+        }
+
+        root["networkSnapshots"]?.jsonArray?.let { array ->
+            root["networkSnapshots"] =
+                JsonArray(
+                    array.map { element ->
+                        val source = element.jsonObject
+                        val projected =
+                            source
+                                .filterKeys(allowedNetworkSnapshotKeys::contains)
+                                .toMutableMap()
+                        source["dnsServers"]?.jsonArray?.let { servers ->
+                            projected["dnsServers"] =
+                                if (servers.isEmpty()) {
+                                    JsonArray(emptyList())
+                                } else {
+                                    JsonArray(listOf(JsonPrimitive("redacted(${servers.size})")))
+                                }
+                        }
+                        JsonObject(projected)
                     },
                 )
         }
