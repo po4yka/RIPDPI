@@ -217,9 +217,16 @@ internal class RuntimeTerminalOutbox(
             )
         val completed =
             if (assessment == null) {
-                outboxStore.completeTerminalOutbox(pending.currentMarker)
+                outboxStore.completeTerminalOutbox(
+                    pending.currentMarker,
+                    retainPolicyDependency = pending.policyOutcome?.failureHandover != null,
+                )
             } else {
-                outboxStore.completeTerminalOutboxWithAssessment(assessment, pending.currentMarker)
+                outboxStore.completeTerminalOutboxWithAssessment(
+                    assessment,
+                    pending.currentMarker,
+                    retainPolicyDependency = pending.policyOutcome?.failureHandover != null,
+                )
             }
         if (!completed && outboxStore.getTerminalOutbox(pending.currentMarker.key) != null) {
             throw TerminalOutboxRecoveryException()

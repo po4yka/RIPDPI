@@ -39,11 +39,15 @@ interface DiagnosticsTerminalOutboxStore {
         replacementMarker: DiagnosticsDurableStateEntity,
     ): Boolean
 
-    suspend fun completeTerminalOutbox(marker: DiagnosticsDurableStateEntity): Boolean
+    suspend fun completeTerminalOutbox(
+        marker: DiagnosticsDurableStateEntity,
+        retainPolicyDependency: Boolean = false,
+    ): Boolean
 
     suspend fun completeTerminalOutboxWithAssessment(
         assessment: NativeSessionEventEntity,
         marker: DiagnosticsDurableStateEntity,
+        retainPolicyDependency: Boolean = false,
     ): Boolean
 }
 
@@ -120,23 +124,31 @@ class RoomDiagnosticsTerminalOutboxStore
                 replaceMarkerIfCurrent(expectedMarker, replacementMarker)
             }
 
-        override suspend fun completeTerminalOutbox(marker: DiagnosticsDurableStateEntity): Boolean =
+        override suspend fun completeTerminalOutbox(
+            marker: DiagnosticsDurableStateEntity,
+            retainPolicyDependency: Boolean,
+        ): Boolean =
             db.withTransaction {
                 if (!isCurrent(marker)) return@withTransaction false
                 dao.clearDiagnosticsDurableState(marker.key, marker.value)
-                dao.clearDiagnosticsDurableState(terminalPolicyDependencyKey(marker.key))
+                if (!retainPolicyDependency) {
+                    dao.clearDiagnosticsDurableState(terminalPolicyDependencyKey(marker.key))
+                }
                 true
             }
 
         override suspend fun completeTerminalOutboxWithAssessment(
             assessment: NativeSessionEventEntity,
             marker: DiagnosticsDurableStateEntity,
+            retainPolicyDependency: Boolean,
         ): Boolean =
             db.withTransaction {
                 if (!isCurrent(marker)) return@withTransaction false
                 dao.insertNativeSessionEvent(assessment)
                 dao.clearDiagnosticsDurableState(marker.key, marker.value)
-                dao.clearDiagnosticsDurableState(terminalPolicyDependencyKey(marker.key))
+                if (!retainPolicyDependency) {
+                    dao.clearDiagnosticsDurableState(terminalPolicyDependencyKey(marker.key))
+                }
                 true
             }
 

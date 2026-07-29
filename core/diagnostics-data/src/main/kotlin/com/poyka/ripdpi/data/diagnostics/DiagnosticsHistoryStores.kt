@@ -156,6 +156,17 @@ interface DiagnosticsDurableStateStore {
         expectedValue: String,
     ): Boolean
 
+    suspend fun clearDurableStateAndDependencyIfCurrent(
+        key: String,
+        expectedValue: String,
+        dependencyKey: String,
+        expectedDependencyValue: String,
+    ): Boolean {
+        if (getDurableState(dependencyKey)?.value != expectedDependencyValue) return false
+        if (!clearDurableStateIfCurrent(key, expectedValue)) return false
+        return clearDurableStateIfCurrent(dependencyKey, expectedDependencyValue)
+    }
+
     suspend fun insertNativeSessionEventAndUpsertDurableState(
         event: NativeSessionEventEntity,
         state: DiagnosticsDurableStateEntity,
@@ -468,6 +479,22 @@ class RoomDiagnosticsArtifactStore
             db.withTransaction {
                 if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
                 dao.clearDiagnosticsDurableState(key, expectedValue)
+                true
+            }
+
+        override suspend fun clearDurableStateAndDependencyIfCurrent(
+            key: String,
+            expectedValue: String,
+            dependencyKey: String,
+            expectedDependencyValue: String,
+        ): Boolean =
+            db.withTransaction {
+                if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
+                if (dao.getDiagnosticsDurableState(dependencyKey)?.value != expectedDependencyValue) {
+                    return@withTransaction false
+                }
+                dao.clearDiagnosticsDurableState(key, expectedValue)
+                dao.clearDiagnosticsDurableState(dependencyKey, expectedDependencyValue)
                 true
             }
 

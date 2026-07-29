@@ -450,7 +450,10 @@ internal class FakeDiagnosticsHistoryStores :
         return replaceTerminalMarker(expectedMarker, replacementMarker)
     }
 
-    override suspend fun completeTerminalOutbox(marker: DiagnosticsDurableStateEntity): Boolean {
+    override suspend fun completeTerminalOutbox(
+        marker: DiagnosticsDurableStateEntity,
+        retainPolicyDependency: Boolean,
+    ): Boolean {
         if (!terminalMarkerIsCurrent(marker)) return false
         terminalOutboxState.value = terminalOutboxState.value.filterNot { state -> state.key == marker.key }
         afterCompleteTerminalOutbox()
@@ -460,6 +463,7 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun completeTerminalOutboxWithAssessment(
         assessment: NativeSessionEventEntity,
         marker: DiagnosticsDurableStateEntity,
+        retainPolicyDependency: Boolean,
     ): Boolean {
         if (!terminalMarkerIsCurrent(marker)) return false
         beforeInsertNativeSessionEvent(assessment)
