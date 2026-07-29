@@ -866,7 +866,7 @@ class DiagnosticsHistoryStoresRoomTest {
             )
             artifactStore.upsertDurableState(
                 DiagnosticsDurableStateEntity(
-                    key = "pending-reset",
+                    key = "remote_acceptance_pending_generation",
                     value = "run-reset",
                     updatedAt = 25L,
                 ),
@@ -935,8 +935,8 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(0, rowCount("network_dns_path_preferences"))
             assertEquals(0, rowCount("network_dns_blocked_paths"))
             assertEquals(0, rowCount("network_edge_preferences"))
-            assertEquals(1, rowCount("diagnostics_durable_state"))
-            assertNotNull(artifactStore.getDurableState("pending-reset"))
+            assertEquals(0, rowCount("diagnostics_durable_state"))
+            assertNull(artifactStore.getDurableState("remote_acceptance_pending_generation"))
             assertNull(artifactStore.getDurableState("runtime_terminal_outbox:usage-reset"))
             assertNull(artifactStore.getDurableState("policy_handover_delivery:handover-reset"))
         }
