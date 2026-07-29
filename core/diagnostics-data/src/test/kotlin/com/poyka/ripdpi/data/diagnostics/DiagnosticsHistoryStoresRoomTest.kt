@@ -339,9 +339,20 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals(sessionCheckpoint, dao.getBypassUsageSession(finished.id))
             assertEquals(listOf(sessionMarker), store.getPendingTerminalOutboxes())
 
-            assertTrue(store.completeTerminalOutbox(sessionMarker))
+            val assessment = nativeEvent(id = "terminal-assessment", sessionId = null, createdAt = 30L)
+            assertFalse(
+                store.completeTerminalOutboxWithAssessment(
+                    assessment = assessment,
+                    marker = sessionMarker.copy(value = "stale-owner"),
+                ),
+            )
+            assertNull(dao.getNativeEventById(assessment.id))
+            assertEquals(listOf(sessionMarker), store.getPendingTerminalOutboxes())
+
+            assertTrue(store.completeTerminalOutboxWithAssessment(assessment, sessionMarker))
 
             assertTrue(store.getPendingTerminalOutboxes().isEmpty())
+            assertEquals(assessment, dao.getNativeEventById(assessment.id))
         }
 
     @Test
@@ -380,6 +391,42 @@ class DiagnosticsHistoryStoresRoomTest {
             assertEquals("fp-match", store.findValidatedRememberedNetworkPolicy("fp-match", "vpn")?.fingerprintHash)
             assertNull(store.findValidatedRememberedNetworkPolicy("fp-suppressed", "vpn"))
 
+            store.pruneRememberedNetworkPolicies()
+
+            assertEquals(RememberedNetworkPolicyRetentionLimit, rowCount("remembered_network_policies"))
+        }
+
+    @Test
+    fun `remembered policy count pruning pauses while terminal evidence is pending`() =
+        runTest {
+            val store = RoomRememberedNetworkPolicyRecordStore(dao, clock)
+            val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
+            repeat(RememberedNetworkPolicyRetentionLimit + 2) { index ->
+                store.upsertRememberedNetworkPolicy(
+                    rememberedPolicy(
+                        fingerprintHash = "fp-pending-$index",
+                        mode = "vpn",
+                        status = RememberedNetworkPolicyStatusObserved,
+                        updatedAt = clock.now() - index,
+                    ),
+                )
+            }
+            artifactStore.upsertDurableState(
+                DiagnosticsDurableStateEntity(
+                    key = "runtime_terminal_outbox:usage-pending",
+                    value = "POLICY_FINALIZATION",
+                    updatedAt = clock.now(),
+                ),
+            )
+
+            store.pruneRememberedNetworkPolicies()
+
+            assertEquals(RememberedNetworkPolicyRetentionLimit + 2, rowCount("remembered_network_policies"))
+
+            artifactStore.clearDurableStateIfCurrent(
+                key = "runtime_terminal_outbox:usage-pending",
+                expectedValue = "POLICY_FINALIZATION",
+            )
             store.pruneRememberedNetworkPolicies()
 
             assertEquals(RememberedNetworkPolicyRetentionLimit, rowCount("remembered_network_policies"))
@@ -522,6 +569,7 @@ class DiagnosticsHistoryStoresRoomTest {
             val scanStore = RoomDiagnosticsScanRecordStore(db, dao)
             val artifactStore = RoomDiagnosticsArtifactStore(db, dao)
             val bypassStore = RoomBypassUsageHistoryStore(dao)
+            val rememberedStore = RoomRememberedNetworkPolicyRecordStore(dao, clock)
             val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
             val retentionStore = RoomDiagnosticsHistoryRetentionStore(dao, clock)
             val threshold = diagnosticsHistoryRetentionThreshold(clock.now(), 14)
@@ -628,13 +676,37 @@ class DiagnosticsHistoryStoresRoomTest {
                     finishedAt = threshold - 10L,
                 )
             val pendingMarker =
-                nativeEvent(
-                    id = "runtime_terminal_outbox:${pendingSession.id}",
-                    sessionId = null,
-                    createdAt = threshold - 10L,
-                ).copy(subsystem = "runtime_terminal_outbox")
+                DiagnosticsDurableStateEntity(
+                    key = "runtime_terminal_outbox:${pendingSession.id}",
+                    value = "RUNTIME_EVENTS",
+                    updatedAt = threshold - 10L,
+                )
             bypassStore.upsertBypassUsageSession(pendingSession)
-            artifactStore.insertNativeSessionEvent(pendingMarker)
+            artifactStore.upsertDurableState(pendingMarker)
+            artifactStore.insertTelemetrySample(
+                telemetry(
+                    id = "tel-pending",
+                    sessionId = null,
+                    connectionSessionId = pendingSession.id,
+                    createdAt = threshold - 10L,
+                ),
+            )
+            artifactStore.insertNativeSessionEvent(
+                nativeEvent(
+                    id = "evt-pending",
+                    sessionId = null,
+                    connectionSessionId = pendingSession.id,
+                    createdAt = threshold - 10L,
+                ),
+            )
+            val pendingPolicy =
+                rememberedPolicy(
+                    fingerprintHash = "policy-pending",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusObserved,
+                    updatedAt = threshold - 10L,
+                )
+            rememberedStore.upsertRememberedNetworkPolicy(pendingPolicy)
             bypassStore.upsertBypassUsageSession(
                 bypassUsageSession(
                     id = "usage-new",
@@ -658,23 +730,60 @@ class DiagnosticsHistoryStoresRoomTest {
                 ),
             )
 
-            retentionStore.trimOldData(retentionDays = 14)
+            listOf(
+                "RUNTIME_EVENTS",
+                "TERMINAL_SAMPLE",
+                "POLICY_FINALIZATION",
+                "SESSION_UPSERT",
+                "ROOT_CAUSE_ASSESSMENT",
+            ).forEach { phase ->
+                artifactStore.upsertDurableState(pendingMarker.copy(value = phase))
+                retentionStore.trimOldData(retentionDays = 14)
+                assertEquals(pendingSession, bypassStore.getBypassUsageSession(pendingSession.id))
+                assertNotNull(artifactStore.getNativeSessionEvent("evt-pending"))
+                assertTrue(
+                    artifactStore
+                        .observeConnectionTelemetry(pendingSession.id)
+                        .first()
+                        .any { sample -> sample.id == "tel-pending" },
+                )
+                assertNotNull(
+                    rememberedStore.getRememberedNetworkPolicy(
+                        pendingPolicy.fingerprintHash,
+                        pendingPolicy.mode,
+                    ),
+                )
+            }
 
             assertEquals(1, rowCount("scan_sessions"))
             assertEquals(1, rowCount("probe_results"))
             assertEquals(1, rowCount("network_snapshots"))
             assertEquals(1, rowCount("diagnostic_context_snapshots"))
-            assertEquals(1, rowCount("telemetry_samples"))
+            assertEquals(2, rowCount("telemetry_samples"))
             assertEquals(2, rowCount("native_session_events"))
             assertEquals(1, rowCount("export_records"))
             assertEquals(2, rowCount("bypass_usage_sessions"))
             assertEquals(1, rowCount("network_dns_path_preferences"))
             assertEquals("scan-new", scanStore.getScanSession("scan-new")?.id)
             assertNull(scanStore.getScanSession("scan-old"))
-            assertEquals(pendingMarker, artifactStore.getNativeSessionEvent(pendingMarker.id))
+            assertNotNull(artifactStore.getDurableState(pendingMarker.key))
             assertEquals(pendingSession, bypassStore.getBypassUsageSession(pendingSession.id))
             assertNotNull(dnsStore.getNetworkDnsPathPreference("dns-new"))
             assertNull(dnsStore.getNetworkDnsPathPreference("dns-old"))
+
+            val finalMarker = requireNotNull(artifactStore.getDurableState(pendingMarker.key))
+            artifactStore.clearDurableStateIfCurrent(finalMarker.key, finalMarker.value)
+            retentionStore.trimOldData(retentionDays = 14)
+
+            assertNull(bypassStore.getBypassUsageSession(pendingSession.id))
+            assertNull(artifactStore.getNativeSessionEvent("evt-pending"))
+            assertTrue(artifactStore.observeConnectionTelemetry(pendingSession.id).first().isEmpty())
+            assertNull(
+                rememberedStore.getRememberedNetworkPolicy(
+                    pendingPolicy.fingerprintHash,
+                    pendingPolicy.mode,
+                ),
+            )
         }
 
     @Test

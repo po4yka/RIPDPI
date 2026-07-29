@@ -37,6 +37,11 @@ interface DiagnosticsTerminalOutboxStore {
     ): Boolean
 
     suspend fun completeTerminalOutbox(marker: DiagnosticsDurableStateEntity): Boolean
+
+    suspend fun completeTerminalOutboxWithAssessment(
+        assessment: NativeSessionEventEntity,
+        marker: DiagnosticsDurableStateEntity,
+    ): Boolean
 }
 
 @Singleton
@@ -107,6 +112,17 @@ class RoomDiagnosticsTerminalOutboxStore
         override suspend fun completeTerminalOutbox(marker: DiagnosticsDurableStateEntity): Boolean =
             db.withTransaction {
                 if (!isCurrent(marker)) return@withTransaction false
+                dao.clearDiagnosticsDurableState(marker.key, marker.value)
+                true
+            }
+
+        override suspend fun completeTerminalOutboxWithAssessment(
+            assessment: NativeSessionEventEntity,
+            marker: DiagnosticsDurableStateEntity,
+        ): Boolean =
+            db.withTransaction {
+                if (!isCurrent(marker)) return@withTransaction false
+                dao.insertNativeSessionEvent(assessment)
                 dao.clearDiagnosticsDurableState(marker.key, marker.value)
                 true
             }

@@ -72,6 +72,7 @@ internal class RuntimeTerminalOutbox(
             terminalEvidenceSealed = outbox.terminalEvidenceSealed,
             hasTransientState = true,
             policyOutcome = outbox.policyOutcome,
+            policyEvidenceComplete = outbox.policyEvidenceComplete,
             artifactBatch = outbox.artifactBatch,
             currentMarker = marker,
             phase = outbox.phase,
@@ -111,15 +112,21 @@ internal class RuntimeTerminalOutbox(
 
     private suspend fun finalizeRememberedPolicy(pending: PendingTerminalSession) {
         val nextPhase = PendingTerminalPhase.SESSION_UPSERT
-        val replacement = pending.toMarker(nextPhase)
+        val policy = pending.policyOutcome?.let { outcome -> reconstructPolicy(outcome, pending.finishedSession) }
+        if (pending.policyOutcome != null && policy == null) {
+            pending.policyEvidenceComplete = false
+        }
+        val policyCheckpoint = pending.toMarker(PendingTerminalPhase.POLICY_FINALIZATION)
         check(
             outboxStore.checkpointTerminalPolicy(
-                policy = pending.policyOutcome?.let { outcome -> reconstructPolicy(outcome, pending.finishedSession) },
+                policy = policy,
                 expectedMarker = pending.currentMarker,
-                replacementMarker = pending.currentMarker,
+                replacementMarker = policyCheckpoint,
             ),
         ) { "Terminal outbox policy checkpoint lost ownership" }
+        pending.currentMarker = policyCheckpoint
         rememberedPolicySessionTracker.publishTerminalOutcome(pending.policyOutcome)
+        val replacement = pending.toMarker(nextPhase)
         check(
             outboxStore.checkpointTerminalOutbox(
                 expectedMarker = pending.currentMarker,
@@ -134,16 +141,12 @@ internal class RuntimeTerminalOutbox(
     private suspend fun reconstructPolicy(
         outcome: RememberedPolicyTerminalOutcome,
         finishedSession: BypassUsageSessionEntity,
-    ): RememberedNetworkPolicyEntity {
+    ): RememberedNetworkPolicyEntity? {
         val current =
-            requireNotNull(
-                policyRecordStore.getRememberedNetworkPolicy(
-                    fingerprintHash = outcome.fingerprintHash,
-                    mode = outcome.mode,
-                ),
-            ) {
-                "Terminal policy outcome has no durable remembered policy"
-            }
+            policyRecordStore.getRememberedNetworkPolicy(
+                fingerprintHash = outcome.fingerprintHash,
+                mode = outcome.mode,
+            ) ?: return null
         return current.copy(
             status = outcome.status,
             strategySignatureJson =
@@ -176,15 +179,26 @@ internal class RuntimeTerminalOutbox(
     }
 
     private suspend fun persistRootCauseAssessment(pending: PendingTerminalSession) {
-        if (!artifactPersister.hasTerminalRootCauseAssessment(pending.activeSession.id)) {
-            artifactPersister.persistTerminalRootCauseAssessment(
+        val assessment =
+            artifactPersister.prepareTerminalRootCauseAssessment(
                 connectionSessionId = pending.activeSession.id,
                 createdAt = pending.createdAt,
-                terminalEvidenceSealed = pending.terminalEvidenceSealed && pending.hasTransientState,
+                terminalEvidenceSealed =
+                    pending.terminalEvidenceSealed &&
+                        pending.hasTransientState &&
+                        pending.policyEvidenceComplete,
             )
-        }
-        check(outboxStore.completeTerminalOutbox(pending.currentMarker)) {
+        val completed =
+            if (assessment == null) {
+                outboxStore.completeTerminalOutbox(pending.currentMarker)
+            } else {
+                outboxStore.completeTerminalOutboxWithAssessment(assessment, pending.currentMarker)
+            }
+        check(completed) {
             "Terminal outbox completion lost ownership"
+        }
+        if (assessment != null) {
+            artifactPersister.markTerminalRootCauseAssessmentPersisted(pending.activeSession.id)
         }
         pending.phase = PendingTerminalPhase.COMPLETE
     }
@@ -239,6 +253,7 @@ internal data class PendingTerminalSession(
     val terminalEvidenceSealed: Boolean,
     val hasTransientState: Boolean = true,
     val policyOutcome: RememberedPolicyTerminalOutcome?,
+    var policyEvidenceComplete: Boolean = true,
     val artifactBatch: RuntimeTerminalArtifactBatch,
     var currentMarker: DiagnosticsDurableStateEntity = terminalOutboxMarker(activeSession.id, createdAt, ""),
     var phase: PendingTerminalPhase = PendingTerminalPhase.RUNTIME_EVENTS,
@@ -254,6 +269,7 @@ internal data class PendingTerminalSession(
                         createdAt = createdAt,
                         terminalEvidenceSealed = terminalEvidenceSealed,
                         policyOutcome = policyOutcome,
+                        policyEvidenceComplete = policyEvidenceComplete,
                         artifactBatch = artifactBatch,
                         phase = markerPhase,
                     ),
@@ -268,6 +284,7 @@ internal data class TerminalOutboxMarker(
     val createdAt: Long,
     val terminalEvidenceSealed: Boolean,
     val policyOutcome: RememberedPolicyTerminalOutcome? = null,
+    val policyEvidenceComplete: Boolean = true,
     val artifactBatch: RuntimeTerminalArtifactBatch,
     val phase: PendingTerminalPhase,
 )

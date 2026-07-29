@@ -443,6 +443,18 @@ internal class FakeDiagnosticsHistoryStores :
         return true
     }
 
+    override suspend fun completeTerminalOutboxWithAssessment(
+        assessment: NativeSessionEventEntity,
+        marker: DiagnosticsDurableStateEntity,
+    ): Boolean {
+        if (!terminalMarkerIsCurrent(marker)) return false
+        beforeInsertNativeSessionEvent(assessment)
+        nativeEventsState.value = nativeEventsState.value.upsertById(assessment) { it.id }
+        afterInsertNativeSessionEvent(assessment)
+        terminalOutboxState.value = terminalOutboxState.value.filterNot { state -> state.key == marker.key }
+        return true
+    }
+
     private fun replaceTerminalMarker(
         expectedMarker: DiagnosticsDurableStateEntity,
         replacementMarker: DiagnosticsDurableStateEntity,

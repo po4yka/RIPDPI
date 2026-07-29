@@ -252,44 +252,61 @@ class RuntimeArtifactPersister
             createdAt: Long,
             terminalEvidenceSealed: Boolean = false,
             requireCanonicalDataPlaneFinal: Boolean = true,
-        ) = rootCauseAssessmentMutex.withLock {
-            if (connectionSessionId in persistedRootCauseConnectionSessionIds) return@withLock
-
-            val persistedEvents =
-                artifactReadStore
-                    .observeConnectionNativeEvents(
-                        connectionSessionId = connectionSessionId,
-                        limit = MaxRuntimeRootCauseEventsPerSession,
-                    ).first()
-            val persistedNetworkTransitionEvents =
-                artifactReadStore
-                    .observeConnectionNetworkTransitionEvents(connectionSessionId)
-                    .first()
-            val fallbackEvents =
-                runtimeEvidenceMutex.withLock {
-                    runtimeEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
-                }
-            val fallbackNetworkTransitionEvents =
-                runtimeEvidenceMutex.withLock {
-                    networkTransitionEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
-                }
+        ) {
             val assessment =
-                RuntimeRootCauseClassifier.assess(
+                prepareTerminalRootCauseAssessment(
                     connectionSessionId = connectionSessionId,
-                    events = persistedEvents.ifEmpty { fallbackEvents },
-                    networkTransitionEvents =
-                        persistedNetworkTransitionEvents.ifEmpty { fallbackNetworkTransitionEvents },
-                    terminalAtMillis = createdAt,
-                    terminalEvidenceSealed =
-                        terminalEvidenceSealed &&
-                            (
-                                !requireCanonicalDataPlaneFinal ||
-                                    persistedEvents
-                                        .ifEmpty { fallbackEvents }
-                                        .hasCanonicalDataPlaneFinalEvent()
-                            ),
-                )
-            artifactWriteStore.insertNativeSessionEvent(
+                    createdAt = createdAt,
+                    terminalEvidenceSealed = terminalEvidenceSealed,
+                    requireCanonicalDataPlaneFinal = requireCanonicalDataPlaneFinal,
+                ) ?: return
+            artifactWriteStore.insertNativeSessionEvent(assessment)
+            markTerminalRootCauseAssessmentPersisted(connectionSessionId)
+        }
+
+        suspend fun prepareTerminalRootCauseAssessment(
+            connectionSessionId: String,
+            createdAt: Long,
+            terminalEvidenceSealed: Boolean = false,
+            requireCanonicalDataPlaneFinal: Boolean = true,
+        ): NativeSessionEventEntity? =
+            rootCauseAssessmentMutex.withLock {
+                if (connectionSessionId in persistedRootCauseConnectionSessionIds) return@withLock null
+
+                val persistedEvents =
+                    artifactReadStore
+                        .observeConnectionNativeEvents(
+                            connectionSessionId = connectionSessionId,
+                            limit = MaxRuntimeRootCauseEventsPerSession,
+                        ).first()
+                val persistedNetworkTransitionEvents =
+                    artifactReadStore
+                        .observeConnectionNetworkTransitionEvents(connectionSessionId)
+                        .first()
+                val fallbackEvents =
+                    runtimeEvidenceMutex.withLock {
+                        runtimeEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
+                    }
+                val fallbackNetworkTransitionEvents =
+                    runtimeEvidenceMutex.withLock {
+                        networkTransitionEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
+                    }
+                val assessment =
+                    RuntimeRootCauseClassifier.assess(
+                        connectionSessionId = connectionSessionId,
+                        events = persistedEvents.ifEmpty { fallbackEvents },
+                        networkTransitionEvents =
+                            persistedNetworkTransitionEvents.ifEmpty { fallbackNetworkTransitionEvents },
+                        terminalAtMillis = createdAt,
+                        terminalEvidenceSealed =
+                            terminalEvidenceSealed &&
+                                (
+                                    !requireCanonicalDataPlaneFinal ||
+                                        persistedEvents
+                                            .ifEmpty { fallbackEvents }
+                                            .hasCanonicalDataPlaneFinalEvent()
+                                ),
+                    )
                 NativeSessionEventEntity(
                     id = rootCauseAssessmentEventId(connectionSessionId),
                     sessionId = null,
@@ -309,11 +326,14 @@ class RuntimeArtifactPersister
                             ),
                     createdAt = createdAt,
                     subsystem = RuntimeRootCauseAssessmentSubsystem,
-                ),
-            )
-            persistedRootCauseConnectionSessionIds.add(connectionSessionId)
-            trimPersistedRootCauseSessionIds()
-        }
+                )
+            }
+
+        suspend fun markTerminalRootCauseAssessmentPersisted(connectionSessionId: String) =
+            rootCauseAssessmentMutex.withLock {
+                persistedRootCauseConnectionSessionIds.add(connectionSessionId)
+                trimPersistedRootCauseSessionIds()
+            }
 
         private suspend fun persistTypedRuntimeHealthEvents(
             serviceTelemetry: ServiceTelemetrySnapshot,

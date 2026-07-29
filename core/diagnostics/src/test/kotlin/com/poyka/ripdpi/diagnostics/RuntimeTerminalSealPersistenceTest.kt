@@ -361,6 +361,43 @@ class RuntimeTerminalSealPersistenceTest {
             restoredScope.cancel()
         }
 
+    @Test
+    fun `missing remembered policy completes outbox with unsealed assessment`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val firstStateStore = DefaultServiceStateStore()
+            val firstScope = monitorScope()
+            val activePolicyStore = MutableActiveConnectionPolicyStore().apply { set(activeRememberedPolicy()) }
+            val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope, activePolicyStore)
+            firstCoordinator.registerNetworkTransitionFlush { true }
+            armTerminalFailure(stores, TerminalFailurePhase.POLICY_FINALIZATION) {
+                IllegalStateException("injected policy checkpoint boundary")
+            }
+
+            firstStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleFailure(Sender.Proxy, FailureReason.NativeError("policy failure proof"))
+            firstStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            firstStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(
+                runCatching {
+                    firstCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+                }.isFailure,
+            )
+            assertEquals(1, stores.getPendingTerminalOutboxes().size)
+            stores.rememberedPoliciesState.value = emptyList()
+            firstScope.cancel()
+
+            val restoredStateStore = DefaultServiceStateStore()
+            val restoredScope = monitorScope()
+            val restoredCoordinator = createSessionCoordinator(stores, restoredStateStore, restoredScope)
+            restoredCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertFalse(decodeAssessment(stores).terminalEvidenceSealed)
+            restoredScope.cancel()
+        }
+
     private suspend fun TestScope.assertRestartCreatesFreshSession(
         phase: TerminalFailurePhase,
         createFailure: () -> Throwable,

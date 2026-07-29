@@ -56,11 +56,15 @@ interface DiagnosticsRememberedPolicyDao {
     @Query(
         """
         DELETE FROM remembered_network_policies
-        WHERE id NOT IN (
-            SELECT id FROM remembered_network_policies
-            ORDER BY updatedAt DESC
-            LIMIT :retainCount
-        )
+        WHERE NOT EXISTS (
+                SELECT 1 FROM diagnostics_durable_state AS outbox
+                WHERE outbox.`key` LIKE 'runtime_terminal_outbox:%'
+            )
+            AND id NOT IN (
+                SELECT id FROM remembered_network_policies
+                ORDER BY updatedAt DESC
+                LIMIT :retainCount
+            )
         """,
     )
     suspend fun trimRememberedNetworkPoliciesToCount(retainCount: Int)

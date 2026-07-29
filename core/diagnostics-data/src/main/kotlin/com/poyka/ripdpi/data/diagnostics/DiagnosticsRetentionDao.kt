@@ -13,14 +13,26 @@ interface DiagnosticsRetentionDao {
     @Query("DELETE FROM diagnostic_context_snapshots WHERE capturedAt < :threshold")
     suspend fun deleteContextOlderThan(threshold: Long)
 
-    @Query("DELETE FROM telemetry_samples WHERE createdAt < :threshold")
+    @Query(
+        """
+        DELETE FROM telemetry_samples
+        WHERE createdAt < :threshold
+            AND NOT EXISTS (
+                SELECT 1 FROM diagnostics_durable_state AS outbox
+                WHERE outbox.`key` = 'runtime_terminal_outbox:' || telemetry_samples.connectionSessionId
+            )
+        """,
+    )
     suspend fun deleteTelemetryOlderThan(threshold: Long)
 
     @Query(
         """
         DELETE FROM native_session_events
         WHERE createdAt < :threshold
-            AND (subsystem IS NULL OR subsystem != 'runtime_terminal_outbox')
+            AND NOT EXISTS (
+                SELECT 1 FROM diagnostics_durable_state AS outbox
+                WHERE outbox.`key` = 'runtime_terminal_outbox:' || native_session_events.connectionSessionId
+            )
         """,
     )
     suspend fun deleteNativeEventsOlderThan(threshold: Long)
@@ -34,15 +46,23 @@ interface DiagnosticsRetentionDao {
         WHERE finishedAt IS NOT NULL
             AND finishedAt < :threshold
             AND NOT EXISTS (
-                SELECT 1 FROM native_session_events AS outbox
-                WHERE outbox.subsystem = 'runtime_terminal_outbox'
-                    AND outbox.id = 'runtime_terminal_outbox:' || bypass_usage_sessions.id
+                SELECT 1 FROM diagnostics_durable_state AS outbox
+                WHERE outbox.`key` = 'runtime_terminal_outbox:' || bypass_usage_sessions.id
             )
         """,
     )
     suspend fun deleteBypassUsageSessionsOlderThan(threshold: Long)
 
-    @Query("DELETE FROM remembered_network_policies WHERE updatedAt < :threshold")
+    @Query(
+        """
+        DELETE FROM remembered_network_policies
+        WHERE updatedAt < :threshold
+            AND NOT EXISTS (
+                SELECT 1 FROM diagnostics_durable_state AS outbox
+                WHERE outbox.`key` LIKE 'runtime_terminal_outbox:%'
+            )
+        """,
+    )
     suspend fun deleteRememberedNetworkPoliciesOlderThan(threshold: Long)
 
     @Query("DELETE FROM network_dns_path_preferences WHERE updatedAt < :threshold")
