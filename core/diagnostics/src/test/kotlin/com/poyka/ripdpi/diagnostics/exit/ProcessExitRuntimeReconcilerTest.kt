@@ -284,6 +284,96 @@ class ProcessExitRuntimeReconcilerTest {
         }
 
     @Test
+    fun `retry correlation must exactly match its canonical privacy safe projection`() =
+        runTest {
+            val mutations =
+                listOf<Pair<String, (NativeSessionEventEntity) -> NativeSessionEventEntity>>(
+                    "source" to { event -> event.copy(source = "service") },
+                    "subsystem" to { event -> event.copy(subsystem = "vpn") },
+                    "message" to { event -> event.copy(message = "event=process_exit_correlation verdict=failed") },
+                    "createdAt" to { event -> event.copy(createdAt = event.createdAt + 1L) },
+                    "level" to { event -> event.copy(level = "error") },
+                    "session" to { event -> event.copy(sessionId = "scan-forged") },
+                    "runtime" to { event -> event.copy(runtimeId = "runtime-forged") },
+                    "mode" to { event -> event.copy(mode = "vpn") },
+                    "policy" to { event -> event.copy(policySignature = "policy-forged") },
+                    "fingerprint" to { event -> event.copy(fingerprintHash = "fingerprint-forged") },
+                    "missing connection" to { event -> event.copy(connectionSessionId = null) },
+                    "unknown connection" to { event -> event.copy(connectionSessionId = "conn-forged") },
+                )
+
+            mutations.forEach { (name, mutate) ->
+                val stores = FakeDiagnosticsHistoryStores()
+                stores.usageSessionsState.value = listOf(usageSession(startedAt = 100L, updatedAt = 100L))
+                val reconciler = reconciler(stores, startupAt = 200L)
+                val exit = exitEvent(createdAt = 150L, reason = "crash")
+                seedRetryCorrelation(stores, reconciler, exit)
+                val canonical = correlations(stores).single()
+                stores.nativeEventsState.value =
+                    stores.nativeEventsState.value.map { event ->
+                        if (event.id == canonical.id) mutate(event) else event
+                    }
+
+                reconciler.reconcileStartupProcessExits(listOf(exit))
+
+                assertNull(
+                    "$name must not close the session",
+                    stores.usageSessionsState.value
+                        .single()
+                        .finishedAt,
+                )
+                assertTrue("$name must not persist an assessment", rootCauseAssessments(stores).isEmpty())
+            }
+        }
+
+    @Test
+    fun `retry correlation cannot target a session newer than the exit`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "conn-eligible", startedAt = 100L, updatedAt = 100L),
+                    usageSession(id = "conn-future", startedAt = 160L, updatedAt = 160L),
+                )
+            val reconciler = reconciler(stores, startupAt = 200L)
+            val exit = exitEvent(createdAt = 150L, reason = "crash")
+            seedRetryCorrelation(stores, reconciler, exit)
+            val canonical = correlations(stores).single()
+            stores.nativeEventsState.value =
+                stores.nativeEventsState.value.map { event ->
+                    if (event.id == canonical.id) event.copy(connectionSessionId = "conn-future") else event
+                }
+
+            reconciler.reconcileStartupProcessExits(listOf(exit))
+
+            stores.usageSessionsState.value.forEach { session -> assertNull(session.finishedAt) }
+            assertTrue(rootCauseAssessments(stores).isEmpty())
+        }
+
+    @Test
+    fun `same timestamp and ordinal with different safe categories have distinct identities`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "conn-a", startedAt = 100L, updatedAt = 100L),
+                    usageSession(id = "conn-b", startedAt = 90L, updatedAt = 90L),
+                )
+            val sameSourceIdentity = "application_exit:150:ordinal-0"
+
+            reconciler(stores, startupAt = 200L).reconcileStartupProcessExits(
+                listOf(
+                    exitEvent(id = sameSourceIdentity, createdAt = 150L, reason = "crash"),
+                    exitEvent(id = sameSourceIdentity, createdAt = 150L, reason = "anr"),
+                ),
+            )
+
+            assertEquals(2, correlations(stores).size)
+            assertEquals(2, correlations(stores).map(NativeSessionEventEntity::id).distinct().size)
+            assertEquals(2, stores.usageSessionsState.value.count { session -> session.finishedAt == 150L })
+        }
+
+    @Test
     fun `assessment failure leaves session unfinished and retry replaces correlation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -354,6 +444,24 @@ class ProcessExitRuntimeReconcilerTest {
             serviceStateStore = DefaultServiceStateStore(),
             nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
         )
+
+    private suspend fun seedRetryCorrelation(
+        stores: FakeDiagnosticsHistoryStores,
+        reconciler: DefaultProcessExitRuntimeReconciler,
+        exit: NativeSessionEventEntity,
+    ) {
+        stores.beforeInsertNativeSessionEvent = { event ->
+            if (event.source == RuntimeRootCauseAssessmentSource) error("injected assessment failure")
+        }
+        val failed = runCatching { reconciler.reconcileStartupProcessExits(listOf(exit)) }.exceptionOrNull()
+        assertTrue(failed is IllegalStateException)
+        stores.beforeInsertNativeSessionEvent = {}
+        assertNull(
+            stores.usageSessionsState.value
+                .first()
+                .finishedAt,
+        )
+    }
 
     private fun usageSession(
         id: String = "conn-a",

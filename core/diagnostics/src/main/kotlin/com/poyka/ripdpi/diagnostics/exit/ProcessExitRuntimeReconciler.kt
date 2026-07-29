@@ -52,18 +52,18 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
             val correlationId = exitEvent.processExitCorrelationId()
             val existingCorrelation = artifactReadStore.getNativeSessionEvent(correlationId)
             val session =
-                when (val connectionSessionId = existingCorrelation?.connectionSessionId) {
-                    null -> {
-                        if (existingCorrelation == null) {
-                            nearestSessionForExit(remainingSessions, exitEvent)
-                        } else {
-                            null
+                if (existingCorrelation == null) {
+                    nearestSessionForExit(remainingSessions, exitEvent)
+                } else {
+                    existingCorrelation
+                        .takeIf { correlation ->
+                            correlation.matchesCanonicalProjection(exitEvent, classification)
+                        }?.connectionSessionId
+                        ?.let { connectionSessionId ->
+                            remainingSessions.firstOrNull { candidate ->
+                                candidate.id == connectionSessionId && candidate.precedes(exitEvent)
+                            }
                         }
-                    }
-
-                    else -> {
-                        remainingSessions.firstOrNull { candidate -> candidate.id == connectionSessionId }
-                    }
                 }
             if (session == null) return@forEach
             val correlation = exitEvent.toCorrelationEvent(session.id, classification)
@@ -113,10 +113,7 @@ class DefaultProcessExitRuntimeReconciler internal constructor(
     private fun nearestSessionForExit(
         sessions: List<BypassUsageSessionEntity>,
         exitEvent: NativeSessionEventEntity,
-    ): BypassUsageSessionEntity? =
-        sessions.firstOrNull { session ->
-            maxOf(session.startedAt, session.updatedAt) <= exitEvent.createdAt
-        }
+    ): BypassUsageSessionEntity? = sessions.firstOrNull { session -> session.precedes(exitEvent) }
 
     private suspend fun finalizeStaleSession(
         session: BypassUsageSessionEntity,
@@ -151,6 +148,9 @@ private fun BypassUsageSessionEntity.isUnfinishedVpnRuntimeSession(): Boolean =
         serviceMode == Mode.VPN.name &&
         connectionState in RuntimeConnectionStates
 
+private fun BypassUsageSessionEntity.precedes(exitEvent: NativeSessionEventEntity): Boolean =
+    maxOf(startedAt, updatedAt) <= exitEvent.createdAt
+
 private fun NativeSessionEventEntity.isCanonicalGlobalProcessExit(): Boolean =
     connectionSessionId == null &&
         source == DefaultLastExitInspector.Source &&
@@ -176,8 +176,34 @@ private fun NativeSessionEventEntity.toCorrelationEvent(
     )
 }
 
+private fun NativeSessionEventEntity.matchesCanonicalProjection(
+    exitEvent: NativeSessionEventEntity,
+    classification: ProcessExitClassification,
+): Boolean {
+    val correlationSessionId = connectionSessionId ?: return false
+    return this == exitEvent.toCorrelationEvent(correlationSessionId, classification)
+}
+
 private fun NativeSessionEventEntity.processExitCorrelationId(): String =
-    "$ProcessExitCorrelationSource:${id.sha256Hex()}"
+    "$ProcessExitCorrelationSource:${canonicalPrivacySafeTuple().sha256Hex()}"
+
+private fun NativeSessionEventEntity.canonicalPrivacySafeTuple(): String =
+    listOf<String?>(
+        id,
+        sessionId,
+        connectionSessionId,
+        source,
+        level,
+        message,
+        createdAt.toString(),
+        runtimeId,
+        mode,
+        policySignature,
+        fingerprintHash,
+        subsystem,
+    ).joinToString(separator = CanonicalTupleSeparator) { value ->
+        value?.let { "value:${it.length}:$it" } ?: "null"
+    }
 
 private fun Map<String, String>.processExitClassificationOrNull(): ProcessExitClassification? {
     val reason = this["reason"]
@@ -255,6 +281,7 @@ private const val HalfByteBits = 4
 private const val HalfByteMask = 0x0f
 private const val UnsignedByteMask = 0xff
 private const val HexDigits = "0123456789abcdef"
+private const val CanonicalTupleSeparator = "|"
 private val RuntimeConnectionStates = setOf(AppStatus.Running.name, AppStatus.Reconnecting.name)
 private val GenericPressureReasons = setOf("low_memory", "excessive_resource_usage")
 private val CanonicalProcessExitReasons =
