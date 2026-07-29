@@ -196,21 +196,23 @@ internal class DefaultDiagnosticsScanController
                                         )
                                     },
                                 )
-                            if (cancellation !is HiddenProbeCancellationResult.Cancelled) {
+                            if (cancellation is HiddenProbeCancellationResult.Failed) {
                                 return@withLock DiagnosticsManualScanResolution.Failed(
                                     DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
                                 )
                             }
-                            if (scanRecordStore.getScanSession(cancellation.sessionId) == null) {
-                                return@withLock DiagnosticsManualScanResolution.Failed(
-                                    DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
+                            if (cancellation is HiddenProbeCancellationResult.Cancelled) {
+                                if (scanRecordStore.getScanSession(cancellation.sessionId) == null) {
+                                    return@withLock DiagnosticsManualScanResolution.Failed(
+                                        DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
+                                    )
+                                }
+                                DiagnosticsReportPersister.persistScanFailure(
+                                    cancellation.sessionId,
+                                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                                    scanRecordStore,
                                 )
                             }
-                            DiagnosticsReportPersister.persistScanFailure(
-                                cancellation.sessionId,
-                                BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
-                                scanRecordStore,
-                            )
                         }
                     }
                 }

@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -218,6 +220,92 @@ class DiagnosticsScanControllerHiddenProbeTest {
                 hiddenSession.summary,
             )
             assertEquals(1, bridgeFactory.bridge.cancelCount)
+        }
+
+    @Test
+    fun `natural completion while cancellation cause persists is not overwritten`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-audit")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedStrategyProbeProfile(json)
+                    addAutomaticAuditProfile(json)
+                }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    networkFingerprintProvider = automaticProbeFingerprintProvider,
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            assertFalse(
+                services.scanController.launchAutomaticProbe(
+                    settings = settings,
+                    event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
+                ),
+            )
+            val conflict =
+                services.scanController.startScan(ScanPathMode.RAW_PATH)
+                    as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+            val hiddenSessionId =
+                stores.sessionsState.value
+                    .single()
+                    .id
+            val causePersisted = CompletableDeferred<Unit>()
+            val releaseCausePersistence = CompletableDeferred<Unit>()
+            stores.afterUpsertScanSession = { session ->
+                if (
+                    session.id == hiddenSessionId &&
+                    session.status == "running" &&
+                    session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
+                ) {
+                    causePersisted.complete(Unit)
+                    releaseCausePersistence.await()
+                }
+            }
+
+            val resolution =
+                async {
+                    services.scanController.resolveHiddenProbeConflict(
+                        requestId = conflict.requestId,
+                        action = HiddenProbeConflictAction.CANCEL_AND_RUN,
+                    )
+                }
+            causePersisted.await()
+            completeHiddenScan(bridgeFactory, hiddenSessionId, settings)
+            advanceUntilIdle()
+
+            val naturallyCompleted = requireNotNull(stores.getScanSession(hiddenSessionId))
+            assertEquals("completed", naturallyCompleted.status)
+            assertEquals("strategy probe", naturallyCompleted.summary)
+            assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
+
+            releaseCausePersistence.complete(Unit)
+            resolution.await().startedSessionId()
+            advanceUntilIdle()
+
+            val preserved = requireNotNull(stores.getScanSession(hiddenSessionId))
+            assertEquals("completed", preserved.status)
+            assertEquals("strategy probe", preserved.summary)
+            assertEquals(0, bridgeFactory.bridge.cancelCount)
         }
 
     @Test

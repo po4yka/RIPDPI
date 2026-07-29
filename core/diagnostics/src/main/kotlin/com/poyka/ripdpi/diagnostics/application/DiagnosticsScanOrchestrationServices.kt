@@ -412,7 +412,21 @@ class ActiveScanRegistry
             if (!causePersisted) {
                 return HiddenProbeCancellationResult.Failed(hiddenExecution.sessionId)
             }
-            rememberCancellation(hiddenExecution.sessionId, cancellationSummary)
+            val cancellationRegistered =
+                bridgeMutex.withLock {
+                    val currentExecution = hiddenScanExecutions[hiddenExecution.sessionId]
+                    val isCurrentAndActive =
+                        currentExecution?.bridge === hiddenExecution.bridge &&
+                            currentExecution.executionJob === hiddenExecution.executionJob &&
+                            currentExecution.executionJob?.isCompleted != true
+                    if (isCurrentAndActive) {
+                        rememberCancellation(hiddenExecution.sessionId, cancellationSummary)
+                    }
+                    isCurrentAndActive
+                }
+            if (!cancellationRegistered) {
+                return HiddenProbeCancellationResult.NoActiveProbe
+            }
             runCatching { hiddenExecution.bridge.cancelScan() }
             val cancelled =
                 runCatching {
