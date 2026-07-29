@@ -65,6 +65,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -77,6 +78,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -821,6 +823,10 @@ internal class FakeNetworkDiagnosticsBridge(
     var releaseStartScan: CompletableDeferred<Unit>? = null
     var afterStartScan: suspend () -> Unit = {}
     var requireActiveContextOnDestroy: Boolean = false
+    var destroyEntered: CompletableDeferred<Unit>? = null
+    var releaseDestroy: CompletableDeferred<Unit>? = null
+    var destroyCompleted: CompletableDeferred<Unit>? = null
+    var destroyIgnoresCancellation: Boolean = false
     var cancelCount: Int = 0
     var destroyCount: Int = 0
     val faults = FaultQueue<DiagnosticsBridgeFaultTarget>()
@@ -930,9 +936,19 @@ internal class FakeNetworkDiagnosticsBridge(
     }
 
     override suspend fun destroy() {
-        if (requireActiveContextOnDestroy) currentCoroutineContext().ensureActive()
-        faults.next(DiagnosticsBridgeFaultTarget.DESTROY)?.throwOrIgnore()
-        destroyCount += 1
+        val destroyBlock: suspend () -> Unit = {
+            destroyEntered?.complete(Unit)
+            releaseDestroy?.await()
+            if (requireActiveContextOnDestroy) currentCoroutineContext().ensureActive()
+            faults.next(DiagnosticsBridgeFaultTarget.DESTROY)?.throwOrIgnore()
+            destroyCount += 1
+            destroyCompleted?.complete(Unit)
+        }
+        if (destroyIgnoresCancellation) {
+            withContext(NonCancellable) { destroyBlock() }
+        } else {
+            destroyBlock()
+        }
     }
 
     fun enqueueProgress(progress: ScanProgress) {

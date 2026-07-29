@@ -478,13 +478,8 @@ internal class DefaultDiagnosticsScanController
                         }
                 }
                 startup.handle?.let { handle ->
-                    runCleanupStep(primaryFailure) { bridgeExecutionService.destroy(handle) }
                     runCleanupStep(primaryFailure) {
-                        activeScanRegistry.clearBridge(
-                            bridge = handle.bridge,
-                            sessionId = handle.sessionId,
-                            registerActiveBridge = handle.registerActiveBridge,
-                        )
+                        bridgeExecutionService.retireAfterStartupFailure(handle)
                     }
                 }
                 activeScanRegistry.removePreparedScan(prepared.sessionId)

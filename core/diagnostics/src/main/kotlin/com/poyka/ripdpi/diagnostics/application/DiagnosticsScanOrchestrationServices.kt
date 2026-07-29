@@ -3,9 +3,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
+import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -25,6 +27,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -33,6 +36,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -543,11 +547,9 @@ class BridgeExecutionService
     constructor(
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val activeScanRegistry: ActiveScanRegistry,
+        @param:ApplicationIoScope
+        private val retirementScope: CoroutineScope,
     ) {
-        private companion object {
-            const val RegistrationCleanupTimeoutMs = 2_000L
-        }
-
         internal suspend fun createHandle(
             sessionId: String,
             registerActiveBridge: Boolean,
@@ -565,16 +567,8 @@ class BridgeExecutionService
                 }.exceptionOrNull()
             if (registrationFailure != null) {
                 withContext(NonCancellable) {
-                    runCatching {
-                        withTimeout(RegistrationCleanupTimeoutMs) { bridge.destroy() }
-                    }.exceptionOrNull()
-                        ?.takeIf { it !== registrationFailure }
-                        ?.let(registrationFailure::addSuppressed)
-                    runCatching {
-                        withTimeout(RegistrationCleanupTimeoutMs) {
-                            activeScanRegistry.clearBridge(bridge, sessionId, registerActiveBridge)
-                        }
-                    }.exceptionOrNull()
+                    runCatching { retireAfterStartupFailure(handle) }
+                        .exceptionOrNull()
                         ?.takeIf { it !== registrationFailure }
                         ?.let(registrationFailure::addSuppressed)
                 }
@@ -602,6 +596,27 @@ class BridgeExecutionService
                 -> throw startFailure
 
                 else -> throw DiagnosticsBridgeStartException(startFailure)
+            }
+        }
+
+        internal suspend fun retireAfterStartupFailure(handle: BridgeSessionHandle) {
+            try {
+                // Startup bookkeeping must not wait for native teardown. Once detached,
+                // the registry cannot admit new calls through this bridge; reservations
+                // already held by the wrapper remain protected by its lifetime contract.
+                // ApplicationIoScope keeps the wrapper strongly reachable until native
+                // retirement finishes; scheduling is not a teardown timeout.
+                activeScanRegistry.clearBridge(
+                    bridge = handle.bridge,
+                    sessionId = handle.sessionId,
+                    registerActiveBridge = handle.registerActiveBridge,
+                )
+            } finally {
+                retirementScope.launch {
+                    if (runCatching { handle.bridge.destroy() }.isFailure) {
+                        Logger.w { "Asynchronous diagnostics bridge retirement failed" }
+                    }
+                }
             }
         }
 

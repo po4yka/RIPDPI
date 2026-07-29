@@ -292,7 +292,16 @@ class DiagnosticsScanControllerTest {
     fun `caller cancellation after bridge start cleans registered bridge before launch`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val destroyEntered = CompletableDeferred<Unit>()
+            val releaseDestroy = CompletableDeferred<Unit>()
+            val destroyCompleted = CompletableDeferred<Unit>()
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.destroyEntered = destroyEntered
+                    bridge.releaseDestroy = releaseDestroy
+                    bridge.destroyCompleted = destroyCompleted
+                    bridge.destroyIgnoresCancellation = true
+                }
             val cancellation = CancellationException("caller canceled after bridge start")
             lateinit var start: kotlinx.coroutines.Deferred<DiagnosticsManualScanStartResult>
             bridgeFactory.bridge.afterStartScan = { start.cancel(cancellation) }
@@ -313,9 +322,23 @@ class DiagnosticsScanControllerTest {
 
             start = async(start = CoroutineStart.LAZY) { services.scanController.startScan(ScanPathMode.IN_PATH) }
             start.start()
+            destroyEntered.await()
+            val startupCompletedBeforeNativeDestroy = start.isCompleted
+            val activeBeforeNativeDestroy = services.scanController.hasActiveScan()
+            val progressBeforeNativeDestroy = services.timelineSource.activeScanProgress.value
+            val sessionStatusBeforeNativeDestroy =
+                stores.sessionsState.value
+                    .single()
+                    .status
+            releaseDestroy.complete(Unit)
 
             val thrown = assertControllerSuspendFailsWith<CancellationException> { start.await() }
+            destroyCompleted.await()
             assertEquals(cancellation.message, thrown.message)
+            assertTrue(startupCompletedBeforeNativeDestroy)
+            assertFalse(activeBeforeNativeDestroy)
+            assertNull(progressBeforeNativeDestroy)
+            assertEquals("failed", sessionStatusBeforeNativeDestroy)
             assertEquals(1, bridgeFactory.bridge.destroyCount)
             assertEquals(
                 "failed",
@@ -332,6 +355,13 @@ class DiagnosticsScanControllerTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridge = FakeNetworkDiagnosticsBridge(json)
+            val destroyEntered = CompletableDeferred<Unit>()
+            val releaseDestroy = CompletableDeferred<Unit>()
+            val destroyCompleted = CompletableDeferred<Unit>()
+            bridge.destroyEntered = destroyEntered
+            bridge.releaseDestroy = releaseDestroy
+            bridge.destroyCompleted = destroyCompleted
+            bridge.destroyIgnoresCancellation = true
             val cancellation = CancellationException("caller canceled during bridge registration")
             lateinit var start: kotlinx.coroutines.Deferred<DiagnosticsManualScanStartResult>
             val bridgeFactory =
@@ -358,9 +388,21 @@ class DiagnosticsScanControllerTest {
 
             start = async(start = CoroutineStart.LAZY) { services.scanController.startScan(ScanPathMode.IN_PATH) }
             start.start()
+            destroyEntered.await()
+            val startupCompletedBeforeNativeDestroy = start.isCompleted
+            val activeBeforeNativeDestroy = services.scanController.hasActiveScan()
+            val sessionStatusBeforeNativeDestroy =
+                stores.sessionsState.value
+                    .single()
+                    .status
+            releaseDestroy.complete(Unit)
 
             val thrown = assertControllerSuspendFailsWith<CancellationException> { start.await() }
+            destroyCompleted.await()
             assertEquals(cancellation.message, thrown.message)
+            assertTrue(startupCompletedBeforeNativeDestroy)
+            assertFalse(activeBeforeNativeDestroy)
+            assertEquals("failed", sessionStatusBeforeNativeDestroy)
             assertEquals(1, bridge.destroyCount)
             assertEquals(
                 "failed",
