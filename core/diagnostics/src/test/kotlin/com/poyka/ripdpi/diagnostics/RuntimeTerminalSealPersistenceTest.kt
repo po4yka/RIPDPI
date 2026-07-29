@@ -98,14 +98,46 @@ class RuntimeTerminalSealPersistenceTest {
             val marker = stores.terminalOutboxState.value.single()
             assertTrue(marker.value.contains("\"schemaVersion\":2"))
             val connectionSessionId = marker.key.removePrefix("runtime_terminal_outbox:")
+            val createdAt = requireNotNull(stores.getBypassUsageSession(connectionSessionId)?.finishedAt)
             stores.terminalOutboxState.value =
                 listOf(
                     marker.copy(
                         value =
-                            """{"connectionSessionId":"$connectionSessionId","createdAt":1,""" +
+                            """{"connectionSessionId":"$connectionSessionId","createdAt":$createdAt,""" +
                                 """"terminalEvidenceSealed":true,"phase":"RUNTIME_EVENTS"}""",
                     ),
                 )
+
+            val restoredScope = monitorScope()
+            val restoredCoordinator =
+                createSessionCoordinator(stores, DefaultServiceStateStore(), restoredScope)
+            restoredCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertFalse(decodeAssessment(stores).terminalEvidenceSealed)
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, decodeAssessment(stores).verdict)
+            restoredScope.cancel()
+        }
+
+    @Test
+    fun `schema valid terminal marker with mismatched key is quarantined`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val firstStateStore = DefaultServiceStateStore()
+            val firstScope = monitorScope()
+            val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope)
+            stores.beforeCheckpointTerminalOutbox = { error("injected process death") }
+
+            firstStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            firstStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            firstStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(runCatching { firstCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.isFailure)
+            firstScope.cancel()
+            stores.beforeCheckpointTerminalOutbox = {}
+
+            val marker = stores.terminalOutboxState.value.single()
+            stores.terminalOutboxState.value = listOf(marker.copy(key = "runtime_terminal_outbox:mismatched"))
 
             val restoredScope = monitorScope()
             val restoredCoordinator =

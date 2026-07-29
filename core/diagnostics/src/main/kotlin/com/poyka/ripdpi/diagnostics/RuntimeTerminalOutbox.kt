@@ -74,9 +74,16 @@ internal class RuntimeTerminalOutbox(
 
     private suspend fun recover(marker: DiagnosticsDurableStateEntity): PendingTerminalSession {
         val outbox = decodeTerminalOutboxMarker(marker.value)
+        if (
+            marker.key != "$TerminalOutboxDurableStatePrefix${outbox.connectionSessionId}" ||
+            marker.updatedAt != outbox.createdAt
+        ) {
+            throw TerminalOutboxRecoveryException()
+        }
         val finishedSession =
             usageHistoryStore.getBypassUsageSession(outbox.connectionSessionId)
                 ?: throw TerminalOutboxRecoveryException()
+        if (finishedSession.finishedAt != outbox.createdAt) throw TerminalOutboxRecoveryException()
         return PendingTerminalSession(
             activeSession = finishedSession,
             finishedSession = finishedSession,
