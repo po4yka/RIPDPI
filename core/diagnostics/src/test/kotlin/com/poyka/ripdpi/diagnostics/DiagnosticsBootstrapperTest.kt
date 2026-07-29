@@ -157,6 +157,7 @@ class DiagnosticsBootstrapperTest {
                             TestDiagnosticsHistoryClock(),
                         ),
                     diagnosticsArtifactReadStore = stores,
+                    policyHandoverEventStore = policyHandoverEventStore,
                     launcherProvider = constantProvider(automaticProbeLauncher),
                     activeProbeSafetyPolicy =
                         ActiveProbeSafetyPolicy(
@@ -267,6 +268,7 @@ private class BootstrapperRecordingAutomaticProbeLauncher : AutomaticProbeLaunch
 
 private fun handoverEvent() =
     PolicyHandoverEvent(
+        deliveryId = "delivery-bootstrapper",
         mode = Mode.VPN,
         previousFingerprintHash = "fingerprint-a",
         currentFingerprintHash = "fingerprint-b",
@@ -274,7 +276,6 @@ private fun handoverEvent() =
         currentNetworkValidated = true,
         currentCaptivePortalDetected = false,
         usedRememberedPolicy = false,
-        policySignature = "policy-1",
         occurredAt = 100L,
     )
 

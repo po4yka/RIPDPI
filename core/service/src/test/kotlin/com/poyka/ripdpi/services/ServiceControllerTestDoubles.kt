@@ -186,10 +186,15 @@ internal class TestPolicyHandoverEventStore : PolicyHandoverEventStore {
     override val events: SharedFlow<PolicyHandoverEvent> = eventsState.asSharedFlow()
 
     val published = mutableListOf<PolicyHandoverEvent>()
+    val acknowledged = mutableListOf<String>()
 
-    override fun publish(event: PolicyHandoverEvent) {
+    override suspend fun publish(event: PolicyHandoverEvent) {
         published += event
-        eventsState.tryEmit(event)
+        eventsState.emit(event)
+    }
+
+    override suspend fun acknowledge(deliveryId: String) {
+        acknowledged += deliveryId
     }
 }
 

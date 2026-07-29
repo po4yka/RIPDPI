@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDurableStateStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -230,9 +232,23 @@ private class RecordingDurableStateStore : DiagnosticsDurableStateStore {
 
     override suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity? = durableStates[key]
 
+    override fun observeDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>> =
+        flowOf(durableStates.values.filter { state -> state.key.startsWith(keyPrefix) })
+
     override suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity) {
         durableStates[state.key] = state
     }
+
+    override suspend fun clearDurableStateIfCurrent(
+        key: String,
+        expectedValue: String,
+    ): Boolean =
+        if (durableStates[key]?.value == expectedValue) {
+            durableStates.remove(key)
+            true
+        } else {
+            false
+        }
 
     override suspend fun insertNativeSessionEventAndUpsertDurableState(
         event: NativeSessionEventEntity,

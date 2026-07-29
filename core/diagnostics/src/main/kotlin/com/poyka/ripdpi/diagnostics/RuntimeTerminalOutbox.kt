@@ -116,10 +116,16 @@ internal class RuntimeTerminalOutbox(
             outboxStore.checkpointTerminalPolicy(
                 policy = pending.policyOutcome?.let { outcome -> reconstructPolicy(outcome, pending.finishedSession) },
                 expectedMarker = pending.currentMarker,
-                replacementMarker = replacement,
+                replacementMarker = pending.currentMarker,
             ),
         ) { "Terminal outbox policy checkpoint lost ownership" }
-        runCatching { rememberedPolicySessionTracker.publishTerminalOutcome(pending.policyOutcome) }
+        rememberedPolicySessionTracker.publishTerminalOutcome(pending.policyOutcome)
+        check(
+            outboxStore.checkpointTerminalOutbox(
+                expectedMarker = pending.currentMarker,
+                replacementMarker = replacement,
+            ),
+        ) { "Terminal outbox policy handover checkpoint lost ownership" }
         rememberedPolicySessionTracker.clear()
         pending.currentMarker = replacement
         pending.phase = nextPhase

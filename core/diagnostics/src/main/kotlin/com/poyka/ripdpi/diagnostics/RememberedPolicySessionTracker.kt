@@ -14,8 +14,8 @@ import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.decodedSource
+import com.poyka.ripdpi.data.policyHandoverDeliveryId
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -125,7 +125,7 @@ class RememberedPolicySessionTracker
                         lastValidatedAt = rememberedPolicySession.entity.lastValidatedAt,
                         updateStrategySignature = false,
                         updatedAt = finalizedAt,
-                        failureHandover = rememberedPolicySession.toFailureHandover(finalizedAt),
+                        failureHandover = rememberedPolicySession.toFailureHandover(session.id, finalizedAt),
                     )
                 }
 
@@ -150,17 +150,17 @@ class RememberedPolicySessionTracker
             }
         }
 
-        internal fun publishTerminalOutcome(outcome: RememberedPolicyTerminalOutcome?) {
+        internal suspend fun publishTerminalOutcome(outcome: RememberedPolicyTerminalOutcome?) {
             val failureHandover = outcome?.failureHandover ?: return
             policyHandoverEventStore.publish(
                 PolicyHandoverEvent(
+                    deliveryId = failureHandover.deliveryId,
                     mode = failureHandover.mode,
                     currentFingerprintHash = failureHandover.fingerprintHash,
                     classification = AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE,
                     currentNetworkValidated = true,
                     currentCaptivePortalDetected = false,
                     usedRememberedPolicy = true,
-                    policySignature = failureHandover.policySignature,
                     occurredAt = failureHandover.occurredAt,
                 ),
             )
@@ -183,12 +183,15 @@ class RememberedPolicySessionTracker
                     fingerprintHash == policy.fingerprintHash &&
                     policySignature == policy.policySignature
 
-            fun toFailureHandover(failedAt: Long): RememberedPolicyFailureHandover? =
+            fun toFailureHandover(
+                connectionSessionId: String,
+                failedAt: Long,
+            ): RememberedPolicyFailureHandover? =
                 fingerprintHash?.let { fingerprintHash ->
                     RememberedPolicyFailureHandover(
+                        deliveryId = policyHandoverDeliveryId("runtime-terminal:$connectionSessionId"),
                         mode = mode,
                         fingerprintHash = fingerprintHash,
-                        policySignature = policySignature,
                         occurredAt = failedAt,
                     )
                 }
@@ -207,15 +210,14 @@ internal data class RememberedPolicyTerminalOutcome(
     val lastValidatedAt: Long?,
     val updateStrategySignature: Boolean,
     val updatedAt: Long,
-    @Transient
     val failureHandover: RememberedPolicyFailureHandover? = null,
 )
 
 @Serializable
 internal data class RememberedPolicyFailureHandover(
+    val deliveryId: String,
     val mode: Mode,
     val fingerprintHash: String,
-    val policySignature: String,
     val occurredAt: Long,
 )
 

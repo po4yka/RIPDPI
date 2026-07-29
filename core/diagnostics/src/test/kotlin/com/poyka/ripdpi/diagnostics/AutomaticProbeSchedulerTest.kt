@@ -54,6 +54,7 @@ class AutomaticProbeSchedulerTest {
                     .single()
                     .currentFingerprintHash,
             )
+            assertEquals(listOf("delivery-transport_switch"), env.handoverStore.acknowledged)
         }
 
     @Test
@@ -117,7 +118,7 @@ class AutomaticProbeSchedulerTest {
         }
 
     @Test
-    fun `scheduler replaces pending job for the same mode`() =
+    fun `scheduler deduplicates a pending delivery`() =
         runTest {
             val now = System.currentTimeMillis()
             val env =
@@ -137,16 +138,18 @@ class AutomaticProbeSchedulerTest {
                         ),
                 )
 
-            env.scheduler.schedule(handoverEvent(currentFingerprintHash = "fingerprint-a"))
+            val event = handoverEvent()
+            env.scheduler.schedule(event)
             advanceTimeBy(500L)
-            env.scheduler.schedule(handoverEvent(currentFingerprintHash = "fingerprint-b"))
-            advanceTimeBy(999L)
+            env.scheduler.schedule(event)
+            advanceTimeBy(499L)
             runCurrent()
             assertTrue(env.launcher.events.isEmpty())
 
             advanceTimeBy(1L)
             runCurrent()
             assertEquals(listOf("fingerprint-b"), env.launcher.events.map { it.currentFingerprintHash })
+            assertEquals(listOf(event.deliveryId), env.handoverStore.acknowledged)
         }
 
     @Test
@@ -171,6 +174,7 @@ class AutomaticProbeSchedulerTest {
             runCurrent()
 
             assertTrue(env.launcher.events.isEmpty())
+            assertEquals(listOf("delivery-transport_switch"), env.handoverStore.acknowledged)
         }
 
     @Test
@@ -399,6 +403,7 @@ class AutomaticProbeSchedulerTest {
                 it.currentTime = now
             }
         val launcher = RecordingAutomaticProbeLauncher(hasActiveScan = hasActiveScan)
+        val handoverStore = FakePolicyHandoverEventStore()
         val scheduler =
             AutomaticProbeScheduler(
                 appSettingsRepository = FakeAppSettingsRepository(settings),
@@ -408,6 +413,7 @@ class AutomaticProbeSchedulerTest {
                         TestDiagnosticsHistoryClock(now),
                     ),
                 diagnosticsArtifactReadStore = stores,
+                policyHandoverEventStore = handoverStore,
                 launcherProvider = constantProvider(launcher),
                 activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                 scope = backgroundScope,
@@ -415,6 +421,7 @@ class AutomaticProbeSchedulerTest {
         return SchedulerEnv(
             launcher = launcher,
             scheduler = scheduler,
+            handoverStore = handoverStore,
         )
     }
 }
@@ -422,6 +429,7 @@ class AutomaticProbeSchedulerTest {
 private data class SchedulerEnv(
     val launcher: RecordingAutomaticProbeLauncher,
     val scheduler: AutomaticProbeScheduler,
+    val handoverStore: FakePolicyHandoverEventStore,
 )
 
 private class RecordingAutomaticProbeLauncher(
@@ -446,6 +454,7 @@ private fun handoverEvent(
     currentNetworkValidated: Boolean = true,
     currentCaptivePortalDetected: Boolean = false,
 ) = PolicyHandoverEvent(
+    deliveryId = "delivery-$classification",
     mode = Mode.VPN,
     previousFingerprintHash = "fingerprint-a",
     currentFingerprintHash = currentFingerprintHash,
@@ -453,7 +462,6 @@ private fun handoverEvent(
     currentNetworkValidated = currentNetworkValidated,
     currentCaptivePortalDetected = currentCaptivePortalDetected,
     usedRememberedPolicy = false,
-    policySignature = "policy-1",
     occurredAt = 100L,
 )
 

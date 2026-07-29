@@ -253,6 +253,7 @@ internal fun createDiagnosticsServices(
             appSettingsRepository = appSettingsRepository,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
             diagnosticsArtifactReadStore = stores,
+            policyHandoverEventStore = policyHandoverEventStore,
             launcherProvider =
                 object : Provider<AutomaticProbeLauncher> {
                     override fun get(): AutomaticProbeLauncher = scanController

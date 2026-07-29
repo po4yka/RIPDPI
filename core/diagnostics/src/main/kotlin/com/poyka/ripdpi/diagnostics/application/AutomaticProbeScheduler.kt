@@ -6,9 +6,11 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -34,21 +36,31 @@ class AutomaticProbeScheduler
         private val appSettingsRepository: AppSettingsRepository,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val diagnosticsArtifactReadStore: DiagnosticsArtifactQueryStore,
+        private val policyHandoverEventStore: PolicyHandoverEventStore,
         private val launcherProvider: Provider<AutomaticProbeLauncher>,
         private val activeProbeSafetyPolicy: ActiveProbeSafetyPolicy,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) {
-        private val pendingProbeJobs = ConcurrentHashMap<Mode, Job>()
+        private val pendingProbeJobs = ConcurrentHashMap<String, Job>()
         private val recentProbeRuns = ConcurrentHashMap<String, Long>()
 
         fun schedule(event: PolicyHandoverEvent) {
-            pendingProbeJobs[event.mode]?.cancel()
-            pendingProbeJobs[event.mode] =
-                scope.launch {
-                    delay(activeProbeSafetyPolicy.automaticHandoverProbeDelayMs)
-                    launchIfEligible(event)
+            val job =
+                scope.launch(start = CoroutineStart.LAZY) {
+                    try {
+                        delay(activeProbeSafetyPolicy.automaticHandoverProbeDelayMs)
+                        launchIfEligible(event)
+                        policyHandoverEventStore.acknowledge(event.deliveryId)
+                    } finally {
+                        pendingProbeJobs.remove(event.deliveryId)
+                    }
                 }
+            if (pendingProbeJobs.putIfAbsent(event.deliveryId, job) == null) {
+                job.start()
+            } else {
+                job.cancel()
+            }
         }
 
         private suspend fun launchIfEligible(event: PolicyHandoverEvent) {

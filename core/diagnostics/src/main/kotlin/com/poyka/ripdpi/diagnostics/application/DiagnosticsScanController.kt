@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.policyHandoverScanSessionId
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.CancellationException
@@ -309,6 +310,8 @@ internal class DefaultDiagnosticsScanController
             event: PolicyHandoverEvent,
         ): Boolean =
             startMutex.withLock {
+                val sessionId = policyHandoverScanSessionId(event.deliveryId)
+                if (scanRecordStore.getScanSession(sessionId) != null) return@withLock true
                 val profile = scanAdmissionService.admitAutomaticProbe(settings) ?: return@withLock false
                 startPreparedScan(
                     prepared =
@@ -320,6 +323,7 @@ internal class DefaultDiagnosticsScanController
                             launchTrigger = event.toLaunchTrigger(),
                             exposeProgress = false,
                             registerActiveBridge = false,
+                            sessionIdOverride = sessionId,
                         ),
                     rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
                 )

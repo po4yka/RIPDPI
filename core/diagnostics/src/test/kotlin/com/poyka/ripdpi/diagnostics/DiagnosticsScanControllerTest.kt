@@ -23,6 +23,46 @@ class DiagnosticsScanControllerTest {
     private val json = diagnosticsTestJson()
 
     @Test
+    fun `automatic handover replay reuses its durable scan session`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-audit")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedStrategyProbeProfile(json)
+                    addAutomaticAuditProfile(json)
+                }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+            val event = transportSwitchHandoverEvent()
+
+            assertTrue(services.scanController.launchAutomaticProbe(settings, event))
+            assertTrue(services.scanController.launchAutomaticProbe(settings, event))
+
+            assertEquals(1, stores.sessionsState.value.size)
+        }
+
+    @Test
     fun `in-path scan launch injects proxy settings into request`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
@@ -156,13 +196,13 @@ class DiagnosticsScanControllerTest {
                     settings = settings,
                     event =
                         PolicyHandoverEvent(
+                            deliveryId = "delivery-hidden-conflict",
                             mode = com.poyka.ripdpi.data.Mode.VPN,
                             currentFingerprintHash = "network-a",
                             classification = "transport_switch",
                             currentNetworkValidated = true,
                             currentCaptivePortalDetected = false,
                             usedRememberedPolicy = false,
-                            policySignature = "baseline",
                             occurredAt = 10L,
                         ),
                 ),
@@ -250,13 +290,13 @@ class DiagnosticsScanControllerTest {
 
     private fun transportSwitchHandoverEvent() =
         PolicyHandoverEvent(
+            deliveryId = "delivery-transport-switch",
             mode = com.poyka.ripdpi.data.Mode.VPN,
             currentFingerprintHash = "network-a",
             classification = "transport_switch",
             currentNetworkValidated = true,
             currentCaptivePortalDetected = false,
             usedRememberedPolicy = false,
-            policySignature = "baseline",
             occurredAt = 10L,
         )
 
@@ -318,13 +358,13 @@ class DiagnosticsScanControllerTest {
                     settings = settings,
                     event =
                         PolicyHandoverEvent(
+                            deliveryId = "delivery-stop-and-start",
                             mode = com.poyka.ripdpi.data.Mode.VPN,
                             currentFingerprintHash = "network-a",
                             classification = "transport_switch",
                             currentNetworkValidated = true,
                             currentCaptivePortalDetected = false,
                             usedRememberedPolicy = false,
-                            policySignature = "baseline",
                             occurredAt = 10L,
                         ),
                 ),
@@ -604,13 +644,13 @@ class DiagnosticsScanControllerTest {
                     settings = settings,
                     event =
                         PolicyHandoverEvent(
+                            deliveryId = "delivery-network-changed",
                             mode = com.poyka.ripdpi.data.Mode.VPN,
                             currentFingerprintHash = "network-a",
                             classification = "network_changed",
                             currentNetworkValidated = true,
                             currentCaptivePortalDetected = false,
                             usedRememberedPolicy = false,
-                            policySignature = "baseline",
                             occurredAt = 10L,
                         ),
                 )

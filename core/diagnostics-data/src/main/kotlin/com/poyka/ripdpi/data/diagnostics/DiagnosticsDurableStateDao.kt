@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DiagnosticsDurableStateDao {
@@ -22,6 +23,15 @@ interface DiagnosticsDurableStateDao {
         keyPrefix: String,
         limit: Int,
     ): List<DiagnosticsDurableStateEntity>
+
+    @Query(
+        """
+        SELECT * FROM diagnostics_durable_state
+        WHERE `key` LIKE :keyPrefix || '%'
+        ORDER BY updatedAt ASC
+        """,
+    )
+    fun observeDiagnosticsDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDiagnosticsDurableState(state: DiagnosticsDurableStateEntity)

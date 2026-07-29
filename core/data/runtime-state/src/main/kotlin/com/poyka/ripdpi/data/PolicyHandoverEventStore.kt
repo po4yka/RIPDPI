@@ -1,8 +1,13 @@
 package com.poyka.ripdpi.data
 
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
+import java.nio.charset.StandardCharsets
+import java.util.UUID
 
+@Serializable
 data class PolicyHandoverEvent(
+    val deliveryId: String,
     val mode: Mode,
     val previousFingerprintHash: String? = null,
     val currentFingerprintHash: String,
@@ -10,12 +15,19 @@ data class PolicyHandoverEvent(
     val currentNetworkValidated: Boolean,
     val currentCaptivePortalDetected: Boolean,
     val usedRememberedPolicy: Boolean,
-    val policySignature: String,
     val occurredAt: Long,
 )
 
 interface PolicyHandoverEventStore {
-    val events: SharedFlow<PolicyHandoverEvent>
+    val events: Flow<PolicyHandoverEvent>
 
-    fun publish(event: PolicyHandoverEvent)
+    suspend fun publish(event: PolicyHandoverEvent)
+
+    suspend fun acknowledge(deliveryId: String)
 }
+
+fun policyHandoverDeliveryId(seed: String): String =
+    "policy-handover:" + UUID.nameUUIDFromBytes(seed.toByteArray(StandardCharsets.UTF_8))
+
+fun policyHandoverScanSessionId(deliveryId: String): String =
+    UUID.nameUUIDFromBytes("diagnostics-scan:$deliveryId".toByteArray(StandardCharsets.UTF_8)).toString()

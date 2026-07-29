@@ -245,6 +245,7 @@ class DiagnosticsScanRequestFactoryTest {
                     scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
                     launchTrigger =
                         PolicyHandoverEvent(
+                            deliveryId = "delivery-request-factory",
                             mode = Mode.VPN,
                             previousFingerprintHash = "fingerprint-a",
                             currentFingerprintHash = "fingerprint-b",
@@ -252,7 +253,6 @@ class DiagnosticsScanRequestFactoryTest {
                             currentNetworkValidated = true,
                             currentCaptivePortalDetected = false,
                             usedRememberedPolicy = false,
-                            policySignature = "baseline",
                             occurredAt = 42L,
                         ).toLaunchTrigger(),
                     exposeProgress = false,

@@ -1050,8 +1050,12 @@ internal class FakePolicyHandoverEventStore : PolicyHandoverEventStore {
 
     override val events: SharedFlow<PolicyHandoverEvent> = state.asSharedFlow()
 
-    override fun publish(event: PolicyHandoverEvent) {
-        state.tryEmit(event)
+    val acknowledged = mutableListOf<String>()
+
+    override suspend fun publish(event: PolicyHandoverEvent) = state.emit(event)
+
+    override suspend fun acknowledge(deliveryId: String) {
+        acknowledged += deliveryId
     }
 }
 

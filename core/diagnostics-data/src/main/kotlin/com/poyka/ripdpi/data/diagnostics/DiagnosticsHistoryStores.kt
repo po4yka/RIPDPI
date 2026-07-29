@@ -140,7 +140,14 @@ interface DiagnosticsArtifactWriteStore {
 interface DiagnosticsDurableStateStore {
     suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity?
 
+    fun observeDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>>
+
     suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity)
+
+    suspend fun clearDurableStateIfCurrent(
+        key: String,
+        expectedValue: String,
+    ): Boolean
 
     suspend fun insertNativeSessionEventAndUpsertDurableState(
         event: NativeSessionEventEntity,
@@ -425,9 +432,22 @@ class RoomDiagnosticsArtifactStore
         override suspend fun getDurableState(key: String): DiagnosticsDurableStateEntity? =
             dao.getDiagnosticsDurableState(key)
 
+        override fun observeDurableStateByPrefix(keyPrefix: String): Flow<List<DiagnosticsDurableStateEntity>> =
+            dao.observeDiagnosticsDurableStateByPrefix(keyPrefix)
+
         override suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity) {
             dao.upsertDiagnosticsDurableState(state)
         }
+
+        override suspend fun clearDurableStateIfCurrent(
+            key: String,
+            expectedValue: String,
+        ): Boolean =
+            db.withTransaction {
+                if (dao.getDiagnosticsDurableState(key)?.value != expectedValue) return@withTransaction false
+                dao.clearDiagnosticsDurableState(key, expectedValue)
+                true
+            }
 
         override suspend fun insertNativeSessionEventAndUpsertDurableState(
             event: NativeSessionEventEntity,

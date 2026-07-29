@@ -302,11 +302,11 @@ class ProxyServiceRuntimeCoordinatorTest {
 
             assertEquals(2, env.factory.runtimes.size)
             assertEquals(1, firstRuntime.stopCount)
-            assertEquals(
-                "handover",
+            assertTrue(
                 env.handoverEvents.published
                     .single()
-                    .policySignature,
+                    .deliveryId
+                    .startsWith("policy-handover:"),
             )
             assertEquals(
                 false,

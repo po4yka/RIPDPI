@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ServiceStatus
+import com.poyka.ripdpi.data.policyHandoverDeliveryId
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -96,6 +97,11 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
     ) {
         policyHandoverEventStore.publish(
             PolicyHandoverEvent(
+                deliveryId =
+                    policyHandoverDeliveryId(
+                        "${mode.preferenceValue}|${restartResult.currentFingerprintHash}|" +
+                            "${event.classification}|${event.occurredAt}",
+                    ),
                 mode = mode,
                 previousFingerprintHash = restartResult.previousFingerprintHash,
                 currentFingerprintHash = restartResult.currentFingerprintHash,
@@ -103,7 +109,6 @@ internal class ServiceRuntimeHandoverRestarter<TSession>(
                 currentNetworkValidated = currentFingerprint.networkValidated,
                 currentCaptivePortalDetected = currentFingerprint.captivePortalDetected,
                 usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
-                policySignature = resolution.policySignature,
                 occurredAt = appliedAt,
             ),
         )

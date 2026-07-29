@@ -223,8 +223,9 @@ internal class DiagnosticsScanRequestFactory
             scanDeadlineMs: Long? = null,
             maxCandidates: Int? = null,
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
+            sessionIdOverride: String? = null,
         ): PreparedDiagnosticsScan {
-            val sessionId = UUID.randomUUID().toString()
+            val sessionId = sessionIdOverride ?: UUID.randomUUID().toString()
             val intent =
                 selectStrategyProbeTargetsForSession(
                     sessionId = sessionId,
