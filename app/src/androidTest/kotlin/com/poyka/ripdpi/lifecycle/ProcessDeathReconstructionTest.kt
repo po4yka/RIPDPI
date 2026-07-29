@@ -203,7 +203,7 @@ class ProcessDeathReconstructionTest {
                         }
                     }.trim()
             val livePids = psOutput.split(Regex("\\s+")).filter { it.isNotBlank() }
-            val requiredPidGone = requiredDeadPid == null || requiredDeadPid.toString() !in livePids
+            val requiredPidGone = requiredDeadPid == null || !isPidAlive(requiredDeadPid)
             val instrumentationSurvives = Process.myPid().toString() == instrumentationPid
             if ((livePids.isEmpty() || livePids.all { it == instrumentationPid }) &&
                 requiredPidGone &&
@@ -231,6 +231,18 @@ class ProcessDeathReconstructionTest {
 
         // Allow the app process to initialise and persistent stores to load.
         SystemClock.sleep(RELAUNCH_SETTLE_MS)
+    }
+
+    private fun isPidAlive(pid: Int): Boolean {
+        val output =
+            instrumentation.uiAutomation
+                .executeShellCommand("if [ -d /proc/$pid ]; then echo alive; fi")
+                .let { pfd ->
+                    ParcelFileDescriptor.AutoCloseInputStream(pfd).use {
+                        it.bufferedReader().readText()
+                    }
+                }.trim()
+        return output == "alive"
     }
 
     private fun beginRemoteAcceptanceRunInAppProcess(
