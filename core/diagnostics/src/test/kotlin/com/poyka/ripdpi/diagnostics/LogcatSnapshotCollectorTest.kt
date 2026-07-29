@@ -77,4 +77,23 @@ class LogcatSnapshotCollectorTest {
             assertTrue(snapshot.byteCount <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
             assertEquals(snapshot.byteCount, snapshot.content.toByteArray(Charsets.UTF_8).size)
         }
+
+    @Test
+    fun `capture retains newest utf8 tail when output exceeds budget`() =
+        runTest {
+            val collector =
+                object : LogcatSnapshotCollector() {
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String =
+                        "oldest-marker\n" +
+                            "ж".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES) +
+                            "\nnewest-marker"
+                }
+
+            val snapshot = requireNotNull(collector.capture())
+
+            assertTrue(snapshot.truncated)
+            assertTrue(snapshot.content.contains("newest-marker"))
+            assertTrue(!snapshot.content.contains("oldest-marker"))
+            assertTrue(snapshot.byteCount <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+        }
 }

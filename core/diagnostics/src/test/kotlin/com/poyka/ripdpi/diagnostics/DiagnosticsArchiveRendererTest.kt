@@ -310,6 +310,48 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer redacts logs before applying final utf8 byte limits`() {
+        val rawLog = "http://a ".repeat(58_000)
+        val rawBytes = rawLog.toByteArray(Charsets.UTF_8).size
+        assertTrue(rawBytes < LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+        val selection =
+            buildTruncationRendererSelection().copy(
+                includedFiles = DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true, fileLogIncluded = true),
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content = rawLog,
+                        captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                        byteCount = rawBytes,
+                        truncated = false,
+                    ),
+                fileLogSnapshot =
+                    FileLogSnapshot(
+                        content = rawLog,
+                        byteCount = rawBytes,
+                        truncated = false,
+                    ),
+            )
+
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-log-bound", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-42.zip",
+                createdAt = 42L,
+            )
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+
+        assertTrue(entries.getValue("logcat.txt").bytes.size <= LogcatSnapshotCollector.MAX_LOGCAT_BYTES)
+        assertTrue(entries.getValue("app-log.txt").bytes.size <= FileLogWriter.MAX_LOG_FILE_BYTES)
+        assertTrue(completeness.truncation.logcat)
+        assertTrue(completeness.truncation.appLog)
+    }
+
+    @Test
     fun `decode failure counts subtract successfully decoded artifacts`() {
         val base = buildFullRendererSelection()
         val malformedSnapshot = rendererNetworkSnapshotEntity(sessionId = "session-1").copy(payloadJson = "{bad")

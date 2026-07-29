@@ -51,7 +51,7 @@ open class LogcatSnapshotCollector
                     null
                 } else {
                     val outputBytes = output.toByteArray(Charsets.UTF_8)
-                    val boundedBytes = truncateUtf8Bytes(output, MAX_LOGCAT_BYTES.toLong())
+                    val boundedBytes = tailUtf8Bytes(output, MAX_LOGCAT_BYTES)
                     val scope =
                         if (sinceTimestampMs != null) TimeBoundSnapshotScope else AppVisibleSnapshotScope
                     LogcatSnapshot(
@@ -101,16 +101,62 @@ open class LogcatSnapshotCollector
         }
 
         private fun readBounded(reader: java.io.BufferedReader): String {
-            val buffer = StringBuilder()
+            val buffer = RollingByteTail(MAX_LOGCAT_BYTES + MAX_UTF8_BYTES_PER_CODE_POINT)
             val charBuf = CharArray(READ_BUFFER_CHARS)
-            var totalBytes = 0
             var charsRead = reader.read(charBuf)
-            while (charsRead != -1 && totalBytes <= MAX_LOGCAT_BYTES) {
+            while (charsRead != -1) {
                 val chunk = String(charBuf, 0, charsRead)
-                totalBytes += chunk.toByteArray(Charsets.UTF_8).size
-                buffer.append(chunk)
+                buffer.append(chunk.toByteArray(Charsets.UTF_8))
                 charsRead = reader.read(charBuf)
             }
-            return buffer.toString()
+            return buffer.toByteArray().toString(Charsets.UTF_8)
         }
     }
+
+private const val MAX_UTF8_BYTES_PER_CODE_POINT = 4
+
+private class RollingByteTail(
+    private val capacity: Int,
+) {
+    private var bytes = ByteArray(0)
+
+    fun append(chunk: ByteArray) {
+        bytes =
+            when {
+                chunk.size >= capacity -> {
+                    chunk.copyOfRange(chunk.size - capacity, chunk.size)
+                }
+
+                bytes.size + chunk.size <= capacity -> {
+                    bytes + chunk
+                }
+
+                else -> {
+                    val keep = capacity - chunk.size
+                    bytes.copyOfRange(bytes.size - keep, bytes.size) + chunk
+                }
+            }
+    }
+
+    fun toByteArray(): ByteArray {
+        var start = 0
+        while (start < bytes.size && bytes[start].toInt() and 0xC0 == 0x80) {
+            start += 1
+        }
+        return bytes.copyOfRange(start, bytes.size)
+    }
+}
+
+internal fun tailUtf8Bytes(
+    value: String,
+    maxBytes: Int,
+): ByteArray {
+    if (maxBytes <= 0) return byteArrayOf()
+    val bytes = value.toByteArray(Charsets.UTF_8)
+    if (bytes.size <= maxBytes) return bytes
+    var start = bytes.size - maxBytes
+    while (start < bytes.size && bytes[start].toInt() and 0xC0 == 0x80) {
+        start += 1
+    }
+    return bytes.copyOfRange(start, bytes.size)
+}

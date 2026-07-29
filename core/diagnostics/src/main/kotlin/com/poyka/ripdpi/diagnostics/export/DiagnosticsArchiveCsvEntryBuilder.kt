@@ -25,7 +25,7 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
                 add(
                     DiagnosticsArchiveEntry(
                         name = "logcat.txt",
-                        bytes = redactDiagnosticsLogcat(snapshot.content).toByteArray(),
+                        bytes = snapshot.content.toByteArray(),
                     ),
                 )
             }
@@ -33,7 +33,7 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
                 add(
                     DiagnosticsArchiveEntry(
                         name = "app-log.txt",
-                        bytes = redactDiagnosticsArchiveText(snapshot.content).toByteArray(),
+                        bytes = snapshot.content.toByteArray(),
                     ),
                 )
             }

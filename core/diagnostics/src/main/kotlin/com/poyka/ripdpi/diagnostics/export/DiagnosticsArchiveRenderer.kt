@@ -2,6 +2,9 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
+import com.poyka.ripdpi.diagnostics.FileLogWriter
+import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
+import com.poyka.ripdpi.diagnostics.truncateUtf8Bytes
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
@@ -23,26 +26,27 @@ class DiagnosticsArchiveRenderer
             selection: DiagnosticsArchiveSelection,
             developerAnalytics: DeveloperAnalyticsPayload = DeveloperAnalyticsPayload(),
         ): List<DiagnosticsArchiveEntry> {
-            val snapshotPayload = jsonEntryBuilder.buildSnapshotPayload(selection)
-            val contextPayload = jsonEntryBuilder.buildContextPayload(selection)
-            val sectionStatuses = buildSectionStatuses(selection)
+            val archiveSelection = selection.withRedactedBoundedLogs()
+            val snapshotPayload = jsonEntryBuilder.buildSnapshotPayload(archiveSelection)
+            val contextPayload = jsonEntryBuilder.buildContextPayload(archiveSelection)
+            val sectionStatuses = buildSectionStatuses(archiveSelection)
             val completeness =
                 buildCompleteness(
-                    selection = selection,
+                    selection = archiveSelection,
                     sectionStatuses = sectionStatuses,
                     snapshotPayload = snapshotPayload,
                     contextPayload = contextPayload,
                 )
             val compositeEntries =
-                if (selection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE) {
-                    jsonEntryBuilder.buildCompositeEntries(selection)
+                if (archiveSelection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE) {
+                    jsonEntryBuilder.buildCompositeEntries(archiveSelection)
                 } else {
                     emptyList()
                 }
             val baseEntries =
                 buildCoreEntries(
                     target = target,
-                    selection = selection,
+                    selection = archiveSelection,
                     sectionStatuses = sectionStatuses,
                     snapshotPayload = snapshotPayload,
                     contextPayload = contextPayload,
@@ -100,4 +104,30 @@ class DiagnosticsArchiveRenderer
 
         internal fun buildProbeResultsCsv(results: List<com.poyka.ripdpi.data.diagnostics.ProbeResultEntity>): String =
             csvEntryBuilder.buildProbeResultsCsv(results)
+
+        private fun DiagnosticsArchiveSelection.withRedactedBoundedLogs(): DiagnosticsArchiveSelection =
+            copy(
+                logcatSnapshot =
+                    logcatSnapshot?.let { snapshot ->
+                        val redacted = redactDiagnosticsLogcat(snapshot.content)
+                        val redactedBytes = redacted.toByteArray(Charsets.UTF_8)
+                        val bounded = truncateUtf8Bytes(redacted, LogcatSnapshotCollector.MAX_LOGCAT_BYTES.toLong())
+                        snapshot.copy(
+                            content = bounded.toString(Charsets.UTF_8),
+                            byteCount = bounded.size,
+                            truncated = snapshot.truncated || redactedBytes.size > bounded.size,
+                        )
+                    },
+                fileLogSnapshot =
+                    fileLogSnapshot?.let { snapshot ->
+                        val redacted = redactDiagnosticsArchiveText(snapshot.content)
+                        val redactedBytes = redacted.toByteArray(Charsets.UTF_8)
+                        val bounded = truncateUtf8Bytes(redacted, FileLogWriter.MAX_LOG_FILE_BYTES)
+                        snapshot.copy(
+                            content = bounded.toString(Charsets.UTF_8),
+                            byteCount = bounded.size,
+                            truncated = snapshot.truncated || redactedBytes.size > bounded.size,
+                        )
+                    },
+            )
     }

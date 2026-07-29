@@ -41,4 +41,20 @@ class FileLogWriterTest {
         assertTrue(snapshot.content.toByteArray(Charsets.UTF_8).size <= maxBytes)
         assertTrue(snapshot.truncated)
     }
+
+    @Test
+    fun `truncation marker survives writer restart and rotation`() {
+        val filesDir = Files.createTempDirectory("bounded-file-log-restart").toFile()
+        val maxBytes = 96L
+        FileLogWriter(filesDir, maxFileSize = maxBytes).apply {
+            log(Severity.Warn, "ж".repeat(200), "Diagnostics", null)
+            log(Severity.Warn, "new-current-entry", "Diagnostics", null)
+        }
+
+        val restartedSnapshot = requireNotNull(FileLogWriter(filesDir, maxFileSize = maxBytes).readLogSnapshot())
+
+        assertTrue(restartedSnapshot.byteCount <= maxBytes)
+        assertTrue(restartedSnapshot.truncated)
+        assertTrue(filesDir.resolve("logs/app_log.prev.truncated").exists())
+    }
 }

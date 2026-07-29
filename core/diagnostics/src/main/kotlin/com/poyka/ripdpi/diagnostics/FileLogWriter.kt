@@ -18,14 +18,17 @@ class FileLogWriter(
         private const val LOG_DIR = "logs"
         private const val LOG_FILE = "app_log.txt"
         private const val PREV_LOG_FILE = "app_log.prev.txt"
+        private const val TRUNCATED_MARKER_FILE = "app_log.truncated"
+        private const val PREV_TRUNCATED_MARKER_FILE = "app_log.prev.truncated"
     }
 
     private val logDir = File(filesDir, LOG_DIR)
     private val logFile = File(logDir, LOG_FILE)
     private val prevLogFile = File(logDir, PREV_LOG_FILE)
+    private val truncatedMarkerFile = File(logDir, TRUNCATED_MARKER_FILE)
+    private val prevTruncatedMarkerFile = File(logDir, PREV_TRUNCATED_MARKER_FILE)
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US)
     private val lock = Any()
-    private var writeTruncated = false
 
     override fun isLoggable(
         tag: String,
@@ -55,8 +58,10 @@ class FileLogWriter(
                     }
                 val encodedLine = line.toByteArray(Charsets.UTF_8)
                 val lineBytes = truncateUtf8Bytes(line, maxFileSize)
-                writeTruncated = writeTruncated || encodedLine.size > lineBytes.size
                 rotateIfNeeded(lineBytes.size)
+                if (encodedLine.size > lineBytes.size) {
+                    truncatedMarkerFile.createNewFile()
+                }
                 FileOutputStream(logFile, true).use { fos ->
                     fos.write(lineBytes)
                 }
@@ -81,7 +86,10 @@ class FileLogWriter(
                         FileLogSnapshot(
                             content = it.toString(Charsets.UTF_8),
                             byteCount = it.size,
-                            truncated = writeTruncated || totalBytes > maxFileSize,
+                            truncated =
+                                truncatedMarkerFile.exists() ||
+                                    prevTruncatedMarkerFile.exists() ||
+                                    totalBytes > maxFileSize,
                         )
                     }
             } catch (_: Exception) {
@@ -99,9 +107,19 @@ class FileLogWriter(
 
     private fun rotateIfNeeded(pendingBytes: Int) {
         if (logFile.exists() && logFile.length() + pendingBytes > maxFileSize) {
-            prevLogFile.delete()
-            logFile.renameTo(prevLogFile)
+            deleteIfPresent(prevLogFile)
+            deleteIfPresent(prevTruncatedMarkerFile)
+            check(logFile.renameTo(prevLogFile)) { "Unable to rotate app log" }
+            if (truncatedMarkerFile.exists()) {
+                check(truncatedMarkerFile.renameTo(prevTruncatedMarkerFile)) {
+                    "Unable to rotate app log truncation marker"
+                }
+            }
         }
+    }
+
+    private fun deleteIfPresent(file: File) {
+        check(!file.exists() || file.delete()) { "Unable to delete rotated app log artifact" }
     }
 
     private fun readUtf8Tail(
