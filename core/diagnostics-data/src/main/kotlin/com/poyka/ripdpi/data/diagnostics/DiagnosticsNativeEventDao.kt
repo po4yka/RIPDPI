@@ -50,6 +50,18 @@ interface DiagnosticsNativeEventDao {
         limit: Int = 250,
     ): Flow<List<NativeSessionEventEntity>>
 
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE connectionSessionId = :connectionSessionId
+          AND subsystem = 'network_transition'
+        ORDER BY createdAt DESC
+        """,
+    )
+    fun observeNetworkTransitionEventsForConnectionSession(
+        connectionSessionId: String,
+    ): Flow<List<NativeSessionEventEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
 

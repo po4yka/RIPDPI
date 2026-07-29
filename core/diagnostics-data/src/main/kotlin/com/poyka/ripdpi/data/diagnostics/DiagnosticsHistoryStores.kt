@@ -91,6 +91,8 @@ interface DiagnosticsArtifactReadStore {
         limit: Int = 250,
     ): Flow<List<NativeSessionEventEntity>>
 
+    fun observeConnectionNetworkTransitionEvents(connectionSessionId: String): Flow<List<NativeSessionEventEntity>>
+
     fun observeExportRecords(limit: Int = 50): Flow<List<ExportRecordEntity>>
 }
 
@@ -387,6 +389,11 @@ class RoomDiagnosticsArtifactStore
                 connectionSessionId = connectionSessionId,
                 limit = limit,
             )
+
+        override fun observeConnectionNetworkTransitionEvents(
+            connectionSessionId: String,
+        ): Flow<List<NativeSessionEventEntity>> =
+            dao.observeNetworkTransitionEventsForConnectionSession(connectionSessionId)
 
         override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = dao.observeExportRecords(limit)
 

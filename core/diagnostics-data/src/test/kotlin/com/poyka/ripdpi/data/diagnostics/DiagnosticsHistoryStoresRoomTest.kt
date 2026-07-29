@@ -126,6 +126,18 @@ class DiagnosticsHistoryStoresRoomTest {
                 nativeEvent(id = "evt-2", sessionId = "scan-2", connectionSessionId = "conn-2", createdAt = 30L),
             )
             store.insertNativeSessionEvent(
+                NativeSessionEventEntity(
+                    id = "transition-1",
+                    sessionId = "scan-1",
+                    connectionSessionId = "conn-1",
+                    source = "android_network_callback",
+                    level = "info",
+                    message = "kind=available;generation=1;sequence=1",
+                    createdAt = 5L,
+                    subsystem = "network_transition",
+                ),
+            )
+            store.insertNativeSessionEvent(
                 nativeEvent(id = "evt-global", sessionId = null, createdAt = 10L),
             )
             repeat(201) { index ->
@@ -142,7 +154,14 @@ class DiagnosticsHistoryStoresRoomTest {
             )
             assertEquals(listOf("ctx-1"), store.observeConnectionContexts("conn-1", 10).first().map { it.id })
             assertEquals(listOf("tel-1"), store.observeConnectionTelemetry("conn-1", 10).first().map { it.id })
-            assertEquals(listOf("evt-1"), store.observeConnectionNativeEvents("conn-1", 10).first().map { it.id })
+            assertEquals(
+                listOf("evt-1", "transition-1"),
+                store.observeConnectionNativeEvents("conn-1", 10).first().map { it.id },
+            )
+            assertEquals(
+                listOf("transition-1"),
+                store.observeConnectionNetworkTransitionEvents("conn-1").first().map { it.id },
+            )
             assertEquals("evt-1", store.getNativeEventById("evt-1")?.id)
             assertNull(store.getNativeEventById("evt-missing"))
             assertEquals(listOf("evt-global"), store.getGlobalNativeEvents(limit = 10).map { it.id })

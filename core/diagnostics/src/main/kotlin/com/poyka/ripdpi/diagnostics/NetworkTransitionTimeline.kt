@@ -98,28 +98,64 @@ internal data class NetworkTransitionAdmission(
 internal class NetworkTransitionSessionGate {
     private val lock = Any()
     private var nextEpoch = 0L
-    private var admission: NetworkTransitionAdmission? = null
+    private var state: NetworkTransitionAdmissionState = NetworkTransitionAdmissionState.Inactive
 
     fun activate(connectionSessionId: String): NetworkTransitionAdmission =
         synchronized(lock) {
-            NetworkTransitionAdmission(connectionSessionId, ++nextEpoch).also { admission = it }
+            check(state == NetworkTransitionAdmissionState.Inactive) {
+                "network transition session already active"
+            }
+            NetworkTransitionAdmission(connectionSessionId, ++nextEpoch).also { admission ->
+                state = NetworkTransitionAdmissionState.Active(admission)
+            }
         }
 
-    fun deactivate(): NetworkTransitionAdmission? =
+    fun beginQuiescing(): NetworkTransitionAdmission? =
         synchronized(lock) {
-            admission.also { admission = null }
+            val active = state as? NetworkTransitionAdmissionState.Active ?: return@synchronized null
+            state = NetworkTransitionAdmissionState.Quiescing(active.admission)
+            active.admission
         }
 
-    fun restore(admission: NetworkTransitionAdmission) {
+    fun finishQuiescing(admission: NetworkTransitionAdmission): Boolean =
         synchronized(lock) {
-            check(this.admission == null) { "network transition session already active" }
-            this.admission = admission
+            val quiescing = state as? NetworkTransitionAdmissionState.Quiescing
+            if (quiescing?.admission != admission) return@synchronized false
+            state = NetworkTransitionAdmissionState.Inactive
+            !quiescing.poisoned
         }
-    }
 
     fun withAdmission(block: (NetworkTransitionAdmission?) -> Unit) {
-        synchronized(lock) { block(admission) }
+        synchronized(lock) {
+            when (val current = state) {
+                is NetworkTransitionAdmissionState.Active -> {
+                    block(current.admission)
+                }
+
+                is NetworkTransitionAdmissionState.Quiescing -> {
+                    current.poisoned = true
+                    block(null)
+                }
+
+                NetworkTransitionAdmissionState.Inactive -> {
+                    block(null)
+                }
+            }
+        }
     }
+}
+
+private sealed interface NetworkTransitionAdmissionState {
+    data object Inactive : NetworkTransitionAdmissionState
+
+    data class Active(
+        val admission: NetworkTransitionAdmission,
+    ) : NetworkTransitionAdmissionState
+
+    data class Quiescing(
+        val admission: NetworkTransitionAdmission,
+        var poisoned: Boolean = false,
+    ) : NetworkTransitionAdmissionState
 }
 
 /**

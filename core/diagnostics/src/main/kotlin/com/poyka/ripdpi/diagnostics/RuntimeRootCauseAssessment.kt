@@ -74,41 +74,92 @@ internal object RuntimeRootCauseClassifier {
     fun assess(
         connectionSessionId: String,
         events: List<NativeSessionEventEntity>,
+        networkTransitionEvents: List<NativeSessionEventEntity> = events,
         terminalAtMillis: Long = events.maxOfOrNull(NativeSessionEventEntity::createdAt) ?: 0L,
         terminalEvidenceSealed: Boolean = false,
     ): RuntimeRootCauseAssessment {
         val lowerBoundMillis = terminalAtMillis - RuntimeRootCauseWindowMillis
-        val scopedEvents =
+        val scopedNonTransitionEvents =
             events
                 .asSequence()
                 .filter { event -> event.connectionSessionId == connectionSessionId }
                 .filterNot { event -> event.subsystem == RuntimeRootCauseAssessmentSubsystem }
+                .filterNot { event -> event.subsystem == NetworkTransitionSubsystem }
                 .filter { event -> event.createdAt in lowerBoundMillis..terminalAtMillis }
-                .sortedWith(
-                    compareBy<NativeSessionEventEntity>(NativeSessionEventEntity::createdAt)
-                        .thenBy { event -> event.transitionSequence() },
-                ).toList()
+                .sortedBy(NativeSessionEventEntity::createdAt)
+                .toList()
                 .takeLast(MaxRuntimeRootCauseEvents)
-        val evidence = collectEvidence(connectionSessionId, scopedEvents)
-        val verdict = selectVerdict(evidence, terminalEvidenceSealed)
+        val transitionSelection =
+            selectCanonicalNetworkTransitionEvents(
+                connectionSessionId = connectionSessionId,
+                events = networkTransitionEvents,
+            )
+        val effectiveTerminalEvidenceSealed = terminalEvidenceSealed && transitionSelection.complete
+        val evidence =
+            collectEvidence(
+                connectionSessionId = connectionSessionId,
+                events = scopedNonTransitionEvents,
+                networkTransitionEvents = transitionSelection.events,
+            )
+        val verdict = selectVerdict(evidence, effectiveTerminalEvidenceSealed)
         return RuntimeRootCauseAssessment(
             verdict = verdict,
             confidence = confidenceFor(verdict, evidence),
-            evidenceEventCount = scopedEvents.size,
+            evidenceEventCount = scopedNonTransitionEvents.size + transitionSelection.events.size,
             evidenceRefs = evidence.refs(terminalAtMillis),
             contradictoryCategories = evidence.contradictoryCategories(verdict),
-            terminalEvidenceSealed = terminalEvidenceSealed,
+            terminalEvidenceSealed = effectiveTerminalEvidenceSealed,
         )
     }
 }
 
+private fun selectCanonicalNetworkTransitionEvents(
+    connectionSessionId: String,
+    events: List<NativeSessionEventEntity>,
+): CanonicalNetworkTransitionSelection {
+    val transitionEvents =
+        events.filter { event ->
+            event.connectionSessionId == connectionSessionId && event.subsystem == NetworkTransitionSubsystem
+        }
+    val sequencedEvents =
+        transitionEvents.mapNotNull { event ->
+            val sequence = event.transitionSequenceOrNull()
+            if (event.isCanonicalNetworkTransition() && sequence != null && sequence > 0L) {
+                sequence to event
+            } else {
+                null
+            }
+        }
+    val complete =
+        sequencedEvents.size == transitionEvents.size &&
+            sequencedEvents.map(Pair<Long, NativeSessionEventEntity>::first).distinct().size == sequencedEvents.size
+    return CanonicalNetworkTransitionSelection(
+        events =
+            if (complete) {
+                sequencedEvents
+                    .sortedBy(Pair<Long, NativeSessionEventEntity>::first)
+                    .takeLast(MaxRuntimeRootCauseEvents)
+                    .map(Pair<Long, NativeSessionEventEntity>::second)
+            } else {
+                emptyList()
+            },
+        complete = complete,
+    )
+}
+
+private data class CanonicalNetworkTransitionSelection(
+    val events: List<NativeSessionEventEntity>,
+    val complete: Boolean,
+)
+
 private fun collectEvidence(
     connectionSessionId: String,
     events: List<NativeSessionEventEntity>,
+    networkTransitionEvents: List<NativeSessionEventEntity>,
 ): RuntimeEvidenceAccumulator {
     val evidence = RuntimeEvidenceAccumulator()
     val terminalDataPlaneEvent = events.latestCanonicalDataPlaneFinalEvent()
-    collectNetworkTransitionEvidence(events, evidence)
+    collectNetworkTransitionEvidence(networkTransitionEvents, evidence)
     events.forEach { event ->
         val tokens = event.message.toKeyValueTokens()
         val subsystem = event.subsystem.orEmpty()
@@ -139,13 +190,7 @@ private fun collectNetworkTransitionEvidence(
 ) {
     val reducer = NetworkTransitionEvidenceReducer()
     events
-        .asSequence()
-        .filter(NativeSessionEventEntity::isCanonicalNetworkTransition)
-        .filter { event -> event.transitionSequenceOrNull() != null }
-        .sortedWith(
-            compareBy<NativeSessionEventEntity> { event -> requireNotNull(event.transitionSequenceOrNull()) }
-                .thenBy(NativeSessionEventEntity::createdAt),
-        ).forEach(reducer::accept)
+        .forEach(reducer::accept)
     reducer.unresolvedFailure?.let { event ->
         evidence.add(RuntimeEvidenceCategory.UnderlayLost, event)
     }
@@ -153,6 +198,7 @@ private fun collectNetworkTransitionEvidence(
 
 private class NetworkTransitionEvidenceReducer {
     private val authoritativeNonVpnGenerations = mutableSetOf<Long>()
+    private val activeValidatedNonVpnGenerations = mutableSetOf<Long>()
     private var unresolvedGeneration: Long? = null
     private var unresolvedFromLost: Boolean = false
 
@@ -168,7 +214,11 @@ private class NetworkTransitionEvidenceReducer {
             authoritativeNonVpnGenerations.add(generation)
             acceptCapabilities(event, generation, validated, internet)
         } else if (tokens["kind"] == "lost" && generation in authoritativeNonVpnGenerations) {
-            recordFailure(event, generation, fromLost = true)
+            authoritativeNonVpnGenerations.remove(generation)
+            activeValidatedNonVpnGenerations.remove(generation)
+            if (activeValidatedNonVpnGenerations.isEmpty()) {
+                recordFailure(event, generation, fromLost = true)
+            }
         }
     }
 
@@ -179,11 +229,19 @@ private class NetworkTransitionEvidenceReducer {
         internet: String?,
     ) {
         if (networkCapabilityMissing(validated, internet)) {
-            recordFailure(event, generation, fromLost = false)
+            activeValidatedNonVpnGenerations.remove(generation)
+            if (activeValidatedNonVpnGenerations.isEmpty()) {
+                recordFailure(event, generation, fromLost = false)
+            }
+        } else if (unresolvedGeneration == generation && unresolvedFromLost) {
+            return
         } else if (canRecoverAt(generation)) {
+            activeValidatedNonVpnGenerations.add(generation)
             unresolvedGeneration = null
             unresolvedFromLost = false
             unresolvedFailure = null
+        } else {
+            activeValidatedNonVpnGenerations.add(generation)
         }
     }
 
@@ -496,10 +554,8 @@ internal fun String.toKeyValueTokens(): Map<String, String> =
 
 internal fun NativeSessionEventEntity.toKeyValueTokens(): Map<String, String> = message.toKeyValueTokens()
 
-private fun NativeSessionEventEntity.transitionSequence(): Long = transitionSequenceOrNull() ?: Long.MIN_VALUE
-
 private fun NativeSessionEventEntity.transitionSequenceOrNull(): Long? =
-    if (subsystem == "network_transition") {
+    if (subsystem == NetworkTransitionSubsystem) {
         message.toKeyValueTokens()["sequence"]?.toLongOrNull()
     } else {
         null
@@ -507,9 +563,9 @@ private fun NativeSessionEventEntity.transitionSequenceOrNull(): Long? =
 
 private fun NativeSessionEventEntity.isCanonicalNetworkTransition(): Boolean {
     val tokens = message.toKeyValueTokens()
-    return source == "android_network_callback" &&
+    return source == NetworkTransitionSource &&
         level.lowercase(Locale.US) == "info" &&
-        subsystem == "network_transition" &&
+        subsystem == NetworkTransitionSubsystem &&
         tokens["kind"] in NetworkTransitionKinds &&
         tokens["generation"]?.toLongOrNull() != null &&
         tokens["sequence"]?.toLongOrNull() != null
@@ -544,6 +600,9 @@ private fun Map<String, String>.isQualifyingOemProcessKill(): Boolean {
     return reasonQualified && this["importance"] in OemProcessKillImportanceBands
 }
 
+internal fun List<NativeSessionEventEntity>.hasCanonicalDataPlaneFinalEvent(): Boolean =
+    latestCanonicalDataPlaneFinalEvent() != null
+
 private fun List<NativeSessionEventEntity>.latestCanonicalDataPlaneFinalEvent(): NativeSessionEventEntity? =
     asSequence()
         .filter { event -> event.source == "service" }
@@ -565,6 +624,8 @@ private fun List<NativeSessionEventEntity>.latestCanonicalDataPlaneFinalEvent():
 private const val MaxRuntimeRootCauseEvents = 64
 private const val MaxRuntimeRootCauseEvidenceRefs = 8
 private const val RuntimeRootCauseWindowMillis = 5 * 60 * 1000L
+private const val NetworkTransitionSubsystem = "network_transition"
+private const val NetworkTransitionSource = "android_network_callback"
 
 private val WarningLevels = setOf("warn", "error")
 private val TypedRuntimeHealthLevels = setOf("info", "warn")

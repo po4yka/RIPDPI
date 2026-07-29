@@ -267,6 +267,8 @@ class RuntimeHistoryMonitorPersistenceTest {
             runCurrent()
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             runCurrent()
+            serviceStateStore.updateTelemetry(finalDataPlaneTelemetry(createdAt = System.currentTimeMillis()))
+            runCurrent()
             serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
             runCurrent()
 
@@ -391,6 +393,7 @@ class RuntimeHistoryMonitorPersistenceTest {
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 3L), "conn-a")
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-a")
             persister.persistRuntimeEvents(dnsTelemetry(queries = 2, failures = 2, updatedAt = 4L), "conn-b")
+            stores.nativeEventsState.value += terminalDataPlaneEvent("conn-a", createdAt = 4L)
             persister.persistTerminalRootCauseAssessment(
                 connectionSessionId = "conn-a",
                 createdAt = 5L,

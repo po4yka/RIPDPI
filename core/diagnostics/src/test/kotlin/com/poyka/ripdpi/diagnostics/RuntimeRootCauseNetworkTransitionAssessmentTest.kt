@@ -158,6 +158,31 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
     }
 
     @Test
+    fun `loss of one non vpn network stays healthy while another validated network remains`() {
+        val assessment =
+            assess(
+                events =
+                    listOf(
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=present;generation=1;sequence=1",
+                            1L,
+                        ),
+                        transition(
+                            "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                "validated=present;generation=2;sequence=2",
+                            2L,
+                        ),
+                        transition("kind=lost;generation=1;sequence=3", 3L),
+                    ),
+                sealed = true,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertTrue(assessment.evidenceRefs.isEmpty())
+    }
+
+    @Test
     fun `monotonic transition sequence survives wall clock reversal`() {
         val assessment =
             assess(
@@ -183,26 +208,78 @@ class RuntimeRootCauseNetworkTransitionAssessmentTest {
     }
 
     @Test
-    fun `transition without monotonic sequence cannot override canonical evidence`() {
+    fun `invalid transition sequences fail the terminal seal closed`() {
+        val invalidMessages =
+            listOf(
+                "kind=available;generation=2",
+                "kind=available;generation=2;sequence=not-a-number",
+                "kind=available;generation=2;sequence=0",
+                "kind=available;generation=2;sequence=-1",
+            )
+
+        invalidMessages.forEachIndexed { index, invalidMessage ->
+            val assessment =
+                assess(
+                    events =
+                        listOf(
+                            transition(
+                                "kind=capabilities_changed;path=non_vpn;internet=present;" +
+                                    "validated=absent;generation=1;sequence=1",
+                                1L,
+                            ),
+                            transition(invalidMessage, index + 2L),
+                        ),
+                    sealed = true,
+                )
+
+            assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+            assertEquals(false, assessment.terminalEvidenceSealed)
+        }
+    }
+
+    @Test
+    fun `duplicate transition sequence fails the terminal seal closed`() {
         val assessment =
             assess(
                 events =
                     listOf(
                         transition(
                             "kind=capabilities_changed;path=non_vpn;internet=present;" +
-                                "validated=absent;generation=3;sequence=1",
+                                "validated=absent;generation=1;sequence=1",
                             1L,
                         ),
+                        transition("kind=lost;generation=1;sequence=1", 2L),
+                    ),
+                sealed = true,
+            )
+
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(false, assessment.terminalEvidenceSealed)
+    }
+
+    @Test
+    fun `transition from a non callback source fails the terminal seal closed`() {
+        val assessment =
+            assess(
+                events =
+                    listOf(
                         transition(
                             "kind=capabilities_changed;path=non_vpn;internet=present;" +
-                                "validated=present;generation=3",
-                            2L,
+                                "validated=absent;generation=1;sequence=1",
+                            1L,
+                        ),
+                        event(
+                            subsystem = "network_transition",
+                            message = "kind=available;generation=2;sequence=2",
+                            createdAt = 2L,
+                            source = "service",
                         ),
                     ),
                 sealed = true,
             )
 
-        assertEquals(RuntimeRootCauseVerdict.UNDERLAY_LOST, assessment.verdict)
+        assertEquals(RuntimeRootCauseVerdict.INCONCLUSIVE, assessment.verdict)
+        assertEquals(false, assessment.terminalEvidenceSealed)
     }
 
     private fun assess(

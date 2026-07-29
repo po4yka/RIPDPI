@@ -227,7 +227,19 @@ internal class FakeDiagnosticsHistoryStores :
         limit: Int,
     ): Flow<List<NativeSessionEventEntity>> =
         nativeEventsState.map { events ->
-            events.filter { it.connectionSessionId == connectionSessionId }.take(limit)
+            events
+                .filter { it.connectionSessionId == connectionSessionId }
+                .sortedByDescending(NativeSessionEventEntity::createdAt)
+                .take(limit)
+        }
+
+    override fun observeConnectionNetworkTransitionEvents(
+        connectionSessionId: String,
+    ): Flow<List<NativeSessionEventEntity>> =
+        nativeEventsState.map { events ->
+            events.filter { event ->
+                event.connectionSessionId == connectionSessionId && event.subsystem == "network_transition"
+            }
         }
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState

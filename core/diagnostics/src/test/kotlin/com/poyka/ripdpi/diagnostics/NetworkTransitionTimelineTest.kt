@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @Config(sdk = [35])
 class NetworkTransitionTimelineTest {
     @Test
-    fun `session gate cannot deactivate until an admitted callback is enqueued`() {
+    fun `session gate cannot quiesce until an admitted callback is enqueued`() {
         val gate = NetworkTransitionSessionGate()
         val callbackEntered = CountDownLatch(1)
         val releaseCallback = CountDownLatch(1)
@@ -42,14 +42,15 @@ class NetworkTransitionTimelineTest {
                     }
                 }
             assertTrue(callbackEntered.await(1, TimeUnit.SECONDS))
-            val deactivate = executor.submit(gate::deactivate)
+            val quiesce = executor.submit(gate::beginQuiescing)
 
-            val timeout = runCatching { deactivate.get(50, TimeUnit.MILLISECONDS) }.exceptionOrNull()
+            val timeout = runCatching { quiesce.get(50, TimeUnit.MILLISECONDS) }.exceptionOrNull()
             assertTrue(timeout is TimeoutException)
             releaseCallback.countDown()
 
             capture.get(1, TimeUnit.SECONDS)
-            deactivate.get(1, TimeUnit.SECONDS)
+            val admission = requireNotNull(quiesce.get(1, TimeUnit.SECONDS))
+            assertTrue(gate.finishQuiescing(admission))
             gate.withAdmission { admission -> assertEquals(null, admission) }
         } finally {
             releaseCallback.countDown()
@@ -58,7 +59,7 @@ class NetworkTransitionTimelineTest {
     }
 
     @Test
-    fun `deactivation cannot overtake generation recovery admitted by a public callback`() =
+    fun `quiescing cannot overtake generation recovery admitted by a public callback`() =
         runTest {
             val gate = NetworkTransitionSessionGate()
             val callbackEntered = CountDownLatch(1)
@@ -92,17 +93,18 @@ class NetworkTransitionTimelineTest {
                         timeline.recordCapabilities(networkKey, nonVpnCapabilities(validated = true))
                     }
                 assertTrue(callbackEntered.await(1, TimeUnit.SECONDS))
-                val deactivate = executor.submit<NetworkTransitionAdmission?>(gate::deactivate)
+                val quiesce = executor.submit<NetworkTransitionAdmission?>(gate::beginQuiescing)
 
-                val timeout = runCatching { deactivate.get(50, TimeUnit.MILLISECONDS) }.exceptionOrNull()
+                val timeout = runCatching { quiesce.get(50, TimeUnit.MILLISECONDS) }.exceptionOrNull()
                 assertTrue(timeout is TimeoutException)
                 releaseCallback.countDown()
                 recovery.get(1, TimeUnit.SECONDS)
-                val admission = requireNotNull(deactivate.get(1, TimeUnit.SECONDS))
+                val admission = requireNotNull(quiesce.get(1, TimeUnit.SECONDS))
                 val seal = async { timeline.flush(admission) }
                 runCurrent()
 
                 assertTrue(seal.await())
+                assertTrue(gate.finishQuiescing(admission))
                 assertEquals(NetworkTransitionState.Present, events.last().validated)
             } finally {
                 releaseCallback.countDown()
@@ -185,12 +187,13 @@ class NetworkTransitionTimelineTest {
             val firstKey = Any()
             gate.activate("session-a")
             timeline.recordAvailable(firstKey)
-            val firstAdmission = requireNotNull(gate.deactivate())
+            val firstAdmission = requireNotNull(gate.beginQuiescing())
             val firstSeal = async { timeline.flush(firstAdmission, timeoutMillis = 10L) }
             runCurrent()
             advanceTimeBy(11L)
             runCurrent()
             assertFalse(firstSeal.await())
+            assertTrue(gate.finishQuiescing(firstAdmission))
 
             val secondAdmission = gate.activate("session-b")
             val secondKey = Any()
@@ -198,7 +201,7 @@ class NetworkTransitionTimelineTest {
             repeat(MaxPersistedNetworkTransitionsPerSession + 2) {
                 timeline.recordCapabilities(secondKey, vpnCapabilities())
             }
-            assertEquals(secondAdmission, gate.deactivate())
+            assertEquals(secondAdmission, gate.beginQuiescing())
 
             releaseFirstPersist.complete(Unit)
             runCurrent()
@@ -206,43 +209,33 @@ class NetworkTransitionTimelineTest {
             runCurrent()
 
             assertFalse(secondSeal.await())
+            assertTrue(gate.finishQuiescing(secondAdmission))
         }
 
     @Test
-    fun `timed out barrier cannot acknowledge failures from a restored epoch retry`() =
+    fun `callback racing a terminal flush poisons the epoch and retry cannot reopen it`() =
         runTest {
             val gate = NetworkTransitionSessionGate()
-            val releaseFirstPersist = CompletableDeferred<Unit>()
+            val persisted = mutableListOf<NetworkTransitionEvent>()
             val timeline =
                 NetworkTransitionTimeline(
                     scope = backgroundScope,
                     clock = { NetworkTransitionTimestamp(elapsedRealtimeMs = 5L, epochMs = 10_005L) },
                     withSessionAdmission = gate::withAdmission,
-                    persist = { event ->
-                        if (event.sequence == 1L) releaseFirstPersist.await()
-                    },
+                    persist = persisted::add,
                 )
             val admission = gate.activate("session-a")
             val networkKey = Any()
             timeline.recordAvailable(networkKey)
-            assertEquals(admission, gate.deactivate())
-            val timedOutSeal = async { timeline.flush(admission, timeoutMillis = 10L) }
-            runCurrent()
-            advanceTimeBy(11L)
-            runCurrent()
-            assertFalse(timedOutSeal.await())
-
-            gate.restore(admission)
-            repeat(MaxPersistedNetworkTransitionsPerSession + 2) {
-                timeline.recordCapabilities(networkKey, vpnCapabilities())
-            }
-            assertEquals(admission, gate.deactivate())
-            releaseFirstPersist.complete(Unit)
-            runCurrent()
-            val retrySeal = async { timeline.flush(admission) }
+            assertEquals(admission, gate.beginQuiescing())
+            timeline.recordCapabilities(networkKey, vpnCapabilities())
+            val flush = async { timeline.flush(admission) }
             runCurrent()
 
-            assertFalse(retrySeal.await())
+            assertTrue(flush.await())
+            assertFalse(gate.finishQuiescing(admission))
+            assertEquals(null, gate.beginQuiescing())
+            assertEquals(listOf(NetworkTransitionKind.Available), persisted.map(NetworkTransitionEvent::kind))
         }
 
     @Test

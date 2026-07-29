@@ -46,6 +46,8 @@ class RuntimeArtifactPersister
         private val runtimeEvidenceMutex = Mutex()
         private val rootCauseAssessmentMutex = Mutex()
         private val runtimeEventsByConnectionSessionId = LinkedHashMap<String, ArrayDeque<NativeSessionEventEntity>>()
+        private val networkTransitionEventsByConnectionSessionId =
+            LinkedHashMap<String, ArrayDeque<NativeSessionEventEntity>>()
         private val persistedRootCauseConnectionSessionIds = LinkedHashSet<String>()
         private val typedRuntimeHealthMutex = Mutex()
         private val typedRuntimeHealthByConnectionSessionId = LinkedHashMap<String, TypedRuntimeHealthState>()
@@ -212,16 +214,30 @@ class RuntimeArtifactPersister
                         connectionSessionId = connectionSessionId,
                         limit = MaxRuntimeRootCauseEventsPerSession,
                     ).first()
+            val persistedNetworkTransitionEvents =
+                artifactReadStore
+                    .observeConnectionNetworkTransitionEvents(connectionSessionId)
+                    .first()
             val fallbackEvents =
                 runtimeEvidenceMutex.withLock {
                     runtimeEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
+                }
+            val fallbackNetworkTransitionEvents =
+                runtimeEvidenceMutex.withLock {
+                    networkTransitionEventsByConnectionSessionId[connectionSessionId]?.toList().orEmpty()
                 }
             val assessment =
                 RuntimeRootCauseClassifier.assess(
                     connectionSessionId = connectionSessionId,
                     events = persistedEvents.ifEmpty { fallbackEvents },
+                    networkTransitionEvents =
+                        persistedNetworkTransitionEvents.ifEmpty { fallbackNetworkTransitionEvents },
                     terminalAtMillis = createdAt,
-                    terminalEvidenceSealed = terminalEvidenceSealed,
+                    terminalEvidenceSealed =
+                        terminalEvidenceSealed &&
+                            persistedEvents
+                                .ifEmpty { fallbackEvents }
+                                .hasCanonicalDataPlaneFinalEvent(),
                 )
             artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
@@ -335,13 +351,18 @@ class RuntimeArtifactPersister
                 }
                 events.removeAll { existing -> existing.id == event.id }
                 events.addLast(event)
-                while (runtimeEventsByConnectionSessionId.size > MaxRuntimeRootCauseTrackedSessions) {
-                    val iterator = runtimeEventsByConnectionSessionId.entries.iterator()
-                    if (iterator.hasNext()) {
-                        iterator.next()
-                        iterator.remove()
+                if (event.subsystem == "network_transition") {
+                    val transitionEvents =
+                        networkTransitionEventsByConnectionSessionId.getOrPut(connectionSessionId) {
+                            ArrayDeque(MaxRuntimeRootCauseEventsPerSession)
+                        }
+                    if (transitionEvents.size >= MaxRuntimeRootCauseEventsPerSession) {
+                        transitionEvents.removeFirst()
                     }
+                    transitionEvents.addLast(event)
                 }
+                runtimeEventsByConnectionSessionId.trimTrackedSessions()
+                networkTransitionEventsByConnectionSessionId.trimTrackedSessions()
             }
         }
 
@@ -631,6 +652,16 @@ private fun ServiceTelemetrySnapshot.hasRelayRuntimeFailure(): Boolean =
 private fun String.toRelayRuntimeCategory(allowedValues: Set<String>): String {
     val normalized = lowercase(Locale.US).replace('-', '_')
     return normalized.takeIf(allowedValues::contains) ?: "unknown"
+}
+
+private fun <T> LinkedHashMap<String, T>.trimTrackedSessions() {
+    while (size > MaxRuntimeRootCauseTrackedSessions) {
+        val iterator = entries.iterator()
+        if (iterator.hasNext()) {
+            iterator.next()
+            iterator.remove()
+        }
+    }
 }
 
 private fun String.withPersistedEventKind(event: NativeRuntimeEvent): String {
