@@ -55,6 +55,10 @@ data class RemoteDeviceAcceptanceUnderlay(
     val hasIpv6Dns: Boolean = false,
     val nat64Advertised: Boolean? = null,
     val nat64Reachability: String = "unknown",
+    val appliedTunnelMtuBytes: Int? = null,
+    val configuredEncapsulationBudgetBytes: Int? = null,
+    val appliedTunnelMetered: Boolean? = null,
+    val appliedTunnelEgress: String = "unavailable",
 )
 
 interface RemoteDeviceAcceptanceGate {
@@ -242,6 +246,10 @@ private data class RedactedAcceptanceUnderlay(
     val hasIpv6Dns: Boolean,
     val nat64Advertised: Boolean? = null,
     val nat64Reachability: String,
+    val appliedTunnelMtuBytes: Int? = null,
+    val configuredEncapsulationBudgetBytes: Int? = null,
+    val appliedTunnelMetered: Boolean? = null,
+    val appliedTunnelEgress: String,
 )
 
 private fun RemoteDeviceRecoveryReceipt.toRedacted(): RedactedRecoveryReceipt =
@@ -446,6 +454,10 @@ private fun RemoteDeviceAcceptanceUnderlay.toRedacted(): RedactedAcceptanceUnder
         hasIpv6Dns = hasIpv6Dns,
         nat64Advertised = nat64Advertised,
         nat64Reachability = nat64Reachability,
+        appliedTunnelMtuBytes = appliedTunnelMtuBytes,
+        configuredEncapsulationBudgetBytes = configuredEncapsulationBudgetBytes,
+        appliedTunnelMetered = appliedTunnelMetered,
+        appliedTunnelEgress = appliedTunnelEgress,
     )
 
 internal fun captureRemoteDeviceAcceptanceDevice(): RemoteDeviceAcceptanceDevice =

@@ -2,7 +2,9 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.NetworkPathObservation
 
-internal fun NetworkPathObservation.toRemoteDeviceAcceptanceUnderlay(): RemoteDeviceAcceptanceUnderlay =
+internal fun NetworkPathObservation.toRemoteDeviceAcceptanceUnderlay(
+    appliedNetworkReceipt: VpnTunnelAppliedNetworkReceipt? = null,
+): RemoteDeviceAcceptanceUnderlay =
     RemoteDeviceAcceptanceUnderlay(
         mtuBand = mtuBand,
         hasIpv4Address = "ipv4" in addressFamilies,
@@ -12,6 +14,10 @@ internal fun NetworkPathObservation.toRemoteDeviceAcceptanceUnderlay(): RemoteDe
         hasIpv4Dns = "ipv4" in dnsServerFamilies,
         hasIpv6Dns = "ipv6" in dnsServerFamilies,
         nat64Advertised = nat64Present,
+        appliedTunnelMtuBytes = appliedNetworkReceipt?.appliedTunnelMtu,
+        configuredEncapsulationBudgetBytes = appliedNetworkReceipt?.configuredEncapsulationBudgetBytes,
+        appliedTunnelMetered = appliedNetworkReceipt?.metered,
+        appliedTunnelEgress = appliedNetworkReceipt?.effectiveEgress ?: "unavailable",
     )
 
 internal fun NetworkPathObservation.mandatoryRelayUdpPayloadFamilies(): Set<RelayUdpPayloadFamily> =

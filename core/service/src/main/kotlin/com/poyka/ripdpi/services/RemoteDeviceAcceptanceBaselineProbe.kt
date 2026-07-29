@@ -36,6 +36,8 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
     private val monotonicClock: () -> Long,
     private val probeTargets: RemoteAcceptanceProbeTargets = RemoteAcceptanceProbeTargets(),
     private val payloadHealthCache: RelayUdpPayloadHealthCache = RelayUdpPayloadHealthCache(),
+    private val appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore =
+        VpnTunnelAppliedNetworkReceiptStore(),
 ) {
     @Inject
     constructor(
@@ -44,6 +46,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         underlayObservationProvider: AuthoritativeVpnUnderlayObservationProvider,
         awgEgressSelectionProvider: AwgEgressSelectionProvider,
         probeTargetsProvider: Optional<RemoteAcceptanceProbeTargetsProvider>,
+        appliedNetworkReceiptStore: VpnTunnelAppliedNetworkReceiptStore,
     ) : this(
         serviceStateStore,
         relayCapabilityProbe,
@@ -54,6 +57,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
         probeTargetsProvider
             .map(RemoteAcceptanceProbeTargetsProvider::targets)
             .orElseGet(::RemoteAcceptanceProbeTargets),
+        appliedNetworkReceiptStore = appliedNetworkReceiptStore,
     )
 
     /**
@@ -80,7 +84,10 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
                     before.pathPolicyAssessment()
                 }
             }
-        val underlay = before.underlayObservation.toRemoteDeviceAcceptanceUnderlay()
+        val underlay =
+            before.underlayObservation.toRemoteDeviceAcceptanceUnderlay(
+                before.appliedNetworkReceipt.takeIf { contextError == null },
+            )
         return buildRemoteDeviceAcceptanceBaseline(
             device = deviceProvider(),
             evidence =
@@ -115,6 +122,7 @@ internal class RemoteDeviceAcceptanceBaselineProbe internal constructor(
             serviceStartedAt = snapshot.serviceStartedAt,
             relayFallbackObserved = snapshot.relayFailed,
             underlayObservation = underlayObservationProvider.capture(),
+            appliedNetworkReceipt = appliedNetworkReceiptStore.snapshot(),
         )
     }
 
@@ -323,6 +331,7 @@ private data class AcceptanceCaptureContext(
     val serviceStartedAt: Long?,
     val relayFallbackObserved: Boolean,
     val underlayObservation: NetworkPathObservation,
+    val appliedNetworkReceipt: VpnTunnelAppliedNetworkReceipt?,
 ) {
     val serviceRunning: Boolean
         get() = status == AppStatus.Running && mode == Mode.VPN
@@ -384,7 +393,8 @@ private data class AcceptanceCaptureContext(
                 awgSelected != after.awgSelected ||
                 serviceStartedAt != after.serviceStartedAt ||
                 relayFallbackObserved != after.relayFallbackObserved ||
-                underlayObservation.generation != after.underlayObservation.generation
+                underlayObservation.generation != after.underlayObservation.generation ||
+                appliedNetworkReceipt != after.appliedNetworkReceipt
         }
 }
 
