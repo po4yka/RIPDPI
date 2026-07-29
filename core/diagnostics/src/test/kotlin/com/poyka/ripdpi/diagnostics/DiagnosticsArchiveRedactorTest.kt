@@ -396,6 +396,12 @@ class DiagnosticsArchiveRedactorTest {
                 """{"detail":"\u005cUsers\u005CPrivate\u005cunicode-backslash-secret.pem"}""",
                 """{"detail":"\\u005cUsers\\u005CPrivate\\u005cnested-unicode-secret.pem"}""",
                 """{"detail":"C:\u005cUsers\u005cPrivate\u005cencoded-drive-secret.pem"}""",
+                "%2Fprivate%2Fpercent-slash-secret.pem",
+                "%5cUsers%5CPrivate%5cpercent-backslash-secret.pem",
+                "%252fprivate%252Fpercent-nested-slash-secret.pem",
+                "%255CUsers%255cPrivate%255Cpercent-nested-backslash-secret.pem",
+                "%25252Fprivate%25252fpercent-double-nested-secret.pem",
+                "C:%252FUsers%255cPrivate%2Fpercent-mixed-secret.pem",
             )
         val raw = pathLines.joinToString("\n")
 
@@ -408,7 +414,7 @@ class DiagnosticsArchiveRedactorTest {
     fun `archive path redaction scans every semantic quoted path key`() {
         val raw =
             """{"file":"/private/file.pem","path":"C:\\Private\\path.pem",""" +
-                """"filePath":"\\\\server\\share\\file-path.pem","status":"ready"}"""
+                """"filePath":"%252Fserver%255Cshare%2Ffile-path.pem","status":"ready"}"""
 
         val redacted = redactDiagnosticsArchiveText(raw)
 
@@ -420,11 +426,16 @@ class DiagnosticsArchiveRedactorTest {
 
     @Test
     fun `archive path redaction preserves logical line separators exactly`() {
-        val raw = "/unix-secret\r\nC:\\Users\\drive-secret\r\\\\server\\share\\unc-secret\nsafe"
+        val raw =
+            "/unix-secret\r\nC:\\Users\\drive-secret\r\\\\server\\share\\unc-secret\n" +
+                "%252Fpercent-secret\r\nsafe"
 
         val redacted = redactDiagnosticsArchiveText(raw)
 
-        assertEquals("<path-redacted>\r\n<path-redacted>\r<path-redacted>\nsafe", redacted)
+        assertEquals(
+            "<path-redacted>\r\n<path-redacted>\r<path-redacted>\n<path-redacted>\r\nsafe",
+            redacted,
+        )
     }
 
     @Test
@@ -441,6 +452,15 @@ class DiagnosticsArchiveRedactorTest {
     @Test(timeout = 1_000L)
     fun `archive path redaction handles malformed semantic json in bounded time`() {
         val raw = "{\"path\":\"C:" + "\\".repeat(4_096)
+
+        val redacted = redactDiagnosticsArchiveText(raw)
+
+        assertEquals("<path-redacted>", redacted)
+    }
+
+    @Test(timeout = 1_000L)
+    fun `archive path redaction handles deeply nested percent encoding in bounded time`() {
+        val raw = "%" + "25".repeat(4_096) + "2Fpercent-deep-secret.pem"
 
         val redacted = redactDiagnosticsArchiveText(raw)
 

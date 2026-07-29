@@ -637,14 +637,25 @@ private fun String.skipWhitespaceFrom(start: Int): Int {
 }
 
 private fun containsResidualAbsolutePath(line: String): Boolean =
-    line.indices.any { index ->
-        val character = line[index]
-        // A backslash may be a Windows separator, a JSON escape layer, or the introducer for
-        // a case-insensitive Unicode slash/backslash escape. None is safe to preserve verbatim.
-        (character == '/' && line.isPathBoundaryBefore(index)) ||
-            line.hasDrivePathStartAt(index) ||
-            character == '\\'
-    }
+    line.containsPercentEncodedPathSeparator() ||
+        line.indices.any { index ->
+            val character = line[index]
+            // A backslash may be a Windows separator, a JSON escape layer, or the introducer for
+            // a case-insensitive Unicode slash/backslash escape. None is safe to preserve verbatim.
+            (character == '/' && line.isPathBoundaryBefore(index)) ||
+                line.hasDrivePathStartAt(index) ||
+                character == '\\'
+        }
+
+private fun String.containsPercentEncodedPathSeparator(): Boolean =
+    indices.any { index -> this[index] == '%' && hasPercentEncodedPathSeparatorAt(index) }
+
+private fun String.hasPercentEncodedPathSeparatorAt(percentIndex: Int): Boolean {
+    var encodedByteStart = percentIndex + 1
+    while (regionMatches(encodedByteStart, "25", 0, 2, ignoreCase = true)) encodedByteStart += 2
+    return regionMatches(encodedByteStart, "2f", 0, 2, ignoreCase = true) ||
+        regionMatches(encodedByteStart, "5c", 0, 2, ignoreCase = true)
+}
 
 private fun String.isPathBoundaryBefore(index: Int): Boolean =
     index == 0 || (!this[index - 1].isLetterOrDigit() && this[index - 1] != '_')

@@ -801,6 +801,12 @@ class DiagnosticsArchiveRendererTest {
             "unicode-backslash-secret.pem",
             "nested-unicode-secret.pem",
             "encoded-drive-secret.pem",
+            "percent-slash-secret.pem",
+            "percent-backslash-secret.pem",
+            "percent-nested-slash-secret.pem",
+            "percent-nested-backslash-secret.pem",
+            "percent-double-nested-secret.pem",
+            "percent-mixed-secret.pem",
         )
 
     private fun assertZipExcludes(
@@ -940,6 +946,12 @@ class DiagnosticsArchiveRendererTest {
             """{"detail":"\u005cUsers\u005CPrivate\u005cunicode-backslash-secret.pem"}""",
             """{"detail":"\\u005cUsers\\u005CPrivate\\u005cnested-unicode-secret.pem"}""",
             """{"detail":"C:\u005cUsers\u005cPrivate\u005cencoded-drive-secret.pem"}""",
+            "%2Fprivate%2Fpercent-slash-secret.pem",
+            "%5cUsers%5CPrivate%5cpercent-backslash-secret.pem",
+            "%252fprivate%252Fpercent-nested-slash-secret.pem",
+            "%255CUsers%255cPrivate%255Cpercent-nested-backslash-secret.pem",
+            "%25252Fprivate%25252fpercent-double-nested-secret.pem",
+            "C:%252FUsers%255cPrivate%2Fpercent-mixed-secret.pem",
         ).joinToString("\n")
 
     private fun hostileReplayResult(): ReplayProbeResult {
