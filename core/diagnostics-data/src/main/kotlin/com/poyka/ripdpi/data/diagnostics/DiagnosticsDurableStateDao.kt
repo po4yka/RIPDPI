@@ -14,7 +14,7 @@ interface DiagnosticsDurableStateDao {
     @Query(
         """
         SELECT * FROM diagnostics_durable_state
-        WHERE `key` LIKE :keyPrefix || '%'
+        WHERE substr(`key`, 1, length(:keyPrefix)) = :keyPrefix
         ORDER BY updatedAt ASC
         LIMIT :limit
         """,
@@ -27,7 +27,7 @@ interface DiagnosticsDurableStateDao {
     @Query(
         """
         SELECT * FROM diagnostics_durable_state
-        WHERE `key` LIKE :keyPrefix || '%'
+        WHERE substr(`key`, 1, length(:keyPrefix)) = :keyPrefix
         ORDER BY updatedAt ASC
         """,
     )
@@ -59,13 +59,13 @@ interface DiagnosticsDurableStateDao {
         updatedAt: Long,
     ): Int
 
-    @Query("DELETE FROM diagnostics_durable_state WHERE `key` LIKE :keyPrefix || '%'")
+    @Query("DELETE FROM diagnostics_durable_state WHERE substr(`key`, 1, length(:keyPrefix)) = :keyPrefix")
     suspend fun clearDiagnosticsDurableStateByPrefix(keyPrefix: String)
 
     @Query(
         """
         DELETE FROM diagnostics_durable_state
-        WHERE `key` LIKE :keyPrefix || '%' AND updatedAt < :minimumUpdatedAt
+        WHERE substr(`key`, 1, length(:keyPrefix)) = :keyPrefix AND updatedAt < :minimumUpdatedAt
         """,
     )
     suspend fun clearDiagnosticsDurableStateByPrefixOlderThan(
@@ -76,10 +76,10 @@ interface DiagnosticsDurableStateDao {
     @Query(
         """
         DELETE FROM diagnostics_durable_state
-        WHERE `key` LIKE :keyPrefix || '%'
+        WHERE substr(`key`, 1, length(:keyPrefix)) = :keyPrefix
             AND `key` NOT IN (
                 SELECT `key` FROM diagnostics_durable_state
-                WHERE `key` LIKE :keyPrefix || '%'
+                WHERE substr(`key`, 1, length(:keyPrefix)) = :keyPrefix
                 ORDER BY updatedAt DESC, `key` DESC
                 LIMIT :retainCount
             )

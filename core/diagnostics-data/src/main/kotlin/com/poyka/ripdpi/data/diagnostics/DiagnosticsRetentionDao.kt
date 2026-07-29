@@ -59,7 +59,8 @@ interface DiagnosticsRetentionDao {
         WHERE updatedAt < :threshold
             AND NOT EXISTS (
                 SELECT 1 FROM diagnostics_durable_state AS dependency
-                WHERE dependency.`key` LIKE 'runtime_terminal_policy:%'
+                WHERE substr(dependency.`key`, 1, length('runtime_terminal_policy:')) =
+                        'runtime_terminal_policy:'
                     AND dependency.value = CAST(remembered_network_policies.id AS TEXT)
             )
         """,
