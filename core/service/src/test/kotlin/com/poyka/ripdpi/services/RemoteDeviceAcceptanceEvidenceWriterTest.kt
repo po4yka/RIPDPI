@@ -239,6 +239,27 @@ private class RecordingDurableStateStore : DiagnosticsDurableStateStore {
         durableStates[state.key] = state
     }
 
+    override suspend fun upsertBoundedDurableState(
+        state: DiagnosticsDurableStateEntity,
+        keyPrefix: String,
+        minimumUpdatedAt: Long,
+        retainCount: Int,
+    ) {
+        durableStates[state.key] = state
+        durableStates.entries.removeAll { (key, value) ->
+            key.startsWith(keyPrefix) && value.updatedAt < minimumUpdatedAt
+        }
+        val retainedKeys =
+            durableStates.values
+                .filter { value -> value.key.startsWith(keyPrefix) }
+                .sortedWith(
+                    compareByDescending<DiagnosticsDurableStateEntity> { it.updatedAt }
+                        .thenByDescending { it.key },
+                ).take(retainCount)
+                .mapTo(mutableSetOf()) { it.key }
+        durableStates.keys.removeAll { key -> key.startsWith(keyPrefix) && key !in retainedKeys }
+    }
+
     override suspend fun clearDurableStateIfCurrent(
         key: String,
         expectedValue: String,

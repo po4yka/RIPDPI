@@ -247,6 +247,38 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `artifact store bounds durable state by age and count transactionally`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            store.upsertDurableState(
+                DiagnosticsDurableStateEntity(
+                    key = "bounded:stale",
+                    value = "stale",
+                    updatedAt = 1L,
+                ),
+            )
+
+            repeat(4) { index ->
+                store.upsertBoundedDurableState(
+                    state =
+                        DiagnosticsDurableStateEntity(
+                            key = "bounded:$index",
+                            value = "value-$index",
+                            updatedAt = 10L + index,
+                        ),
+                    keyPrefix = "bounded:",
+                    minimumUpdatedAt = 10L,
+                    retainCount = 3,
+                )
+            }
+
+            assertEquals(
+                listOf("bounded:1", "bounded:2", "bounded:3"),
+                dao.getDiagnosticsDurableStateByPrefix("bounded:", 10).map { state -> state.key },
+            )
+        }
+
+    @Test
     fun `bypass usage history store persists and observes sessions`() =
         runTest {
             val store = RoomBypassUsageHistoryStore(dao)

@@ -62,6 +62,34 @@ interface DiagnosticsDurableStateDao {
     @Query("DELETE FROM diagnostics_durable_state WHERE `key` LIKE :keyPrefix || '%'")
     suspend fun clearDiagnosticsDurableStateByPrefix(keyPrefix: String)
 
+    @Query(
+        """
+        DELETE FROM diagnostics_durable_state
+        WHERE `key` LIKE :keyPrefix || '%' AND updatedAt < :minimumUpdatedAt
+        """,
+    )
+    suspend fun clearDiagnosticsDurableStateByPrefixOlderThan(
+        keyPrefix: String,
+        minimumUpdatedAt: Long,
+    )
+
+    @Query(
+        """
+        DELETE FROM diagnostics_durable_state
+        WHERE `key` LIKE :keyPrefix || '%'
+            AND `key` NOT IN (
+                SELECT `key` FROM diagnostics_durable_state
+                WHERE `key` LIKE :keyPrefix || '%'
+                ORDER BY updatedAt DESC, `key` DESC
+                LIMIT :retainCount
+            )
+        """,
+    )
+    suspend fun trimDiagnosticsDurableStateByPrefixToCount(
+        keyPrefix: String,
+        retainCount: Int,
+    )
+
     @Query("DELETE FROM diagnostics_durable_state")
     suspend fun clearAllDiagnosticsDurableState()
 }

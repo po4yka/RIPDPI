@@ -144,6 +144,13 @@ interface DiagnosticsDurableStateStore {
 
     suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity)
 
+    suspend fun upsertBoundedDurableState(
+        state: DiagnosticsDurableStateEntity,
+        keyPrefix: String,
+        minimumUpdatedAt: Long,
+        retainCount: Int,
+    )
+
     suspend fun clearDurableStateIfCurrent(
         key: String,
         expectedValue: String,
@@ -437,6 +444,19 @@ class RoomDiagnosticsArtifactStore
 
         override suspend fun upsertDurableState(state: DiagnosticsDurableStateEntity) {
             dao.upsertDiagnosticsDurableState(state)
+        }
+
+        override suspend fun upsertBoundedDurableState(
+            state: DiagnosticsDurableStateEntity,
+            keyPrefix: String,
+            minimumUpdatedAt: Long,
+            retainCount: Int,
+        ) {
+            db.withTransaction {
+                dao.upsertDiagnosticsDurableState(state)
+                dao.clearDiagnosticsDurableStateByPrefixOlderThan(keyPrefix, minimumUpdatedAt)
+                dao.trimDiagnosticsDurableStateByPrefixToCount(keyPrefix, retainCount)
+            }
         }
 
         override suspend fun clearDurableStateIfCurrent(
