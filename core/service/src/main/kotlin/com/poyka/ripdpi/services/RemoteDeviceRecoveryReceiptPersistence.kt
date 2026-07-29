@@ -12,6 +12,9 @@ internal data class PersistedRemoteDeviceRecoveryReceipt(
 )
 
 internal interface RemoteDeviceRecoveryReceiptPersistence {
+    val availability: RemoteDeviceRecoveryReceiptPersistenceAvailability
+        get() = RemoteDeviceRecoveryReceiptPersistenceAvailability.Available
+
     fun load(): PersistedRemoteDeviceRecoveryReceipt?
 
     fun compareAndSet(
@@ -20,9 +23,11 @@ internal interface RemoteDeviceRecoveryReceiptPersistence {
     ): Boolean
 }
 
-internal enum class RemoteDeviceRecoveryReceiptPersistenceAvailability {
-    Available,
-    DeviceProtectedStorageUnavailable,
+internal enum class RemoteDeviceRecoveryReceiptPersistenceAvailability(
+    val wireValue: String,
+) {
+    Available("available"),
+    DeviceProtectedStorageUnavailable("device_protected_storage_unavailable"),
 }
 
 @Singleton
@@ -38,7 +43,7 @@ internal class SharedPreferencesRemoteDeviceRecoveryReceiptPersistence
                     .getSharedPreferences(RemoteDeviceRecoveryReceiptPreferencesName, Context.MODE_PRIVATE)
             }.getOrNull()
 
-        internal val availability =
+        override val availability =
             if (preferences == null) {
                 RemoteDeviceRecoveryReceiptPersistenceAvailability.DeviceProtectedStorageUnavailable
             } else {

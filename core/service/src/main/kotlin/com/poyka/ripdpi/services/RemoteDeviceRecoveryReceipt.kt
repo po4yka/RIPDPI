@@ -11,6 +11,7 @@ import javax.inject.Singleton
 
 /** Privacy-safe receipt for an observed VPN service start. It never drives a restart or a probe. */
 data class RemoteDeviceRecoveryReceipt(
+    val persistenceAvailability: String = UnknownReceiptValue,
     val generation: String = UnknownReceiptValue,
     val startOrigin: String = UnknownReceiptValue,
     val userUnlocked: String = UnknownReceiptValue,
@@ -174,7 +175,10 @@ internal class RemoteDeviceRecoveryReceiptCollector internal constructor(
         }
     }
 
-    override fun snapshot(): RemoteDeviceRecoveryReceipt = synchronized(lock) { latest }
+    override fun snapshot(): RemoteDeviceRecoveryReceipt =
+        synchronized(lock) {
+            latest.copy(persistenceAvailability = persistence.availability.wireValue)
+        }
 
     private fun updateIfCurrent(
         generation: String,
@@ -249,6 +253,8 @@ internal fun isRecoveryReceiptStartAction(action: String?): Boolean =
 
 internal fun RemoteDeviceRecoveryReceipt.privacySafe(): RemoteDeviceRecoveryReceipt =
     copy(
+        persistenceAvailability =
+            persistenceAvailability.onlyAllowed(RecoveryPersistenceAvailabilityValues),
         generation = generation.onlyAllowed(setOf(PresentReceiptValue, UnknownReceiptValue)),
         startOrigin = startOrigin.onlyAllowed(StartOriginValues),
         userUnlocked = userUnlocked.onlyAllowed(DeviceStateValues),
@@ -306,6 +312,9 @@ private fun mergeDataPlaneOutcome(
     }
 
 private val ObservedDataPlaneOutcomes = setOf("bidirectional_observed", "outbound_only", "inbound_only")
+private val RecoveryPersistenceAvailabilityValues =
+    RemoteDeviceRecoveryReceiptPersistenceAvailability.entries
+        .mapTo(mutableSetOf()) { availability -> availability.wireValue } + UnknownReceiptValue
 private val StartOriginValues =
     setOf(
         "process_death",

@@ -322,6 +322,7 @@ private fun RemoteDeviceRecoveryReceipt.toNativeSessionEvent(
             buildString {
                 append("event=").append(RemoteAcceptanceRecoveryEvent)
                 append(" run_generation=").append(runGeneration)
+                append(" persistence_availability=").append(persistenceAvailability)
                 append(" recovery_generation=").append(generation)
                 append(" start_origin=").append(startOrigin)
                 append(" user_unlocked=").append(userUnlocked)

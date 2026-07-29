@@ -281,6 +281,19 @@ class RemoteDeviceRecoveryReceiptTest {
         assertEquals("enabled", collector(persistence = persistence).snapshot().userUnlocked)
     }
 
+    @Test
+    fun `collector surfaces unavailable device protected persistence explicitly`() {
+        val persistence =
+            InMemoryRecoveryReceiptPersistence(
+                availability =
+                    RemoteDeviceRecoveryReceiptPersistenceAvailability.DeviceProtectedStorageUnavailable,
+            )
+
+        val receipt = collector(persistence = persistence).snapshot()
+
+        assertEquals("device_protected_storage_unavailable", receipt.persistenceAvailability)
+    }
+
     private fun collector(
         elapsed: () -> Long = { 1_000L },
         generation: () -> String = { "generation" },
@@ -293,7 +306,10 @@ class RemoteDeviceRecoveryReceiptTest {
         )
 }
 
-private class InMemoryRecoveryReceiptPersistence : RemoteDeviceRecoveryReceiptPersistence {
+private class InMemoryRecoveryReceiptPersistence(
+    override val availability: RemoteDeviceRecoveryReceiptPersistenceAvailability =
+        RemoteDeviceRecoveryReceiptPersistenceAvailability.Available,
+) : RemoteDeviceRecoveryReceiptPersistence {
     private var state: PersistedRemoteDeviceRecoveryReceipt? = null
 
     override fun load(): PersistedRemoteDeviceRecoveryReceipt? = state

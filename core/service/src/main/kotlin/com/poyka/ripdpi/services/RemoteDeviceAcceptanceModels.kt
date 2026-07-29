@@ -174,6 +174,7 @@ private fun AcceptanceBaselineEvidence.toAcceptanceSteps(preflightError: String?
 internal fun renderRemoteDeviceAcceptanceReport(report: RemoteDeviceAcceptanceReport): String =
     RemoteDeviceAcceptanceReportJson.encodeToString(
         report
+            .withRecoveryReceipt(report.recoveryReceipt)
             .withUidPolicyQualification(report.uidPolicyQualification)
             .toRedactedPayload(),
     )
@@ -220,6 +221,7 @@ private data class RedactedAcceptanceReport(
 
 @Serializable
 private data class RedactedRecoveryReceipt(
+    val persistenceAvailability: String,
     val generation: String,
     val startOrigin: String,
     val userUnlocked: String,
@@ -301,6 +303,7 @@ private data class RedactedAcceptanceUnderlay(
 private fun RemoteDeviceRecoveryReceipt.toRedacted(): RedactedRecoveryReceipt =
     privacySafe().let { safe ->
         RedactedRecoveryReceipt(
+            persistenceAvailability = safe.persistenceAvailability,
             generation = safe.generation,
             startOrigin = safe.startOrigin,
             userUnlocked = safe.userUnlocked,
@@ -367,6 +370,58 @@ internal fun RemoteDeviceAcceptanceReport.withUidPolicyQualification(
         uidPolicyQualification = safe,
     )
 }
+
+internal fun RemoteDeviceAcceptanceReport.withRecoveryReceipt(
+    receipt: RemoteDeviceRecoveryReceipt,
+): RemoteDeviceAcceptanceReport {
+    val safe = receipt.privacySafe()
+    val nextSteps =
+        when (safe.persistenceAvailability) {
+            RemoteDeviceRecoveryReceiptPersistenceAvailability.Available.wireValue -> {
+                steps.upsert(
+                    RemoteDeviceAcceptanceStep(
+                        id = StepRecoveryReceiptPersistence,
+                        status = RemoteDeviceAcceptanceStatus.Pass,
+                    ),
+                )
+            }
+
+            RemoteDeviceRecoveryReceiptPersistenceAvailability.DeviceProtectedStorageUnavailable.wireValue -> {
+                steps.upsert(
+                    RemoteDeviceAcceptanceStep(
+                        id = StepRecoveryReceiptPersistence,
+                        status = RemoteDeviceAcceptanceStatus.Incomplete,
+                        errorClass = ErrorRecoveryReceiptPersistenceUnavailable,
+                    ),
+                )
+            }
+
+            else -> {
+                steps
+            }
+        }
+    return copy(
+        status =
+            when (status) {
+                RemoteDeviceAcceptanceStatus.Idle,
+                RemoteDeviceAcceptanceStatus.Running,
+                -> status
+
+                else -> deriveAcceptanceStatus(nextSteps)
+            },
+        steps = nextSteps,
+        recoveryReceipt = safe,
+    )
+}
+
+private fun List<RemoteDeviceAcceptanceStep>.upsert(
+    replacement: RemoteDeviceAcceptanceStep,
+): List<RemoteDeviceAcceptanceStep> =
+    if (any { step -> step.id == replacement.id }) {
+        map { step -> if (step.id == replacement.id) replacement else step }
+    } else {
+        this + replacement
+    }
 
 private fun RemoteDeviceUidPolicyQualification.toAcceptanceStep(): RemoteDeviceAcceptanceStep {
     val errorClass =
@@ -552,6 +607,7 @@ internal const val StepIpv6 = "ipv6_reality_egress"
 internal const val StepReconnect = "reconnect"
 internal const val StepHandover = "wifi_mobile_handover"
 internal const val StepScreenOff = "screen_off_survival"
+internal const val StepRecoveryReceiptPersistence = "recovery_receipt_persistence"
 internal const val StepUidPolicyQualification = "uid_policy_qualification"
 internal const val ErrorServiceNotRunning = "service_not_running"
 internal const val ErrorTransportMismatch = "transport_mismatch"
@@ -564,6 +620,7 @@ internal const val ErrorPayloadHealthContextDrift = "payload_health_context_drif
 internal const val ErrorDirectEgress = "direct_egress_observed"
 internal const val ErrorPostActionProbe = "post_action_probe_failed"
 internal const val ErrorPostActionProbeInconclusive = "post_action_probe_inconclusive"
+internal const val ErrorRecoveryReceiptPersistenceUnavailable = "recovery_receipt_persistence_unavailable"
 internal const val ErrorUidPolicyBridgeFailure = "uid_policy_bridge_failure"
 internal const val ErrorUidPolicyIneligible = "uid_policy_ineligible"
 internal const val ErrorUidPolicyNotArmed = "uid_policy_not_armed"
@@ -581,6 +638,7 @@ private val acceptanceStepIds =
         StepReconnect,
         StepHandover,
         StepScreenOff,
+        StepRecoveryReceiptPersistence,
         StepUidPolicyQualification,
         StepNoDirectEgress,
     )

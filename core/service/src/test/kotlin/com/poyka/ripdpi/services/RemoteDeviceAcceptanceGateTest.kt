@@ -424,6 +424,27 @@ class RemoteDeviceAcceptanceGateTest {
     }
 
     @Test
+    fun `unavailable recovery persistence makes acceptance explicitly incomplete`() {
+        val report =
+            passingAcceptanceReport().withRecoveryReceipt(
+                RemoteDeviceRecoveryReceipt(
+                    persistenceAvailability = "device_protected_storage_unavailable",
+                ),
+            )
+
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.status)
+        assertEquals(RemoteDeviceAcceptanceStatus.Incomplete, report.step(StepRecoveryReceiptPersistence).status)
+        assertEquals(
+            ErrorRecoveryReceiptPersistenceUnavailable,
+            report.step(StepRecoveryReceiptPersistence).errorClass,
+        )
+        val rendered = renderRemoteDeviceAcceptanceReport(report)
+        assertTrue(rendered.contains("\"result\": \"incomplete\""))
+        assertTrue(rendered.contains("\"persistenceAvailability\": \"device_protected_storage_unavailable\""))
+        assertTrue(rendered.contains("\"errorClass\": \"recovery_receipt_persistence_unavailable\""))
+    }
+
+    @Test
     fun `ineligible or unarmed UID policy prevents an otherwise passing acceptance result`() {
         val report = passingAcceptanceReport()
 

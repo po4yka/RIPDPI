@@ -41,6 +41,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
                 runGeneration = runGeneration,
                 receipt =
                     RemoteDeviceRecoveryReceipt(
+                        persistenceAvailability = "device_protected_storage_unavailable",
                         generation = "00000000-0000-0000-0000-00000000000b",
                         startOrigin = "process_death",
                         userUnlocked = "enabled",
@@ -57,6 +58,7 @@ class RemoteDeviceAcceptanceEvidenceWriterTest {
 
             val event = store.nativeEvents.single()
             assertTrue(event.message.contains("event=remote_acceptance_recovery"))
+            assertTrue(event.message.contains("persistence_availability=device_protected_storage_unavailable"))
             assertTrue(event.message.contains("recovery_generation=unknown"))
             assertTrue(event.message.contains("start_origin=process_death"))
             assertTrue(event.message.contains("time_to_first_flow=5_to_10s"))
