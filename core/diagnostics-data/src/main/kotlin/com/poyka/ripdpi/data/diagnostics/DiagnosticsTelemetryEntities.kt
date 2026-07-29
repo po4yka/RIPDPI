@@ -30,12 +30,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class TelemetrySampleEntity(
     @PrimaryKey val id: String,
-    val sessionId: String?,
+    val sessionId: String? = null,
     val connectionSessionId: String? = null,
-    val activeMode: String?,
+    val activeMode: String? = null,
     val connectionState: String,
     val networkType: String,
-    val publicIp: String?,
+    val publicIp: String? = null,
     val failureClass: String? = null,
     val telemetryNetworkFingerprintHash: String? = null,
     val winningTcpStrategyFamily: String? = null,
@@ -97,7 +97,7 @@ data class TelemetrySampleEntity(
 @Serializable
 data class NativeSessionEventEntity(
     @PrimaryKey val id: String,
-    val sessionId: String?,
+    val sessionId: String? = null,
     val connectionSessionId: String? = null,
     val source: String,
     val level: String,
