@@ -71,14 +71,9 @@ class AutomaticProbeScheduler
             val settings = appSettingsRepository.snapshot()
             val launcher = launcherProvider.get()
             val now = System.currentTimeMillis()
-            when (val eligibility = evaluateEligibility(event, settings, launcher, isStrategyFailure, now)) {
-                AutomaticProbeCoordinator.Eligibility.Eligible -> {
-                    Unit
-                }
-
-                is AutomaticProbeCoordinator.Eligibility.Rejected -> {
-                    return eligibility.reason !in TransientRejectionReasons
-                }
+            val eligibility = evaluateEligibility(event, settings, launcher, isStrategyFailure, now)
+            if (eligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
+                return eligibility.reason !in TransientRejectionReasons
             }
             val launched = launcher.launchAutomaticProbe(settings, event)
             if (launched) {
