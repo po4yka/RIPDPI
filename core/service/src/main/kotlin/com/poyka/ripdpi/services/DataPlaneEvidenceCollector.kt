@@ -466,7 +466,7 @@ private fun ProxyForwardingEvidence?.hasResetTo(incoming: ProxyForwardingEvidenc
             current.protectErrors to incoming.protectErrors,
             current.upstreamApplicationBytes to incoming.upstreamApplicationBytes,
         ).any { (before, after) -> after < before }
-    return decreased && incoming.hasNonZeroEvidence()
+    return decreased
 }
 
 private fun TunForwardingEvidence?.hasResetTo(incoming: TunForwardingEvidence): Boolean {
@@ -484,7 +484,7 @@ private fun TunForwardingEvidence?.hasResetTo(incoming: TunForwardingEvidence): 
             current.tunInterceptorDrops to incoming.tunInterceptorDrops,
             current.tunQueueDrops to incoming.tunQueueDrops,
         ).any { (before, after) -> after < before }
-    return decreased && incoming.hasNonZeroEvidence()
+    return decreased
 }
 
 private fun ProxyForwardingEvidence.deltaFrom(baseline: ProxyForwardingEvidence): ProxyForwardingEvidence {

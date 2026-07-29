@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 class DataPlaneEvidenceCollectorTest {
     @Test
-    fun stickyEvidenceSurvivesLateZeroAndUnavailablePolls() {
+    fun unavailablePollDoesNotDiscardCurrentGenerationEvidence() {
         val tracker = DataPlaneCorrelationTracker(Mode.VPN, TestServiceClock(now = 42L))
 
         tracker.observe(
@@ -42,11 +42,7 @@ class DataPlaneEvidenceCollectorTest {
         tracker.finalEvent()
         val finalBeforeZero = tracker.events().last()
 
-        tracker.observe(
-            proxyEvidence = ProxyForwardingEvidence.Empty,
-            tunEvidence = TunForwardingEvidence(),
-            tunSupport = TunEvidenceSupport.Supported,
-        )
+        tracker.observe(proxyEvidence = null, tunEvidence = null, tunSupport = TunEvidenceSupport.Unavailable)
         tracker.finalEvent()
 
         assertTrue(finalBeforeZero.message.contains("final=true"))
@@ -54,6 +50,65 @@ class DataPlaneEvidenceCollectorTest {
         assertTrue(finalBeforeZero.message.contains("last_proxy_application_at=2000"))
         assertFalse(tracker.events().any { it.kind == "data_plane_counter_reset" })
         assertEquals(finalBeforeZero, tracker.events().last())
+    }
+
+    @Test
+    fun allZeroProxyCountersStartNewGenerationBeforeFinalSeal() {
+        val tracker = DataPlaneCorrelationTracker(Mode.Proxy, TestServiceClock(now = 42L))
+
+        tracker.observe(
+            proxyEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 200),
+            tunEvidence = null,
+            tunSupport = TunEvidenceSupport.Unsupported,
+        )
+        tracker.observe(
+            proxyEvidence = ProxyForwardingEvidence.Empty,
+            tunEvidence = null,
+            tunSupport = TunEvidenceSupport.Unsupported,
+        )
+        tracker.finalEvent()
+
+        val events = tracker.events()
+        assertTrue(events.any { it.kind == "data_plane_counter_reset" && it.message.contains("generation=2") })
+        val finalEvent = events.last()
+        assertEquals("data_plane_final", finalEvent.kind)
+        assertTrue(finalEvent.message.contains("state=no_flow"))
+        assertTrue(finalEvent.message.contains("generation=2"))
+        assertTrue(finalEvent.message.contains("proxy_application_bytes=0"))
+        assertFalse(finalEvent.message.contains("proxy_application_bytes=200"))
+    }
+
+    @Test
+    fun allZeroTunCountersStartNewGenerationBeforeFinalSeal() {
+        val tracker = DataPlaneCorrelationTracker(Mode.VPN, TestServiceClock(now = 42L))
+
+        tracker.observe(
+            proxyEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 200),
+            tunEvidence = TunForwardingEvidence(tunWriteBytes = 100),
+            tunSupport = TunEvidenceSupport.Supported,
+        )
+        tracker.observe(
+            proxyEvidence = ProxyForwardingEvidence(upstreamApplicationBytes = 200),
+            tunEvidence = TunForwardingEvidence(),
+            tunSupport = TunEvidenceSupport.Supported,
+        )
+        tracker.finalEvent()
+
+        val events = tracker.events()
+        assertTrue(
+            events.any {
+                it.kind == "data_plane_counter_reset" &&
+                    it.message.contains("generation=2") &&
+                    it.message.contains("layers=tun")
+            },
+        )
+        val finalEvent = events.last()
+        assertEquals("data_plane_final", finalEvent.kind)
+        assertTrue(finalEvent.message.contains("state=evidence_unavailable_partial"))
+        assertTrue(finalEvent.message.contains("generation=2"))
+        assertTrue(finalEvent.message.contains("tun_write_bytes=0"))
+        assertFalse(finalEvent.message.contains("state=cross_layer_return_observed"))
+        assertFalse(finalEvent.message.contains("tun_write_bytes=100"))
     }
 
     @Test
