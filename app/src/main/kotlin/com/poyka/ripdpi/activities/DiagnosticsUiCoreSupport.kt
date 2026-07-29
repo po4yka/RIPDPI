@@ -150,10 +150,11 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
 internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
     context: StringResolver?,
     session: DiagnosticScanSession,
-): String =
-    when {
-        context != null && session.report != null -> {
-            completionSummaryResource(session.report)?.let { context.getString(it) } ?: session.summary
+): String {
+    val report = session.report
+    return when {
+        context != null && report != null -> {
+            completionSummaryResource(report)?.let { context.getString(it) } ?: session.summary
         }
 
         session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null -> {
@@ -164,6 +165,7 @@ internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
             session.summary
         }
     }
+}
 
 internal fun DiagnosticsUiCoreSupport.completionLabel(
     report: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection?,
