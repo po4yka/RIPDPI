@@ -93,7 +93,15 @@ internal class DefaultDiagnosticsArchiveExporter
                 }
             val compositeSessionIds =
                 if (compositeOutcome != null) {
-                    (request.sessionIds + compositeOutcome.bundleSessionIds).distinct()
+                    require(request.requestedSessionId == null) {
+                        "Home diagnostics archive cannot select a caller-provided primary session"
+                    }
+                    val unexpectedSessionIds = request.sessionIds - compositeOutcome.bundleSessionIds.toSet()
+                    require(unexpectedSessionIds.isEmpty()) {
+                        "Home diagnostics archive contains session IDs outside the completed run: " +
+                            unexpectedSessionIds.joinToString()
+                    }
+                    compositeOutcome.bundleSessionIds.distinct()
                 } else {
                     emptyList()
                 }
@@ -106,9 +114,16 @@ internal class DefaultDiagnosticsArchiveExporter
             val requestedSession = request.requestedSessionId?.let { sourceLoader.getScanSession(it) }
             val primarySession =
                 if (compositeOutcome != null) {
-                    compositeOutcome.recommendedSessionId
-                        ?.let { recommendedId -> compositeSessions.firstOrNull { it.id == recommendedId } }
-                        ?: compositeSessions.firstOrNull()
+                    val recommendedId =
+                        requireNotNull(compositeOutcome.recommendedSessionId) {
+                            "Completed home diagnostics run has no recommended session: ${compositeOutcome.runId}"
+                        }
+                    require(recommendedId in compositeOutcome.bundleSessionIds) {
+                        "Recommended session is outside the completed home diagnostics run: $recommendedId"
+                    }
+                    requireNotNull(compositeSessions.firstOrNull { it.id == recommendedId }) {
+                        "Recommended home diagnostics session is unavailable: $recommendedId"
+                    }
                 } else {
                     sessionSelector.selectPrimarySession(
                         requestedSessionId = request.requestedSessionId,

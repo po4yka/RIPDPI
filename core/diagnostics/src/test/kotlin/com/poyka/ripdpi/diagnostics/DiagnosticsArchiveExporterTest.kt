@@ -365,6 +365,72 @@ class DiagnosticsArchiveExporterTest {
             }
         }
 
+    @Test
+    fun `createArchive rejects caller session contamination for home analysis`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            val outcome = buildSampleCompositeOutcome()
+            compositeRunService.putCompletedRun(outcome)
+            val exporter = createArchiveExporter(stores)
+
+            val failure =
+                runCatching {
+                    exporter.createArchive(
+                        DiagnosticsArchiveRequest(
+                            sessionIds = outcome.bundleSessionIds + "caller-session",
+                            homeRunId = outcome.runId,
+                            reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                            requestedAt = 28L,
+                        ),
+                    )
+                }.exceptionOrNull()
+
+            assertNotNull(failure)
+            assertTrue(failure?.message.orEmpty().contains("caller-session"))
+            assertTrue(stores.exportsState.value.isEmpty())
+        }
+
+    @Test
+    fun `createArchive rejects home analysis without an available bundled recommendation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            val exporter = createArchiveExporter(stores)
+
+            listOf(
+                buildSampleCompositeOutcome().copy(
+                    runId = "home-no-recommendation",
+                    recommendedSessionId = null,
+                ),
+                buildSampleCompositeOutcome().copy(
+                    runId = "home-external-recommendation",
+                    recommendedSessionId = "external-session",
+                ),
+                buildSampleCompositeOutcome().copy(
+                    runId = "home-missing-recommendation",
+                    recommendedSessionId = "missing-session",
+                    bundleSessionIds = buildSampleCompositeOutcome().bundleSessionIds + "missing-session",
+                ),
+            ).forEach { outcome ->
+                compositeRunService.putCompletedRun(outcome)
+                val failure =
+                    runCatching {
+                        exporter.createArchive(
+                            DiagnosticsArchiveRequest(
+                                sessionIds = outcome.bundleSessionIds,
+                                homeRunId = outcome.runId,
+                                reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                                requestedAt = 29L,
+                            ),
+                        )
+                    }.exceptionOrNull()
+
+                assertNotNull(outcome.runId, failure)
+            }
+            assertTrue(stores.exportsState.value.isEmpty())
+        }
+
     private suspend fun seedCompositeSessionStores(stores: FakeDiagnosticsHistoryStores) {
         val auditSession =
             diagnosticsSession(
